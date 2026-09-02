@@ -1,0 +1,28 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+YCbCr Matrix: None
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Shape,Arial,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Word,SF Pro Rounded,88,&H008C5C24&,&H008C5C24&,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Sentence,SF Pro Rounded,76,&H00E8F8FF&,&H00E8F8FF&,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Chip,SF Pro Rounded,52,&H008C5C24&,&H008C5C24&,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Handle,SF Pro Rounded,34,&H008C5C24&,&H008C5C24&,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H00E3F3FB&\p1}m 48 88 l 420 88 420 172 48 172{\p0}
+Dialogue: 1,0:00:00.00,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H006B2400&\p1}m 82 103 l 160 103 160 157 82 157{\p0}
+Dialogue: 1,0:00:00.00,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H00FFFFFF&\p1}m 82 124 l 160 124 160 136 82 136{\p0}
+Dialogue: 1,0:00:00.00,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H00FFFFFF&\p1}m 115 103 l 127 103 127 157 115 157{\p0}
+Dialogue: 2,0:00:00.00,0:00:13.13,Chip,,0,0,0,,{\an4\pos(182,130)}English
+Dialogue: 0,0:00:00.00,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H00E3F3FB&\p1}m 438 88 l 1032 88 1032 172 438 172{\p0}
+Dialogue: 2,0:00:00.00,0:00:13.13,Handle,,0,0,0,,{\an4\pos(560,130)}@FluencyInActionEnglish
+Dialogue: 1,0:00:00.00,0:00:13.13,Word,,0,0,0,,{\an5\pos(540,1373)\fs88}spider  -  spider
+Dialogue: 0,0:00:05.15,0:00:13.13,Shape,,0,0,0,,{\an7\pos(0,0)\c&H004C341E&\p1}m 48 1453 l 1032 1453 1032 1622 48 1622{\p0}
+Dialogue: 1,0:00:05.15,0:00:13.13,Sentence,,0,0,0,,{\an5\pos(540,1537)\fs57}I'm holding a big\Nspider in my hand.
