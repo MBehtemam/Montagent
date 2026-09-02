@@ -1,0 +1,70 @@
+{
+  "short": "en-halloween-decorating",
+  "target_lang": "en",
+  "bridge_lang": "en",
+  "_note": "Distilled from the source project's lang/en/lines.json (items 05-08) and its per-short ui block. Target and bridge are both English for this short, so every pair is an identical string — a degenerate bilingual case. The German edition of the same short (der Kürbis / pumpkin) is where the pairs actually differ.",
+  "chip": "English",
+  "handle": "@FluencyInActionEnglish",
+  "intro": {
+    "text": "4 English words for\ndecorating the house",
+    "spoken": "Four English words for decorating the house.",
+    "audio": "audio/intro-2.mp3"
+  },
+  "hook": {
+    "text": "What is this called\nin English?",
+    "spoken": "What is this called in English?",
+    "audio": "audio/hook-2.mp3"
+  },
+  "items": [
+    {
+      "id": "05",
+      "slug": "cobweb",
+      "target": "cobweb",
+      "bridge": "cobweb",
+      "sentence": "I hang cobwebs over the door.",
+      "sentence_bridge": "I hang cobwebs over the door.",
+      "image": "images/05.png",
+      "word_audio": "audio/05-cobweb.mp3",
+      "sentence_audio": "audio/sentence-05-cobweb.mp3"
+    },
+    {
+      "id": "06",
+      "slug": "spider",
+      "target": "spider",
+      "bridge": "spider",
+      "sentence": "I'm holding a big spider in my hand.",
+      "sentence_bridge": "I'm holding a big spider in my hand.",
+      "image": "images/06.png",
+      "word_audio": "audio/06-spider.mp3",
+      "sentence_audio": "audio/sentence-06-spider.mp3"
+    },
+    {
+      "id": "07",
+      "slug": "skeleton",
+      "target": "skeleton",
+      "bridge": "skeleton",
+      "sentence": "I hang the skeleton up by the door.",
+      "sentence_bridge": "I hang the skeleton up by the door.",
+      "image": "images/07.png",
+      "word_audio": "audio/07-skeleton.mp3",
+      "sentence_audio": "audio/sentence-07-skeleton.mp3"
+    },
+    {
+      "id": "08",
+      "slug": "lights",
+      "target": "string of lights",
+      "bridge": "string of lights",
+      "sentence": "I hang up a string of lights.",
+      "sentence_bridge": "I hang up a string of lights.",
+      "image": "images/08.png",
+      "word_audio": "audio/08-lights.mp3",
+      "sentence_audio": "audio/sentence-08-lights.mp3"
+    }
+  ],
+  "quiz": {
+    "text": "How do you say you hang\ncobwebs over the door?",
+    "spoken": "How do you say you hang cobwebs over the door?",
+    "audio": "audio/quiz-2.mp3",
+    "answers_item": "05"
+  }
+}

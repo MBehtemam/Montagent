@@ -1,0 +1,32 @@
+{
+  "output": "out/shorts/en-halloween-decorating.mp4",
+  "duration": 65.26,
+  "hook_delay": 2.298,
+  "hook_mode": "full",
+  "chip": "English",
+  "loop_tail": 1.2,
+  "caption_shift": 0,
+  "hook_prompt": "What is this called\\Nin English?",
+  "handle": "@FluencyInActionEnglish",
+  "card_h": 1300,
+  "quiz": "05",
+  "hook_bed": null,
+  "hook_vo": "lang/en/audio/hook-2.mp3",
+  "beat_markers": {
+    "intro": 0.0,
+    "hold_cobweb": 3.02,
+    "reveal_cobweb": 5.32,
+    "word_cobweb": 5.32,
+    "sentence_cobweb": 10.47,
+    "word_spider": 17.47,
+    "sentence_spider": 22.62,
+    "word_skeleton": 30.6,
+    "sentence_skeleton": 35.75,
+    "word_lights": 42.76,
+    "sentence_lights": 47.33,
+    "quiz_question": 53.85,
+    "quiz_gap": 56.11,
+    "quiz_answer": 61.11,
+    "loop_tail": 63.99
+  }
+}
