@@ -1,8 +1,23 @@
 ---
-status: accepted
+status: partially superseded by 0004
 ---
 
 # A project is a flat list of uniform elements, not tracks or scenes
+
+> [!IMPORTANT]
+> **The track rejection below is superseded by
+> [ADR-0004](./0004-tracks-as-constrained-lanes.md).** Elements now live in
+> `tracks`, each a named lane with an integer `layer`, whose children keep
+> absolute times and may not overlap. The objection recorded here — that "track"
+> promises sequencing it would not deliver — was confirmed correct five for five
+> from primary sources; ADR-0004 resolves it by *delivering* the constraint rather
+> than avoiding the word.
+>
+> **The rest of this ADR stands unchanged**: no scene, no local clock, audio as a
+> peer element, no per-kind collections, and the driving requirement that "what is
+> on screen at 6.2s" be answerable by reading. Specifically superseded: the
+> "no container of any kind" sentence below, the **Considered options → Tracks**
+> paragraph, and the group-contiguity bullet under **Consequences**.
 
 A project holds one `elements` array. Every element — image, video, audio, text,
 shape — carries the same `type`, time range, `layer` and optional `group`, and

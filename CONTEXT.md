@@ -22,22 +22,39 @@ _Avoid_: user, bot, assistant, client (unqualified)
 
 **Project**:
 The whole video, as a single declarative document: frame size, frame rate,
-background, output destination, an optional duration, and its elements. Normally
+background, output destination, an optional duration, and its tracks. Normally
 stored as one JSON file in git, which is where its authority lives.
 _Avoid_: composition, timeline, edit, movie
 
+**Track**:
+A named container holding elements, with an integer `layer` giving its place in
+the stack. A track supplies *stacking*, never *timing*: it has no start, no
+duration and no clock, its children carry absolute times on the project's one
+timeline, and the order they appear in carries no meaning. Children of a single
+track may not overlap in time — that is a validation error. Elements that should
+overlap belong in different tracks.
+_Avoid_: lane, channel, layer (as a container)
+
 **Element**:
 One thing placed on the timeline — an image, a video, an audio file, a piece of
-text or a shape. Every element has a type, a time range, a `layer` and an
-optional `group`, in that same shape whatever its type. Audio is an element like
-any other; nothing owns it.
+text or a shape. Every element has a type, a time range and an optional `group`,
+in that same shape whatever its type. It sits in a track, which supplies its
+stacking position unless the element overrides it. Audio is an element like any
+other; nothing owns it.
 _Avoid_: clip, item, object, asset
 
 **Layer**:
-An element's place in the stack, as an integer — higher draws in front, and
-elements sharing a layer draw in the order they appear in the file, later in
-front.
-_Avoid_: z-index, depth, track
+A place in the stack, as an integer — higher draws in front. Normally carried by
+the track, so every element in it stacks together. An element may override its
+track's layer with its own integer, or with an anchor.
+_Avoid_: z-index, depth
+
+**Anchor**:
+An element's layer stated relative to another element rather than as a number —
+`{"below": "title"}` resolves to that element's layer minus one, wherever either
+of them sits. Written so a dependent element cannot drift out of sync when the
+thing it depends on moves.
+_Avoid_: parent, constraint, binding
 
 **Group**:
 An optional free-text label marking elements that belong together, such as every
@@ -61,17 +78,14 @@ _Avoid_: trim (as a noun), in/out point
 These words are deliberately absent. Each is standard vocabulary in a comparable
 tool, which is exactly why using it here would mislead.
 
-**Track**:
-In every comparable tool — Premiere, Resolve, OpenTimelineIO, Shotstack,
-Creatomate — a track constrains its contents to play in sequence without
-overlapping. Montaget has no such constraint: elements stack by `layer` and
-overlap freely. Borrowing the word without its meaning would set an expectation
-Montaget does not meet.
-
 **Scene**:
 Elsewhere a scene owns its own clock, so its children's times are relative to it.
-Montaget's `group` deliberately carries no timing meaning, and nesting elements
-inside a container would imply one whether or not it existed.
+A `track` is the one container Montaget has, and the distinction is exactly this:
+a scene owns a clock, a track owns a stacking position. A track has no start, no
+duration and no origin, so there is nothing for a child's time to be relative to.
+Nesting still *invites* the assumption — JSON2Video documents the silent failure
+that follows — which is why the times stay absolute and why the schema says so
+loudly rather than relying on this paragraph.
 
 **Clip**:
 Elsewhere a clip pairs a visual with its audio, and its duration follows that
