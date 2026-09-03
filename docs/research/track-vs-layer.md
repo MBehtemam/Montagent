@@ -9,52 +9,70 @@ Resolve, FCPXML — and the agent-authoring argument.
 All claims cite a primary source inline. Anything not established from a primary source is
 marked **NOT CONFIRMED**. Sources that could not be fetched are marked **NOT REACHED**.
 
-Status: **in progress** — this file is committed incrementally as each source is read.
+Status: **complete.** All five formats in §2 were reached, with the provenance caveats noted
+in §2.3 (CapCut has no published schema) and §2.4 (Resolve's reference ships inside the
+application, so it is quoted from a verbatim mirror).
 
 ## 1. Summary of what was established
 
-1. **A track is a sequencing constraint, and the constraint *is* the absence of start
-   times.** OpenTimelineIO — the interchange format the whole reference class round-trips
-   through — computes a track child's position by summing the durations of everything before
-   it. It needed a second, differently-named container (`Stack`) for the parallel/overlapping
-   case. Free overlap inside a track does not exist; only a typed `transition` special case
-   does. (§2.1, with source.)
-2. **Montaget's `elements[] + layer` is OTIO's `Stack` half** — parallel composition with
-   explicit stacking — with each element additionally carrying its own absolute time range
-   instead of being aligned at 0. What Montaget lacks is the `Track` half, and OTIO shows
-   precisely what that half costs: **ordinal timing (O(n) to read a position), `Gap` objects
-   to represent empty time, and a special case for overlap.** (§2.1.)
-3. **Adopting tracks would trade a cheap write for an expensive read.** ADR-0001's driving
-   requirement is that "what is on screen at 6.2s" be answerable by *reading*. Ordinal
-   timing makes it arithmetic. An agent asks that question every turn and performs an
-   insertion once. (§3 Q3.)
-4. **Ripple edit is largely a mouse affordance.** Its value comes from a human's inability
-   to retype twenty numbers; an agent recomputes downstream times in one mechanical pass and
-   verifies by re-reading. Further, ripple is only free *within a lane* — cross-lane sync is
-   solved in NLEs by a **UI** feature Montaget has no place for, and ADR-0001's own fixture
-   (a 14.5s still over six unrelated audio events, three attached to no visual) is exactly
-   the case a per-lane ripple silently desynchronises. (§3 Q3.)
+1. **"A track constrains its contents to play in sequence without overlapping" is confirmed,
+   five for five, from primary sources.** OTIO `Track` (§2.1), FCPXML `spine` — *"a container
+   for elements ordered serially in time"* (§2.5), CapCut — `SegmentOverlap` on any
+   overlapping insert (§2.3), Premiere — you must choose insert *or* overwrite (§2.2),
+   Resolve — append/insert verbs only (§2.4). ADR-0001 asserted this without citations; it is
+   now the best-evidenced claim in either survey. Two formats independently add the *same*
+   single escape hatch: overlap within a lane is permitted only as a typed transition.
+2. **But tracks do *not* imply ordinal timing, and the first draft of this research got that
+   wrong.** Only the interchange formats (OTIO `Track`, FCPXML `spine`) derive position from
+   order. **All three shipping editors store an absolute time range on each item** —
+   Premiere's `getStartTime` *"the starting sequence time of this track item"*, Resolve's
+   `GetStart() # Returns the start frame position on the timeline`, CapCut's
+   `target_timerange` — plus a *separate* source range and an integer lane index. Field for
+   field, that is Montaget's element. **The constraint lives in the edit operations, not in
+   the storage.** (§3 Q1.)
+3. **This reframes the whole question.** It is not "flat absolute times vs tracks" — every
+   tool in the reference class is flat and absolute underneath. It is: **should the
+   non-overlap rule be expressible, and if so does it live in a container, a validator, a
+   tool, or nowhere?**
+4. **Ripple edit, the classic argument for tracks, largely dissolves.** In Premiere it is a
+   `ripple` **boolean argument** to a removal action, alongside a separate `shiftOverLapping`
+   flag (§2.2) — an opt-in operation that recomputes absolute times, which is exactly what an
+   agent rewriting downstream `start` values would do. It is not a free consequence of track
+   storage. It is also only ever free *within* a lane; cross-lane sync is a UI affordance
+   Montaget has no place for, and ADR-0001's own fixture (a 14.5s still over six unrelated
+   audio events, three attached to no visual) is the case a per-lane ripple silently
+   desynchronises. (§3 Q3.)
 5. **The one real cost of the flat model is the diff, not the edit** — a conceptually
    one-line insertion touches every downstream element in git. That is a review cost, and it
-   is addressable by tooling without changing the time model. (§3 Q3.4, option b1.)
-6. **Z-order has no cross-format convention** — OTIO is bottom-first, Shotstack is
-   first-is-top, Creatomate uses an explicit `z_index` with a sibling trap. An explicit
-   integer `layer` with a stated direction removes a class of silent generator error rather
-   than picking a side of it. Nothing found argues against `layer` as the *stacking*
-   mechanism; the live question is only about *sequencing*, which these formats happen to
-   have welded onto the same field. (§3 Q2.)
-7. **Genuinely open gaps in the flat model**, independent of tracks: no way to declare that a
-   run of elements is meant to be contiguous (so accidental overlap fails silently), and no
-   way to say "this element always sits directly under that one". A track model closes the
-   first and does **not** close the second. (§3 Q4.)
+   is addressable by tooling without touching the time model. (§3 Q3.4, option b1.)
+6. **FCPXML is near-direct vindication of `layer`'s shape.** Apple shipped `spine` for "plays
+   after" and a per-item signed integer `lane` for "draws over" — *"0 = contained inside its
+   parent, >0 = anchored above its parent, <0 = anchored below its parent"* — refusing to
+   overload one for the other (§2.5). Across both surveys, z-order direction otherwise has no
+   convention at all (OTIO bottom-first, Shotstack first-is-top, Creatomate `z_index` with a
+   sibling trap, Premiere and CapCut unstated). An explicit integer with a documented
+   direction removes a class of silent generator error rather than picking a side of it.
+   **Nothing found argues against `layer` as the stacking mechanism.** (§3 Q2.)
+7. **Two genuine gaps in the flat model**, both independent of tracks: no way to declare that
+   a run of elements is meant to be contiguous (so accidental overlap fails silently and
+   visually), and no way to say "this element always sits directly under that one". A
+   constrained track closes the first; **FCPXML's anchoring closes the second**, and neither
+   requires giving up absolute times. (§3 Q4; options b3 and b5.)
 8. **The strongest published evidence on machine authors and optional sequencing is
    negative**: Creatomate, the vendor with a dedicated LLM-facing reference, calls its own
-   sequencing/duration cascade *"the number-one source of broken renders"*. That is evidence
-   against option (b2) specifically. (§3 Q5.)
+   sequencing/duration cascade *"the number-one source of broken renders"*. Evidence against
+   option (b2) specifically, not against tracks in general. (§3 Q5.)
+9. **Two incidental findings that touch other parts of ADR-0001.** Resolve and CapCut both
+   partition tracks **by media kind**, a mild counter-example to the ADR's rejection of
+   per-kind collections — though how CapCut resolves z-order between `text` and `sticker`
+   could not be established (§2.3, §2.4). And FCPXML pairs a clip with its audio, then needs
+   `audioStart`/`audioDuration` *"to define J/L cuts"* to un-pair them again — which is the
+   ADR's own argument against clip-owned audio, confirmed from the other side (§2.5).
 
-Four options are laid out in §4 — (a) unchanged, (b1–b4) four different opt-in sequencing
-affordances, (c1–c2) two track shapes — each with its cost, its value to an agent author,
-and the exact ADR-0001 text it would amend. **No recommendation is made.**
+Eight options are laid out in §4 — (a) unchanged; (b1–b5) five different opt-in affordances,
+including one (**b5**, anchoring) that #20 did not anticipate; (c1–c2) two track shapes —
+each with its cost, its value to an agent author, and the exact ADR-0001 text it would amend.
+**No recommendation is made; the choice is the human's.**
 
 ## 2. Per-tool findings
 
@@ -358,15 +376,52 @@ application actually emits needs a sample export, which was not obtained.
 
 ### Q1 — What a track actually *is* in the data model
 
-Established so far, from §2.1: in OpenTimelineIO — the format built specifically to
-round-trip between these tools — a track is **a sequencing constraint, expressed as the
-absence of start times**. Not a z-lane, not a pure container. The proof is that OTIO needed
-a second container (`Stack`) for the pure-overlap case and gave it a different name. Free
-overlap within a `Track` does not exist; the only in-lane overlap is a typed `transition`,
-handled by an explicit special case in the position loop.
+*Revised after §2.2–§2.5. The first draft of this answer, written from OTIO alone, was
+wrong in an instructive way and the correction is the most useful thing in this document.*
 
-Premiere, CapCut and Resolve: see §2.2–§2.4. Whatever they say, OTIO is the format they all
-have to interoperate through, so it is the strongest single answer available to Q1.
+**A track is a non-overlap constraint. It is *not*, in the shipping editors, ordinal
+timing.** Those are two separable things and only the interchange formats conflate them.
+
+Split the five sources into two groups:
+
+**Group 1 — interchange formats, where order *is* timing.** OTIO's `Track` derives a child's
+position by summing prior durations (§2.1); FCPXML's `spine` is *"a container for elements
+ordered serially in time"* (§2.5). Both add exactly one escape hatch for transitions — OTIO's
+`overlapping()` skip, Apple's *"Only one story element is active at a given time, except when
+a transition is present."* Two vendors, same design, same exception.
+
+**Group 2 — the actual editors, where every item stores its own absolute time.**
+
+- Premiere: `getStartTime` *"the starting sequence time of this track item"*, `getEndTime`,
+  plus separate `getInPoint`/`getOutPoint` and a `getTrackIndex` (§2.2).
+- Resolve: `GetStart() # Returns the start frame position on the timeline`, `GetEnd()`, items
+  addressed as `(trackType, index)` (§2.4).
+- CapCut: `target_timerange` = *"片段在轨道上的时间范围"*, a start plus a duration, with
+  `source_timerange` separate (§2.3).
+
+**Three for three, the editors store what Montaget stores**: an absolute time range on the
+item, a separate source range, and an integer lane coordinate. Nobody in Group 2 makes a
+clip's position depend on its neighbours.
+
+So where does the constraint live? **In the edit operations.** Premiere makes you choose
+`createInsertProjectItemAction` or `createOverwriteItemAction`; Resolve gives you
+`AppendToTimeline` and `InsertGeneratorIntoTimeline`; CapCut rejects an overlapping segment
+outright with `SegmentOverlap` (§2.3). The application computes new absolute times and writes
+them down. **A track is a rule applied at write time to data that is stored flat and
+absolute.**
+
+**What this does to ADR-0001.** Its load-bearing sentence is that *"in every comparable tool
+a track constrains its contents to play in sequence without overlapping."* That is now
+confirmed five for five, from primary sources, and is the best-evidenced claim in either
+survey. What is *not* confirmed — and what the ADR never actually claimed, though it is easy
+to read in — is that adopting a track would force ordinal timing on Montaget. It would not.
+Premiere is proof that you can have the constraint and keep absolute times.
+
+This makes option (c2) in §4 (tracks as containers over absolutely-timed children) a
+materially stronger candidate than the OTIO-only reading suggested, and it makes the choice
+less dramatic than #20's framing: the real question is not "flat and absolute vs tracks" —
+every editor examined is flat and absolute underneath — but **"should the non-overlap rule be
+expressible, and if so, where does it live: in the data, in a validator, or in a tool?"**
 
 ### Q2 — How z-order is expressed
 
@@ -380,6 +435,16 @@ have to interoperate through, so it is the strongest single answer available to 
   *"ALL z-indexed children draw above every non-z-indexed sibling, whatever the value"*
   (API survey).
 - Editly / JSON2Video: no lanes at all; document order within a scene.
+- **FCPXML: a signed integer `lane` on the item, direction stated outright** — *"0 = contained
+  inside its parent (default), >0 = anchored above its parent, <0 = anchored below its
+  parent"* (§2.5). Higher is in front.
+- Premiere: **NOT CONFIRMED** — the UXP reference never states a compositing direction (§2.2).
+  CapCut: **NOT CONFIRMED** — an unexplained `track_render_index` (§2.3).
+
+FCPXML is worth dwelling on, because it is the closest thing to independent confirmation of
+Montaget's design that this research found: **Apple, facing exactly this question, shipped
+`spine` for "plays after" and a per-item integer `lane` for "draws over", and did not overload
+one for the other.** Montaget's `layer` is FCPXML's `lane` with the anchoring dropped.
 
 This is the clearest finding of the whole exercise and it does **not** depend on the
 sequencing question. A generated document that gets the direction backwards renders
@@ -396,10 +461,20 @@ under a sequential container, "insert a 2s shot at 0:12" changes **one** record.
 downstream re-times for free, because position *is* order. Under absolute times the same
 edit rewrites every downstream `start` and `end`.
 
-Four things cut against that being a real cost for an agent:
+**§2.2 substantially settles this question, and not in the direction the ripple argument
+assumes.** In Premiere, ripple is **an argument to an operation, not a property of the
+data**: `createRemoveItemsAction` takes a `ripple` boolean and a `shiftOverLapping` boolean
+(§2.2). Premiere stores absolute times per item (Q1 above) and *recomputes them when you ask
+for a ripple*. So the tool the reference class is named after does exactly what an agent
+editing Montaget JSON would do: hold absolute times, and rewrite the downstream ones on
+demand. **Ripple is not something a track model gives you for free; it is something an editor
+implements over flat absolute data, and it is opt-in even there.** That removes the premise of
+the classic argument. The remaining four points stand on their own:
 
-**1. It trades a cheap write for an expensive read, and an agent reads far more often than
-it writes.** §2.1 is precise about the price: the position of child *n* is a loop over
+**1. If the cheap write is bought with ordinal storage, it trades a cheap write for an
+expensive read — and an agent reads far more often than it writes.** (This applies to the
+Group 1 formats of Q1 — OTIO `Track`, FCPXML `spine` — and to option (c1) only; per Q1 the
+editors do not pay this.) §2.1 is precise about the price: the position of child *n* is a loop over
 children 0..n-1. An agent asking "what is on screen at 6.2s" — the question ADR-0001 is
 built around — must run that accumulation for every lane, while also recognising `Gap`
 objects as deliberate nothing and applying the transition special case. The agent asks that
@@ -423,8 +498,11 @@ the shape that breaks: *"one still is on screen for 14.5s with six unrelated aud
 under it, three belonging to no visual at all."* A per-lane ripple through that produces
 silent desynchronisation — a render that succeeds and is wrong. The agent would have to
 reason about cross-lane scope regardless, which is most of the work the ripple was supposed
-to save. **NOT CONFIRMED:** the specific sync-lock behaviour of Premiere/CapCut/Resolve —
-see §2.2–§2.4.
+to save. **Partly confirmed since:** Premiere's removal action takes *both* a `ripple` flag
+and a separate `shiftOverLapping` flag (§2.2) — two knobs, precisely because "what else
+moves" is a second decision that the track structure does not answer by itself. **NOT
+CONFIRMED:** the exact semantics of either flag; the UXP reference names the parameters
+without describing their effect.
 
 **4. What the flat model actually loses is the *diff*, not the edit.** This is the one real
 cost and it should not be waved away. Under absolute times, a conceptually one-line change
@@ -458,7 +536,17 @@ the two authors, and Montaget has only one of them.
   its mask feature (*"the element is used as a mask for the element one track below it"*,
   API survey), which is relational and therefore fragile. **A track model does not solve this
   either** — it converts renumbering into reordering, which is a different edit, not a
-  cheaper one. This is a real gap in (a) that (c) does not close.
+  cheaper one.
+
+  **Revised after §2.5 — FCPXML does solve this, and not with tracks.** Apple's `lane` is
+  *anchoring*: *"the 'lane' attribute specifies where the object is contained/anchored
+  **relative to its parent**"*, `>0` above and `<0` below. A connected title is attached to
+  the clip it annotates and travels with it. The mechanism is **a relationship between two
+  items, orthogonal to both sequencing and absolute stacking** — neither a track nor a global
+  z-index. That is a live design option for Montaget that #20 does not list, and it is added
+  as **(b5)** in §4. It is not free: it makes `layer` relative, so "what draws in front"
+  requires walking to the parent — a small, bounded dose of exactly the arithmetic ADR-0001
+  exists to avoid.
 - **Accidental overlap on a lane meant to be sequential.** The flat model has no way to say
   "these are meant to be back-to-back", so it has no way to warn that an edit made them
   overlap by 0.3s. The failure is a silent visual one. This is the gap option (b3) targets.
@@ -528,13 +616,21 @@ No format change. Absolute `start`/`end` on every element, integer `layer`, free
   first-is-top, Creatomate `z_index` with its non-z-indexed sibling trap) is not a class of
   error that can occur here.
 
-**ADR text to amend: none.** The decision stands as written. The only edits are supporting:
-ADR-0001's Considered-options paragraph asserts *"A survey of four shipping declarative
-video APIs found that no product uses a track as a pure stacking lane"* and CONTEXT.md's
-rejected-term entry generalises that to *"Premiere, Resolve, OpenTimelineIO, Shotstack,
-Creatomate"*. §2.1 confirms the OTIO half of that claim outright and gives it a better
-citation than it currently has; the Premiere/Resolve/CapCut half should be re-worded to
-match whatever §2.2–§2.4 establish rather than asserted.
+**ADR text to amend: none — and the supporting text gets *stronger*, not weaker.** ADR-0001's
+Considered-options paragraph asserts *"A survey of four shipping declarative video APIs found
+that no product uses a track as a pure stacking lane"*, and CONTEXT.md's rejected-term entry
+generalises it to *"Premiere, Resolve, OpenTimelineIO, Shotstack, Creatomate"*. That
+generalisation was, before this research, an assertion. It is now **confirmed five for five
+from primary sources**: OTIO `Track` (§2.1), FCPXML `spine` (§2.5), CapCut's `SegmentOverlap`
+(§2.3), Premiere's insert-or-overwrite pair (§2.2), Resolve's append/insert verbs (§2.4). The
+citations should simply be added, and CapCut added to the list.
+
+**One correction is owed, though.** ADR-0001 and CONTEXT.md are worded so as to suggest tracks
+and absolute times are alternatives. Per §3 Q1 they are not: **all three shipping editors store
+absolute per-item times *and* have tracks.** The wording should be tightened to say what is
+actually true and actually sufficient — a track constrains its contents not to overlap — rather
+than implying a time model that only the interchange formats use. Leaving it as-is risks the
+next reader rejecting a good option (c2) for a reason that is not real.
 
 ### Option (b) — `layer` plus an opt-in sequencing affordance
 
@@ -633,6 +729,35 @@ already fully written down.
   else stands: no container is added, times stay absolute, the driving requirement is
   untouched. This is the smallest amendment of any option that changes the format at all.
 
+#### (b5) Anchoring — a relative `layer` against a named parent element
+
+*Added after §2.5; not one of the options #20 anticipated.*
+
+An element may state its stacking position **relative to another element** rather than
+absolutely — FCPXML's `lane`, where *"0 = contained inside its parent (default), >0 = anchored
+above its parent, <0 = anchored below its parent"* (§2.5). A caption anchored `+1` to a shot
+is in front of it and stays in front of it whatever renumbering happens elsewhere.
+
+- **Cost:** the one thing §3 Q4 flags as inexpressible becomes expressible, but `layer` stops
+  being a plain readable integer. Answering "what draws in front at 6.2s" requires resolving
+  each anchor to its parent — bounded if anchors may not chain, unbounded if they may. It is
+  the same *shape* of cost as (b2), applied to the z-axis instead of the time axis, and it
+  needs the same guard rail (one level only). It also adds a second meaning to `layer`,
+  which is currently the least ambiguous field in the format.
+- **Buys:** relationships that survive edits. "The subtitle sits under the logo" stops being a
+  fact an agent must re-derive and re-maintain after every insertion, and becomes something the
+  document states. For an agent doing repeated targeted edits this is exactly the class of
+  invariant that silently rots under (a).
+- **Note the asymmetry worth flagging to the decider:** FCPXML's anchoring also carries
+  *timing* (a connected clip moves in time with its parent). A Montaget version could take
+  the z-order half and leave the timing half — which would be a genuinely novel split, and
+  therefore unevidenced. **NOT CONFIRMED that anyone ships z-anchoring without time-anchoring.**
+- **ADR text:** the opening paragraph's element field list, plus a Consequences bullet. The
+  driving-requirement paragraph (*"no arithmetic and no evaluation"*) needs a carve-out for
+  z-order resolution — smaller than (b2)'s carve-out, since it concerns stacking rather than
+  the "what is on screen at 6.2s" question the sentence is actually about, but a carve-out all
+  the same. CONTEXT.md's **Layer** entry would need rewriting.
+
 #### (b4) Convention and recipes only — no format change, no tool
 
 Document the idiom ("contiguous runs on one layer, kept adjacent in the array") and leave it
@@ -678,13 +803,27 @@ objects; in-lane overlap is a typed transition or is impossible.
 `tracks[]` exists, children still carry absolute `start`/`end`, and the track is a named
 bucket plus a stacking position — no sequencing constraint at all.
 
-- **Cost:** this is the shape the prior survey found **no shipping product uses** — every
-  track-like concept in Shotstack, Creatomate, Editly and JSON2Video carries a non-overlap
-  constraint, and §2.1 adds OTIO to that list (OTIO calls the unconstrained one a `Stack`,
-  not a `Track`). So the word would promise sequencing to every reader arriving from any of
-  them and not deliver it, which is ADR-0001's stated objection, unchanged and now better
-  evidenced. Calling it `lane` or keeping `layer` avoids the false promise but then it is
-  barely (c) at all.
+*Upgraded after §2.2–§2.4: this is closer to the shipping editors than the first draft of
+this section assumed. Premiere, Resolve and CapCut all pair tracks with absolute per-item
+times (§3 Q1), so (c2) plus a non-overlap rule is essentially the real CapCut/Premiere data
+model.*
+
+- **Cost:** as a *pure* z-lane with no constraint, this is the shape no surveyed product uses
+  — every track-like concept in Shotstack, Creatomate, Editly and JSON2Video carries a
+  non-overlap constraint, OTIO calls the unconstrained container a `Stack` rather than a
+  `Track` (§2.1), and CapCut enforces the rule explicitly (§2.3). So the word would promise
+  sequencing to every reader arriving from any of them and not deliver it — ADR-0001's stated
+  objection, unchanged and now better evidenced. Calling it `lane` or keeping `layer` avoids
+  the false promise but then it is barely (c) at all.
+- **The variant that actually matches the reference class** is (c2) *with* the constraint:
+  containers, absolute times on children, and a rule that children of one track may not
+  overlap — enforced by the validator, not by the storage. That is Premiere and CapCut,
+  faithfully. It costs a container (and so must answer ADR-0001's *"nesting implies a local
+  clock"* objection — answerable here, since children keep absolute times and there is no
+  local clock to infer, but it must be answered in writing or readers will infer one anyway).
+  It buys the reference-class mental model outright, plus the validation that (b3) reaches for
+  by other means. This is the strongest form of (c) and the one a decider should compare (a)
+  against.
 - **Buys:** structural locality. ADR-0001 currently recovers this by convention —
   *"Elements sharing a `group` are kept contiguous in the array by convention. This is a
   formatting rule only; nothing depends on it"* — and a container would make it structural.
@@ -706,9 +845,17 @@ bucket plus a stacking position — no sequencing constraint at all.
 | (b2) | resolve a dependency chain | rewrite 1 element | 0–1 |
 | (b3) | filter one array | rewrite N elements, O(n) diff, **validated** | 1 (inert) |
 | (b4) | filter one array | rewrite N elements, O(n) diff | 0 |
+| (b5) | filter one array; z-order needs an anchor walk | rewrite N elements, O(n) diff | 0–1 |
 | (c1) | prefix-sum per lane, skip gaps | insert 1 child | 2–3 |
 | (c2) | filter two nested arrays | rewrite N elements, O(n) diff | 1 |
 
 The table is the argument in miniature: **only (b2) and (c1) buy the cheap write, and both
 pay for it in the read.** Everything else is a choice about vocabulary, validation and where
 the editing logic lives — not about the time model at all.
+
+And per §3 Q1, (c1) is the *interchange-format* shape, not the reference class. **Premiere,
+Resolve and CapCut are all in the (c2)-with-a-constraint row.** So the decision #20 poses is
+narrower than it looks: nobody is asking Montaget to give up absolute times, because none of
+the tools it is being compared to have. The live question is whether the non-overlap rule
+should be expressible at all, and if so whether it lives in a container (c2), an inert label
+checked by a validator (b3), an editing operation (b1), or nowhere (a).
