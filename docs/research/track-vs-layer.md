@@ -13,7 +13,48 @@ Status: **in progress** — this file is committed incrementally as each source 
 
 ## 1. Summary of what was established
 
-_(pending)_
+1. **A track is a sequencing constraint, and the constraint *is* the absence of start
+   times.** OpenTimelineIO — the interchange format the whole reference class round-trips
+   through — computes a track child's position by summing the durations of everything before
+   it. It needed a second, differently-named container (`Stack`) for the parallel/overlapping
+   case. Free overlap inside a track does not exist; only a typed `transition` special case
+   does. (§2.1, with source.)
+2. **Montaget's `elements[] + layer` is OTIO's `Stack` half** — parallel composition with
+   explicit stacking — with each element additionally carrying its own absolute time range
+   instead of being aligned at 0. What Montaget lacks is the `Track` half, and OTIO shows
+   precisely what that half costs: **ordinal timing (O(n) to read a position), `Gap` objects
+   to represent empty time, and a special case for overlap.** (§2.1.)
+3. **Adopting tracks would trade a cheap write for an expensive read.** ADR-0001's driving
+   requirement is that "what is on screen at 6.2s" be answerable by *reading*. Ordinal
+   timing makes it arithmetic. An agent asks that question every turn and performs an
+   insertion once. (§3 Q3.)
+4. **Ripple edit is largely a mouse affordance.** Its value comes from a human's inability
+   to retype twenty numbers; an agent recomputes downstream times in one mechanical pass and
+   verifies by re-reading. Further, ripple is only free *within a lane* — cross-lane sync is
+   solved in NLEs by a **UI** feature Montaget has no place for, and ADR-0001's own fixture
+   (a 14.5s still over six unrelated audio events, three attached to no visual) is exactly
+   the case a per-lane ripple silently desynchronises. (§3 Q3.)
+5. **The one real cost of the flat model is the diff, not the edit** — a conceptually
+   one-line insertion touches every downstream element in git. That is a review cost, and it
+   is addressable by tooling without changing the time model. (§3 Q3.4, option b1.)
+6. **Z-order has no cross-format convention** — OTIO is bottom-first, Shotstack is
+   first-is-top, Creatomate uses an explicit `z_index` with a sibling trap. An explicit
+   integer `layer` with a stated direction removes a class of silent generator error rather
+   than picking a side of it. Nothing found argues against `layer` as the *stacking*
+   mechanism; the live question is only about *sequencing*, which these formats happen to
+   have welded onto the same field. (§3 Q2.)
+7. **Genuinely open gaps in the flat model**, independent of tracks: no way to declare that a
+   run of elements is meant to be contiguous (so accidental overlap fails silently), and no
+   way to say "this element always sits directly under that one". A track model closes the
+   first and does **not** close the second. (§3 Q4.)
+8. **The strongest published evidence on machine authors and optional sequencing is
+   negative**: Creatomate, the vendor with a dedicated LLM-facing reference, calls its own
+   sequencing/duration cascade *"the number-one source of broken renders"*. That is evidence
+   against option (b2) specifically. (§3 Q5.)
+
+Four options are laid out in §4 — (a) unchanged, (b1–b4) four different opt-in sequencing
+affordances, (c1–c2) two track shapes — each with its cost, its value to an agent author,
+and the exact ADR-0001 text it would amend. **No recommendation is made.**
 
 ## 2. Per-tool findings
 
@@ -109,7 +150,127 @@ _(pending)_
 
 ## 3. The five questions from #20
 
-_(pending)_
+### Q1 — What a track actually *is* in the data model
+
+Established so far, from §2.1: in OpenTimelineIO — the format built specifically to
+round-trip between these tools — a track is **a sequencing constraint, expressed as the
+absence of start times**. Not a z-lane, not a pure container. The proof is that OTIO needed
+a second container (`Stack`) for the pure-overlap case and gave it a different name. Free
+overlap within a `Track` does not exist; the only in-lane overlap is a typed `transition`,
+handled by an explicit special case in the position loop.
+
+Premiere, CapCut and Resolve: see §2.2–§2.4. Whatever they say, OTIO is the format they all
+have to interoperate through, so it is the strongest single answer available to Q1.
+
+### Q2 — How z-order is expressed
+
+**No convention exists.** Counting both surveys, four formats give at least three answers:
+
+- OTIO: derived from position in the `Stack`, **bottom-first** — *"iterated from the bottom
+  (the first entry in the stack) towards the top (the final entry)"* (§2.1).
+- Shotstack: derived from track index, **first-is-top** — the exact opposite (see
+  [API survey](./declarative-video-api-models.md)).
+- Creatomate: an explicit `z_index` that overrides definition order, with the trap that
+  *"ALL z-indexed children draw above every non-z-indexed sibling, whatever the value"*
+  (API survey).
+- Editly / JSON2Video: no lanes at all; document order within a scene.
+
+This is the clearest finding of the whole exercise and it does **not** depend on the
+sequencing question. A generated document that gets the direction backwards renders
+successfully and looks wrong. Montaget's explicit integer `layer`, with a stated direction
+(*"higher draws in front"*, CONTEXT.md), removes the class of error rather than picking a
+side of it. **Nothing in this research argues against `layer` as the z-order mechanism.**
+The whole live question is about *sequencing*, which is a separate axis that these formats
+happen to have welded onto the same field.
+
+### Q3 — Does the sequencing constraint buy anything an *agent* wants? (ripple edit)
+
+Ripple edit is the strongest argument for tracks, so it deserves the sharpest statement:
+under a sequential container, "insert a 2s shot at 0:12" changes **one** record. Everything
+downstream re-times for free, because position *is* order. Under absolute times the same
+edit rewrites every downstream `start` and `end`.
+
+Four things cut against that being a real cost for an agent:
+
+**1. It trades a cheap write for an expensive read, and an agent reads far more often than
+it writes.** §2.1 is precise about the price: the position of child *n* is a loop over
+children 0..n-1. An agent asking "what is on screen at 6.2s" — the question ADR-0001 is
+built around — must run that accumulation for every lane, while also recognising `Gap`
+objects as deliberate nothing and applying the transition special case. The agent asks that
+question on every turn, to know the state of the thing it is editing. It performs the
+insertion once. Optimising the once at the expense of the every-turn is the wrong trade for
+this author.
+
+**2. The write cost is mechanical; the read cost is not.** Recomputing downstream times is a
+single pass of addition over a JSON array — an agent can do it with a two-line script and
+verify it by re-reading the file, and the result is fully checkable after the fact. There is
+no equivalent escape for the read: resolving positions in a track model requires evaluating
+the document, and "the project is inert data understood by reading, not evaluating" is the
+project's stated premise (CONTEXT.md: a project *"states, by being read, what is on screen
+at any given moment"*).
+
+**3. Ripple is only free *within a lane*, and Montaget's own fixture is the case where that
+is wrong.** In a track-based NLE, rippling one track shifts that track only; audio,
+captions and overlays on other tracks stay put unless the human engages a sync/ripple-all
+affordance — which is a **UI** feature. Montaget has no UI. ADR-0001's fixture is exactly
+the shape that breaks: *"one still is on screen for 14.5s with six unrelated audio events
+under it, three belonging to no visual at all."* A per-lane ripple through that produces
+silent desynchronisation — a render that succeeds and is wrong. The agent would have to
+reason about cross-lane scope regardless, which is most of the work the ripple was supposed
+to save. **NOT CONFIRMED:** the specific sync-lock behaviour of Premiere/CapCut/Resolve —
+see §2.2–§2.4.
+
+**4. What the flat model actually loses is the *diff*, not the edit.** This is the one real
+cost and it should not be waved away. Under absolute times, a conceptually one-line change
+produces a diff touching every element after the insertion point. A human reviewing the
+commit cannot see at a glance that only one thing was intended, and a second agent reading
+the diff has the same problem. That is a genuine, concrete disadvantage of (a) — and note
+it is a *review* cost, not an authoring cost, and it is addressable by tooling (option b1)
+without changing the time model.
+
+**Provisional answer:** ripple is largely a mouse affordance. Its value comes from the
+human's inability to retype twenty numbers, and it is bought with a read-time cost that a
+human pays with their eyes for free (they are looking at a rendered timeline, not at the
+file) and an agent pays with arithmetic every turn. The asymmetry runs the opposite way for
+the two authors, and Montaget has only one of them.
+
+### Q4 — What the flat model makes hard
+
+- **"Insert 2s here and push everything back."** O(n) edit, O(n) diff, and — the sharp edge
+  — the agent must decide *what* "everything" means. Everything after 0:12? Everything on
+  layer 0? Everything except the background music? The format cannot express the answer, so
+  it cannot check the answer either. In a track model the format answers "everything in this
+  lane" for you, which is sometimes right and sometimes exactly wrong (see Q3.3).
+- **"Swap these two segments."** Under absolute times this is two blocks of time-range
+  rewrites, and it is *easier* than under tracks in one respect — a segment is identified by
+  its `group`, and groups are kept contiguous in the array by convention (ADR-0001), so the
+  edit is local. But if the two segments have different durations, everything between and
+  after them shifts too, and the "everything" ambiguity above returns.
+- **"This element always sits directly under that one."** Genuinely inexpressible. `layer`
+  is an absolute integer, so "directly under X" must be maintained by hand, and inserting a
+  new element between them means renumbering. Creatomate has the same problem and hits it in
+  its mask feature (*"the element is used as a mask for the element one track below it"*,
+  API survey), which is relational and therefore fragile. **A track model does not solve this
+  either** — it converts renumbering into reordering, which is a different edit, not a
+  cheaper one. This is a real gap in (a) that (c) does not close.
+- **Accidental overlap on a lane meant to be sequential.** The flat model has no way to say
+  "these are meant to be back-to-back", so it has no way to warn that an edit made them
+  overlap by 0.3s. The failure is a silent visual one. This is the gap option (b3) targets.
+
+### Q5 — Prior art in agent/LLM-facing formats
+
+Covered in full by the [API survey](./declarative-video-api-models.md) and not repeated
+here. The one finding that bears directly on this ticket: **Creatomate is the vendor with
+the most explicitly LLM-facing documentation** (a dedicated `llms.txt` reference more
+detailed than its human docs — *"evidence that models authoring this JSON directly is the
+expected usage"*), and it is also the vendor whose docs describe its own optional-sequencing
+mechanism as *"the number-one source of broken renders"*, warning that smaller models
+*"produce broken RenderScript without warning."*
+
+That is the closest thing to direct evidence anyone has published on the exact question #20
+asks — a track/sequencing model, aimed at machine authors, self-reported as the primary
+failure mode. It is evidence against option (b2) specifically, not against tracks in
+general, and it should be read as one data point rather than a proof.
 
 ## 4. Options
 
