@@ -183,3 +183,32 @@ short does — `der Kürbis` / `pumpkin`, `Wir haben einen großen Kürbis gekau
 `We've bought a big pumpkin.` — and its assets sit beside these in the source project
 under `lang/de/`, with a final MP4 for the decorating and costume shorts. Pull it in as
 a second fixture if a ticket needs the pairs to actually differ.
+
+## Corrections
+
+Found while hand-writing the full project file for
+[#9](https://github.com/MBehtemam/Montaget/issues/9)
+(`docs/research/prototypes/sample-project/`). Left as an appendix rather than edited
+in above, so the original reading and the correction are both visible.
+
+- **The header panels have sharp corners, not rounded.** "A rounded cream panel", above,
+  is wrong. The `.ass` draws four-point paths and the published frame at 8× magnification
+  agrees. It matters because it decides whether the shape primitive needs a corner radius
+  on day one — it does not.
+- **"Total narration: 22.4 s of speech" undercounts.** That is each file played once. The
+  video plays **every word twice and every sentence twice, the second at ≈0.645× speed**.
+  So ~35 s is delivered narration, and the silence described above as "load-bearing
+  content" is substantially smaller than stated. The point stands; the number does not.
+  The slow pass is recorded nowhere in this fixture — not in `beats.json`, not in
+  `transcript.json` — and was found by silence analysis of the published MP4. It is
+  [#25](https://github.com/MBehtemam/Montaget/issues/25).
+- **The Ken Burns move restarts at every segment boundary.** "One asset spanning four
+  beats", above, describes item 05's *image*; its *move* restarts all four times, visible
+  as a snap-back when comparing published frames at 2.90 s / 3.20 s and 63.90 s / 64.20 s.
+- **`beats.json`'s 15 beats do not describe the timeline.** The project file needs **60
+  elements**. The repeats, the 800 ms word pause and the 520 ms sentence pause are all
+  implicit in the old pipeline's code — a good illustration that the old config is a
+  *template's parameters*, not a project.
+- **The timing sources disagree slightly.** `beats.json` rounds to 10 ms and drifts up to
+  26 ms from the segment-duration sum by the loop tail (63.99 vs 64.016). The published
+  MP4 is 65.259 s against the segments' 65.216 s.
