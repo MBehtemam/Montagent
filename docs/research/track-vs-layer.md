@@ -248,7 +248,65 @@ argument survives, but its scope is narrower than stated.**
 
 ### 2.5 FCPXML `spine` / `lane`
 
-_(pending)_
+All quotes below are DTD comments from Apple's own hosted copy of the
+[FCPXML v1.5 DTD](https://developer.apple.com/library/archive/documentation/Miscellaneous/Conceptual/LegacyDTDsFinalCutPro/FCPXMLDTDv1.5/FCPXMLDTDv1.5.html).
+This is the single best source in the file after §2.1, because **Apple split sequencing and
+stacking into two orthogonal mechanisms and documented both in one place.**
+
+**Sequencing is a container.** *"A 'spine' is a container for elements ordered serially in
+time. Only one story element is active at a given time, except when a transition is
+present."*
+
+That second sentence is §2.1's finding restated by a different vendor: a serial container,
+plus a single typed exception for transitions. **Two independent formats reached the same
+design, including the same escape hatch.** The convergence is strong evidence that "sequential
+container with a transition special case" is what a track *is*, not an accident of one
+implementation.
+
+**Stacking is an integer attribute, and it is signed.** From the `ao_attrs` entity comments:
+
+```
+<!-- The 'lane' attribute specifies where the object is contained/anchored relative to its parent: -->
+<!--    0 = contained inside its parent (default) -->
+<!--    >0 = anchored above its parent -->
+<!--    <0 = anchored below its parent -->
+<!-- The 'offset' attribute defines the location of the object in the parent timeline (default is '0s'). -->
+```
+
+So FCPXML has **an integer stacking coordinate with an explicitly stated direction — higher is
+in front — carried as a property of the item, exactly like Montaget's `layer`**, plus a
+separate `offset` giving position in the parent's timeline. Apple did not overload one concept
+to mean both things; it shipped `spine` for "plays after" and `lane` for "draws over".
+
+This is the most direct vindication available of the *shape* of ADR-0001's decision. It is
+also the fourth distinct answer to §3 Q2's z-order question, and — with OTIO's stated
+bottom-first — one of only two formats surveyed across both documents that says which way is
+front at all.
+
+**`gap` is confirmed in a second format.** *"A 'gap' element defines a placeholder with no
+associated media. Gaps cannot be anchored to other objects."* `duration` is `#REQUIRED` on it.
+Empty time again costs an object. Note the second sentence: a gap is a serial-container
+citizen only — it is meaningless in the stacking dimension, which is precisely the asymmetry
+§2.1 predicted (`Stack` needs no gaps; `Track` does).
+
+**`lane` is *anchoring*, not just z-order — and this answers a question §3 Q4 called
+inexpressible.** A lane value positions an item *relative to its parent*, and FCP's connected
+clips move with the item they are anchored to. That is a published, shipping design for
+**"this element always sits directly under that one"**: make the relationship structural
+rather than numeric. See the revision note in §3 Q4.
+
+**Timing attributes distinguish timeline position from source position**, as in Premiere and
+Resolve: `%clip_attrs;` carries `offset` (position in parent), `start` (source in-point) and a
+`#REQUIRED duration`. `clip` additionally has `audioStart` / `audioDuration` *"to define J/L
+cuts (i.e., split edits) on composite A/V clips"* — worth noting against ADR-0001's rejection
+of **a clip owning its audio**: FCP does pair them, and then needs two extra attributes to
+un-pair them again for the commonest edit in the craft. That is the ADR's argument, confirmed
+from the other side.
+
+**NOT CONFIRMED:** whether Final Cut writes an explicit `offset` on every child of a `spine`
+or relies on the serial ordering plus the `0s` default. The DTD makes `offset` optional and
+declares the spine serial, so both are permitted by the schema; determining what the
+application actually emits needs a sample export, which was not obtained.
 
 ## 3. The five questions from #20
 
