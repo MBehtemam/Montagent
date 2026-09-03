@@ -1,0 +1,11 @@
+{
+  "name": "perf-remotion", "private": true,
+  "dependencies": {
+    "remotion": "^4.0.520",
+    "@remotion/cli": "^4.0.520",
+    "@remotion/bundler": "^4.0.520",
+    "@remotion/renderer": "^4.0.520",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

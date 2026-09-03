@@ -1,0 +1,82 @@
+<!doctype html><meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;background:#000}
+  #stage{position:relative;overflow:hidden}
+  .card{position:absolute;overflow:hidden;left:0;top:0;display:none}
+  .card img{position:absolute;transform-origin:0 0}
+  #badge{position:absolute;display:none}
+  .rect{position:absolute}
+  .txt{position:absolute;white-space:pre;line-height:1.2}
+</style>
+<div id="stage"><div id="overlay" style="position:absolute;inset:0"></div></div>
+<script type="module">
+import { opsAt, anchors } from "./ops.js";
+const scene = await (await fetch("./scene.json")).json();
+const stage = document.getElementById("stage");
+const overlay = document.getElementById("overlay");
+stage.style.width = scene.width + "px";
+stage.style.height = scene.height + "px";
+stage.style.background = scene.background;
+
+// Every image element is created ONCE and kept. Rebuilding <img> per frame makes
+// each frame wait on a fresh decode, which races the screenshot — with several
+// tabs in flight the capture wins and the frame comes out blank.
+const cards = new Map();
+const srcs = [...new Set(scene.spans.map(s => s.image))];
+for (const src of srcs) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const im = document.createElement("img");
+  card.appendChild(im);
+  stage.insertBefore(card, overlay);
+  cards.set(src, { card, im });
+}
+const badge = document.createElement("img");
+badge.id = "badge";
+stage.insertBefore(badge, overlay);
+
+await Promise.all([
+  ...srcs.map(src => new Promise(res => {
+    const { im } = cards.get(src);
+    im.onload = () => im.decode().then(res, res);
+    im.src = "/fx" + src;
+  })),
+  new Promise(res => { badge.onload = () => badge.decode().then(res, res); badge.src = "/fx" + scene.badge.src; }),
+]);
+await document.fonts.ready;
+
+window.renderFrame = (frame) => {
+  const parts = [];
+  for (const { card } of cards.values()) card.style.display = "none";
+  badge.style.display = "none";
+
+  for (const o of opsAt(scene, frame)) {
+    if (o.op === "bg") { stage.style.background = o.colour; }
+    else if (o.op === "rect") {
+      parts.push(`<div class="rect" style="left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;background:${o.colour}"></div>`);
+    } else if (o.op === "image") {
+      if (o.whole) {
+        Object.assign(badge.style, { display: "block", left: o.dx + "px", top: o.dy + "px",
+                                     width: o.dw + "px", height: o.dh + "px" });
+      } else {
+        const { card, im } = cards.get(o.src);
+        const ox = (im.naturalWidth - o.cropW) / 2, oy = (im.naturalHeight - o.cropH) / 2;
+        const k = o.dw / o.sw;
+        Object.assign(card.style, { display: "block", width: o.dw + "px", height: o.dh + "px" });
+        Object.assign(im.style, { width: (im.naturalWidth * k) + "px",
+                                  left: (-(ox + o.sx) * k) + "px", top: (-(oy + o.sy) * k) + "px" });
+      }
+    } else if (o.op === "text") {
+      const { horiz, vert } = anchors(o.align);
+      const tx = horiz === "center" ? "-50%" : horiz === "right" ? "-100%" : "0";
+      const ty = vert === "middle" ? "-50%" : vert === "bottom" ? "-100%" : "0";
+      parts.push(
+        `<div class="txt" style="left:${o.x}px;top:${o.y}px;` +
+        `transform:translate(${tx},${ty});text-align:${horiz};color:${o.colour};` +
+        `font:${o.bold ? "bold " : ""}${o.size}px '${o.font}'">${o.lines.join("<br>")}</div>`);
+    }
+  }
+  overlay.innerHTML = parts.join("");
+};
+window.__ready = true;
+</script>

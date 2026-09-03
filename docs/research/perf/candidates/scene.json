@@ -1,0 +1,1099 @@
+{
+ "width": 1080,
+ "height": 1920,
+ "fps": 30,
+ "duration": 65.216,
+ "cardH": 1300,
+ "background": "#FBF3E3",
+ "spans": [
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/05.png",
+   "start": 0.0,
+   "end": 17.472,
+   "frames": 524,
+   "cropW": 1536,
+   "cropH": 1849,
+   "zoomFrom": 1.0001,
+   "zoomTo": 1.12,
+   "zoomStep": 0.0009
+  },
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/06.png",
+   "start": 17.472,
+   "end": 30.603,
+   "frames": 394,
+   "cropW": 1536,
+   "cropH": 1849,
+   "zoomFrom": 1.12,
+   "zoomTo": 1.0001,
+   "zoomStep": 0.0009
+  },
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/07.png",
+   "start": 30.603,
+   "end": 42.763000000000005,
+   "frames": 365,
+   "cropW": 1536,
+   "cropH": 1849,
+   "zoomFrom": 1.0001,
+   "zoomTo": 1.12,
+   "zoomStep": 0.0009
+  },
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/08.png",
+   "start": 42.763000000000005,
+   "end": 53.85600000000001,
+   "frames": 333,
+   "cropW": 1536,
+   "cropH": 1849,
+   "zoomFrom": 1.12,
+   "zoomTo": 1.0001,
+   "zoomStep": 0.0009
+  },
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/05.png",
+   "start": 53.85600000000001,
+   "end": 65.21600000000001,
+   "frames": 341,
+   "cropW": 1536,
+   "cropH": 1849,
+   "zoomFrom": 1.0001,
+   "zoomTo": 1.12,
+   "zoomStep": 0.0009
+  }
+ ],
+ "badge": {
+  "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/brand/logo-en.png",
+  "x": 470,
+  "y": 104,
+  "w": 64,
+  "h": 64
+ },
+ "events": [
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 0.0,
+   "end": 3.02,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 58.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "4 English words for",
+    "decorating the house"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 3.02,
+   "end": 17.47,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 3.02,
+   "end": 5.32,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 88.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "What is this called",
+    "in English?"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 5.32,
+   "end": 17.47,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 88.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "cobweb  -  cobweb"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 10.47,
+   "end": 17.47,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 10.47,
+   "end": 17.47,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 55.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I hang cobwebs over the door."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 17.47,
+   "end": 30.6,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 88.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "spider  -  spider"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 22.62,
+   "end": 30.6,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 22.62,
+   "end": 30.6,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 57.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I'm holding a big",
+    "spider in my hand."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 30.6,
+   "end": 42.76,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 80.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "skeleton  -  skeleton"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 35.75,
+   "end": 42.76,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 35.75,
+   "end": 42.76,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 57.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I hang the skeleton",
+    "up by the door."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 42.76,
+   "end": 53.85,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 49.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "string of lights",
+    "string of lights"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 47.34,
+   "end": 53.85,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 47.34,
+   "end": 53.85,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 55.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I hang up a string of lights."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 53.86,
+   "end": 64.0,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 53.86,
+   "end": 56.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 73.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "How do you say you hang",
+    "cobwebs over the door?"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 56.12,
+   "end": 57.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 249.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "5"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 57.12,
+   "end": 58.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 249.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "4"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 58.12,
+   "end": 59.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 249.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "3"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 59.12,
+   "end": 60.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 249.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "2"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 60.12,
+   "end": 61.12,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 249.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "1"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 61.12,
+   "end": 64.0,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 88.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "cobweb  -  cobweb"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 61.12,
+   "end": 64.0,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 61.12,
+   "end": 64.0,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 55.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I hang cobwebs over the door."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 64.02,
+   "end": 65.22,
+   "x": 540.0,
+   "y": 1470.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 88.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "What is this called",
+    "in English?"
+   ]
+  }
+ ],
+ "audio": [
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/intro-2.mp3",
+   "at": 0.0
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/hook-2.mp3",
+   "at": 3.02
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/05-cobweb.mp3",
+   "at": 5.32
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
+   "at": 10.47
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/06-spider.mp3",
+   "at": 17.47
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-06-spider.mp3",
+   "at": 22.62
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/07-skeleton.mp3",
+   "at": 30.6
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-07-skeleton.mp3",
+   "at": 35.75
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/08-lights.mp3",
+   "at": 42.76
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-08-lights.mp3",
+   "at": 47.33
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/quiz-2.mp3",
+   "at": 53.85
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
+   "at": 61.11
+  }
+ ]
+}

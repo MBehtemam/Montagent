@@ -1,0 +1,1 @@
+{ "name": "perf-diy-chrome", "private": true, "type": "module", "dependencies": { "puppeteer": "^24.0.0" } }
