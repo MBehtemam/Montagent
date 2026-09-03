@@ -8,6 +8,18 @@ Research for [#5](https://github.com/MBehtemam/Montaget/issues/5), part of the m
 
 **Sourcing rule applied:** every claim cites a primary source (official docs, repo, LICENSE, registry API). Where a figure is not published, this document says so explicitly rather than estimating. A handful of Remotion claims could only be recovered through search-engine summaries because the doc URLs 404'd on direct fetch; those are marked **[secondary]**.
 
+> [!WARNING]
+> **Scope correction — the criteria below were written under a narrower scope than now stands.**
+>
+> [ADR-0003](../adr/0003-general-video-editor-not-channel-tooling.md) settles that Montaget is a **general, open-source, agent-first video editor** in the CapCut/Premiere class. The `youtube_language_learning` channel is a **fixture and regression guard, never a scope boundary**. See [#19](https://github.com/MBehtemam/Montaget/issues/19).
+>
+> Two things below were written against the narrow scope and must not be read at face value:
+>
+> - **C2 says "bilingual subtitle text."** Read it as **text and typography generally** — multi-script, arbitrary fonts, styled runs, full shaping. A video editor that strangers run cannot be Latin-only by construction, whatever any one channel publishes. Note this makes tiny-skia's disqualification on C2 stand *more* firmly, not less.
+> - **"Target format throughout: 1080x1920, 30fps"** was the *channel's* format, not a constraint on Montaget. Frame size and rate are project properties, and **arbitrary aspect ratios are in scope**.
+>
+> The **facts** in this survey are unaffected — they were gathered against primary sources and remain good. Only the **weighting** changes. [#7](https://github.com/MBehtemam/Montaget/issues/7) must re-score against general criteria rather than reading the scores here at face value.
+
 ---
 
 ## 1. The constraints being scored against
