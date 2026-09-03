@@ -132,9 +132,64 @@ with explicit stacking — with each element carrying its own absolute time rang
 being aligned at 0. What Montaget does not have is the *Track* half, and OTIO shows exactly
 what that half is: **ordinal timing, plus `Gap` objects, plus a transition special case.**
 
-### 2.2 Adobe Premiere Pro
+### 2.2 Adobe Premiere Pro — UXP API
 
-_(pending)_
+Premiere's project file is undocumented binary/gzipped XML, so the published **UXP API** is
+the primary source for its data model. It contradicts the naive picture in a way that
+matters, and it is the most directly relevant finding after §2.1.
+
+**A Premiere track item carries its own absolute sequence time.** From
+[`VideoClipTrackItem`](https://developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/videocliptrackitem/):
+`getStartTime` *"Returns a TickTime object representing the starting sequence time of this
+track item"*, and `getEndTime` the ending sequence time. Source trimming is a **separate**
+pair: `getInPoint` / `getOutPoint` *"representing the track item in point relative to the
+start time"*. There is also `getTrackIndex`.
+
+This is a genuinely important result for #20, and it cuts *for* Montaget's shape rather than
+against it: **Premiere is not OTIO-shaped.** A Premiere clip is not positioned by summing
+what precedes it — it holds an absolute sequence start, an absolute sequence end, a separate
+source range, and an integer track index. That is, field for field, Montaget's element:
+absolute time range, plus separate source range, plus an integer lane. The distinction
+CONTEXT.md draws between **Element** time range and **Source range** is exactly Premiere's
+start/end vs in/out split.
+
+**The sequencing constraint lives in the *edit operations*, not in the data.** From
+[`SequenceEditor`](https://developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/sequenceeditor/),
+adding media is either `createInsertProjectItemAction` (*"Create insert ProjectItem into
+Sequence Action"*) or `createOverwriteItemAction` (*"Create overwrite Sequence with
+ProjectItem Action"*), and `createCloneTrackItemAction` describes itself as duplicating
+*"using an insert or overwrite edit method."* **Ripple is a boolean argument to a removal,
+not a property of a track**: `createRemoveItemsAction` takes a `ripple` parameter and a
+`shiftOverLapping` parameter.
+
+That is the sharpest thing in this whole document for option **(b1)**. In the tool the
+reference class is named after, ripple is **an opt-in argument to an operation performed on
+absolute-time data** — not an emergent consequence of ordinal storage the way it is in OTIO.
+Premiere gets ripple *without* paying OTIO's read cost, because it stores absolute times and
+recomputes them on edit. An agent doing arithmetic over a JSON array and rewriting downstream
+starts is doing precisely what Premiere does; it is not working around the absence of a
+feature, it is implementing the feature the same way Premiere does.
+
+**The insert/overwrite pair is itself the evidence that a track cannot hold overlapping
+items.** If a lane permitted free overlap there would be nothing to choose between: you would
+simply place the clip. The API forces the caller to say whether the incoming item pushes the
+existing ones aside or replaces them, which is only a question if two items cannot occupy the
+same time on the same track.
+
+**Empty space is addressable as a kind of track item.**
+[`VideoTrack.getTrackItems`](https://developer.adobe.com/premiere-pro/uxp/ppro_reference/classes/videotrack/)
+takes parameters filtering by item type and including or excluding *empty* items — so, as in
+OTIO's `Gap`, a hole in a Premiere track is a thing the model can hand you, not an absence.
+**NOT CONFIRMED:** whether an empty item is materialised in the stored project or synthesised
+on query; the reference does not say, and the constants page for track-item types 404s.
+
+**A track carries lane-level state.** `VideoTrack` exposes `name`, `id`, `getIndex()`,
+`isMuted()` / `setMute()` and lock-changed events. This is the one thing §4's option (c2)
+buys that the flat model has no home for.
+
+**NOT CONFIRMED:** that a higher video track index draws in front. Universally believed and
+almost certainly true, but the UXP reference nowhere states a compositing direction, which is
+itself consistent with §3 Q2 — no format surveyed makes this explicit except by side effect.
 
 ### 2.3 CapCut / JianYing `draft_content.json`
 
