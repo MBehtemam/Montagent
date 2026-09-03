@@ -1,0 +1,22 @@
+[package]
+name = "mcp-startup-rs"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "bare"
+path = "src/bare.rs"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[dependencies]
+rmcp = { version = "3.2", features = ["server", "transport-io", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"] }
+serde_json = "1"
+schemars = "1"
+
+[profile.release]
+opt-level = 3
+lto = true

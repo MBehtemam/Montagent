@@ -1,0 +1,3988 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "element",
+  "description": "A single Montaget element, complete. Elements are inert data on one absolute clock.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "source"
+      ],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "track": {
+          "type": "string",
+          "description": "id of the track this element belongs to"
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "explicit stacking override; higher is in front"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 1,
+              "properties": {
+                "below": {
+                  "type": "string"
+                },
+                "above": {
+                  "type": "string"
+                }
+              },
+              "description": "stack relative to another element by id"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "description": "free label the renderer ignores; couples elements for editing"
+        },
+        "id": {
+          "type": "string",
+          "description": "unique within the project"
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Spatial placement. Every property may be a constant or a keyframe list.",
+          "properties": {
+            "x": {
+              "description": "horizontal position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "y": {
+              "description": "vertical position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scale": {
+              "description": "uniform scale, 1.0 = native",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleX": {
+              "description": "horizontal scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleY": {
+              "description": "vertical scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation": {
+              "description": "clockwise degrees about the anchor",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "opacity": {
+              "description": "0.0 transparent to 1.0 opaque",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "center",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right"
+              ]
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Closed, named, parameterised effect vocabulary.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "blur"
+                  },
+                  "radius": {
+                    "description": "gaussian radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "brightness"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "contrast"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "saturation"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "drop-shadow"
+                  },
+                  "dx": {
+                    "description": "offset x, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "dy": {
+                    "description": "offset y, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "radius": {
+                    "description": "blur radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fade"
+                  },
+                  "inDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "type": {
+          "const": "image"
+        },
+        "source": {
+          "type": "string",
+          "description": "path or URL"
+        },
+        "fit": {
+          "type": "string",
+          "enum": [
+            "contain",
+            "cover",
+            "fill",
+            "none"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "source"
+      ],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "track": {
+          "type": "string",
+          "description": "id of the track this element belongs to"
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "explicit stacking override; higher is in front"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 1,
+              "properties": {
+                "below": {
+                  "type": "string"
+                },
+                "above": {
+                  "type": "string"
+                }
+              },
+              "description": "stack relative to another element by id"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "description": "free label the renderer ignores; couples elements for editing"
+        },
+        "id": {
+          "type": "string",
+          "description": "unique within the project"
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Spatial placement. Every property may be a constant or a keyframe list.",
+          "properties": {
+            "x": {
+              "description": "horizontal position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "y": {
+              "description": "vertical position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scale": {
+              "description": "uniform scale, 1.0 = native",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleX": {
+              "description": "horizontal scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleY": {
+              "description": "vertical scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation": {
+              "description": "clockwise degrees about the anchor",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "opacity": {
+              "description": "0.0 transparent to 1.0 opaque",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "center",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right"
+              ]
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Closed, named, parameterised effect vocabulary.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "blur"
+                  },
+                  "radius": {
+                    "description": "gaussian radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "brightness"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "contrast"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "saturation"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "drop-shadow"
+                  },
+                  "dx": {
+                    "description": "offset x, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "dy": {
+                    "description": "offset y, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "radius": {
+                    "description": "blur radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fade"
+                  },
+                  "inDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "type": {
+          "const": "video"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sourceRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "which part of the source file is used",
+          "properties": {
+            "in": {
+              "type": "number",
+              "minimum": 0
+            },
+            "out": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "fit": {
+          "type": "string",
+          "enum": [
+            "contain",
+            "cover",
+            "fill",
+            "none"
+          ]
+        },
+        "volume": {
+          "description": "gain applied to the clip's embedded audio",
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "t",
+                  "value"
+                ],
+                "properties": {
+                  "t": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds on the project clock"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "easing": {
+                    "type": "string",
+                    "enum": [
+                      "linear",
+                      "ease-in",
+                      "ease-out",
+                      "ease-in-out",
+                      "step"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "mute": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "source"
+      ],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "track": {
+          "type": "string",
+          "description": "id of the track this element belongs to"
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "explicit stacking override; higher is in front"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 1,
+              "properties": {
+                "below": {
+                  "type": "string"
+                },
+                "above": {
+                  "type": "string"
+                }
+              },
+              "description": "stack relative to another element by id"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "description": "free label the renderer ignores; couples elements for editing"
+        },
+        "id": {
+          "type": "string",
+          "description": "unique within the project"
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Spatial placement. Every property may be a constant or a keyframe list.",
+          "properties": {
+            "x": {
+              "description": "horizontal position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "y": {
+              "description": "vertical position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scale": {
+              "description": "uniform scale, 1.0 = native",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleX": {
+              "description": "horizontal scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleY": {
+              "description": "vertical scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation": {
+              "description": "clockwise degrees about the anchor",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "opacity": {
+              "description": "0.0 transparent to 1.0 opaque",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "center",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right"
+              ]
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Closed, named, parameterised effect vocabulary.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "blur"
+                  },
+                  "radius": {
+                    "description": "gaussian radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "brightness"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "contrast"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "saturation"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "drop-shadow"
+                  },
+                  "dx": {
+                    "description": "offset x, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "dy": {
+                    "description": "offset y, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "radius": {
+                    "description": "blur radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fade"
+                  },
+                  "inDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "type": {
+          "const": "audio"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sourceRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "which part of the source file is used",
+          "properties": {
+            "in": {
+              "type": "number",
+              "minimum": 0
+            },
+            "out": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "volume": {
+          "description": "gain, 1.0 = unity",
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "t",
+                  "value"
+                ],
+                "properties": {
+                  "t": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds on the project clock"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "easing": {
+                    "type": "string",
+                    "enum": [
+                      "linear",
+                      "ease-in",
+                      "ease-out",
+                      "ease-in-out",
+                      "step"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "text"
+      ],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "track": {
+          "type": "string",
+          "description": "id of the track this element belongs to"
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "explicit stacking override; higher is in front"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 1,
+              "properties": {
+                "below": {
+                  "type": "string"
+                },
+                "above": {
+                  "type": "string"
+                }
+              },
+              "description": "stack relative to another element by id"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "description": "free label the renderer ignores; couples elements for editing"
+        },
+        "id": {
+          "type": "string",
+          "description": "unique within the project"
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Spatial placement. Every property may be a constant or a keyframe list.",
+          "properties": {
+            "x": {
+              "description": "horizontal position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "y": {
+              "description": "vertical position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scale": {
+              "description": "uniform scale, 1.0 = native",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleX": {
+              "description": "horizontal scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleY": {
+              "description": "vertical scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation": {
+              "description": "clockwise degrees about the anchor",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "opacity": {
+              "description": "0.0 transparent to 1.0 opaque",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "center",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right"
+              ]
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Closed, named, parameterised effect vocabulary.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "blur"
+                  },
+                  "radius": {
+                    "description": "gaussian radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "brightness"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "contrast"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "saturation"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "drop-shadow"
+                  },
+                  "dx": {
+                    "description": "offset x, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "dy": {
+                    "description": "offset y, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "radius": {
+                    "description": "blur radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fade"
+                  },
+                  "inDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "type": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string"
+        },
+        "font": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "family": {
+              "type": "string"
+            },
+            "size": {
+              "type": "number"
+            },
+            "weight": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 900
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "bold"
+                  ]
+                }
+              ]
+            },
+            "italic": {
+              "type": "boolean"
+            },
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6,8}$"
+            }
+          }
+        },
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "ltr",
+            "rtl",
+            "auto"
+          ]
+        },
+        "maxWidth": {
+          "type": "number"
+        },
+        "lineHeight": {
+          "type": "number"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "start",
+        "end",
+        "shape"
+      ],
+      "properties": {
+        "start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds on the project's absolute clock"
+        },
+        "track": {
+          "type": "string",
+          "description": "id of the track this element belongs to"
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "explicit stacking override; higher is in front"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 1,
+              "properties": {
+                "below": {
+                  "type": "string"
+                },
+                "above": {
+                  "type": "string"
+                }
+              },
+              "description": "stack relative to another element by id"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "description": "free label the renderer ignores; couples elements for editing"
+        },
+        "id": {
+          "type": "string",
+          "description": "unique within the project"
+        },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Spatial placement. Every property may be a constant or a keyframe list.",
+          "properties": {
+            "x": {
+              "description": "horizontal position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "y": {
+              "description": "vertical position of the anchor, px",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scale": {
+              "description": "uniform scale, 1.0 = native",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleX": {
+              "description": "horizontal scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "scaleY": {
+              "description": "vertical scale override",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "rotation": {
+              "description": "clockwise degrees about the anchor",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "opacity": {
+              "description": "0.0 transparent to 1.0 opaque",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "t",
+                      "value"
+                    ],
+                    "properties": {
+                      "t": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "seconds on the project clock"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "easing": {
+                        "type": "string",
+                        "enum": [
+                          "linear",
+                          "ease-in",
+                          "ease-out",
+                          "ease-in-out",
+                          "step"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "anchor": {
+              "type": "string",
+              "enum": [
+                "top-left",
+                "top-center",
+                "top-right",
+                "middle-left",
+                "center",
+                "middle-right",
+                "bottom-left",
+                "bottom-center",
+                "bottom-right"
+              ]
+            }
+          }
+        },
+        "effects": {
+          "type": "array",
+          "description": "Closed, named, parameterised effect vocabulary.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "blur"
+                  },
+                  "radius": {
+                    "description": "gaussian radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "brightness"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "contrast"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "saturation"
+                  },
+                  "amount": {
+                    "description": "-1.0 to 1.0",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "drop-shadow"
+                  },
+                  "dx": {
+                    "description": "offset x, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "dy": {
+                    "description": "offset y, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "radius": {
+                    "description": "blur radius, px",
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "t",
+                            "value"
+                          ],
+                          "properties": {
+                            "t": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "seconds on the project clock"
+                            },
+                            "value": {
+                              "type": "number"
+                            },
+                            "easing": {
+                              "type": "string",
+                              "enum": [
+                                "linear",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out",
+                                "step"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "fade"
+                  },
+                  "inDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "outDuration": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "type": {
+          "const": "shape"
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "rect",
+            "ellipse",
+            "line",
+            "polygon"
+          ]
+        },
+        "width": {
+          "description": "px",
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "t",
+                  "value"
+                ],
+                "properties": {
+                  "t": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds on the project clock"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "easing": {
+                    "type": "string",
+                    "enum": [
+                      "linear",
+                      "ease-in",
+                      "ease-out",
+                      "ease-in-out",
+                      "step"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "height": {
+          "description": "px",
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "t",
+                  "value"
+                ],
+                "properties": {
+                  "t": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "seconds on the project clock"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "easing": {
+                    "type": "string",
+                    "enum": [
+                      "linear",
+                      "ease-in",
+                      "ease-out",
+                      "ease-in-out",
+                      "step"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6,8}$"
+        },
+        "stroke": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": "string"
+            },
+            "width": {
+              "type": "number"
+            }
+          }
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}
