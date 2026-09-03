@@ -197,7 +197,54 @@ _(pending)_
 
 ### 2.4 DaVinci Resolve scripting API
 
-_(pending)_
+*Provenance caveat: Blackmagic ships its scripting reference as a `README.txt` inside the
+application rather than publishing it on the web. The text below is quoted from a verbatim
+mirror of that README
+([b3n0y/ResolveDevDoc](https://raw.githubusercontent.com/b3n0y/ResolveDevDoc/main/docs/source/readme_resolveapi.rst)),
+cross-checked against a second mirror
+([ResolveDevDoc on readthedocs](https://resolvedevdoc.readthedocs.io/en/latest/readme_resolveapi.html)).
+It is vendor text at one remove, not a vendor-hosted page.*
+
+**Resolve agrees with Premiere, not with OTIO: a timeline item holds an absolute frame
+position.**
+
+- `GetStart() --> int # Returns the start frame position on the timeline.`
+- `GetEnd() --> int # Returns the end frame position on the timeline.`
+- `GetLeftOffset() --> int # Returns the maximum extension by frame for clip from left side.`
+  — i.e. source handles, a separate concern from timeline position, again mirroring the
+  Element / Source-range split in CONTEXT.md.
+
+**A track is an addressing coordinate, not a container that owns times.** Items are reached
+by `(trackType, index)`, never by walking an ordered child list:
+
+- `GetTrackCount(trackType) --> int # Returns the number of tracks for the given track type
+  ("audio", "video" or "subtitle").`
+- `GetItemListInTrack(trackType, index) --> [items...] # Returns a list of timeline items on
+  that track (based on trackType and index). 1 <= index <= GetTrackCount(trackType).`
+- `GetTrackName(trackType, trackIndex) --> string` — again, lane-level state.
+
+Combined with §2.2, this makes **two of the three named desktop NLEs store absolute times per
+item and use the track only as a lane index plus an edit-time constraint.** The ordinal model
+of §2.1 is specific to OTIO's *interchange* abstraction; it is not how the editors themselves
+represent a timeline. This weakens the "tracks mean ordinal timing" framing considerably —
+the honest statement is **tracks mean a non-overlap constraint enforced at edit time over
+data that is stored absolutely.**
+
+**Sequencing again lives in the verbs.** `AppendToTimeline(clip1, clip2, ...)` appends;
+`InsertGeneratorIntoTimeline(generatorName)` inserts. The API offers no way to state that two
+items overlap on one track — you choose an edit verb and the application computes positions.
+
+**One point that cuts against ADR-0001, and it should be recorded:** Resolve's tracks are
+**typed by media kind** — `"audio"`, `"video"`, `"subtitle"` are not track *names*, they are
+part of the addressing scheme, and there is no way to ask for "everything at frame 150"
+across kinds without iterating three type-partitioned spaces. This is a mild real-world
+counter-example to ADR-0001's rejection of **per-kind collections**, whose stated objection
+was that *"cross-kind stacking becomes unanswerable: if a text and a shape live in different
+arrays, nothing in the document's structure says which draws in front."* Resolve does exactly
+that and lives with it — because subtitles and audio never compete with video for z-order, so
+the ambiguity ADR-0001 fears does not arise for *those* particular kinds. It would arise for
+Montaget's text/shape/image, which Resolve keeps together on video tracks. **The ADR's
+argument survives, but its scope is narrower than stated.**
 
 ### 2.5 FCPXML `spine` / `lane`
 
