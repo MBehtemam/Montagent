@@ -67,11 +67,33 @@ The file an element draws on, written on the element itself as a path or a URL.
 There is no table of files declared elsewhere and referred to by name.
 _Avoid_: asset, resource, media reference
 
+**Timeline range**:
+Where an element sits on the project's one absolute clock, as a `start` and an
+`end` in whole milliseconds. The range is half-open — an element is on screen from
+its `start` up to but not including its `end` — so a cut where one range ends and
+the next begins names a single instant, not an overlap and not a gap.
+_Avoid_: duration (as a stored field), offset, timecode
+
 **Source range**:
 Which part of a file an element plays, as distinct from where the element sits on
 the timeline. Only elements built on time-based media — video and audio — have
-one; images, text and shapes have no insides.
+one; images, text and shapes have no insides and are simply held for their whole
+timeline range. A time-based element's two ranges are the same length unless it
+says otherwise.
 _Avoid_: trim (as a noun), in/out point
+
+**Gap**:
+A stretch of a track with no element in it. Gaps are legal and ordinary — the
+silence between two narration lines is a gap. A gap is never an error, which is
+why it is reported apart from an overlap rather than alongside one.
+_Avoid_: hole, blank, silence (as a name for the general case)
+
+**Shift**:
+Moving every time at or after some instant by an offset, so that inserting or
+removing time carries the rest of the project with it. It is named because it is
+the one edit that is arithmetic rather than authorship, and therefore the one
+Montaget performs instead of the agent.
+_Avoid_: ripple (as the primary term), slide, nudge
 
 ## Rejected terms
 
