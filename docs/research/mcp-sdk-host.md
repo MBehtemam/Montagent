@@ -8,6 +8,22 @@ Research for [#15](https://github.com/MBehtemam/Montaget/issues/15), part of the
 
 **Sourcing rule applied:** every claim cites a primary source (the SDK repository itself, its releases and tags, the MCP specification, or a registry API — npm, PyPI, crates.io). Where a figure is not published, this document says **not found** rather than estimating. Where a fact could only be reached through a search-engine summary because the primary URL failed, it is marked **[secondary]**, as in the [renderer survey](renderer-survey.md).
 
+> [!WARNING]
+> **Scope correction — H7's conditional has resolved.**
+>
+> This survey reports text shaping (H7) as Latin-only and full-bidi *separately*, and concludes that Rust's bidi lead is "only load-bearing if the channel goes RTL or CJK" — leaving a large part of Rust's case contingent on a fact about one YouTube channel.
+>
+> [ADR-0003](../adr/0003-general-video-editor-not-channel-tooling.md) settles that Montaget is a **general, open-source video editor** whose first consumer merely happens to be that channel. See [#19](https://github.com/MBehtemam/Montaget/issues/19). The conditional therefore resolves: **full bidi is load-bearing, unconditionally.** Strangers will feed Montaget Arabic, Hebrew, Persian and Chinese regardless of what that channel publishes.
+>
+> How that changes the reading:
+>
+> - **The "H7 text — Latin only" row should be disregarded as a scoring row.** It was a tie worth nothing under either reading; only the full-bidi row scores.
+> - **Rust's case is stronger than the conclusion states.** It rests on H8 (distribution), H9 (unscored by anyone) *and* H7 — and H7 is now unconditional rather than contingent.
+> - **Python's named blocker is on the critical path.** No `TextDirection` binding in `skia-python` is still a well-defined upstream PR rather than a capability gap, but it can no longer be discounted as hypothetical.
+> - **`skia-canvas`'s undocumented bidi behaviour must be established empirically** if Node stays a candidate. The ~30-minute test this survey describes as conditional is now required.
+>
+> The **facts** are unaffected; the **weighting** is not. [#7](https://github.com/MBehtemam/Montaget/issues/7) owns the re-score.
+
 ---
 
 ## 1. What is being scored
