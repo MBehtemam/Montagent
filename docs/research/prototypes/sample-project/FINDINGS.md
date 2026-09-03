@@ -25,16 +25,16 @@ which has four items. The exercise is unchanged.
 
 | Question | Answer |
 | --- | --- |
-| Can a reader answer *"what is on screen at 6.2 s"* by reading only? | **Yes** — verified against the real frame. But it is now a scan of **14 arrays**. |
+| Can a reader answer *"what is on screen at 6.2 s"* by reading only? | **Yes** — verified against the real frame, and replicated 5/5 by independent judges. But it is a scan of **14 arrays**, and those same judges counted the tracks five different ways (§A, cross-examination). |
 | Could an agent write this file in one pass, without a bespoke API? | **No.** Three classes of number are unknowable from the inputs (§C). |
-| Is *"move the subtitle down on every card"* a small edit? | **One replace-all, 5 hits.** The formatting convention earns its keep — and a near-identical edit on the caption slot silently over-matches (§F). |
-| Does anything want a concept the model does not have? | **Yes, five.** None want a concept the model *forbids* (§G). |
+| Is *"move the subtitle down on every card"* a small edit? | **One replace-all, 5 hits.** The formatting convention earns its keep — but the caption slot beside it is unsafe in *both* directions, over-matching on `"y":1470` and under-matching on `"y":1373` (§F, cross-examination). |
+| Does anything want a concept the model does not have? | **Yes, five.** None want a concept the model *forbids* — confirmed 5/5 by independent judges, with one partial dissent (§G, cross-examination). |
 
 ---
 
 ## A. The read test passes, and the cost is now nameable
 
-At 6200 ms the file says: `photo-05`, `word-05` (*cobweb - cobweb*), the seven header
+At 6200 ms the file says: `photo-05`, `word-05` (*cobweb - cobweb*), the eight header
 elements, `vo-word-05-a` playing — and no sentence card, because `card-05` starts at
 10468. Checked against the published frame at 6.2 s: correct, including the absence.
 
@@ -50,20 +50,20 @@ like.
 ## B. The non-overlap rule is purely temporal, so static chrome explodes into tracks
 
 The header — cream chip panel, three flag rectangles, the chip text, the handle panel, the
-logo badge, the handle text — is **seven objects that never move, never change, and never
+logo badge, the handle text — is **eight objects that never move, never change, and never
 overlap each other in space**. Every one is on screen for all 65.216 s, so every one
 overlaps the others *in time*, so each needs its own track.
 
-**Six of the fourteen tracks hold exactly one element.** `chip-panel`, `flag-field`,
-`flag-bar-h`, `flag-bar-v`, `chip-text`, `handle-panel`, `handle-logo`, `handle-text` are
-tracks in the way an empty box is a container.
+**Nine of the fourteen tracks hold exactly one element.** `chip-panel`, `flag-field`,
+`flag-bar-h`, `flag-bar-v`, `chip-text`, `handle-panel`, `handle-logo`, `handle-text` and
+`caption-overflow` are tracks in the way an empty box is a container.
 
 The only thing marking these eight as one thing is `group: "header"`, which the renderer
 ignores. This is [#23](https://github.com/MBehtemam/Montaget/issues/23) arriving from a
 second direction: ADR-0004 left *"the interaction between `group` and `track` is now an
 open question"*, and the fixture answers *"and here is what it costs when you don't"*.
 
-Note what is **not** wrong here: Premiere and CapCut would also put these on seven video
+Note what is **not** wrong here: Premiere and CapCut would also put these on eight video
 tracks. The complaint is not that tracks are the wrong container — it is that a track
 carries *stacking* and the thing the author actually needs to name is *co-timed chrome*,
 and those are different groupings that the format currently conflates into one.
@@ -271,3 +271,148 @@ quietest good news here.
 
 **Unresolved tension flagged, not resolved:** #19's two-elements-sharing-a-group ruling
 against the fixture's single-string word slot (§G).
+
+---
+
+# Cross-examination
+
+The draft above was written by one agent. It was then handed to **five independent judges**
+— Opus, two Sonnets (one briefed as a hostile reviewer), Haiku and Fable — each given the
+same four questions, the domain docs, the fixture and ffmpeg, and each **blocked from
+reading this file or issue #9**. What follows is what they found, including where they
+falsified the draft's own conclusions.
+
+**A contamination to declare first.** The fixture README corrections in §H were committed
+*before* the judges ran, on the same branch. Four of the five read the 0.645× speed fact,
+the repeat structure and the Ken Burns restart straight off that appendix rather than
+discovering them. Only the hostile Sonnet rederived the doubled narration independently,
+via `ffmpeg silencedetect` against the shipped MP4, and confirmed it matches the draft's
+20 narration elements. Treat §D as **replicated once**, not five times — and the setup
+error is the author's, not the judges'.
+
+## What the judges agreed on
+
+**The read test is unanimous.** 5/5 answered "what is on screen at 6.2 s" correctly —
+`photo-05`, `word-05`, the eight header elements, `vo-word-05-a`, and *no sentence card* —
+and every one that checked verified it against the extracted frame. Zero arithmetic. §A
+stands.
+
+**Nothing forbidden crept in.** 5/5 walked the rejected list — scene, clip, asset, nesting,
+local clock, expression language — and found none. §G's closing claim stands, with one
+partial dissent (below).
+
+**Every arithmetic invariant holds.** Independently re-derived by four judges by script:
+60 elements, no per-track overlap, tracks sorted by `start`, segment durations summing
+exactly to 65216, all ASS `&HBBGGRR` → `#RRGGBB` conversions correct, every box matching
+its ASS draw path, every font size matching its ASS override.
+
+## The finding the draft missed entirely
+
+**90 % of the file's cut points do not land on a frame boundary.** At `fps: 25` a frame is
+exactly 40 ms. Of the file's 120 start/end values, **109 are not multiples of 40** — and
+the only aligned value in the whole file is `0`. The declared `duration: 65216` is
+**1630.4 frames**, not a whole number of them.
+
+This is not the 30 fps rounding problem
+[ADR-0005](../../../adr/0005-absolute-integer-milliseconds.md) excuses. 25 fps divides
+milliseconds cleanly; the draft simply inherited the old pipeline's marks (`beats.json`
+rounds to 10 ms) and never applied the ADR's own rule to its own output. ADR-0005 requires
+`validate` to note non-aligned boundaries and requires the renderer to publish its rounding
+rule — **the first real project file is a 90 % failure of that check**, written by an author
+who had read the ADR.
+
+It promotes the map's *"Frame alignment and the rounding rule"* fog entry from a renderer
+detail to an authoring problem: if every hand-written time is wrong by up to 39 ms, the
+rounding rule is not a footnote, it is the thing that decides where every cut lands.
+
+## Where the judges falsified the draft
+
+**1. `fit: "cover"` is the defect ADR-0005 rejected, wearing a different hat.** *(Opus.)*
+To know which pixels of `05.png` are on screen you need its dimensions — 1536 × 2720 —
+**which are not in the document**. ADR-0005 killed implicit `fill` "in its strongest form
+yet" on exactly that ground: *worse than an expression language, which at least ships its
+own inputs.* §E invented `fit` and did not notice it reproduces the sin verbatim. The
+draft's §C1 argument that fit-to-box is *legitimate* because its inputs are all in the
+document is correct **for text and wrong for images** — and the draft applied it to both.
+
+**2. §E's "absolute keyframes are a win" is the weaker reading.** *(Opus, with Fable
+concurring.)* Every keyframe pair is `[[start, 1.0], [start + 15000, 1.08]]`. That second
+number is a **relative duration materialised into an absolute one** — the dual
+representation ADR-0005 "rejects outright", whose stale-half failure it predicted. Hand-edit
+a photo's `start` and both keyframes silently desync from it. §E read the out-of-range
+keyframe as expressive; it is at least as good a reading that it is a leak.
+
+**3. `speed` is over-determined, and has already gone stale.** *(Opus.)* `2568 / 0.645 =
+3981.40` against a declared `3981`; `1992 / 0.645 = 3088.37` against `3088`. Three numbers,
+two of which disagree at integer milliseconds, and **nothing says which the renderer
+obeys**. This is precisely the failure ADR-0005 used to kill dual representations, occurring
+inside the prototype meant to test it. [#25](https://github.com/MBehtemam/Montaget/issues/25)
+must pick two of {timeline range, source range, speed} and derive the third.
+
+**4. Layer collides across tracks, and no anchor was used.** *(All five.)* `chip-panel` and
+`handle-panel` both declare `layer: 30`; `flag-field`, `handle-logo` and `handle-text` all
+declare `31`. ADR-0004 gives no tie-break between two tracks claiming one integer. It renders
+correctly only because those boxes happen not to intersect — safety that is invisible without
+cross-referencing every box on the layer. Worse: **the file uses zero anchors and zero
+per-element layer overrides**, and hand-maintains a 30/31/32/33/34 ladder instead. That
+ladder is the exact arithmetic all eight agents in ADR-0004 demanded anchors *to prevent*.
+Belongs to [#24](https://github.com/MBehtemam/Montaget/issues/24).
+
+**5. `shift` cannot extend the tail, and does not mention keyframes.** *(Opus; Fable.)*
+`65216` appears as a literal **11 times**. Lengthening the video is 11 exact-string edits,
+and `shift(at, delta)` cannot help — there is no instant at-or-after which anything needs
+moving. Separately, keyframe times are absolute, so `shift` must rewrite them, and
+ADR-0005's spec never says so. Two holes in the shift/absolute bargain.
+
+**6. The replace-all trap is worse than §F said.** §F found `"y":1470` matching nine
+elements that are not one concept. The hostile Sonnet found a third variant the draft
+missed: **`"y":1373` matches only 4 of the 5 word slots**, because item 08 is split across
+two elements at 1352/1398 on another track. An agent doing the obvious edit silently misses
+item 08 and ships an inconsistent card with no error. So the caption slot is unsafe in *both*
+directions — over-matching on 1470, under-matching on 1373.
+
+**7. The card↔text coupling is sharper than §F stated.** *(Opus, Sonnet, Fable.)* Moving the
+subtitle is **two** replace-alls on **two different coordinate systems** — text `y: 1537`
+(a centre) and card `box: [48,1453,984,169]` (top-left + size) — kept in sync only by the
+author knowing `1537 ≈ 1453 + 169/2`. Miss the second and the text slides off its card, and
+**nothing validates it**. `group: "item-05"` is far too coarse to select the pair: it also
+contains the photo, the hook, the word and six audio elements. `anchor` handles z-order, not
+position. Direct evidence for [#23](https://github.com/MBehtemam/Montaget/issues/23).
+
+**8. Text `y` has no declared vertical anchor.** *(Opus.)* `chip-text` at `y: 130` with
+`align: "left"` transcribes ASS `\an4` — left-*middle* — so `y` is a centre. Nothing in the
+file says so, and `align` names only the horizontal axis.
+
+## New facts, not corrections
+
+- **The countdown is genuinely silent.** *(Fable.)* Measured −91 dB under the 5-4-3-2-1
+  digits, so no audio element was owed there. The draft's omission was right.
+- **The fixture came one `null` from needing a second audio track.** *(Opus.)*
+  `beats.json` carries `"hook_bed": null` — a music bed under the hook. Had it been set, the
+  narration track could not hold it.
+- **The Ken Burns move is zoom only, no pan.** *(Sonnet A, Fable.)* Both compared first and
+  last frames of `kenburns/05.mp4`. The fixture README calls it "pan/zoom"; scale-only is
+  correct, though the draft asserted rather than established it, and with no stated transform
+  origin there is no way to tell from the file.
+- **Boundary reconciliation is unmarked.** *(Fable.)* The draft systematically prefers
+  segment-sum arithmetic to the ASS — `17472` vs the ASS's 17.468, `64016` vs 63.996 — each
+  defensible, none disclosed.
+
+## Judge errors, recorded
+
+Not everything the judges reported survived checking, and this matters for how much weight
+their agreement carries:
+
+- **Track counts: 13, 14, 15, 8-of-13, 12-of-15.** The true figures are **14 tracks, 9 of
+  them single-element**. Opus said 13, Fable said 15, Sonnet A and the hostile Sonnet said
+  14. The draft itself said "six of the fourteen" and was also wrong. **Five careful readers
+  produced five different structural counts of a 154-line file, while all five read
+  "what is on screen at 6.2 s" identically and correctly.** That is the cost of §B stated as
+  a measurement rather than an opinion: *presence reads reliably; structure does not.*
+- Opus reported the word→sentence pause drifting (798/804 ms) and a 4 ms "hole" at the quiz.
+  Both are wrong — the pauses are uniformly 800 ms and 520 ms across all four items, and the
+  4 ms is the audio file ending before its text does, which is expected.
+- The hostile Sonnet said "the two `speed:0.645` elements". There are four.
+
+The strongest report contained the most confident wrong details. Worth remembering before
+any of this is promoted into an ADR.
