@@ -193,7 +193,53 @@ itself consistent with §3 Q2 — no format surveyed makes this explicit except 
 
 ### 2.3 CapCut / JianYing `draft_content.json`
 
-_(pending)_
+**There is no primary source.** ByteDance publishes no schema, no format documentation and no
+scripting API for the CapCut project file; `draft_content.json` is an internal file that
+third parties have reverse-engineered. Everything in this subsection is therefore **at best
+second-hand**, and is flagged as such. It is included because CapCut is half the reference
+class named in #20 and its absence would be a bigger hole than its uncertainty.
+
+The strongest available evidence is
+[pyJianYingDraft](https://github.com/GuanYixuan/pyJianYingDraft), a library that *writes*
+draft files the application then opens successfully — so its model is empirically validated
+even though it is not authoritative.
+
+**Segments carry an absolute time range on the track.** `target_timerange` is documented in
+the source as *"片段在轨道上的时间范围"* — the time range of the segment on its track — as a
+`start` plus a `duration`. `source_timerange` is separate: *"截取的素材片段的时间范围, 对贴纸而言
+不存在"* — the range taken from the source material, *which does not exist for stickers*.
+
+That is the **third** independent confirmation (with §2.2 and §2.4) of two things Montaget
+already does: timeline position stored absolutely on the item, and source range as a separate
+optional concern that only time-based media has. CONTEXT.md's **Source range** entry — *"Only
+elements built on time-based media — video and audio — have one; images, text and shapes have
+no insides"* — is the same rule CapCut applies to stickers.
+
+**Overlap within a track is prohibited.** `Track.add_segment` requires that a segment *"不与
+现有片段重叠"* — must not overlap existing segments — and raises `SegmentOverlap` with *"New
+segment overlaps with existing segment"*. So CapCut agrees with every other format in both
+surveys: **a lane is a non-overlap constraint.** ADR-0001's premise holds for the tool the
+reference class is most identified with. **NOT CONFIRMED** whether the constraint is enforced
+by the application or only by this library, but a library that generates files the app opens
+would have no reason to invent it.
+
+**Tracks are typed by media kind**, six of them: `video`, `audio`, `effect`, `filter`,
+`sticker`, `text`. Track ordering is an integer `track_order`, documented as *"内部顺序, 值越大
+越靠后导出"* — internal ordering, larger values exported later.
+
+This is a **second and sharper counter-example to ADR-0001's rejection of per-kind
+collections** than Resolve's (§2.4). Resolve's kinds (video/audio/subtitle) never compete for
+z-order; CapCut's `text` and `sticker` plainly do. So a shipping product in exactly Montaget's
+class does partition by kind *and* has to stack across kinds. **NOT CONFIRMED — and this is a
+real gap — how CapCut resolves z-order across kinds.** Segments export a
+`track_render_index` field, but the library sets it to `0` and offers no explanation, and no
+primary source describes it. Whether cross-kind stacking is by `track_order`, by
+`track_render_index`, or by a fixed kind precedence could not be established.
+
+The honest summary: **the CapCut evidence supports the non-overlap finding and the
+absolute-time finding, and leaves the z-order question open.** Anyone relying on the per-kind
+observation to argue against ADR-0001 should first resolve `track_render_index` from a real
+export.
 
 ### 2.4 DaVinci Resolve scripting API
 
