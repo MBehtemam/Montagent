@@ -1,5 +1,6 @@
 ---
 status: accepted
+amended-by: 0007 (fonts carve-out)
 ---
 
 # Elements name their files inline; there is no asset table
@@ -58,6 +59,48 @@ Note also that no published study tests this question directly. The verdict rest
 on inference from adjacent results, at moderate confidence. The cheap way to
 settle it properly is to build one fixture in both encodings and run a matched
 eval on reading, generation and editing.
+
+**Correction, from [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md):
+the rebuttal above is true for media and false for fonts, measured in this very
+fixture.** "The risk scales with occurrence count, and the flat model keeps counts
+low" holds for `source` — 16 distinct media files, 28 references, **mean 1.75**, max
+4. It fails for fonts: **one font, referenced by all 22 text elements**. A flat
+timeline reduces media reference counts because one image on screen for fourteen
+seconds is one element; it does nothing to a property that recurs on *every* text
+element regardless of duration. Read the sentence as scoped to media, not as general.
+
+## What this ADR does not cover: fonts
+
+**The evidence base was gathered about media locations and contains no font data.**
+`docs/research/declarative-video-api-models.md` — the survey this ADR's "nobody
+authoring for machines does it" argument rests on — contains the string "font"
+**zero times**. Surveyed afresh, the same reference class points the other way:
+Shotstack (`timeline.fonts`), Creatomate, CSS `@font-face`, Remotion `loadFont` and
+ASS's own `Style:` block all *declare* fonts centrally. The one system that inlined
+the location into the name slot, JSON2Video, **forfeited ordered fallback as a
+structural consequence** — a slot that may hold a URL cannot also hold a chain.
+
+Three of this ADR's five arguments still transfer to fonts intact (read tax,
+dangling references, id hallucination); the dedup argument does not, and hermeticity
+has nowhere to live under the inline form — "the set of files the renderer may open"
+would exist only as the union of 22 element declarations. So ADR-0007 carves fonts
+out **without disturbing `source`**, under a discriminant that keeps the format at
+one rule:
+
+> A value is written inline unless it **(i)** names bytes outside the document, **and
+> (ii)** belongs to a value set that is closed, small, and scaled by policy rather
+> than by content.
+
+Media source fails (ii) — open, content-scaled, and growing. Colour, size and
+position fail (i). **Font passes both, and today it is the only thing that does** —
+which is the point, and what stops the slide into templating.
+`source` never gets a table.
+
+Consequence #4 below is thereby **discharged rather than overridden**: it
+pre-authorised the shape, and ADR-0007 binds it — alias keys are author-chosen
+semantic names (`brand`, `brand+fa`), never `f1`, and never the family name embedded
+in the font binary, which would reintroduce the system-font nondeterminism the whole
+decision exists to kill.
 
 ## Consequences
 

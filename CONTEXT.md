@@ -54,7 +54,27 @@ An element's layer stated relative to another element rather than as a number �
 `{"below": "title"}` resolves to that element's layer minus one, wherever either
 of them sits. Written so a dependent element cannot drift out of sync when the
 thing it depends on moves.
-_Avoid_: parent, constraint, binding
+_Avoid_: parent, constraint, binding; and do **not** use for an element's
+positioning origin — that is `origin`. See the note under Origin.
+
+**Origin**:
+The point of an element's own box that its `x`,`y` places, as one of nine keywords
+(`top-left` … `center` … `bottom-right`), and about which transforms pivot.
+_Avoid_: anchor, alignment, pivot
+
+**Run**:
+One stretch of a text element's content, carrying its own text plus style deltas
+over the element's base style. A text element's content is always an ordered array
+of runs, even when there is only one. A run boundary is *style only* — it never
+implies a line break; a line break is a `\n` character inside a run's text.
+_Avoid_: span, segment, chunk
+
+**Font**:
+An ordered chain of font *files* the project declares under a semantic name, which
+elements reference by that name. Always files, never a system family: a family name
+is an entry in a table you cannot read, cannot commit, and that differs per machine.
+The renderer opens nothing outside the chain.
+_Avoid_: typeface, family, font stack
 
 **Group**:
 An optional free-text label marking elements that belong together, such as every
@@ -118,4 +138,19 @@ range, so no such pairing exists.
 Elsewhere an asset is an imported file declared once and referenced by id.
 Montaget writes the file's location on the element that uses it. Note also that
 an asset is *not* a reusable configured object in the sense of a Unity prefab —
-that is templating, and it is out of scope for v1.
+that is templating, and it is out of scope for v1. The one carve-out is **Font**,
+for reasons recorded in [ADR-0002](docs/adr/0002-inline-source-no-asset-table.md);
+media sources never get a table.
+
+**Anchor, for text positioning**:
+Every comparable tool — ASS's `\an`, CSS, every GUI editor — calls the nine-way
+positioning point an *anchor*. Montaget spends that word on layer-relative stacking
+instead, so the positioning point is **`origin`**. The collision is recorded here
+because it is near-certain to be rediscovered: the positioning concept appears on
+essentially every text element, and layer anchoring appears rarely.
+
+**Weight / bold**:
+Not a field. A different weight is a different font file — with one declared file
+and no family to search, `bold: true` could only mean synthetic emboldening, which
+is renderer-specific and machine-dependent. Expect to reach for it out of CSS habit;
+the schema rejects it and names the replacement.
