@@ -196,8 +196,18 @@ fallback, and UAX #14 line breaking including CJK"** — and names this fork as
 statements are in the accepted ADR. They cannot both be operative.
 
 The measurements above are unaffected: what cosmic-text and parley do is what
-they do. What is now open is whether it *counts*, and that is
-[#28](https://github.com/MBehtemam/Montaget/issues/28), not this ticket. Note
+they do. What was open was whether it *counts* — and
+**[#28](https://github.com/MBehtemam/Montaget/issues/28) has now answered it.**
+
+> **Resolution.** [ADR-0008](../../../adr/0008-line-breaks-belong-to-the-agent.md):
+> the renderer never consults a break opportunity; the agent always needs one; they
+> are not the same question. **The `SA` fork measured here is an authoring-tool
+> requirement, not a renderer criterion** — `measure` gains a break-opportunity
+> output, and `icu_segmenter` can be called directly whichever crate renders.
+> **For [#7](https://github.com/MBehtemam/Montaget/issues/7): do not weight the
+> 3.82 MB discriminator as a renderer criterion.** See also
+> [HARD-BREAKS.md](HARD-BREAKS.md), which records a separate parley defect found
+> while resolving #28. Note
 that "no auto-wrap" does not obviously dispose of it either — an agent placing
 `\n` by hand in an unspaced Thai string still has to know where the words are,
 and `measure`/`frame` is the only thing that can tell it. That is a tool-surface
