@@ -132,3 +132,48 @@ consults a break *opportunity*, so #27's `complex-scripts` discriminator belongs
 - Whether cosmic-text has an equivalent footgun in some other mode; it was correct in
   all 11 cases in `Wrap::None` and was not swept across its other wrap modes here.
 - Not reported upstream at the time of writing.
+
+## The adversarial pass, scored
+
+One of the three judges was briefed to argue against the conclusion and to predict
+the consensus and attack it. It made two falsifiable predictions. Both had already
+been run.
+
+| its prediction | outcome |
+| --- | --- |
+| *"re-run the failing rows with `Some(984.0)` and `Some(f32::INFINITY)`; at least one column will differ from `None`. If both match, this attack dies."* | **Falsified.** `None`, `f32::MAX`, `10000`, `984` all DROPPED. It said it would concede; it is conceded here. |
+| *"insert any non-`SA` character immediately before the `\n` — a space, a full stop — and all six rows will pass."* | **Confirmed.** `"กก \nกก"` and `"กกA\nB"` both pass. The defect is a localised range-merge, not an architectural incapacity — which is why *"parley cannot render the format"* was withdrawn above. |
+
+Its other objections, checked:
+
+- ***"Version asymmetry — parley 0.11 may pin `icu_segmenter 1.x` while the control
+  queried 2.x, so the control does not test the code under test."*** **Falsified.**
+  `cargo tree -i icu_segmenter` resolves to a **single shared node, v2.3.0**, used by
+  both parley and the control. Same code.
+- ***"The pass criterion may be too weak — 'ok' might mean 'more than one line'."***
+  It does not; it is `lines == count('\n') + 1`, and `results/falsify.txt` dumps the
+  actual per-line text for the decisive rows.
+- ***"cosmic-text's 0/11 is a clean sheet on an exam it was not sitting — the hard-break
+  test never exercises the `SA` tailoring, so the right action is a third measurement
+  with a real box, at a width that forces wrapping, on unbroken Thai copy."***
+  **Correct, and already done:** that measurement is
+  [#27](https://github.com/MBehtemam/Montaget/issues/27), which the adversary had not
+  been shown. cosmic-text scores `breaks: [0]` there — one line, overflowing a 420 px
+  box by 2.5×. Both halves are now measured.
+
+### What it got right that nobody else did
+
+Its attack on its own answer to (a) — that a strictly no-wrap renderer still needs a
+**proper subset** of UAX #14 — stands, and neither the other judges nor this author
+had it:
+
+- **CRLF is one break, not two.** ADR-0007 commits to *"no tidying pass, ever,"* so a
+  CR introduced by an editor is content the format promises to preserve. A naive
+  `split('\n')` leaves a stray `\r` in the line.
+- The other mandatory classes exist and are not `\n`: U+000B, U+000C, U+0085,
+  U+2028, U+2029.
+- **Bidi paragraphs are delimited by exactly these characters**, so a mandatory break
+  resets the embedding level. Splitting is not merely a line question.
+
+That is a real gap in *"`\n` is the only mechanism"* as an implementation instruction,
+and it belongs in ADR-0008 rather than being discovered later.
