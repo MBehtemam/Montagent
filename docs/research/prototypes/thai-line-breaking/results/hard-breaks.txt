@@ -1,0 +1,52 @@
+# parley 0.11.1  complex-scripts=false
+latin                    \n x1  ->  2 line(s)  expected 2  ok
+thai                     \n x1  ->  1 line(s)  expected 2  **DROPPED**
+thai-2                   \n x1  ->  1 line(s)  expected 2  **DROPPED**
+thai-latin-neighbours    \n x1  ->  2 line(s)  expected 2  ok
+thai-then-latin          \n x1  ->  1 line(s)  expected 2  **DROPPED**
+latin-then-thai          \n x1  ->  2 line(s)  expected 2  ok
+khmer                    \n x1  ->  1 line(s)  expected 2  **DROPPED**
+lao                      \n x1  ->  1 line(s)  expected 2  **DROPPED**
+japanese                 \n x1  ->  2 line(s)  expected 2  ok
+thai-crlf                \n x1  ->  2 line(s)  expected 2  ok
+thai-double              \n x2  ->  2 line(s)  expected 3  **DROPPED**
+
+mandatory breaks dropped in 6 of 11 cases
+
+# parley 0.11.1  complex-scripts=true
+latin                    \n x1  ->  2 line(s)  expected 2  ok
+thai                     \n x1  ->  1 line(s)  expected 2  **DROPPED**
+thai-2                   \n x1  ->  1 line(s)  expected 2  **DROPPED**
+thai-latin-neighbours    \n x1  ->  2 line(s)  expected 2  ok
+thai-then-latin          \n x1  ->  1 line(s)  expected 2  **DROPPED**
+latin-then-thai          \n x1  ->  2 line(s)  expected 2  ok
+khmer                    \n x1  ->  1 line(s)  expected 2  **DROPPED**
+lao                      \n x1  ->  1 line(s)  expected 2  **DROPPED**
+japanese                 \n x1  ->  2 line(s)  expected 2  ok
+thai-crlf                \n x1  ->  2 line(s)  expected 2  ok
+thai-double              \n x2  ->  2 line(s)  expected 3  **DROPPED**
+
+mandatory breaks dropped in 6 of 11 cases
+
+# cosmic-text 0.19.0  wrap=None (only mandatory breaks apply)
+latin                    \n x1  ->  2 line(s)  expected 2  ok
+thai                     \n x1  ->  2 line(s)  expected 2  ok
+thai-2                   \n x1  ->  2 line(s)  expected 2  ok
+thai-latin-neighbours    \n x1  ->  2 line(s)  expected 2  ok
+thai-then-latin          \n x1  ->  2 line(s)  expected 2  ok
+latin-then-thai          \n x1  ->  2 line(s)  expected 2  ok
+khmer                    \n x1  ->  2 line(s)  expected 2  ok
+lao                      \n x1  ->  2 line(s)  expected 2  ok
+japanese                 \n x1  ->  2 line(s)  expected 2  ok
+thai-crlf                \n x1  ->  2 line(s)  expected 2  ok
+thai-double              \n x2  ->  3 line(s)  expected 3  ok
+
+mandatory breaks dropped in 0 of 11 cases
+
+# is the dropped break parley's or ICU4X's?
+latin              LF at byte   3  boundary at 4? YES   breaks [0, 4, 7]
+thai               LF at byte  51  boundary at 52? YES   breaks [0, 9, 24, 33, 51, 52, 61, 73, 82, 88, 97]
+thai-then-latin    LF at byte  21  boundary at 22? YES   breaks [0, 9, 21, 22, 25]
+latin-then-thai    LF at byte   3  boundary at 4? YES   breaks [0, 4, 13, 25, 40]
+khmer              LF at byte  36  boundary at 37? YES   breaks [0, 9, 36, 37, 55, 73]
+japanese           LF at byte  18  boundary at 19? YES   breaks [0, 3, 6, 9, 12, 15, 19, 22, 25, 31, 34, 37, 40, 46]

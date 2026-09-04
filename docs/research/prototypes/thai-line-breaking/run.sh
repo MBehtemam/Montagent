@@ -38,6 +38,21 @@ cp target/release/parley-probe results/parley-probe-on.bin
 ./target/release/parley-probe BreakWord $BOX    frames > results/parley-on-BreakWord.txt
 ./target/release/parley-probe Normal    $NARROW        > results/parley-on-opportunities.txt
 
+echo "== mandatory \\n handling (issue #28) =="
+{
+  cargo build --release --workspace >/dev/null 2>&1
+  ./target/release/hardbreak 2>/dev/null || cargo run --release -q -p parley-probe --bin hardbreak
+  echo
+  cargo run --release -q -p parley-probe --bin hardbreak --features complex-scripts
+  echo
+  cargo run --release -q -p cosmic-probe --bin hardbreak
+  echo
+  echo "# is the dropped break parley's or ICU4X's?"
+  cargo run --release -q -p parley-probe --bin icudirect
+} > results/hard-breaks.txt 2>&1
+cargo run --release -q -p cosmic-probe --bin hardbreak -- render >/dev/null 2>&1
+mv -f hardbreak-cosmic-*.png frames/ 2>/dev/null || true
+
 echo "== segmentation vs oracle =="
 ./compare.py > results/segmentation-vs-oracle.txt
 

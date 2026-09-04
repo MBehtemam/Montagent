@@ -7,6 +7,7 @@ edition = "2021"
 skrifa = "0.44"
 tiny-skia = "0.11"
 parley = "0.11.1"
+icu_segmenter = { version = "2", features = ["compiled_data"] }
 
 [features]
 complex-scripts = ["parley/complex-scripts"]
