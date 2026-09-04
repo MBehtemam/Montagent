@@ -1,0 +1,172 @@
+# stack: cosmic-text 0.19.0
+# wrap: Word
+
+## thai (family Ayuthaya, size 32, width 1)
+expect: การ|เดิน|ทาง|ไป|ประเทศ|ไทย|เป็น|ประสบการณ์|ที่|ดี|มาก|สำหรับ|นัก|ท่องเที่ยว|ทุก|คน -- Thai writes without spaces, so every break here needs dictionary or LSTM segmentation. A stack that resolves SA to AL sees one unbreakable 67-char word.
+line w=1045.94 [  0..201] "การเด\u{e34}นทางไปประเทศไทยเป\u{e47}นประสบการณ\u{e4c}ท\u{e35}\u{e48}ด\u{e35}มากสำหร\u{e31}บน\u{e31}กท\u{e48}องเท\u{e35}\u{e48}ยวท\u{e38}กคน"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Ayuthaya
+
+## thai-with-spaces (family Ayuthaya, size 32, width 1)
+expect: Thai uses spaces at clause boundaries only (2 here). A stack with no Thai segmentation still breaks at those 2 spaces -- which is what makes the failure plausible instead of obvious: the output looks laid out, just wrongly.
+line w= 247.22 [  0.. 42] "ฉ\u{e31}นชอบอาหารไทย"
+line w= 323.29 [ 43..100] "เพราะรสชาต\u{e34}อร\u{e48}อยมาก"
+line w= 532.48 [101..200] "และราคาไม\u{e48}แพงเก\u{e34}นไปสำหร\u{e31}บน\u{e31}กเร\u{e35}ยน"
+breaks: [0, 43, 101]
+lines: 3  overflowing: 3  notdef-glyphs: 0
+resolved-fonts: Ayuthaya
+
+## thai-2 (family Ayuthaya, size 32, width 1)
+expect: A second unspaced Thai paragraph, added after the first one exposed mid-word boundaries, to tell a bad sample apart from a bad segmenter.
+line w= 798.72 [  0..162] "เด\u{e47}กน\u{e31}กเร\u{e35}ยนท\u{e38}กคนต\u{e49}องอ\u{e48}านหน\u{e31}งส\u{e37}อก\u{e48}อนสอบปลายภาคเร\u{e35}ยนน\u{e35}\u{e49}"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Ayuthaya
+
+## thai-3 (family Ayuthaya, size 32, width 1)
+expect: A third unspaced Thai paragraph, news register rather than tourism.
+line w=1026.93 [  0..195] "ร\u{e31}ฐบาลประกาศมาตรการใหม\u{e48}เพ\u{e37}\u{e48}อช\u{e48}วยเหล\u{e37}อผ\u{e39}\u{e49}ประกอบการขนาดเล\u{e47}กในป\u{e35}หน\u{e49}า"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Ayuthaya
+
+## khmer (family Khmer Sangam MN, size 32, width 1)
+expect: ការ|ធ្វើ|ដំណើរ|ទៅ|កាន់|ប្រទេស|កម្ពុជា|គឺជា|បទពិសោធន៍|ដ៏|អស្ចារ្យ|សម្រាប់|អ្នក|ទេសចរណ៍ -- same shape as Thai. Also the case where icu4x#7218 (Khmer spacing) would bite.
+line w= 985.34 [  0..216] "ការធ\u{17d2}វើដ\u{17c6}ណើរទៅកាន\u{17cb}ប\u{17d2}រទេសកម\u{17d2}ព\u{17bb}ជាគ\u{17ba}ជាបទព\u{17b7}សោធន\u{17cd}ដ\u{17cf}អស\u{17d2}ចារ\u{17d2}យសម\u{17d2}រាប\u{17cb}អ\u{17d2}នកទេសចរណ\u{17cd}"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Khmer Sangam MN
+
+## khmer-with-spaces (family Khmer Sangam MN, size 32, width 1)
+expect: The exact shape of icu4x#7218 (open, T-bug, filed 2025-11-04): the segmenter offers a break BEFORE each space as well as after, isolating the space. Upstream's own triage says a layout engine trims trailing spaces so it does not surface -- so the check is whether parley trims. A line that STARTS with a space is the bug reaching the frame.
+line w=  48.97 [  0..  9] "អស\u{17cb}"
+line w=  38.41 [ 10.. 19] "ន\u{17b9}ង"
+line w=  49.61 [ 20.. 29] "មាន"
+line w=  74.41 [ 30.. 48] "ចន\u{17d2}លោះ"
+line w=  48.97 [ 49.. 58] "អស\u{17cb}"
+line w=  38.41 [ 59.. 68] "ន\u{17b9}ង"
+line w=  49.61 [ 69.. 78] "មាន"
+line w=  74.41 [ 79.. 97] "ចន\u{17d2}លោះ"
+line w=  48.97 [ 98..107] "អស\u{17cb}"
+line w=  38.41 [108..117] "ន\u{17b9}ង"
+line w=  49.61 [118..127] "មាន"
+line w=  89.28 [128..149] "ចន\u{17d2}លោះ។"
+breaks: [0, 10, 20, 30, 49, 59, 69, 79, 98, 108, 118, 128]
+lines: 12  overflowing: 12  notdef-glyphs: 0
+resolved-fonts: Khmer Sangam MN
+
+## lao (family Lao Sangam MN, size 32, width 1)
+expect: Same shape as Thai; named in parley's complex-scripts feature text.
+line w= 878.48 [  0..189] "ການເດ\u{eb5}ນທາງໄປປະເທດລາວແມ\u{ec8}ນປະສ\u{ebb}ບການທ\u{eb5}\u{ec8}ດ\u{eb5}ຫ\u{ebc}າຍສຳລ\u{eb1}ບນ\u{eb1}ກທ\u{ec8}ອງທ\u{ec8}ຽວທ\u{eb8}ກຄ\u{ebb}ນ"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Lao Sangam MN
+
+## japanese (family Hiragino Sans, size 32, width 1)
+expect: UAX #14 gives ideographs class ID and kana CJ, both breakable on either side with no dictionary at all. So BOTH stacks should break this acceptably, and CJK should NOT discriminate. Kinsoku is the only open question: the line must not begin with the trailing 。 or 、.
+line w=  32.00 [  0..  3] "日"
+line w=  32.00 [  3..  6] "本"
+line w=  32.00 [  6..  9] "語"
+line w=  32.00 [  9.. 12] "の"
+line w=  32.00 [ 12.. 15] "テ"
+line w=  32.00 [ 15.. 18] "キ"
+line w=  32.00 [ 18.. 21] "ス"
+line w=  32.00 [ 21.. 24] "ト"
+line w=  32.00 [ 24.. 27] "は"
+line w=  32.00 [ 27.. 30] "単"
+line w=  32.00 [ 30.. 33] "語"
+line w=  32.00 [ 33.. 36] "の"
+line w=  32.00 [ 36.. 39] "区"
+line w=  32.00 [ 39.. 42] "切"
+line w=  32.00 [ 42.. 45] "り"
+line w=  32.00 [ 45.. 48] "に"
+line w=  32.00 [ 48.. 51] "空"
+line w=  32.00 [ 51.. 54] "白"
+line w=  32.00 [ 54.. 57] "を"
+line w=  32.00 [ 57.. 60] "使"
+line w=  32.00 [ 60.. 63] "わ"
+line w=  32.00 [ 63.. 66] "な"
+line w=  32.00 [ 66.. 69] "い"
+line w=  32.00 [ 69.. 72] "の"
+line w=  62.72 [ 72.. 78] "で、"
+line w=  32.00 [ 78.. 81] "行"
+line w=  32.00 [ 81.. 84] "の"
+line w=  32.00 [ 84.. 87] "折"
+line w=  32.00 [ 87.. 90] "り"
+line w=  32.00 [ 90.. 93] "返"
+line w=  32.00 [ 93.. 96] "し"
+line w=  32.00 [ 96.. 99] "は"
+line w=  32.00 [ 99..102] "文"
+line w=  32.00 [102..105] "字"
+line w=  32.00 [105..108] "単"
+line w=  32.00 [108..111] "位"
+line w=  32.00 [111..114] "で"
+line w=  32.00 [114..117] "行"
+line w=  32.00 [117..120] "わ"
+line w=  32.00 [120..123] "れ"
+line w=  32.00 [123..126] "ま"
+line w=  60.80 [126..132] "す。"
+breaks: [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 78, 81, 84, 87, 90, 93, 96, 99, 102, 105, 108, 111, 114, 117, 120, 123, 126]
+lines: 42  overflowing: 42  notdef-glyphs: 0
+resolved-fonts: Hiragino Sans
+
+## chinese (family Hiragino Sans GB, size 32, width 1)
+expect: All class ID. Same prediction as japanese: no dictionary needed, no discrimination.
+line w=  32.00 [  0..  3] "中"
+line w=  32.00 [  3..  6] "文"
+line w=  32.00 [  6..  9] "文"
+line w=  32.00 [  9.. 12] "本"
+line w=  32.00 [ 12.. 15] "在"
+line w=  32.00 [ 15.. 18] "排"
+line w=  32.00 [ 18.. 21] "版"
+line w=  32.00 [ 21.. 24] "时"
+line w=  32.00 [ 24.. 27] "不"
+line w=  32.00 [ 27.. 30] "使"
+line w=  32.00 [ 30.. 33] "用"
+line w=  32.00 [ 33.. 36] "空"
+line w=  32.00 [ 36.. 39] "格"
+line w=  32.00 [ 39.. 42] "分"
+line w=  64.00 [ 42.. 48] "词，"
+line w=  32.00 [ 48.. 51] "因"
+line w=  32.00 [ 51.. 54] "此"
+line w=  32.00 [ 54.. 57] "换"
+line w=  32.00 [ 57.. 60] "行"
+line w=  32.00 [ 60.. 63] "可"
+line w=  32.00 [ 63.. 66] "以"
+line w=  32.00 [ 66.. 69] "发"
+line w=  32.00 [ 69.. 72] "生"
+line w=  32.00 [ 72.. 75] "在"
+line w=  32.00 [ 75.. 78] "几"
+line w=  32.00 [ 78.. 81] "乎"
+line w=  32.00 [ 81.. 84] "任"
+line w=  32.00 [ 84.. 87] "意"
+line w=  32.00 [ 87.. 90] "两"
+line w=  32.00 [ 90.. 93] "个"
+line w=  32.00 [ 93.. 96] "汉"
+line w=  32.00 [ 96.. 99] "字"
+line w=  32.00 [ 99..102] "之"
+line w=  64.00 [102..108] "间。"
+breaks: [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102]
+lines: 34  overflowing: 34  notdef-glyphs: 0
+resolved-fonts: Arial Unicode MS
+
+## latin-control (family Helvetica, size 32, width 1)
+expect: The control. Both stacks must agree here; if they do not, the harness itself is measuring something other than line breaking.
+line w=  55.14 [  0..  3] "The"
+line w=  74.70 [  4..  9] "quick"
+line w=  87.16 [ 10.. 15] "brown"
+line w=  42.69 [ 16.. 19] "fox"
+line w=  85.36 [ 20.. 25] "jumps"
+line w=  62.25 [ 26.. 30] "over"
+line w=  44.48 [ 31.. 34] "the"
+line w=  56.91 [ 35.. 39] "lazy"
+line w=  53.39 [ 40.. 43] "dog"
+line w=  64.05 [ 44.. 48] "near"
+line w=  44.48 [ 49.. 52] "the"
+line w= 131.61 [ 53.. 62] "riverbank"
+line w=  26.69 [ 63.. 65] "at"
+line w=  85.39 [ 66.. 71] "dawn."
+breaks: [0, 4, 10, 16, 20, 26, 31, 35, 40, 44, 49, 53, 63, 66]
+lines: 14  overflowing: 14  notdef-glyphs: 0
+resolved-fonts: Helvetica

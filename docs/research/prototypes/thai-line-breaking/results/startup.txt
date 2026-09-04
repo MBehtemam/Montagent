@@ -1,0 +1,4 @@
+# spawn + font discovery + layout of all samples, n=40, interleaved
+parley complex-scripts=off   min   86.3 ms   median   89.4 ms
+parley complex-scripts=on    min   86.6 ms   median   88.3 ms
+cosmic-text                  min  229.6 ms   median  239.0 ms

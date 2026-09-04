@@ -1,0 +1,3 @@
+# Does the Khmer break-before-space ever reach the frame? A line that
+# STARTS with a space is the bug surfacing. Swept 60..900px.
+widths where the bug surfaced: 0 of 169
