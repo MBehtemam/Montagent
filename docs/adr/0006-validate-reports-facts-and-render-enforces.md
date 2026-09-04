@@ -312,6 +312,19 @@ Escalate to `review` only for the cases in (1) and (2), which are empty here.
   [#17](https://github.com/MBehtemam/Montaget/issues/17)) and on the map's open
   *literal size or fit rule* question.
 
+  **Resolved by [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md), which
+  this check was missing two things to be implementable at all.** First, an *input*:
+  every term above is vertical and the fixture models the card as a **separate shape
+  element**, so as written the check had nothing to measure against — ADR-0007 gives
+  the text element a `box`. Second, a **width term**: with literal size and no
+  auto-wrap settled, a hand-placed line that is simply too wide has no check
+  anywhere, and four agents authoring against this format produced exactly that
+  defect by three separate routes (lengthening a string, swapping the font,
+  emphasising a word), each leaving every property individually valid. The height
+  term also **generalises** rather than changing: `Σ over lines of (max run size on
+  the line) × line_height`, which reproduces the ~1507–1567 figure above exactly in
+  the single-size case.
+
 ## Consequences
 
 - **`render` runs `validate` and refuses on `error`.** Not a flag.
