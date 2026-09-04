@@ -53,6 +53,15 @@ echo "== mandatory \\n handling (issue #28) =="
 cargo run --release -q -p cosmic-probe --bin hardbreak -- render >/dev/null 2>&1
 mv -f hardbreak-cosmic-*.png frames/ 2>/dev/null || true
 
+cargo run --release -q -p parley-probe --bin falsify --features complex-scripts \
+  > results/falsify.txt 2>&1
+{
+  echo "===== complex-scripts OFF ====="
+  cargo run --release -q -p parley-probe --bin falsify2
+  echo; echo "===== complex-scripts ON ====="
+  cargo run --release -q -p parley-probe --bin falsify2 --features complex-scripts
+} > results/falsify2.txt 2>&1
+
 echo "== segmentation vs oracle =="
 ./compare.py > results/segmentation-vs-oracle.txt
 
