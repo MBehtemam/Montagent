@@ -126,12 +126,22 @@ consults a break *opportunity*, so #27's `complex-scripts` discriminator belongs
 
 ## Not settled here
 
-- Whether the defect is present in parley versions other than 0.11.1.
+- ~~Whether the defect is present in parley versions other than 0.11.1.~~
+  **Reproduces on `main` (`11711d8`)**, with and without `complex-scripts`. Not fixed.
 - Whether `NoWrap` is the *intended* fix or coincidentally masks the bug — it is
   correct output either way, but the mechanism was not diagnosed.
 - Whether cosmic-text has an equivalent footgun in some other mode; it was correct in
   all 11 cases in `Wrap::None` and was not swept across its other wrap modes here.
-- Not reported upstream at the time of writing.
+- ~~Not reported upstream at the time of writing.~~ **Filed as
+  [linebender/parley#768](https://github.com/linebender/parley/issues/768)**, with a
+  font-agnostic minimal repro. No duplicate found on their tracker; the nearest prior
+  art is [#676](https://github.com/linebender/parley/issues/676) (*"a soft break
+  immediately before a mandatory break … pushes the mandatory break down a line"*),
+  same family, fixed 2026-07-07, different case.
+- **Never tested on a platform other than macOS.** The failing path is text analysis
+  with no OS involvement and the segmentation data is baked in, so it should be
+  platform-independent — but that is an expectation, not a measurement, and the
+  upstream report says so.
 
 ## The adversarial pass, scored
 
