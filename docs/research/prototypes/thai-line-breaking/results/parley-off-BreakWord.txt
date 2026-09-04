@@ -1,0 +1,83 @@
+# stack: parley 0.11.1
+# complex-scripts: false
+# overflow-wrap: BreakWord
+
+## thai (family Ayuthaya, size 32, width 420)
+expect: การ|เดิน|ทาง|ไป|ประเทศ|ไทย|เป็น|ประสบการณ์|ที่|ดี|มาก|สำหรับ|นัก|ท่องเที่ยว|ทุก|คน -- Thai writes without spaces, so every break here needs dictionary or LSTM segmentation. A stack that resolves SA to AL sees one unbreakable 67-char word.
+line w= 418.38 [  0.. 72] "การเด\u{e34}นทางไปประเทศไทยเป\u{e47}"  because Emergency
+line w= 418.38 [ 72..156] "นประสบการณ\u{e4c}ท\u{e35}\u{e48}ด\u{e35}มากสำหร\u{e31}บน\u{e31}ก"  because Emergency
+line w= 209.19 [156..201] "ท\u{e48}องเท\u{e35}\u{e48}ยวท\u{e38}กคน"  because None
+breaks: [0, 72, 156]
+lines: 3  overflowing: 0  notdef-glyphs: 0
+
+## thai-with-spaces (family Ayuthaya, size 32, width 420)
+expect: Thai uses spaces at clause boundaries only (2 here). A stack with no Thai segmentation still breaks at those 2 spaces -- which is what makes the failure plausible instead of obvious: the output looks laid out, just wrongly.
+line w= 266.22 [  0.. 43] "ฉ\u{e31}นชอบอาหารไทย "  because Regular
+line w= 342.29 [ 43..101] "เพราะรสชาต\u{e34}อร\u{e48}อยมาก "  because Regular
+line w= 418.38 [101..176] "และราคาไม\u{e48}แพงเก\u{e34}นไปสำหร\u{e31}บ"  because Emergency
+line w= 114.10 [176..200] "น\u{e31}กเร\u{e35}ยน"  because None
+breaks: [0, 43, 101, 176]
+lines: 4  overflowing: 0  notdef-glyphs: 0
+
+## thai-2 (family Ayuthaya, size 32, width 420)
+expect: A second unspaced Thai paragraph, added after the first one exposed mid-word boundaries, to tell a bad sample apart from a bad segmenter.
+line w= 418.38 [  0.. 87] "เด\u{e47}กน\u{e31}กเร\u{e35}ยนท\u{e38}กคนต\u{e49}องอ\u{e48}านหน\u{e31}ง"  because Emergency
+line w= 380.34 [ 87..162] "ส\u{e37}อก\u{e48}อนสอบปลายภาคเร\u{e35}ยนน\u{e35}\u{e49}"  because None
+breaks: [0, 87]
+lines: 2  overflowing: 0  notdef-glyphs: 0
+
+## thai-3 (family Ayuthaya, size 32, width 420)
+expect: A third unspaced Thai paragraph, news register rather than tourism.
+line w= 418.38 [  0.. 72] "ร\u{e31}ฐบาลประกาศมาตรการใหม\u{e48}เ"  because Emergency
+line w= 418.38 [ 72..156] "พ\u{e37}\u{e48}อช\u{e48}วยเหล\u{e37}อผ\u{e39}\u{e49}ประกอบการขนา"  because Emergency
+line w= 190.17 [156..195] "ดเล\u{e47}กในป\u{e35}หน\u{e49}า"  because None
+breaks: [0, 72, 156]
+lines: 3  overflowing: 0  notdef-glyphs: 0
+
+## khmer (family Khmer Sangam MN, size 32, width 420)
+expect: ការ|ធ្វើ|ដំណើរ|ទៅ|កាន់|ប្រទេស|កម្ពុជា|គឺជា|បទពិសោធន៍|ដ៏|អស្ចារ្យ|សម្រាប់|អ្នក|ទេសចរណ៍ -- same shape as Thai. Also the case where icu4x#7218 (Khmer spacing) would bite.
+line w= 416.28 [  0.. 93] "ការធ\u{17d2}វើដ\u{17c6}ណើរទៅកាន\u{17cb}ប\u{17d2}រទេសកម\u{17d2}ព\u{17bb}ជា"  because Emergency
+line w= 414.62 [ 93..192] "គ\u{17ba}ជាបទព\u{17b7}សោធន\u{17cd}ដ\u{17cf}អស\u{17d2}ចារ\u{17d2}យសម\u{17d2}រាប\u{17cb}អ\u{17d2}ន"  because Emergency
+line w= 154.44 [192..216] "កទេសចរណ\u{17cd}"  because None
+breaks: [0, 93, 192]
+lines: 3  overflowing: 0  notdef-glyphs: 0
+
+## khmer-with-spaces (family Khmer Sangam MN, size 32, width 420)
+expect: The exact shape of icu4x#7218 (open, T-bug, filed 2025-11-04): the segmenter offers a break BEFORE each space as well as after, isolating the space. Upstream's own triage says a layout engine trims trailing spaces so it does not surface -- so the check is whether parley trims. A line that STARTS with a space is the bug reaching the frame.
+line w= 415.53 [  0.. 79] "អស\u{17cb} ន\u{17b9}ង មាន ចន\u{17d2}លោះ អស\u{17cb} ន\u{17b9}ង មាន "  because Regular
+line w= 339.05 [ 79..149] "ចន\u{17d2}លោះ អស\u{17cb} ន\u{17b9}ង មាន ចន\u{17d2}លោះ។"  because None
+breaks: [0, 79]
+lines: 2  overflowing: 0  notdef-glyphs: 0
+
+## lao (family Lao Sangam MN, size 32, width 420)
+expect: Same shape as Thai; named in parley's complex-scripts feature text.
+line w= 404.55 [  0.. 78] "ການເດ\u{eb5}ນທາງໄປປະເທດລາວແມ\u{ec8}ນປະ"  because Emergency
+line w= 416.38 [ 78..177] "ສ\u{ebb}ບການທ\u{eb5}\u{ec8}ດ\u{eb5}ຫ\u{ebc}າຍສຳລ\u{eb1}ບນ\u{eb1}ກທ\u{ec8}ອງທ\u{ec8}ຽວທ\u{eb8}"  because Emergency
+line w=  57.56 [177..189] "ກຄ\u{ebb}ນ"  because None
+breaks: [0, 78, 177]
+lines: 3  overflowing: 0  notdef-glyphs: 0
+
+## japanese (family Hiragino Sans, size 32, width 420)
+expect: UAX #14 gives ideographs class ID and kana CJ, both breakable on either side with no dictionary at all. So BOTH stacks should break this acceptably, and CJK should NOT discriminate. Kinsoku is the only open question: the line must not begin with the trailing 。 or 、.
+line w= 414.40 [  0.. 39] "日本語のテキストは単語の区"  because Regular
+line w= 414.72 [ 39.. 78] "切りに空白を使わないので、"  because Regular
+line w= 416.00 [ 78..117] "行の折り返しは文字単位で行"  because Regular
+line w= 156.80 [117..132] "われます。"  because None
+breaks: [0, 39, 78, 117]
+lines: 4  overflowing: 0  notdef-glyphs: 0
+
+## chinese (family Hiragino Sans GB, size 32, width 420)
+expect: All class ID. Same prediction as japanese: no dictionary needed, no discrimination.
+line w= 416.00 [  0.. 39] "中文文本在排版时不使用空格"  because Regular
+line w= 416.00 [ 39.. 78] "分词，因此换行可以发生在几"  because Regular
+line w= 320.00 [ 78..108] "乎任意两个汉字之间。"  because None
+breaks: [0, 39, 78]
+lines: 3  overflowing: 0  notdef-glyphs: 0
+
+## latin-control (family Helvetica, size 32, width 420)
+expect: The control. Both stacks must agree here; if they do not, the harness itself is measuring something other than line breaking.
+line w= 389.50 [  0.. 26] "The quick brown fox jumps "  because Regular
+line w= 378.91 [ 26.. 53] "over the lazy dog near the "  because Regular
+line w= 261.47 [ 53.. 71] "riverbank at dawn."  because None
+breaks: [0, 26, 53]
+lines: 3  overflowing: 0  notdef-glyphs: 0

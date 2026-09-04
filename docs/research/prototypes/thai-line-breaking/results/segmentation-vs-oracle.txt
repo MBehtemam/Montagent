@@ -1,0 +1,56 @@
+## thai
+oracle (CFStringTokenizer): การเดินทาง|ไป|ประเทศ|ไทย|เป็น|ประสบการณ์|ที่|ดีมาก|สำหรับ|นักท่องเที่ยว|ทุกคน
+oracle boundaries: [0, 30, 36, 54, 63, 75, 105, 114, 129, 147, 186]
+  cosmic-text          offered   1  missing [30, 36, 54, 63, 75, 105, 114, 129, 147, 186]  extra []
+  parley (flag off)    offered   1  missing [30, 36, 54, 63, 75, 105, 114, 129, 147, 186]  extra []
+  parley (flag on)     offered  17  missing [54, 129, 147]  extra [9, 21, 123, 126, 135, 153, 162, 168, 195]
+
+## thai-with-spaces
+oracle (CFStringTokenizer): ฉัน|ชอบ|อาหารไทย| |เพราะ|รสชาติ|อร่อย|มาก| |และ|ราคา|ไม่|แพง|เกินไป|สำหรับ|นักเรียน
+oracle boundaries: [0, 9, 18, 42, 43, 58, 76, 91, 100, 101, 110, 122, 131, 140, 158, 176]
+  cosmic-text          offered   3  missing [9, 18, 42, 58, 76, 91, 100, 110, 122, 131, 140, 158, 176]  extra []
+  parley (flag off)    offered   3  missing [9, 18, 42, 58, 76, 91, 100, 110, 122, 131, 140, 158, 176]  extra []
+  parley (flag on)     offered  16  missing [42, 100]  extra [33, 152]
+
+## thai-2
+oracle (CFStringTokenizer): เด็กนักเรียน|ทุกคน|ต้อง|อ่าน|หนังสือ|ก่อน|สอบ|ปลาย|ภาคเรียน|นี้
+oracle boundaries: [0, 36, 51, 63, 75, 96, 108, 117, 129, 153]
+  cosmic-text          offered   1  missing [36, 51, 63, 75, 96, 108, 117, 129, 153]  extra []
+  parley (flag off)    offered   1  missing [36, 51, 63, 75, 96, 108, 117, 129, 153]  extra []
+  parley (flag on)     offered  13  missing []  extra [12, 45, 138]
+
+## thai-3
+oracle (CFStringTokenizer): รัฐบาล|ประกาศ|มาตรการ|ใหม่|เพื่อ|ช่วยเหลือ|ผู้ประกอบการ|ขนาด|เล็ก|ใน|ปี|หน้า
+oracle boundaries: [0, 18, 36, 57, 69, 84, 111, 147, 159, 171, 177, 183]
+  cosmic-text          offered   1  missing [18, 36, 57, 69, 84, 111, 147, 159, 171, 177, 183]  extra []
+  parley (flag off)    offered   1  missing [18, 36, 57, 69, 84, 111, 147, 159, 171, 177, 183]  extra []
+  parley (flag on)     offered  15  missing []  extra [96, 120, 138]
+
+## khmer
+oracle (CFStringTokenizer): ការ|ធ្វើដំណើរ|ទៅកាន់|ប្រទេស|កម្ពុជា|គឺជា|បទពិសោធន៍|ដ៏|អស្ចារ្យ|សម្រាប់|អ្នក|ទេសចរណ៍
+oracle boundaries: [0, 9, 36, 54, 72, 93, 105, 132, 138, 162, 183, 195]
+  cosmic-text          offered   1  missing [9, 36, 54, 72, 93, 105, 132, 138, 162, 183, 195]  extra []
+  parley (flag off)    offered   1  missing [9, 36, 54, 72, 93, 105, 132, 138, 162, 183, 195]  extra []
+  parley (flag on)     offered  12  missing [195]  extra [210]
+
+## khmer-with-spaces
+oracle (CFStringTokenizer): អស់| |នឹង| |មាន| |ចន្លោះ| |អស់| |នឹង| |មាន| |ចន្លោះ| |អស់| |នឹង| |មាន| |ចន្លោះ|។
+oracle boundaries: [0, 9, 10, 19, 20, 29, 30, 48, 49, 58, 59, 68, 69, 78, 79, 97, 98, 107, 108, 117, 118, 127, 128, 146]
+  cosmic-text          offered  12  missing [9, 19, 29, 48, 58, 68, 78, 97, 107, 117, 127, 146]  extra []
+  parley (flag off)    offered  13  missing [9, 19, 29, 48, 58, 68, 78, 97, 107, 117, 127]  extra []
+  parley (flag on)     offered  13  missing [9, 19, 29, 48, 58, 68, 78, 97, 107, 117, 127]  extra []
+
+## lao
+oracle (CFStringTokenizer): ການເດີນທາງ|ໄປ|ປະເທດ|ລາວ|ແມ່ນ|ປະສົບການ|ທີ່|ດີ|ຫຼາຍ|ສຳລັບ|ນັກ|ທ່ອງທ່ຽວ|ທຸກຄົນ
+oracle boundaries: [0, 30, 36, 51, 60, 72, 96, 105, 111, 123, 138, 147, 171]
+  cosmic-text          offered   1  missing [30, 36, 51, 60, 72, 96, 105, 111, 123, 138, 147, 171]  extra []
+  parley (flag off)    offered   1  missing [30, 36, 51, 60, 72, 96, 105, 111, 123, 138, 147, 171]  extra []
+  parley (flag on)     offered  13  missing []  extra []
+
+## japanese
+oracle (CFStringTokenizer): 日本|語|の|テキスト|は|単語|の|区切り|に|空白|を|使わ|ない|の|で|、|行|の|折り返し|は|文字|単位|で|行わ|れ|ます|。
+oracle boundaries: [0, 6, 9, 12, 24, 27, 33, 36, 45, 48, 54, 57, 63, 69, 72, 75, 78, 81, 84, 96, 99, 105, 111, 114, 120, 123, 129]
+  cosmic-text          offered  42  missing [75, 129]  extra [3, 15, 18, 21, 30, 39, 42, 51, 60, 66, 87, 90, 93, 102, 108, 117, 126]
+  parley (flag off)    offered  42  missing [75, 129]  extra [3, 15, 18, 21, 30, 39, 42, 51, 60, 66, 87, 90, 93, 102, 108, 117, 126]
+  parley (flag on)     offered  42  missing [75, 129]  extra [3, 15, 18, 21, 30, 39, 42, 51, 60, 66, 87, 90, 93, 102, 108, 117, 126]
+

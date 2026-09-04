@@ -1,0 +1,26 @@
+# control: the same harness on Latin must pass every row
+latin, break_all_lines(None)                 2/2 lines  reasons Explicit,None  ok
+
+# is `None` the problem? try real widths
+thai, width None                             1/2 lines  reasons None  **DROPPED**
+thai, width Some(3.4028235e38)               1/2 lines  reasons None  **DROPPED**
+thai, width Some(10000.0)                    1/2 lines  reasons None  **DROPPED**
+thai, width Some(984.0)                      1/2 lines  reasons None  **DROPPED**
+thai, width Some(400.0)                      3/2 lines  reasons Regular,Regular,None  **DROPPED**
+thai, width Some(1.0)                        9/2 lines  reasons Regular,Regular,Regular,Regular,Regular,Regular,Regular,Regular,None  **DROPPED**
+
+# do the wrap-policy styles change it?
+thai, TextWrapMode::NoWrap                   2/2 lines  reasons Explicit,None  ok
+thai, TextWrapMode::Wrap                     1/2 lines  reasons None  **DROPPED**
+thai, OverflowWrap::Anywhere                 1/2 lines  reasons None  **DROPPED**
+thai, WordBreak::BreakAll                    2/2 lines  reasons Explicit,None  ok
+thai, WordBreak::KeepAll                     1/2 lines  reasons None  **DROPPED**
+
+# is it the font? same Thai text through fonts that are not Thai-specific
+thai text, font Ayuthaya                     1/2 lines  reasons None  **DROPPED**
+thai text, font Thonburi                     1/2 lines  reasons None  **DROPPED**
+thai text, font Helvetica                    1/2 lines  reasons None  **DROPPED**
+thai text, font Arial Unicode MS             1/2 lines  reasons None  **DROPPED**
+
+# does splitting on \n and laying out paragraphs separately work?
+thai, caller splits into 2 paragraphs -> that is the workaround, not a fix

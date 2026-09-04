@@ -1,0 +1,47 @@
+===== complex-scripts OFF =====
+# 1. FEATURE-ACTIVATION PROBE (jury C's first objection)
+#    A Thai string with dictionary-only opportunities in a finite box.
+#    If the feature is live, this wraps; if not, it cannot.
+   unspaced Thai in a 420px box -> 1 line(s)   complex-scripts=false
+   (1 line = feature OFF and overflowing; >1 = feature ON and segmenting)
+
+# 2. BYTES ON THE WIRE (jury B's #2, jury C's #3)
+   thai   0x0A at [51]   contains U+2028: false   len 97 bytes
+   latin  0x0A at [3]   contains U+2028: false   len 7 bytes
+
+# 3. MINIMAL-PAIR ISOLATION OF THE TRIGGER (jury C's #4)
+#    Is it the character immediately before the LF, or any SA in the run?
+   Thai...Latin then LF   "กกA\nB"    -> 2/2  ok
+   Latin...Thai then LF   "Aก\nB"     -> 2/2  ok
+   pure latin             "AB\nC"     -> 2/2  ok
+   pure thai              "กก\nกก"    -> 1/2  **DROPPED**
+   space before LF        "กก \nกก"   -> 2/2  ok
+   LF first               "\nกก"      -> 2/2  ok
+
+# 4. MINIMAL REPRO (jury B's #1) -- smallest failing input
+   text "กก\nกก"  bytes [224, 184, 129, 224, 184, 129, 10, 224, 184, 129, 224, 184, 129]
+   parley::break_all_lines(None) -> 1 line(s), expected 2
+
+===== complex-scripts ON =====
+# 1. FEATURE-ACTIVATION PROBE (jury C's first objection)
+#    A Thai string with dictionary-only opportunities in a finite box.
+#    If the feature is live, this wraps; if not, it cannot.
+   unspaced Thai in a 420px box -> 5 line(s)   complex-scripts=true
+   (1 line = feature OFF and overflowing; >1 = feature ON and segmenting)
+
+# 2. BYTES ON THE WIRE (jury B's #2, jury C's #3)
+   thai   0x0A at [51]   contains U+2028: false   len 97 bytes
+   latin  0x0A at [3]   contains U+2028: false   len 7 bytes
+
+# 3. MINIMAL-PAIR ISOLATION OF THE TRIGGER (jury C's #4)
+#    Is it the character immediately before the LF, or any SA in the run?
+   Thai...Latin then LF   "กกA\nB"    -> 2/2  ok
+   Latin...Thai then LF   "Aก\nB"     -> 2/2  ok
+   pure latin             "AB\nC"     -> 2/2  ok
+   pure thai              "กก\nกก"    -> 1/2  **DROPPED**
+   space before LF        "กก \nกก"   -> 2/2  ok
+   LF first               "\nกก"      -> 2/2  ok
+
+# 4. MINIMAL REPRO (jury B's #1) -- smallest failing input
+   text "กก\nกก"  bytes [224, 184, 129, 224, 184, 129, 10, 224, 184, 129, 224, 184, 129]
+   parley::break_all_lines(None) -> 1 line(s), expected 2

@@ -1,0 +1,6 @@
+[workspace]
+resolver = "2"
+members = ["cosmic-probe", "parley-probe"]
+
+[profile.release]
+opt-level = 3
