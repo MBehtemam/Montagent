@@ -51,3 +51,27 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+
+## ADRs land on `main` as they are accepted
+
+**An accepted ADR merges to `main` as soon as its wayfinder ticket closes** — one
+PR per ticket, from its `domain/<slug>` branch. Do not accumulate ADRs on
+unmerged branches until the spec is assembled.
+
+The reason is agent-readability, and the cost of getting it wrong is measured:
+with seven ADRs sitting on branches, every subagent had to be handed explicit
+`git show domain/<branch>:docs/adr/<n>-<slug>.md` incantations, and any agent
+that missed one read `main` and reasoned from a domain model several decisions
+stale. `main` is the single place an agent should have to look.
+
+**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one
+says so in its own text, and the earlier one gets a short pointer under its title
+naming the amendment and what in it no longer holds. A reader landing on an ADR
+must be able to see it has been superseded without having read the one that
+superseded it — `docs/adr/0006-validate-reports-facts-and-render-enforces.md` is
+the worked example.
+
+**Commit the evidence an ADR rests on.** ADR-0006's headline measurement was
+taken against a project file that was never committed, so no later reader can
+check it. If a decision rests on a prototype, a fixture or a jury artifact, that
+artifact belongs in the repo before the ADR merges.
