@@ -4,6 +4,16 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0011](./0011-tool-surface-reads-checks-renders.md)** (and, on the
+> text-overflow check, by [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md)).
+> The design below stands. **Three of its stated facts do not**, and a reader should
+> not rely on them: the union-of-visual-coverage severity rule **fires zero times** on
+> the committed fixture; *"one visual gap out of eleven"* is **unreproducible** (the
+> denominator is right, and the file its judges saw is not in this repository); and the
+> exemplar finding *"no element on any visual track … the frame is background plus the
+> header"* **contradicts the rule it illustrates**. What counts as content coverage is
+> [#23](https://github.com/MBehtemam/Montaget/issues/23). See ADR-0011's final section.
+
 `montaget validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file
 say what you meant it to say."* That boundary is printed in the report itself.
