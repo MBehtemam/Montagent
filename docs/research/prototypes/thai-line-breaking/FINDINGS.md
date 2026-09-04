@@ -174,8 +174,35 @@ looked at by someone who reads Thai before it is called correct.
 4. **CJK is not part of it.** Any scoring that credits `complex-scripts` for CJK
    is double-counting.
 5. Under [ADR-0003](../../../adr/0003-general-video-editor-not-channel-tooling.md)
-   this is load-bearing regardless of the fixture: a general editor strangers run
-   meets Thai.
+   a general editor strangers run meets Thai, so "the fixture has no Thai" is not
+   an argument against any of it. **But see the next section before weighting it
+   into #7 — whether this discriminator ever fires is now itself an open
+   question.**
+
+## The finding that landed after the measurement: does this ever fire?
+
+[ADR-0007](../../../adr/0007-text-runs-literal-size-declared-fonts.md) settles
+**"Literal `size`. No fit-to-box. No automatic wrapping"** — a line break is a
+`\n` the author placed, and the fixture is already this design (all seven
+subtitle files carry ASS `WrapStyle: 2`, *no word wrapping*, every break by
+hand). If nothing in Montaget ever wraps text, **the renderer never has to find
+a break opportunity in a Thai run, and everything measured above never reaches a
+frame.**
+
+That sits directly against the same ADR's other claim, two sections later, that
+**"v1 renders bidi reordering, complex-script shaping, per-character font
+fallback, and UAX #14 line breaking including CJK"** — and names this fork as
+"a live input to [#7](https://github.com/MBehtemam/Montaget/issues/7)". Both
+statements are in the accepted ADR. They cannot both be operative.
+
+The measurements above are unaffected: what cosmic-text and parley do is what
+they do. What is now open is whether it *counts*, and that is
+[#28](https://github.com/MBehtemam/Montaget/issues/28), not this ticket. Note
+that "no auto-wrap" does not obviously dispose of it either — an agent placing
+`\n` by hand in an unspaced Thai string still has to know where the words are,
+and `measure`/`frame` is the only thing that can tell it. That is a tool-surface
+question, not a renderer one, and it may move the requirement rather than
+delete it.
 
 ## What this prototype does not settle
 
