@@ -1,0 +1,31 @@
+COMMENT: shift(at=20000, delta=2000) on the #9 file. photo-06 is an image
+(time-invariant) straddling 20000, so per ADR-0005 its end stretches +2000.
+THE RIGHT ANSWER — keyframes untouched:
+
+{"id":"photo-06","type":"image","group":"item-06","start":17472,"end":32603,"source":"images/06.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[17472,1.0],[32472,1.08]]}
+
+WHY: shift's whole contract (CONTEXT.md) is "moving every time at or after some
+instant" — i.e. nothing rendered BEFORE `at` may change. The keyframe at 32472 is
+not an event at 32472; it is one endpoint of a ramp that determines pixels at
+every t in [17472,32472]. Shifting it to 34472 changes the frame at t=18000
+(1.002816 -> 1.002485) and t=19999 (-1.71 px) — pixels before the insertion
+point, from a tool that promised pure insertion. Also: ramp stays 15000 ms like
+its six siblings (the "same 15 s move retyped seven times" invariant, FINDINGS §E),
+and the zoom rate the author chose is preserved; the image simply zooms 2000 ms
+further along the same curve, tops out at 32472, and holds 131 ms — the trimmed-move
+reading ADR-0006 explicitly protects ("keyframes outside their element's range are
+legal ... must not be flagged").
+
+WHERE A PLAUSIBLE AGENT GOES WRONG: it applies shift as arithmetic over every
+time-typed number >= at — which is exactly what the tool's own definition says —
+and produces scale [[17472,1.0],[34472,1.08]]. Legal, validates clean (ADR-0011
+records both files verbatim), ~12% slower zoom, 9.5 px framing difference at the
+end, and a silent pre-`at` pixel change. The rule is genuinely ambiguous because
+under ABSOLUTE keyframe times the keyframe time looks like a timeline event and
+shift has no way to know it is actually "start + 15000".
+
+UNDER RELATIVE KEYFRAME TIMES the element reads
+  "scale":[[0,1.0],[15000,1.08]]
+before AND after the shift; the correct answer is the do-nothing answer, for
+stretched straddlers and for wholly-moved elements alike, and the ambiguity that
+produced two different legal videos cannot be expressed.

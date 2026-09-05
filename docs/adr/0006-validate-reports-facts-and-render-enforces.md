@@ -5,7 +5,10 @@ status: accepted
 # `validate` reports facts, and `render` is what enforces them
 
 > **Amended by [ADR-0011](./0011-tool-surface-reads-checks-renders.md)** (and, on the
-> text-overflow check, by [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md)).
+> text-overflow check, by [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) and
+> [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md), which adds an
+> aperture term to it and three checks: transform keyframe *times* that disagree across one
+> `group`, a frame-change census, and the resolved segment table for any eased property).
 > The design below stands. **Three of its stated facts do not**, and a reader should
 > not rely on them: the union-of-visual-coverage severity rule **fires zero times** on
 > the committed fixture; *"one visual gap out of eleven"* is **unreproducible** (the

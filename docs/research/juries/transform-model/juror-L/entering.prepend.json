@@ -1,0 +1,5 @@
+{"t":-500,"v":-600}
+{"t":0,"v":-400,"ease":"linear"}
+{"t":1000,"v":100,"ease":"ease-out"}
+{"t":2500,"v":540,"ease":"ease-in-out"}
+{"t":4000,"v":300,"ease":"ease-in"}

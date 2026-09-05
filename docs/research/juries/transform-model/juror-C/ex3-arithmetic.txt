@@ -1,0 +1,9 @@
+new range: 17472 -> 32603
+t=18000: orig=1.002816 kept=1.002816 naive=1.002485
+t=19999: orig=1.013477 kept=1.013477 naive=1.011892
+t=20000: orig=1.013483 kept=1.013483 naive=1.011896
+at new end 32603: kept = 1.0800 (hits 1.08 at 32472, holds 131 ms)
+at new end 32603: naive = 1.0712
+ramp length: kept 15000 ms (rate preserved, matches all 6 siblings); naive 17000 ms
+px error of naive vs kept at end, on 1080 width: -9.5
+pre-insert divergence of naive at t=19999 (px on 1080): -1.71

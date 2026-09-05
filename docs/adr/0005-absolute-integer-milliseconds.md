@@ -4,6 +4,17 @@ status: accepted
 
 # Time is absolute integer milliseconds, and structural edits belong to a tool
 
+> **Amended by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md).**
+> The time model below stands. **`shift`'s defining sentence does not**: *"moves every time
+> at or after `at`"* is wrong for keyframe times, and a reader should not implement it. A
+> keyframe's `t` is not a timeline time — `shift` moves elements and their keyframes are
+> carried, so an element entirely before `at` keeps keyframes numerically after it, and an
+> element entirely after `at` moves keyframes numerically before it. Applying the sentence
+> literally changes a shot that finished 397 ms **before** the edit point by 8.90 px of
+> framing. ADR-0012 carries the complete case table, the SPLIT rule for straddlers, and the
+> rounding rule this ADR left unpublished for `speed`.
+
+
 Every element carries `start` and `end` as **integer milliseconds** on the
 project's single absolute timeline. The interval is **half-open** — `[start, end)`
 — so an element whose `end` is 7500 is not on screen at 7500 and its neighbour

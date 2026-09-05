@@ -59,8 +59,37 @@ positioning origin — that is `origin`. See the note under Origin.
 
 **Origin**:
 The point of an element's own box that its `x`,`y` places, as one of nine keywords
-(`top-left` … `center` … `bottom-right`), and about which transforms pivot.
+(`top-left` … `center` … `bottom-right`), and about which transforms pivot. Defaults to
+`center`, so a bare element is conspicuous rather than plausible.
 _Avoid_: anchor, alignment, pivot
+
+**Transform**:
+Where a visual element sits and how it is drawn — `x`, `y`, `origin`, `scale`,
+`rotation`, `opacity` — as flat fields on the element in absolute integer pixels. There is
+exactly one per element and it is never nested, never inherited and never composed: no
+element's transform is relative to another's. An element's size is declared, never
+defaulted from the source file.
+_Avoid_: matrix, layout, placement (as a field), position (as a field name)
+
+**Keyframe**:
+One `{"t","v","ease"}` record in a list that makes a transform property change over time.
+Its `t` is written in timeline milliseconds but is **not a timeline time** — it is the
+element's own animation geometry, so `shift` moves elements and their keyframes are
+carried with them. A keyframe outside its element's range is legal and ordinary: it is how
+a trimmed move is spelled.
+_Avoid_: key, waypoint, stop, tween
+
+**Easing**:
+The shape of the interpolation **arriving at** a keyframe from the previous one — a name
+published in the schema as its cubic bezier, or the four control points directly. The
+first record of a list has nothing arriving at it and carrying an `ease` there is an error.
+_Avoid_: timing function, curve, interpolation (as the field name), tween
+
+**Clip**:
+The static frame-space rectangle an element is drawn through. It does not rotate and does
+not scale with the element, so `scale` moves the picture behind a window that stays put —
+which is what a Ken Burns is. Shaped and soft masks are a different thing and are not this.
+_Avoid_: crop, mask, viewport, bounds
 
 **Run**:
 One stretch of a text element's content, carrying its own text plus style deltas
@@ -148,6 +177,21 @@ positioning point an *anchor*. Montaget spends that word on layer-relative stack
 instead, so the positioning point is **`origin`**. The collision is recorded here
 because it is near-certain to be rediscovered: the positioning concept appears on
 essentially every text element, and layer anchoring appears rarely.
+
+**Box**:
+Retired, having meant two different things at once: a literal `[x,y,w,h]` rect on an image
+and, in [ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md), *the id of the
+element you must fit inside*. A field that is sometimes a rect and sometimes a reference
+cannot even produce a good error message. The rect is now `x`,`y`,`origin`,`width`,`height`
+plus `clip`; the containment reference is now literal `width`/`height`, because fifteen of
+the fixture's twenty-two text elements have no element behind them to name.
+
+**Align, for images**:
+`align` means one thing: how a text element's lines align to each other
+(`start`/`center`/`end`). On an image the same word meant *which part of the source survives
+the crop*, which is not alignment at all — that is `gravity`. The collision is recorded
+because it caused a live misreading: the fixture's `align:"left"` on text was transcribing
+ASS `\an4`, **left-middle**, so its `y` was a centre and nothing in the file said so.
 
 **Weight / bold**:
 Not a field. A different weight is a different font file — with one declared file

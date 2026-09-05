@@ -1,0 +1,12 @@
+{"frame":{"width":1080,"height":1920},"fps":25,
+"ex1":[
+{"id":"photo-01","type":"image","start":0,"end":12000,"source":"images/kitchen.jpg","x":0,"y":0,"origin":"top-left","width":1080,"height":1300,"fit":"cover","align":"top","scale":[{"t":0,"v":1.0},{"t":12000,"v":1.09,"ease":"linear"}]},
+{"id":"lt-card","type":"rect","start":5000,"end":11000,"x":[{"t":5000,"v":-984},{"t":5400,"v":48,"ease":"ease-out"}],"y":1453,"origin":"top-left","width":984,"height":169,"fill":"#1E344C","opacity":[{"t":5000,"v":0},{"t":5400,"v":1,"ease":"linear"}]},
+{"id":"lt-text","type":"text","start":5000,"end":11000,"x":[{"t":5000,"v":-492},{"t":5400,"v":540,"ease":"ease-out"}],"y":1537,"origin":"center","align":"center","font":"brand","size":55,"line_height":1.1,"color":"#FFF8E8","fits_in":"lt-card","runs":[{"text":"I hang cobwebs over the door."}],"opacity":[{"t":5000,"v":0},{"t":5400,"v":1,"ease":"linear"}]}
+],
+"ex2":[
+{"id":"badge","type":"image","start":0,"end":10000,"source":"brand/badge.png","x":960,"y":180,"origin":"center","width":120,"height":120,"fit":"contain","rotation":[{"t":0,"v":0},{"t":3000,"v":1080,"ease":"linear"}]}
+],
+"ex3_photo06_correct":
+{"id":"photo-06","type":"image","group":"item-06","start":17472,"end":32603,"source":"images/06.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1300,"fit":"cover","align":"top","scale":[{"t":17472,"v":1.0},{"t":20000,"v":1.013483},{"t":22000,"v":1.013483},{"t":34472,"v":1.08}]}
+}

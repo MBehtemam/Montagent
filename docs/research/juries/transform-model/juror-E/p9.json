@@ -1,0 +1,154 @@
+{
+  "//": "PROTOTYPE — hand-written by an agent to answer issue #9. Not a schema, not a spec. Fields marked INVENTED in FINDINGS.md are guesses at decisions the map has not made yet (#21 transform, #22 effects, shape primitive, text model).",
+  "frame": { "width": 1080, "height": 1920 },
+  "fps": 25,
+  "background": "#FBF3E3",
+  "duration": 65216,
+  "output": "out/en-halloween-decorating.mp4",
+  "tracks": [
+    {
+      "name": "photo",
+      "layer": 10,
+      "elements": [
+        {"id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[0,1.0],[15000,1.08]]},
+        {"id":"photo-05","type":"image","group":"item-05","start":3018,"end":17472,"source":"images/05.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[3018,1.0],[18018,1.08]]},
+        {"id":"photo-06","type":"image","group":"item-06","start":17472,"end":30603,"source":"images/06.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[17472,1.0],[32472,1.08]]},
+        {"id":"photo-07","type":"image","group":"item-07","start":30603,"end":42763,"source":"images/07.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[30603,1.0],[45603,1.08]]},
+        {"id":"photo-08","type":"image","group":"item-08","start":42763,"end":53856,"source":"images/08.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[42763,1.0],[57763,1.08]]},
+        {"id":"photo-05-quiz","type":"image","group":"quiz","start":53856,"end":64016,"source":"images/05.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[53856,1.0],[68856,1.08]]},
+        {"id":"photo-05-loop","type":"image","group":"loop-tail","start":64016,"end":65216,"source":"images/05.png","box":[0,0,1080,1300],"fit":"cover","align":"top","scale":[[64016,1.0],[79016,1.08]]}
+      ]
+    },
+    {
+      "name": "sentence-card",
+      "layer": 20,
+      "elements": [
+        {"id":"card-05","type":"rect","group":"item-05","start":10468,"end":17472,"box":[48,1453,984,169],"fill":"#1E344C"},
+        {"id":"card-06","type":"rect","group":"item-06","start":22622,"end":30603,"box":[48,1453,984,169],"fill":"#1E344C"},
+        {"id":"card-07","type":"rect","group":"item-07","start":35753,"end":42763,"box":[48,1453,984,169],"fill":"#1E344C"},
+        {"id":"card-08","type":"rect","group":"item-08","start":47343,"end":53856,"box":[48,1453,984,169],"fill":"#1E344C"},
+        {"id":"card-quiz","type":"rect","group":"quiz","start":61116,"end":64016,"box":[48,1453,984,169],"fill":"#1E344C"}
+      ]
+    },
+    {
+      "name": "sentence-text",
+      "layer": 21,
+      "elements": [
+        {"id":"sentence-05","type":"text","group":"item-05","start":10468,"end":17472,"text":"I hang cobwebs over the door.","font":"SF Pro Rounded","weight":"bold","size":55,"color":"#FFF8E8","x":540,"y":1537,"align":"center","line_height":1.1},
+        {"id":"sentence-06","type":"text","group":"item-06","start":22622,"end":30603,"text":"I'm holding a big\nspider in my hand.","font":"SF Pro Rounded","weight":"bold","size":57,"color":"#FFF8E8","x":540,"y":1537,"align":"center","line_height":1.1},
+        {"id":"sentence-07","type":"text","group":"item-07","start":35753,"end":42763,"text":"I hang the skeleton\nup by the door.","font":"SF Pro Rounded","weight":"bold","size":57,"color":"#FFF8E8","x":540,"y":1537,"align":"center","line_height":1.1},
+        {"id":"sentence-08","type":"text","group":"item-08","start":47343,"end":53856,"text":"I hang up a string of lights.","font":"SF Pro Rounded","weight":"bold","size":55,"color":"#FFF8E8","x":540,"y":1537,"align":"center","line_height":1.1},
+        {"id":"sentence-quiz","type":"text","group":"quiz","start":61116,"end":64016,"text":"I hang cobwebs over the door.","font":"SF Pro Rounded","weight":"bold","size":55,"color":"#FFF8E8","x":540,"y":1537,"align":"center","line_height":1.1}
+      ]
+    },
+    {
+      "name": "caption",
+      "layer": 22,
+      "elements": [
+        {"id":"intro-title","type":"text","group":"intro","start":0,"end":3018,"text":"4 English words for\ndecorating the house","font":"SF Pro Rounded","weight":"bold","size":58,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"hook-05","type":"text","group":"item-05","start":3018,"end":5316,"text":"What is this called\nin English?","font":"SF Pro Rounded","weight":"bold","size":88,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"word-05","type":"text","group":"item-05","start":5316,"end":17472,"text":"cobweb  -  cobweb","font":"SF Pro Rounded","weight":"bold","size":88,"color":"#245C8C","x":540,"y":1373,"align":"center","line_height":1.1},
+        {"id":"word-06","type":"text","group":"item-06","start":17472,"end":30603,"text":"spider  -  spider","font":"SF Pro Rounded","weight":"bold","size":88,"color":"#245C8C","x":540,"y":1373,"align":"center","line_height":1.1},
+        {"id":"word-07","type":"text","group":"item-07","start":30603,"end":42763,"text":"skeleton  -  skeleton","font":"SF Pro Rounded","weight":"bold","size":80,"color":"#245C8C","x":540,"y":1373,"align":"center","line_height":1.1},
+        {"id":"word-08-target","type":"text","group":"item-08","start":42763,"end":53856,"text":"string of lights","font":"SF Pro Rounded","weight":"bold","size":49,"color":"#245C8C","x":540,"y":1352,"align":"center","line_height":1.1},
+        {"id":"quiz-question","type":"text","group":"quiz","start":53856,"end":56116,"text":"How do you say you hang\ncobwebs over the door?","font":"SF Pro Rounded","weight":"bold","size":73,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"count-5","type":"text","group":"quiz","start":56116,"end":57116,"text":"5","font":"SF Pro Rounded","weight":"bold","size":249,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"count-4","type":"text","group":"quiz","start":57116,"end":58116,"text":"4","font":"SF Pro Rounded","weight":"bold","size":249,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"count-3","type":"text","group":"quiz","start":58116,"end":59116,"text":"3","font":"SF Pro Rounded","weight":"bold","size":249,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"count-2","type":"text","group":"quiz","start":59116,"end":60116,"text":"2","font":"SF Pro Rounded","weight":"bold","size":249,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"count-1","type":"text","group":"quiz","start":60116,"end":61116,"text":"1","font":"SF Pro Rounded","weight":"bold","size":249,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1},
+        {"id":"word-quiz","type":"text","group":"quiz","start":61116,"end":64016,"text":"cobweb  -  cobweb","font":"SF Pro Rounded","weight":"bold","size":88,"color":"#245C8C","x":540,"y":1373,"align":"center","line_height":1.1},
+        {"id":"hook-loop","type":"text","group":"loop-tail","start":64016,"end":65216,"text":"What is this called\nin English?","font":"SF Pro Rounded","weight":"bold","size":88,"color":"#245C8C","x":540,"y":1470,"align":"center","line_height":1.1}
+      ]
+    },
+    {
+      "name": "caption-overflow",
+      "layer": 23,
+      "elements": [
+        {"id":"word-08-bridge","type":"text","group":"item-08","start":42763,"end":53856,"text":"string of lights","font":"SF Pro Rounded","weight":"bold","size":35,"color":"#245C8C","x":540,"y":1398,"align":"center","line_height":1.1}
+      ]
+    },
+    {
+      "name": "chip-panel",
+      "layer": 30,
+      "elements": [
+        {"id":"chip-panel","type":"rect","group":"header","start":0,"end":65216,"box":[48,88,372,84],"fill":"#FBF3E3"}
+      ]
+    },
+    {
+      "name": "flag-field",
+      "layer": 31,
+      "elements": [
+        {"id":"flag-field","type":"rect","group":"header","start":0,"end":65216,"box":[82,103,78,54],"fill":"#00246B"}
+      ]
+    },
+    {
+      "name": "flag-bar-h",
+      "layer": 32,
+      "elements": [
+        {"id":"flag-bar-h","type":"rect","group":"header","start":0,"end":65216,"box":[82,124,78,12],"fill":"#FFFFFF"}
+      ]
+    },
+    {
+      "name": "flag-bar-v",
+      "layer": 33,
+      "elements": [
+        {"id":"flag-bar-v","type":"rect","group":"header","start":0,"end":65216,"box":[115,103,12,54],"fill":"#FFFFFF"}
+      ]
+    },
+    {
+      "name": "chip-text",
+      "layer": 34,
+      "elements": [
+        {"id":"chip-text","type":"text","group":"header","start":0,"end":65216,"text":"English","font":"SF Pro Rounded","weight":"bold","size":52,"color":"#245C8C","x":182,"y":130,"align":"left","line_height":1.1}
+      ]
+    },
+    {
+      "name": "handle-panel",
+      "layer": 30,
+      "elements": [
+        {"id":"handle-panel","type":"rect","group":"header","start":0,"end":65216,"box":[438,88,594,84],"fill":"#FBF3E3"}
+      ]
+    },
+    {
+      "name": "handle-logo",
+      "layer": 31,
+      "elements": [
+        {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,"source":"brand/logo-en.png","box":[478,96,68,68],"fit":"cover","align":"center","mask":"circle"}
+      ]
+    },
+    {
+      "name": "handle-text",
+      "layer": 31,
+      "elements": [
+        {"id":"handle-text","type":"text","group":"header","start":0,"end":65216,"text":"@FluencyInActionEnglish","font":"SF Pro Rounded","weight":"bold","size":34,"color":"#245C8C","x":560,"y":130,"align":"left","line_height":1.1}
+      ]
+    },
+    {
+      "name": "narration",
+      "layer": 0,
+      "elements": [
+        {"id":"vo-intro","type":"audio","group":"intro","start":0,"end":2568,"source":"audio/intro-2.mp3","source_start":0,"source_end":2568},
+        {"id":"vo-hook","type":"audio","group":"item-05","start":3018,"end":4866,"source":"audio/hook-2.mp3","source_start":0,"source_end":1848},
+        {"id":"vo-word-05-a","type":"audio","group":"item-05","start":5316,"end":7092,"source":"audio/05-cobweb.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-word-05-b","type":"audio","group":"item-05","start":7892,"end":9668,"source":"audio/05-cobweb.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-sentence-05-a","type":"audio","group":"item-05","start":10468,"end":12652,"source":"audio/sentence-05-cobweb.mp3","source_start":0,"source_end":2184},
+        {"id":"vo-sentence-05-b","type":"audio","group":"item-05","start":13172,"end":16558,"source":"audio/sentence-05-cobweb.mp3","source_start":0,"source_end":2184,"speed":0.645},
+        {"id":"vo-word-06-a","type":"audio","group":"item-06","start":17472,"end":19248,"source":"audio/06-spider.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-word-06-b","type":"audio","group":"item-06","start":20048,"end":21824,"source":"audio/06-spider.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-sentence-06-a","type":"audio","group":"item-06","start":22622,"end":25190,"source":"audio/sentence-06-spider.mp3","source_start":0,"source_end":2568},
+        {"id":"vo-sentence-06-b","type":"audio","group":"item-06","start":25710,"end":29691,"source":"audio/sentence-06-spider.mp3","source_start":0,"source_end":2568,"speed":0.645},
+        {"id":"vo-word-07-a","type":"audio","group":"item-07","start":30603,"end":32379,"source":"audio/07-skeleton.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-word-07-b","type":"audio","group":"item-07","start":33179,"end":34955,"source":"audio/07-skeleton.mp3","source_start":0,"source_end":1776},
+        {"id":"vo-sentence-07-a","type":"audio","group":"item-07","start":35753,"end":37937,"source":"audio/sentence-07-skeleton.mp3","source_start":0,"source_end":2184},
+        {"id":"vo-sentence-07-b","type":"audio","group":"item-07","start":38457,"end":41843,"source":"audio/sentence-07-skeleton.mp3","source_start":0,"source_end":2184,"speed":0.645},
+        {"id":"vo-word-08-a","type":"audio","group":"item-08","start":42763,"end":44251,"source":"audio/08-lights.mp3","source_start":0,"source_end":1488},
+        {"id":"vo-word-08-b","type":"audio","group":"item-08","start":45051,"end":46539,"source":"audio/08-lights.mp3","source_start":0,"source_end":1488},
+        {"id":"vo-sentence-08-a","type":"audio","group":"item-08","start":47343,"end":49335,"source":"audio/sentence-08-lights.mp3","source_start":0,"source_end":1992},
+        {"id":"vo-sentence-08-b","type":"audio","group":"item-08","start":49855,"end":52943,"source":"audio/sentence-08-lights.mp3","source_start":0,"source_end":1992,"speed":0.645},
+        {"id":"vo-quiz","type":"audio","group":"quiz","start":53856,"end":56112,"source":"audio/quiz-2.mp3","source_start":0,"source_end":2256},
+        {"id":"vo-quiz-answer","type":"audio","group":"quiz","start":61116,"end":63300,"source":"audio/sentence-05-cobweb.mp3","source_start":0,"source_end":2184}
+      ]
+    }
+  ]
+}
