@@ -5,6 +5,15 @@ amends: 0002 (fonts carve-out), 0006 (overflow check gains a box and a width ter
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)** on
+> two spellings; every decision below stands. **`box` is no longer the id of an element to
+> fit inside** — it is literal `width`/`height` on the element, because fifteen of the
+> fixture's twenty-two text elements have no element behind them to name, and a required id
+> would have them naming something that does not exist. The argument for the box (it must be
+> *in the document* so the overflow check has an input) is unchanged and better served.
+> **`align` is now text-only**: on an image the same word meant which part of the source
+> survives the crop, which is `gravity`.
+
 A `text` element carries a base style and an ordered **`runs`** array. Each run is
 its own text plus style deltas over the base. Size is a **literal number**; the
 renderer never chooses a size and never chooses a line break. Fonts are **files the

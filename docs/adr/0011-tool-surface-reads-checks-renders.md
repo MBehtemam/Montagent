@@ -4,6 +4,14 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Resolved by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)**, on
+> the three things this ADR parked. **`shift` is now adopted in full** — its keyframe rule is
+> ADR-0012's case table, and the two legal-but-different files this ADR records are both
+> wrong. **`query`'s expensive half is unblocked**: with `width`/`height` declared on the
+> element the crop rectangle is computable by reading. **How `fit`, `align` and `scale`
+> interact** is settled — `align` on images became `gravity`, and the aperture became `clip`.
+
+
 Montaget exposes **nine verbs and two resources**. The surface's job is not to
 provide editing verbs; it is to make **reading, checking, comparing and
 rendering** cheap, and to let the agent edit the file with the tools it is

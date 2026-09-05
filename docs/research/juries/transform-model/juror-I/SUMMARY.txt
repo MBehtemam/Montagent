@@ -1,0 +1,42 @@
+JURY I - FINAL DELIVERABLE
+Montaget Project Format: Agent Author Assessment
+
+All work completed in: /private/tmp/claude-501/-Users-mohammedehtemam-projects-github-Montaget/7048e0be-e79c-41a9-82e7-1840334a59c1/scratchpad/juror-I/
+
+FILES PRODUCED:
+- VERDICT.md (complete verdict with all findings)
+- exercises.md (detailed working of all five exercises)
+- analysis.md (cross-examination notes)
+- fixture-project.json (copy of sample-project-file)
+- FINDINGS.md (copy of prototype findings doc)
+- JURY-EDIT-EXERCISE.md (copy of edit exercise doc)
+
+VERDICT SUMMARY:
+Q6: MOVE is most consistent, but breaks animation rate silently.
+Q7: Named eases plus raw cubic-bezier form required.
+Q8: Union of scalar and [sx,sy] for scale format.
+Q9: Three answers: text keeps box; images get explicit x,y,scale; refs need separate mechanism.
+Q10: x=frame.width/2; y=frame.height/2; origin="center"; scale=1.0; opacity=1.0; rotation=0.
+
+KEY FINDINGS:
+- Exercise 1: All three readings (MOVE/HOLD/SPLIT) are legal and produce different videos.
+- Exercise 2: A subdivided ease-in-out via de Casteljau cannot match named eases.
+- Exercise 3: Object keyframe form is more extensible than positional pairs.
+- Exercise 4: box/fit/align retirement loses declarative intent but not correctness.
+- Exercise 5: Bare elements need defaults to be renderable; opacity=1.0 critical for safety.
+
+CHANGED MIND:
+- SPLIT breaks in multiple cases; downgraded confidence
+- box/fit/align loss is real; not just a convenience
+- Custom Bezier easing is mathematically necessary, not optional
+- Element defaults prevent invisible-element bugs
+
+CLOSEST CALL: MOVE vs HOLD for stretched straddlers. MOVE wins on convergence evidence and ADR-0005 language, but would flip if animation-rate change produces objectively worse videos in practice.
+
+All work is based on:
+- Direct calculation (de Casteljau for easing subdivision)
+- Real fixture data (seven Ken Burns elements)
+- Mathematical analysis (keyframe interpolation at arbitrary points)
+- Comparative evidence from issue #21 (three independent agent implementations)
+
+No assertions made without numeric backing or traced to source ADR/issue.

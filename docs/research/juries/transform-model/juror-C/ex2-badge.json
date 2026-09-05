@@ -1,0 +1,17 @@
+COMMENT: Exercise 2. Corner badge rotates continuously for 3 s then holds.
+Rotation in degrees, clockwise positive, pivot = origin. "Continuously for 3s"
+is only expressible as a total end angle: 3 full turns = 1080 deg. After the
+last keyframe the value HOLDS (last-value-holds is the rule, not a field), so
+"then holds" costs nothing.
+
+{"id":"badge","type":"image","start":0,"end":65216,"source":"brand/badge.png","x":1000,"y":80,"origin":"top-right","width":140,"height":140,"fit":"contain","rotation":[{"t":0,"v":0},{"t":3000,"v":1080}]}
+
+NOTES:
+- "Rotates continuously forever" (a spinner for the whole video) is NOT expressible
+  without either a huge end angle ({"t":65216,"v":23477.76}) or a loop concept for
+  keyframes. That is fine for CapCut/Premiere class; noting it, not asking for it.
+- Rotation pivots about `origin` (top-right here) which is wrong for a spin —
+  a badge should spin about its own centre while being PLACED by its corner.
+  Placement point and pivot are the same field in this model. CapCut/Premiere
+  separate them (anchor point vs position). This is the one place I hit a real
+  missing property: `pivot` (defaulting to origin? to center?) — flagged under Q3.

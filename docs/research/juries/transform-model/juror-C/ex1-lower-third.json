@@ -1,0 +1,19 @@
+COMMENT: Exercise 1. Lower-third slides in from left over 400 ms while fading up,
+over a Ken Burns photo. Model used: flat properties; a transform property is a
+number OR a keyframe list; keyframe times RELATIVE to element start; record shape
+{"t":..,"v":..,"ease":..}. Frame 1080x1920.
+
+{"id":"kb-photo","type":"image","start":5000,"end":20000,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1300,"fit":"cover","crop_align":"top","scale":[{"t":0,"v":[1.0,1.0]},{"t":15000,"v":[1.08,1.08]}]}
+
+{"id":"lower-third","type":"text","start":5000,"end":9000,"font":"brand","size":55,"color":"#FFF8E8","origin":"bottom-left","align":"start","line_height":1.1,"x":[{"t":0,"v":-420},{"t":400,"v":80,"ease":"out"}],"y":1700,"opacity":[{"t":0,"v":0.0},{"t":400,"v":1.0,"ease":"out"}],"runs":[{"text":"Jane Doe\nField Producer"}]}
+
+NOTES WHILE WRITING:
+- Two animated properties on one element = two keyframe lists that must agree on
+  400. Nothing ties them; if I retime the slide and forget the fade they desync
+  silently. Lived cost, accepted: an "animation block" would be nesting by another name.
+- I wanted x to start "one card-width off screen". -420 is a guess at the card's
+  measured width; the real number needs `measure`. Same unknowable-number class as
+  FINDINGS C1/C2.
+- Under ABSOLUTE keyframe times these two lists would read [{"t":5000,...},{"t":5400,...}]
+  and the Ken Burns list [{"t":5000,"v":1.0},{"t":20000,"v":1.08}] — every list retypes
+  the element's own start. Relative: the slide-in is the same four bytes on any element.

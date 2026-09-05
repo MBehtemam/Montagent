@@ -1,0 +1,19 @@
+{
+  "frame": { "width": 1080, "height": 1920 },
+  "fps": 25,
+  "fonts": { "brand": [{ "file": "fonts/Inter-SemiBold.ttf" }] },
+  "tracks": [
+    { "name": "photo", "layer": 10, "elements": [
+      {"id":"photo-kb","type":"image","start":5000,"end":13000,"source":"images/kitchen.jpg","x":540,"y":960,"origin":"center","size":[1080,1920],"fit":"cover","scale":[{"t":5000,"v":[1.00,1.00],"ease":"linear"},{"t":13000,"v":[1.12,1.12]}]}
+    ]},
+    { "name": "lower-third-card", "layer": 20, "elements": [
+      {"id":"lt-card","type":"rect","start":6000,"end":12000,"x":[{"t":6000,"v":-528,"ease":"out"},{"t":6400,"v":32}],"y":1560,"origin":"left-center","size":[480,120],"fill":"#1E344C","opacity":[{"t":6000,"v":0,"ease":"linear"},{"t":6400,"v":1}]}
+    ]},
+    { "name": "lower-third-text", "layer": 21, "elements": [
+      {"id":"lt-text","type":"text","start":6000,"end":12000,"x":[{"t":6000,"v":-496,"ease":"out"},{"t":6400,"v":64}],"y":1560,"origin":"left-center","font":"brand","size":64,"color":"#FFF8E8","line_height":1.1,"must_fit":"lt-card","align":"start","runs":[{"text":"Marta Ruiz"}],"opacity":[{"t":6000,"v":0,"ease":"linear"},{"t":6400,"v":1}]}
+    ]},
+    { "name": "badge", "layer": 30, "elements": [
+      {"id":"badge","type":"image","start":0,"end":13000,"source":"brand/badge.png","x":952,"y":128,"origin":"center","size":[128,128],"fit":"contain","rotation":[{"t":0,"v":0,"ease":"linear"},{"t":3000,"v":1080}]}
+    ]}
+  ]
+}
