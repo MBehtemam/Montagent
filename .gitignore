@@ -1,0 +1,21 @@
+# Agent worktrees (Claude Code). ~300 MB of checkouts, never source.
+.claude/worktrees/
+
+# Prototype build artifacts. The perf prototypes behind ADR-0009/0010 and #34/#35
+# leave ~940 MB of dependencies and build output under docs/research/perf/.
+# Their findings live in the ADRs and the research write-ups; the trees do not.
+# Markdown stays trackable, so a real write-up dropped there is never lost silently.
+docs/research/perf/**
+!docs/research/perf/**/
+!docs/research/perf/**/*.md
+
+node_modules/
+.venv/
+target/
+__pycache__/
+*.pyc
+
+# Render output
+out/
+
+.DS_Store
