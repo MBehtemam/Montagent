@@ -26,6 +26,7 @@ required result, never as a format to carry over.
 ## Layout
 
 ```
+en-halloween-decorating.montaget.json           — the project file that composes all of it
 images/         05.png 06.png 07.png 08.png     — the source stills, one per item
 audio/          11 mp3 files                    — see below
 brand/          logo-en.png                     — the channel badge in the header
