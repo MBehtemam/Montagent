@@ -1,7 +1,12 @@
 """Check the migration. Usage: python3 verify.py <old.json> <new.json>
 
-<old.json> is the pre-migration prototype, recoverable with:
-  git show origin/prototype/sample-project-file:docs/research/prototypes/sample-project/en-halloween-decorating.montaget.json
+<old.json> is the pre-migration prototype, preserved on main at
+  docs/research/sample-project/pre-migration.montaget.json
+
+So the whole migration is re-runnable from a checkout of main:
+  python3 docs/research/sample-project-migration/verify.py \
+      docs/research/sample-project/pre-migration.montaget.json \
+      fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json
 """
 import json, collections, sys
 old=json.load(open(sys.argv[1])); new=json.load(open(sys.argv[2]))
