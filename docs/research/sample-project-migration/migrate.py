@@ -16,17 +16,31 @@ def r(x):  # ADR-0012: ties away from zero
     return int(decimal.Decimal(x).quantize(0, rounding=decimal.ROUND_HALF_UP))
 
 def cover(sw, sh, bw, bh):
-    """ADR-0012's worked example: cover factor = max(bw/sw, bh/sh).
+    """ADR-0013: fitted extents floor, in exact integer arithmetic.
 
-    The result is not integral -- exact cover for the photos is 1080 x 1912.5 -- and
-    ADR-0012 declines to publish a rounding rule for it ("The renderer must publish a
-    sampling rule"). Its only stated rule, ties away from zero, gives 1913; the element
-    published in the ADR itself says 1912. We follow the ADR's published element and
-    truncate. See FINDINGS-ADR-0012-MIGRATION.md D1.
+    Exact cover for the photos is 1080 x 1912.5, so a rounding rule is unavoidable and
+    ADR-0012 declined to publish one ("The renderer must publish a sampling rule").
+    ADR-0013 supplies it and scopes ADR-0012's "ties away from zero" back to x/y
+    interpolation residuals under SPLIT, where it belongs -- so the element published in
+    ADR-0012 (1912) was correct and its stated rule did not reach here. See README D1.
+
+    Three clauses, and the integer ones are load-bearing rather than stylistic:
+      - the driving axis is chosen by integer cross-multiplication, never by comparing
+        bw/sw against bh/sh as floats;
+      - the driving axis takes the box dimension VERBATIM -- it is exact by construction
+        and must not survive a round trip through a float;
+      - the slack axis floors in integer arithmetic.
+
+    The previous implementation was `math.floor(sw * f)` with `f = max(bw/sw, bh/sh)`.
+    That loses the driving axis to a ULP -- sw=103, bw=1920 gives 1919.9999999999998,
+    floors to 1919, and cover fails by a visible pixel on the axis that is exact by
+    construction. It disagrees with this function on 4.466% of 31,402,800 combinations;
+    see fit_rounding_scan.py. The fixture escaped it only because 1080/1536 = 45/64 is
+    dyadic, so this correction changes zero bytes of the committed file.
     """
-    import math
-    f = max(bw / sw, bh / sh)
-    return math.floor(sw * f), math.floor(sh * f)
+    if bw * sh >= bh * sw:                 # width drives
+        return bw, (sh * bw) // sw
+    return (sw * bh) // sh, bh
 
 # ADR-0012: text gains a literal box. Only 7 of 22 have a rect behind them to measure.
 CARD = (984, 169)                     # card-05..quiz: [48,1453,984,169]

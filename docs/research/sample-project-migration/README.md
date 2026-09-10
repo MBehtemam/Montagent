@@ -47,6 +47,22 @@ All **7** photo elements depend on this. The migration wrote 1912, following the
 published element over its published rule. **Needs an owner** — the rounding rule is a
 schema-level fact an author needs before writing an element, not a renderer detail.
 
+> **Resolved by [ADR-0013](../../adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md)
+> ([#44](https://github.com/MBehtemam/Montaget/issues/44)): 1912 stands, and the ADR's
+> published element was right.** *Ties away from zero* is scoped to `x`/`y` interpolation
+> residuals under SPLIT and never reached fitted extents; a fitted extent is a derived
+> bound and floors. Both roundings were geometrically safe — the finding's framing of this
+> as a contradiction between a rule and an element is right, but the element was the
+> correct half. Floor won on tiebreaks, not geometry, and ADR-0013 says so.
+>
+> This finding also **understated its own severity in one direction and overstated it in
+> another**: the migration's `math.floor(sw * f)` was wrong for a reason nobody had
+> spotted — it loses the driving axis to a floating-point ULP on **4.466%** of 31,402,800
+> combinations — while the fixture escapes it entirely, because `1080/1536 = 45/64` is
+> dyadic. `migrate.py` is corrected; the correction changes **zero bytes** of the committed
+> file, which `verify.py` now proves by regenerating and byte-diffing. See
+> `fit_rounding_scan.py`.
+
 ### D2 — the required text box is unavailable for 15 of 22 text elements
 
 ADR-0012 retires `box:"<id>"` in favour of literal `width`/`height`, on the ground that
@@ -132,3 +148,24 @@ and no document spells the six middle names. Two text elements (`chip-text`, `ha
 need the left-middle point to express ASS `\an4`. `center-left` was chosen for consistency
 with `center` being the middle keyword; `middle-left` is equally defensible. Cheap to
 settle, and a schema needs it settled.
+
+> **Resolved by [ADR-0013](../../adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md)
+> ([#44](https://github.com/MBehtemam/Montaget/issues/44)): `center-left`, and the
+> migration's spelling stands.** All nine are now spelled in `CONTEXT.md`, vertical
+> component first, with the middle as `center` alone and `center-center` a schema error
+> naming it. `middle` would spell one concept two ways depending on axis, since
+> `top-center` needs a horizontal-middle word regardless. The `\an1..\an9` mapping this
+> finding rests on stays here as evidence rather than moving into the ADR — Montaget does
+> not ingest ASS, and a normative mapping would imply an input format that does not exist.
+>
+> The mapping, so the two migrated values are checkable rather than asserted — ASS
+> numbers the nine points from the bottom-left:
+>
+> | `\an` | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+> | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+> | `origin` | `bottom-left` | `bottom-center` | `bottom-right` | `center-left` | `center` | `center-right` | `top-left` | `top-center` | `top-right` |
+>
+> `chip-text` and `handle-text` are `\an4` → `center-left`; the five sentence elements are
+> `\an5` → `center`. That is `migrate.py`'s `ORIGIN_FROM_ALIGN`, and it is why ADR-0012
+> recorded that the fixture's `align:"left"` was transcribing *left-middle*, so its `y` was
+> a centre and nothing in the file said so.
