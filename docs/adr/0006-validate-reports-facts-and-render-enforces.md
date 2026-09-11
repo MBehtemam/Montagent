@@ -4,6 +4,13 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)** on the
+> overflow check this ADR parked. It **must not be worded "text overflows its box"** —
+> 15 of the fixture's 22 text elements have no container behind them — and its extent
+> gains a `2 × stroke_width` term on both axes. Its width term counts as `UNCHECKED`
+> until `measure` has been run, because that axis is the one that goes stale silently.
+> This ADR's opt-in rule is what kept the text box required.
+
 > **Amended by [ADR-0011](./0011-tool-surface-reads-checks-renders.md)** (and, on the
 > text-overflow check, by [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) and
 > [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md), which adds an

@@ -5,6 +5,15 @@ amends: 0002 (fonts carve-out), 0006 (overflow check gains a box and a width ter
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)**, which
+> closes this ADR's open item: the run style-delta set is settled, and **outline is a
+> `stroke`/`stroke_width` paint field** — on text it falls *outside the glyph contour* and
+> grows into the declared box rather than enlarging the element. The box stays **required**,
+> on a reason this ADR did not have: an omitted `height` would be indistinguishable from a
+> decision not to check. Note also that **`ScaledBorderAndShadow: yes`, cited in this ADR's
+> open item, is an inert default** — all 35 fixture styles set `Outline: 0, Shadow: 0`, so
+> the fixture carries no stroke evidence at all. Every other decision below stands.
+
 > **Amended by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)** on
 > two spellings; every decision below stands. **`box` is no longer the id of an element to
 > fit inside** — it is literal `width`/`height` on the element, because fifteen of the
