@@ -116,6 +116,43 @@ is an entry in a table you cannot read, cannot commit, and that differs per mach
 The renderer opens nothing outside the chain.
 _Avoid_: typeface, family, font stack
 
+**Shape**:
+A drawn primitive with no source file — `rect` or `ellipse`, each its own element type,
+never a `shape` field inside a shared one. An ellipse inscribes its declared rect, so
+neither needs a placement rule beyond the transform every visual element already carries.
+A `rect` may declare a `radius`; an ellipse may not.
+_Avoid_: rectangle (as the type name), box, figure, primitive (unqualified)
+
+**Fill**:
+The paint inside a shape's outline, as a single flat colour. Optional when a `stroke` is
+present, giving an outlined shape; a shape with neither is a schema error naming both,
+because an element that deliberately renders nothing and an element that forgot its paint
+must not look alike. A gradient is not a fill — a flat colour is a value, a gradient is a
+paint description, and descriptions belong in a closed vocabulary rather than an open
+syntax.
+_Avoid_: background, colour (for a shape), paint
+
+**Stroke**:
+A second paint on the same outline — `stroke` and `stroke_width` — sitting on the
+primitive rather than among the effects, and addressable per *run* on text. It never
+enlarges the declared rect, and that is what separates it from an effect: a blur is not a
+paint on the outline and a drop shadow is not addressable by run. On a shape it falls
+**inside** the declared rect, so a stroked `card-05` still occupies exactly 984×169. On
+text it falls **outside the glyph contour** — inside would thin the stems — and grows into
+the box rather than past it, because a text element's `width`/`height` is a container
+claim and not drawn geometry. It is in element space, so it scales with `scale`.
+_Avoid_: outline, border, bord
+
+**Colour**:
+`#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else. No three-digit shorthand, no CSS
+names, and `#RRGGBBFF` is an error naming the six-digit form — two spellings of one value
+break the write-read round trip, as `center-center` does. Alpha lives here as well as in
+`opacity` because `opacity` is the *animation* channel: a static per-run transparency, or
+a translucent fill under an opaque stroke, has nowhere else to go. `fmt` never rewrites a
+colour, including between the two forms. ASS writes `&HAABBGGRR` — byte-reversed, alpha
+inverted — and every colour in the fixture was converted out of it by hand.
+_Avoid_: color (in prose), rgba(), hex (as the field name)
+
 **Group**:
 An optional free-text label marking elements that belong together, such as every
 element of one vocabulary item. It has no effect on rendering, timing or
@@ -205,6 +242,22 @@ the fixture's twenty-two text elements have no element behind them to name.
 the crop*, which is not alignment at all — that is `gravity`. The collision is recorded
 because it caused a live misreading: the fixture's `align:"left"` on text was transcribing
 ASS `\an4`, **left-middle**, so its `y` was a centre and nothing in the file said so.
+
+**Path, line, polygon**:
+Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is
+not — it has **no declared extent**, and giving it one needs either a second unit system
+or an extent derived from its own content, both of which are already closed. So these are
+rejected rather than merely absent, and the reopening condition is stated so it can be
+met: admitting a point-list shape is a new ADR about *placement*, not a schema addition.
+Do not reach for "a thin rotated `rect` draws a line" as the reason — it is false in the
+way that matters, because the endpoints never appear in the file. A `path` is additionally
+a mini-language inside a JSON string: unreadable by reading, unmatchable by exact-string
+replace. Commit an SVG or a PNG instead.
+
+**Gravity, on a text or shape element**:
+`gravity` is which part of a *source* survives a crop. Text and shapes have no source, so
+it is a schema error there; for the positioning sense the message names `origin`. On an
+image it is real, and it is defined with the `fit` vocabulary rather than here.
 
 **Weight / bold**:
 Not a field. A different weight is a different font file — with one declared file

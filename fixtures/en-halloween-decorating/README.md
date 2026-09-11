@@ -132,10 +132,20 @@ in `beats.json`), cropped to the frame's width; below it is a flat **cream card*
 
 A header sits over the top of the image, present for every segment:
 
-- a rounded cream panel at (48, 88)–(420, 172) holding a **drawn flag** — three filled
+- a cream panel at (48, 88)–(420, 172) holding a **drawn flag** — three filled
   rectangles, a blue field with a white cross — and the language chip `English` at 52 px
 - a second cream panel at (438, 88)–(1032, 172) holding the handle
   `@FluencyInActionEnglish` at 34 px, with `brand/logo-en.png` as a circular badge
+
+Both panels and the lower card have **square corners** — verified against the published
+MP4 and against the ASS drawing commands, which are literal four-point rectangles
+(`m 48 88 l 420 88 420 172 48 172`). An earlier revision of this file called the panels
+"rounded"; they are not. The badge's roundness is **baked into the asset** — `logo-en.png`
+is 800×800 RGBA with corner alpha 0 — not produced by the compositor.
+
+Nothing in this fixture is stroked. All 35 ASS style definitions set `Outline: 0,
+Shadow: 0`, and there is no inline `\bord` or `\shad` override anywhere, so
+`ScaledBorderAndShadow: yes` in the headers is an inert default.
 
 The flag drawn for the English edition is a Nordic cross, not a Union Jack. That is what
 shipped; recorded as fact, not as a thing to reproduce.

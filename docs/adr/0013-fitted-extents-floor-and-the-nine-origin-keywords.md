@@ -5,6 +5,12 @@ amends: 0012 (the rounding paragraph over-generalised; `photo-06` was right), 00
 
 # Fitted extents floor, and the nine `origin` keywords are spelled
 
+> **Extended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)**: as
+> `fmt` may never rewrite a declared extent, it may never rewrite a **colour** — including
+> converting between `#RRGGBB` and `#RRGGBBAA`. Under declared-authoritative the spelling
+> is content. ADR-0014 also declines `gravity` to [#48](https://github.com/MBehtemam/Montaget/issues/48)
+> rather than settling it, on this ADR's own refusal to create a schema value by implication.
+
 Two numbers an author must know before writing a single element, that no document
 stated. [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) made
 `width`/`height` **required on the element**, so a fitted extent is not a sampling
