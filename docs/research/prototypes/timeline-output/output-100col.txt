@@ -1,0 +1,373 @@
+
+====================================================================================================
+CANDIDATE A — Gantt chart — one row per track, time across the width
+  claim: the shape ADR-0011's consumers called illegible. Included as evidence, not inherited.
+====================================================================================================
+                  0s          10s         20s          30s         40s          50s         60s    
+photo             ▌██▌█████████████████▌████████████████▌██████████████▌████████████▌████████████▌█
+sentence-card     ·············▌███████·······▌█████████······▌████████·····▌███████·········▌███··
+sentence-text     ·············▌███████·······▌█████████······▌████████·····▌███████·········▌███··
+caption           ▌██▌██▌██████████████▌████████████████▌██████████████▌████████████▌██▌▌█▌▌▌▌███▌█
+caption-overflow  ·····················································▌████████████···············
+chip-panel        ▌████████████████████████████████████████████████████████████████████████████████
+flag-field        ▌████████████████████████████████████████████████████████████████████████████████
+flag-bar-h        ▌████████████████████████████████████████████████████████████████████████████████
+flag-bar-v        ▌████████████████████████████████████████████████████████████████████████████████
+chip-text         ▌████████████████████████████████████████████████████████████████████████████████
+handle-panel      ▌████████████████████████████████████████████████████████████████████████████████
+handle-logo       ▌████████████████████████████████████████████████████████████████████████████████
+handle-text       ▌████████████████████████████████████████████████████████████████████████████████
+narration         ▌██▌██▌█·▌██·▌█·▌███·▌█·▌██·▌██▌████··▌█·▌█·▌██▌███··▌·▌█·▌██▌███·▌██······▌██···
+
+====================================================================================================
+CANDIDATE B — Cut list — chronological, every boundary, what enters and leaves
+  claim: time is a column of numbers, not a horizontal axis. Scales past terminal width.
+====================================================================================================
+
+  0:00.000
+            + narration        vo-intro             intro-2.mp3
+            + photo            photo-05-intro       05.png
+            + caption          intro-title          "4 English words for⏎decorating the house"
+            + chip-panel       chip-panel           372x84 #FBF3E3
+            + handle-panel     handle-panel         594x84 #FBF3E3
+            + flag-field       flag-field           78x54 #00246B
+            + handle-logo      handle-logo          logo-en.png
+            + handle-text      handle-text          "@FluencyInActionEnglish"
+            + flag-bar-h       flag-bar-h           78x12 #FFFFFF
+            + flag-bar-v       flag-bar-v           12x54 #FFFFFF
+            + chip-text        chip-text            "English"
+
+  0:02.568
+            ─ narration        vo-intro             intro-2.mp3
+
+  0:03.018   (+0.450s)
+            ─ photo            photo-05-intro       05.png
+            ─ caption          intro-title          "4 English words for⏎decorating the house"
+            + narration        vo-hook              hook-2.mp3
+            + photo            photo-05             05.png
+            + caption          hook-05              "What is this called⏎in English?"
+
+  0:04.866
+            ─ narration        vo-hook              hook-2.mp3
+
+  0:05.316   (+0.450s)
+            ─ caption          hook-05              "What is this called⏎in English?"
+            + narration        vo-word-05-a         05-cobweb.mp3
+            + caption          word-05              "cobweb  -  cobweb"
+
+  0:07.092
+            ─ narration        vo-word-05-a         05-cobweb.mp3
+
+  0:07.892
+            + narration        vo-word-05-b         05-cobweb.mp3
+
+  0:09.668
+            ─ narration        vo-word-05-b         05-cobweb.mp3
+
+  0:10.468   (+0.800s)
+            + narration        vo-sentence-05-a     sentence-05-cobweb.mp3
+            + sentence-card    card-05              984x169 #1E344C
+            + sentence-text    sentence-05          "I hang cobwebs over the door."
+
+  0:12.652
+            ─ narration        vo-sentence-05-a     sentence-05-cobweb.mp3
+
+  0:13.172
+            + narration        vo-sentence-05-b     sentence-05-cobweb.mp3
+
+  0:16.558
+            ─ narration        vo-sentence-05-b     sentence-05-cobweb.mp3
+
+  0:17.472   (+0.914s)
+            ─ photo            photo-05             05.png
+            ─ sentence-card    card-05              984x169 #1E344C
+            ─ sentence-text    sentence-05          "I hang cobwebs over the door."
+            ─ caption          word-05              "cobweb  -  cobweb"
+            + narration        vo-word-06-a         06-spider.mp3
+            + photo            photo-06             06.png
+            + caption          word-06              "spider  -  spider"
+
+  0:19.248
+            ─ narration        vo-word-06-a         06-spider.mp3
+
+  0:20.048
+            + narration        vo-word-06-b         06-spider.mp3
+
+  0:21.824
+            ─ narration        vo-word-06-b         06-spider.mp3
+
+  0:22.622   (+0.798s)
+            + narration        vo-sentence-06-a     sentence-06-spider.mp3
+            + sentence-card    card-06              984x169 #1E344C
+            + sentence-text    sentence-06          "I'm holding a big⏎spider in my hand."
+
+  0:25.190
+            ─ narration        vo-sentence-06-a     sentence-06-spider.mp3
+
+  0:25.710
+            + narration        vo-sentence-06-b     sentence-06-spider.mp3
+
+  0:29.691
+            ─ narration        vo-sentence-06-b     sentence-06-spider.mp3
+
+  0:30.603   (+0.912s)
+            ─ photo            photo-06             06.png
+            ─ sentence-card    card-06              984x169 #1E344C
+            ─ sentence-text    sentence-06          "I'm holding a big⏎spider in my hand."
+            ─ caption          word-06              "spider  -  spider"
+            + narration        vo-word-07-a         07-skeleton.mp3
+            + photo            photo-07             07.png
+            + caption          word-07              "skeleton  -  skeleton"
+
+  0:32.379
+            ─ narration        vo-word-07-a         07-skeleton.mp3
+
+  0:33.179
+            + narration        vo-word-07-b         07-skeleton.mp3
+
+  0:34.955
+            ─ narration        vo-word-07-b         07-skeleton.mp3
+
+  0:35.753   (+0.798s)
+            + narration        vo-sentence-07-a     sentence-07-skeleton.mp3
+            + sentence-card    card-07              984x169 #1E344C
+            + sentence-text    sentence-07          "I hang the skeleton⏎up by the door."
+
+  0:37.937
+            ─ narration        vo-sentence-07-a     sentence-07-skeleton.mp3
+
+  0:38.457
+            + narration        vo-sentence-07-b     sentence-07-skeleton.mp3
+
+  0:41.843
+            ─ narration        vo-sentence-07-b     sentence-07-skeleton.mp3
+
+  0:42.763   (+0.920s)
+            ─ photo            photo-07             07.png
+            ─ sentence-card    card-07              984x169 #1E344C
+            ─ sentence-text    sentence-07          "I hang the skeleton⏎up by the door."
+            ─ caption          word-07              "skeleton  -  skeleton"
+            + narration        vo-word-08-a         08-lights.mp3
+            + photo            photo-08             08.png
+            + caption          word-08-target       "string of lights"
+            + caption-overflow word-08-bridge       "string of lights"
+
+  0:44.251
+            ─ narration        vo-word-08-a         08-lights.mp3
+
+  0:45.051
+            + narration        vo-word-08-b         08-lights.mp3
+
+  0:46.539
+            ─ narration        vo-word-08-b         08-lights.mp3
+
+  0:47.343   (+0.804s)
+            + narration        vo-sentence-08-a     sentence-08-lights.mp3
+            + sentence-card    card-08              984x169 #1E344C
+            + sentence-text    sentence-08          "I hang up a string of lights."
+
+  0:49.335
+            ─ narration        vo-sentence-08-a     sentence-08-lights.mp3
+
+  0:49.855
+            + narration        vo-sentence-08-b     sentence-08-lights.mp3
+
+  0:52.943
+            ─ narration        vo-sentence-08-b     sentence-08-lights.mp3
+
+  0:53.856   (+0.913s)
+            ─ photo            photo-08             08.png
+            ─ sentence-card    card-08              984x169 #1E344C
+            ─ sentence-text    sentence-08          "I hang up a string of lights."
+            ─ caption          word-08-target       "string of lights"
+            ─ caption-overflow word-08-bridge       "string of lights"
+            + narration        vo-quiz              quiz-2.mp3
+            + photo            photo-05-quiz        05.png
+            + caption          quiz-question        "How do you say you hang⏎cobwebs over the door
+
+  0:56.112
+            ─ narration        vo-quiz              quiz-2.mp3
+
+  0:56.116   (+0.004s)
+            ─ caption          quiz-question        "How do you say you hang⏎cobwebs over the door
+            + caption          count-5              "5"
+
+  0:57.116   (+1.000s)
+            ─ caption          count-5              "5"
+            + caption          count-4              "4"
+
+  0:58.116   (+1.000s)
+            ─ caption          count-4              "4"
+            + caption          count-3              "3"
+
+  0:59.116   (+1.000s)
+            ─ caption          count-3              "3"
+            + caption          count-2              "2"
+
+  1:00.116   (+1.000s)
+            ─ caption          count-2              "2"
+            + caption          count-1              "1"
+
+  1:01.116   (+1.000s)
+            ─ caption          count-1              "1"
+            + narration        vo-quiz-answer       sentence-05-cobweb.mp3
+            + sentence-card    card-quiz            984x169 #1E344C
+            + sentence-text    sentence-quiz        "I hang cobwebs over the door."
+            + caption          word-quiz            "cobweb  -  cobweb"
+
+  1:03.300
+            ─ narration        vo-quiz-answer       sentence-05-cobweb.mp3
+
+  1:04.016   (+0.716s)
+            ─ photo            photo-05-quiz        05.png
+            ─ sentence-card    card-quiz            984x169 #1E344C
+            ─ sentence-text    sentence-quiz        "I hang cobwebs over the door."
+            ─ caption          word-quiz            "cobweb  -  cobweb"
+            + photo            photo-05-loop        05.png
+            + caption          hook-loop            "What is this called⏎in English?"
+
+  1:05.216   (+1.200s)
+            ─ photo            photo-05-loop        05.png
+            ─ caption          hook-loop            "What is this called⏎in English?"
+            ─ chip-panel       chip-panel           372x84 #FBF3E3
+            ─ handle-panel     handle-panel         594x84 #FBF3E3
+            ─ flag-field       flag-field           78x54 #00246B
+            ─ handle-logo      handle-logo          logo-en.png
+            ─ handle-text      handle-text          "@FluencyInActionEnglish"
+            ─ flag-bar-h       flag-bar-h           78x12 #FFFFFF
+            ─ flag-bar-v       flag-bar-v           12x54 #FFFFFF
+            ─ chip-text        chip-text            "English"
+
+====================================================================================================
+CANDIDATE C — By group — the structure the file already has, one block per group
+  claim: `group` is the beat the author thinks in. 60 elements collapse to 8 blocks.
+====================================================================================================
+
+▸ item-05   0:00.000 → 0:17.472   (17.472s, 11 elements)
+   + 0.000 + 3.018  L10  photo           photo-05-intro       05.png ~anim
+   + 3.018 + 4.866  L0   narration       vo-hook              hook-2.mp3
+   + 3.018 +17.472  L10  photo           photo-05             05.png ~anim
+   + 3.018 + 5.316  L22  caption         hook-05              "What is this called⏎in English?"
+   + 5.316 + 7.092  L0   narration       vo-word-05-a         05-cobweb.mp3
+   + 5.316 +17.472  L22  caption         word-05              "cobweb  -  cobweb"
+   + 7.892 + 9.668  L0   narration       vo-word-05-b         05-cobweb.mp3
+   +10.468 +12.652  L0   narration       vo-sentence-05-a     sentence-05-cobweb.mp3
+   +10.468 +17.472  L20  sentence-card   card-05              984x169 #1E344C
+   +10.468 +17.472  L21  sentence-text   sentence-05          "I hang cobwebs over the door."
+   +13.172 +16.558  L0   narration       vo-sentence-05-b     sentence-05-cobweb.mp3
+
+▸ intro   0:00.000 → 0:03.018   (3.018s, 2 elements)
+   + 0.000 + 2.568  L0   narration       vo-intro             intro-2.mp3
+   + 0.000 + 3.018  L22  caption         intro-title          "4 English words for⏎decorating the ho
+
+▸ header   0:00.000 → 1:05.216   (65.216s, 8 elements)
+   + 0.000 +65.216  L30  chip-panel      chip-panel           372x84 #FBF3E3
+   + 0.000 +65.216  L30  handle-panel    handle-panel         594x84 #FBF3E3
+   + 0.000 +65.216  L31  flag-field      flag-field           78x54 #00246B
+   + 0.000 +65.216  L31  handle-logo     handle-logo          logo-en.png
+   + 0.000 +65.216  L31  handle-text     handle-text          "@FluencyInActionEnglish"
+   + 0.000 +65.216  L32  flag-bar-h      flag-bar-h           78x12 #FFFFFF
+   + 0.000 +65.216  L33  flag-bar-v      flag-bar-v           12x54 #FFFFFF
+   + 0.000 +65.216  L34  chip-text       chip-text            "English"
+
+▸ item-06   0:17.472 → 0:30.603   (13.131s, 8 elements)
+   + 0.000 + 1.776  L0   narration       vo-word-06-a         06-spider.mp3
+   + 0.000 +13.131  L10  photo           photo-06             06.png ~anim
+   + 0.000 +13.131  L22  caption         word-06              "spider  -  spider"
+   + 2.576 + 4.352  L0   narration       vo-word-06-b         06-spider.mp3
+   + 5.150 + 7.718  L0   narration       vo-sentence-06-a     sentence-06-spider.mp3
+   + 5.150 +13.131  L20  sentence-card   card-06              984x169 #1E344C
+   + 5.150 +13.131  L21  sentence-text   sentence-06          "I'm holding a big⏎spider in my hand."
+   + 8.238 +12.219  L0   narration       vo-sentence-06-b     sentence-06-spider.mp3
+
+▸ item-07   0:30.603 → 0:42.763   (12.160s, 8 elements)
+   + 0.000 + 1.776  L0   narration       vo-word-07-a         07-skeleton.mp3
+   + 0.000 +12.160  L10  photo           photo-07             07.png ~anim
+   + 0.000 +12.160  L22  caption         word-07              "skeleton  -  skeleton"
+   + 2.576 + 4.352  L0   narration       vo-word-07-b         07-skeleton.mp3
+   + 5.150 + 7.334  L0   narration       vo-sentence-07-a     sentence-07-skeleton.mp3
+   + 5.150 +12.160  L20  sentence-card   card-07              984x169 #1E344C
+   + 5.150 +12.160  L21  sentence-text   sentence-07          "I hang the skeleton⏎up by the door."
+   + 7.854 +11.240  L0   narration       vo-sentence-07-b     sentence-07-skeleton.mp3
+
+▸ item-08   0:42.763 → 0:53.856   (11.093s, 9 elements)
+   + 0.000 + 1.488  L0   narration       vo-word-08-a         08-lights.mp3
+   + 0.000 +11.093  L10  photo           photo-08             08.png ~anim
+   + 0.000 +11.093  L22  caption         word-08-target       "string of lights"
+   + 0.000 +11.093  L23  caption-overflow word-08-bridge       "string of lights"
+   + 2.288 + 3.776  L0   narration       vo-word-08-b         08-lights.mp3
+   + 4.580 + 6.572  L0   narration       vo-sentence-08-a     sentence-08-lights.mp3
+   + 4.580 +11.093  L20  sentence-card   card-08              984x169 #1E344C
+   + 4.580 +11.093  L21  sentence-text   sentence-08          "I hang up a string of lights."
+   + 7.092 +10.180  L0   narration       vo-sentence-08-b     sentence-08-lights.mp3
+
+▸ quiz   0:53.856 → 1:04.016   (10.160s, 12 elements)
+   + 0.000 + 2.256  L0   narration       vo-quiz              quiz-2.mp3
+   + 0.000 +10.160  L10  photo           photo-05-quiz        05.png ~anim
+   + 0.000 + 2.260  L22  caption         quiz-question        "How do you say you hang⏎cobwebs over 
+   + 2.260 + 3.260  L22  caption         count-5              "5"
+   + 3.260 + 4.260  L22  caption         count-4              "4"
+   + 4.260 + 5.260  L22  caption         count-3              "3"
+   + 5.260 + 6.260  L22  caption         count-2              "2"
+   + 6.260 + 7.260  L22  caption         count-1              "1"
+   + 7.260 + 9.444  L0   narration       vo-quiz-answer       sentence-05-cobweb.mp3
+   + 7.260 +10.160  L20  sentence-card   card-quiz            984x169 #1E344C
+   + 7.260 +10.160  L21  sentence-text   sentence-quiz        "I hang cobwebs over the door."
+   + 7.260 +10.160  L22  caption         word-quiz            "cobweb  -  cobweb"
+
+▸ loop-tail   1:04.016 → 1:05.216   (1.200s, 2 elements)
+   + 0.000 + 1.200  L10  photo           photo-05-loop        05.png ~anim
+   + 0.000 + 1.200  L22  caption         hook-loop            "What is this called⏎in English?"
+
+====================================================================================================
+CANDIDATE D — Coverage — what is on screen, and where nothing is
+  claim: answers the question the file cannot: is every instant painted, and is audio contiguous?
+====================================================================================================
+
+                  span  vis  aud  stack (front → back)
+0:00.000–0:02.568     10    1  chip-text › flag-bar-v › flag-bar-h
+0:02.568–0:03.018     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:03.018–0:04.866     10    1  chip-text › flag-bar-v › flag-bar-h
+0:04.866–0:05.316     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:05.316–0:07.092     10    1  chip-text › flag-bar-v › flag-bar-h
+0:07.092–0:07.892     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:07.892–0:09.668     10    1  chip-text › flag-bar-v › flag-bar-h
+0:09.668–0:10.468     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:10.468–0:12.652     12    1  chip-text › flag-bar-v › flag-bar-h
+0:12.652–0:13.172     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:13.172–0:16.558     12    1  chip-text › flag-bar-v › flag-bar-h
+0:16.558–0:17.472     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:17.472–0:19.248     10    1  chip-text › flag-bar-v › flag-bar-h
+0:19.248–0:20.048     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:20.048–0:21.824     10    1  chip-text › flag-bar-v › flag-bar-h
+0:21.824–0:22.622     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:22.622–0:25.190     12    1  chip-text › flag-bar-v › flag-bar-h
+0:25.190–0:25.710     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:25.710–0:29.691     12    1  chip-text › flag-bar-v › flag-bar-h
+0:29.691–0:30.603     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:30.603–0:32.379     10    1  chip-text › flag-bar-v › flag-bar-h
+0:32.379–0:33.179     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:33.179–0:34.955     10    1  chip-text › flag-bar-v › flag-bar-h
+0:34.955–0:35.753     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:35.753–0:37.937     12    1  chip-text › flag-bar-v › flag-bar-h
+0:37.937–0:38.457     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:38.457–0:41.843     12    1  chip-text › flag-bar-v › flag-bar-h
+0:41.843–0:42.763     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:42.763–0:44.251     11    1  chip-text › flag-bar-v › flag-bar-h
+0:44.251–0:45.051     11    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:45.051–0:46.539     11    1  chip-text › flag-bar-v › flag-bar-h
+0:46.539–0:47.343     11    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:47.343–0:49.335     13    1  chip-text › flag-bar-v › flag-bar-h
+0:49.335–0:49.855     13    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:49.855–0:52.943     13    1  chip-text › flag-bar-v › flag-bar-h
+0:52.943–0:53.856     13    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:53.856–0:56.112     10    1  chip-text › flag-bar-v › flag-bar-h
+0:56.112–0:56.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:56.116–0:57.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:57.116–0:58.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:58.116–0:59.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+0:59.116–1:00.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+1:00.116–1:01.116     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+1:01.116–1:03.300     12    1  chip-text › flag-bar-v › flag-bar-h
+1:03.300–1:04.016     12    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
+1:04.016–1:05.216     10    0  chip-text › flag-bar-v › flag-bar-h  ← SILENT
