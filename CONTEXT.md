@@ -58,9 +58,20 @@ _Avoid_: parent, constraint, binding; and do **not** use for an element's
 positioning origin — that is `origin`. See the note under Origin.
 
 **Origin**:
-The point of an element's own box that its `x`,`y` places, as one of nine keywords
-(`top-left` … `center` … `bottom-right`), and about which transforms pivot. Defaults to
-`center`, so a bare element is conspicuous rather than plausible.
+The point of an element's own box that its `x`,`y` places, and about which transforms
+pivot. Exactly nine keywords, vertical component first:
+
+    top-left      top-center      top-right
+    center-left   center          center-right
+    bottom-left   bottom-center   bottom-right
+
+The grammar is `{top|center|bottom}-{left|center|right}` with one elision: the middle is
+`center` alone, and **`center-center` is a schema error naming `center`** — two spellings
+of one value break the write-read round trip, because `fmt` normalises on write and the
+agent's next exact-string replace then finds nothing. It is `center-left`, never
+`middle-left`: `top-center` needs a horizontal-middle word regardless, so a separate
+`middle` would spell one concept two ways depending on axis. Defaults to `center`, so a
+bare element is conspicuous rather than plausible.
 _Avoid_: anchor, alignment, pivot
 
 **Transform**:
@@ -176,7 +187,9 @@ Every comparable tool — ASS's `\an`, CSS, every GUI editor — calls the nine-
 positioning point an *anchor*. Montaget spends that word on layer-relative stacking
 instead, so the positioning point is **`origin`**. The collision is recorded here
 because it is near-certain to be rediscovered: the positioning concept appears on
-essentially every text element, and layer anchoring appears rarely.
+essentially every text element, and layer anchoring appears rarely. The schema catches
+the rediscovery **on shape, not presence**: `anchor` carrying a *string* is an error
+naming `origin`; `anchor` carrying a below/above *object* is the ordinary feature above.
 
 **Box**:
 Retired, having meant two different things at once: a literal `[x,y,w,h]` rect on an image

@@ -8,8 +8,23 @@ So the whole migration is re-runnable from a checkout of main:
       docs/research/sample-project/pre-migration.montaget.json \
       fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json
 """
-import json, collections, sys
+import json, collections, sys, os, struct, subprocess, tempfile
 old=json.load(open(sys.argv[1])); new=json.load(open(sys.argv[2]))
+NEWDIR=os.path.dirname(os.path.abspath(sys.argv[2]))
+HERE=os.path.dirname(os.path.abspath(__file__))
+
+def png_dims(path):
+    """Source dimensions from the file itself, not from a table copied out of
+    migrate.py -- ADR-0006's question is whether the document agrees with the media on
+    disk, and a lookup table cannot answer it."""
+    with open(path,"rb") as f: head=f.read(24)
+    assert head[:8]==b"\x89PNG\r\n\x1a\n" and head[12:16]==b"IHDR", path
+    return struct.unpack(">II", head[16:24])
+
+def cover_int(sw,sh,bw,bh):
+    """ADR-0013, restated here so this check is independent of migrate.py."""
+    if bw*sh >= bh*sw: return bw,(sh*bw)//sw
+    return (sw*bh)//sh, bh
 def flat(d): return [e for t in d["tracks"] for e in t["elements"]]
 O,N={e["id"]:e for e in flat(old)},{e["id"]:e for e in flat(new)}
 print("elements:",len(O),"->",len(N),"| ids identical:",set(O)==set(N))
@@ -68,3 +83,35 @@ for i in sorted(meas):
     e=N[i]; lines_=e["runs"][0]["text"].count("\n")+1
     bh=lines_*e["size"]*e["line_height"]
     print(f"  {i:<14} block h {bh:7.1f} vs box {e['height']:>4}  {'OK' if bh<=e['height'] else 'OVERFLOW'}")
+# 9. ADR-0013: every image element's width/height recomputed from the media on disk.
+#    Before this check a green verify.py said nothing about the number #44 was about.
+print("ADR-0013 fitted extents, recomputed from the source files:")
+bad=unchecked=0
+for i,e in sorted(N.items()):
+    if e["type"]!="image": continue
+    p=os.path.join(NEWDIR,e["source"])
+    if not os.path.exists(p):
+        print(f"  {i:<16} UNCHECKED  source not on disk: {e['source']}"); unchecked+=1; continue
+    sw,sh=png_dims(p); c=e["clip"]
+    want=cover_int(sw,sh,c[2],c[3]); got=(e["width"],e["height"])
+    covers = got[0]>=c[2] and got[1]>=c[3]
+    ok = want==got
+    if not ok: bad+=1
+    print(f"  {i:<16} src {sw}x{sh} box {c[2]}x{c[3]} -> rule {want}, declared {got}"
+          f"  {'OK' if ok else 'DEVIATES'}{'' if covers else '  APERTURE NOT COVERED'}")
+    assert covers, ("aperture coverage is an error under ADR-0013", i)
+print(f"  deviations: {bad} | unchecked: {unchecked}")
+assert bad==0, "a declared extent disagrees with ADR-0013's rule"
+# 10. the migration script still produces exactly the committed file.
+#     Nothing else in the toolchain would catch migrate.py drifting from the fixture
+#     it claims to produce -- and a green check on the other nine sections would not
+#     notice, which is the ADR-0006 mistake this repo is cleaning up after.
+mig=os.path.join(HERE,"migrate.py")
+if os.path.exists(mig):
+    with tempfile.NamedTemporaryFile(suffix=".json",delete=False) as tf: out=tf.name
+    subprocess.run([sys.executable,mig,"linear",sys.argv[1],out],check=True,
+                   stderr=subprocess.DEVNULL)
+    same=open(out,"rb").read()==open(sys.argv[2],"rb").read()
+    os.unlink(out)
+    print(f"migrate.py regenerates the committed file byte-for-byte: {same}")
+    assert same, "migrate.py no longer reproduces the committed fixture"

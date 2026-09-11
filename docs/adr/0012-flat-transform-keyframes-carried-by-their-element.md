@@ -5,6 +5,17 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0013](./0013-fitted-extents-floor-and-the-nine-origin-keywords.md)** on
+> the scope of one sentence; every decision below stands, and the `photo-06` element
+> published here is **correct as written**. **"Ties away from zero" does not reach fitted
+> extents** — it is scoped to `x`/`y` interpolation residuals under SPLIT, where "nearest"
+> is right for a value with no directional constraint. A fitted extent is a derived bound:
+> it floors, in exact integer arithmetic, with the driving axis assigned the box dimension
+> verbatim and chosen by integer cross-multiplication. ADR-0013 also supplies the sampling
+> rule this ADR asked a successor for (*"the rectangle is not integral: exact cover here is
+> 1912.5 px"*), spells the nine `origin` keywords this ADR used but never enumerated, and
+> contributes a measured fact to the open `gravity` question below without closing it.
+
 Every visual element is placed the same way — `x`, `y`, `origin`, plus a declared size —
 in **absolute integer pixels** on the project's frame. Any transform property may be a
 value or a list of **`{"t","v","ease"}`** records on the project's one absolute clock.
@@ -291,6 +302,13 @@ shape and soft masks — the fixture's `mask:"circle"` on `handle-logo` — to #
 - **Whether `gravity` survives at all.** With explicit `width`/`height` and a `clip`, the
   aperture's position may already determine which part of the source survives, making
   `gravity` derivable rather than declared. The jury split on this and it was not measured.
+  **Now measured, and still open:**
+  [ADR-0013](./0013-fitted-extents-floor-and-the-nine-origin-keywords.md) finds `gravity`
+  **inert on 8 of 8 image elements** in the only real project file — the declared rect and
+  `clip` together already determine which part of the source survives. That is the number
+  the split jury did not have. It is a fact handed to
+  [#13](https://github.com/MBehtemam/Montaget/issues/13) and
+  [#21](https://github.com/MBehtemam/Montaget/issues/21), not a decision.
 - **Whether `clip` is keyframable.** Nothing in the fixture animates it — all seven photos use
   one static rect — but a wipe or reveal is exactly a keyframed aperture. If it is, it joins
   the properties SPLIT must handle and the 0.000 px result must be re-run over it.
