@@ -58,7 +58,7 @@ ORIGIN_FROM_ALIGN = {"center": "center", "left": "center-left"}   # \an5, \an4
 ALIGN_MIGRATE     = {"center": "center", "left": "start"}         # ADR-0007 start/center/end
 
 KEY_ORDER = ["id","type","group","start","end","source","source_start","source_end",
-             "speed","x","y","origin","width","height","fit","gravity","clip","mask",
+             "speed","x","y","origin","width","height","fit","clip","mask",
              "fill","font","size","line_height","color","align","runs","scale"]
 
 def ordered(d):
@@ -86,7 +86,9 @@ def migrate(el, ease):
             dw, dh = cover(sw, sh, w, h)          # the drawn rect, ADR-0012
             out["width"], out["height"] = dw, dh
             out["fit"] = e.pop("fit")
-            out["gravity"] = e.pop("align")       # ADR-0012: align -> gravity on images
+            e.pop("align", None)                  # ADR-0015: `gravity` is retired; the
+                                                  # drawn rect plus `clip` already say which
+                                                  # part of the source survives.
             out["clip"] = [x, y, w, h]            # the aperture the old box was doing silently
             if "mask" in e: out["mask"] = e.pop("mask")   # still #22, unchanged
         else:

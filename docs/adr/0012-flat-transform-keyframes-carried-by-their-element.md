@@ -5,6 +5,11 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
+> `photo-06` element published below carries `"gravity":"top"`, and **`gravity` no longer
+> exists** — the declared rect plus `clip` already determine which part of the source survives.
+> Read that element without the `gravity` key. Nothing else in it changed.
+
 > **Amended by [ADR-0013](./0013-fitted-extents-floor-and-the-nine-origin-keywords.md)** on
 > the scope of one sentence; every decision below stands, and the `photo-06` element
 > published here is **correct as written**. **"Ties away from zero" does not reach fitted

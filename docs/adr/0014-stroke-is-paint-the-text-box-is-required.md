@@ -5,6 +5,10 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
+> **`gravity` is decided by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**,
+> which this ADR deferred to #48. It is **retired** — a schema error on every element type, not
+> only on text and shapes. This ADR's one owed clause stands and is now the general case.
+
 Three decisions the shape primitive and the text primitive were still missing.
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) gave every
 visual element its placement, so `card-05`'s rectangle was already expressible; what was

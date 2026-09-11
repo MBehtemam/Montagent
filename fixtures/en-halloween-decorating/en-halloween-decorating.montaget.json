@@ -10,13 +10,13 @@
       "name": "photo",
       "layer": 10,
       "elements": [
-        {"id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":0,"v":[1.0,1.0]},{"t":15000,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-05","type":"image","group":"item-05","start":3018,"end":17472,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":3018,"v":[1.0,1.0]},{"t":18018,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-06","type":"image","group":"item-06","start":17472,"end":30603,"source":"images/06.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":17472,"v":[1.0,1.0]},{"t":32472,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-07","type":"image","group":"item-07","start":30603,"end":42763,"source":"images/07.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":30603,"v":[1.0,1.0]},{"t":45603,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-08","type":"image","group":"item-08","start":42763,"end":53856,"source":"images/08.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":42763,"v":[1.0,1.0]},{"t":57763,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-05-quiz","type":"image","group":"quiz","start":53856,"end":64016,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":53856,"v":[1.0,1.0]},{"t":68856,"v":[1.08,1.08],"ease":"linear"}]},
-        {"id":"photo-05-loop","type":"image","group":"loop-tail","start":64016,"end":65216,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":64016,"v":[1.0,1.0]},{"t":79016,"v":[1.08,1.08],"ease":"linear"}]}
+        {"id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":0,"v":[1.0,1.0]},{"t":15000,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-05","type":"image","group":"item-05","start":3018,"end":17472,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":3018,"v":[1.0,1.0]},{"t":18018,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-06","type":"image","group":"item-06","start":17472,"end":30603,"source":"images/06.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":17472,"v":[1.0,1.0]},{"t":32472,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-07","type":"image","group":"item-07","start":30603,"end":42763,"source":"images/07.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":30603,"v":[1.0,1.0]},{"t":45603,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-08","type":"image","group":"item-08","start":42763,"end":53856,"source":"images/08.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":42763,"v":[1.0,1.0]},{"t":57763,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-05-quiz","type":"image","group":"quiz","start":53856,"end":64016,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":53856,"v":[1.0,1.0]},{"t":68856,"v":[1.08,1.08],"ease":"linear"}]},
+        {"id":"photo-05-loop","type":"image","group":"loop-tail","start":64016,"end":65216,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":64016,"v":[1.0,1.0]},{"t":79016,"v":[1.08,1.08],"ease":"linear"}]}
       ]
     },
     {
@@ -114,7 +114,7 @@
       "name": "handle-logo",
       "layer": 31,
       "elements": [
-        {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,"source":"brand/logo-en.png","x":478,"y":96,"origin":"top-left","width":68,"height":68,"fit":"cover","gravity":"center","clip":[478,96,68,68],"mask":"circle"}
+        {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,"source":"brand/logo-en.png","x":478,"y":96,"origin":"top-left","width":68,"height":68,"fit":"cover","clip":[478,96,68,68],"mask":"circle"}
       ]
     },
     {

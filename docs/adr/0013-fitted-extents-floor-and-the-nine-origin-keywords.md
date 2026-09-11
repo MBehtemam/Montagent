@@ -5,6 +5,15 @@ amends: 0012 (the rounding paragraph over-generalised; `photo-06` was right), 00
 
 # Fitted extents floor, and the nine `origin` keywords are spelled
 
+> **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**, in three
+> places. **Tiebreak (2) below is false**: `contain` is now defined, and ceil preserves
+> containment just as trivially as floor preserves coverage (zero violations under either over
+> 3,286,969 cases). Floor still stands, on tiebreaks (1) and (3) only. The **fit-deviation
+> `note` is now an `error` at strict equality** with the rule value — the `{floor, ceil}`
+> membership preferred under *Not settled here* was measured to produce two legal files for one
+> input on three of six authoring tasks. And the **aperture-coverage error is parameterised by
+> `fit`**, since a correct `contain` element is smaller than its own clip.
+
 > **Extended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)**: as
 > `fmt` may never rewrite a declared extent, it may never rewrite a **colour** — including
 > converting between `#RRGGBB` and `#RRGGBBAA`. Under declared-authoritative the spelling
