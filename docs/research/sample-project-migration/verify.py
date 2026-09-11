@@ -51,7 +51,13 @@ for i,e in N.items():
         assert "width" in e and "height" in e, ("missing size",i)
     assert "box" not in e and "weight" not in e, i
     if e["type"]!="text": assert "align" not in e, i
-    if e["type"]=="image": assert "gravity" in e and "clip" in e, i
+    # ADR-0015: `gravity` is retired, `fit` is required, and its value set is closed.
+    # This assertion was inverted by ADR-0015 -- it previously required `gravity`.
+    if e["type"]=="image":
+        assert "gravity" not in e, ("ADR-0015 retired `gravity`",i)
+        assert "clip" in e and "fit" in e, i
+        assert e["fit"] in ("cover","contain","literal"), ("closed fit vocabulary",i,e["fit"])
+        if e["fit"]!="literal": assert "clip" in e, ("cover/contain require clip",i)
     if e["type"]=="text": assert "runs" in e and "text" not in e and e["font"]=="brand", i
 print("field-shape assertions: all pass")
 # 4. keyframe schema

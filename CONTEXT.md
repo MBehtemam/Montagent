@@ -254,10 +254,37 @@ way that matters, because the endpoints never appear in the file. A `path` is ad
 a mini-language inside a JSON string: unreadable by reading, unmatchable by exact-string
 replace. Commit an SVG or a PNG instead.
 
-**Gravity, on a text or shape element**:
-`gravity` is which part of a *source* survives a crop. Text and shapes have no source, so
-it is a schema error there; for the positioning sense the message names `origin`. On an
-image it is real, and it is defined with the `fit` vocabulary rather than here.
+**Gravity**:
+Retired entirely by [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
+It meant *which part of a source survives a crop* — a quantity that does not exist once the
+declared rect is authoritative at render: the rect's `x`, `y`, `origin` and the static
+frame-space `clip` already determine it, with no freedom left to spend. A schema error on
+every element type; on an image the message names `x`/`y`/`origin` and `clip`, on text and
+shapes it names `origin`. Expect to reach for it by **copying a neighbouring element** — that
+is how eight of eight agents met it — which is why its eight occurrences left the fixture in
+the same change that retired it.
+
+**Fit**:
+A **derivation claim, not a layout mode**. `fit` records the rule by which the author computed
+`width`/`height` from the source and the aperture; no renderer reads it, because the declared
+rect is what gets drawn. Its only consumer is `validate`. The closed set is `cover`, `contain`
+and `literal`, and the box a rule works against is `clip`'s `w`/`h`.
+Defined in [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
+
+**Fill / none / stretch, for `fit`**:
+`fill` is spent — it is a shape's paint colour ([ADR-0014](docs/adr/0014-stroke-is-paint-the-text-box-is-required.md)).
+`none` is a **false friend**: CSS `object-fit: none` means *intrinsic size*, which this format
+cannot express, so it is a schema error naming `literal`. `stretch` was rejected as naming an
+effect that is constant across the vocabulary — every value resamples to the declared rect —
+and so distinguishes nothing. The collisions are recorded because they are the CSS-habit
+reach: three of eight agents tried `none` or `fill` before finding the legal value.
+
+**Literal, versus declared**:
+The escape value is `literal`, continuing [ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)'s
+*"Literal `size`. No fit-to-box."* — this format's established opposition between a literal
+number and a fit rule. `declared` was rejected despite being a jury plurality: the corpus
+already spends it generically, 14 times as "declared rect" and 6 as "declared extent", so it
+describes all three values and distinguishes none of them.
 
 **Weight / bold**:
 Not a field. A different weight is a different font file — with one declared file
