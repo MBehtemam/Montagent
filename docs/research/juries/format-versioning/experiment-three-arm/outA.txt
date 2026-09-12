@@ -1,0 +1,9 @@
+$ montaget --version
+montaget 0.9.2  (format revision 2)
+
+$ montaget render en-halloween-decorating.montaget.json
+error  this file declares format revision 4; this binary implements revision 2.
+       The file claims a contract newer than this Montaget speaks.
+       Upgrade montaget. Do not edit the file.
+
+render refused.

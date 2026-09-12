@@ -1,0 +1,10 @@
+**Gravity**:
+Retired entirely by [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
+It meant *which part of a source survives a crop* — a quantity that does not exist once the
+declared rect is authoritative at render: the rect's `x`, `y`, `origin` and the static
+frame-space `clip` already determine it, with no freedom left to spend. A schema error on
+every element type; on an image the message names `x`/`y`/`origin` and `clip`, on text and
+shapes it names `origin`. Expect to reach for it by **copying a neighbouring element** — that
+is how eight of eight agents met it — which is why its eight occurrences left the fixture in
+the same change that retired it.
+

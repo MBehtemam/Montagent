@@ -1,0 +1,16 @@
+$ montaget --version
+montaget 0.9.2
+
+$ montaget render en-halloween-decorating.montaget.json
+error  photo-05-intro: unknown key `fit`. This is not a key this Montaget knows,
+       and not one it has retired. It may belong to a newer format revision than
+       this binary implements. Check your Montaget version before removing it.
+       Do not delete the key to make the file validate.
+error  photo-05-intro: unknown key `clip`. This is not a key this Montaget knows,
+       and not one it has retired. It may belong to a newer format revision than
+       this binary implements. Check your Montaget version before removing it.
+       Do not delete the key to make the file validate.
+  ... the same two errors on photo-05, photo-06, photo-07, photo-08,
+      photo-05-quiz, photo-05-loop, handle-logo ...
+
+16 errors. render refused.

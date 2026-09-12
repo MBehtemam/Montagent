@@ -1,0 +1,22 @@
+$ montaget --version
+montaget 0.9.2
+
+$ montaget render en-halloween-decorating.montaget.json
+error  photo-05-intro: unknown key `fit`
+error  photo-05-intro: unknown key `clip`
+error  photo-05: unknown key `fit`
+error  photo-05: unknown key `clip`
+error  photo-06: unknown key `fit`
+error  photo-06: unknown key `clip`
+error  photo-07: unknown key `fit`
+error  photo-07: unknown key `clip`
+error  photo-08: unknown key `fit`
+error  photo-08: unknown key `clip`
+error  photo-05-quiz: unknown key `fit`
+error  photo-05-quiz: unknown key `clip`
+error  photo-05-loop: unknown key `fit`
+error  photo-05-loop: unknown key `clip`
+error  handle-logo: unknown key `fit`
+error  handle-logo: unknown key `clip`
+
+16 errors. render refused.
