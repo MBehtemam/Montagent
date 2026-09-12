@@ -1,0 +1,21 @@
+$ montaget validate en-halloween-decorating.montaget.json
+
+error  photo-05-intro: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-05: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-06: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-07: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-08: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-05-quiz: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  photo-05-loop: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+error  handle-logo: `gravity` is not a field of this format.
+       Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.
+
+8 errors, 0 review, 0 notes
+NOT CHECKED: whether this file says what you meant.

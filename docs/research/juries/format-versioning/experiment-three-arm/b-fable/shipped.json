@@ -1,0 +1,1164 @@
+{
+  "frame": {
+    "width": 1080,
+    "height": 1920
+  },
+  "fps": 25,
+  "background": "#FBF3E3",
+  "duration": 65216,
+  "output": "out/en-halloween-decorating.mp4",
+  "fonts": {
+    "brand": [
+      {
+        "file": "fonts/SFProRounded-Bold.ttf"
+      }
+    ]
+  },
+  "tracks": [
+    {
+      "name": "photo",
+      "layer": 10,
+      "elements": [
+        {
+          "id": "photo-05-intro",
+          "type": "image",
+          "group": "item-05",
+          "start": 0,
+          "end": 3018,
+          "source": "images/05.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 0,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 15000,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-05",
+          "type": "image",
+          "group": "item-05",
+          "start": 3018,
+          "end": 17472,
+          "source": "images/05.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 3018,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 18018,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-06",
+          "type": "image",
+          "group": "item-06",
+          "start": 17472,
+          "end": 30603,
+          "source": "images/06.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 17472,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 32472,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-07",
+          "type": "image",
+          "group": "item-07",
+          "start": 30603,
+          "end": 42763,
+          "source": "images/07.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 30603,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 45603,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-08",
+          "type": "image",
+          "group": "item-08",
+          "start": 42763,
+          "end": 53856,
+          "source": "images/08.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 42763,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 57763,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-05-quiz",
+          "type": "image",
+          "group": "quiz",
+          "start": 53856,
+          "end": 64016,
+          "source": "images/05.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 53856,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 68856,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        },
+        {
+          "id": "photo-05-loop",
+          "type": "image",
+          "group": "loop-tail",
+          "start": 64016,
+          "end": 65216,
+          "source": "images/05.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 1912,
+          "scale": [
+            {
+              "t": 64016,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 79016,
+              "v": [
+                1.08,
+                1.08
+              ],
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "photo-mask",
+      "layer": 11,
+      "elements": [
+        {
+          "id": "photo-lower-mask",
+          "type": "rect",
+          "group": "mask",
+          "start": 0,
+          "end": 65216,
+          "x": 0,
+          "y": 1300,
+          "origin": "top-left",
+          "width": 1080,
+          "height": 620,
+          "fill": "#FBF3E3"
+        }
+      ]
+    },
+    {
+      "name": "sentence-card",
+      "layer": 20,
+      "elements": [
+        {
+          "id": "card-05",
+          "type": "rect",
+          "group": "item-05",
+          "start": 10468,
+          "end": 17472,
+          "x": 48,
+          "y": 1453,
+          "origin": "top-left",
+          "width": 984,
+          "height": 169,
+          "fill": "#1E344C"
+        },
+        {
+          "id": "card-06",
+          "type": "rect",
+          "group": "item-06",
+          "start": 22622,
+          "end": 30603,
+          "x": 48,
+          "y": 1453,
+          "origin": "top-left",
+          "width": 984,
+          "height": 169,
+          "fill": "#1E344C"
+        },
+        {
+          "id": "card-07",
+          "type": "rect",
+          "group": "item-07",
+          "start": 35753,
+          "end": 42763,
+          "x": 48,
+          "y": 1453,
+          "origin": "top-left",
+          "width": 984,
+          "height": 169,
+          "fill": "#1E344C"
+        },
+        {
+          "id": "card-08",
+          "type": "rect",
+          "group": "item-08",
+          "start": 47343,
+          "end": 53856,
+          "x": 48,
+          "y": 1453,
+          "origin": "top-left",
+          "width": 984,
+          "height": 169,
+          "fill": "#1E344C"
+        },
+        {
+          "id": "card-quiz",
+          "type": "rect",
+          "group": "quiz",
+          "start": 61116,
+          "end": 64016,
+          "x": 48,
+          "y": 1453,
+          "origin": "top-left",
+          "width": 984,
+          "height": 169,
+          "fill": "#1E344C"
+        }
+      ]
+    },
+    {
+      "name": "sentence-text",
+      "layer": 21,
+      "elements": [
+        {
+          "id": "sentence-05",
+          "type": "text",
+          "group": "item-05",
+          "start": 10468,
+          "end": 17472,
+          "x": 540,
+          "y": 1537,
+          "origin": "center",
+          "width": 984,
+          "height": 169,
+          "font": "brand",
+          "size": 55,
+          "line_height": 1.1,
+          "color": "#FFF8E8",
+          "align": "center",
+          "runs": [
+            {
+              "text": "I hang cobwebs over the door."
+            }
+          ]
+        },
+        {
+          "id": "sentence-06",
+          "type": "text",
+          "group": "item-06",
+          "start": 22622,
+          "end": 30603,
+          "x": 540,
+          "y": 1537,
+          "origin": "center",
+          "width": 984,
+          "height": 169,
+          "font": "brand",
+          "size": 57,
+          "line_height": 1.1,
+          "color": "#FFF8E8",
+          "align": "center",
+          "runs": [
+            {
+              "text": "I'm holding a big\nspider in my hand."
+            }
+          ]
+        },
+        {
+          "id": "sentence-07",
+          "type": "text",
+          "group": "item-07",
+          "start": 35753,
+          "end": 42763,
+          "x": 540,
+          "y": 1537,
+          "origin": "center",
+          "width": 984,
+          "height": 169,
+          "font": "brand",
+          "size": 57,
+          "line_height": 1.1,
+          "color": "#FFF8E8",
+          "align": "center",
+          "runs": [
+            {
+              "text": "I hang the skeleton\nup by the door."
+            }
+          ]
+        },
+        {
+          "id": "sentence-08",
+          "type": "text",
+          "group": "item-08",
+          "start": 47343,
+          "end": 53856,
+          "x": 540,
+          "y": 1537,
+          "origin": "center",
+          "width": 984,
+          "height": 169,
+          "font": "brand",
+          "size": 55,
+          "line_height": 1.1,
+          "color": "#FFF8E8",
+          "align": "center",
+          "runs": [
+            {
+              "text": "I hang up a string of lights."
+            }
+          ]
+        },
+        {
+          "id": "sentence-quiz",
+          "type": "text",
+          "group": "quiz",
+          "start": 61116,
+          "end": 64016,
+          "x": 540,
+          "y": 1537,
+          "origin": "center",
+          "width": 984,
+          "height": 169,
+          "font": "brand",
+          "size": 55,
+          "line_height": 1.1,
+          "color": "#FFF8E8",
+          "align": "center",
+          "runs": [
+            {
+              "text": "I hang cobwebs over the door."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "caption",
+      "layer": 22,
+      "elements": [
+        {
+          "id": "intro-title",
+          "type": "text",
+          "group": "intro",
+          "start": 0,
+          "end": 3018,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 128,
+          "font": "brand",
+          "size": 58,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "4 English words for\ndecorating the house"
+            }
+          ]
+        },
+        {
+          "id": "hook-05",
+          "type": "text",
+          "group": "item-05",
+          "start": 3018,
+          "end": 5316,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 194,
+          "font": "brand",
+          "size": 88,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "What is this called\nin English?"
+            }
+          ]
+        },
+        {
+          "id": "word-05",
+          "type": "text",
+          "group": "item-05",
+          "start": 5316,
+          "end": 17472,
+          "x": 540,
+          "y": 1373,
+          "origin": "center",
+          "width": 984,
+          "height": 97,
+          "font": "brand",
+          "size": 88,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "cobweb  -  cobweb"
+            }
+          ]
+        },
+        {
+          "id": "word-06",
+          "type": "text",
+          "group": "item-06",
+          "start": 17472,
+          "end": 30603,
+          "x": 540,
+          "y": 1373,
+          "origin": "center",
+          "width": 984,
+          "height": 97,
+          "font": "brand",
+          "size": 88,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "spider  -  spider"
+            }
+          ]
+        },
+        {
+          "id": "word-07",
+          "type": "text",
+          "group": "item-07",
+          "start": 30603,
+          "end": 42763,
+          "x": 540,
+          "y": 1373,
+          "origin": "center",
+          "width": 984,
+          "height": 88,
+          "font": "brand",
+          "size": 80,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "skeleton  -  skeleton"
+            }
+          ]
+        },
+        {
+          "id": "word-08-target",
+          "type": "text",
+          "group": "item-08",
+          "start": 42763,
+          "end": 53856,
+          "x": 540,
+          "y": 1352,
+          "origin": "center",
+          "width": 984,
+          "height": 54,
+          "font": "brand",
+          "size": 49,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "string of lights"
+            }
+          ]
+        },
+        {
+          "id": "quiz-question",
+          "type": "text",
+          "group": "quiz",
+          "start": 53856,
+          "end": 56116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 161,
+          "font": "brand",
+          "size": 73,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "How do you say you hang\ncobwebs over the door?"
+            }
+          ]
+        },
+        {
+          "id": "count-5",
+          "type": "text",
+          "group": "quiz",
+          "start": 56116,
+          "end": 57116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 274,
+          "font": "brand",
+          "size": 249,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "5"
+            }
+          ]
+        },
+        {
+          "id": "count-4",
+          "type": "text",
+          "group": "quiz",
+          "start": 57116,
+          "end": 58116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 274,
+          "font": "brand",
+          "size": 249,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "4"
+            }
+          ]
+        },
+        {
+          "id": "count-3",
+          "type": "text",
+          "group": "quiz",
+          "start": 58116,
+          "end": 59116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 274,
+          "font": "brand",
+          "size": 249,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "3"
+            }
+          ]
+        },
+        {
+          "id": "count-2",
+          "type": "text",
+          "group": "quiz",
+          "start": 59116,
+          "end": 60116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 274,
+          "font": "brand",
+          "size": 249,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "2"
+            }
+          ]
+        },
+        {
+          "id": "count-1",
+          "type": "text",
+          "group": "quiz",
+          "start": 60116,
+          "end": 61116,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 274,
+          "font": "brand",
+          "size": 249,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "id": "word-quiz",
+          "type": "text",
+          "group": "quiz",
+          "start": 61116,
+          "end": 64016,
+          "x": 540,
+          "y": 1373,
+          "origin": "center",
+          "width": 984,
+          "height": 97,
+          "font": "brand",
+          "size": 88,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "cobweb  -  cobweb"
+            }
+          ]
+        },
+        {
+          "id": "hook-loop",
+          "type": "text",
+          "group": "loop-tail",
+          "start": 64016,
+          "end": 65216,
+          "x": 540,
+          "y": 1470,
+          "origin": "center",
+          "width": 984,
+          "height": 194,
+          "font": "brand",
+          "size": 88,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "What is this called\nin English?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "caption-overflow",
+      "layer": 23,
+      "elements": [
+        {
+          "id": "word-08-bridge",
+          "type": "text",
+          "group": "item-08",
+          "start": 42763,
+          "end": 53856,
+          "x": 540,
+          "y": 1398,
+          "origin": "center",
+          "width": 984,
+          "height": 39,
+          "font": "brand",
+          "size": 35,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "center",
+          "runs": [
+            {
+              "text": "string of lights"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "chip-panel",
+      "layer": 30,
+      "elements": [
+        {
+          "id": "chip-panel",
+          "type": "rect",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 48,
+          "y": 88,
+          "origin": "top-left",
+          "width": 372,
+          "height": 84,
+          "fill": "#FBF3E3"
+        }
+      ]
+    },
+    {
+      "name": "flag-field",
+      "layer": 31,
+      "elements": [
+        {
+          "id": "flag-field",
+          "type": "rect",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 82,
+          "y": 103,
+          "origin": "top-left",
+          "width": 78,
+          "height": 54,
+          "fill": "#00246B"
+        }
+      ]
+    },
+    {
+      "name": "flag-bar-h",
+      "layer": 32,
+      "elements": [
+        {
+          "id": "flag-bar-h",
+          "type": "rect",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 82,
+          "y": 124,
+          "origin": "top-left",
+          "width": 78,
+          "height": 12,
+          "fill": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "name": "flag-bar-v",
+      "layer": 33,
+      "elements": [
+        {
+          "id": "flag-bar-v",
+          "type": "rect",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 115,
+          "y": 103,
+          "origin": "top-left",
+          "width": 12,
+          "height": 54,
+          "fill": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "name": "chip-text",
+      "layer": 34,
+      "elements": [
+        {
+          "id": "chip-text",
+          "type": "text",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 182,
+          "y": 130,
+          "origin": "center-left",
+          "width": 238,
+          "height": 84,
+          "font": "brand",
+          "size": 52,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "start",
+          "runs": [
+            {
+              "text": "English"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "handle-panel",
+      "layer": 30,
+      "elements": [
+        {
+          "id": "handle-panel",
+          "type": "rect",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 438,
+          "y": 88,
+          "origin": "top-left",
+          "width": 594,
+          "height": 84,
+          "fill": "#FBF3E3"
+        }
+      ]
+    },
+    {
+      "name": "handle-logo",
+      "layer": 31,
+      "elements": [
+        {
+          "id": "handle-logo",
+          "type": "image",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "source": "brand/logo-en.png",
+          "x": 478,
+          "y": 96,
+          "origin": "top-left",
+          "width": 68,
+          "height": 68,
+          "mask": "circle"
+        }
+      ]
+    },
+    {
+      "name": "handle-text",
+      "layer": 31,
+      "elements": [
+        {
+          "id": "handle-text",
+          "type": "text",
+          "group": "header",
+          "start": 0,
+          "end": 65216,
+          "x": 560,
+          "y": 130,
+          "origin": "center-left",
+          "width": 472,
+          "height": 84,
+          "font": "brand",
+          "size": 34,
+          "line_height": 1.1,
+          "color": "#245C8C",
+          "align": "start",
+          "runs": [
+            {
+              "text": "@FluencyInActionEnglish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "narration",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "vo-intro",
+          "type": "audio",
+          "group": "intro",
+          "start": 0,
+          "end": 2568,
+          "source": "audio/intro-2.mp3",
+          "source_start": 0,
+          "source_end": 2568
+        },
+        {
+          "id": "vo-hook",
+          "type": "audio",
+          "group": "item-05",
+          "start": 3018,
+          "end": 4866,
+          "source": "audio/hook-2.mp3",
+          "source_start": 0,
+          "source_end": 1848
+        },
+        {
+          "id": "vo-word-05-a",
+          "type": "audio",
+          "group": "item-05",
+          "start": 5316,
+          "end": 7092,
+          "source": "audio/05-cobweb.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-word-05-b",
+          "type": "audio",
+          "group": "item-05",
+          "start": 7892,
+          "end": 9668,
+          "source": "audio/05-cobweb.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-sentence-05-a",
+          "type": "audio",
+          "group": "item-05",
+          "start": 10468,
+          "end": 12652,
+          "source": "audio/sentence-05-cobweb.mp3",
+          "source_start": 0,
+          "source_end": 2184
+        },
+        {
+          "id": "vo-sentence-05-b",
+          "type": "audio",
+          "group": "item-05",
+          "start": 13172,
+          "end": 16558,
+          "source": "audio/sentence-05-cobweb.mp3",
+          "source_start": 0,
+          "source_end": 2184,
+          "speed": 0.645
+        },
+        {
+          "id": "vo-word-06-a",
+          "type": "audio",
+          "group": "item-06",
+          "start": 17472,
+          "end": 19248,
+          "source": "audio/06-spider.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-word-06-b",
+          "type": "audio",
+          "group": "item-06",
+          "start": 20048,
+          "end": 21824,
+          "source": "audio/06-spider.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-sentence-06-a",
+          "type": "audio",
+          "group": "item-06",
+          "start": 22622,
+          "end": 25190,
+          "source": "audio/sentence-06-spider.mp3",
+          "source_start": 0,
+          "source_end": 2568
+        },
+        {
+          "id": "vo-sentence-06-b",
+          "type": "audio",
+          "group": "item-06",
+          "start": 25710,
+          "end": 29691,
+          "source": "audio/sentence-06-spider.mp3",
+          "source_start": 0,
+          "source_end": 2568,
+          "speed": 0.645
+        },
+        {
+          "id": "vo-word-07-a",
+          "type": "audio",
+          "group": "item-07",
+          "start": 30603,
+          "end": 32379,
+          "source": "audio/07-skeleton.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-word-07-b",
+          "type": "audio",
+          "group": "item-07",
+          "start": 33179,
+          "end": 34955,
+          "source": "audio/07-skeleton.mp3",
+          "source_start": 0,
+          "source_end": 1776
+        },
+        {
+          "id": "vo-sentence-07-a",
+          "type": "audio",
+          "group": "item-07",
+          "start": 35753,
+          "end": 37937,
+          "source": "audio/sentence-07-skeleton.mp3",
+          "source_start": 0,
+          "source_end": 2184
+        },
+        {
+          "id": "vo-sentence-07-b",
+          "type": "audio",
+          "group": "item-07",
+          "start": 38457,
+          "end": 41843,
+          "source": "audio/sentence-07-skeleton.mp3",
+          "source_start": 0,
+          "source_end": 2184,
+          "speed": 0.645
+        },
+        {
+          "id": "vo-word-08-a",
+          "type": "audio",
+          "group": "item-08",
+          "start": 42763,
+          "end": 44251,
+          "source": "audio/08-lights.mp3",
+          "source_start": 0,
+          "source_end": 1488
+        },
+        {
+          "id": "vo-word-08-b",
+          "type": "audio",
+          "group": "item-08",
+          "start": 45051,
+          "end": 46539,
+          "source": "audio/08-lights.mp3",
+          "source_start": 0,
+          "source_end": 1488
+        },
+        {
+          "id": "vo-sentence-08-a",
+          "type": "audio",
+          "group": "item-08",
+          "start": 47343,
+          "end": 49335,
+          "source": "audio/sentence-08-lights.mp3",
+          "source_start": 0,
+          "source_end": 1992
+        },
+        {
+          "id": "vo-sentence-08-b",
+          "type": "audio",
+          "group": "item-08",
+          "start": 49855,
+          "end": 52943,
+          "source": "audio/sentence-08-lights.mp3",
+          "source_start": 0,
+          "source_end": 1992,
+          "speed": 0.645
+        },
+        {
+          "id": "vo-quiz",
+          "type": "audio",
+          "group": "quiz",
+          "start": 53856,
+          "end": 56112,
+          "source": "audio/quiz-2.mp3",
+          "source_start": 0,
+          "source_end": 2256
+        },
+        {
+          "id": "vo-quiz-answer",
+          "type": "audio",
+          "group": "quiz",
+          "start": 61116,
+          "end": 63300,
+          "source": "audio/sentence-05-cobweb.mp3",
+          "source_start": 0,
+          "source_end": 2184
+        }
+      ]
+    }
+  ]
+}
