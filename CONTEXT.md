@@ -146,7 +146,8 @@ because an element that deliberately renders nothing and an element that forgot 
 must not look alike. A gradient is not a fill — a flat colour is a value, a gradient is a
 paint description, and descriptions belong in a closed vocabulary rather than an open
 syntax.
-_Avoid_: background, colour (for a shape), paint
+_Avoid_: background, colour (for a shape), paint. Do not use for what a
+time-based element does past the end of its source — that is `overrun`.
 
 **Stroke**:
 A second paint on the same outline — `stroke` and `stroke_width` — sitting on the
@@ -194,6 +195,27 @@ one; images, text and shapes have no insides and are simply held for their whole
 timeline range. A time-based element's two ranges are the same length unless it
 says otherwise.
 _Avoid_: trim (as a noun), in/out point
+
+**Speed**:
+A time-based element's playback-rate multiplier — `0.645` plays its source at
+0.645× normal rate, slower. Strictly greater than zero; `0` and negative
+values are schema errors. Changes what the source range's two ranges are
+allowed to disagree by: `end - start` must equal `source range / speed`,
+rounded to the nearest millisecond. Reverse playback is not `speed`'s job and
+is undecided, not ruled out.
+([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md))
+_Avoid_: rate, stretch factor (reads as the reciprocal and gets the direction
+backwards), tempo
+
+**Overrun**:
+What a time-based element does once its (possibly speed-adjusted) source runs
+out before its timeline range does: `"hold"` freezes the source's last frame
+(video only — a schema error on audio, where the correct spelling of "then
+silence" is a shorter element and a gap) or `"loop"` restarts the source from
+its beginning with a hard cut, no crossfade. Composes with `speed` rather than
+excluding it. Present only when needed — there is no `"none"` value.
+([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md))
+_Avoid_: fill (spent — see Fill), extend, pad
 
 **Gap**:
 A stretch of a track with no element in it. Gaps are legal and ordinary — the

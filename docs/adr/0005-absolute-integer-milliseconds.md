@@ -4,6 +4,14 @@ status: accepted
 
 # Time is absolute integer milliseconds, and structural edits belong to a tool
 
+> **Amended by [ADR-0020](./0020-speed-overrun-hold-loop.md).** The field this ADR named
+> `fill (hold / loop)` is renamed **`overrun`** — `fill` was since claimed as the shape-paint
+> field ([ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)). `speed` and
+> `overrun`/`hold`/`loop` are fully defined there: `speed` is a rate multiplier (`> 0`,
+> negative deferred to a future reverse field, never a sign bit here), the mismatch invariant
+> below gains an explicit rounding rule (`round(source_span / speed)`, no tolerance beyond the
+> rounding), and `speed`/`overrun` compose rather than exclude.
+
 > **Amended by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md).**
 > The time model below stands. **`shift`'s defining sentence does not**: *"moves every time
 > at or after `at`"* is wrong for keyframe times, and a reader should not implement it. A
