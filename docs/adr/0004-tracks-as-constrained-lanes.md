@@ -5,6 +5,11 @@ supersedes: partially supersedes 0001
 
 # Elements live in tracks: constrained lanes with absolute times
 
+> **Amended by [ADR-0019](./0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md)**,
+> which this ADR left open: an anchor's target namespace is elements' `id` only, never a
+> track name; anchors may not chain; and `validate` checks both a missing target and a
+> target that never overlaps the anchored element in time. Everything else below stands.
+
 A project holds a `tracks` array. Each track is a named container with an integer
 `layer` giving its stacking position — higher draws in front. Its elements keep
 their own absolute `start` and `end`; **array order carries no timing meaning**.

@@ -37,11 +37,24 @@ _Avoid_: lane, channel, layer (as a container)
 
 **Element**:
 One thing placed on the timeline — an image, a video, an audio file, a piece of
-text or a shape. Every element has a type, a time range and an optional `group`,
-in that same shape whatever its type. It sits in a track, which supplies its
-stacking position unless the element overrides it. Audio is an element like any
-other; nothing owns it.
+text or a shape. Every element has a type, a required unique `id`, a time range
+and an optional `group`, in that same shape whatever its type. It sits in a
+track, which supplies its stacking position unless the element overrides it.
+Audio is an element like any other; nothing owns it.
 _Avoid_: clip, item, object, asset
+
+**Id**:
+A short, unique, author-chosen string naming one element, required on every
+element regardless of type — `"id": "card-05"`. Its only job is to be a target,
+for now an anchor's `below`/`above`
+([ADR-0019](docs/adr/0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md)).
+A separate namespace from a track's name: the two look alike as bare strings but
+an anchor may only resolve against an element `id`, never a track name. Not a
+tool-call argument — the write-tool invariant
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)) forbids a
+write tool taking a bare id as its argument, which is unrelated to an id
+appearing as data on an element.
+_Avoid_: key, name, index
 
 **Layer**:
 A place in the stack, as an integer — higher draws in front. Normally carried by
@@ -50,10 +63,13 @@ track's layer with its own integer, or with an anchor.
 _Avoid_: z-index, depth
 
 **Anchor**:
-An element's layer stated relative to another element rather than as a number —
-`{"below": "title"}` resolves to that element's layer minus one, wherever either
-of them sits. Written so a dependent element cannot drift out of sync when the
-thing it depends on moves.
+An element's layer stated relative to another element's `id` rather than as a
+number — `{"below": "title"}` resolves to that element's layer minus one,
+wherever either of them sits. The target must itself carry a plain integer
+layer — one hop only, never another anchor — so resolving one is a lookup, not
+a walk. Written so a dependent element cannot drift out of sync when the thing
+it depends on moves.
+([ADR-0019](docs/adr/0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md))
 _Avoid_: parent, constraint, binding; and do **not** use for an element's
 positioning origin — that is `origin`. See the note under Origin.
 
