@@ -4,6 +4,12 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Clarified by [ADR-0019](./0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md)**:
+> the write-tool invariant below is about tool call arguments, not about what an element's
+> own fields may contain. An anchor's `{"below": "<id>"}` is data on an element, never an
+> argument to a write tool, so it does not violate this ADR — a reading that came up twice
+> independently and is recorded there so it is not rediscovered a third time.
+
 > **Resolved by [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)**, on
 > the three things this ADR parked. **`shift` is now adopted in full** — its keyframe rule is
 > ADR-0012's case table, and the two legal-but-different files this ADR records are both
