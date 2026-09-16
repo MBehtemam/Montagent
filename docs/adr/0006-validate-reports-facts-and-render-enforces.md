@@ -4,6 +4,11 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0052](./0052-review-check-for-inert-ease-on-held-keyframes.md)**,
+> which adds `R-EASE-INERT` (`review`): consecutive keyframe records on one
+> element/property whose `v` holds identical (whole-value, exact, no tolerance)
+> while still carrying an `ease` that therefore describes no motion.
+
 > **Amended by [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md)**, which
 > adds two checks this ADR's list has no entry for: `R-CAPTION-PACE` (a reading-speed
 > floor, `review`) and `R-CAPTION-REPEAT-DURATION` (identical text at disagreeing
