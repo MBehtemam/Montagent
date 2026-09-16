@@ -5,6 +5,12 @@ amends: 0013 (tiebreak (2) is false; the fit-deviation note becomes an error at 
 
 # `fit` is a derivation claim, not a layout mode — and `gravity` retires
 
+> **Amended by [ADR-0023](./0023-video-source-dimensions-par-and-rotation.md)**, which
+> discharges the "PAR and video source dimensions" deferral below. "Source dimensions"
+> is generalised from *decoded, orientation-applied* to *decoded, rotation-resolved,
+> PAR-applied* — the image case is unchanged, since PAR defaults to `1:1` and EXIF
+> orientation is the only rotation signal a raster image carries.
+
 `fit` was on 8 of 8 image elements in the only real project file and **no document defined
 its value set**. [#48](https://github.com/MBehtemam/Montaget/issues/48) asked for the
 vocabulary. The vocabulary turned out to be the smaller half of the answer.
