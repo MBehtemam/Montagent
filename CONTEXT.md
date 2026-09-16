@@ -233,11 +233,26 @@ silence between two narration lines is a gap. A gap is never an error, which is
 why it is reported apart from an overlap rather than alongside one.
 _Avoid_: hole, blank, silence (as a name for the general case)
 
+**Slack**:
+The timeline distance from one element's boundary to the nearest thing that
+follows or precedes it — a neighbouring element's boundary in the same track
+or a different one, or, for the project's own last boundary, the derived
+`duration`. Every gap is slack; slack additionally names the cross-track case
+a gap can't reach, such as the distance from the last narration's end to a
+still photo's end. Slack currently in the file is invariant by default — its
+size is content, not a default the renderer supplies — and `shift` refuses an
+edit that would change it rather than absorbing the difference silently.
+([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
+_Avoid_: padding, buffer, margin (a spatial term already spoken for)
+
 **Shift**:
 Moving every time at or after some instant by an offset, so that inserting or
 removing time carries the rest of the project with it. It is named because it is
 the one edit that is arithmetic rather than authorship, and therefore the one
-Montaget performs instead of the agent.
+Montaget performs instead of the agent. It refuses an edit that would change an
+existing slack's size, the same way it refuses to stretch a time-based
+straddler, rather than silently absorbing the difference.
+([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
 _Avoid_: ripple (as the primary term), slide, nudge
 
 ## Rejected terms
