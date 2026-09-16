@@ -10,6 +10,12 @@ status: accepted
 > `line_height` is content, exactly like declared extents (ADR-0013) and colour spellings
 > (ADR-0014). Both spellings stay permanently legal.
 
+> **Clarified by [ADR-0031](./0031-timeline-overview-is-not-required-to-be-spatial.md)**:
+> whatever agent-facing overview is built on top of `query`'s aggregation modes is not
+> required to render a spatial axis — a flat listing of the same facts measured
+> indistinguishably on both cost and correctness. `timeline`'s "human's wide view" role in
+> the table below is unaffected; that decision was never tested and stays open.
+
 > **Extended by [ADR-0029](./0029-line-baseline-half-leading.md)**: `measure`'s
 > per-line output gains `baseline_y`, the absolute y-coordinate the line-baseline
 > formula resolves to, so an agent can verify text placement without re-deriving

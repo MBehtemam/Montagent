@@ -5,6 +5,12 @@ supersedes: partially supersedes 0001
 
 # Elements live in tracks: constrained lanes with absolute times
 
+> **Amended by [ADR-0031](./0031-timeline-overview-is-not-required-to-be-spatial.md)**:
+> the "`montaget timeline` output must make absolute times unmissable" duty below is
+> satisfied by a flat listing exactly as well as a spatial axis — measurement found no
+> agent-facing benefit to the axis, and the requirement's own text never named the
+> mechanism, only the goal.
+
 > **Amended by [ADR-0019](./0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md)**,
 > which this ADR left open: an anchor's target namespace is elements' `id` only, never a
 > track name; anchors may not chain; and `validate` checks both a missing target and a
