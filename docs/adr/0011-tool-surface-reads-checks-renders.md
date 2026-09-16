@@ -4,6 +4,12 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
+> must never insert a default for an omitted field or strip one written explicitly at its
+> default — presence/absence of `x`, `y`, `origin`, `scale`, `rotation`, `opacity` and
+> `line_height` is content, exactly like declared extents (ADR-0013) and colour spellings
+> (ADR-0014). Both spellings stay permanently legal.
+
 > **Extended by [ADR-0029](./0029-line-baseline-half-leading.md)**: `measure`'s
 > per-line output gains `baseline_y`, the absolute y-coordinate the line-baseline
 > formula resolves to, so an agent can verify text placement without re-deriving
