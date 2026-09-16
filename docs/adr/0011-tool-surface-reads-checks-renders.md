@@ -34,6 +34,12 @@ status: accepted
 > element the crop rectangle is computable by reading. **How `fit`, `align` and `scale`
 > interact** is settled — `align` on images became `gravity`, and the aperture became `clip`.
 
+> **Extended by [ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md)**:
+> `fmt` gains a precondition — it refuses to act on a document missing the required top-level
+> keys (`tracks`/`fps`/`frame`), sharing the same structural predicate `validate`'s schema
+> layer uses. It stays unconditional on `error`/`review`/`note` findings otherwise; the eight
+> MCP / eleven CLI counts below are unchanged.
+
 
 Montaget exposes **nine verbs and two resources**. The surface's job is not to
 provide editing verbs; it is to make **reading, checking, comparing and

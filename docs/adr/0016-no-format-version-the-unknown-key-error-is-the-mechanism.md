@@ -187,8 +187,10 @@ doing the work it was chosen for.
 - **If a marker is ever wanted for file identification**, that is a separate
   decision from versioning and must not be an integer, which every agent will
   read as a revision. The `.montaget.json` convention is used by both project
-  files on `main` and specified nowhere
-  ([#77](https://github.com/MBehtemam/Montaget/issues/77)).
+  files on `main` and specified nowhere — settled by
+  [ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md)
+  ([#77](https://github.com/MBehtemam/Montaget/issues/77)): documented
+  convention only, no marker.
 
 ## Reopening condition
 
