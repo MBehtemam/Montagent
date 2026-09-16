@@ -1,0 +1,109 @@
+output=out/en-halloween-decorating.mp4 duration_ms=65216 frame=1080x1920 fps=25
+header_elements=8 layers=30-34 span=0..65216 unchanging
+
+TRACK OCCUPANCY (track, layer, then each element start..end)
+  photo layer=10 n=7
+    photo-05-intro 0..3018 (3018 ms)
+    photo-05 3018..17472 (14454 ms)
+    photo-06 17472..30603 (13131 ms)
+    photo-07 30603..42763 (12160 ms)
+    photo-08 42763..53856 (11093 ms)
+    photo-05-quiz 53856..64016 (10160 ms)
+    photo-05-loop 64016..65216 (1200 ms)
+  sentence-card layer=20 n=5
+    card-05 10468..17472 (7004 ms)
+    card-06 22622..30603 (7981 ms)
+    card-07 35753..42763 (7010 ms)
+    card-08 47343..53856 (6513 ms)
+    card-quiz 61116..64016 (2900 ms)
+  sentence-text layer=21 n=5
+    sentence-05 10468..17472 (7004 ms)
+    sentence-06 22622..30603 (7981 ms)
+    sentence-07 35753..42763 (7010 ms)
+    sentence-08 47343..53856 (6513 ms)
+    sentence-quiz 61116..64016 (2900 ms)
+  caption layer=22 n=14
+    intro-title 0..3018 (3018 ms)
+    hook-05 3018..5316 (2298 ms)
+    word-05 5316..17472 (12156 ms)
+    word-06 17472..30603 (13131 ms)
+    word-07 30603..42763 (12160 ms)
+    word-08-target 42763..53856 (11093 ms)
+    quiz-question 53856..56116 (2260 ms)
+    count-5 56116..57116 (1000 ms)
+    count-4 57116..58116 (1000 ms)
+    count-3 58116..59116 (1000 ms)
+    count-2 59116..60116 (1000 ms)
+    count-1 60116..61116 (1000 ms)
+    word-quiz 61116..64016 (2900 ms)
+    hook-loop 64016..65216 (1200 ms)
+  caption-overflow layer=23 n=1
+    word-08-bridge 42763..53856 (11093 ms)
+  narration layer=0 n=20
+    vo-intro 0..2568 (2568 ms)
+    vo-hook 3018..4866 (1848 ms)
+    vo-word-05-a 5316..7092 (1776 ms)
+    vo-word-05-b 7892..9668 (1776 ms)
+    vo-sentence-05-a 10468..12652 (2184 ms)
+    vo-sentence-05-b 13172..16558 (3386 ms)
+    vo-word-06-a 17472..19248 (1776 ms)
+    vo-word-06-b 20048..21824 (1776 ms)
+    vo-sentence-06-a 22622..25190 (2568 ms)
+    vo-sentence-06-b 25710..29691 (3981 ms)
+    vo-word-07-a 30603..32379 (1776 ms)
+    vo-word-07-b 33179..34955 (1776 ms)
+    vo-sentence-07-a 35753..37937 (2184 ms)
+    vo-sentence-07-b 38457..41843 (3386 ms)
+    vo-word-08-a 42763..44251 (1488 ms)
+    vo-word-08-b 45051..46539 (1488 ms)
+    vo-sentence-08-a 47343..49335 (1992 ms)
+    vo-sentence-08-b 49855..52943 (3088 ms)
+    vo-quiz 53856..56112 (2256 ms)
+    vo-quiz-answer 61116..63300 (2184 ms)
+
+SEGMENT DURATIONS
+  item-05 start=0 end=17472 duration_ms=17472 elements=11
+  intro start=0 end=3018 duration_ms=3018 elements=2
+  item-06 start=17472 end=30603 duration_ms=13131 elements=8
+  item-07 start=30603 end=42763 duration_ms=12160 elements=8
+  item-08 start=42763 end=53856 duration_ms=11093 elements=9
+  quiz start=53856 end=64016 duration_ms=10160 elements=12
+  loop-tail start=64016 end=65216 duration_ms=1200 elements=2
+
+SILENCE (no audio element active)
+  count=20 total_ms=19959
+  2568..3018 (450 ms)
+  4866..5316 (450 ms)
+  7092..7892 (800 ms)
+  9668..10468 (800 ms)
+  12652..13172 (520 ms)
+  16558..17472 (914 ms)
+  19248..20048 (800 ms)
+  21824..22622 (798 ms)
+  25190..25710 (520 ms)
+  29691..30603 (912 ms)
+  32379..33179 (800 ms)
+  34955..35753 (798 ms)
+  37937..38457 (520 ms)
+  41843..42763 (920 ms)
+  44251..45051 (800 ms)
+  46539..47343 (804 ms)
+  49335..49855 (520 ms)
+  52943..53856 (913 ms)
+  56112..61116 (5004 ms)
+  63300..65216 (1916 ms)
+
+ELEMENT STARTS per aligned 5s bucket (header excluded)
+  bucket_start=0 bucket_end=5000 starts=6
+  bucket_start=5000 bucket_end=10000 starts=3
+  bucket_start=10000 bucket_end=15000 starts=4
+  bucket_start=15000 bucket_end=20000 starts=3
+  bucket_start=20000 bucket_end=25000 starts=4
+  bucket_start=25000 bucket_end=30000 starts=1
+  bucket_start=30000 bucket_end=35000 starts=4
+  bucket_start=35000 bucket_end=40000 starts=4
+  bucket_start=40000 bucket_end=45000 starts=4
+  bucket_start=45000 bucket_end=50000 starts=5
+  bucket_start=50000 bucket_end=55000 starts=3
+  bucket_start=55000 bucket_end=60000 starts=4
+  bucket_start=60000 bucket_end=65000 starts=7
