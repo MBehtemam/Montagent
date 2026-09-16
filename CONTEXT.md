@@ -116,6 +116,11 @@ _Avoid_: timing function, curve, interpolation (as the field name), tween
 The static frame-space rectangle an element is drawn through. It does not rotate and does
 not scale with the element, so `scale` moves the picture behind a window that stays put —
 which is what a Ken Burns is. Shaped and soft masks are a different thing and are not this.
+`clip` is also the aperture a `fit` rule works against (see Fit): under `cover` the derived
+rect fills it exactly, but under `contain` the derived rect can be smaller, leaving slack.
+Where that slack goes is not a separate placement field — it is ordinary `x`/`y`/`origin`
+work against `clip`'s own corner and centre, the same as any other visual element's rect.
+([#52](https://github.com/MBehtemam/Montaget/issues/52))
 _Avoid_: crop, mask, viewport, bounds
 
 **Run**:
@@ -324,10 +329,14 @@ the fixture's twenty-two text elements have no element behind them to name.
 
 **Align, for images**:
 `align` means one thing: how a text element's lines align to each other
-(`start`/`center`/`end`). On an image the same word meant *which part of the source survives
-the crop*, which is not alignment at all — that is `gravity`. The collision is recorded
-because it caused a live misreading: the fixture's `align:"left"` on text was transcribing
-ASS `\an4`, **left-middle**, so its `y` was a centre and nothing in the file said so.
+(`start`/`center`/`end`). On an image the same word once meant *which part of the source
+survives the crop* — that job is now `x`/`y`/`origin` against the aperture's own `clip` (see
+Clip), the same fields that place any other visual element's rect, including the slack a
+`contain` fit leaves inside its aperture. `align` on a non-text element is a schema error
+naming `x`/`y`/`origin` and `clip` as the replacement. The collision is recorded because it
+caused a live misreading: the fixture's `align:"left"` on text was transcribing ASS `\an4`,
+**left-middle**, so its `y` was a centre and nothing in the file said so.
+([#52](https://github.com/MBehtemam/Montaget/issues/52))
 
 **Path, line, polygon**:
 Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is

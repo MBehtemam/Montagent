@@ -1,0 +1,30 @@
+{
+  "frame": { "width": 1080, "height": 1920 },
+  "fps": 25,
+  "background": "#FBF3E3",
+  "duration": 1000,
+  "output": "out/contain-slack-idiom-example.mp4",
+  "fonts": {},
+  "tracks": [
+    {
+      "name": "badge",
+      "layer": 10,
+      "elements": [
+        {
+          "id": "badge-contain",
+          "type": "image",
+          "start": 0,
+          "end": 1000,
+          "source": "synthetic/1200x400-badge.png",
+          "x": 940,
+          "y": 1780,
+          "origin": "center",
+          "width": 200,
+          "height": 66,
+          "fit": "contain",
+          "clip": [840, 1700, 200, 160]
+        }
+      ]
+    }
+  ]
+}
