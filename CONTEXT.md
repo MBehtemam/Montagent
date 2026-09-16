@@ -170,6 +170,29 @@ the box rather than past it, because a text element's `width`/`height` is a cont
 claim and not drawn geometry. It is in element space, so it scales with `scale`.
 _Avoid_: outline, border, bord
 
+**Effect**:
+A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
+element — never an open plugin architecture. A list, not a map or a single field,
+because application order is semantically real: blur-then-shadow is a different
+frame from shadow-then-drop. v1's vocabulary is `blur`, `shadow` and `mask`
+(shape-only). Effects attach to whole elements, never to a run — that boundary is
+what excludes `stroke` (a run-addressable paint field) from this vocabulary, and
+what excludes per-word text highlighting, which needs run addressing and a
+timing model keyframes don't provide (keyframes animate transform properties
+only). Static in v1: no effect parameter is keyframable.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
+_Avoid_: filter (for the whole concept — see Colour filter, deferred, below), plugin, stack
+
+**Mask**:
+An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) with
+numeric parameters only, that clips an element's rendered pixels. Shape-only in
+v1 — a soft or alpha mask sourced from an image is deferred, since it introduces
+a second asset reference and unresolved fitting/colour-space questions.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
+_Avoid_: clip (that name is the transform model's static frame-space aperture,
+[ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
+different concept that happens to sound alike)
+
 **Colour**:
 `#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else. No three-digit shorthand, no CSS
 names, and `#RRGGBBFF` is an error naming the six-digit form — two spellings of one value
