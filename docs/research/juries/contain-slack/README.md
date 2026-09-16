@@ -93,6 +93,31 @@ is what ADR-0006 exists to refuse. Worse, the prescription is catastrophic if un
 `photo-05` at the clip centre gives a rect top of **-306** against a committed 0 — a 306px
 crop shift on a 1300px aperture, silently re-implementing the `gravity:"top"` ADR-0015 retired.
 
+## The repairs — [#74](https://github.com/MBehtemam/Montaget/issues/74)
+
+#52's resolution named four repairs, out of scope for [#62](https://github.com/MBehtemam/Montaget/pull/62) and unowned
+until #74:
+
+1. `CONTEXT.md`'s *Align, for images* entry had gone stale — it still named `gravity`,
+   which [ADR-0015](https://github.com/MBehtemam/Montaget/blob/main/docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md)
+   retired. Corrected to name `x`/`y`/`origin` and `clip`.
+2. `CONTEXT.md`'s **Clip** entry now states the connection this ticket's finding turned
+   on: `clip` is also the aperture `fit` works against, and where `contain`'s slack goes
+   is ordinary `x`/`y`/`origin` work against it — not a separate field.
+3. `align` on a non-text element is now documented as a schema error naming `x`/`y`/`origin`
+   and `clip` — folded into the corrected *Align, for images* entry, ordered after item 1
+   so the error message doesn't teach the retired field.
+4. **`badge-idiom-example.montaget.json`**, committed beside this file, rather than into
+   the production fixture. The real published video has no `contain`-with-slack moment —
+   every image in it is `cover`, and the one non-`cover` candidate (the square header
+   badge into a square aperture) has zero slack regardless of fit mode, so there is no
+   real occurrence to add without inventing content the published video doesn't contain.
+   That would break the fixture's own ground truth (`fixtures/en-halloween-decorating/README.md`:
+   *"the assets of one already-published short... judged against real input"*). This file
+   is a synthetic single-element project using #52's exact badge geometry, so the idiom's
+   arithmetic is exercised and checked (`contain_slack_scan.py`) rather than passing every
+   check unexercised — the gap the ticket named — without claiming it is production evidence.
+
 ## Findings outside #52's scope
 
 Each is filed as its own ticket.

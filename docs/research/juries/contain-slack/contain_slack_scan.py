@@ -15,6 +15,7 @@ from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 
 FIXTURE = Path("fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json")
+IDIOM_EXAMPLE = Path("docs/research/juries/contain-slack/badge-idiom-example.montaget.json")
 
 failures = []
 
@@ -59,6 +60,21 @@ def main():
     check("top-left spelling y = clip.y + (clip.h - h)//2", 1700 + (160 - h) // 2, 1747)
     check("center  spelling y = clip.y + clip.h//2", 1700 + 160 // 2, 1780)
     check("both spellings denote one rect (top edge)", 1780 - h // 2, 1747)
+
+    print("\n== the idiom, committed: badge-idiom-example.montaget.json ==")
+    # #74 item 4: the real fixture is all `cover`, so this idiom was unexercised by any
+    # committed file. This is a synthetic single-element project, not production evidence --
+    # it exists only so a regression in the arithmetic fails a check instead of passing one.
+    example = json.loads(IDIOM_EXAMPLE.read_text())
+    badge = next(elements(example))
+    check("committed element uses contain", badge["fit"], "contain")
+    check("committed element's clip", tuple(badge["clip"]), (840, 1700, 200, 160))
+    w, h = fitted_extent(1200, 400, 200, 160, "contain")
+    check("committed width/height match the derived extent", (badge["width"], badge["height"]), (w, h))
+    check("committed origin is center", badge["origin"], "center")
+    check("committed x follows the idiom (clip.x + clip.w//2)", badge["x"], 840 + 200 // 2)
+    check("committed y follows the idiom (clip.y + clip.h//2)", badge["y"], 1700 + 160 // 2)
+    check("committed y is not the hand-computed spelling", badge["y"] != 1700 + (160 - h) // 2, True)
 
     print("\n== the >=0.5px residue: parity, not a decision ==")
     # Corner-anchoring is exact iff the slack is even; centre-anchoring iff the box is.
