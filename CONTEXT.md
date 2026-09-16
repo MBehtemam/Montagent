@@ -132,6 +132,16 @@ is an entry in a table you cannot read, cannot commit, and that differs per mach
 The renderer opens nothing outside the chain.
 _Avoid_: typeface, family, font stack
 
+**Line height**:
+A text element's line-height multiplier, restricted to one decimal digit — `1.0`, `1.1`,
+`1.2`, … — always exactly representable as `n/10`. A line's height is the largest `size`
+among its runs × `line_height`; the derived block height is `ceil` of that product over the
+line count, evaluated in exact integer arithmetic, never IEEE double — the same ULP hazard
+`fit`'s box sizing has (see Fit), on a field `fit`'s ADR never touched. Defaults to `1.2`
+when omitted.
+([ADR-0028](docs/adr/0028-text-block-arithmetic-is-exact-tenths.md))
+_Avoid_: leading, line spacing (implies an additive gap, not a multiplier)
+
 **Shape**:
 A drawn primitive with no source file — `rect` or `ellipse`, each its own element type,
 never a `shape` field inside a shared one. An ellipse inscribes its declared rect, so
