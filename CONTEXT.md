@@ -309,6 +309,23 @@ rect is what gets drawn. Its only consumer is `validate`. The closed set is `cov
 and `literal`, and the box a rule works against is `clip`'s `w`/`h`.
 Defined in [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
 
+**Source dimensions**:
+The input to `fit`'s arithmetic. One type-generic pipeline: decode, resolve rotation
+(the container's track-level display transform; codec-level orientation metadata is not
+consulted), apply pixel aspect ratio, round to one integer pair. Images are the
+degenerate case — PAR is `1:1` and EXIF orientation is the only rotation signal — so
+this is the same rule ADR-0015 stated for images, generalised, not replaced.
+Defined in [ADR-0023](docs/adr/0023-video-source-dimensions-par-and-rotation.md).
+
+**PAR (pixel aspect ratio)**:
+Applied, not ignored — silence here would repeat the EXIF-orientation divergence ADR-0015
+already legislated against, and would leave `validate` disagreeing with any renderer whose
+decode path applies it. Declared explicitly on the element as `par: [num, den]`, an exact
+integer-pair rational populated by an ingest/authoring tool, never silently re-probed from
+whichever of the container/bitstream layers that can disagree with each other. Defaults to
+`[1, 1]`; a schema error on any non-video element. Defined in
+[ADR-0023](docs/adr/0023-video-source-dimensions-par-and-rotation.md).
+
 **Fill / none / stretch, for `fit`**:
 `fill` is spent — it is a shape's paint colour ([ADR-0014](docs/adr/0014-stroke-is-paint-the-text-box-is-required.md)).
 `none` is a **false friend**: CSS `object-fit: none` means *intrinsic size*, which this format
