@@ -4,6 +4,12 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md)**, which
+> adds two checks this ADR's list has no entry for: `R-CAPTION-PACE` (a reading-speed
+> floor, `review`) and `R-CAPTION-REPEAT-DURATION` (identical text at disagreeing
+> on-screen durations, `review`). Both are computed from `runs`, `start`, `end` and
+> `fps` with no I/O; neither changes the text model.
+
 > **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)** on the
 > overflow check this ADR parked. It **must not be worded "text overflows its box"** —
 > 15 of the fixture's 22 text elements have no container behind them — and its extent
