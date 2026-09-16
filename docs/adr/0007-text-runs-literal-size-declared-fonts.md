@@ -1,9 +1,17 @@
 ---
 status: accepted
 amends: 0002 (fonts carve-out), 0006 (overflow check gains a box and a width term)
+amended-by: 0029 (baseline placement within the line slot)
 ---
 
 # Text is styled runs at a literal size, in fonts the project declares
+
+> **Amended by [ADR-0029](./0029-line-baseline-half-leading.md)**, which states the
+> baseline-placement rule this ADR's slot definition never gave: half-leading,
+> `baseline_y = slot_centre_y + (ascent − descent) / 2`, read from the max ascent
+> and max descent across every run on the line rather than the single run that
+> sets the slot height. No schema change; `measure` reports the resolved value.
+> Every other decision below stands.
 
 > **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)**, which
 > closes this ADR's open item: the run style-delta set is settled, and **outline is a

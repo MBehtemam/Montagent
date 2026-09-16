@@ -4,6 +4,11 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Extended by [ADR-0029](./0029-line-baseline-half-leading.md)**: `measure`'s
+> per-line output gains `baseline_y`, the absolute y-coordinate the line-baseline
+> formula resolves to, so an agent can verify text placement without re-deriving
+> the arithmetic or rendering a frame.
+
 > **Clarified by [ADR-0019](./0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md)**:
 > the write-tool invariant below is about tool call arguments, not about what an element's
 > own fields may contain. An anchor's `{"below": "<id>"}` is data on an element, never an
@@ -238,7 +243,8 @@ itself identifies as a safety problem.
 `measure` returns the per-line ink box and advance width, the block extent, and —
 per ADR-0008 — the break opportunities with the segmenter and data version named.
 `metrics` and `text_size` are worse names: neither lets a reader guess that break
-opportunities come back in the same call.
+opportunities come back in the same call. Per [ADR-0029](./0029-line-baseline-half-leading.md),
+each line also carries its resolved `baseline_y`.
 
 ## `compare`
 
