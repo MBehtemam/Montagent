@@ -5,6 +5,15 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0022](./0022-easing-example-is-hypothetical-not-measured.md)**: the
+> `photo-06` element published below carries `"ease":"ease-in-out"` on its `scale` keyframe.
+> That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montaget/issues/42)
+> measured the actual motion as `linear`, and the committed project file records it that way.
+> Read the easing worked example below, and its 10.3–10.9 px figure, as **hypothetical** —
+> the closure argument it illustrates stands regardless; the specific numbers describe no
+> element that exists. The sentence *"four jurors computed this independently and three agree
+> to the digit"* no longer stands as corroboration and should be disregarded.
+
 > **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
 > `photo-06` element published below carries `"gravity":"top"`, and **`gravity` no longer
 > exists** — the declared rect plus `clip` already determine which part of the source survives.
