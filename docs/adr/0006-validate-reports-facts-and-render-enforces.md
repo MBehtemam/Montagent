@@ -4,6 +4,12 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md)**, which
+> adds two checks this ADR's list has no entry for: `R-CAPTION-PACE` (a reading-speed
+> floor, `review`) and `R-CAPTION-REPEAT-DURATION` (identical text at disagreeing
+> on-screen durations, `review`). Both are computed from `runs`, `start`, `end` and
+> `fps` with no I/O; neither changes the text model.
+
 > **Amended by [ADR-0033](./0033-same-source-cut-continuity-is-a-review-check.md)**,
 > which fully specifies the "animation discontinuity at a same-source cut" check
 > named below and corrects its fixture timestamp: the second same-source cut is at
