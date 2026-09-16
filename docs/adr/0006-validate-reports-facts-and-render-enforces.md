@@ -10,6 +10,11 @@ status: accepted
 > on-screen durations, `review`). Both are computed from `runs`, `start`, `end` and
 > `fps` with no I/O; neither changes the text model.
 
+> **Amended by [ADR-0033](./0033-same-source-cut-continuity-is-a-review-check.md)**,
+> which fully specifies the "animation discontinuity at a same-source cut" check
+> named below and corrects its fixture timestamp: the second same-source cut is at
+> **64016**, not 64816 as stated further down this document.
+
 > **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)** on the
 > overflow check this ADR parked. It **must not be worded "text overflows its box"** —
 > 15 of the fixture's 22 text elements have no container behind them — and its extent
@@ -324,11 +329,14 @@ Escalate to `review` only for the cases in (1) and (2), which are empty here.
 
 - **Animation discontinuity at a same-source cut.** Where two adjacent elements draw
   the **same source** and an animated property restarts, the image snaps mid-shot: in
-  the fixture, scale `1.0161 → 1.0000` at 3018 and `1.0542 → 1.0000` at 64816. The
+  the fixture, scale `1.0161 → 1.0000` at 3018 and `1.0542 → 1.0000` at ~~64816~~
+  **64016** (corrected by ADR-0033). The
   discrimination is load-bearing and is one field wide — the three other
   discontinuities in that track are cuts between *different* images, where resetting
-  scale is correct. Depends on
-  [#21](https://github.com/MBehtemam/Montaget/issues/21).
+  scale is correct. Depended on
+  [#21](https://github.com/MBehtemam/Montaget/issues/21), now closed; fully specified
+  by [ADR-0033](./0033-same-source-cut-continuity-is-a-review-check.md), which also
+  draws the line against ADR-0012's separate group-keyframe-time check.
 - **Text overflowing its own box, computed from the document.** The fixture's
   `sentence-quiz` overhangs its card's top edge by ~6 px, derivable from `size`,
   `line_height` and a `y` that means centre. *"Until `validate` does this, 'the text
