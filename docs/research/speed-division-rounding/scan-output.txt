@@ -1,0 +1,69 @@
+ADR-0020 speed-division rounding -- exhaustive-grid measurement for #95
+
+ADR-0020's own worked example (vo-sentence-05-b, #9): source_span=2184, speed=0.645
+  exact round-half-up .............. 3386
+  float round-half-up ............... 3386
+  diverges? .......................... False
+
+A minimal realistic counterexample: source_span=7ms, speed=0.560
+  true value 7 / 0.560 .............. 25/2 = 12.5 (an exact half-integer tie)
+  exact round-half-up (ties go up) .. 13
+  IEEE double: 7 / 0.560 in Python's repr: 12.499999999999998
+  float round-half-up ................ 12
+  => an element with source_end-source_start=7 and speed=0.560 gets end-start=12
+     under naive double division, but the invariant's exact reading demands 13.
+
+Spot-check: every divergence found coincides with an exact half-integer tie
+  601,699 (speed, source_span) pairs checked, no counterexample to the claim
+
+Sweep A: speed at thousandths (0.100 .. 4.000), source_span 1..60000ms (60s)
+  combinations tested ............ 234,060,000  (29.6s)
+  divergences ..................... 9,687  (0.0041%)
+  first divergences: [(17, '0.272', 63, 62), (119, '0.272', 438, 437), (221, '0.272', 813, 812), (255, '0.272', 938, 937)]
+
+Sweep B: speed at hundredths (0.10 .. 4.00), source_span 1..60000ms
+  combinations tested ............ 23,460,000  (2.5s)
+  divergences ..................... 7,074  (0.0302%)
+  first divergences: [(7, '0.56', 13, 12), (21, '0.56', 38, 37), (35, '0.56', 63, 62), (49, '0.56', 88, 87)]
+
+Sweep C: speed restricted to exact tenths (0.1 .. 4.0) -- ADR-0028's mechanism
+  combinations tested ............ 2,400,000  (0.3s)
+  divergences ..................... 0  (0.0000%)
+
+Sweep D: same thousandths speeds, source_span 1..300000ms (5 min)
+  combinations tested ............ 1,170,300,000  (145.0s)
+  divergences ..................... 51,086  (0.0044%)
+  first divergences: [(17, '0.272', 63, 62), (119, '0.272', 438, 437), (221, '0.272', 813, 812), (255, '0.272', 938, 937)]
+
+== summary ==
+  A thousandths/60s       234,060,000 combinations      9,687 divergences   0.0041%
+  B hundredths/60s         23,460,000 combinations      7,074 divergences   0.0302%
+  C tenths/60s              2,400,000 combinations          0 divergences   0.0000%
+  D thousandths/5min    1,170,300,000 combinations     51,086 divergences   0.0044%
+
+== does ADR-0028's tenths-restriction mechanism fix this? ==
+  Sweep C measured ZERO divergences for exact-tenths speeds, up to 60s spans.
+  This is NOT the same guarantee ADR-0028 gives line_height, and does not
+  generalise: exact ties still mathematically exist at tenths (e.g. speed=0.4,
+  source_span odd -> source_span/0.4 is always an exact X.5) -- unlike
+  line_height, where the fix makes the underlying arithmetic EXACT so no tie
+  can ever be perturbed. Here the tie exists but this script measured that its
+  IEEE evaluation happens not to cross it in the tested range (spot-checked to
+  50,000,000ms/~14h below with the same result) -- an empirical non-occurrence,
+  not a proof, because division by a non-power-of-two decimal is never exact.
+  It is also moot: ADR-0020 imposes no precision limit on speed, and the
+  fixture's own speed (0.645) already needs THREE decimal digits -- at that
+  precision (Sweep A) and at hundredths (Sweep B), real divergence is measured.
+
+== exact-rational speed (ADR-0023's `par` precedent) closes it by construction ==
+  speed=[num,den] evaluated as Fraction throughout reproduces the exact column
+  of every sweep above by construction -- there is no float conversion step left
+  to introduce the divergence.
+
+Sweep E: the tie-capable exact-tenths speeds, source_span up to 50,000,000ms (~14h) -- is Sweep C's zero-divergence result a 60s artifact?
+  combinations tested ............ 500,000,000  (56.5s)
+  divergences ..................... 0  (0.0000%)
+
+all assertions passed
+
+[exited with code 0]
