@@ -351,13 +351,27 @@ replace. Commit an SVG or a PNG instead.
 
 **Gravity**:
 Retired entirely by [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
-It meant *which part of a source survives a crop* — a quantity that does not exist once the
-declared rect is authoritative at render: the rect's `x`, `y`, `origin` and the static
-frame-space `clip` already determine it, with no freedom left to spend. A schema error on
-every element type; on an image the message names `x`/`y`/`origin` and `clip`, on text and
-shapes it names `origin`. Expect to reach for it by **copying a neighbouring element** — that
-is how eight of eight agents met it — which is why its eight occurrences left the fixture in
-the same change that retired it.
+It meant *which part of a source survives a crop* — a quantity the rect's `x`, `y`, `origin`
+and the static frame-space `clip` already determine at render, with no separate degree of
+freedom for a `gravity` field to spend. That structural argument is general and holds. A
+schema error on every element type; on an image the message names `x`/`y`/`origin` and
+`clip`, on text and shapes it names `origin`.
+
+**Repairing a file that still carries one does not follow the same rule.** In the fixture,
+every occurrence was `gravity:"top"`, and every one of those elements was already positioned
+(`y:0` under a top-aligned `clip`) so the top of the source was what showed — the value was
+inert *because of that specific geometry*, not because gravity itself never mattered. A
+`gravity:"bottom"` element needs `y` recomputed to the aperture's opposite edge
+(`clip.y + clip.h − height`, e.g. `1300 − 1912 = −612` for a 1912px rect in a 1300px
+aperture) before the key is dropped; deleting it unmoved silently swaps which 1300px band of
+the source is on screen. Measured, not assumed: six agents repaired a fork of the pre-ADR-0015
+fixture with two `top`→`bottom` values flipped, given `validate` output alone versus
+`validate` output plus this entry as it previously read — **2 of 3 correct without the entry,
+0 of 3 with it**, because the entry's own framing (*"no freedom left to spend," met by
+"copying a neighbouring element"*) read as license to discard the value on any element, not
+only the ones where it happened not to matter.
+([#76](https://github.com/MBehtemam/Montaget/issues/76),
+[`docs/research/juries/format-versioning/experiment-gravity-fork/`](https://github.com/MBehtemam/Montaget/tree/main/docs/research/juries/format-versioning/experiment-gravity-fork))
 
 **Fit**:
 A **derivation claim, not a layout mode**. `fit` records the rule by which the author computed
