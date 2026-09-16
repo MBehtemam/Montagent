@@ -35,6 +35,20 @@ status: accepted
 > header"* **contradicts the rule it illustrates**. What counts as content coverage is
 > [#23](https://github.com/MBehtemam/Montaget/issues/23). See ADR-0011's final section.
 
+> **A fourth stated fact does not hold either** — surfaced by
+> [#60](https://github.com/MBehtemam/Montaget/issues/60). The *"`sentence-quiz`
+> overhangs its card's top edge by ~6 px"* claim below is **false against the
+> committed fixture**: `sentence-quiz` is one run with no `\n`, so under
+> [ADR-0008](./0008-line-breaks-belong-to-the-agent.md)'s no-auto-wrap rule it is one
+> line, and that line sits 53.75 px **inside** its card, not over it. Reproducing
+> ~6 px needs roughly three lines — automatic wrapping, which the format forbids —
+> so the claim most likely predates ADR-0008 or was measured against the file this
+> amendment block already describes as not in this repository. The overflow check
+> itself is unaffected: it was already resolved on independent grounds by ADR-0007's
+> width term and ADR-0011/ADR-0012's aperture and stroke terms. Re-executable check:
+> `docs/research/juries/contain-slack/contain_slack_scan.py` on branch
+> `domain/contain-slack`.
+
 `montaget validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file
 say what you meant it to say."* That boundary is printed in the report itself.
@@ -337,9 +351,10 @@ Escalate to `review` only for the cases in (1) and (2), which are empty here.
   [#21](https://github.com/MBehtemam/Montaget/issues/21), now closed; fully specified
   by [ADR-0033](./0033-same-source-cut-continuity-is-a-review-check.md), which also
   draws the line against ADR-0012's separate group-keyframe-time check.
-- **Text overflowing its own box, computed from the document.** The fixture's
+- **Text overflowing its own box, computed from the document.** ~~The fixture's
   `sentence-quiz` overhangs its card's top edge by ~6 px, derivable from `size`,
-  `line_height` and a `y` that means centre. *"Until `validate` does this, 'the text
+  `line_height` and a `y` that means centre.~~ **False against the committed
+  fixture — see the amendment above.** *"Until `validate` does this, 'the text
   overflows its card' is a defect class that no check can see and that every restyle
   can produce."* Depends on the text model
   ([#13](https://github.com/MBehtemam/Montaget/issues/13),
