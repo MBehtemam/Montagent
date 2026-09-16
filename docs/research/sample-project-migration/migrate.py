@@ -15,6 +15,20 @@ SRC_DIMS = {  # ffprobe, front-loaded per source (ADR-0005: probe is per-source)
 def r(x):  # ADR-0012: ties away from zero
     return int(decimal.Decimal(x).quantize(0, rounding=decimal.ROUND_HALF_UP))
 
+def block_height(size, line_height, line_count):  # ADR-0028: exact tenths, ceil
+    """ceil(size * line_height * line_count), evaluated in exact integer arithmetic.
+
+    line_height is restricted to tenths (ADR-0028), so Decimal(str(x)) recovers the
+    author's exact intent -- json.load's float parse must not be trusted past this point,
+    the same ULP hazard ADR-0013 named for `fit`. `ceil` matches ADR-0014's published
+    formula; this replaces migrate.py's own former ROUND_HALF_UP at this site, which
+    agreed with `ceil` on all 15 committed values only because every fractional part here
+    happens to be >= 0.5.
+    """
+    n = int((decimal.Decimal(str(line_height)) * 10).to_integral_exact())
+    numerator = size * n * line_count
+    return -(-numerator // 10)  # ceil via floor division, exact for positive operands
+
 def cover(sw, sh, bw, bh):
     """ADR-0013: fitted extents floor, in exact integer arithmetic.
 
@@ -110,7 +124,7 @@ def migrate(el, ease):
             # height. ADR-0007's own block formula is the only value derivable from the
             # document -- which makes ADR-0006's overflow check tautological here.
             # See FINDINGS D2.
-            bh = r((text.count("\n") + 1) * size * lh)
+            bh = block_height(size, lh, text.count("\n") + 1)
         out["width"], out["height"] = bw, bh
         out["font"] = "brand"                     # ADR-0007 declared fonts table
         out["size"], out["line_height"], out["color"] = size, lh, e.pop("color")
