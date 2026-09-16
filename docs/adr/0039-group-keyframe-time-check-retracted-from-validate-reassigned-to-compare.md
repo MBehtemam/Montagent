@@ -53,18 +53,37 @@ no-I/O budget. Same-property keyframe-time agreement across elements *is* a coin
 between timestamps. Routing it anywhere but `compare` would leave the map holding two
 incompatible rulings on the identical question.
 
-Resolved by a jury of three independent models (Opus, Sonnet, Haiku), unanimous 3/3.
+Resolved by a jury of three independent models (Opus, Sonnet, Haiku) — **2/3, not
+unanimous**, and the original ballots were never committed alongside this ADR. Same pattern
+[ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s history already named:
+an ADR's evidence has to be committed in a form that can be re-executed, not merely
+described. Once the gap was noticed, the jury was re-run from a brief that withholds this
+ADR's own reasoning and conclusion, three fresh isolated models, ballots committed in full at
+[`docs/research/juries/group-keyframe-check-to-compare/`](../research/juries/group-keyframe-check-to-compare/README.md).
+**Opus and Haiku independently land on this ADR's disposition** — retract from `validate`,
+reassign to `compare` — largely re-deriving the reasoning below on their own. **Sonnet
+dissents**, arguing for exactly the opt-in "motion unit" shape the next paragraph
+pre-rejects, without having seen that rejection; its ballot does not independently arrive at
+the counter-argument or rebut it, so it stands as live, unaddressed disagreement rather than
+a considered dissent. Separately, Haiku — while agreeing with the disposition — recommends
+new opt-in schema syntax for declaring motion coupling, which this ADR explicitly declines
+below; Opus argues against ever adding one, on the same "protects the wrong population"
+reasoning that answers Sonnet.
 
 **Why no single-document formulation survives.** A stricter "motion unit" narrower than
 `group` is an opt-in marker wearing a schema hat: it only protects documents whose author
 already knew the coupling mattered and declared it — precisely the population that doesn't
 have the bug, while a silently-desynced lower-third was authored by someone who declared
-nothing. A near-match heuristic ("times within N ms but not equal") restates the noise-budget
-violation as arithmetic: failure 3's stagger is closely-spaced *by design*, so any N wide
-enough to catch a real drift also swallows deliberate staggers. An explicit coupling syntax
-(a `sync` unit, shared keyframe tracks) is a document-model proposal, not a `validate` check —
-if it ships, enforcing exact agreement inside a declared sync unit becomes a trivial `error`
-needing no check of this shape; until it ships, `validate` has nothing sound to build.
+nothing. **This is the argument Sonnet's dissenting ballot never sees**, since the re-run
+brief withholds it to keep the jury uncontaminated; Sonnet's motion-unit proposal supplies no
+answer to it. A near-match heuristic ("times within N ms but not equal") restates the
+noise-budget violation as arithmetic: failure 3's stagger is closely-spaced *by design*, so
+any N wide enough to catch a real drift also swallows deliberate staggers. An explicit
+coupling syntax (a `sync` unit, shared keyframe tracks) is a document-model proposal, not a
+`validate` check — if it ships, enforcing exact agreement inside a declared sync unit becomes
+a trivial `error` needing no check of this shape; until it ships, `validate` has nothing
+sound to build. **Haiku's re-run ballot proposes exactly this syntax anyway**; it is noted,
+not adopted — nobody is proposing it here, for the reason just given.
 
 ## Disposition
 
