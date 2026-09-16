@@ -170,6 +170,29 @@ the box rather than past it, because a text element's `width`/`height` is a cont
 claim and not drawn geometry. It is in element space, so it scales with `scale`.
 _Avoid_: outline, border, bord
 
+**Effect**:
+A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
+element — never an open plugin architecture. A list, not a map or a single field,
+because application order is semantically real: blur-then-shadow is a different
+frame from shadow-then-drop. v1's vocabulary is `blur`, `shadow` and `mask`
+(shape-only). Effects attach to whole elements, never to a run — that boundary is
+what excludes `stroke` (a run-addressable paint field) from this vocabulary, and
+what excludes per-word text highlighting, which needs run addressing and a
+timing model keyframes don't provide (keyframes animate transform properties
+only). Static in v1: no effect parameter is keyframable.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
+_Avoid_: filter (for the whole concept — see Colour filter, deferred, below), plugin, stack
+
+**Mask**:
+An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) with
+numeric parameters only, that clips an element's rendered pixels. Shape-only in
+v1 — a soft or alpha mask sourced from an image is deferred, since it introduces
+a second asset reference and unresolved fitting/colour-space questions.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
+_Avoid_: clip (that name is the transform model's static frame-space aperture,
+[ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
+different concept that happens to sound alike)
+
 **Colour**:
 `#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else. No three-digit shorthand, no CSS
 names, and `#RRGGBBFF` is an error naming the six-digit form — two spellings of one value
@@ -233,11 +256,26 @@ silence between two narration lines is a gap. A gap is never an error, which is
 why it is reported apart from an overlap rather than alongside one.
 _Avoid_: hole, blank, silence (as a name for the general case)
 
+**Slack**:
+The timeline distance from one element's boundary to the nearest thing that
+follows or precedes it — a neighbouring element's boundary in the same track
+or a different one, or, for the project's own last boundary, the derived
+`duration`. Every gap is slack; slack additionally names the cross-track case
+a gap can't reach, such as the distance from the last narration's end to a
+still photo's end. Slack currently in the file is invariant by default — its
+size is content, not a default the renderer supplies — and `shift` refuses an
+edit that would change it rather than absorbing the difference silently.
+([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
+_Avoid_: padding, buffer, margin (a spatial term already spoken for)
+
 **Shift**:
 Moving every time at or after some instant by an offset, so that inserting or
 removing time carries the rest of the project with it. It is named because it is
 the one edit that is arithmetic rather than authorship, and therefore the one
-Montaget performs instead of the agent.
+Montaget performs instead of the agent. It refuses an edit that would change an
+existing slack's size, the same way it refuses to stretch a time-based
+straddler, rather than silently absorbing the difference.
+([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
 _Avoid_: ripple (as the primary term), slide, nudge
 
 ## Rejected terms

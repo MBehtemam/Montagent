@@ -6,22 +6,28 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 # An element carries a flat transform, and keyframes are carried by their element
 
 > **Amended by [ADR-0022](./0022-easing-example-is-hypothetical-not-measured.md)**: the
-> `photo-06` element published below carries `"ease":"ease-in-out"` on its `scale` keyframe.
-> That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montaget/issues/42)
+> worked example below carried `"ease":"ease-in-out"` on its `scale` keyframe, under the id
+> `photo-06`. That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montaget/issues/42)
 > measured the actual motion as `linear`, and the committed project file records it that way.
 > Read the easing worked example below, and its 10.3–10.9 px figure, as **hypothetical** —
 > the closure argument it illustrates stands regardless; the specific numbers describe no
 > element that exists. The sentence *"four jurors computed this independently and three agree
-> to the digit"* no longer stands as corroboration and should be disregarded.
+> to the digit"* no longer stands as corroboration and should be disregarded. **[#72](https://github.com/MBehtemam/Montaget/issues/72)
+> renamed the code block's `id` to `photo-06-hypothetical`** so it can no longer be
+> copy-pasted as if it described the real element — this banner's guidance now also holds
+> for the JSON itself, not just for the prose around it.
 
 > **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
-> `photo-06` element published below carries `"gravity":"top"`, and **`gravity` no longer
-> exists** — the declared rect plus `clip` already determine which part of the source survives.
-> Read that element without the `gravity` key. Nothing else in it changed.
+> worked example below carried `"gravity":"top"`, and **`gravity` no longer exists** — the
+> declared rect plus `clip` already determine which part of the source survives.
+> **[#72](https://github.com/MBehtemam/Montaget/issues/72) removed the `gravity` key from
+> the code block below**, since leaving it there let an agent that skims straight to the
+> JSON write the retired field back into a real project; nothing else in the element changed.
 
 > **Amended by [ADR-0013](./0013-fitted-extents-floor-and-the-nine-origin-keywords.md)** on
 > the scope of one sentence; every decision below stands, and the `photo-06` element
-> published here is **correct as written**. **"Ties away from zero" does not reach fitted
+> published here is **correct as written** for the fields ADR-0013 concerns itself with
+> (`width`/`height`/`origin`/`fit`/`clip`). **"Ties away from zero" does not reach fitted
 > extents** — it is scoped to `x`/`y` interpolation residuals under SPLIT, where "nearest"
 > is right for a value with no directional constraint. A fitted extent is a derived bound:
 > it floors, in exact integer arithmetic, with the driving axis assigned the box dimension
@@ -37,8 +43,14 @@ A keyframe's `t` is written in timeline coordinates but **is not a timeline time
 `shift` moves *elements*, and their keyframes are carried.
 
 ```json
-{"id":"photo-06","type":"image","group":"item-06","start":17472,"end":30603,"source":"images/06.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300],"scale":[{"t":17472,"v":[1.0,1.0]},{"t":32472,"v":[1.08,1.08],"ease":"ease-in-out"}]}
+{"id":"photo-06-hypothetical","type":"image","group":"item-06","start":17472,"end":30603,"source":"images/06.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300],"scale":[{"t":17472,"v":[1.0,1.0]},{"t":32472,"v":[1.08,1.08],"ease":"ease-in-out"}]}
 ```
+
+The `id` is deliberately not `photo-06`: every other field matches the real element on
+`main`, but `ease` is hypothetical (the real element is `linear` — see the ADR-0022 banner
+above) and `gravity` has been dropped (the field is retired — see the ADR-0015 banner
+above). The real `photo-06`, unmodified, appears in
+[ADR-0013](./0013-fitted-extents-floor-and-the-nine-origin-keywords.md)'s worked example.
 
 Nothing in `CONTEXT.md` or ADRs 0001–0011 could say where an element is, how big, how
 rotated or how opaque. This ADR says it, and it settles the keyframe rule that

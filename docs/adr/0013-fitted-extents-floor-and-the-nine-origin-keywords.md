@@ -20,6 +20,12 @@ amends: 0012 (the rounding paragraph over-generalised; `photo-06` was right), 00
 > is content. ADR-0014 also declines `gravity` to [#48](https://github.com/MBehtemam/Montaget/issues/48)
 > rather than settling it, on this ADR's own refusal to create a schema value by implication.
 
+> **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
+> worked example below carried `"gravity":"top"`, retired by that ADR.
+> **[#72](https://github.com/MBehtemam/Montaget/issues/72) removed the `gravity` key** from
+> the code block, since it is the part an agent copy-pastes; every other field is unchanged
+> and still matches the committed fixture.
+
 Two numbers an author must know before writing a single element, that no document
 stated. [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) made
 `width`/`height` **required on the element**, so a fitted extent is not a sampling
@@ -28,11 +34,12 @@ agent before any renderer runs. And the nine `origin` keywords were given by ell
 so six of them had no spelling at all.
 
 ```json
-{"id":"photo-06","type":"image","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"top","clip":[0,0,1080,1300]}
+{"id":"photo-06","type":"image","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","clip":[0,0,1080,1300]}
 ```
 
-That element is **unchanged from ADR-0012**. This ADR does not correct it — it corrects
-a *sentence* in ADR-0012 that over-generalised its own scope, and supplies the rule
+That element matches the real `photo-06` on `main`, minus the fields ADR-0012 doesn't
+excerpt (`group`, `start`, `end`, `source`, `scale`) — this ADR does not correct it. It
+corrects a *sentence* in ADR-0012 that over-generalised its own scope, and supplies the rule
 ADR-0012 explicitly asked a successor for: *"The renderer must publish a sampling rule,
 because the rectangle is not integral: exact cover here is 1912.5 px."*
 

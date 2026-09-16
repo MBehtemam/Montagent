@@ -1,0 +1,29 @@
+=== T1 pacing: rank item-05..08 by duration, spread ===
+  item-05 17472
+  item-06 13131
+  item-07 12160
+  item-08 11093
+  spread longest-shortest = 6379
+
+=== T2 density: 5000ms window with most element STARTS ===
+  max starts in any 5000ms window = 14, first such window begins 0
+  aligned 5s buckets: {0: 14, 5000: 3, 10000: 4, 15000: 3, 20000: 4, 25000: 1, 30000: 4, 35000: 4, 40000: 4, 45000: 5, 50000: 3, 55000: 4, 60000: 7}
+
+=== T3 loop seam: open vs close ===
+  hook-05: 3018-5316 = 2298ms  text='What is this called\nin English?'
+  hook-loop: 64016-65216 = 1200ms  text='What is this called\nin English?'
+  ratio = 1.92x
+  scale at loop cut: 1.05418 -> 1.00000  (5.42% pop), same source=True
+
+=== T4 coverage ===
+  visual uncovered spans: []
+  silent spans: 20, total 19959ms
+  silent: [(2568, 3018), (4866, 5316), (7092, 7892), (9668, 10468), (12652, 13172), (16558, 17472), (19248, 20048), (21824, 22622), (25190, 25710), (29691, 30603), (32379, 33179), (34955, 35753), (37937, 38457), (41843, 42763), (44251, 45051), (46539, 47343), (49335, 49855), (52943, 53856), (56112, 61116), (63300, 65216)]
+
+=== T2 (REVISED) density excluding the 8 always-on header elements ===
+  non-header elements: 52
+  densest 5000ms window: 8 starts, earliest such window begins at 42344 (i.e. 42344-47344)
+  window range achieving max: 42344..59116
+  aligned 5s buckets: {0: 6, 5000: 3, 10000: 4, 15000: 3, 20000: 4, 25000: 1, 30000: 4, 35000: 4, 40000: 4, 45000: 5, 50000: 3, 55000: 4, 60000: 7}
+=== T5 narration gaps ===
+ count = 19  smallest = 450  largest = 5004

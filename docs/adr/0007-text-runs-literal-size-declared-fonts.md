@@ -29,7 +29,10 @@ amended-by: 0029 (baseline placement within the line slot)
 > would have them naming something that does not exist. The argument for the box (it must be
 > *in the document* so the overflow check has an input) is unchanged and better served.
 > **`align` is now text-only**: on an image the same word meant which part of the source
-> survives the crop, which is `gravity`.
+> survives the crop, which is `gravity`. **[#72](https://github.com/MBehtemam/Montaget/issues/72)
+> updated the worked example below to the post-ADR-0012 shape** — `box` dropped, literal
+> `width`/`height`/`align` added, and `start` corrected to the committed fixture's value —
+> since the code block still carried the pre-ADR-0012 field a copy-paste would reintroduce.
 
 A `text` element carries a base style and an ordered **`runs`** array. Each run is
 its own text plus style deltas over the base. Size is a **literal number**; the
@@ -38,7 +41,7 @@ project declares by path** in a top-level table, and the renderer opens nothing
 else.
 
 ```json
-{"id":"word-05","type":"text","start":5318,"end":17472,"x":540,"y":1373,"origin":"center","font":"brand","size":88,"line_height":1.1,"color":"#245C8C","box":"card-05","runs":[{"text":"cobweb  -  cobweb"}]}
+{"id":"word-05","type":"text","start":5316,"end":17472,"x":540,"y":1373,"origin":"center","width":984,"height":97,"font":"brand","size":88,"line_height":1.1,"color":"#245C8C","align":"center","runs":[{"text":"cobweb  -  cobweb"}]}
 ```
 
 ## What the primitive must not preclude
