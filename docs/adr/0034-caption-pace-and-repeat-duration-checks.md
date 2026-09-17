@@ -1,5 +1,6 @@
 ---
 status: accepted
+amended-by: 0054 (audio-backing and minimum-duration checks)
 ---
 
 # `validate` gains two caption checks: a reading-pace floor and repeat-duration disagreement
