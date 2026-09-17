@@ -342,7 +342,9 @@ Escalate to `review` only for the cases in (1) and (2), which are empty here.
   fixture share two layer values and it is benign, because their boxes do not
   intersect. A naive same-layer check is a false positive on a legal file, and a
   geometry-aware one is a much larger check than it appears. That is
-  [#24](https://github.com/MBehtemam/Montaget/issues/24), not this ADR.
+  [#24](https://github.com/MBehtemam/Montaget/issues/24), not this ADR — and #24
+  turned out to be the anchor repair, not this check; it was finally given a home,
+  as `error` rather than a report, by [ADR-0060](./0060-layer-tie-is-an-error-array-order-stays-meaningless.md).
 
 ## Two checks this exercise found that nothing had named
 

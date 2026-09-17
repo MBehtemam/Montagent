@@ -580,7 +580,10 @@ that defect class, and must be specified as load-bearing.
   bounds the surface, and that the number lands where #4 predicted.
 - **Not settled here**: how `fit`, `align` and `scale` interact (#21); what counts
   as content coverage (#23); draw order at a layer tie, which currently has no
-  owner; and font vendoring, which makes every `fonts` table unverifiable today.
+  owner (**settled by [ADR-0060](./0060-layer-tie-is-an-error-array-order-stays-meaningless.md)**:
+  a geometry-overlapping tie is `validate` `error`, never a fallback order; array
+  order stays meaningless); and font vendoring, which makes every `fonts` table
+  unverifiable today.
 
 ## Naming
 

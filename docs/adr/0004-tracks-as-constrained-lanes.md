@@ -16,6 +16,12 @@ supersedes: partially supersedes 0001
 > track name; anchors may not chain; and `validate` checks both a missing target and a
 > target that never overlaps the anchored element in time. Everything else below stands.
 
+> **Amended by [ADR-0060](./0060-layer-tie-is-an-error-array-order-stays-meaningless.md)**:
+> "array order carries no meaning" below is confirmed to extend from timing to stacking —
+> a layer tie is never broken by declaration order, in any circumstance. A tie whose
+> elements' boxes overlap in time and space is `error`, not silently rendered; a tie that
+> never overlaps stays undefined and unchecked, since nothing on screen depends on it.
+
 A project holds a `tracks` array. Each track is a named container with an integer
 `layer` giving its stacking position — higher draws in front. Its elements keep
 their own absolute `start` and `end`; **array order carries no timing meaning**.
