@@ -4,6 +4,11 @@ status: accepted
 
 # Same-source cut continuity is a `review` check, keyed on source and track — not `group`
 
+> **Amended by [ADR-0062](./0062-loop-declares-a-boolean-wrap-r-source-cut-pop-extends-mechanically.md)**,
+> which discharges this ADR's deferred loop-seam fog entry: a project-level
+> boolean `loop` field, and confirmation that the wrap extension is exactly
+> the mechanical one predicted below — no new finding code, no new mechanism.
+
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) named this check
 inside a list of two the exercise found unnamed, gave it a timestamp that does not
 match the fixture, and left it blocked on [#21](https://github.com/MBehtemam/Montaget/issues/21).

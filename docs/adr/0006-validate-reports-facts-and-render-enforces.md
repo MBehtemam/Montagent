@@ -30,6 +30,11 @@ status: accepted
 > named below and corrects its fixture timestamp: the second same-source cut is at
 > **64016**, not 64816 as stated further down this document.
 
+> **Amended by [ADR-0062](./0062-loop-declares-a-boolean-wrap-r-source-cut-pop-extends-mechanically.md)**,
+> which adds a project-level boolean `loop` field and extends
+> `R-SOURCE-CUT-POP` (ADR-0033) to a track's wrap-around pair when declared —
+> no new finding code.
+
 > **Amended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)** on the
 > overflow check this ADR parked. It **must not be worded "text overflows its box"** —
 > 15 of the fixture's 22 text elements have no container behind them — and its extent
