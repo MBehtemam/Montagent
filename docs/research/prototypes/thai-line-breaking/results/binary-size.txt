@@ -1,4 +1,4 @@
 # release binaries, same crate, same code, one Cargo feature apart
 results/parley-probe-off.bin                2898320 bytes
-results/parley-probe-on.bin                 6718480 bytes
-target/release/cosmic-probe                 2976528 bytes
+results/parley-probe-on.bin                 6718496 bytes
+target/release/cosmic-probe                 2976544 bytes

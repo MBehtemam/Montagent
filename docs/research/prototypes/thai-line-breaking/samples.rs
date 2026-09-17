@@ -87,6 +87,29 @@ pub const SAMPLES: &[Sample] = &[
         expect: "Same shape as Thai; named in parley's complex-scripts feature text.",
     },
     Sample {
+        id: "myanmar",
+        family: "Myanmar Sangam MN",
+        size: 32.0,
+        width: 420.0,
+        text: "သီဟိုဠ်မှဉာဏ်ကြီးရှင်သည်အာယုဝဍ္ဎနဆေးညွှန်းစာကိုဇလွန်ဈေးဘေးဗာဒံပင်ထက်အဓိဋ္ဌာန်လျက်ဂဃနဏဖတ်ခဲ့သည်။",
+        expect: "သီဟိုဠ်မှ|ဉာဏ်ကြီးရှင်သည်|အာယုဝဍ္ဎနဆေးညွှန်းစာကို|ဇလွန်ဈေးဘေး|ဗာဒံပင်ထက်|အဓိဋ္ဌာန်လျက်|ဂဃနဏဖတ်ခဲ့သည် \
+                 -- Burmese, like Thai, writes without spaces between words, so every break \
+                 here needs dictionary or LSTM segmentation. Named in parley's complex-scripts \
+                 feature text alongside Thai/Khmer/Lao. A stack with no Burmese segmentation \
+                 sees one unbreakable word for the whole sentence.",
+    },
+    Sample {
+        id: "myanmar-with-spaces",
+        family: "Myanmar Sangam MN",
+        size: 32.0,
+        width: 420.0,
+        text: "သီဟိုဠ်မှ ဉာဏ်ကြီးရှင်သည် အာယုဝဍ္ဎနဆေးညွှန်းစာကို ဇလွန်ဈေးဘေး ဗာဒံပင်ထက် အဓိဋ္ဌာန်လျက် ဂဃနဏဖတ်ခဲ့သည်။",
+        expect: "The same pangram as above, but with the modern digital-writing convention of a \
+                 space at each phrase boundary (6 here) -- same shape as thai-with-spaces: a \
+                 stack with no Burmese segmentation still breaks at those 6 spaces, which is \
+                 what makes the failure plausible instead of obvious.",
+    },
+    Sample {
         id: "japanese",
         family: "Hiragino Sans",
         size: 32.0,

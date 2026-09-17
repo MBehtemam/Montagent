@@ -136,6 +136,62 @@ line w=  78.08 [171..189] "ທ\u{eb8}ກຄ\u{ebb}ນ"  because None
 breaks: [0, 30, 36, 51, 60, 72, 96, 105, 111, 123, 138, 147, 171]
 lines: 13  overflowing: 13  notdef-glyphs: 0
 
+## myanmar (family Myanmar Sangam MN, size 32, width 1)
+expect: သီဟိုဠ်မှ|ဉာဏ်ကြီးရှင်သည်|အာယုဝဍ္ဎနဆေးညွှန်းစာကို|ဇလွန်ဈေးဘေး|ဗာဒံပင်ထက်|အဓိဋ္ဌာန်လျက်|ဂဃနဏဖတ်ခဲ့သည် -- Burmese, like Thai, writes without spaces between words, so every break here needs dictionary or LSTM segmentation. Named in parley's complex-scripts feature text alongside Thai/Khmer/Lao. A stack with no Burmese segmentation sees one unbreakable word for the whole sentence.
+line w=  87.44 [  0.. 21] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}"  because Regular
+line w=  19.84 [ 21.. 27] "မ\u{103e}"  because Regular
+line w= 158.58 [ 27.. 63] "ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}"  because Regular
+line w=  67.59 [ 63.. 72] "သည\u{103a}"  because Regular
+line w=  81.31 [ 72.. 84] "အာယ\u{102f}"  because Regular
+line w=  19.84 [ 84.. 87] "ဝ"  because Regular
+line w=  42.38 [ 87.. 99] "ဍ\u{1039}ဎန"  because Regular
+line w= 126.23 [ 99..126] "ဆေးည\u{103d}\u{103e}န\u{103a}း"  because Regular
+line w=  34.28 [126..132] "စာ"  because Regular
+line w=  34.56 [132..141] "က\u{102d}\u{102f}"  because Regular
+line w=  19.27 [141..144] "ဇ"  because Regular
+line w=  54.53 [144..156] "လ\u{103d}န\u{103a}"  because Regular
+line w=  53.53 [156..165] "ဈေး"  because Regular
+line w=  62.67 [165..174] "ဘေး"  because Regular
+line w=  91.47 [174..195] "ဗာဒ\u{1036}ပင\u{103a}"  because Regular
+line w=  69.12 [195..204] "ထက\u{103a}"  because Regular
+line w= 108.39 [204..231] "အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}"  because Regular
+line w=  74.03 [231..243] "လျက\u{103a}"  because Regular
+line w= 112.78 [243..255] "ဂဃနဏ"  because Regular
+line w=  54.41 [255..264] "ဖတ\u{103a}"  because Regular
+line w=  19.08 [264..273] "ခ\u{1032}\u{1037}"  because Regular
+line w=  67.59 [273..282] "သည\u{103a}"  because Regular
+line w=  12.48 [282..285] "။"  because None
+breaks: [0, 21, 27, 63, 72, 84, 87, 99, 126, 132, 141, 144, 156, 165, 174, 195, 204, 231, 243, 255, 264, 273, 282]
+lines: 23  overflowing: 23  notdef-glyphs: 0
+
+## myanmar-with-spaces (family Myanmar Sangam MN, size 32, width 1)
+expect: The same pangram as above, but with the modern digital-writing convention of a space at each phrase boundary (6 here) -- same shape as thai-with-spaces: a stack with no Burmese segmentation still breaks at those 6 spaces, which is what makes the failure plausible instead of obvious.
+line w=  87.44 [  0.. 21] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}"  because Regular
+line w=  27.14 [ 21.. 28] "မ\u{103e} "  because Regular
+line w= 158.58 [ 28.. 64] "ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}"  because Regular
+line w=  74.89 [ 64.. 74] "သည\u{103a} "  because Regular
+line w=  81.31 [ 74.. 86] "အာယ\u{102f}"  because Regular
+line w=  19.84 [ 86.. 89] "ဝ"  because Regular
+line w=  42.38 [ 89..101] "ဍ\u{1039}ဎန"  because Regular
+line w= 126.23 [101..128] "ဆေးည\u{103d}\u{103e}န\u{103a}း"  because Regular
+line w=  34.28 [128..134] "စာ"  because Regular
+line w=  41.86 [134..144] "က\u{102d}\u{102f} "  because Regular
+line w=  19.27 [144..147] "ဇ"  because Regular
+line w=  54.53 [147..159] "လ\u{103d}န\u{103a}"  because Regular
+line w=  53.53 [159..168] "ဈေး"  because Regular
+line w=  69.97 [168..178] "ဘေး "  because Regular
+line w=  91.47 [178..199] "ဗာဒ\u{1036}ပင\u{103a}"  because Regular
+line w=  76.42 [199..209] "ထက\u{103a} "  because Regular
+line w= 108.39 [209..236] "အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}"  because Regular
+line w=  81.33 [236..249] "လျက\u{103a} "  because Regular
+line w= 112.78 [249..261] "ဂဃနဏ"  because Regular
+line w=  54.41 [261..270] "ဖတ\u{103a}"  because Regular
+line w=  19.08 [270..279] "ခ\u{1032}\u{1037}"  because Regular
+line w=  67.59 [279..288] "သည\u{103a}"  because Regular
+line w=  12.48 [288..291] "။"  because None
+breaks: [0, 21, 28, 64, 74, 86, 89, 101, 128, 134, 144, 147, 159, 168, 178, 199, 209, 236, 249, 261, 270, 279, 288]
+lines: 23  overflowing: 23  notdef-glyphs: 0
+
 ## japanese (family Hiragino Sans, size 32, width 1)
 expect: UAX #14 gives ideographs class ID and kana CJ, both breakable on either side with no dictionary at all. So BOTH stacks should break this acceptably, and CJK should NOT discriminate. Kinsoku is the only open question: the line must not begin with the trailing 。 or 、.
 line w=  32.00 [  0..  3] "日"  because Regular

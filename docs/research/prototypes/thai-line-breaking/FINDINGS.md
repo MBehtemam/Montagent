@@ -160,6 +160,66 @@ looked at by someone who reads Thai before it is called correct.
 
 ---
 
+## Myanmar, and whether cosmic-text can be tailored (issue #129)
+
+Resolves [#129](https://github.com/MBehtemam/Montaget/issues/129), on the same
+harness, same `samples.rs`, same rasterizer — two Myanmar samples added
+(`myanmar`, unspaced; `myanmar-with-spaces`, the same pangram with a space at
+each phrase boundary), family `Myanmar Sangam MN`, and a macOS
+CFStringTokenizer (`locale: "my"`) oracle entry added alongside it.
+
+**The same discriminator, and the same cost, to the byte.**
+
+| | cosmic-text 0.19 | parley 0.11, flag off | parley 0.11, flag on |
+| --- | --- | --- | --- |
+| Myanmar break opportunities (24-syllable-group pangram) | **0** | **0**\* | **22** |
+| Release binary | 2.98 MB | 2.90 MB | **6.72 MB** |
+
+\*parley-off's one reported break just isolates the trailing `။` (a `BA`-class
+punctuation mark under plain UAX #14); it is not word segmentation — the
+282-byte span in front of it is still one unbreakable run.
+
+The binary-size delta is **6,718,496 − 2,898,320 = 3,820,176 bytes — the same
+3.82 MB measured for Thai/Khmer/Lao**, because it is the same ICU4X dictionary
+data compiled in either way; which sample text is fed through it at runtime
+cannot change what got linked. Startup is likewise unchanged (parley
+92.6–93.6 ms, cosmic-text 259.7 ms — the same shape as before, cosmic-text's
+`fontdb` scan dominating).
+
+**parley's 22 breaks match the macOS oracle exactly, byte for byte**
+(`results/segmentation-vs-oracle.txt`): boundaries
+`[0, 21, 27, 63, 72, 84, 87, 93, 96, 99, 126, 132, 141, 144, 156, 165, 174,
+195, 204, 231, 243, 255, 264, 273, 282]` on both sides. cosmic-text offers 1 of
+those 25 (just the string start) — `results/segmentation-vs-oracle.txt`'s own
+line: `cosmic-text offered 1 missing [...24 more...] extra []`.
+
+**The frame makes it concrete.** `frames/cosmic-Word-myanmar.png`: one
+unbreakable line, cut off mid-syllable by the 420px box. Compare
+`frames/parley-on-Normal-myanmar.png`: four clean lines, box-fitting, the same
+text.
+
+![](frames/cosmic-Word-myanmar.png)
+![](frames/parley-on-Normal-myanmar.png)
+
+So Myanmar is not a fourth, separately-priced case — it is the same
+`SA → AL` tailoring hitting the same code path, at the same cost, for the same
+reason. Nothing about Myanmar specifically discriminates from Thai/Khmer/Lao;
+the ticket's premise (unlike Thai/Khmer/Lao, this one was never run) is the
+only thing that made it look separate.
+
+**Whether cosmic-text can be tailored: no — there is no hook.** Read from
+source rather than measured, because there is nothing to run: `unicode_linebreak::linebreaks(s: &str)`
+(`unicode-linebreak` 0.1.5, `src/lib.rs:89`) takes a bare `&str` — no locale,
+no dictionary, no callback parameter of any kind, so a caller cannot supply
+tailoring data even if `cosmic-text` exposed the call. And it doesn't: `Buffer`'s
+only line-break-adjacent surface is `set_wrap` (`Wrap::Word` /
+`Glyph` / `WordOrGlyph`), which picks a *fallback strategy* for where to break
+when no dictionary opportunity exists — it does not change the opportunity
+*set*. The one call site, `ShapeSpan::build` in `cosmic-text-0.19.0/src/shape.rs:970`,
+invokes `unicode_linebreak::linebreaks` directly and unconditionally. There is
+no escape route: the discriminator does not collapse, for Myanmar or for any
+of Thai/Khmer/Lao.
+
 ## What this settles for [#7](https://github.com/MBehtemam/Montaget/issues/7)
 
 1. The discriminator survives contact. It is the first thing in
@@ -216,11 +276,6 @@ delete it.
 
 ## What this prototype does not settle
 
-- **Myanmar.** Named in the feature, not tested — no sample, though
-  `NotoSansMyanmar` is on the machine.
-- **Whether cosmic-text can be tailored.** It was measured as it ships. Whether
-  a caller can inject its own break opportunities was not investigated, and
-  `unicode-linebreak`'s `SA → AL` is documented as deliberate, not a bug.
 - **Justification, hyphenation, and `word-break`/`overflow-wrap` as *document*
   properties.** The samples pin one wrap mode per run; nothing here says what
   the project file should be able to express.

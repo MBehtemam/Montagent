@@ -57,6 +57,25 @@ line w=  57.56 [177..189] "ກຄ\u{ebb}ນ"  because None
 breaks: [0, 78, 177]
 lines: 3  overflowing: 0  notdef-glyphs: 0
 
+## myanmar (family Myanmar Sangam MN, size 32, width 420)
+expect: သီဟိုဠ်မှ|ဉာဏ်ကြီးရှင်သည်|အာယုဝဍ္ဎနဆေးညွှန်းစာကို|ဇလွန်ဈေးဘေး|ဗာဒံပင်ထက်|အဓိဋ္ဌာန်လျက်|ဂဃနဏဖတ်ခဲ့သည် -- Burmese, like Thai, writes without spaces between words, so every break here needs dictionary or LSTM segmentation. Named in parley's complex-scripts feature text alongside Thai/Khmer/Lao. A stack with no Burmese segmentation sees one unbreakable word for the whole sentence.
+line w= 414.77 [  0.. 84] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}မ\u{103e}ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}သည\u{103a}အာယ\u{102f}"  because Emergency
+line w= 384.62 [ 84..165] "ဝဍ\u{1039}ဎနဆေးည\u{103d}\u{103e}န\u{103a}းစာက\u{102d}\u{102f}ဇလ\u{103d}န\u{103a}ဈေး"  because Emergency
+line w= 405.69 [165..243] "ဘေးဗာဒ\u{1036}ပင\u{103a}ထက\u{103a}အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}လျက\u{103a}"  because Emergency
+line w= 266.34 [243..285] "ဂဃနဏဖတ\u{103a}ခ\u{1032}\u{1037}သည\u{103a}။"  because None
+breaks: [0, 84, 165, 243]
+lines: 4  overflowing: 0  notdef-glyphs: 0
+
+## myanmar-with-spaces (family Myanmar Sangam MN, size 32, width 420)
+expect: The same pangram as above, but with the modern digital-writing convention of a space at each phrase boundary (6 here) -- same shape as thai-with-spaces: a stack with no Burmese segmentation still breaks at those 6 spaces, which is what makes the failure plausible instead of obvious.
+line w= 348.05 [  0.. 74] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}မ\u{103e} ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}သည\u{103a} "  because Regular
+line w= 345.91 [ 74..144] "အာယ\u{102f}ဝဍ\u{1039}ဎနဆေးည\u{103d}\u{103e}န\u{103a}းစာက\u{102d}\u{102f} "  because Regular
+line w= 365.19 [144..209] "ဇလ\u{103d}န\u{103a}ဈေးဘေး ဗာဒ\u{1036}ပင\u{103a}ထက\u{103a} "  because Regular
+line w= 189.72 [209..249] "အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}လျက\u{103a} "  because Regular
+line w= 266.34 [249..291] "ဂဃနဏဖတ\u{103a}ခ\u{1032}\u{1037}သည\u{103a}။"  because None
+breaks: [0, 74, 144, 209, 249]
+lines: 5  overflowing: 0  notdef-glyphs: 0
+
 ## japanese (family Hiragino Sans, size 32, width 420)
 expect: UAX #14 gives ideographs class ID and kana CJ, both breakable on either side with no dictionary at all. So BOTH stacks should break this acceptably, and CJK should NOT discriminate. Kinsoku is the only open question: the line must not begin with the trailing 。 or 、.
 line w= 414.40 [  0.. 39] "日本語のテキストは単語の区"  because Regular

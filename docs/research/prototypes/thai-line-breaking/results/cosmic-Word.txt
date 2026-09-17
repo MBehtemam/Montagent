@@ -53,6 +53,24 @@ breaks: [0]
 lines: 1  overflowing: 1  notdef-glyphs: 0
 resolved-fonts: Lao Sangam MN
 
+## myanmar (family Myanmar Sangam MN, size 32, width 420)
+expect: သီဟိုဠ်မှ|ဉာဏ်ကြီးရှင်သည်|အာယုဝဍ္ဎနဆေးညွှန်းစာကို|ဇလွန်ဈေးဘေး|ဗာဒံပင်ထက်|အဓိဋ္ဌာန်လျက်|ဂဃနဏဖတ်ခဲ့သည် -- Burmese, like Thai, writes without spaces between words, so every break here needs dictionary or LSTM segmentation. Named in parley's complex-scripts feature text alongside Thai/Khmer/Lao. A stack with no Burmese segmentation sees one unbreakable word for the whole sentence.
+line w=1471.42 [  0..285] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}မ\u{103e}ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}သည\u{103a}အာယ\u{102f}ဝဍ\u{1039}ဎနဆေးည\u{103d}\u{103e}န\u{103a}းစာက\u{102d}\u{102f}ဇလ\u{103d}န\u{103a}ဈေးဘေးဗာဒ\u{1036}ပင\u{103a}ထက\u{103a}အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}လျက\u{103a}ဂဃနဏဖတ\u{103a}ခ\u{1032}\u{1037}သည\u{103a}။"
+breaks: [0]
+lines: 1  overflowing: 1  notdef-glyphs: 0
+resolved-fonts: Myanmar Sangam MN
+
+## myanmar-with-spaces (family Myanmar Sangam MN, size 32, width 420)
+expect: The same pangram as above, but with the modern digital-writing convention of a space at each phrase boundary (6 here) -- same shape as thai-with-spaces: a stack with no Burmese segmentation still breaks at those 6 spaces, which is what makes the failure plausible instead of obvious.
+line w= 340.75 [  0.. 73] "သ\u{102e}ဟ\u{102d}\u{102f}ဠ\u{103a}မ\u{103e} ဉာဏ\u{103a}ကြ\u{102e}းရ\u{103e}င\u{103a}သည\u{103a}"
+line w= 338.61 [ 74..143] "အာယ\u{102f}ဝဍ\u{1039}ဎနဆေးည\u{103d}\u{103e}န\u{103a}းစာက\u{102d}\u{102f}"
+line w= 357.89 [144..208] "ဇလ\u{103d}န\u{103a}ဈေးဘေး ဗာဒ\u{1036}ပင\u{103a}ထက\u{103a}"
+line w= 182.42 [209..248] "အဓ\u{102d}ဋ\u{1039}ဌာန\u{103a}လျက\u{103a}"
+line w= 266.34 [249..291] "ဂဃနဏဖတ\u{103a}ခ\u{1032}\u{1037}သည\u{103a}။"
+breaks: [0, 74, 144, 209, 249]
+lines: 5  overflowing: 0  notdef-glyphs: 0
+resolved-fonts: Myanmar Sangam MN
+
 ## japanese (family Hiragino Sans, size 32, width 420)
 expect: UAX #14 gives ideographs class ID and kana CJ, both breakable on either side with no dictionary at all. So BOTH stacks should break this acceptably, and CJK should NOT discriminate. Kinsoku is the only open question: the line must not begin with the trailing 。 or 、.
 line w= 416.00 [  0.. 39] "日本語のテキストは単語の区"
