@@ -3,6 +3,11 @@ status: accepted
 amends: 0002 (settles the resolution-base, assetRoot, absolute-path and missing-source questions that ADR left open)
 ---
 
+> **Amended by [ADR-0056](./0056-remote-source-probe-session-scoped-no-persistent-cache.md)**,
+> which discharges the four remote-specific questions this ADR deferred: probe
+> cadence, what a remote probe fetches, cache key, and what a probe *failure*
+> (as distinct from a probe finding this ADR's plain `error`) means.
+
 # Asset paths resolve against the project file's directory; no `assetRoot`; absolute paths permitted; a missing source is a plain error
 
 [ADR-0002](./0002-inline-source-no-asset-table.md) settled that `source` is a path
