@@ -4,6 +4,16 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0061](./0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md)**,
+> which names the test this ADR's "may not state anything that requires
+> knowing what the video is for" sentence left implicit — **threshold
+> provenance, not severity, decides whether a check states a fact** — and adds
+> a fenced exception: a check may compare a document-derived fact against a
+> cited external numeric threshold only at `review`/`note` severity, never
+> `error`, stating the raw measurement and citing the source. `R-CAPTION-PACE`
+> (ADR-0034) is the first and, to date, only member of that exception; every
+> other existing check was already compliant.
+
 > **Amended by [ADR-0052](./0052-review-check-for-inert-ease-on-held-keyframes.md)**,
 > which adds `R-EASE-INERT` (`review`): consecutive keyframe records on one
 > element/property whose `v` holds identical (whole-value, exact, no tolerance)
