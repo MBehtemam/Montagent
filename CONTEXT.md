@@ -30,9 +30,10 @@ _Avoid_: composition, timeline, edit, movie
 A named container holding elements, with an integer `layer` giving its place in
 the stack. A track supplies *stacking*, never *timing*: it has no start, no
 duration and no clock, its children carry absolute times on the project's one
-timeline, and the order they appear in carries no meaning. Children of a single
-track may not overlap in time — that is a validation error. Elements that should
-overlap belong in different tracks.
+timeline, and the order they appear in carries no meaning — for timing or for
+stacking ([ADR-0060](docs/adr/0060-layer-tie-is-an-error-array-order-stays-meaningless.md)).
+Children of a single track may not overlap in time — that is a validation error.
+Elements that should overlap belong in different tracks.
 _Avoid_: lane, channel, layer (as a container)
 
 **Element**:
@@ -59,7 +60,12 @@ _Avoid_: key, name, index
 **Layer**:
 A place in the stack, as an integer — higher draws in front. Normally carried by
 the track, so every element in it stacks together. An element may override its
-track's layer with its own integer, or with an anchor.
+track's layer with its own integer, or with an anchor. Two elements resolving to
+the same layer is legal only while their boxes never overlap in time and space;
+once they do, the document does not say which draws in front and `validate`
+errors, refusing the render, until the author states an order explicitly via an
+override or an anchor
+([ADR-0060](docs/adr/0060-layer-tie-is-an-error-array-order-stays-meaningless.md)).
 _Avoid_: z-index, depth
 
 **Anchor**:
