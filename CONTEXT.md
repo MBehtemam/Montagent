@@ -216,8 +216,13 @@ _Avoid_: scene, segment, section
 
 **Source**:
 The file an element draws on, written on the element itself as a path or a URL.
-There is no table of files declared elsewhere and referred to by name.
-_Avoid_: asset, resource, media reference
+There is no table of files declared elsewhere and referred to by name, and no
+top-level field that changes how a `source` resolves — a relative path is
+always relative to the project file's own directory, and an absolute path is
+permitted and resolved as-is. Relocating a project to a remote store means
+rewriting `source` to URLs, not editing a shared base
+([ADR-0053](docs/adr/0053-asset-path-resolution-no-assetroot.md)).
+_Avoid_: asset, resource, media reference, assetRoot
 
 **Timeline range**:
 Where an element sits on the project's one absolute clock, as a `start` and an
