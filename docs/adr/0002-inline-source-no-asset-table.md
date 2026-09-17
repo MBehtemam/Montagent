@@ -1,6 +1,6 @@
 ---
 status: accepted
-amended-by: 0007 (fonts carve-out)
+amended-by: 0007 (fonts carve-out), 0053 (resolution base, no assetRoot, absolute paths permitted, missing-source severity)
 ---
 
 # Elements name their files inline; there is no asset table
