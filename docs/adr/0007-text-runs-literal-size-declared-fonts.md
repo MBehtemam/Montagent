@@ -1,10 +1,18 @@
 ---
 status: accepted
 amends: 0002 (fonts carve-out), 0006 (overflow check gains a box and a width term)
-amended-by: 0029 (baseline placement within the line slot)
+amended-by: 0029 (baseline placement within the line slot), 0057 (fonts vendor mechanics, licence check, substitute policy)
 ---
 
 # Text is styled runs at a literal size, in fonts the project declares
+
+> **Amended by [ADR-0057](./0057-font-vendoring-licence-gate-and-path-keyed-attestation.md)**,
+> which discharges this ADR's open *"font licensing is a first-class outcome"*
+> item: `fonts vendor` is a local-only copy gated by a three-bucket licence
+> check (blocklisted / recognised-open / declare-explicitly), the project
+> schema gains a path-keyed `fontVendor` attestation table separate from the
+> `fonts` reference structure, and a refusal may suggest — never
+> auto-vendor — an open substitute. Every other decision below stands.
 
 > **Amended by [ADR-0029](./0029-line-baseline-half-leading.md)**, which states the
 > baseline-placement rule this ADR's slot definition never gave: half-leading,
