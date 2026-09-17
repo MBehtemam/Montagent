@@ -1,0 +1,9 @@
+[package]
+name = "vertical-metrics-probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+skrifa = "0.44"
+tiny-skia = "0.11"
+parley = { version = "0.11.1", features = ["complex-scripts"] }

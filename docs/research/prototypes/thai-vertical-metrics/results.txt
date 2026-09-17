@@ -1,0 +1,30 @@
+
+## thai-2line-lh11 (family Ayuthaya, size 55, line_height 1.1)
+slot_height (size*line_height) = 60.50  declared block height (ceil, ADR-0014/0028) = 121
+line 0: slot=[0.00,60.50] baseline_y=50.77 ascent=58.69 descent=17.65  real ink=[-6.70,68.43]  overshoot_above_own_slot=6.70  overshoot_below_own_slot=7.93
+line 1: slot=[60.50,121.00] baseline_y=111.27 ascent=58.69 descent=17.65  real ink=[53.80,111.43]  overshoot_above_own_slot=6.70  overshoot_below_own_slot=-9.57
+seam 0/1: line 0 ink bottom=68.43  line 1 ink top=53.80  ink-to-ink overlap=14.62  <-- COLLIDES
+block edges: top ink=-6.70 (escapes box top by 6.70 <-- ESCAPES)  bottom ink=111.43 (escapes box bottom by -9.57)
+
+## thai-2line-lh12 (family Ayuthaya, size 55, line_height 1.2)
+slot_height (size*line_height) = 66.00  declared block height (ceil, ADR-0014/0028) = 132
+line 0: slot=[0.00,66.00] baseline_y=53.52 ascent=58.69 descent=17.65  real ink=[-3.95,71.18]  overshoot_above_own_slot=3.95  overshoot_below_own_slot=5.18
+line 1: slot=[66.00,132.00] baseline_y=119.52 ascent=58.69 descent=17.65  real ink=[62.05,119.68]  overshoot_above_own_slot=3.95  overshoot_below_own_slot=-12.32
+seam 0/1: line 0 ink bottom=71.18  line 1 ink top=62.05  ink-to-ink overlap=9.12  <-- COLLIDES
+block edges: top ink=-3.95 (escapes box top by 3.95 <-- ESCAPES)  bottom ink=119.68 (escapes box bottom by -12.32)
+
+## thai-3line-lh11 (family Ayuthaya, size 55, line_height 1.1)
+slot_height (size*line_height) = 60.50  declared block height (ceil, ADR-0014/0028) = 182
+line 0: slot=[0.00,60.50] baseline_y=50.77 ascent=58.69 descent=17.65  real ink=[-6.70,67.38]  overshoot_above_own_slot=6.70  overshoot_below_own_slot=6.88
+line 1: slot=[60.50,121.00] baseline_y=111.27 ascent=58.69 descent=17.65  real ink=[52.58,111.43]  overshoot_above_own_slot=7.92  overshoot_below_own_slot=-9.57
+line 2: slot=[121.00,181.50] baseline_y=171.77 ascent=58.69 descent=17.65  real ink=[114.30,171.93]  overshoot_above_own_slot=6.70  overshoot_below_own_slot=-9.57
+seam 0/1: line 0 ink bottom=67.38  line 1 ink top=52.58  ink-to-ink overlap=14.80  <-- COLLIDES
+seam 1/2: line 1 ink bottom=111.43  line 2 ink top=114.30  ink-to-ink overlap=-2.87
+block edges: top ink=-6.70 (escapes box top by 6.70 <-- ESCAPES)  bottom ink=171.93 (escapes box bottom by -10.07)
+
+## latin-control-2line-lh11 (family Helvetica, size 55, line_height 1.1)
+slot_height (size*line_height) = 60.50  declared block height (ceil, ADR-0014/0028) = 121
+line 0: slot=[0.00,60.50] baseline_y=45.10 ascent=42.35 descent=12.65  real ink=[5.52,56.90]  overshoot_above_own_slot=-5.52  overshoot_below_own_slot=-3.60
+line 1: slot=[60.50,121.00] baseline_y=105.60 ascent=42.35 descent=12.65  real ink=[65.59,117.77]  overshoot_above_own_slot=-5.09  overshoot_below_own_slot=-3.23
+seam 0/1: line 0 ink bottom=56.90  line 1 ink top=65.59  ink-to-ink overlap=-8.69
+block edges: top ink=5.52 (escapes box top by -5.52)  bottom ink=117.77 (escapes box bottom by -3.23)
