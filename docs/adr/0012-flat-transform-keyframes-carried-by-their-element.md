@@ -97,6 +97,7 @@ homes, since [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) already
 replacement**, never a silently-ignored field — ADR-0007 has already ruled twice that *"a
 field the renderer cannot honour is worse than no field."* The specific trap is `opacity`
 on audio, which an agent will write meaning volume and which would fade nothing, forever.
+The replacement is `volume`, named by [ADR-0055](./0055-audio-mixing-model-volume-fades-ducking-deferred.md).
 
 **A size is required, not defaulted.** An element's own `width`/`height` must be in the
 document. The tempting default — natural source size — is forbidden by the same argument
