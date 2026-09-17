@@ -5,6 +5,11 @@ amends: 0012 (settles what it left silent: presence of `ease` on non-first recor
 
 # `ease` is required on every non-first keyframe record; absent only on the first
 
+> **Amended by [ADR-0052](./0052-review-check-for-inert-ease-on-held-keyframes.md)**,
+> which designs the `review`-level lint this ADR named as the acknowledged cost but
+> did not design: `R-EASE-INERT`, firing when consecutive keyframe records hold an
+> identical `v` (whole-value, exact) while still carrying an `ease`.
+
 [Ticket #70](https://github.com/MBehtemam/Montaget/issues/70), from
 [#12](https://github.com/MBehtemam/Montaget/issues/12). [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)
 legislated the first keyframe record exhaustively — `ease` there is a schema error, naming
