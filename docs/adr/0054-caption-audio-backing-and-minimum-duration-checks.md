@@ -1,5 +1,6 @@
 ---
 status: accepted
+amends: 0034 (settles the audio-backing and minimum-duration deferrals)
 ---
 
 # `validate` gains two more caption checks: no audio backing, and a minimum display duration
