@@ -44,16 +44,6 @@ fn validate(path: &Path) -> Report {
     }
 }
 
-/// A resolved path with `/` separators, so a tail can be compared to one.
-///
-/// The project format writes `audio/05-cobweb.mp3`; a resolved path on Windows
-/// comes back with backslashes, and `ends_with("audio/05-cobweb.mp3")` is then
-/// false for a path that is entirely correct. The separator is the platform's,
-/// never the document's.
-fn with_forward_slashes(path: &str) -> String {
-    path.replace('\\', "/")
-}
-
 fn fixture_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/en-halloween-decorating")
@@ -268,7 +258,7 @@ fn a_missing_local_source_is_a_plain_error_and_never_a_network_unknown() {
     assert_eq!(finding.reason, None, "nothing about a network was involved");
     assert_eq!(finding.fields["source"], "audio/typo.mp3");
     assert!(
-        with_forward_slashes(finding.fields["resolved"].as_str().unwrap())
+        common::with_forward_slashes(finding.fields["resolved"].as_str().unwrap())
             .ends_with("audio/typo.mp3"),
         "{finding:?}"
     );
@@ -500,7 +490,7 @@ fn a_clean_run_reports_the_duration_and_dimensions_it_established() {
     let image = report
         .media
         .iter()
-        .find(|probe| with_forward_slashes(&probe.source).ends_with("images/06.png"))
+        .find(|probe| common::with_forward_slashes(&probe.source).ends_with("images/06.png"))
         .expect("the image is among them");
     let dimensions = image.dimensions.expect("an image has dimensions");
     assert_eq!((dimensions.width, dimensions.height), (1536, 2720));
@@ -508,7 +498,7 @@ fn a_clean_run_reports_the_duration_and_dimensions_it_established() {
     let audio = report
         .media
         .iter()
-        .find(|probe| with_forward_slashes(&probe.source).ends_with("audio/05-cobweb.mp3"))
+        .find(|probe| common::with_forward_slashes(&probe.source).ends_with("audio/05-cobweb.mp3"))
         .expect("the audio is among them");
     assert_eq!(
         audio.audio.and_then(|a| a.audio_stream_ms),

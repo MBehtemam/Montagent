@@ -11,6 +11,8 @@
 //! The tests that do run the real binary are the ones whose whole point is that the
 //! numbers are real: ADR-0011's quad, read off the fixture the ADR itself measured.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -362,7 +364,13 @@ fn the_cache_miss_prints_at_the_top_without_being_asked_for() {
     // The cache block belongs to the report surface (ADR-0006 specified it for
     // `validate`'s report), so it prints ahead of the findings for every verb.
     let cache = rendered.find("CACHE").expect("a cache block");
-    assert!(rendered.contains("images/06.png"), "{rendered}");
+    // The report renders the *resolved* path, which on Windows is backslashes
+    // behind a `\\?\` verbatim prefix. What is being asserted is that the cache
+    // block names the source at all, not how the platform spells a separator.
+    assert!(
+        common::with_forward_slashes(&rendered).contains("images/06.png"),
+        "{rendered}"
+    );
     assert!(cache < rendered.find("NOT CHECKED").unwrap(), "{rendered}");
 }
 
