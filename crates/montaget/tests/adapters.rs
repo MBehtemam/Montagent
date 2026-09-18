@@ -57,14 +57,16 @@ fn cli_validate_on_a_malformed_file_is_exit_2() {
 }
 
 #[test]
-fn cli_fmt_check_reaches_the_verb_without_writing_and_exits_1() {
+fn cli_fmt_check_reaches_the_verb_without_writing() {
     // One test per subcommand, asserting argv reaches the right core call and the exit
     // code is right (#168). The convention itself is tested in the core.
     let pretty = "{\n  \"frame\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"fps\": 25,\n  \"tracks\": []\n}\n";
     let project = scratch("cli-fmt-check", "p.montaget.json", pretty);
     let out = montaget(&["fmt", project.to_str().unwrap(), "--check"]);
 
-    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    // ADR-0011: "Exit non-zero only on `error`", and `LAYOUT` is not one (ADR-0041).
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("1 layout"), "{}", out.stdout);
     assert!(out.stdout.contains("L-LAYOUT"), "{}", out.stdout);
     assert_eq!(std::fs::read_to_string(&project).unwrap(), pretty);
 }

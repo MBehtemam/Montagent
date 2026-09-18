@@ -31,7 +31,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 
 use crate::finding::Finding;
-use crate::layout::{self, Shape};
+use crate::layout::{self, Published};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -55,6 +55,15 @@ pub enum Mode {
 ///
 /// The report's findings are the same `LAYOUT` findings `validate` produces, from the same
 /// predicate — `fmt --check` is a second place to *ask*, never a second rule.
+///
+/// **A non-canonical file is exit 0**, in both modes. ADR-0011 states it flatly — *"Exit
+/// non-zero only on `error`"* — and ADR-0041 is equally flat that `LAYOUT` is not one: the
+/// video renders identically either way, and refusal stays keyed to `error` alone. That
+/// sits awkwardly against story 5's *"verify before I commit"*, which wants a `--check`
+/// something can gate on, and #193 does not ask for an exit code at all. The awkwardness is
+/// left standing rather than settled here: a caller that wants a gate today reads the
+/// `layout` count out of `--json`, which is exact, and whether the ladder should grow a
+/// sixth code is an ADR's decision, not this verb's.
 pub fn fmt(path: &Path, mode: Mode) -> Report {
     let project = Some(path.display().to_string());
 
@@ -107,19 +116,12 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
         report.push(finding);
     }
 
-    match mode {
-        // Story 5: "tell me the file is in canonical convention without rewriting it, so
-        // that I can verify before I commit". A `--check` that exited 0 on a file it had
-        // just reported as non-canonical could not be used to verify anything.
-        Mode::Check => report.needs_fixing(),
-        Mode::Write => {
-            if let Err(e) = write::atomically(path, &canonical) {
-                report.fail_internally(format!("{} could not be written: {e}", document.path()));
-            }
-            // On success the findings stay in the report — they are what the run changed,
-            // and an agent that asked for a rewrite is owed the list — but the file is now
-            // canonical, so there is nothing left for the caller to fix.
-        }
+    // On success the findings stay in the report — they are what the run changed, and an
+    // agent that asked for a rewrite is owed the list.
+    if mode == Mode::Write
+        && let Err(e) = write::atomically(path, &canonical)
+    {
+        report.fail_internally(format!("{} could not be written: {e}", document.path()));
     }
 
     report
@@ -133,15 +135,15 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
 fn findings(document: &Loose, written: &str, canonical: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
 
-    for (track, element) in elements(document) {
+    for (track, element) in document.elements_in_tracks() {
         let Some(object) = element.as_object() else {
             continue;
         };
-        let shape = Shape::of_element(element);
-        if layout::is_canonical(shape, object) {
+        let published = Published::of_element(element);
+        if layout::is_canonical(published, object) {
             continue;
         }
-        let Some(expected) = layout::canonical_order(shape) else {
+        let Some(expected) = layout::canonical_order(published) else {
             // An element whose `type` the schema does not publish has no canonical order,
             // so there is nothing to be out of. `is_canonical` already said so; this is
             // the unreachable half of the same fact, kept rather than unwrapped.
@@ -187,55 +189,46 @@ fn findings(document: &Loose, written: &str, canonical: &str) -> Vec<Finding> {
     // element's keys produces those findings and nothing more; told both, a reader would be
     // reading one fact twice, and ADR-0006's noise budget is explicit that a check free to
     // run and expensive to report is still expensive.
-    let explained = write::canonical(&layout::canonicalise_except_elements(document.value()));
-    if written != explained {
+    let beyond_key_order =
+        write::canonical(&layout::canonicalise_except_elements(document.value()));
+    if written != beyond_key_order {
         findings.push(
             Finding::new("L-LAYOUT")
                 .at_file(document.path())
+                // The two line counts are the file the reader is looking at and the file
+                // `montaget fmt` would hand them — both about `canonical`, the real output.
                 .field("written_lines", json!(written.lines().count()))
                 .field("canonical_lines", json!(canonical.lines().count()))
-                .at_line(first_difference(written, &explained)),
+                // The line, though, is the first difference this finding is *about*: a
+                // difference on an element's own line already has an `L-KEY-ORDER` finding
+                // naming it, and sending the reader there twice is the duplicate-voice
+                // problem this comparison exists to avoid.
+                .at_line(first_difference(written, &beyond_key_order)),
         );
     }
 
     findings
 }
 
-/// Every element in the document, paired with the name of the track it sits in.
-///
-/// [`Loose::elements`] already walks them, and flattens the track away. A `LAYOUT` finding
-/// wants the track for its location, so this walks the same two levels and keeps it.
-fn elements(document: &Loose) -> Vec<(Option<&str>, &Value)> {
-    document.value()["tracks"]
-        .as_array()
-        .map(Vec::as_slice)
-        .unwrap_or_default()
-        .iter()
-        .flat_map(|track| {
-            let name = track.get("name").and_then(Value::as_str);
-            track["elements"]
-                .as_array()
-                .map(Vec::as_slice)
-                .unwrap_or_default()
-                .iter()
-                .map(move |element| (name, element))
-        })
-        .collect()
-}
-
-/// The first line the two forms differ on, 1-based, or the line after the shorter of them
-/// where one is a prefix of the other.
+/// The first line on which `written` differs from `target`, 1-based, or the line after the
+/// shorter of them where one is a prefix of the other.
 ///
 /// The number a reader opens their editor at. It is a line number in the file **as
-/// written**, which is the only one that means anything to someone looking at it.
-fn first_difference(written: &str, canonical: &str) -> u32 {
-    let mut theirs = canonical.lines();
-    for (i, line) in written.lines().enumerate() {
+/// written**, which is the only one that means anything to someone looking at it; `target`
+/// is whichever canonical form the finding is about.
+///
+/// Split on `\n` rather than with `lines()`, which strips `\r\n` and `\n` alike. The
+/// convention is a *byte* convention (`.gitattributes`, #189), so a file checked out with
+/// CRLF differs from canonical on its very first line — and `lines()` would report every
+/// line equal and send the reader to the end of the file.
+fn first_difference(written: &str, target: &str) -> u32 {
+    let mut theirs = target.split('\n');
+    for (i, line) in written.split('\n').enumerate() {
         if theirs.next() != Some(line) {
             return i as u32 + 1;
         }
     }
-    written.lines().count() as u32 + 1
+    written.split('\n').count() as u32 + 1
 }
 
 /// The line an element's `id` is written on, if it can be found unambiguously.

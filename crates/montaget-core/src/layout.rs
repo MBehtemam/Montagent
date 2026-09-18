@@ -35,13 +35,17 @@ use std::sync::OnceLock;
 
 use serde_json::{Map, Value};
 
-/// A published object shape, as the schema declares one.
+/// One structure the published schema declares a key order for.
 ///
-/// Canonical key order is a property of *where* an object sits, not of what it contains:
-/// the same five keys mean different orders on an `image` and on an `audio`. Naming the
-/// shape at the call site is what keeps the rule readable off one table.
+/// Canonical key order is a property of *where* a value sits, not of what it contains: the
+/// same five keys mean different orders on an `image` and on an `audio`. Naming the
+/// structure at the call site is what keeps the rule readable off one table.
+///
+/// Deliberately **not** called `Shape`: `CONTEXT.md` spends that word on a drawn primitive
+/// — a `rect` or an `ellipse` — and `Shape::Element("rect")` would be a Shape holding a
+/// shape. The same near-miss `CONTEXT.md` records for `anchor` against `origin`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Shape<'a> {
+pub enum Published<'a> {
     /// The document's own header — `frame, fps, background, …, tracks`.
     Project,
     /// One track — `name, layer, elements`.
@@ -52,14 +56,14 @@ pub enum Shape<'a> {
     Element(&'a str),
 }
 
-impl Shape<'_> {
+impl Published<'_> {
     /// The shape of one element, read off its own `type`.
     ///
-    /// A value that is not an object, or carries no string `type`, is still a `Shape` —
+    /// A value that is not an object, or carries no string `type`, still answers here —
     /// [`canonical_order`] answers `None` for it and everything downstream leaves it
     /// alone. That is the mid-edit file ADR-0042 insists stays formattable.
-    pub fn of_element(element: &Value) -> Shape<'_> {
-        Shape::Element(element.get("type").and_then(Value::as_str).unwrap_or(""))
+    pub fn of_element(element: &Value) -> Published<'_> {
+        Published::Element(element.get("type").and_then(Value::as_str).unwrap_or(""))
     }
 }
 
@@ -68,22 +72,13 @@ impl Shape<'_> {
 ///
 /// `None` is not a failure. It is "this is not a shape Montaget publishes an order for",
 /// and every caller's correct response to it is to leave the object as written.
-pub fn canonical_order(shape: Shape<'_>) -> Option<&'static [String]> {
+pub fn canonical_order(published: Published<'_>) -> Option<&'static [String]> {
     let orders = orders();
-    match shape {
-        Shape::Project => Some(&orders.project),
-        Shape::Track => Some(&orders.track),
-        Shape::Element(type_name) => orders.elements.get(type_name).map(Vec::as_slice),
+    match published {
+        Published::Project => Some(&orders.project),
+        Published::Track => Some(&orders.track),
+        Published::Element(type_name) => orders.elements.get(type_name).map(Vec::as_slice),
     }
-}
-
-/// The canonical key order for one element type, as the published schema declares it.
-///
-/// The spelling ADR-0041 is usually quoted about, kept because the element case is the one
-/// the `LAYOUT` finding names. It is [`canonical_order`] with the shape already chosen —
-/// not a second table.
-pub fn canonical_key_order(type_name: &str) -> Option<Vec<String>> {
-    canonical_order(Shape::Element(type_name)).map(<[String]>::to_vec)
 }
 
 /// The same object, its keys in canonical order.
@@ -91,8 +86,8 @@ pub fn canonical_key_order(type_name: &str) -> Option<Vec<String>> {
 /// **The one implementation.** `fmt` writes what this returns; `validate`'s `LAYOUT` check
 /// asks [`is_canonical`], which is this function compared against its own input. Nothing
 /// else in the tree may re-derive the order.
-pub fn reorder(shape: Shape<'_>, object: &Map<String, Value>) -> Map<String, Value> {
-    let Some(order) = canonical_order(shape) else {
+pub fn reorder(published: Published<'_>, object: &Map<String, Value>) -> Map<String, Value> {
+    let Some(order) = canonical_order(published) else {
         return object.clone();
     };
 
@@ -121,25 +116,26 @@ pub fn reorder(shape: Shape<'_>, object: &Map<String, Value>) -> Map<String, Val
 /// Defined as "[`reorder`] would change nothing", rather than as a second traversal that
 /// answers the same question — which is exactly the two-implementations-one-rule shape
 /// ADR-0041 was written against.
-pub fn is_canonical(shape: Shape<'_>, object: &Map<String, Value>) -> bool {
-    reorder(shape, object).keys().eq(object.keys())
+pub fn is_canonical(published: Published<'_>, object: &Map<String, Value>) -> bool {
+    reorder(published, object).keys().eq(object.keys())
 }
 
-/// The whole document with every object Montaget publishes an order for reordered, and
-/// everything else left exactly as it was written.
+/// The whole document in canonical convention: every structure the schema publishes an
+/// order for reordered, every track's elements sorted by `start`, and everything else left
+/// exactly as it was written.
 ///
-/// Three levels, because three levels is what the schema declares an order for: the
-/// header, each track, and each element. An object nested inside an element — a keyframe,
-/// a run, an effect — keeps the order it was written in: ADR-0041 states its rule for *"a
-/// universal prefix, then each type's property order"* and then scopes it, *"the universal
-/// prefix and per-type tail apply within an element only"*. Extending it downward would be
-/// this module inventing format, which is the ADR's own boundary.
+/// Three structures, because three is what the schema declares an order for: the header,
+/// each track, and each element. An object nested inside an element — a keyframe, a run, an
+/// effect — keeps the order it was written in: ADR-0041 states its rule for *"a universal
+/// prefix, then each type's property order"* and then scopes it, *"the universal prefix and
+/// per-type tail apply within an element only"*. Extending it downward would be this module
+/// inventing format, which is the ADR's own boundary.
 pub fn canonicalise(document: &Value) -> Value {
     walk(document, Reach::WholeDocument)
 }
 
-/// The same, leaving each element's own key order as written — the header, the tracks and
-/// the line layout canonical, the elements' keys untouched.
+/// The same, leaving each element's own key order as written — the header, the tracks, the
+/// element sort and the line layout canonical, each element's keys untouched.
 ///
 /// Not a second convention. It exists so a report can subtract what `L-KEY-ORDER` already
 /// says: compared against the file as written, what is left is exactly the part of a
@@ -163,7 +159,7 @@ fn walk(document: &Value, reach: Reach) -> Value {
         return document.clone();
     };
 
-    let mut out = reorder(Shape::Project, root);
+    let mut out = reorder(Published::Project, root);
     if let Some(Value::Array(tracks)) = out.get("tracks") {
         let tracks: Vec<Value> = tracks
             .iter()
@@ -179,20 +175,44 @@ fn walk_track(track: &Value, reach: Reach) -> Value {
         return track.clone();
     };
 
-    let mut out = reorder(Shape::Track, object);
+    let mut out = reorder(Published::Track, object);
     if let Some(Value::Array(elements)) = out.get("elements") {
-        let elements: Vec<Value> = match reach {
+        let mut elements: Vec<Value> = match reach {
             Reach::WholeDocument => elements.iter().map(canonical_element).collect(),
             Reach::ExceptElements => elements.clone(),
         };
+        sort_by_start(&mut elements);
         out.insert("elements".into(), Value::Array(elements));
     }
     Value::Object(out)
 }
 
+/// One track's elements, sorted by `start`.
+///
+/// ADR-0005's writing convention in full: *"Elements are written sorted by `start` within a
+/// track, and formatted one element per line."* ADR-0041 restates it and says it *"does not
+/// reopen"* it, so the sort is as much the canonical convention as the key order is. Moving
+/// an element's line is safe in the one way that matters: the element's own text is
+/// unchanged, so an exact-string replace written against it still matches — and ADR-0060
+/// settled that array order carries no meaning, for timing or for stacking, so nothing
+/// downstream can read anything off the move.
+///
+/// **Stable, and by `start` alone.** Two elements starting at the same instant keep the
+/// order the file wrote them in, because the document says nothing about which comes first
+/// and a tie broken on any other field would make the sort's output depend on a value the
+/// author may edit next. An element whose `start` is absent or is not an integer — the
+/// mid-edit element ADR-0042 insists stays formattable — sorts last rather than first, so
+/// a half-typed element is never hoisted above a complete one.
+fn sort_by_start(elements: &mut [Value]) {
+    elements.sort_by_key(|element| {
+        let start = element.get("start").and_then(Value::as_i64);
+        (start.is_none(), start)
+    });
+}
+
 fn canonical_element(element: &Value) -> Value {
     match element.as_object() {
-        Some(object) => Value::Object(reorder(Shape::of_element(element), object)),
+        Some(object) => Value::Object(reorder(Published::of_element(element), object)),
         None => element.clone(),
     }
 }

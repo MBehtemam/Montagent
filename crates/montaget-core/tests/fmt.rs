@@ -1,7 +1,7 @@
 //! `fmt`: the convention becomes enforceable, and the atomic write every later write tool
 //! reuses.
 
-use montaget_core::layout::{self, Shape};
+use montaget_core::layout::{self, Published};
 use montaget_core::report::ExitCode;
 use montaget_core::verbs::fmt::{self, Mode};
 use montaget_core::write;
@@ -82,9 +82,12 @@ fn check_reports_what_a_rewrite_would_change_and_writes_nothing() {
         PRETTY_PRINTED,
         "`--check` is non-destructive (ADR-0041)"
     );
-    // Story 5: verify before committing. A `--check` that exits 0 on a file it just
-    // reported as non-canonical cannot be used to verify anything.
-    assert_eq!(report.exit_code(), ExitCode::Errors);
+    // ADR-0011: "Exit non-zero only on `error`", and ADR-0041 is equally flat that a
+    // key-order violation is not one — the video renders identically either way. So the
+    // gate story 5 wants is the counted `layout` line, not the process's exit status.
+    assert_eq!(report.exit_code(), ExitCode::Ok);
+    assert_eq!(report.summary().layout, 1);
+    assert_eq!(report.summary().error, 0);
 }
 
 #[test]
@@ -236,6 +239,111 @@ fn formatting_a_formatted_file_changes_nothing_and_reports_nothing() {
     assert_eq!(once, twice);
     assert!(report.findings.is_empty(), "{:?}", report.findings);
     assert_eq!(fmt::fmt(&path, Mode::Check).exit_code(), ExitCode::Ok);
+}
+
+#[test]
+fn a_crlf_checkout_is_reported_at_its_first_line_not_its_last() {
+    // The convention is a *byte* convention (`.gitattributes`, #189). `str::lines` strips
+    // `\r\n` and `\n` alike, so a comparison built on it would call every line of a CRLF
+    // file equal and send the reader to the end of a file that is wrong from line 1.
+    let dir = common::tempdir(line!());
+    let path = common::write_project(
+        &dir,
+        "p.montaget.json",
+        &ONLY_HEADER_KEYS.replace('\n', "\r\n"),
+    );
+
+    let report = fmt::fmt(&path, Mode::Check);
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.code == "L-LAYOUT")
+        .expect("a layout finding");
+
+    assert_eq!(finding.location.line, Some(1));
+}
+
+/// Two elements on one track, written later-first — which is legal JSON, renders
+/// identically (ADR-0060), and is not the canonical convention.
+const OUT_OF_SEQUENCE: &str = r##"{
+  "frame": {"width": 1080, "height": 1920},
+  "fps": 25,
+  "tracks": [
+    {
+      "name": "photo",
+      "layer": 10,
+      "elements": [
+        {"id":"second","type":"image","start":1000,"end":2000,"source":"b.png","width":10,"height":10,"fit":"literal"},
+        {"id":"first","type":"image","start":0,"end":1000,"source":"a.png","width":10,"height":10,"fit":"literal"}
+      ]
+    }
+  ]
+}
+"##;
+
+#[test]
+fn elements_are_restored_to_their_sorted_order_within_a_track() {
+    // ADR-0005's writing convention in full: "Elements are written sorted by `start` within
+    // a track, and formatted one element per line." ADR-0041 restates it and says it "does
+    // not reopen" it, so the sort is as much the canonical convention as the key order is.
+    let dir = common::tempdir(line!());
+    let path = common::write_project(&dir, "p.montaget.json", OUT_OF_SEQUENCE);
+
+    let report = fmt::fmt(&path, Mode::Write);
+    let after = std::fs::read_to_string(&path).unwrap();
+
+    assert_eq!(codes(&report), ["L-LAYOUT"], "{:?}", report.findings);
+    assert!(
+        after.find(r#""id":"first""#) < after.find(r#""id":"second""#),
+        "{after}"
+    );
+    // Moving a line is safe in the one way that matters: the element's own text is
+    // unchanged, so an exact-string replace written against it still matches.
+    assert!(
+        after.contains(
+            r#"{"id":"second","type":"image","start":1000,"end":2000,"source":"b.png","width":10,"height":10,"fit":"literal"}"#
+        ),
+        "{after}"
+    );
+}
+
+#[test]
+fn elements_starting_at_one_instant_keep_the_order_the_file_wrote_them_in() {
+    // The document says nothing about which of two coincident elements comes first, and a
+    // tie broken on any other field would make the sort's output depend on a value the
+    // author may edit next. Stable, by `start` alone.
+    let dir = common::tempdir(line!());
+    let tied = OUT_OF_SEQUENCE.replace(r#""start":1000,"end":2000"#, r#""start":0,"end":2000"#);
+    let path = common::write_project(&dir, "p.montaget.json", &tied);
+
+    fmt::fmt(&path, Mode::Write);
+    let after = std::fs::read_to_string(&path).unwrap();
+
+    assert!(
+        after.find(r#""id":"second""#) < after.find(r#""id":"first""#),
+        "{after}"
+    );
+}
+
+#[test]
+fn an_element_with_no_start_yet_sorts_last_rather_than_first() {
+    // The mid-edit element ADR-0042 insists stays formattable. Hoisting a half-typed
+    // element above every complete one would make `fmt` hardest to read exactly on the file
+    // it is being run to tidy.
+    let dir = common::tempdir(line!());
+    let half_typed = OUT_OF_SEQUENCE.replace(
+        r#""id":"second","type":"image","start":1000,"#,
+        r#""id":"second","type":"image","#,
+    );
+    let path = common::write_project(&dir, "p.montaget.json", &half_typed);
+
+    fmt::fmt(&path, Mode::Write);
+    let after = std::fs::read_to_string(&path).unwrap();
+
+    assert!(
+        after.find(r#""id":"first""#) < after.find(r#""id":"second""#),
+        "{after}"
+    );
 }
 
 #[test]
@@ -449,22 +557,23 @@ fn the_predicate_and_the_rewrite_are_one_implementation() {
 
     for element in elements {
         let object = element.as_object().unwrap();
-        let shape = Shape::of_element(element);
+        let published = Published::of_element(element);
         assert_eq!(
-            layout::is_canonical(shape, object),
-            layout::reorder(shape, object).keys().eq(object.keys()),
+            layout::is_canonical(published, object),
+            layout::reorder(published, object).keys().eq(object.keys()),
         );
         // And the rewrite is a fixed point, which is what makes a second `fmt` run a no-op.
-        let once = layout::reorder(shape, object);
-        assert!(layout::is_canonical(shape, &once));
+        let once = layout::reorder(published, object);
+        assert!(layout::is_canonical(published, &once));
     }
 }
 
 #[test]
-fn the_published_element_order_and_the_shared_predicate_read_the_same_list() {
-    // `model::canonical_key_order` is the spelling ADR-0041 is usually quoted about, and
-    // `layout::canonical_order` is the one `fmt` and the `LAYOUT` check call. If they were
-    // two lists, this is where they would part company.
+fn every_published_type_has_exactly_one_stated_order() {
+    // ADR-0041 ties the order to the schema so there is "exactly one place canonical key
+    // order can go stale — the schema itself — rather than two artifacts that can drift
+    // apart". `layout::canonical_order` is the only door: `model` used to re-export a
+    // second spelling of it, and a second door is where the drift starts.
     for type_name in [
         "image",
         "video",
@@ -474,10 +583,12 @@ fn the_published_element_order_and_the_shared_predicate_read_the_same_list() {
         "audio",
         "transition",
     ] {
+        let order = layout::canonical_order(Published::Element(type_name))
+            .unwrap_or_else(|| panic!("{type_name} is a published type"));
         assert_eq!(
-            montaget_core::model::canonical_key_order(type_name).as_deref(),
-            layout::canonical_order(Shape::Element(type_name)),
-            "{type_name}"
+            &order[..5],
+            ["id", "type", "group", "start", "end"],
+            "{type_name}: ADR-0041's universal prefix comes first"
         );
     }
 }
@@ -490,10 +601,16 @@ fn a_shape_the_schema_does_not_publish_is_left_exactly_as_written() {
     let element = serde_json::json!({"end": 10, "id": "x", "start": 0});
     let object = element.as_object().unwrap();
 
-    assert_eq!(layout::canonical_order(Shape::of_element(&element)), None);
-    assert!(layout::is_canonical(Shape::of_element(&element), object));
+    assert_eq!(
+        layout::canonical_order(Published::of_element(&element)),
+        None
+    );
+    assert!(layout::is_canonical(
+        Published::of_element(&element),
+        object
+    ));
     assert!(
-        layout::reorder(Shape::of_element(&element), object)
+        layout::reorder(Published::of_element(&element), object)
             .keys()
             .eq(object.keys())
     );
