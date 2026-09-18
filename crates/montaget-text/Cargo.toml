@@ -1,0 +1,10 @@
+[package]
+name = "montaget-text"
+description = "Montaget's text stack: shaping, line partitioning, break opportunities and extents."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
