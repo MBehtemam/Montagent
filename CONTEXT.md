@@ -308,6 +308,146 @@ straddler, rather than silently absorbing the difference.
 ([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
 _Avoid_: ripple (as the primary term), slide, nudge
 
+## Findings and reports
+
+The vocabulary above is the document's. This is the tooling's: what Montaget has
+to say about a document, and the shape it says it in. Every term here is defined
+by an ADR rather than invented at the source tree, and the entries cite the ADR
+that owns each one.
+
+**Finding**:
+One thing a verb has to say about a project, as a structured object: a stable
+code, a class, a location, and the fields its own template names. Findings are
+the only thing a verb reports — *"an error is a finding"*, including a malformed
+file and a bad invocation, so there is exactly one thing to parse across the
+surface. A finding states a fact derivable from the document, the media on disk
+and the published rendering semantics, and never a verdict that requires knowing
+what the video is for.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: warning, violation, diagnostic, issue, problem — each prejudges a
+badness that the class is what actually states
+
+**Code**:
+A finding's stable identifier, prefixed by the class it usually carries:
+`E-SOURCE-OVERRUN`, `R-VISUAL-GAP`, `N-QUANTIZATION`. The prefix is a
+convention and not a rule — `R-BOX-SLACK` is a `note`
+([ADR-0058](docs/adr/0058-text-box-slack-is-a-note-with-sibling-census.md)) —
+because the class is computed from the consequence while the code is fixed
+when the check is written. One code, one field set, one template.
+_Avoid_: rule id, error code (it names classes that are not errors)
+
+**Check**:
+The thing that emits findings: one question asked of the whole project, always
+run, with no fast mode and no way to narrow what is checked. The check, not the
+instance, is the unit of several rules — a check is refuse-class or
+advise-class, and a check either is fact-only or borrows an external threshold —
+so a check never triages its own matches.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
+_Avoid_: rule, lint, validator (a check is not a tool)
+
+**Class**:
+Which of five kinds a finding is. Three are severities, named for what the
+reader does rather than for how bad it is: `error` (the render is refused or is
+guaranteed wrong), `review` (legal, renders, and you must look at a frame to
+know if it was meant), `note` (a fact you may want and will not act on today).
+Two are not severities at all: `UNCHECKED` (the question was unanswerable — an
+unprobeable source; `validate`-only, because `render` must decode the source
+anyway) and `LAYOUT` (canonical key order; `validate`-only, and never a reason
+to refuse a render). A class is computed from the consequence at an instant, not
+fixed per check: the same gap is `review` when nothing else covers it and a
+`note` when something does.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0013](docs/adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md),
+[ADR-0041](docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md))
+_Avoid_: severity (only three of the five are), level (the three-way ladder
+only), category, priority
+
+**Repair**:
+The field every `error`-class finding carries, in one of exactly two forms.
+*Advise-class* states a value, when the correct fix is fully determined by the
+document, the media on disk and the published rendering semantics.
+*Refuse-class* states `"none"`, when the fix depends on knowing what the author
+meant — and that refusal is a guarantee no flag, force mode or write tool may
+lift. Which of the two a check emits is decided once, when the check is written,
+and holds for every instance it matches, including the ones that look safe. It
+is orthogonal to class, not a fourth severity. Whether the binary reaches
+findings that are not about a document at all — a file that would not parse, an
+invocation that was wrong — is open
+([#224](https://github.com/MBehtemam/Montaget/issues/224)).
+([ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
+_Avoid_: fix, suggestion, autofix, quick fix — each implies something will
+apply it
+
+**Census**:
+A grouping of the siblings a finding affects by an observable, document-derived
+fact — *"four of five are at y = 1597, one is at 1537"* — which never ranks the
+groups or says which is correct. It is what a refuse-class finding carries
+instead of a repair: narrowing where to look is admissible where stating a fix
+is not.
+([ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md),
+[ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
+_Avoid_: histogram, breakdown, majority (it does not have one)
+
+**Citation**:
+The inline record of where a borrowed number came from. Threshold provenance,
+not severity, decides whether a check may state something: a number that decides
+whether a finding fires must be derivable from the document or from the format's
+own rendering semantics, and a check that borrows one from outside both may only
+do so at `review` or `note`, must state the raw measurement as its substance,
+and must cite the source in the finding and in its own ADR. Binding, not
+best-effort — an optional citation requirement leaves no provenance to inspect.
+([ADR-0061](docs/adr/0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md))
+_Avoid_: reference, source (already spoken for — see Source), attribution
+
+**Report**:
+One verb's whole answer: its findings, a count per class, an exit code, and the
+`NOT CHECKED` block that states the report's own boundary. JSON is canonical and
+the prose form is generated from it — `--json` prints the JSON *instead of* the
+text, never alongside it. Errors and near-errors print in full while the
+informational classes collapse to one counted line, because `0 errors, 47 notes`
+reads as a pass and a noisy report manufactures false confidence faster than an
+unrun one does.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: output, results, log
+
+**NOT CHECKED**:
+The block every report ends with, unconditionally, clean runs included: this
+file was not compared against any prior version or instruction, and Montaget
+cannot tell you whether it says what you meant it to say. It is there because
+without it a clean run is read as *"the file is right"*, which is the rejected
+`sequence` label wearing a `validate` label instead.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
+_Avoid_: caveat, disclaimer, limitations
+
+**Verb**:
+One operation on the surface — `validate`, `query`, `frame`, `measure`,
+`compare`, `render`, `shift`, `create_project`, `probe`, `fmt`, `timeline`. The
+surface's job is to make reading, checking, comparing and rendering cheap, not
+to provide editing verbs: the agent edits the file with the tools it is already
+strongest with. Eight are MCP tools and eleven are CLI commands, and the
+asymmetry is deliberate — an MCP schema costs context on every turn, a CLI
+subcommand costs nothing until invoked. Every write verb returns the new state's
+findings, never an `ok`. (ADR-0011's prose opens with *"nine verbs and two
+resources"* while its own table lists eleven and its own count says *"eight MCP
+tools, eleven CLI commands"*. The eleven above are the table's; the word "nine"
+is unreconciled and should not be quoted as a count.)
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
+endpoint, action
+
+**Registry**:
+The single declaration of every code Montaget can emit, and what is true of it:
+which classes it may carry, whether it is refuse- or advise-class, whether its
+threshold is internal or external, the ADR that owns it, and its template. It
+exists so those facts are looked up rather than restated at each call site — the
+same reason canonical key order is tied to the published schema rather than to a
+parallel hand-maintained list.
+([ADR-0041](docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md))
+_Avoid_: catalogue, table, rule set
+
 ## Rejected terms
 
 These words are deliberately absent. Each is standard vocabulary in a comparable
