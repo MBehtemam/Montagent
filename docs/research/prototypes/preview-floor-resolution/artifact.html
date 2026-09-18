@@ -1,0 +1,393 @@
+<title>Preview Floor Resolution</title>
+<style>
+  :root{
+    --bg:#17181c;
+    --surface:#1e2025;
+    --surface-2:#25272d;
+    --border:#33363d;
+    --text:#eae7e0;
+    --text-dim:#9c9ca4;
+    --accent:#e0a133;
+    --accent-dim:#7a5e2c;
+    --bad:#d9694f;
+    --ok:#6fae7a;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="light"]){
+      --bg:#f4f2ec;
+      --surface:#ffffff;
+      --surface-2:#eeece4;
+      --border:#dcd8cc;
+      --text:#211f1a;
+      --text-dim:#6b675e;
+      --accent:#a2691a;
+      --accent-dim:#e6cda0;
+      --bad:#b8422a;
+      --ok:#3f7a4c;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f2ec;
+    --surface:#ffffff;
+    --surface-2:#eeece4;
+    --border:#dcd8cc;
+    --text:#211f1a;
+    --text-dim:#6b675e;
+    --accent:#a2691a;
+    --accent-dim:#e6cda0;
+    --bad:#b8422a;
+    --ok:#3f7a4c;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Source Sans 3', system-ui, sans-serif;
+    padding-inline:20px;
+    padding-block:40px 80px;
+    max-width:1180px;
+    margin-inline:auto;
+    line-height:1.55;
+  }
+  h1,h2,h3{
+    font-family:'Zilla Slab', Georgia, serif;
+    font-weight:600;
+    text-wrap:balance;
+    margin:0;
+  }
+  .mono, .dims, code{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  a{color:var(--accent);}
+
+  header.top{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding-block-end:28px;
+    border-bottom:1px solid var(--border);
+    margin-block-end:36px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+  h1{font-size:clamp(1.6rem, 3vw, 2.3rem);}
+  .dek{color:var(--text-dim); max-width:64ch; font-size:1.02rem;}
+  .meta-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 22px;
+    margin-block-start:6px;
+    font-size:0.86rem;
+    color:var(--text-dim);
+  }
+  .meta-row strong{color:var(--text); font-weight:600;}
+
+  section{margin-block-end:52px;}
+  section > h2{
+    font-size:1.3rem;
+    margin-block-end:6px;
+  }
+  section > .lede{
+    color:var(--text-dim);
+    max-width:70ch;
+    margin-block-end:20px;
+    font-size:0.95rem;
+  }
+
+  .tiers{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:10px;
+    margin-block-end:14px;
+  }
+  .tier-chip{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:3px;
+    padding:10px 8px;
+    text-align:center;
+  }
+  .tier-chip .name{font-size:0.82rem; font-weight:600; letter-spacing:0.02em;}
+  .tier-chip .dims{display:block; font-size:0.78rem; color:var(--text-dim); margin-block-start:3px;}
+  .tier-chip.is-target{border-color:var(--accent-dim); box-shadow:inset 0 0 0 1px var(--accent-dim);}
+  .tier-chip.is-target .name{color:var(--accent);}
+
+  .stress{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:20px 22px 22px;
+  }
+  .stress-head{
+    display:flex;
+    gap:18px;
+    align-items:flex-start;
+    margin-block-end:16px;
+  }
+  .stress-head img.context{
+    width:84px;
+    border-radius:3px;
+    border:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .stress-head .info h3{font-size:1.05rem; margin-block-end:3px;}
+  .stress-head .info p{margin:0; font-size:0.88rem; color:var(--text-dim); max-width:56ch;}
+  .stress-head .info .tag{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+    color:var(--accent);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:2px;
+    padding:1px 6px;
+    margin-block-end:6px;
+  }
+
+  .strip-wrap{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:10px 10px 4px;
+    overflow-x:auto;
+  }
+  .strip-wrap img{width:100%; min-width:640px; display:block; image-rendering:pixelated;}
+  .strip-labels{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    min-width:640px;
+    margin-block-start:6px;
+    padding-block-end:6px;
+  }
+  .strip-labels span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+    color:var(--text-dim);
+    text-align:center;
+  }
+
+  table.findings{
+    width:100%;
+    border-collapse:collapse;
+    margin-block-start:32px;
+    font-size:0.9rem;
+  }
+  table.findings caption{
+    text-align:left;
+    font-family:'Zilla Slab', serif;
+    font-size:1.15rem;
+    margin-block-end:10px;
+    font-weight:600;
+  }
+  table.findings th, table.findings td{
+    border-bottom:1px solid var(--border);
+    padding:9px 12px;
+    text-align:left;
+    vertical-align:top;
+  }
+  table.findings th{
+    color:var(--text-dim);
+    font-weight:600;
+    font-size:0.78rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+  }
+  table.findings td.dims{white-space:nowrap;}
+  .verdict{
+    display:inline-block;
+    padding:1px 8px;
+    border-radius:2px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.76rem;
+  }
+  .verdict.ok{background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok);}
+  .verdict.bad{background:color-mix(in srgb, var(--bad) 18%, transparent); color:var(--bad);}
+  .verdict.borderline{background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent);}
+
+  .question-box{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    border-radius:0 4px 4px 0;
+    padding:18px 22px;
+    margin-block-start:18px;
+  }
+  .question-box h3{font-size:1rem; margin-block-end:10px;}
+  .question-box ol{margin:0; padding-inline-start:20px; display:flex; flex-direction:column; gap:8px;}
+  .question-box li::marker{color:var(--accent); font-family:'IBM Plex Mono',monospace;}
+
+  footer{
+    margin-block-start:40px;
+    padding-block-start:20px;
+    border-top:1px solid var(--border);
+    font-size:0.82rem;
+    color:var(--text-dim);
+  }
+  footer code{font-size:0.8rem;}
+
+  @media (max-width: 700px){
+    .tiers{grid-template-columns:repeat(3,1fr);}
+    .tiers .tier-chip:nth-child(4),.tiers .tier-chip:nth-child(5){grid-column:span 1;}
+    .stress-head{flex-direction:column;}
+    .stress-head img.context{width:120px;}
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<header class="top">
+  <span class="eyebrow">Prototype — Wayfinder ticket #117</span>
+  <h1>Where does the proxy preview stop being useful?</h1>
+  <p class="dek">
+    ADR-0046 fixed the proxy-preview <em>target</em> at 720p (long-edge capped) but deferred
+    the <em>floor</em> — the resolution below which <code>preview</code> should hard-refuse
+    rather than hand back something too degraded to judge a cut from. This renders the
+    committed fixture at four candidate floors, at the four timestamps carrying its smallest
+    and densest text, so the call can be made by looking rather than arguing.
+  </p>
+  <div class="meta-row">
+    <span><strong>Fixture</strong> en-halloween-decorating, 1080×1920, 25fps</span>
+    <span><strong>Source</strong> published reference render (ground truth for this exact timeline)</span>
+    <span><strong>Downscale filter</strong> bilinear, then scaled back to native for equal-size viewing</span>
+  </div>
+</header>
+
+<section>
+  <h2>Candidate tiers</h2>
+  <p class="lede">Long-edge capped per ADR-0046's rule, applied to the fixture's 1080×1920 frame. 720p is the adopted preview target, shown for reference — it is not a floor candidate.</p>
+  <div class="tiers">
+    <div class="tier-chip"><span class="name">Native</span><span class="dims mono">1080 × 1920</span></div>
+    <div class="tier-chip is-target"><span class="name">720p (target)</span><span class="dims mono">720 × 1280</span></div>
+    <div class="tier-chip"><span class="name">540p</span><span class="dims mono">540 × 960</span></div>
+    <div class="tier-chip"><span class="name">360p</span><span class="dims mono">360 × 640</span></div>
+    <div class="tier-chip"><span class="name">240p</span><span class="dims mono">240 × 426</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Four stress frames</h2>
+  <p class="lede">Chosen from the fixture's own declared text sizes — the smallest run in the file (35px, "word-08") through the largest caption card (58px, "intro"). Each strip is cropped tight to the text region at 3× nearest-neighbor zoom, tier order left to right: native → 720p → 540p → 360p → 240p.</p>
+
+  <div style="display:flex; flex-direction:column; gap:22px;">
+
+    <div class="stress">
+      <div class="stress-head">
+        <img class="context" src="thumbs/intro-context.png" alt="Intro frame context, native resolution">
+        <div class="info">
+          <span class="tag">t = 0.5s</span>
+          <h3>Channel handle + chip badge</h3>
+          <p>34–52px — the smallest text in the file, on screen for the full 65s runtime. Densest small-text case: two overlapping labels plus a logo mark.</p>
+        </div>
+      </div>
+      <div class="strip-wrap">
+        <img src="crops/intro-strip.png" alt="Handle and chip text at five resolution tiers, native through 240p">
+      </div>
+      <div class="strip-labels"><span>native</span><span>720p</span><span>540p</span><span>360p</span><span>240p</span></div>
+    </div>
+
+    <div class="stress">
+      <div class="stress-head">
+        <img class="context" src="thumbs/word-08-context.png" alt="Word-08 frame context, native resolution">
+        <div class="info">
+          <span class="tag">t = 45.0s</span>
+          <h3>Bridge + target caption pair</h3>
+          <p>35px / 49px — the single smallest caption run in the fixture ("string of lights"), stacked two lines.</p>
+        </div>
+      </div>
+      <div class="strip-wrap">
+        <img src="crops/word-08-strip.png" alt="Bridge and target caption at five resolution tiers, native through 240p">
+      </div>
+      <div class="strip-labels"><span>native</span><span>720p</span><span>540p</span><span>360p</span><span>240p</span></div>
+    </div>
+
+    <div class="stress">
+      <div class="stress-head">
+        <img class="context" src="thumbs/sentence-05-context.png" alt="Sentence-05 frame context, native resolution">
+        <div class="info">
+          <span class="tag">t = 11.5s</span>
+          <h3>Standard subtitle card</h3>
+          <p>55px — the fixture's ordinary caption size, used for the large majority of runtime. The baseline case, not a stress case.</p>
+        </div>
+      </div>
+      <div class="strip-wrap">
+        <img src="crops/sentence-05-strip.png" alt="Standard subtitle card at five resolution tiers, native through 240p">
+      </div>
+      <div class="strip-labels"><span>native</span><span>720p</span><span>540p</span><span>360p</span><span>240p</span></div>
+    </div>
+
+    <div class="stress">
+      <div class="stress-head">
+        <img class="context" src="thumbs/quiz-context.png" alt="Quiz frame context, native resolution">
+        <div class="info">
+          <span class="tag">t = 62.0s</span>
+          <h3>Quiz recap card</h3>
+          <p>55px — same card geometry as the standard subtitle, at the tail of the video where the reference encoder's bitrate is thinnest.</p>
+        </div>
+      </div>
+      <div class="strip-wrap">
+        <img src="crops/quiz-strip.png" alt="Quiz recap card at five resolution tiers, native through 240p">
+      </div>
+      <div class="strip-labels"><span>native</span><span>720p</span><span>540p</span><span>360p</span><span>240p</span></div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <table class="findings">
+    <caption>What the crops show</caption>
+    <thead>
+      <tr><th>Frame</th><th>720p</th><th>540p</th><th>360p</th><th>240p</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Handle + chip <span class="mono" style="color:var(--text-dim)">(34–52px)</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict borderline">soft, still legible</span></td>
+        <td><span class="verdict bad">handle blurs into strokes</span></td>
+      </tr>
+      <tr>
+        <td>Bridge/target <span class="mono" style="color:var(--text-dim)">(35–49px)</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict borderline">soft, still legible</span></td>
+        <td><span class="verdict bad">bridge line degrades first</span></td>
+      </tr>
+      <tr>
+        <td>Standard subtitle <span class="mono" style="color:var(--text-dim)">(55px)</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict borderline">soft, still legible</span></td>
+      </tr>
+      <tr>
+        <td>Quiz recap <span class="mono" style="color:var(--text-dim)">(55px)</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict ok">clean</span></td>
+        <td><span class="verdict borderline">soft, still legible</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="question-box">
+  <h3>What #117 needs decided</h3>
+  <ol>
+    <li>Where does text actually become illegible — and whose judgment settles it, the author looking or a stated readability heuristic?</li>
+    <li>Is there a single floor resolution, or does legibility depend on what's on screen at that instant (in which case a fixed floor may be the wrong shape of answer)?</li>
+    <li>Does <code>preview</code>'s hard-refuse below the floor need an accompanying message, or is a bare refusal sufficient?</li>
+  </ol>
+</div>
+
+<footer>
+  Prototype for <a href="https://github.com/MBehtemam/Montaget/issues/117">issue #117</a>, child of wayfinder map <a href="https://github.com/MBehtemam/Montaget/issues/2">#2</a>. Source at <code>docs/research/prototypes/preview-floor-resolution/</code> on branch <code>prototype/preview-floor-resolution</code> — <code>run.sh</code> regenerates every frame from the committed fixture's reference render.
+</footer>
