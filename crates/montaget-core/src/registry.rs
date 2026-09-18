@@ -133,6 +133,41 @@ const CHECKS: &[CheckSpec] = &[
         template: "Montaget failed internally: {reason}",
         status: Live,
     },
+    // ---- The probe's own findings (#190). -----------------------------------------
+    CheckSpec {
+        // Not a new check: this is the code for ADR-0002/ADR-0006's standing *"every
+        // `source` must resolve"* error, which ADR-0053 says "covers both a missing local
+        // file and, by extension, an absolute path that doesn't resolve on the current
+        // machine — no new finding code is introduced here". The check had no code until
+        // something implemented it; this registers the one it fires under.
+        code: "E-SOURCE-MISSING",
+        classes: &[Error],
+        // Advise, on E-READ's reasoning: there is no document whose author could have
+        // meant a file that is not there, and the next move — correct the path, or put
+        // the file where the document says — follows from the condition itself. ADR-0056
+        // narrows what may reach this code: a *confirmed* absence only. A probe that
+        // could not complete is `U-SOURCE-UNPROBEABLE`, never this.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0053",
+        // "Is not there", not "could not be resolved": the same code fires on a 404, where
+        // nothing about path resolution failed.
+        template: "{source} is not there: {detail}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0056: an existence-only result "is a strictly weaker claim than a local
+        // probe's, and reporting it identically would be exactly the false confidence
+        // ADR-0006 was written to prevent". Its own code rather than a flag on the one
+        // above, so the weaker claim can never occupy the slot a confirmed duration does.
+        code: "U-SOURCE-EXISTENCE-ONLY",
+        classes: &[Unchecked],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0056",
+        template: "{source}: existence confirmed; duration and dimensions NOT CHECKED. {detail}",
+        status: Live,
+    },
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
         code: "E-SOURCE-OVERRUN",
@@ -245,8 +280,13 @@ do not repair it by ordinary file edit.",
         repair: None,
         threshold: Internal,
         adr: "ADR-0013",
-        template: "{source} could not be probed, so the disk half of the question is unanswered.",
-        status: Declared,
+        template: "{source} could not be probed, so the disk half of the question is unanswered: \
+{detail}",
+        // Live as of #190, which supplies the probe. ADR-0056 gave it its structured
+        // reason: present when the network was what failed, absent when nothing was
+        // attempted — the distinction that keeps "I could not look" from reading as
+        // "it is not there".
+        status: Live,
     },
     CheckSpec {
         code: "L-KEY-ORDER",

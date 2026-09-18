@@ -36,6 +36,22 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// What are this media file's numbers?
+    ///
+    /// CLI-only (ADR-0011): an MCP tool schema costs the agent context on every turn,
+    /// and a subcommand costs nothing until invoked.
+    Probe {
+        /// The media files or URLs to probe. A relative path resolves against the working
+        /// directory (ADR-0053).
+        #[arg(required = true)]
+        sources: Vec<String>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Serve the MCP tools over stdio.
     ///
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
@@ -85,6 +101,36 @@ where
                 }
             }
         }
+        Command::Probe {
+            sources,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            let probed = std::panic::catch_unwind(|| montaget_core::verbs::probe::probe(&sources));
+
+            match probed {
+                Ok(Ok(answer)) => {
+                    // The same two lines as `validate`: one core call, one `wire::render`,
+                    // one exit code. The adapter decides nothing about the wire format.
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_answer(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                // No `ffprobe`, so there are no media numbers. ADR-0011's exit 70.
+                Ok(Err(report)) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+                Err(payload) => {
+                    let report = panic_report(payload);
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
         Command::Mcp => match crate::mcp::serve() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
@@ -104,14 +150,17 @@ where
 /// abort with a Rust backtrace and no finding, and the one exit code reserved for
 /// "Montaget broke" would never be produced by Montaget breaking.
 fn run_verb(verb: impl FnOnce() -> Report + std::panic::UnwindSafe) -> Result<Report, Report> {
-    std::panic::catch_unwind(verb).map_err(|payload| {
-        let what = payload
-            .downcast_ref::<&str>()
-            .map(|s| s.to_string())
-            .or_else(|| payload.downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "a panic carrying no message".to_string());
-        Report::internal_failure(what)
-    })
+    std::panic::catch_unwind(verb).map_err(panic_report)
+}
+
+/// The panic's own message, which is what makes exit 70 actionable.
+fn panic_report(payload: Box<dyn std::any::Any + Send>) -> Report {
+    let what = payload
+        .downcast_ref::<&str>()
+        .map(|s| s.to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "a panic carrying no message".to_string());
+    Report::internal_failure(what)
 }
 
 /// The form a report reaches stderr in: prose, unexpanded. Neither a bad invocation nor

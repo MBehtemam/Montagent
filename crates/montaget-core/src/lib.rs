@@ -13,6 +13,8 @@
 //! - [`registry`] declares every check: its class, its refuse class, its threshold
 //!   provenance and its prose template.
 //! - [`checks`] is where the checks themselves live, one module per question.
+//! - [`media`] is the disk half of the question: `ffmpeg` resolution, `probe`, the
+//!   ADR-0023 dimensions pipeline and the probe caches.
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
@@ -27,6 +29,7 @@
 
 pub mod checks;
 pub mod finding;
+pub mod media;
 pub mod model;
 pub mod parse;
 pub mod permissive;

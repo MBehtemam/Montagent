@@ -70,6 +70,59 @@ fn cli_a_bad_invocation_is_exit_3_on_stderr() {
 }
 
 #[test]
+fn cli_probe_reaches_the_probe_verb_and_exits_0() {
+    let fixture = fixture_dir();
+    let out = montaget(&["probe", fixture.join("images/06.png").to_str().unwrap()]);
+
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.starts_with("CACHE"), "{}", out.stdout);
+    assert!(out.stdout.contains("1536×2720"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_probe_json_replaces_the_text_report_and_never_accompanies_it() {
+    let fixture = fixture_dir();
+    let out = montaget(&[
+        "probe",
+        fixture.join("images/06.png").to_str().unwrap(),
+        "--json",
+    ]);
+
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["sources"][0]["state"], "probed");
+    assert_eq!(json["network_attempts"], 0);
+}
+
+#[test]
+fn cli_probe_without_an_ffmpeg_on_path_is_exit_70() {
+    // ADR-0011's exit 70: "internal failure (ffmpeg died, font stack failed) → retry or
+    // report". The `PATH` is emptied for this child alone.
+    let empty = scratch_dir("cli-no-ffmpeg");
+    let out = Command::new(binary())
+        .args(["probe", "anything.mp4"])
+        .env("PATH", &empty)
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(out.status.code(), Some(70));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("ffmpeg"), "{stderr}");
+    assert!(
+        stderr.contains(&empty.display().to_string()),
+        "the search is the actionable half: {stderr}"
+    );
+}
+
+#[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);
     assert_eq!(out.code, Some(0));
@@ -108,6 +161,37 @@ fn mcp_validate_on_a_header_only_project_is_a_clean_report() {
     assert!(text.starts_with("0 errors"), "{text}");
     assert!(text.contains("NOT CHECKED"), "{text}");
     assert_eq!(call["result"]["isError"], false);
+}
+
+#[test]
+fn mcp_does_not_advertise_probe() {
+    // ADR-0011: `probe` is CLI-only, and the asymmetry is the point. "Every MCP tool
+    // schema occupies the agent's context and degrades tool selection on every turn,
+    // including turns with nothing to do with video. A CLI subcommand costs nothing until
+    // invoked." Asserted here because the cost is paid on turns this suite cannot see.
+    let session = mcp_session(&[
+        request(
+            1,
+            "initialize",
+            serde_json::json!({
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "clientInfo": {"name": "montaget-tests", "version": "0"}
+            }),
+        ),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+    ]);
+
+    let tools = session.get(&2).expect("a result for tools/list")["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap_or("?").to_string())
+        .collect::<Vec<_>>();
+
+    assert!(tools.iter().any(|name| name == "validate"), "{tools:?}");
+    assert!(!tools.iter().any(|name| name == "probe"), "{tools:?}");
 }
 
 #[test]
@@ -360,11 +444,23 @@ fn mcp_session(messages: &[String]) -> std::collections::BTreeMap<u64, serde_jso
     responses
 }
 
-fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
+/// The committed fixture's own directory — the only media this suite probes.
+fn fixture_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/en-halloween-decorating")
+        .canonicalize()
+        .expect("the committed fixture")
+}
+
+fn scratch_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("montaget-adapter-tests/{name}"));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create scratch dir");
-    let path = dir.join(file);
+    dir
+}
+
+fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
+    let path = scratch_dir(name).join(file);
     std::fs::write(&path, body).expect("write project");
     assert!(Path::new(&path).exists());
     path
