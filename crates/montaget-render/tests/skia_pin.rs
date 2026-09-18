@@ -482,6 +482,44 @@ fn both_workflows_cover_every_target_on_the_same_runner() {
     }
 }
 
+/// The two workflows do not report check runs under the same name.
+///
+/// GitHub matches a required status check **by name**, so while both workflows
+/// named their matrix jobs `${{ matrix.target }}`, a branch-protection rule
+/// could not tell "the suite passed on `aarch64-apple-darwin`" from "the
+/// prebuilt resolved on `aarch64-apple-darwin`" — six names, two producers each,
+/// and the canary's success able to stand in for the suite's. Only `ci.yml`'s
+/// legs are required, so the canary's are prefixed.
+///
+/// This is a property of the *names*, which is why a test can hold it: the
+/// collision was invisible in both files read separately and obvious the moment
+/// the check runs on one commit were listed together.
+#[test]
+fn the_two_workflows_report_under_distinct_check_names() {
+    let root = repo_root();
+    let job_name = |workflow: &str| -> String {
+        let text = fs::read_to_string(root.join(".github/workflows").join(workflow))
+            .unwrap_or_else(|e| panic!("{workflow}: {e}"));
+        text.lines()
+            .find_map(|line| {
+                let line = line.trim();
+                line.strip_prefix("name:")
+                    .filter(|rest| rest.contains("matrix.target"))
+                    .map(|rest| rest.trim().to_string())
+            })
+            .unwrap_or_else(|| panic!("{workflow} has no per-target job name"))
+    };
+
+    let suite = job_name("ci.yml");
+    let canary = job_name("skia-canary.yml");
+    assert_ne!(
+        suite, canary,
+        "both workflows would report their per-target check runs as {suite:?}, and a \
+         branch-protection rule matches a required check by name: the canary's result \
+         could satisfy a requirement meant for the suite."
+    );
+}
+
 /// The canary's assertion script reads the key from the pin rather than carrying
 /// its own copy.
 #[test]
