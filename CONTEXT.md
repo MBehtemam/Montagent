@@ -492,6 +492,17 @@ cannot even produce a good error message. The rect is now `x`,`y`,`origin`,`widt
 plus `clip`; the containment reference is now literal `width`/`height`, because fifteen of
 the fixture's twenty-two text elements have no element behind them to name.
 
+**Whether its error is refuse- or advise-class is open.** Both repairs need a fact the
+document does not carry — the pivot the 4-array left implicit, and the dimensions of an
+element fifteen of twenty-two captions never had — which is `gravity`'s fork in `box`'s
+spelling. [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md)
+remarks in passing that *"`box` was migrated by arithmetic script"* and
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md)
+is explicit that it *"classifies `gravity` and nothing else"*, so no ADR has ruled. Until
+one does, the check refuses, under ADR-0043's own standing rule that a check refuses where
+any instance it can match could be load-bearing. The placement is provisional; the ruling
+belongs to an ADR ([#192](https://github.com/MBehtemam/Montaget/issues/192)).
+
 **Align, for images**:
 `align` means one thing: how a text element's lines align to each other
 (`start`/`center`/`end`). On an image the same word once meant *which part of the source
@@ -502,6 +513,11 @@ naming `x`/`y`/`origin` and `clip` as the replacement. The collision is recorded
 caused a live misreading: the fixture's `align:"left"` on text was transcribing ASS `\an4`,
 **left-middle**, so its `y` was a centre and nothing in the file said so.
 ([#52](https://github.com/MBehtemam/Montaget/issues/52))
+
+**Its repair class is open for the same reason `box`'s is.** On an image the word meant
+exactly what `gravity` meant, so repairing it needs the same absent fact, and no ADR has
+ruled. The check refuses provisionally; see the note under Box
+([#192](https://github.com/MBehtemam/Montaget/issues/192)).
 
 **Path, line, polygon**:
 Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is
