@@ -4,7 +4,7 @@
 
 **ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (14 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
 
-⚠️ **ADR-0050 and ADR-0065 currently contradict each other** on `preview`'s degradation floor (360p vs 540p). Both are `status: accepted`; neither amends the other. See [#178](https://github.com/MBehtemam/Montaget/issues/178). Do not implement preview degradation until it resolves.
+ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
 ---
 
@@ -22,9 +22,10 @@
 | [0010](0010-skia-safe-rasterizer-text-beside-it.md) | `skia-safe` rasterizes; text lays out beside it; FFmpeg stays a subprocess the user supplies. `tiny-skia` is the named exit, never a second backend | 0040 |
 | [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md) | `cargo install` + GitHub Release binaries, all six desktop tier-1 targets, no Homebrew, passive updates, no phone-home ever | — |
 | [0021](0021-preview-budget-and-graceful-degradation.md) | The budget splits in two: `frame` under 500 ms cold is primary; render/preview is secondary. Proxy-resolution preview adopted, its numbers deferred | 0046, 0050, 0065 |
-| [0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) | The proxy target is a single 720p tier, long edge capped at 1280 px | 0050 |
-| [0050](0050-preview-hard-refuses-below-360p.md) | ⚠️ `preview` hard-refuses below **360p**, and the refusal names the floor — from a rendered legibility pass | *contradicted by 0065 — see [#178](https://github.com/MBehtemam/Montaget/issues/178)* |
-| [0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md) | ⚠️ The ladder is `720p → 540p → hard fail`, **no 360p tier**; the floor is disclosed, not certified | *contradicted by 0050 — see [#178](https://github.com/MBehtemam/Montaget/issues/178)* |
+| [0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) | The proxy target is a single 720p tier, long edge capped at 1280 px | 0050, 0067 |
+| [0050](0050-preview-hard-refuses-below-360p.md) | `preview` refuses below **360p** — from a rendered legibility pass on the real fixture | 0067 |
+| [0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md) | The ladder is `720p → 540p → hard fail`, **no 360p tier**. Its "legibility is unmeasured" clause is retired by 0067 | 0067 |
+| [0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md) | **Two floors, not one**: 540p is where the ladder gives up on *time*; 360p is where a frame stops being *readable*. Both stand; the ladder is unchanged | — |
 
 ## The document model
 
