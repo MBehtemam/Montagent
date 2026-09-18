@@ -5,6 +5,14 @@ amends: 0021 (states the deferred floor), 0046 (adopts a floor below the 720p ta
 
 # `preview`'s hard-refuse floor is 360p, and the refusal names it
 
+> **Amended by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md).**
+> The 360p threshold and the legibility pass behind it stand, and that pass is what retires
+> [ADR-0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md)'s
+> "legibility is unmeasured" hedge. What ADR-0067 adds is *where it binds*: under ADR-0065's
+> `720p → 540p → hard fail` ladder, `preview` never degrades below 540p, so this threshold is
+> not reached by degradation today. It is kept as a guard on any future extension of the
+> ladder, not as a live branch.
+
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) required that a floor exist
 below which `preview` hard-refuses rather than return something "too degraded to make a
 decision from," and deferred the number to measurement.

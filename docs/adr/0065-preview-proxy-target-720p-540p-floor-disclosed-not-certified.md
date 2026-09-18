@@ -5,6 +5,15 @@ amends: 0021-preview-budget-and-graceful-degradation.md
 
 # The proxy target is 720p, the degradation floor is 540p, and the floor is disclosed, not certified
 
+> **Amended by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md).**
+> The ladder, the rejection of a third tier and the mandatory disclosure all stand. What no
+> longer holds is the *"540p's legibility is explicitly unmeasured"* clause and the deferral of
+> a sub-540p legibility pass: [ADR-0050](0050-preview-hard-refuses-below-360p.md) had already
+> run that pass on the real fixture, and this ADR was written against a `main` that did not
+> contain it. The 720p target's spelling — long edge capped at 1280px — belongs to
+> [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md), also uncited here for the
+> same reason.
+
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) adopted proxy-resolution
 preview as the mechanism for hitting the render/preview budget above 1080p, but
 deliberately left the target resolution, degradation ladder, and floor unstated pending
