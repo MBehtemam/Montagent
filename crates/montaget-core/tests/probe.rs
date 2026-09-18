@@ -43,6 +43,7 @@ impl Recorded {
     fn ok(stdout: &str) -> Execution {
         Execution {
             success: true,
+            code: Some(0),
             stdout: stdout.to_string(),
             stderr: String::new(),
         }
@@ -51,6 +52,9 @@ impl Recorded {
     fn failed(stderr: &str) -> Execution {
         Execution {
             success: false,
+            // What `ffprobe` itself answers for a file it cannot make sense of. A code
+            // that means "the tool did not run" is a different test, below.
+            code: Some(1),
             stdout: String::new(),
             stderr: stderr.to_string(),
         }
@@ -346,7 +350,8 @@ fn the_cache_miss_prints_at_the_top_without_being_asked_for() {
         r#"{"streams":[{"codec_type":"video","width":1536,"height":2720,"pix_fmt":"rgb24","r_frame_rate":"25/1"}],"format":{}}"#,
     )]);
 
-    let answer = verb::probe_with(&mut session, &fixture_dir(), &["images/06.png".to_string()]);
+    let answer = verb::probe_with(&mut session, &fixture_dir(), &["images/06.png".to_string()])
+        .expect("the recorded ffprobe works");
     // Not `--verbose`, which is the whole point: ADR-0006 asks for it unprompted.
     let rendered =
         montaget_core::wire::render_answer(&answer, montaget_core::Wire::Text { verbose: false });
@@ -371,7 +376,8 @@ fn one_remote_url_is_fetched_once_per_run_however_many_elements_name_it() {
     let (recorder, mut session) = recorded(vec![Recorded::ok(REMOTE_OK)]);
     let url = "https://cdn.example/take3.mov";
 
-    let answer = verb::probe_with(&mut session, Path::new("/p"), &vec![url.to_string(); 5]);
+    let answer = verb::probe_with(&mut session, Path::new("/p"), &vec![url.to_string(); 5])
+        .expect("the recorded ffprobe works");
 
     assert_eq!(recorder.calls().len(), 1, "deduplicated by URL");
     assert_eq!(session.network_attempts(), 1);
@@ -541,7 +547,8 @@ fn a_project_of_local_sources_never_reaches_the_network() {
             // ADR-0053 permits an absolute local path, and it is still local.
             dir.join("images/07.png").display().to_string(),
         ],
-    );
+    )
+    .expect("the recorded ffprobe works");
 
     assert_eq!(answer.network_attempts, 0);
     assert_eq!(session.network_attempts(), 0);
@@ -626,4 +633,115 @@ fn a_local_file_that_is_not_there_is_answered_without_spawning_anything() {
     assert!(matches!(outcome, Outcome::Missing { .. }));
     assert!(recorder.calls().is_empty());
     assert_eq!(session.network_attempts(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// A tool that will not do the job is exit 70, not a fact about the media.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn an_ffprobe_that_rejects_our_invocation_is_exit_70_and_never_a_finding() {
+    // ADR-0009 ships Montaget as "a binary, plus an `ffmpeg` the user supplies", so an
+    // `ffprobe` too old to know `-protocol_whitelist` is the likeliest field failure there
+    // is. Reporting it as `U-SOURCE-UNPROBEABLE` would blame the media for a broken tool,
+    // exit 0 on it, and — because the rejected flag is the network fence — quietly report
+    // "nothing learned" for every source in the project.
+    let (_recorder, mut session) = recorded(vec![Execution {
+        success: false,
+        code: Some(1),
+        stdout: String::new(),
+        stderr: "Unrecognized option 'protocol_whitelist'.\n\
+                 Error splitting the argument list: Option not found"
+            .to_string(),
+    }]);
+
+    let missing = session
+        .probe(&Source::resolve("images/06.png", &fixture_dir()))
+        .expect_err("a tool that rejects our invocation is not a media fact");
+
+    assert_eq!(missing.program, "ffprobe");
+    assert_eq!(
+        missing.resolved.as_deref(),
+        Some(Path::new("/nowhere/ffprobe")),
+        "exit 70 names the resolved path, which is the thing to go and look at"
+    );
+    assert!(
+        missing.reason().contains("protocol_whitelist"),
+        "{}",
+        missing.reason()
+    );
+    assert_eq!(
+        missing.into_report().exit_code(),
+        montaget_core::report::ExitCode::Internal
+    );
+}
+
+#[test]
+fn an_ffprobe_that_answers_with_something_other_than_json_is_exit_70() {
+    // A zero-byte executable on `PATH` exits 0 and says nothing. `-print_format json` was
+    // not honoured, so whatever ran is not an `ffprobe`; that is a broken tool, and
+    // "ffprobe reported no streams" would be a claim about media nobody looked at.
+    let (_recorder, mut session) = recorded(vec![Execution {
+        success: true,
+        code: Some(0),
+        stdout: String::new(),
+        stderr: String::new(),
+    }]);
+
+    let missing = session
+        .probe(&Source::resolve("images/06.png", &fixture_dir()))
+        .expect_err("silence is not an answer about the media");
+    assert!(
+        missing.reason().contains("not the JSON"),
+        "{}",
+        missing.reason()
+    );
+}
+
+#[test]
+fn an_ffprobe_the_os_could_not_run_is_exit_70() {
+    // `garbage +x` on PATH: the shell answers 127, not `ffprobe`. ADR-0011's exit 70 is
+    // literally "ffmpeg died".
+    for code in [Some(126), Some(127), None] {
+        let (_recorder, mut session) = recorded(vec![Execution {
+            success: false,
+            code,
+            stdout: String::new(),
+            stderr: "ffprobe: line 1: not: command not found".to_string(),
+        }]);
+
+        let missing = session
+            .probe(&Source::resolve("images/06.png", &fixture_dir()))
+            .unwrap_err();
+        assert_eq!(missing.program, "ffprobe", "{code:?}");
+    }
+}
+
+#[test]
+fn a_file_that_will_not_decode_is_still_the_medias_fault_and_not_the_tools() {
+    // The non-regression that matters: this is real `ffprobe`'s own answer for a file whose
+    // bytes are not media (exit 1, `moov atom not found`, an empty JSON object on stdout).
+    // Nothing is wrong with the tool, so this must stay `UNCHECKED` at exit 0 — the
+    // discrimination is the point, and a rule that swept both into exit 70 would be the
+    // same collapse in the other direction.
+    let (_recorder, mut session) = recorded(vec![Execution {
+        success: false,
+        code: Some(1),
+        stdout: "{\n\n}".to_string(),
+        stderr: "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x1] moov atom not found\n\
+                 garbage.mp4: Invalid data found when processing input"
+            .to_string(),
+    }]);
+
+    let outcome = session
+        .probe(&Source::resolve("images/06.png", &fixture_dir()))
+        .expect("a media failure is an answer, not a broken tool");
+
+    match outcome {
+        Outcome::Unchecked { reason, detail, .. } => {
+            assert_eq!(reason, None, "nothing about the network failed");
+            assert!(detail.contains("Invalid data"), "{detail}");
+        }
+        other => panic!("{other:?}"),
+    }
 }

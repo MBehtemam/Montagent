@@ -19,9 +19,9 @@ use std::path::Path;
 
 use serde_json::{Value, json};
 
+use crate::media::Source;
 use crate::media::probe::Outcome;
 use crate::media::session::{CacheMiss, Session};
-use crate::media::{Source, tools};
 use crate::report::Report;
 use crate::text;
 
@@ -70,12 +70,16 @@ pub fn probe(sources: &[String]) -> Result<Answer, Report> {
     // The base a bare `probe` resolves against is the working directory, and the adapter
     // does not get to decide that: what a relative `source` resolves against is ADR-0053's
     // question, and it is answered in the core (ADR-0011 — an adapter contains no rule).
-    Ok(probe_with(&mut session, Path::new("."), sources))
+    probe_with(&mut session, Path::new("."), sources)
 }
 
 /// The same, against a session and a base directory the caller owns — an MCP server's warm
 /// cache, a project file's own directory (ADR-0053), or a test's recorded `ffprobe`.
-pub fn probe_with(session: &mut Session, base: &Path, sources: &[String]) -> Answer {
+pub fn probe_with(
+    session: &mut Session,
+    base: &Path,
+    sources: &[String],
+) -> Result<Answer, Report> {
     let mut report = Report::new(TOOL, None);
     let mut outcomes = Vec::new();
 
@@ -88,28 +92,20 @@ pub fn probe_with(session: &mut Session, base: &Path, sources: &[String]) -> Ans
                 }
                 outcomes.push(outcome);
             }
-            // `ffprobe` resolved and would not run. Nothing after this point can be
-            // established, and a partial answer would be a report that had quietly
-            // stopped looking.
-            Err(missing) => return failed(*missing, outcomes, session),
+            // The tool is broken, so nothing after this point can be established — and
+            // the facts gathered before it are not an answer to what was asked. This
+            // leaves by the same door a bad invocation does: one report, exit 70, and no
+            // half-answer printed beside it (ADR-0011 — "nothing may partially process").
+            Err(missing) => return Err(missing.into_report()),
         }
     }
 
-    Answer {
+    Ok(Answer {
         sources: outcomes,
         misses: session.misses().to_vec(),
         network_attempts: session.network_attempts(),
         report,
-    }
-}
-
-fn failed(missing: tools::Missing, outcomes: Vec<Outcome>, session: &Session) -> Answer {
-    Answer {
-        sources: outcomes,
-        misses: session.misses().to_vec(),
-        network_attempts: session.network_attempts(),
-        report: missing.into_report(),
-    }
+    })
 }
 
 /// The finding an outcome carries, where it carries one.

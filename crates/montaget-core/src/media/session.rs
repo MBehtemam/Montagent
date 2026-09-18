@@ -16,8 +16,9 @@
 //! consistent with #4's rule that probe results never live in the source of truth where
 //! they could go stale"*, and #190 specifies the local cache as in-process. Those
 //! disagree, and the ADR wins — but the sidecar's design (its path, its format, its
-//! invalidation) is explicitly still #4's, and ADR-0023 calls it *"not decided here"*, so
-//! inventing one is a decision this ticket is not entitled to make. The cost, stated
+//! invalidation) has no live owner: ADR-0023 defers it to #4, which is closed under a
+//! different title, and calls it *"not decided here"*. Inventing one is therefore a
+//! decision this ticket is not entitled to make. The cost, stated
 //! rather than hidden: [`MissKind::Changed`] — the line ADR-0011 calls the **sole**
 //! mechanism catching a source that grew on disk — can only fire twice within one process.
 //! Over MCP that is a long-lived server and the mechanism works as specified; over the

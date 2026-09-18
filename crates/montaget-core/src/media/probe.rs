@@ -134,6 +134,13 @@ impl Outcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Execution {
     pub success: bool,
+    /// The process's exit status, or `None` where a signal killed it.
+    ///
+    /// Carried rather than collapsed into `success` because the *value* discriminates:
+    /// `ffprobe` answers 1 for a file it cannot decode, and a shell answers 126/127 for a
+    /// thing it could not execute at all. One is a fact about the media and the other is
+    /// ADR-0011's exit 70, and a bool cannot tell them apart.
+    pub code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
 }
@@ -158,6 +165,7 @@ impl Runner for ProcessRunner {
         let output = std::process::Command::new(program).args(args).output()?;
         Ok(Execution {
             success: output.status.success(),
+            code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         })
@@ -238,7 +246,7 @@ pub fn probe_local(
     args.push(display.clone());
 
     let execution = execute(runner, tools, &args)?;
-    Ok(interpret(&display, execution, false))
+    interpret(tools, &display, execution, false)
 }
 
 /// Probe a remote URL. **The only function in Montaget that can cause a network call.**
@@ -255,7 +263,7 @@ pub fn probe_remote(
     args.push(url.to_string());
 
     let execution = execute(runner, tools, &args)?;
-    Ok(interpret(url, execution, true))
+    interpret(tools, url, execution, true)
 }
 
 /// Run `ffprobe`, turning a spawn failure into ADR-0011's exit 70 rather than into a
@@ -272,20 +280,31 @@ fn execute(runner: &dyn Runner, tools: &Tools, args: &[String]) -> Result<Execut
 }
 
 /// Turn one `ffprobe` run into an outcome.
-fn interpret(source: &str, execution: Execution, remote: bool) -> Outcome {
-    if !execution.success {
-        return failure(source, &execution.stderr, remote);
+fn interpret(
+    tools: &Tools,
+    source: &str,
+    execution: Execution,
+    remote: bool,
+) -> Result<Outcome, Box<Missing>> {
+    // Before anything is read as a fact about the media, ask whether the thing that
+    // answered was an `ffprobe` doing its job at all.
+    if let Some(failure) = tool_failure(&execution) {
+        return Err(Box::new(Missing {
+            program: "ffprobe",
+            searched: Vec::new(),
+            resolved: Some(tools.ffprobe.clone()),
+            failure,
+        }));
     }
 
-    let Ok(value) = serde_json::from_str::<Value>(&execution.stdout) else {
-        return Outcome::Unchecked {
-            source: source.to_string(),
-            reason: None,
-            detail: "ffprobe's output was not JSON".to_string(),
-        };
-    };
+    if !execution.success {
+        return Ok(failure(source, &execution.stderr, remote));
+    }
 
-    match read(source, &value) {
+    let value = serde_json::from_str::<Value>(&execution.stdout)
+        .expect("tool_failure rejects stdout that is not JSON");
+
+    Ok(match read(source, &value) {
         Some(probe) => Outcome::Probed(probe),
         // `ffprobe` answered and the answer carries no stream at all. Something is there
         // — the reach succeeded — and nothing about its content was established.
@@ -294,7 +313,82 @@ fn interpret(source: &str, execution: Execution, remote: bool) -> Outcome {
             detail: "ffprobe reported no streams, so duration and dimensions are NOT CHECKED"
                 .to_string(),
         },
+    })
+}
+
+/// Whether this run failed because the **tool** would not do the job, rather than because
+/// the **media** would not answer — and, if so, what to tell exit 70.
+///
+/// ADR-0011 gives exit 70 to *"internal failure (ffmpeg died, font stack failed)"* and its
+/// next move is *"retry or report"*, against exit 1's *"fix the project"*. ADR-0009 makes
+/// this a live distinction rather than a pedantic one: Montaget ships as *"a binary, plus
+/// an `ffmpeg` the user supplies"*, so the supplied one may be too old to know a flag, or
+/// not be an `ffprobe` at all. Reporting that as `U-SOURCE-UNPROBEABLE` would blame the
+/// media for a broken tool and exit 0 while doing it.
+///
+/// Every signal here was measured against a real `ffprobe` 8.0.1 and against three broken
+/// stubs; a file that genuinely will not decode exits 1 and diagnoses the file, and is
+/// deliberately not caught by any of them.
+fn tool_failure(execution: &Execution) -> Option<String> {
+    // The shell's own codes for "cannot execute" and "not found", and a death by signal —
+    // none of which `ffprobe` produces for any media.
+    match execution.code {
+        Some(126 | 127) => {
+            return Some(format!(
+                "the shell could not execute it ({}): {}",
+                execution.code.unwrap_or_default(),
+                first_line(&execution.stderr)
+            ));
+        }
+        None => {
+            return Some(format!(
+                "it was killed by a signal before it answered: {}",
+                first_line(&execution.stderr)
+            ));
+        }
+        _ => {}
     }
+
+    // An option Montaget passes that this build does not know. The network fence is one of
+    // those options, so this must never be swallowed.
+    const REJECTED: &[&str] = &[
+        "Unrecognized option",
+        "Unknown option",
+        "Option not found",
+        "Error splitting the argument list",
+    ];
+    if !execution.success {
+        if let Some(needle) = REJECTED
+            .iter()
+            .find(|needle| execution.stderr.contains(*needle))
+        {
+            return Some(format!(
+                "it rejected an option Montaget passes ({needle}): {}",
+                first_line(&execution.stderr)
+            ));
+        }
+        return None;
+    }
+
+    // It exited 0 and did not answer in the format that was asked for, so `-print_format
+    // json` was not honoured and whatever ran is not an `ffprobe`. "No streams" would be a
+    // claim about media nobody looked at.
+    if serde_json::from_str::<Value>(&execution.stdout).is_err() {
+        return Some(format!(
+            "it exited 0 but its output is not the JSON `-print_format json` asks for: {}",
+            if execution.stdout.trim().is_empty() {
+                "it printed nothing at all".to_string()
+            } else {
+                first_line(&execution.stdout)
+            }
+        ));
+    }
+
+    None
+}
+
+fn first_line(text: &str) -> String {
+    text.lines().next().unwrap_or_default().trim().to_string()
 }
 
 /// Classify a failed run. ADR-0053 and ADR-0056 draw the line this function implements:

@@ -122,6 +122,52 @@ fn cli_probe_without_an_ffmpeg_on_path_is_exit_70() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn cli_probe_with_an_ffprobe_too_old_for_our_flags_is_exit_70_not_a_media_finding() {
+    // ADR-0009 ships "a binary, plus an `ffmpeg` the user supplies", so the supplied one
+    // may be older than the flags Montaget passes. Driven through a real executable on a
+    // real `PATH` rather than a hand-built value, because the claim under test is that
+    // some code path actually reaches exit 70 — not that the type can represent it.
+    let dir = scratch_dir("cli-old-ffprobe");
+    for program in ["ffprobe", "ffmpeg"] {
+        let path = dir.join(program);
+        std::fs::write(
+            &path,
+            "#!/bin/sh\necho \"Unrecognized option 'protocol_whitelist'.\" >&2\nexit 1\n",
+        )
+        .expect("write the stub");
+        let mut mode = std::fs::metadata(&path).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+        std::fs::set_permissions(&path, mode).expect("make the stub executable");
+    }
+
+    let fixture = fixture_dir();
+    let out = Command::new(binary())
+        .args(["probe", fixture.join("images/06.png").to_str().unwrap()])
+        .env("PATH", &dir)
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(
+        out.status.code(),
+        Some(70),
+        "a broken tool is exit 70, never exit 0 with the media blamed: {}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("protocol_whitelist"), "{stderr}");
+    assert!(
+        stderr.contains(dir.join("ffprobe").to_str().unwrap()),
+        "exit 70 names the resolved path, which is the thing to go and look at: {stderr}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("U-SOURCE-UNPROBEABLE"),
+        "the media is not the thing that failed"
+    );
+}
+
 #[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);

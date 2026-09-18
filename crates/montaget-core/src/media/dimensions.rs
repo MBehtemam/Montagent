@@ -250,7 +250,13 @@ mod tests {
         assert_eq!(rotation.degrees, 0);
 
         assert!(Rotation::from_degrees(180.0, RotationSource::DisplayMatrix).exact);
-        assert_eq!(Rotation::from_degrees(-270.0, RotationSource::RotateTag).degrees, 90);
-        assert_eq!(Rotation::from_degrees(360.0, RotationSource::DisplayMatrix).degrees, 0);
+        assert_eq!(
+            Rotation::from_degrees(-270.0, RotationSource::RotateTag).degrees,
+            90
+        );
+        assert_eq!(
+            Rotation::from_degrees(360.0, RotationSource::DisplayMatrix).degrees,
+            0
+        );
     }
 }
