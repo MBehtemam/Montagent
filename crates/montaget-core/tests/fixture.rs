@@ -13,6 +13,8 @@ use montaget_core::report::ExitCode;
 use montaget_core::{parse, validate};
 use std::path::PathBuf;
 
+mod common;
+
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json")
@@ -20,6 +22,12 @@ fn fixture() -> PathBuf {
 
 #[test]
 fn the_fixture_parses_and_reports_clean() {
+    // Since #203 this exercises the disk half too, so it needs the `ffmpeg` ADR-0009 has
+    // the user supply. Asked directly rather than inferred from the exit code afterwards,
+    // which would also swallow every other internal failure.
+    if !common::has_ffprobe() {
+        return;
+    }
     let report = validate(&fixture());
 
     assert!(

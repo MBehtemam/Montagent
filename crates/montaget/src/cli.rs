@@ -149,8 +149,11 @@ where
 /// programmer errors — a check emitting an unregistered code, an arithmetic overflow —
 /// abort with a Rust backtrace and no finding, and the one exit code reserved for
 /// "Montaget broke" would never be produced by Montaget breaking.
-fn run_verb(verb: impl FnOnce() -> Report + std::panic::UnwindSafe) -> Result<Report, Report> {
-    std::panic::catch_unwind(verb).map_err(panic_report)
+fn run_verb(verb: impl FnOnce() -> Report + std::panic::UnwindSafe) -> Result<Report, Box<Report>> {
+    // Boxed on the error side alone: both arms carry a report and only the stream they
+    // print to differs, and a `Report` is wide enough that carrying two inline widens every
+    // call on the happy path.
+    std::panic::catch_unwind(verb).map_err(|payload| Box::new(panic_report(payload)))
 }
 
 /// The panic's own message, which is what makes exit 70 actionable.

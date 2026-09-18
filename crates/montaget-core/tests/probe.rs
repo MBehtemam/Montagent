@@ -356,8 +356,11 @@ fn the_cache_miss_prints_at_the_top_without_being_asked_for() {
     let rendered =
         montaget_core::wire::render_answer(&answer, montaget_core::Wire::Text { verbose: false });
 
-    assert!(rendered.starts_with("CACHE\n"), "{rendered}");
+    // The cache block belongs to the report surface (ADR-0006 specified it for
+    // `validate`'s report), so it prints ahead of the findings for every verb.
+    let cache = rendered.find("CACHE").expect("a cache block");
     assert!(rendered.contains("images/06.png"), "{rendered}");
+    assert!(cache < rendered.find("NOT CHECKED").unwrap(), "{rendered}");
 }
 
 // ---------------------------------------------------------------------------
@@ -382,9 +385,9 @@ fn one_remote_url_is_fetched_once_per_run_however_many_elements_name_it() {
     assert_eq!(recorder.calls().len(), 1, "deduplicated by URL");
     assert_eq!(session.network_attempts(), 1);
     assert_eq!(
-        answer.sources.len(),
-        5,
-        "every element still gets an answer"
+        answer.report().media.len(),
+        1,
+        "five references to one URL are one fact about it, not five"
     );
 }
 
@@ -443,7 +446,8 @@ fn a_network_failure_is_unchecked_with_a_reason_and_never_a_confirmed_absence() 
             other => panic!("{stderr} must not be read as {other:?}"),
         }
 
-        let finding = verb::finding_for(&outcome).expect("an unknown is reported, not dropped");
+        let finding = montaget_core::media::probe::finding_for(&outcome, outcome_source(&outcome))
+            .expect("an unknown is reported, not dropped");
         assert_eq!(finding.code, "U-SOURCE-UNPROBEABLE");
         assert_eq!(finding.class, Class::Unchecked);
         assert_eq!(
@@ -467,7 +471,8 @@ fn a_server_that_refuses_the_object_is_the_plain_error_it_always_was() {
         .unwrap();
     assert!(matches!(outcome, Outcome::Missing { .. }));
 
-    let finding = verb::finding_for(&outcome).unwrap();
+    let finding =
+        montaget_core::media::probe::finding_for(&outcome, outcome_source(&outcome)).unwrap();
     assert_eq!(finding.code, "E-SOURCE-MISSING");
     assert_eq!(finding.class, Class::Error);
 }
@@ -495,7 +500,9 @@ fn a_server_that_will_not_serve_a_partial_read_degrades_to_existence_only() {
             other => panic!("{stderr} establishes existence, not {other:?}"),
         }
         assert_eq!(
-            verb::finding_for(&outcome).unwrap().code,
+            montaget_core::media::probe::finding_for(&outcome, outcome_source(&outcome))
+                .unwrap()
+                .code,
             "U-SOURCE-EXISTENCE-ONLY",
             "never the slot a confirmed duration occupies, and never a missing-source error"
         );
@@ -517,7 +524,8 @@ fn an_existence_only_answer_never_occupies_a_confirmed_durations_slot() {
         "it carries no quad, because none was established"
     );
 
-    let finding = verb::finding_for(&outcome).unwrap();
+    let finding =
+        montaget_core::media::probe::finding_for(&outcome, outcome_source(&outcome)).unwrap();
     assert_eq!(finding.code, "U-SOURCE-EXISTENCE-ONLY");
     assert_eq!(finding.class, Class::Unchecked);
     assert_eq!(
@@ -586,6 +594,17 @@ fn only_a_source_the_document_spells_as_a_url_may_reach_the_network() {
         args.iter().any(|arg| arg == "-rw_timeout"),
         "an unbounded round trip would hang the run rather than reporting a timeout: {args:?}"
     );
+}
+
+/// The spelling the document used, which for these tests is the same string the probe was
+/// handed.
+fn outcome_source(outcome: &Outcome) -> &str {
+    match outcome {
+        Outcome::Probed(probe) => &probe.source,
+        Outcome::ExistenceOnly { source, .. }
+        | Outcome::Missing { source, .. }
+        | Outcome::Unchecked { source, .. } => source,
+    }
 }
 
 fn protocol_whitelist(args: &[String]) -> Option<String> {
