@@ -9,4 +9,5 @@
 pub mod create_project;
 pub mod fmt;
 pub mod probe;
+pub mod timeline;
 pub mod validate;
