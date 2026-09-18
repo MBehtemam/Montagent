@@ -4,6 +4,19 @@ status: accepted
 
 # Slack is invariant by default; `shift` refuses to silently change it, `compare` is the backstop
 
+> **Amended by five later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)
+>   — compare gains a second drift-shaped hazard, alongside ADR-0036's
+> - [ADR-0047](0047-shift-releases-slack-by-boundary-instant-pairs.md) — settles the
+>   release mechanism it deferred
+> - [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md) —
+>   extends validate's and compare's fact vocabularies
+> - [ADR-0063](0063-compare-drift-checks-keyframe-instant-relationships.md) — states
+>   precisely where slack-drift's coverage of coincidence ends
+> - [ADR-0066](0066-boundary-coincidence-cluster-drift-is-its-own-predicate.md) — closes
+>   the pairwise gap named but not mechanized there
+
 Four agents were given the same instruction — "item-07's narration was
 re-recorded and is 800 ms longer; make the edit so the file stays legal" — and
 produced four different repairs. All four pass every existing check

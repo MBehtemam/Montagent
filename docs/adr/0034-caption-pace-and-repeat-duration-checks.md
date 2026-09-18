@@ -5,6 +5,9 @@ amended-by: 0054 (audio-backing and minimum-duration checks)
 
 # `validate` gains two caption checks: a reading-pace floor and repeat-duration disagreement
 
+> **Amended by [ADR-0054](0054-caption-audio-backing-and-minimum-duration-checks.md).**
+> Settles the audio-backing and minimum-duration deferrals.
+
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s check list has no
 entry for either defect this ADR names — both were found by eye while resolving
 [#11](https://github.com/MBehtemam/Montaget/issues/11), on the committed fixture, and

@@ -4,6 +4,39 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Amended by fifteen later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
+>   rectangle becomes computable, and `shift` is unblocked
+> - [ADR-0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) — the tool
+>   surface gains no `migrate` verb
+> - [ADR-0019](0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md) — clarifies
+>   the write-tool invariant's scope
+> - [ADR-0024](0024-measure-writes-the-fit-repair-not-the-verdict.md) — `measure` gains a
+>   fitted-extent output
+> - [ADR-0026](0026-exact-aspect-fit-both-spellings-stand.md) — `fmt` gains an explicit
+>   exception
+> - [ADR-0029](0029-line-baseline-half-leading.md)
+> - [ADR-0030](0030-defaultable-field-presence-is-content.md) — `fmt` gains an explicit
+>   exception for defaultable-field presence
+> - [ADR-0035](0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md) — adds
+>   a `measure` output
+> - [ADR-0036](0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md) —
+>   "informative preamble on legal inserts" is specified
+> - [ADR-0037](0037-derived-time-signature-is-a-provenance-gap-not-a-tool.md) — no tenth
+>   verb; the nine-tool surface holds
+> - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)
+>   — validate gains nothing; compare's scope grows
+> - [ADR-0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) —
+>   `fmt` gains a non-destructive `--check` mode; the write-tool invariant is restated for
+>   key order
+> - [ADR-0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) — adds a
+>   precondition to `fmt`
+> - [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md) —
+>   confirms the tool surface is unchanged
+> - [ADR-0060](0060-layer-tie-is-an-error-array-order-stays-meaningless.md) — records the
+>   fallback-order question this ADR closes as no longer open
+
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
 > default — presence/absence of `x`, `y`, `origin`, `scale`, `rotation`, `opacity` and

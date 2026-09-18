@@ -80,6 +80,32 @@ status: accepted
 > width term and ADR-0011/ADR-0012's aperture and stroke terms. Re-executable check:
 > `docs/research/juries/contain-slack/contain_slack_scan.py` on branch
 > `domain/contain-slack`.
+>
+> **Also amended by these, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0013](0013-fitted-extents-floor-and-the-nine-origin-keywords.md) — gains the 
+>   aperture-coverage error, the fit-deviation note, and the UNCHECKED category
+> - [ADR-0019](0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md) — two new 
+>   validate checks
+> - [ADR-0035](0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md) — 
+>   adds one check to the list
+> - [ADR-0036](0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md) 
+>   — declines a coincidence census, and states why
+> - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md) 
+>   — retracts a commissioned check that violates the noise-budget principle
+> - [ADR-0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) 
+>   — `validate` gains a fourth report category, `LAYOUT`, alongside 
+>   `error`/`review`/`note`/`UNCHECKED`
+> - [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md)
+> - [ADR-0058](0058-text-box-slack-is-a-note-with-sibling-census.md) — adds `R-BOX-SLACK` 
+>   to the check list
+> - [ADR-0060](0060-layer-tie-is-an-error-array-order-stays-meaningless.md) — the 
+>   geometry-aware same-layer check finally gets a home and a severity
+> - [ADR-0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md)
+>   — report format: the `repair` field, uniform per check, non-bypassable
+> - [ADR-0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md) —
+>   adds `R-OFF-CANVAS` to the check list
 
 `montaget validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file

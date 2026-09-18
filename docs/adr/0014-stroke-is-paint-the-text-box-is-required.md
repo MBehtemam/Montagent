@@ -5,6 +5,19 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
+> **Amended by five later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0015](0015-fit-is-a-derivation-claim-and-gravity-retires.md) — `gravity` is
+>   decided here, as that ADR deferred it
+> - [ADR-0028](0028-text-block-arithmetic-is-exact-tenths.md)
+> - [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) — confirms stroke stays a
+>   paint field, not an effect member
+> - [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) — extends the
+>   run-addressable paint precedent stroke established
+> - [ADR-0058](0058-text-box-slack-is-a-note-with-sibling-census.md) — closes its recorded
+>   residual: "an over-large `height` disables its own tripwire... nothing in this design
+>   catches it"
+
 > **`gravity` is decided by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**,
 > which this ADR deferred to #48. It is **retired** — a schema error on every element type, not
 > only on text and shapes. This ADR's one owed clause stands and is now the general case.

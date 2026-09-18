@@ -5,6 +5,12 @@ amended-by: 0007 (fonts carve-out), 0053 (resolution base, no assetRoot, absolut
 
 # Elements name their files inline; there is no asset table
 
+> **Amended by two later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0007](0007-text-runs-literal-size-declared-fonts.md) — fonts carve-out
+> - [ADR-0053](0053-asset-path-resolution-no-assetroot.md) — settles the resolution-base,
+>   assetRoot, absolute-path and missing-source questions that ADR left open
+
 An element's `source` is written on the element itself — a relative path today, a
 URL where the file lives elsewhere. Montaget has no `assets` block declaring
 files once and referring to them by id, and "asset" is not part of its
