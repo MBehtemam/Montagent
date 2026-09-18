@@ -36,6 +36,40 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Scaffold a legal, empty project file.
+    ///
+    /// ADR-0011's `create_project`: so the agent never starts from a blank file and
+    /// invents a shape. It never overwrites, and it writes no header field that was not
+    /// asked for (ADR-0030).
+    #[command(name = "create-project", alias = "create_project")]
+    CreateProject {
+        /// The project file to create. It must not already exist.
+        project: PathBuf,
+        /// Frame width in pixels.
+        #[arg(long)]
+        width: i64,
+        /// Frame height in pixels.
+        #[arg(long)]
+        height: i64,
+        /// Frames per second.
+        #[arg(long)]
+        fps: i64,
+        /// Background colour, `#RRGGBB` or `#RRGGBBAA`, uppercase.
+        #[arg(long)]
+        background: Option<String>,
+        /// The project's intended length, in whole milliseconds.
+        #[arg(long)]
+        duration: Option<i64>,
+        /// Where `render` writes the video, relative to the project file.
+        #[arg(long)]
+        output: Option<String>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Rewrite the file in the canonical convention.
     ///
     /// CLI-only (ADR-0011), and split in two (ADR-0041): `--check` reports what a
@@ -109,6 +143,39 @@ where
             match run_verb(|| montaget_core::validate(&project)) {
                 Ok(report) => {
                     // `println!`, not `print!`: the JSON form ends without a newline.
+                    println!("{}", montaget_core::wire::render(&report, form).trim_end());
+                    exit_code(&report)
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::CreateProject {
+            project,
+            width,
+            height,
+            fps,
+            background,
+            duration,
+            output,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            let scaffold = montaget_core::verbs::create_project::Scaffold {
+                width,
+                height,
+                fps,
+                background,
+                duration,
+                output,
+            };
+            match run_verb(|| {
+                montaget_core::verbs::create_project::create_project(&project, &scaffold)
+            }) {
+                Ok(report) => {
                     println!("{}", montaget_core::wire::render(&report, form).trim_end());
                     exit_code(&report)
                 }

@@ -117,7 +117,7 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
     if mode == Mode::Write
         && let Err(e) = write::atomically(path, &canonical)
     {
-        report.fail_internally(format!("{} could not be written: {e}", document.path()));
+        report.could_not_write(document.path(), &e);
     }
 
     report

@@ -131,6 +131,27 @@ const CHECKS: &[CheckSpec] = &[
         status: Live,
     },
     CheckSpec {
+        // `create_project` scaffolds, and a scaffold that overwrites is a scaffold that
+        // deletes a project. Its own code rather than `E-WRITE` or a bare `E-INVOCATION`,
+        // because this is the one failure of a write tool that is not a failure at all: the
+        // file is intact, and the agent has learned that the thing it was about to create
+        // already exists — which, mid-session, is usually the answer it wanted.
+        //
+        // No ADR says `create_project` refuses to overwrite, or what it says when it does.
+        // Raised as #246 rather than left to be discovered from this table.
+        code: "E-PROJECT-EXISTS",
+        classes: &[Error],
+        // Advise, on `E-READ`'s reasoning: the document whose author could have meant
+        // something is not this call's, and the next move — write somewhere else, or edit
+        // the file that is already there — follows from the condition itself.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0011",
+        template: "{file} already exists; `create_project` never overwrites. Edit it, or \
+scaffold somewhere else.",
+        status: Live,
+    },
+    CheckSpec {
         code: "E-INVOCATION",
         classes: &[Error],
         // Advise, not refuse: exit 3's next move is "fix the command" (ADR-0011), and

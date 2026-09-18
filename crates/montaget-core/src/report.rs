@@ -158,6 +158,17 @@ impl Report {
         self.terminal = Some(Terminal::Internal);
     }
 
+    /// The atomic write did not land. One sentence, so every write tool says it the same
+    /// way.
+    ///
+    /// ADR-0011's exit 70 rather than an `error` finding, at both call sites and for the
+    /// same reason: the file is untouched, so there is nothing about the *project* to
+    /// report, and *"Montaget could not run"* has its own exit code precisely so it is not
+    /// mistaken for a defect in the document.
+    pub fn could_not_write(&mut self, path: impl std::fmt::Display, e: &std::io::Error) {
+        self.fail_internally(format!("{path} could not be written: {e}"));
+    }
+
     /// Add a finding to the report.
     ///
     /// # Panics
