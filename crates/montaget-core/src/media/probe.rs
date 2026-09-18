@@ -715,11 +715,21 @@ pub fn record(outcome: &Outcome, declared: &str, report: &mut crate::report::Rep
 /// itself — which is exactly what ADR-0056 says an HTTP validator is not.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LocalKey {
+    /// The file's canonical path. Canonical rather than as-written because the cache now
+    /// outlives the process (ADR-0069): `./take3.mov` and `/clips/take3.mov` are one file,
+    /// and a sidecar keyed on the spelling would remember them as two and notice a change
+    /// in neither. What the *report* names is untouched — that is the caller's spelling.
     pub path: PathBuf,
     pub size: u64,
     /// Modification time as nanoseconds since the Unix epoch, or `None` on a filesystem
-    /// that will not say. A file whose mtime is unreadable is re-probed every time rather
-    /// than cached under a key that cannot notice a change.
+    /// that will not say.
+    ///
+    /// `None` equals `None`, so such a key matches on `(path, size)` alone and cannot
+    /// notice a file rewritten to the same length. Within one process that is #190's
+    /// accepted blind spot. It is **not** allowed to outlive one: the sidecar refuses to
+    /// persist an entry keyed this way (ADR-0069), because a key Montaget only partly
+    /// observed would otherwise make that blind spot permanent — and it is exactly
+    /// `MissKind::Changed`, ADR-0011's sole mechanism, that would go silent.
     pub mtime_ns: Option<i128>,
 }
 
@@ -727,7 +737,9 @@ impl LocalKey {
     pub fn of(path: &Path) -> std::io::Result<LocalKey> {
         let metadata = std::fs::metadata(path)?;
         Ok(LocalKey {
-            path: path.to_path_buf(),
+            // A path that will not canonicalise still has a `(size, mtime)` worth caching
+            // under; it just caches under the spelling it arrived in.
+            path: std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()),
             size: metadata.len(),
             mtime_ns: metadata.modified().ok().and_then(|time| {
                 time.duration_since(std::time::UNIX_EPOCH)

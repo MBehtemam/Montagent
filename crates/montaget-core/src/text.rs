@@ -142,15 +142,30 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
 fn miss_line(miss: &Value) -> String {
     let source = miss["source"].as_str().unwrap_or("?");
     match miss["kind"].as_str() {
-        Some("first") => format!("{source} — probed (not yet in this session's cache)"),
+        Some("first") => format!("{source} — probed (not yet in the probe cache)"),
+        // Both halves of ADR-0006's key, both sides of the change. The size alone is the
+        // number a reader acts on, and the mtime is what makes the claim checkable against
+        // a `stat` — a file rewritten to the same length is a change only the mtime shows.
         Some("changed") => format!(
-            "{source} — CHANGED ON DISK since it was last probed: {} bytes → {} bytes",
-            miss["previous_size"], miss["size"]
+            "{source} — CHANGED ON DISK since it was last probed: {} bytes → {} bytes, mtime {} → {}",
+            miss["previous_size"],
+            miss["size"],
+            mtime(&miss["previous_mtime_ns"]),
+            mtime(&miss["mtime_ns"])
         ),
         Some("remote") => {
             format!("{source} — fetched (remote sources are never cached across runs)")
         }
         _ => format!("{source} — probed"),
+    }
+}
+
+/// A modification time as the report prints it, or an em dash where the filesystem would
+/// not say one.
+fn mtime(value: &Value) -> String {
+    match value.as_i64() {
+        Some(ns) => format!("{ns} ns"),
+        None => "—".to_string(),
     }
 }
 

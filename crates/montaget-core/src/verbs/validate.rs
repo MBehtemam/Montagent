@@ -23,8 +23,19 @@ use crate::report::Report;
 const TOOL: &str = "validate";
 
 /// Validate the project file at `path`.
+///
+/// The session — and with it the probe cache and its sidecar — is this call's own, which
+/// is the CLI's shape: one process, one run, and the sidecar is what carries the cache
+/// across to the next one (ADR-0069).
 pub fn validate(path: &Path) -> Report {
     run(path, None)
+}
+
+/// The same, against a session the caller owns — an MCP server's warm cache (ADR-0011), or
+/// a test's recorded `ffprobe`. The remote half is cleared here, because this is one run.
+pub fn validate_with(path: &Path, session: &mut Session) -> Report {
+    session.begin_run();
+    run(path, Some(session))
 }
 
 fn run(path: &Path, session: Option<&mut Session>) -> Report {
