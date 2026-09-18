@@ -8,3 +8,22 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# Declared before anything calls it, deliberately (#189). Cargo builds a
+# declared dependency, so the prebuilt canary (#36) is live from the day this
+# line lands rather than from the rasterizer ticket.
+skia-safe.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+[features]
+default = ["no-skia-source-build"]
+
+# Turns a prebuilt miss into a build failure instead of a 40-minute Skia source
+# compile (`skia-bindings` panics with "Refusing to full-build skia"). On by
+# default because ADR-0010's affordability argument is the whole reason the C++
+# dependency was acceptable: a silent fall-through to a source build is the
+# failure #36 exists to catch, and a contributor who hits it should be told, not
+# left waiting. `--no-default-features` is the deliberate opt-out for anyone who
+# genuinely wants to build Skia — an unsupported target, say.
+no-skia-source-build = ["skia-safe/no-compile"]

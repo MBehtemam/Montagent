@@ -73,8 +73,11 @@ pub fn check(document: &Loose, report: &mut Report) {
             Verdict::Refuse { census_field, .. } => {
                 // The class is taken from the registry by `Finding::new`; nothing here
                 // asks for `repair: "none"` and nothing here could ask for anything else.
-                Finding::new("E-RETIRED-KEY")
-                    .census(census(&sightings, &sighting.key, census_field))
+                Finding::new("E-RETIRED-KEY").census(census(
+                    &sightings,
+                    &sighting.key,
+                    census_field,
+                ))
             }
             Verdict::Advise { repair } => {
                 Finding::new("E-RETIRED-SPELLING").repair_value(json!({ "value": repair }))
@@ -212,7 +215,13 @@ impl Locus {
         }
     }
 
-    fn sighting(&self, key: &str, value: &Value, replacement: String, verdict: Verdict) -> Sighting {
+    fn sighting(
+        &self,
+        key: &str,
+        value: &Value,
+        replacement: String,
+        verdict: Verdict,
+    ) -> Sighting {
         Sighting {
             subject: self.subject.clone(),
             element: self.element.clone(),
@@ -425,7 +434,9 @@ fn scan(object: &Map<String, Value>, locus: &Locus, out: &mut Vec<Sighting>) {
 /// six-digit form this names is the one the schema will accept.
 fn opaque_eight_digit(value: &Value) -> Option<String> {
     let body = value.as_str()?.strip_prefix('#')?;
-    if body.len() == 8 && body.bytes().all(|b| b.is_ascii_hexdigit()) && body[6..].eq_ignore_ascii_case("FF")
+    if body.len() == 8
+        && body.bytes().all(|b| b.is_ascii_hexdigit())
+        && body[6..].eq_ignore_ascii_case("FF")
     {
         return Some(format!("#{}", body[..6].to_ascii_uppercase()));
     }

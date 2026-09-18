@@ -39,3 +39,14 @@ pub fn has_ffprobe() -> bool {
         }
     }
 }
+
+/// A path rendered with `/` separators, so a tail can be compared to one.
+///
+/// The project format writes `audio/05-cobweb.mp3`. A *resolved* path is the
+/// platform's, and on Windows that is backslashes plus, after `canonicalize`, a
+/// `\\?\` verbatim prefix — so `ends_with("audio/05-cobweb.mp3")` is false for
+/// a path that is entirely correct. Normalise before comparing a tail; the
+/// separator is the platform's, never the document's.
+pub fn with_forward_slashes(path: &str) -> String {
+    path.replace('\\', "/")
+}

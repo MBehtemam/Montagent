@@ -63,11 +63,15 @@ fn the_schema_is_closed_inside_a_keyframe() {
 #[test]
 fn the_schema_is_closed_at_the_project_level_and_inside_a_track() {
     let project = r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[],"version":1}"##;
-    let message = serde_json::from_str::<Project>(project).unwrap_err().to_string();
+    let message = serde_json::from_str::<Project>(project)
+        .unwrap_err()
+        .to_string();
     assert!(message.contains("version"), "{message}");
 
     let track = r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"t","layer":1,"kind":"visual","elements":[]}]}"##;
-    let message = serde_json::from_str::<Project>(track).unwrap_err().to_string();
+    let message = serde_json::from_str::<Project>(track)
+        .unwrap_err()
+        .to_string();
     // A track's kind is the kind of its elements — derived, and therefore impossible to
     // forget, mistype or leave stale (ADR-0006).
     assert!(message.contains("kind"), "{message}");
@@ -90,7 +94,8 @@ fn an_explicit_default_and_an_omission_stay_distinguishable() {
     // to 1". They diverge the moment a future edit changes the field on a sibling, or the
     // default itself is revisited.
     let pinned = r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000","opacity":1.0}"##;
-    let floating = r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000"}"##;
+    let floating =
+        r##"{"id":"a","type":"rect","start":0,"end":1,"width":10,"height":10,"fill":"#000000"}"##;
 
     let pinned: Project = serde_json::from_str(&project_with(pinned)).unwrap();
     let floating: Project = serde_json::from_str(&project_with(floating)).unwrap();

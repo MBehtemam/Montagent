@@ -1,3 +1,9 @@
+// #34's measured code, deliberately left as it was measured. The two lints
+// below want this module restyled; it is not, because what this module *draws*
+// is the thing under test, and a cleanup that shifts a pixel would invalidate
+// the golden frames ADR-0010 keeps it here to be guarded by.
+#![allow(clippy::map_entry, clippy::field_reassign_with_default)]
+
 use crate::backend::{path_els, src_rect, Backend};
 use crate::media::load_rgba;
 use crate::text::{PathEl, PlacedGlyph, TextShaper};
@@ -85,7 +91,13 @@ impl Backend for SkiaArm {
         );
     }
 
-    fn still(&mut self, src: &str, crop: (f64, f64), s: (f64, f64, f64, f64), d: (f64, f64, f64, f64)) {
+    fn still(
+        &mut self,
+        src: &str,
+        crop: (f64, f64),
+        s: (f64, f64, f64, f64),
+        d: (f64, f64, f64, f64),
+    ) {
         let (img, iw, ih) = self.still_image(src);
         let whole = crop.0 <= 0.0;
         let (ox, oy) = if whole {

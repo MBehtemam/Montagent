@@ -1,0 +1,22 @@
+# Line endings are LF everywhere, on every platform, checkout included.
+#
+# This is not a style preference. ADR-0041 makes canonical key order and
+# one-element-per-line a *byte* convention, and ADR-0011's whole authoring model
+# is that an agent edits a project with ordinary file tools — so an exact-string
+# replace it wrote yesterday has to match today. `write::canonical` emits `\n`.
+# A checkout that rewrites the committed bytes to CRLF breaks the round-trip the
+# format rests on, and it breaks it for a user on Windows exactly as it did for
+# CI: GitHub's Windows runners default to `core.autocrlf=true`, which is how
+# `the_committed_fixture_round_trips_byte_for_byte` first failed (#189).
+* text=auto eol=lf
+
+# Binary, so git never applies a text transformation to them. The reference MP4
+# and the golden frames are compared byte-for-byte or pixel-for-pixel; a fixture
+# font is hashed by ADR-0057's attestation table.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.mp3 binary
+*.otf binary
+*.ttf binary

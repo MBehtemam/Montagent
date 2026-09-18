@@ -56,7 +56,9 @@ fn canonical_key_order_is_the_schemas_property_order() {
     assert_eq!(&image[..5], &prefix);
     assert_eq!(
         &image[5..14],
-        &["source", "x", "y", "origin", "width", "height", "fit", "clip", "scale"]
+        &[
+            "source", "x", "y", "origin", "width", "height", "fit", "clip", "scale"
+        ]
     );
     // ADR-0068: `effects` appends after the type's existing fields.
     assert_eq!(image.last().unwrap(), "effects");

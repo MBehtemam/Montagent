@@ -7,7 +7,7 @@
  "background": "#FBF3E3",
  "spans": [
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/05.png",
+   "image": "fixtures/en-halloween-decorating/images/05.png",
    "start": 0.0,
    "end": 17.472,
    "frames": 524,
@@ -18,7 +18,7 @@
    "zoomStep": 0.0009
   },
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/06.png",
+   "image": "fixtures/en-halloween-decorating/images/06.png",
    "start": 17.472,
    "end": 30.603,
    "frames": 394,
@@ -29,7 +29,7 @@
    "zoomStep": 0.0009
   },
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/07.png",
+   "image": "fixtures/en-halloween-decorating/images/07.png",
    "start": 30.603,
    "end": 42.763000000000005,
    "frames": 365,
@@ -40,7 +40,7 @@
    "zoomStep": 0.0009
   },
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/08.png",
+   "image": "fixtures/en-halloween-decorating/images/08.png",
    "start": 42.763000000000005,
    "end": 53.85600000000001,
    "frames": 333,
@@ -51,7 +51,7 @@
    "zoomStep": 0.0009
   },
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/images/05.png",
+   "image": "fixtures/en-halloween-decorating/images/05.png",
    "start": 53.85600000000001,
    "end": 65.21600000000001,
    "frames": 341,
@@ -63,7 +63,7 @@
   }
  ],
  "badge": {
-  "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/brand/logo-en.png",
+  "src": "fixtures/en-halloween-decorating/brand/logo-en.png",
   "x": 470,
   "y": 104,
   "w": 64,
@@ -1048,57 +1048,57 @@
  ],
  "audio": [
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/intro-2.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/intro-2.mp3",
    "at": 0.0
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/hook-2.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/hook-2.mp3",
    "at": 3.02
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/05-cobweb.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/05-cobweb.mp3",
    "at": 5.32
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
    "at": 10.47
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/06-spider.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/06-spider.mp3",
    "at": 17.47
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-06-spider.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/sentence-06-spider.mp3",
    "at": 22.62
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/07-skeleton.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/07-skeleton.mp3",
    "at": 30.6
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-07-skeleton.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/sentence-07-skeleton.mp3",
    "at": 35.75
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/08-lights.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/08-lights.mp3",
    "at": 42.76
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-08-lights.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/sentence-08-lights.mp3",
    "at": 47.33
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/quiz-2.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/quiz-2.mp3",
    "at": 53.85
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
+   "src": "fixtures/en-halloween-decorating/audio/sentence-05-cobweb.mp3",
    "at": 61.11
   }
  ],
  "clips": [
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4",
+   "src": "fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4",
    "start": 30.0,
    "end": 60.0,
    "srcStart": 5.0,

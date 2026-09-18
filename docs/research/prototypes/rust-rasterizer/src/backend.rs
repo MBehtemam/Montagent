@@ -25,7 +25,10 @@ pub trait Backend {
 /// Source rect for a still: the ops give it inside a centred cropW x cropH
 /// window, exactly as #6's skia-canvas arm resolved it.
 pub fn src_rect(iw: u32, ih: u32, crop_w: f64, crop_h: f64, sx: f64, sy: f64) -> (f64, f64) {
-    ((iw as f64 - crop_w) / 2.0 + sx, (ih as f64 - crop_h) / 2.0 + sy)
+    (
+        (iw as f64 - crop_w) / 2.0 + sx,
+        (ih as f64 - crop_h) / 2.0 + sy,
+    )
 }
 
 pub fn path_els<'a>(shaper: &'a TextShaper, g: &PlacedGlyph) -> &'a [PathEl] {

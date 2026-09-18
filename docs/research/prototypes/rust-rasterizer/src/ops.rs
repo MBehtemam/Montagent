@@ -46,7 +46,6 @@ pub enum Op {
         align: u8,
         colour: [u8; 4],
         size: f64,
-        font: String,
         lines: Vec<String>,
     },
 }
@@ -153,7 +152,12 @@ pub fn ops_at(scene: &Scene, frame: i64, k: f64) -> Vec<Op> {
     for e in live {
         match e {
             Event::Rect {
-                x, y, w, h, colour: c, ..
+                x,
+                y,
+                w,
+                h,
+                colour: c,
+                ..
             } => ops.push(Op::Rect {
                 x: x * k,
                 y: y * k,
@@ -167,7 +171,6 @@ pub fn ops_at(scene: &Scene, frame: i64, k: f64) -> Vec<Op> {
                 align,
                 colour: c,
                 size,
-                font,
                 lines,
                 ..
             } => ops.push(Op::Text {
@@ -176,7 +179,6 @@ pub fn ops_at(scene: &Scene, frame: i64, k: f64) -> Vec<Op> {
                 align: *align,
                 colour: colour(c),
                 size: size * k,
-                font: font.clone(),
                 lines: lines.clone(),
             }),
         }
