@@ -446,6 +446,23 @@ without it a clean run is read as *"the file is right"*, which is the rejected
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
 _Avoid_: caveat, disclaimer, limitations
 
+**Resource**:
+Something the MCP server publishes for an agent to *read* rather than to call —
+the published JSON Schema (`montaget://schema.json`) and the format docs
+(`montaget://format.md`). There are exactly two, and being resources rather than
+verbs is the whole point: an MCP tool schema costs the agent context on every
+turn, and a resource costs no tool slot at all, so this is what makes *"how does
+the agent know how to edit `project.json`"* answerable the same way
+`package.json` is. The schema one is **generated on each read**, never a
+committed copy served back, so the published schema and the enforced one stay one
+artifact. Strictly the protocol's word, not the document's: an element's `source`
+is never a resource — that noun is on **Source**'s avoid-list and stays there.
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md), and the URIs
+themselves rest on [#246](https://github.com/MBehtemam/Montaget/issues/246)
+rather than on a decision)
+_Avoid_: asset, document, endpoint, attachment; and never for an element's
+`source`
+
 **Verb**:
 One operation on the surface — `validate`, `query`, `frame`, `measure`,
 `compare`, `render`, `shift`, `create_project`, `probe`, `fmt`, `timeline`. The

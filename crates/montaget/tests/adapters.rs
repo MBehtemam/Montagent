@@ -619,8 +619,7 @@ fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_stat
                 "name": "create_project",
                 "arguments": {
                     "project": project.to_str().unwrap(),
-                    "width": 1080,
-                    "height": 1920,
+                    "frame": {"width": 1080, "height": 1920},
                     "fps": 25,
                     "background": "#FBF3E3",
                     "duration": 65216,
@@ -651,7 +650,7 @@ fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_stat
     assert_eq!(schema["type"], "object");
     assert_eq!(
         schema["required"],
-        serde_json::json!(["project", "width", "height", "fps"]),
+        serde_json::json!(["project", "frame", "fps"]),
         "the two the format requires, plus where to write it"
     );
     for property in ["background", "duration", "output", "json", "verbose"] {
@@ -660,6 +659,40 @@ fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_stat
             "the schema advertises `{property}`"
         );
     }
+
+    // ADR-0011's write-tool invariant is that a write tool takes "a schema-shaped object",
+    // never a list of field names. The header fields this tool advertises must therefore be
+    // the header fields the *published* schema defines, spelled the same way and nested the
+    // same way — an adapter that flattened `frame` into `width`/`height` would be a second
+    // shape for the agent to learn, and nothing but this assertion would notice.
+    let published = montaget_core::schema::generate();
+    let header = published["properties"]
+        .as_object()
+        .expect("the project header's properties");
+    let advertised: Vec<&str> = schema["properties"]
+        .as_object()
+        .expect("the tool's properties")
+        .keys()
+        .map(String::as_str)
+        // `project`, `json` and `verbose` are the call's own — where to write, and which
+        // wire form to answer in — and are not fields of the document.
+        .filter(|name| !["project", "json", "verbose"].contains(name))
+        .collect();
+    for name in &advertised {
+        assert!(
+            header.contains_key(*name),
+            "`{name}` is not a field of the project header: {:?}",
+            header.keys().collect::<Vec<_>>()
+        );
+    }
+    assert_eq!(
+        schema["properties"]["frame"]["$ref"]
+            .as_str()
+            .map(|r| r.rsplit('/').next().unwrap_or(r)),
+        Some("FrameParam"),
+        "`frame` is the nested object the format defines, not a flattened pair: {}",
+        schema["properties"]["frame"]
+    );
 
     let call = &session[&3];
     assert_eq!(call["result"]["isError"], false, "{call}");

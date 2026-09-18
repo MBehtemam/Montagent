@@ -82,6 +82,57 @@ fn the_format_docs_serve_the_rules_the_schema_cannot_express() {
 }
 
 #[test]
+fn every_adr_the_format_docs_cite_exists_and_is_still_accepted() {
+    // The guard the prose half needs and the schema half gets for free. The schema resource
+    // is generated, so it cannot drift; these 200 lines are hand-written and restate rules
+    // the ADR series owns — which is the two-artifact drift spec #168 says this project has
+    // already found three times, in a place no test was looking.
+    //
+    // It is not a semantic check and does not pretend to be: what it catches is a rule
+    // taught here whose ADR has since been retracted or superseded outright. That is the
+    // failure that would otherwise be silent, because the docs would go on reading
+    // perfectly well. `docs/agents/domain.md` asks a claim like this for a re-executable
+    // check rather than a screenshot of one; this is it.
+    let docs = resources::read(resources::FORMAT.uri).expect("the format docs resource");
+
+    let mut cited: Vec<String> = docs
+        .match_indices("ADR-")
+        .filter_map(|(at, _)| docs.get(at + 4..at + 8))
+        .filter(|number| number.chars().all(|c| c.is_ascii_digit()))
+        .map(str::to_string)
+        .collect();
+    cited.sort();
+    cited.dedup();
+    assert!(
+        cited.len() > 20,
+        "the docs cite {} ADRs, which is too few to be citing its rules at all",
+        cited.len()
+    );
+
+    let adrs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/adr");
+    for number in cited {
+        let file = std::fs::read_dir(&adrs)
+            .expect("the ADR series")
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .find(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&format!("{number}-")))
+            })
+            .unwrap_or_else(|| panic!("the format docs cite ADR-{number}, which does not exist"));
+
+        let body = std::fs::read_to_string(&file).expect("read the ADR");
+        assert!(
+            status(&body).is_some_and(|status| status.starts_with("accepted")),
+            "the format docs teach a rule from ADR-{number}, whose status is {:?}: {}",
+            status(&body),
+            file.display()
+        );
+    }
+}
+
+#[test]
 fn both_resources_are_listed_and_every_listed_one_is_readable() {
     // A listing that names a URI nothing serves is worse than no listing: an agent spends a
     // round trip discovering the gap.
@@ -104,4 +155,18 @@ fn both_resources_are_listed_and_every_listed_one_is_readable() {
 fn an_unpublished_uri_serves_nothing() {
     assert_eq!(resources::read("montaget://everything.json"), None);
     assert_eq!(resources::read("file:///etc/passwd"), None);
+}
+
+/// An ADR's declared status, in either of the two spellings the series carries: YAML front
+/// matter (`status: accepted`) and a bold header line (`**Status:** accepted`). Both are
+/// real and committed, and a check that knew only the first passed 65 ADRs and failed on
+/// ADR-0008 for a reason that had nothing to do with its status.
+fn status(body: &str) -> Option<String> {
+    body.lines().take(12).find_map(|line| {
+        let line = line.trim();
+        let rest = line
+            .strip_prefix("status:")
+            .or_else(|| line.strip_prefix("**Status:**"))?;
+        Some(rest.trim().to_lowercase())
+    })
 }

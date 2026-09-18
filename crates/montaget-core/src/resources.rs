@@ -27,7 +27,9 @@
 /// ADR-0011 names *"the schema"* and *"the format docs"* and settles neither their URIs nor
 /// their names. The two below are a published surface an agent will cite and should not
 /// move; that they rest on this module rather than on a decision is raised as #246.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// No `PartialEq`: the derive would compare `body`, and comparing function pointers is
+// unpredictable. Resources are identified by `uri`, which is what `find` compares.
+#[derive(Debug, Clone, Copy)]
 pub struct Resource {
     /// The stable URI an agent reads it by.
     pub uri: &'static str,
@@ -38,6 +40,19 @@ pub struct Resource {
     /// What it is for — the sentence that decides whether an agent opens it.
     pub description: &'static str,
     pub mime_type: &'static str,
+    /// Where the bytes come from.
+    ///
+    /// A function on the declaration rather than a second `match` keyed on `uri`, so
+    /// listing a resource and serving one cannot disagree about what is published — the
+    /// failure mode being a URI that lists and then reads as nothing.
+    body: fn() -> String,
+}
+
+impl Resource {
+    /// This resource's bytes, generated or embedded as its own declaration says.
+    pub fn body(&self) -> String {
+        (self.body)()
+    }
 }
 
 /// The generated JSON Schema: the authority on the format's *shape*.
@@ -51,6 +66,7 @@ pub const SCHEMA: Resource = Resource {
                   than a description of it. Canonical key order is this schema's property \
                   order.",
     mime_type: "application/schema+json",
+    body: crate::schema::generated_bytes,
 };
 
 /// The prose: the authority on everything the shape cannot say.
@@ -64,10 +80,15 @@ pub const FORMAT: Resource = Resource {
                   content, and how sources resolve. Read this alongside the schema before \
                   editing a project by hand.",
     mime_type: "text/markdown",
+    body: format_docs,
 };
 
 /// The format docs, verbatim.
 pub const FORMAT_DOCS: &str = include_str!("../docs/format.md");
+
+fn format_docs() -> String {
+    FORMAT_DOCS.to_string()
+}
 
 /// Every published resource, in the order an agent should meet them: shape first, then the
 /// rules over it.
@@ -75,16 +96,15 @@ pub fn all() -> &'static [Resource] {
     &[SCHEMA, FORMAT]
 }
 
+/// The resource published at `uri`, or `None` if nothing is.
+///
+/// The declaration, not the bytes — a caller that wants both asks here once and then calls
+/// [`read`], rather than keying two lookups on the same string.
+pub fn find(uri: &str) -> Option<&'static Resource> {
+    all().iter().find(|resource| resource.uri == uri)
+}
+
 /// The bytes behind one URI, or `None` if nothing is published there.
 pub fn read(uri: &str) -> Option<String> {
-    // A chain rather than a `match`: a `Resource`'s `uri` is an associated constant, which
-    // is not a pattern, and duplicating the two strings as literals here is exactly the
-    // second place a name can go stale.
-    if uri == SCHEMA.uri {
-        Some(crate::schema::generated_bytes())
-    } else if uri == FORMAT.uri {
-        Some(FORMAT_DOCS.to_string())
-    } else {
-        None
-    }
+    find(uri).map(Resource::body)
 }

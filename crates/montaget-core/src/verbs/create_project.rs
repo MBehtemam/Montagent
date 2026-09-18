@@ -17,9 +17,11 @@
 //!   `"background": "#000000"` on the agent's behalf would be authoring a declaration
 //!   nobody made. `background`, `duration` and `output` are offered as arguments — which is
 //!   what story 1 of spec #168 is asking for, a file whose shape the agent does not have to
-//!   invent — and appear in the file exactly when they were asked for. ADR-0030 leaves this
-//!   one open in as many words, and #194 reads the other way; raised as #246 rather than
-//!   left to be discovered from the struct.
+//!   invent — and appear in the file exactly when they were asked for. This is a **declared
+//!   departure from #194**, which enumerates five keys: ADR-0030 leaves the question open in
+//!   as many words rather than deciding it, so there is no ADR to invoke against the ticket,
+//!   only the reason above. Raised as #246 rather than left to be discovered from the
+//!   struct.
 //! - **It decides nothing about canonical form.** The bytes come from
 //!   [`crate::write::canonical`], and their key order comes from serialising
 //!   [`crate::model::Project`], whose field order *is* canonical key order (ADR-0041).
@@ -30,10 +32,10 @@
 
 use std::path::Path;
 
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 use crate::finding::Finding;
-use crate::model::Project;
+use crate::model::{Colour, Frame, Project};
 use crate::report::Report;
 use crate::write;
 
@@ -105,11 +107,8 @@ pub fn create_project(path: &Path, scaffold: &Scaffold) -> Report {
     }
 
     if let Err(e) = write::atomically(path, &write::canonical(&header)) {
-        // `fmt`'s choice, for `fmt`'s reason: the file is untouched, so there is nothing
-        // about the *project* to report, and ADR-0011 gives "Montaget could not run" its
-        // own exit code precisely so it is not mistaken for a defect in the document.
         let mut report = Report::new(TOOL, project);
-        report.fail_internally(format!("{} could not be written: {e}", path.display()));
+        report.could_not_write(path.display(), &e);
         return report;
     }
 
@@ -122,31 +121,40 @@ pub fn create_project(path: &Path, scaffold: &Scaffold) -> Report {
 
 /// The scaffolded header, in canonical key order, or why it could not be built.
 ///
-/// Order is not stated here. The map below is assembled in whatever order reads well, then
-/// round-tripped through [`Project`] — which both rejects a value the format does not admit
-/// (a lowercase colour, a CSS name) and re-emits the keys in struct-field order, and struct
-/// field order *is* canonical key order (ADR-0041). A scaffold that wrote its own ordering
-/// would be the second place the rule lives.
+/// [`Project`] is built as a value rather than as a map of key strings, so the format's
+/// field names are spelled once — in the model — rather than again here. Serialising it is
+/// what produces canonical key order: struct field order *is* canonical key order
+/// (ADR-0041), so a scaffold that assembled its own ordering would be the second place the
+/// rule lives.
+///
+/// `background` is the one field that cannot be built by assignment: [`Colour`] admits
+/// `#RRGGBB` and `#RRGGBBAA` uppercase and nothing else, and its check lives in its
+/// `Deserialize`. Going through that is the point — the alternative is a second colour
+/// predicate here, disagreeing with the first the day one of them is revised.
 fn header(scaffold: &Scaffold) -> Result<Value, String> {
-    let mut header = Map::new();
-    header.insert(
-        "frame".to_string(),
-        json!({"width": scaffold.width, "height": scaffold.height}),
-    );
-    header.insert("fps".to_string(), json!(scaffold.fps));
-    if let Some(background) = &scaffold.background {
-        header.insert("background".to_string(), json!(background));
-    }
-    if let Some(duration) = scaffold.duration {
-        header.insert("duration".to_string(), json!(duration));
-    }
-    if let Some(output) = &scaffold.output {
-        header.insert("output".to_string(), json!(output));
-    }
-    header.insert("tracks".to_string(), json!([]));
-
-    let project: Project = serde_json::from_value(Value::Object(header))
+    let background = scaffold
+        .background
+        .as_deref()
+        .map(|colour| serde_json::from_value::<Colour>(json!(colour)))
+        .transpose()
         .map_err(|e| format!("`create_project`: {e}"))?;
+
+    let project = Project {
+        frame: Frame {
+            width: scaffold.width,
+            height: scaffold.height,
+        },
+        fps: scaffold.fps,
+        background,
+        duration: scaffold.duration,
+        // ADR-0062's `loop` is not one of the five #194 enumerates, and ADR-0030 means
+        // writing it at its default would be a declaration rather than a scaffold.
+        looping: None,
+        output: scaffold.output.clone(),
+        fonts: None,
+        font_vendor: None,
+        tracks: Vec::new(),
+    };
     serde_json::to_value(&project).map_err(|e| format!("`create_project`: {e}"))
 }
 

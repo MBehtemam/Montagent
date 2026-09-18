@@ -39,14 +39,6 @@ fn advertised<T: schemars::JsonSchema>()
     std::sync::Arc::new(object)
 }
 
-fn validate_schema() -> std::sync::Arc<serde_json::Map<String, serde_json::Value>> {
-    advertised::<ValidateParams>()
-}
-
-fn create_project_schema() -> std::sync::Arc<serde_json::Map<String, serde_json::Value>> {
-    advertised::<CreateProjectParams>()
-}
-
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValidateParams {
     /// Path to the project file.
@@ -59,25 +51,30 @@ pub struct ValidateParams {
     pub verbose: bool,
 }
 
-/// `create_project`'s arguments.
+/// `create_project`'s arguments: **the project header, in the shape the schema gives it.**
 ///
-/// `frame` is two arguments rather than a nested object because the tool schema an agent
-/// reads is a flat list of names and descriptions, and `{"width": …, "height": …}` nested
-/// one level deep is a shape it has to reconstruct from prose. The *file* keeps the nested
-/// `frame` object the format defines; that mapping is this adapter's whole job.
+/// ADR-0011's write-tool invariant is that a write tool *"may only take a complete element,
+/// as a schema-shaped object. No tool takes a field name"*. The invariant names elements,
+/// and this verb writes a header rather than an element — but the rule it protects is that
+/// the argument shape and the file shape are one thing an agent has to learn, not two. So
+/// `frame` is the nested `{"width": …, "height": …}` object the published schema defines,
+/// and not a flattened `width`/`height` pair: an agent that has read
+/// `montaget://schema.json` already knows this call's shape, and the adapter invents none
+/// of it.
 ///
 /// `background`, `duration` and `output` are optional, and their absence is not a
 /// convenience — ADR-0030 makes omission and explicit-at-default two spellings of different
 /// declarations, so a scaffold that filled them in would be authoring a claim the agent
-/// never made. Pass them to have them written; omit them to leave them out of the file.
+/// never made (#246). Pass them to have them written; omit them to leave them out.
+///
+/// `project`, `json` and `verbose` are the call's own, not the document's: where to write,
+/// and which wire form to answer in.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct CreateProjectParams {
     /// Path of the project file to create. It must not already exist.
     pub project: String,
-    /// Frame width in pixels.
-    pub width: i64,
-    /// Frame height in pixels.
-    pub height: i64,
+    /// The frame size, `{"width": 1080, "height": 1920}`, in pixels.
+    pub frame: FrameParam,
     /// Frames per second.
     pub fps: i64,
     /// Background colour, `#RRGGBB` or `#RRGGBBAA`, uppercase.
@@ -95,6 +92,15 @@ pub struct CreateProjectParams {
     /// Expand the informational classes that collapse to one counted line.
     #[serde(default)]
     pub verbose: bool,
+}
+
+/// The project's `frame` object, as the schema shapes it.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct FrameParam {
+    /// Frame width in pixels.
+    pub width: i64,
+    /// Frame height in pixels.
+    pub height: i64,
 }
 
 #[derive(Clone)]
@@ -116,7 +122,7 @@ impl Montaget {
                        disk? Reports findings with stable codes and severities, and prints \
                        its own boundary: it cannot tell you whether the file says what you \
                        meant it to say.",
-        input_schema = validate_schema()
+        input_schema = advertised::<ValidateParams>()
     )]
     fn validate(
         &self,
@@ -154,7 +160,7 @@ impl Montaget {
                        returns the new file's findings rather than `ok` — read \
                        `montaget://schema.json` and `montaget://format.md` before editing \
                        what it gives you.",
-        input_schema = create_project_schema()
+        input_schema = advertised::<CreateProjectParams>()
     )]
     fn create_project(
         &self,
@@ -168,8 +174,8 @@ impl Montaget {
         let report = montaget_core::verbs::create_project::create_project(
             &PathBuf::from(&params.project),
             &Scaffold {
-                width: params.width,
-                height: params.height,
+                width: params.frame.width,
+                height: params.frame.height,
                 fps: params.fps,
                 background: params.background,
                 duration: params.duration,
@@ -271,20 +277,15 @@ impl ServerHandler for Montaget {
         // resources`). This adapter owns the protocol and nothing else — including the fact
         // that the schema is *generated* on each read rather than loaded from the committed
         // copy, which is what keeps the published schema and the enforced one one artifact.
-        let Some(body) = resources::read(&request.uri) else {
+        let Some(resource) = resources::find(&request.uri) else {
             return Err(ErrorData::resource_not_found(
                 format!("no resource at {}", request.uri),
                 None,
             ));
         };
-        let mime = resources::all()
-            .iter()
-            .find(|resource| resource.uri == request.uri)
-            .map(|resource| resource.mime_type)
-            .unwrap_or("text/plain");
-
         Ok(ReadResourceResult::new(vec![
-            ResourceContents::text(body, &request.uri).with_mime_type(mime),
+            ResourceContents::text(resource.body(), resource.uri)
+                .with_mime_type(resource.mime_type),
         ])
         .into())
     }
