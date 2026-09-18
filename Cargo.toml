@@ -18,5 +18,6 @@ repository = "https://github.com/MBehtemam/Montaget"
 montaget-core = { path = "crates/montaget-core", version = "0.1.0" }
 montaget-text = { path = "crates/montaget-text", version = "0.1.0" }
 montaget-render = { path = "crates/montaget-render", version = "0.1.0" }
+schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

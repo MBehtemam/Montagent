@@ -1,0 +1,513 @@
+//! The project format, as Rust types.
+//!
+//! This is the module every later ticket reads the document through, and the one place the
+//! format's shape is stated once. Three rules run through all of it and are worth knowing
+//! before reading any single type:
+//!
+//! **Field order is the format.** ADR-0041 fixes canonical key order as the published
+//! schema's property-declaration order, and the schema is generated from these types — so
+//! **struct field order here *is* canonical key order**. Reordering a field later is a
+//! format change that surfaces as a `LAYOUT` finding on every file already written. Every
+//! type below carries the universal prefix `id, type, group, start, end` first, then its
+//! own order as ADR-0041's table states it, then `effects` last (ADR-0068).
+//!
+//! **Presence is content.** ADR-0030: omission and explicit-at-default are two spellings
+//! of *different declarations* — omission says "give me whatever the default is", an
+//! explicit `opacity: 1` says "I have pinned this to 1" — and they diverge the moment the
+//! default is revisited. So every defaultable field is an `Option<T>` with
+//! `skip_serializing_if`, never a `#[serde(default)]` that would erase the distinction on
+//! the way back out.
+//!
+//! **The schema is closed, everywhere.** ADR-0017: every object shape carries
+//! `deny_unknown_fields`, including `run` and `keyframe`, because the unknown-key error is
+//! the *only* signal an old binary has that a file was authored against a newer schema —
+//! and an optional signal is indistinguishable from no signal.
+
+mod element;
+pub mod effects;
+pub mod keyframe;
+pub mod text;
+
+use std::collections::BTreeMap;
+
+use schemars::JsonSchema;
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize};
+
+pub use effects::{Effect, MaskShape};
+pub use element::canonical_key_order;
+pub use keyframe::{Animatable, Ease, EaseName, Keyframe};
+pub use text::{Align, Dir, Highlight, Run};
+
+/// `[sx, sy]`, never a bare number.
+///
+/// ADR-0012 paid the +26 % this costs on the fixture's isotropic Ken Burns lists
+/// deliberately: a union would put a shape test in every consumer that touches a keyframe,
+/// and `fmt` normalising a scalar on write is not the escape hatch it looks like — the
+/// agent's next exact-string replace on the string it just wrote gets zero hits.
+pub type Scale = [f64; 2];
+
+/// The static frame-space aperture, `[x, y, width, height]` in absolute integer pixels.
+///
+/// ADR-0025 settled that it never animates: it is simultaneously the aperture a source is
+/// drawn through and the fixed denominator ADR-0015's fit check compares a declared extent
+/// against, and the second job has no well-defined predicate if the box has one value per
+/// instant.
+pub type Clip = [i64; 4];
+
+/// `#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct Colour(String);
+
+impl Colour {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Colour {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(d)?;
+        let body = text.strip_prefix('#').ok_or_else(|| {
+            D::Error::custom(format!("{text} is not a colour; write `#RRGGBB` or `#RRGGBBAA`"))
+        })?;
+        if !body.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase()) {
+            return Err(D::Error::custom(format!(
+                "{text} is not a colour: hex digits are uppercase, and there are no CSS names"
+            )));
+        }
+        if !body.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(D::Error::custom(format!("{text} is not a colour: expected hex digits")));
+        }
+        // The three-digit shorthand and the fully-opaque eight-digit form are each a second
+        // spelling of a value the six-digit form already says, and two spellings of one
+        // value break the write-read round trip the same way `center-center` does.
+        match body.len() {
+            6 => {}
+            8 if body.ends_with("FF") => {
+                return Err(D::Error::custom(format!(
+                    "{text} is the opaque form of #{}; write the six-digit form",
+                    &body[..6]
+                )));
+            }
+            8 => {}
+            3 => {
+                return Err(D::Error::custom(format!(
+                    "{text} is the three-digit shorthand; write all six digits"
+                )));
+            }
+            n => {
+                return Err(D::Error::custom(format!(
+                    "{text} has {n} hex digits; a colour has six, or eight with alpha"
+                )));
+            }
+        }
+        Ok(Colour(text))
+    }
+}
+
+/// The nine-way point of an element's own box that its `x`,`y` places, and about which
+/// transforms pivot. Vertical component first.
+///
+/// `center-center` is deliberately absent and is a schema error naming `center`: the middle
+/// elides to `center` alone, because two spellings of one value break the write-read round
+/// trip. It is `center-left`, never `middle-left` — `top-center` needs a horizontal-middle
+/// word regardless, so a separate `middle` would spell one concept two ways depending on
+/// axis (ADR-0013).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum Origin {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    CenterLeft,
+    Center,
+    CenterRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+/// A claim about how the author computed `width`/`height` — not a layout mode.
+///
+/// ADR-0015's load-bearing sentence: the declared rect is authoritative at render, so `fit`
+/// **never executes**. No renderer reads it; its only consumer is `validate`. It is the
+/// format's first field that is purely an assertion — a provenance tag on two integers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Fit {
+    /// Drawn rect ⊇ the `clip` box. Requires `clip`.
+    Cover,
+    /// Drawn rect ⊆ the `clip` box. Requires `clip`.
+    Contain,
+    /// No derivation rule. The escape value needed a name and `literal` is not a coinage —
+    /// ADR-0007's headline is *"Literal `size`. No fit-to-box."*
+    Literal,
+}
+
+/// What a time-based element does past the end of its (possibly speed-adjusted) source.
+///
+/// There is no third value and no `"none"`: the field's presence alone signals the
+/// condition, so an explicit "no overrun" would be indistinguishable from omission
+/// (ADR-0020).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Overrun {
+    /// The last in-range frame freezes and repeats. A schema error on audio, where the
+    /// correct spelling of "then silence" is a shorter element and a gap.
+    Hold,
+    /// The source restarts from `source_start` with a hard cut — no crossfade, which would
+    /// need an unstated duration and curve.
+    Loop,
+}
+
+/// The project's pixel dimensions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Frame {
+    pub width: i64,
+    pub height: i64,
+}
+
+/// One entry in a font's ordered fallback chain: always a file path relative to the
+/// project, never a system family name (ADR-0007).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FontFile {
+    pub file: String,
+    /// For `.ttc` collections. 49 of the fonts in a stock macOS `/System/Library/Fonts`
+    /// are collections, so this is the normal case rather than an exotic one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<u32>,
+}
+
+/// What `fonts vendor` learned about one font file, keyed by that file's path.
+///
+/// ADR-0057 put this in its own top-level table rather than inline on each chain entry:
+/// the `fonts` table is a *reference* structure and one file may appear under several
+/// keys, so inlining would duplicate the same hash and licence at every point of reference
+/// — and duplicated facts drift the moment one copy is re-vendored and the other is not.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FontAttestation {
+    pub licence: String,
+    pub source: String,
+    pub sha256: String,
+}
+
+/// A named container holding elements, with an integer `layer` giving its place in the
+/// stack.
+///
+/// A track supplies *stacking*, never *timing*: it has no start, no duration and no clock
+/// (ADR-0004). Array order carries no meaning, for timing or for stacking — ADR-0060
+/// confirmed a layer tie is never broken by declaration order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Track {
+    pub name: String,
+    pub layer: i64,
+    pub elements: Vec<Element>,
+}
+
+/// The whole video, as a single declarative document.
+///
+/// Field order is canonical key order (ADR-0041), and matches the committed fixture
+/// exactly. `loop` is the one field whose position no ADR states — ADR-0062 introduced it
+/// and ADR-0041's rule hands the position to the introducing ADR, which did not take it.
+/// It is placed next to `duration` because that is the field it talks about: `loop: true`
+/// asserts that `duration` connects back to `0`. Recorded rather than decided silently.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Project {
+    pub frame: Frame,
+    pub fps: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Colour>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration: Option<i64>,
+    /// ADR-0062. Default `false`/absent; affects nothing but one `validate` check, and
+    /// Montaget writes no container-level loop metadata.
+    #[serde(rename = "loop", default, skip_serializing_if = "Option::is_none")]
+    pub looping: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
+    #[serde(rename = "fontVendor", default, skip_serializing_if = "Option::is_none")]
+    pub font_vendor: Option<BTreeMap<String, FontAttestation>>,
+    pub tracks: Vec<Track>,
+}
+
+/// One thing placed on the timeline.
+///
+/// The first five fields are the universal prefix every element carries regardless of type
+/// — `id, type, group, start, end` — with `group` omitted entirely rather than written as
+/// `null` when the element carries none (ADR-0041).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Element {
+    /// Required and unique. Its only job is to be a target — an anchor's `below`/`above`
+    /// (ADR-0019), a transition's pair.
+    pub id: String,
+    /// Optional, and render-inert: it says two elements belong to one authorial unit and
+    /// nothing more.
+    pub group: Option<String>,
+    /// Integer milliseconds on the project's single absolute timeline. The interval is
+    /// **half-open** — `[start, end)` — so an element whose `end` is 7500 is not on screen
+    /// at 7500 and its neighbour starting at 7500 is (ADR-0005).
+    pub start: i64,
+    pub end: i64,
+    /// The type-discriminated remainder. `type` is written between `id` and `group`, which
+    /// is why the prefix is assembled by hand rather than by `#[serde(flatten)]`.
+    pub body: Body,
+}
+
+/// The per-type field set, discriminated by `type`.
+///
+/// ADR-0012: the field set is a **function of `type`** — *"`x` on an audio element is a
+/// schema error naming the replacement"*, never a silently-ignored field. That is also why
+/// shapes are sibling types rather than one `shape` type with a discriminator inside it: a
+/// second, omissible discriminator would let a malformed ellipse render as a rect, silently
+/// and plausibly (ADR-0014).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum Body {
+    Image(Image),
+    Video(Video),
+    Text(TextElement),
+    Rect(Shape),
+    Ellipse(Shape),
+    Audio(Audio),
+    Transition(Transition),
+}
+
+impl Body {
+    /// The `type` string, which is also the substring an agent greps under exact-string
+    /// editing.
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Body::Image(_) => "image",
+            Body::Video(_) => "video",
+            Body::Text(_) => "text",
+            Body::Rect(_) => "rect",
+            Body::Ellipse(_) => "ellipse",
+            Body::Audio(_) => "audio",
+            Body::Transition(_) => "transition",
+        }
+    }
+}
+
+/// `source, x, y, origin, width, height, fit, clip, scale` — ADR-0041's measured order —
+/// then the two transform properties ADR-0012 declares after `scale`, then `effects`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Image {
+    /// Inline, never an asset-table reference (ADR-0002).
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    /// Required, never defaulted: the source's dimensions are not in the document, so a
+    /// natural-size default would make the element's rendered rect unreadable — and it
+    /// would fail *quietly*, because a centre-cropped photo looks plausible (ADR-0012).
+    pub width: i64,
+    pub height: i64,
+    /// Required on every element carrying a raster source; omission is a schema error
+    /// naming the three values (ADR-0015).
+    pub fit: Fit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<Clip>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    /// Degrees clockwise, and **never normalised into `[0,360)`** — `1080` is three turns,
+    /// and a writer that wraps it silently renders one third of the motion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+/// An image that also has a clock.
+///
+/// ADR-0041 has no measured order for `video` — the fixture has no instance — and states
+/// that whichever ADR first fixes its full property set fixes its order too. No ADR has,
+/// so this ticket does, following the two orders that *are* measured: `image`'s visual
+/// sequence, with `audio`'s `source_start, source_end` in `audio`'s own relative position
+/// directly after `source`, then the fields a video shares with audio.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Video {
+    pub source: String,
+    pub source_start: i64,
+    pub source_end: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    pub width: i64,
+    pub height: i64,
+    pub fit: Fit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<Clip>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    /// A rate multiplier, strictly greater than zero: `0.645` plays the source slower.
+    /// Negative is a schema error — reverse is a real need, deferred to its own explicit
+    /// field rather than overloaded onto this one as a sign bit (ADR-0020).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overrun: Option<Overrun>,
+    /// A video element is one element with intrinsic audio, so its embedded audio reuses
+    /// this same field and there is no `mute` — `volume: 0` already says silent, including
+    /// at one instant via a keyframe (ADR-0055).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+/// `x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's
+/// measured order — then the paint ADR-0014 adds, the transform properties, and `effects`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextElement {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    /// The box the text must fit inside — required, because an omitted `height` would be
+    /// indistinguishable from a decision not to check (ADR-0014). It is a *container
+    /// claim*, not drawn geometry, which is why a stroke grows into it rather than past it.
+    pub width: i64,
+    pub height: i64,
+    /// A key into the project's `fonts` table, never a system family name.
+    pub font: String,
+    /// A literal number. The renderer never chooses a size and never chooses a line break
+    /// (ADR-0007) — the fitted sizes in the fixture came from a pipeline that measured and
+    /// wrote literals, and that loop moves to authoring time rather than disappearing.
+    ///
+    /// An integer, by ADR-0012's absolute-integer-pixels rule: a size is a length in the
+    /// project's frame space, like `width` and `height`, and all 22 of the fixture's text
+    /// elements carry one. A float would additionally give every whole size two spellings —
+    /// `55` and `55.0` — which is the ambiguity `center-center` and the `scale` union were
+    /// each retired for.
+    pub size: i64,
+    /// Restricted to one decimal digit, always exactly representable as `n/10`, so the
+    /// block-height derivation is exact integer arithmetic and never IEEE double
+    /// (ADR-0028). Defaults to `1.2` when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_height: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Colour>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<Align>,
+    pub runs: Vec<Run>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Colour>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+/// `rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which
+/// is exactly what distinguishes it from the point-list shapes ADR-0014 rejected.
+///
+/// ADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and
+/// `stroke_width` follow, from the ADR that introduced them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Shape {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    pub width: i64,
+    pub height: i64,
+    /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
+    /// is a schema error naming both, because an element that deliberately renders nothing
+    /// and an element that forgot its paint must not look alike.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Colour>,
+    /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
+    /// still occupies exactly 984×169 (ADR-0014).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Colour>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+/// `source, source_start, source_end` — ADR-0041's measured order — then the fields the
+/// fixture appends after a type's core set.
+///
+/// An audio element carries no transform: `x` on it is a schema error naming the
+/// replacement, and the specific trap is `opacity`, which an agent will write meaning
+/// volume and which would fade nothing, forever (ADR-0012).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Audio {
+    pub source: String,
+    pub source_start: i64,
+    pub source_end: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<f64>,
+    /// `hold` is a schema error on audio: there is no non-arbitrary meaning for holding the
+    /// last sample, and "then silence" is already free as a shorter element plus a gap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overrun: Option<Overrun>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<Animatable<f64>>,
+}
+
+/// A transition is its own element type, with its own time range and two id references —
+/// not a property on either bridged element, which would create an unprincipled ownership
+/// question, and not an effect, which is element-local by construction (ADR-0059).
+///
+/// ADR-0059 names *"two id references"* without naming the fields. This ticket calls them
+/// `from` and `to`, and records that as a spelling the ADR series may want to ratify.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Transition {
+    /// `crossfade` is the whole v1 vocabulary. Wipe, slide and push are deferred — not
+    /// because they are unwanted but because reference-class ubiquity is no evidence for
+    /// how they parameterize, and freezing a closed-vocabulary member on a guess is the
+    /// trap ADR-0040 avoided with colour filter.
+    pub kind: TransitionKind,
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum TransitionKind {
+    Crossfade,
+}
