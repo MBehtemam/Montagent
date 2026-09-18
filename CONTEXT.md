@@ -501,7 +501,7 @@ remarks in passing that *"`box` was migrated by arithmetic script"* and
 is explicit that it *"classifies `gravity` and nothing else"*, so no ADR has ruled. Until
 one does, the check refuses, under ADR-0043's own standing rule that a check refuses where
 any instance it can match could be load-bearing. The placement is provisional; the ruling
-belongs to an ADR ([#192](https://github.com/MBehtemam/Montaget/issues/192)).
+belongs to an ADR ([#228](https://github.com/MBehtemam/Montaget/issues/228)).
 
 **Align, for images**:
 `align` means one thing: how a text element's lines align to each other
@@ -517,7 +517,7 @@ caused a live misreading: the fixture's `align:"left"` on text was transcribing 
 **Its repair class is open for the same reason `box`'s is.** On an image the word meant
 exactly what `gravity` meant, so repairing it needs the same absent fact, and no ADR has
 ruled. The check refuses provisionally; see the note under Box
-([#192](https://github.com/MBehtemam/Montaget/issues/192)).
+([#228](https://github.com/MBehtemam/Montaget/issues/228)).
 
 **Path, line, polygon**:
 Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is

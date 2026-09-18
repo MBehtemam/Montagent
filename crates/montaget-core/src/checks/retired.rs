@@ -42,7 +42,9 @@
 //! instance a check can match is capable of being load-bearing, the check emits
 //! `repair: "none"` for every instance it matches"* — which is the conservative half of
 //! the fork and the one whose cost that ADR has already accepted. **This placement is not
-//! the ruling.** The ruling belongs to an ADR, and moving either spelling to the
+//! the ruling.** The ruling belongs to an ADR — the question is open as
+//! [#228](https://github.com/MBehtemam/Montaget/issues/228), which also asks whether
+//! `bold`/`weight` belongs on this side of the line — and moving either spelling to the
 //! advise-class code is a one-line change here once one exists.
 
 use serde_json::{Map, Value, json};
@@ -326,6 +328,8 @@ fn scan(object: &Map<String, Value>, locus: &Locus, out: &mut Vec<Sighting>) {
             // "something an agent can do and a program categorically cannot", and
             // refusing would send an ordinary authoring move to a human. `E-READ` already
             // takes the same shape, for the same reason, with the same kind of value.
+            // Open as #228, with `box` and `align`: it is the same question from the
+            // other side of the line.
             "weight" | "bold" => out.push(at(
                 key,
                 value,
