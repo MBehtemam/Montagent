@@ -13,6 +13,14 @@
 //! module takes a [`serde_json::Value`] rather than a [`crate::model::Project`]. That is
 //! what lets the permissive path (ADR-0042) — a document carrying an unknown key, which
 //! the strict model by construction cannot hold — print through the identical writer.
+//!
+//! [`atomically`] is the other half: the whole-file write every write tool reuses, which
+//! replaces a project's bytes or leaves the file exactly as it was. What is *canonical* and
+//! what is *durable* are two questions, and they are two functions here so that neither can
+//! change the other by accident.
+
+use std::io::Write as _;
+use std::path::Path;
 
 use serde_json::Value;
 
@@ -182,4 +190,68 @@ fn inline(value: &Value, spacing: Spacing) -> String {
 
 fn quoted(key: &str) -> String {
     Value::String(key.to_string()).to_string()
+}
+
+/// Replace `path`'s contents with `bytes`, atomically — or leave the file exactly as it
+/// was.
+///
+/// ADR-0011: *"Nothing may partially process a malformed file: read, parse, check, write
+/// atomically, or do nothing."* The hazard is not theoretical. The file this writes is the
+/// one the agent is mid-edit on and the one git is tracking, and a half-written project is
+/// worse than an unformatted one: it is unparseable, so the next run of every verb answers
+/// `E-PARSE` and the work is gone.
+///
+/// So the destination is never opened for writing. The bytes go to a sibling temp file,
+/// are flushed and synced, and then a single `rename` puts them in place — which is atomic
+/// on every filesystem Montaget's six targets run on. A failure anywhere before the rename
+/// leaves the original untouched and takes the temp file with it.
+///
+/// The temp file is a *sibling* rather than a file in the system temp directory, because
+/// `rename` across filesystems fails — and a project on an external disk or a network share
+/// is the normal case for video work, not an exotic one.
+///
+/// Every later write tool reuses this. It takes bytes rather than a document on purpose:
+/// what is canonical is [`canonical`]'s business, and what is durable is this function's,
+/// and neither should be able to change the other by accident.
+pub fn atomically(path: &Path, bytes: &str) -> std::io::Result<()> {
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    let temp = directory.join(temp_name(path));
+
+    // Scoped so the handle is closed before the rename. Windows refuses to rename a file
+    // that is still open, and a write that works on Unix and fails on Windows is exactly
+    // the class of defect the six-target suite exists to catch (#189).
+    let written = (|| {
+        let mut file = std::fs::File::create(&temp)?;
+        file.write_all(bytes.as_bytes())?;
+        // `write_all` returning `Ok` only means the bytes reached the OS. Without this, a
+        // machine that loses power between the rename and the flush has a file that is
+        // present, named correctly, and empty.
+        file.sync_all()
+    })();
+
+    if let Err(e) = written.and_then(|()| std::fs::rename(&temp, path)) {
+        // Best-effort: the write already failed, and failing to tidy up after it is not a
+        // second thing to report at the caller. What matters — the original file is
+        // untouched — is true either way.
+        let _ = std::fs::remove_file(&temp);
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// A sibling name nothing else will pick.
+///
+/// The process id and a clock reading, so two Montagets formatting one file — a `fmt` in a
+/// terminal and an MCP server in the same second — cannot land on the same temp path and
+/// interleave their bytes.
+fn temp_name(path: &Path) -> String {
+    let stem = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "project".to_string());
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!(".{stem}.montaget-tmp-{}-{nanos}", std::process::id())
 }

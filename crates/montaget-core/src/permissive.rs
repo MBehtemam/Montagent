@@ -125,17 +125,30 @@ impl Loose {
     /// traversal and never a ranking. It yields raw values rather than typed elements
     /// because the elements worth walking are often exactly the ones that do not parse.
     pub fn elements(&self) -> impl Iterator<Item = &Value> {
+        self.elements_in_tracks().map(|(_, element)| element)
+    }
+
+    /// The same walk, keeping the name of the track each element sits in.
+    ///
+    /// A finding's location carries a track as well as an element, so a check that reports
+    /// one needs both. Kept as the single traversal with [`Loose::elements`] reading
+    /// through it, rather than a second copy of the same two levels in whichever check
+    /// happened to want the name — which is how the two would come to disagree about what
+    /// "every element" means on a document with a malformed track.
+    pub fn elements_in_tracks(&self) -> impl Iterator<Item = (Option<&str>, &Value)> {
         self.value["tracks"]
             .as_array()
             .map(Vec::as_slice)
             .unwrap_or_default()
             .iter()
             .flat_map(|track| {
+                let name = track.get("name").and_then(Value::as_str);
                 track["elements"]
                     .as_array()
                     .map(Vec::as_slice)
                     .unwrap_or_default()
                     .iter()
+                    .map(move |element| (name, element))
             })
     }
 

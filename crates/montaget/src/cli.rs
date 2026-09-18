@@ -36,6 +36,23 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Rewrite the file in the canonical convention.
+    ///
+    /// CLI-only (ADR-0011), and split in two (ADR-0041): `--check` reports what a
+    /// rewrite would change and writes nothing; bare `fmt` writes.
+    Fmt {
+        /// The project file.
+        project: PathBuf,
+        /// Report what a rewrite would change, without touching the file.
+        #[arg(long)]
+        check: bool,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
     /// What are this media file's numbers?
     ///
     /// CLI-only (ADR-0011): an MCP tool schema costs the agent context on every turn,
@@ -92,6 +109,32 @@ where
             match run_verb(|| montaget_core::validate(&project)) {
                 Ok(report) => {
                     // `println!`, not `print!`: the JSON form ends without a newline.
+                    println!("{}", montaget_core::wire::render(&report, form).trim_end());
+                    exit_code(&report)
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Fmt {
+            project,
+            check,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            // `LAYOUT` is an informational class, so a `--check` on a pretty-printed file
+            // prints one counted line unless the caller asked for more. The findings are
+            // in the canonical JSON either way (ADR-0006).
+            let mode = if check {
+                montaget_core::verbs::fmt::Mode::Check
+            } else {
+                montaget_core::verbs::fmt::Mode::Write
+            };
+            match run_verb(|| montaget_core::verbs::fmt::fmt(&project, mode)) {
+                Ok(report) => {
                     println!("{}", montaget_core::wire::render(&report, form).trim_end());
                     exit_code(&report)
                 }

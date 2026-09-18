@@ -1,6 +1,6 @@
 //! The published schema, and the drift it exists to prevent.
 
-use montaget_core::model::canonical_key_order;
+use montaget_core::layout::{Published, canonical_order};
 use montaget_core::schema;
 
 const COMMITTED: &str = "../../schema/montaget.schema.json";
@@ -52,7 +52,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
     // because the four types it uses were already internally consistent.
     let prefix = ["id", "type", "group", "start", "end"];
 
-    let image = canonical_key_order("image").expect("image is a published type");
+    let image = canonical_order(Published::Element("image")).expect("image is a published type");
     assert_eq!(&image[..5], &prefix);
     assert_eq!(
         &image[5..14],
@@ -63,7 +63,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
     // ADR-0068: `effects` appends after the type's existing fields.
     assert_eq!(image.last().unwrap(), "effects");
 
-    let text = canonical_key_order("text").expect("text is a published type");
+    let text = canonical_order(Published::Element("text")).expect("text is a published type");
     assert_eq!(
         &text[5..16],
         &[
@@ -81,22 +81,25 @@ fn canonical_key_order_is_the_schemas_property_order() {
         ]
     );
 
-    let rect = canonical_key_order("rect").expect("rect is a published type");
+    let rect = canonical_order(Published::Element("rect")).expect("rect is a published type");
     assert_eq!(
         &rect[5..11],
         &["x", "y", "origin", "width", "height", "fill"]
     );
 
-    let audio = canonical_key_order("audio").expect("audio is a published type");
+    let audio = canonical_order(Published::Element("audio")).expect("audio is a published type");
     assert_eq!(&audio[5..8], &["source", "source_start", "source_end"]);
 
     // `ellipse` inherits `rect`'s shape, which ADR-0041 says fixes its order too.
-    assert_eq!(canonical_key_order("ellipse"), canonical_key_order("rect"));
+    assert_eq!(
+        canonical_order(Published::Element("ellipse")),
+        canonical_order(Published::Element("rect"))
+    );
 }
 
 #[test]
 fn a_type_the_schema_does_not_publish_has_no_key_order() {
-    assert_eq!(canonical_key_order("scene"), None);
+    assert_eq!(canonical_order(Published::Element("scene")), None);
 }
 
 /// Every object schema that does not forbid unknown keys, by JSON pointer.

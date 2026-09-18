@@ -114,6 +114,23 @@ const CHECKS: &[CheckSpec] = &[
         status: Live,
     },
     CheckSpec {
+        // ADR-0042's refusal. The reported hazard is wrong-file destruction — `fmt`
+        // pointed at a transcript export or a beats export will rewrite it — so the
+        // proportionate fix is an identity check, not a correctness gate. The three keys
+        // it names are `crate::permissive::REQUIRED`, and the template says them rather
+        // than dumping a raw schema error, which is the message-quality gap the ADR found.
+        code: "E-NOT-A-PROJECT",
+        classes: &[Error],
+        // Advise, on `E-READ`'s reasoning: there is no document whose author could have
+        // meant anything, because the document is not a project. The next move — point the
+        // tool at the project file — follows from the condition itself.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0042",
+        template: "{file} does not look like a Montaget project file — no {missing}.",
+        status: Live,
+    },
+    CheckSpec {
         code: "E-INVOCATION",
         classes: &[Error],
         // Advise, not refuse: exit 3's next move is "fix the command" (ADR-0011), and
@@ -304,7 +321,33 @@ do not repair it by ordinary file edit.",
         threshold: Internal,
         adr: "ADR-0041",
         template: "{element} (line {line}): key order does not match the schema for `{type}`; expected {expected}. Run `montaget fmt`.",
-        status: Declared,
+        // Live as of #193, which supplies the key-order predicate and the `fmt --check`
+        // that reads it. `validate`'s `LAYOUT` check calls the same predicate and fires
+        // the same code; it is a later ticket, and that is a second call site rather than
+        // a second check.
+        status: Live,
+    },
+    CheckSpec {
+        // The rest of the convention: one element per line, the element sort ADR-0005
+        // states, two-space indent, the header's and each track's own key order, one
+        // trailing newline. Its own code rather than a flag on `L-KEY-ORDER`, because the
+        // two are independently reachable — the incident agent pretty-printed the fixture
+        // from 154 lines to 1595 **without disturbing a single key's position**, so a
+        // `--check` carrying only `L-KEY-ORDER` would have reported nothing on the very
+        // file ADR-0041 was written about.
+        //
+        // ADR-0041 specifies one finding shape and it is the element-scoped one, so this
+        // code is surface the ADR series has not ratified. Raised as #241 rather than left
+        // to be discovered from the table.
+        code: "L-LAYOUT",
+        classes: &[Layout],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0041",
+        template: "{file} is not written in the canonical convention: {written_lines} lines as \
+written, {canonical_lines} in canonical form, first difference at line {line}. Run `montaget \
+fmt`.",
+        status: Live,
     },
 ];
 

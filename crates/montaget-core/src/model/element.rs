@@ -204,21 +204,3 @@ fn prefix_property(generator: &mut SchemaGenerator, name: &str) -> Value {
         _ => generator.subschema_for::<i64>().to_value(),
     }
 }
-
-/// The canonical key order for one element type, as the published schema declares it.
-///
-/// This is the list `fmt` rewrites toward and `validate`'s `LAYOUT` check compares against.
-/// It is read out of the generated schema rather than written down a second time, so there
-/// is exactly one place the order can go stale — the schema itself (ADR-0041).
-pub fn canonical_key_order(type_name: &str) -> Option<Vec<String>> {
-    let schema = schemars::schema_for!(Element).to_value();
-    let branches = schema.get("oneOf")?.as_array()?;
-    for branch in branches {
-        let properties = branch.get("properties")?.as_object()?;
-        let tag = properties.get("type")?.get("const")?.as_str()?;
-        if tag == type_name {
-            return Some(properties.keys().cloned().collect());
-        }
-    }
-    None
-}

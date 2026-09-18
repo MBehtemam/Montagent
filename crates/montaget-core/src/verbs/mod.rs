@@ -6,5 +6,6 @@
 //! structurally cannot. Both adapters are thin over this module by construction —
 //! neither contains a check, a rule or an arithmetic decision (ADR-0011).
 
+pub mod fmt;
 pub mod probe;
 pub mod validate;

@@ -6,7 +6,9 @@
 //!
 //! **Field order is the format.** ADR-0041 fixes canonical key order as the published
 //! schema's property-declaration order, and the schema is generated from these types — so
-//! **struct field order here *is* canonical key order**. Reordering a field later is a
+//! **struct field order here *is* canonical key order**. Nothing in this module states that
+//! order a second time: [`crate::layout`] reads it back out of the generated schema, and is
+//! the only place that does. Reordering a field later is a
 //! format change that surfaces as a `LAYOUT` finding on every file already written. Every
 //! type below carries the universal prefix `id, type, group, start, end` first, then its
 //! own order as ADR-0041's table states it, then `effects` last (ADR-0068).
@@ -35,7 +37,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, MaskShape};
-pub use element::canonical_key_order;
 pub use keyframe::{Animatable, Ease, EaseName, Keyframe};
 pub use text::{Align, Dir, Highlight, Run};
 
