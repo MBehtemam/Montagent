@@ -7,7 +7,7 @@
 use montaget_core::finding::{Class, Finding, Repair};
 use montaget_core::model::{Anchor, Layer};
 use montaget_core::report::ExitCode;
-use montaget_core::stack::{Side, Span, Stack, Unresolved};
+use montaget_core::stack::{Side, Stack, TimelineRange, Unresolved};
 use montaget_core::{text, validate};
 
 mod common;
@@ -201,20 +201,101 @@ fn an_anchor_never_resolves_against_a_track_name() {
 }
 
 #[test]
+fn a_target_whose_layer_is_an_object_the_grammar_rejects_is_still_not_a_plain_integer() {
+    // ADR-0019 states the one-hop rule structurally: "an anchor's target's own `layer` must
+    // not itself be an object." Not "must not be a well-formed anchor" — an object. A
+    // target carrying `{"below": 3}` fails that test exactly as a good anchor does, and a
+    // resolution that only looked for well-formed anchors would let the condition the ADR
+    // names pass in silence.
+    for bad_target_layer in [r##"{"below":3}"##, r##"{"under":"title"}"##, "{}"] {
+        let (document, _) = stack_of(&track(
+            "titles",
+            20,
+            &format!(
+                "{},{}",
+                rect("title", 0, 1000, Some(bad_target_layer)),
+                rect("panel", 0, 1000, Some(r##"{"below":"title"}"##)),
+            ),
+        ));
+
+        assert_eq!(
+            Stack::of(&document).layer_of("panel"),
+            Err(Unresolved::ChainedTarget("title")),
+            "target layer: {bad_target_layer}"
+        );
+    }
+}
+
+#[test]
+fn an_element_whose_own_layer_is_unreadable_reports_nothing_about_an_anchor() {
+    // The element carries no anchor — it carries a broken `layer`. That is a fact about the
+    // schema, there is no target to report it against, and a second voice on it would be
+    // ADR-0006's noise budget spent on a defect this check did not find.
+    for own in [r##"{"below":3}"##, r##""title""##, "1.5"] {
+        let report = report_on(&track("titles", 20, &rect("panel", 0, 1000, Some(own))));
+
+        assert!(
+            codes(&report).iter().all(|code| !code.contains("ANCHOR")),
+            "own layer {own}: {:?}",
+            report.findings
+        );
+    }
+}
+
+#[test]
+fn draw_order_is_computable_for_every_element_at_once() {
+    // The ticket's own sentence: "draw order becomes computable". One pass over the
+    // document answers it for every element, defects included, and document order is a
+    // traversal rather than a ranking (ADR-0060).
+    let (document, _) = stack_of(&format!(
+        "{},{}",
+        track(
+            "titles",
+            20,
+            &format!(
+                "{},{}",
+                rect("title", 0, 1000, None),
+                rect("badge", 0, 1000, Some(r##"{"above":"title"}"##)),
+            )
+        ),
+        track(
+            "panels",
+            5,
+            &format!(
+                "{},{}",
+                rect("panel", 0, 1000, Some(r##"{"below":"title"}"##)),
+                rect("orphan", 0, 1000, Some(r##"{"below":"nobody"}"##)),
+            )
+        ),
+    ));
+    let stack = Stack::of(&document);
+
+    assert_eq!(
+        stack.resolved().collect::<Vec<_>>(),
+        vec![
+            ("title", Ok(20)),
+            ("badge", Ok(21)),
+            ("panel", Ok(19)),
+            ("orphan", Err(Unresolved::MissingTarget("nobody"))),
+        ]
+    );
+}
+
+#[test]
 fn a_half_open_range_touching_at_a_boundary_is_not_an_overlap() {
     // ADR-0005: `[start, end)`. An element ending at 7500 is not on screen at 7500.
-    let earlier = Span {
+    let earlier = TimelineRange {
         start: 0,
         end: 7500,
     };
-    let later = Span {
+    let later = TimelineRange {
         start: 7500,
         end: 9000,
     };
 
     assert!(!earlier.overlaps(later));
     assert!(!later.overlaps(earlier));
-    assert!(earlier.overlaps(Span {
+    assert!(earlier.overlaps(TimelineRange {
         start: 7499,
         end: 9000
     }));
@@ -224,12 +305,12 @@ fn a_half_open_range_touching_at_a_boundary_is_not_an_overlap() {
 fn an_empty_range_overlaps_nothing_including_itself() {
     // There is no instant at which it is on screen, so there is none at which its stacking
     // could matter.
-    let empty = Span {
+    let empty = TimelineRange {
         start: 500,
         end: 500,
     };
     assert!(!empty.overlaps(empty));
-    assert!(!empty.overlaps(Span {
+    assert!(!empty.overlaps(TimelineRange {
         start: 0,
         end: 1000
     }));

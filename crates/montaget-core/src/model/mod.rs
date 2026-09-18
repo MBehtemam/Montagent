@@ -246,18 +246,10 @@ impl Anchor {
         }
     }
 
-    /// The layer this anchor resolves to, given its target's own integer layer.
-    ///
-    /// One hop and one step: `below` is minus one and `above` is plus one, which is what
-    /// ADR-0004 wrote and ADR-0019 left unchanged. Saturating rather than wrapping — a
-    /// project that anchors below `i64::MIN` has bigger problems than the arithmetic, and
-    /// wrapping to the top of the stack is the one answer that would be silently wrong.
-    pub fn resolve_against(&self, target_layer: i64) -> i64 {
-        match self {
-            Anchor::Below(_) => target_layer.saturating_sub(1),
-            Anchor::Above(_) => target_layer.saturating_add(1),
-        }
-    }
+    // The arithmetic that turns an anchor into a layer is deliberately **not** here. It
+    // lives once, in `crate::stack`, with the resolution it is one step of — a second copy
+    // on this type would be the two-implementations-one-rule drift `crate::stack` is
+    // written against, spelled in the type the rule is about.
 }
 
 /// A named container holding elements, with an integer `layer` giving its place in the

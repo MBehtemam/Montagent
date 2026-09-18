@@ -18,16 +18,17 @@
 //! [`crate::layout`], which is a different subject entirely (canonical key order). The
 //! near-miss `CONTEXT.md` already records between `anchor` and `origin` is the same hazard.
 //!
-//! Two representations reach it. [`Stack::of`] reads the permissive tree, which is what
-//! every check has and what a mid-edit document can always produce; [`Stack::of_project`]
-//! reads the format's types, which is what a render has. They fill the same rows, so the
-//! answer cannot depend on which door a caller came through.
+//! It reads the permissive tree, which is what every check has and what a mid-edit document
+//! can always produce — the representation that always exists. A constructor over the
+//! format's types is the obvious second door, and it is deliberately not here: nothing has
+//! asked for one yet, and this map's discipline is evidence before rule. When the render
+//! ticket wants it, it belongs in this module beside [`Stack::of`], filling the same rows —
+//! never as a second resolver, which is the whole reason this one is owned in one place.
 
 use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use crate::model::{Anchor, Layer, Project};
 use crate::permissive::Loose;
 
 /// Which side of its target an anchor sits on.
@@ -59,21 +60,24 @@ impl Side {
     }
 }
 
-/// An element's half-open time range, `[start, end)` (ADR-0005).
+/// Where an element sits on the project's one absolute clock — `CONTEXT.md`'s **Timeline
+/// range**, half-open as ADR-0005 requires.
+///
+/// Spelled in full rather than as `Span`, which `CONTEXT.md` lists among the words to avoid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Span {
+pub struct TimelineRange {
     pub start: i64,
     pub end: i64,
 }
 
-impl Span {
+impl TimelineRange {
     /// Do these two ranges share any instant?
     ///
     /// Half-open, so an element ending at 7500 and its neighbour starting at 7500 do not
     /// overlap — the boundary instant belongs to exactly one of them (ADR-0005). An empty
     /// or inverted range overlaps nothing, including itself: there is no instant at which
     /// it is on screen, so there is none at which its stacking could matter.
-    pub fn overlaps(self, other: Span) -> bool {
+    pub fn overlaps(self, other: TimelineRange) -> bool {
         self.start < self.end
             && other.start < other.end
             && self.start < other.end
@@ -91,10 +95,19 @@ enum Own<'a> {
         side: Side,
         target: &'a str,
     },
-    /// A `layer` that is neither an integer nor a well-formed anchor. Reachable only
-    /// through the permissive tree, and it is a *schema* error — resolution reports that it
-    /// cannot answer and says nothing about the key, which belongs to the check that owns
-    /// the schema.
+    /// A `layer` that is an object the anchor grammar does not accept — `{"below": 3}`,
+    /// `{"x": "y"}`, `{}`.
+    ///
+    /// Kept apart from [`Own::Malformed`] because ADR-0019 states the one-hop rule
+    /// *structurally*: *"an anchor's target's own `layer` must not itself be an object."*
+    /// Not "must not be a well-formed anchor" — an object. A target in this state fails
+    /// that test exactly as a good anchor does, and folding the two together would let the
+    /// condition the ADR names pass silently on the malformed half.
+    Object,
+    /// A `layer` that is neither an integer nor an object — a bare string, a float, an
+    /// array. Reachable only through the permissive tree, and it is a *schema* error:
+    /// resolution reports that it cannot answer and says nothing about the key, which
+    /// belongs to the check that owns the schema — #244, which nothing implements yet.
     Malformed,
 }
 
@@ -105,10 +118,10 @@ pub struct Placement<'a> {
     /// The track the element sits in, where the document names one. Carried because a
     /// finding's location does.
     pub track: Option<&'a str>,
-    /// The element's own time range, where the document states one in integer
+    /// The element's own timeline range, where the document states one in integer
     /// milliseconds. Absent on an element mid-edit, and an overlap that cannot be computed
     /// is never reported as an overlap that is not there.
-    pub span: Option<Span>,
+    pub range: Option<TimelineRange>,
     own: Own<'a>,
     track_layer: Option<i64>,
 }
@@ -122,6 +135,12 @@ impl<'a> Placement<'a> {
         }
     }
 
+    /// Is this element's own `layer` an object? ADR-0019's structural test, and the whole
+    /// of it: an anchor's target must answer `false` here.
+    fn is_object(&self) -> bool {
+        matches!(self.own, Own::Anchor { .. } | Own::Object)
+    }
+
     /// The integer this element states directly, from its own override or from its track.
     /// `None` where it states an anchor instead, or states nothing an integer can be read
     /// from — which is exactly the condition an anchor's target may not be in.
@@ -129,7 +148,7 @@ impl<'a> Placement<'a> {
         match self.own {
             Own::Absolute(layer) => Some(layer),
             Own::Track => self.track_layer,
-            Own::Anchor { .. } | Own::Malformed => None,
+            Own::Anchor { .. } | Own::Object | Own::Malformed => None,
         }
     }
 }
@@ -147,12 +166,13 @@ pub enum Unresolved<'a> {
     MissingTarget(&'a str),
     /// The anchor names the element that carries it.
     SelfReference(&'a str),
-    /// The target's own layer is itself an anchor. ADR-0019: one hop, never a walk.
+    /// The target's own layer is an object rather than a plain integer. ADR-0019: one hop,
+    /// never a walk.
     ChainedTarget(&'a str),
     /// Neither the element nor its track states an integer layer.
     Unstated,
-    /// A `layer` value that is neither an integer nor a well-formed anchor, here or on the
-    /// target. A schema error, reported by whatever check owns the schema.
+    /// A `layer` value that is neither an integer nor an object, here or on the target. A
+    /// schema error, reported by whatever check owns the schema (#244).
     Malformed,
 }
 
@@ -199,39 +219,9 @@ impl<'a> Stack<'a> {
                 stack.push(Placement {
                     id,
                     track: name,
-                    span: span_of(element.get("start"), element.get("end")),
+                    range: range_of(element.get("start"), element.get("end")),
                     own: own_of(element.get("layer")),
                     track_layer,
-                });
-            }
-        }
-        stack
-    }
-
-    /// The same stack, read off the format's types — what a render has in hand.
-    pub fn of_project(project: &'a Project) -> Stack<'a> {
-        let mut stack = Stack::default();
-        for track in &project.tracks {
-            for element in &track.elements {
-                stack.push(Placement {
-                    id: &element.id,
-                    track: Some(&track.name),
-                    span: Some(Span {
-                        start: element.start,
-                        end: element.end,
-                    }),
-                    own: match &element.layer {
-                        None => Own::Track,
-                        Some(Layer::Absolute(layer)) => Own::Absolute(*layer),
-                        Some(Layer::Relative(anchor)) => Own::Anchor {
-                            side: match anchor {
-                                Anchor::Below(_) => Side::Below,
-                                Anchor::Above(_) => Side::Above,
-                            },
-                            target: anchor.target(),
-                        },
-                    },
-                    track_layer: Some(track.layer),
                 });
             }
         }
@@ -262,7 +252,9 @@ impl<'a> Stack<'a> {
 
         let Some((side, target)) = placement.anchor() else {
             return match placement.own {
-                Own::Malformed => Err(Unresolved::Malformed),
+                // This element's own `layer` is unreadable. That is a fact about the schema
+                // and not about any anchor — there is no target to report against.
+                Own::Object | Own::Malformed => Err(Unresolved::Malformed),
                 _ => placement.stated().ok_or(Unresolved::Unstated),
             };
         };
@@ -276,7 +268,11 @@ impl<'a> Stack<'a> {
         let Some(target_placement) = self.placement(target) else {
             return Err(Unresolved::MissingTarget(target));
         };
-        if target_placement.anchor().is_some() {
+        // ADR-0019's test, structurally: is the target's own `layer` an object? A target
+        // that is anchored and a target whose `layer` is an object the grammar rejects both
+        // fail it, and both fail it for the same reason — there is no integer here to be
+        // one hop from.
+        if target_placement.is_object() {
             return Err(Unresolved::ChainedTarget(target));
         }
         if target_placement.own == Own::Malformed {
@@ -314,8 +310,8 @@ impl<'a> Stack<'a> {
     }
 }
 
-fn span_of(start: Option<&Value>, end: Option<&Value>) -> Option<Span> {
-    Some(Span {
+fn range_of(start: Option<&Value>, end: Option<&Value>) -> Option<TimelineRange> {
+    Some(TimelineRange {
         start: start?.as_i64()?,
         end: end?.as_i64()?,
     })
@@ -326,18 +322,19 @@ fn own_of(layer: Option<&Value>) -> Own<'_> {
     match layer {
         None => Own::Track,
         Some(Value::Number(n)) => n.as_i64().map(Own::Absolute).unwrap_or(Own::Malformed),
-        Some(Value::Object(object)) if object.len() == 1 => {
-            let (key, value) = object.iter().next().expect("one entry");
-            match (key.as_str(), value.as_str()) {
-                ("below", Some(target)) => Own::Anchor {
+        Some(Value::Object(object)) => {
+            let sole = object.iter().next().filter(|_| object.len() == 1);
+            match sole.map(|(key, value)| (key.as_str(), value.as_str())) {
+                Some(("below", Some(target))) => Own::Anchor {
                     side: Side::Below,
                     target,
                 },
-                ("above", Some(target)) => Own::Anchor {
+                Some(("above", Some(target))) => Own::Anchor {
                     side: Side::Above,
                     target,
                 },
-                _ => Own::Malformed,
+                // An object all the same, and that is what ADR-0019's one-hop rule tests.
+                _ => Own::Object,
             }
         }
         Some(_) => Own::Malformed,

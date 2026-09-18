@@ -68,7 +68,8 @@ pub fn check(document: &Loose, report: &mut Report) {
             // The target resolves to nothing an integer can be read from, or carries a
             // `layer` that is not one of the format's two forms. Both are schema facts
             // about a document mid-edit, and the check that owns the schema says so — this
-            // one would be adding a second voice to a defect it did not find.
+            // one would be adding a second voice to a defect it did not find. That check
+            // does not exist yet, which is #244 and not a reason to grow a second one here.
             Err(Unresolved::Unstated | Unresolved::Malformed) => {}
             // `placements()` yields what the index was built from, so there is always an
             // element here. Kept as a branch rather than an `unwrap`, because an
@@ -85,22 +86,22 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// The `review`: it resolved, and the two elements are never on screen together.
 ///
-/// Both spans have to be known. An element mid-edit carries no integer `start` — and a
-/// window that cannot be computed is never reported as a window that is not there, which is
-/// ADR-0006's standing rule that a stated number is a measured one.
+/// Both timeline ranges have to be known. An element mid-edit carries no integer `start` —
+/// and a window that cannot be computed is never reported as a window that is not there,
+/// which is ADR-0006's standing rule that a stated number is a measured one.
 fn inert(stack: &Stack<'_>, id: &str, target: &str, layer: i64) -> Option<Finding> {
-    let span = stack.placement(id)?.span?;
-    let target_span = stack.placement(target)?.span?;
-    if span.overlaps(target_span) {
+    let range = stack.placement(id)?.range?;
+    let target_range = stack.placement(target)?.range?;
+    if range.overlaps(target_range) {
         return None;
     }
 
     Some(
         Finding::new("R-ANCHOR-NO-OVERLAP")
-            .field("start", json!(span.start))
-            .field("end", json!(span.end))
-            .field("target_start", json!(target_span.start))
-            .field("target_end", json!(target_span.end))
+            .field("start", json!(range.start))
+            .field("end", json!(range.end))
+            .field("target_start", json!(target_range.start))
+            .field("target_end", json!(target_range.end))
             // The integer it does resolve to. Stated rather than left implicit,
             // because the finding's whole claim is that this number is correct and
             // inconsequential — a reader who cannot see it has to take both halves on

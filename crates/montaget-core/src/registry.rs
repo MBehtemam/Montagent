@@ -255,9 +255,12 @@ itself.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0019",
-        template: "{element}: the anchor `{side}` names `{target}`, whose own `layer` is \
-itself an anchor. An anchor resolves in exactly one hop, so that resolution is refused \
-rather than walked.",
+        // "Is an object", not "is an anchor": ADR-0019 states the one-hop rule structurally
+        // — *"an anchor's target's own `layer` must not itself be an object"* — and a
+        // target carrying `{"below": 3}` fails that test exactly as a good anchor does.
+        template: "{element}: the anchor `{side}` names `{target}`, whose own `layer` is an \
+object rather than a plain integer. An anchor resolves in exactly one hop, so a target that \
+is itself anchored is refused rather than walked.",
         status: Live,
     },
     CheckSpec {
