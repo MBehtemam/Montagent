@@ -36,7 +36,6 @@ fn refuse_class() -> Finding {
         .at_element("photo-06")
         .field("key", json!("gravity"))
         .field("value", json!("bottom"))
-        .refuse_class()
         .census(
             Census::on("clip")
                 .group(
@@ -91,14 +90,11 @@ fn a_census_carrying_finding_round_trips_and_renders_every_group() {
 fn a_census_never_ranks_its_groups() {
     // ADR-0043: "it must not be worded in a way that implies the larger group is the
     // correct one." Declaration order survives; nothing sorts by size.
-    let f = Finding::new("E-RETIRED-KEY")
-        .at_file("p.json")
-        .refuse_class()
-        .census(
-            Census::on("clip")
-                .group(json!("minority"), ["a"])
-                .group(json!("majority"), ["b", "c", "d"]),
-        );
+    let f = Finding::new("E-RETIRED-KEY").at_file("p.json").census(
+        Census::on("clip")
+            .group(json!("minority"), ["a"])
+            .group(json!("majority"), ["b", "c", "d"]),
+    );
     let json = serde_json::to_value(&f).unwrap();
     assert_eq!(json["census"]["groups"][0]["value"], "minority");
 }
@@ -141,7 +137,7 @@ fn an_advise_class_finding_carries_its_structured_value() {
         .at_element("photo-06")
         .field("property", json!("scale"))
         .field("t", json!(17472))
-        .advise_class(json!({"value": {"ease": "linear"}}));
+        .repair_value(json!({"value": {"ease": "linear"}}));
     let json = serde_json::to_value(&f).unwrap();
 
     assert_eq!(json["repair"]["value"]["ease"], "linear");

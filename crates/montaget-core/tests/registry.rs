@@ -141,3 +141,50 @@ fn a_finding_may_not_carry_a_code_the_registry_does_not_know() {
     assert!(registry::spec("E-PARSE").is_some());
     assert!(registry::spec("E-NOT-A-REAL-CODE").is_none());
 }
+
+#[test]
+fn a_findings_repair_class_comes_from_the_registry_not_from_the_call_site() {
+    // ADR-0043: "Granularity is per check, not per instance. If any instance a check can
+    // match is capable of being load-bearing, the check emits `repair: "none"` for
+    // **every** instance it matches, including ones that look safe." Nothing a check
+    // author writes at a call site can vary it.
+    use montaget_core::finding::{Finding, Repair};
+
+    let refused = Finding::new("E-RETIRED-KEY").at_file("p.json");
+    assert_eq!(
+        refused.repair,
+        Some(Repair::None),
+        "a refuse-class check carries `none` without asking for it"
+    );
+
+    let advised = Finding::new("E-INVOCATION");
+    assert_eq!(
+        advised.repair, None,
+        "an advise-class check supplies its value per instance"
+    );
+
+    let non_error = Finding::new("N-QUANTIZATION").at_file("p.json");
+    assert_eq!(
+        non_error.repair, None,
+        "`repair` is an axis of `error` alone"
+    );
+}
+
+#[test]
+#[should_panic(expected = "may not state a repair value")]
+fn a_refuse_class_check_may_not_talk_itself_into_a_repair() {
+    // The per-instance triage ADR-0043 forbids: the gravity experiment's 6 safe
+    // deletions and 2 load-bearing ones were separated by a fact not in the document.
+    montaget_core::finding::Finding::new("E-RETIRED-KEY")
+        .at_file("p.json")
+        .repair_value(serde_json::json!({"value": "delete the key"}));
+}
+
+#[test]
+#[should_panic(expected = "carries no repair")]
+fn an_error_finding_with_no_repair_cannot_reach_a_report() {
+    // ADR-0043: "Every `error`-class finding carries a `repair` field." An advise-class
+    // check that forgets its value is the only way the field goes missing.
+    let mut report = montaget_core::report::Report::new("validate", Some("p.json".into()));
+    report.push(montaget_core::finding::Finding::new("E-INVOCATION"));
+}

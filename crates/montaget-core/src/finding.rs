@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-use crate::registry;
+use crate::registry::{self, RepairClass};
 
 /// What kind of thing a finding is.
 ///
@@ -237,12 +237,26 @@ impl Finding {
             "{code} is not declared as able to emit {class:?}; the registry allows {:?}",
             spec.classes
         );
+        // ADR-0043's class is taken from the declaration, never from the call site.
+        // "Granularity is per check, not per instance. If any instance a check can match
+        // is capable of being load-bearing, the check emits `repair: "none"` for **every**
+        // instance it matches, including ones that look safe." A builder the check could
+        // call on one branch and not another would leave that as a convention; reading it
+        // here makes it a property of the code.
+        //
+        // An advise-class check still supplies its repair's *content* per instance, via
+        // [`Finding::repair_value`] — what is fixed per check is the class, not the value.
+        let repair = match (class, spec.repair) {
+            (Class::Error, Some(RepairClass::Refuse)) => Some(Repair::None),
+            _ => None,
+        };
+
         Finding {
             code: spec.code.to_string(),
             class,
             location: Location::default(),
             fields: BTreeMap::new(),
-            repair: None,
+            repair,
             census: None,
             citation: None,
             reason: None,
@@ -276,21 +290,26 @@ impl Finding {
         self
     }
 
-    /// ADR-0043: the fix depends on intent the document does not carry.
-    pub fn refuse_class(mut self) -> Self {
-        debug_assert_eq!(
-            self.class,
-            Class::Error,
-            "`repair` is an axis of `error` alone"
+    /// Supply the content of an advise-class repair, which varies per instance where the
+    /// *class* does not.
+    ///
+    /// # Panics
+    ///
+    /// If the check is not declared advise-class. A refuse-class check reaching for this
+    /// is the per-instance triage ADR-0043 forbids — the gravity experiment's 6 safe
+    /// deletions and 2 load-bearing ones were separated by a fact that is not in the
+    /// document, and a check that thinks it can tell them apart is the failure mode, not
+    /// the fix.
+    #[track_caller]
+    pub fn repair_value(mut self, repair: Value) -> Self {
+        let declared = registry::spec(&self.code).and_then(|spec| spec.repair);
+        assert_eq!(
+            declared,
+            Some(RepairClass::Advise),
+            "{} is declared {declared:?}, so it may not state a repair value",
+            self.code
         );
-        self.repair = Some(Repair::None);
-        self
-    }
-
-    /// ADR-0043: the fix is fully determined by the document, the disk and the
-    /// published rendering semantics.
-    pub fn advise_class(mut self, repair: Value) -> Self {
-        debug_assert_eq!(
+        assert_eq!(
             self.class,
             Class::Error,
             "`repair` is an axis of `error` alone"

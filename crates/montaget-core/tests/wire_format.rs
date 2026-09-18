@@ -18,8 +18,7 @@ fn a_report() -> Report {
             .field("declared_source_span", json!(3368))
             .field("probed_duration", json!(2568))
             .field("speed", json!(0.645))
-            .field("timeline_span", json!(3981))
-            .refuse_class(),
+            .field("timeline_span", json!(3981)),
     );
     report.push(
         Finding::new("N-QUANTIZATION")

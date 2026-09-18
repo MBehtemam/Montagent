@@ -132,6 +132,27 @@ fn an_unreadable_file_is_e_read_and_exit_2() {
 
     let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
     assert!(rendered.contains("could not be read"), "{rendered}");
+    assert!(rendered.contains("check the path"), "{rendered}");
+}
+
+#[test]
+fn e_reads_advice_follows_the_failure_rather_than_being_fixed() {
+    // A file that exists and is not UTF-8 is not a path problem, and telling its author
+    // to "check the path and its permissions" sends them to the wrong place.
+    let dir = tempdir();
+    let path = dir.join("binary.montaget.json");
+    std::fs::write(&path, [0xff, 0xfe, 0x00, 0x01]).unwrap();
+
+    let report = validate(&path);
+    let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+
+    assert_eq!(report.exit_code(), ExitCode::Unparseable);
+    assert!(rendered.contains("valid UTF-8"), "{rendered}");
+    assert!(rendered.contains("re-save the file as UTF-8"), "{rendered}");
+    assert!(
+        !rendered.contains("check the path"),
+        "the advice must not name a path problem:\n{rendered}"
+    );
 }
 
 #[test]
@@ -181,11 +202,7 @@ fn errors_exit_1_and_no_errors_exit_0() {
     );
 
     let mut errored = montaget_core::report::Report::new("validate", Some("p.json".into()));
-    errored.push(
-        Finding::new("E-SOURCE-OVERRUN")
-            .at_file("p.json")
-            .refuse_class(),
-    );
+    errored.push(Finding::new("E-SOURCE-OVERRUN").at_file("p.json"));
     assert_eq!(errored.exit_code(), ExitCode::Errors);
 }
 

@@ -97,7 +97,7 @@ impl Report {
             findings: vec![
                 Finding::new("E-INVOCATION")
                     .field("reason", Value::String(reason.into()))
-                    .advise_class(json!({"value": "fix the command"})),
+                    .repair_value(json!({"value": "fix the command"})),
             ],
             terminal: Some(Terminal::BadInvocation),
         }
@@ -109,15 +109,30 @@ impl Report {
             tool: "montaget".into(),
             project: None,
             findings: vec![
-                Finding::new("E-INTERNAL")
-                    .field("reason", Value::String(reason.into()))
-                    .refuse_class(),
+                // Refuse-class comes from the registry; nothing here asks for it.
+                Finding::new("E-INTERNAL").field("reason", Value::String(reason.into())),
             ],
             terminal: Some(Terminal::Internal),
         }
     }
 
+    /// Add a finding to the report.
+    ///
+    /// # Panics
+    ///
+    /// If an `error`-class finding carries no repair. ADR-0043: *"Every `error`-class
+    /// finding carries a `repair` field."* A refuse-class check gets one for free from
+    /// its declaration; an advise-class one must state its value, and forgetting to is
+    /// the only way the field goes missing. This is the single place every finding
+    /// passes through, so it is the place to catch it — and the CLI turns the panic into
+    /// exit 70 rather than an abort.
+    #[track_caller]
     pub fn push(&mut self, finding: Finding) {
+        assert!(
+            finding.class != Class::Error || finding.repair.is_some(),
+            "{} is `error`-class and carries no repair (ADR-0043)",
+            finding.code
+        );
         self.findings.push(finding);
     }
 

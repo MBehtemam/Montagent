@@ -27,7 +27,10 @@ pub fn read(path: &Path) -> Result<Document, Box<Finding>> {
             Finding::new("E-READ")
                 .at_file(&display)
                 .field("reason", Value::String(e.to_string()))
-                .advise_class(serde_json::json!({"value": "check the path and its permissions"})),
+                // The OS already said what went wrong; the next move follows from it and
+                // differs per failure. A fixed "check the path and its permissions" is
+                // wrong counsel on a file that exists and is not UTF-8.
+                .repair_value(serde_json::json!({"value": advice_for(&e)})),
         )
     })?;
 
@@ -45,10 +48,20 @@ pub fn read(path: &Path) -> Result<Document, Box<Finding>> {
                     .field("line", Value::from(line))
                     .field("column", Value::from(column))
                     .field("byte_offset", Value::from(byte_offset))
-                    .field("excerpt", Value::String(excerpt(&source, line, column)))
-                    .refuse_class(),
+                    .field("excerpt", Value::String(excerpt(&source, line, column))),
             ))
         }
+    }
+}
+
+/// What to do about a file that would not open or would not decode.
+fn advice_for(e: &std::io::Error) -> &'static str {
+    match e.kind() {
+        std::io::ErrorKind::NotFound => "check the path",
+        std::io::ErrorKind::PermissionDenied => "check the file's permissions",
+        std::io::ErrorKind::InvalidData => "re-save the file as UTF-8",
+        std::io::ErrorKind::IsADirectory => "name the project file, not its directory",
+        _ => "check the path and the file's permissions",
     }
 }
 

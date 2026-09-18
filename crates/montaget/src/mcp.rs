@@ -17,6 +17,19 @@ use rmcp::transport::stdio;
 use rmcp::{ErrorData, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 
 use montaget_core::Wire;
+use montaget_core::report::Report;
+
+/// The advertised schema **is** the enforced one: `schemars` derives the document the
+/// tool publishes from this type, and this same type is what the arguments are
+/// deserialised into below. There is one declaration, so the two cannot drift.
+fn validate_schema() -> std::sync::Arc<serde_json::Map<String, serde_json::Value>> {
+    let schema = schemars::schema_for!(ValidateParams);
+    let object = serde_json::to_value(schema)
+        .ok()
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default();
+    std::sync::Arc::new(object)
+}
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValidateParams {
@@ -48,12 +61,34 @@ impl Montaget {
         description = "Does this project document agree with itself and with the media on \
                        disk? Reports findings with stable codes and severities, and prints \
                        its own boundary: it cannot tell you whether the file says what you \
-                       meant it to say."
+                       meant it to say.",
+        input_schema = validate_schema()
     )]
     fn validate(
         &self,
-        Parameters(params): Parameters<ValidateParams>,
+        Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
+        // Arguments are taken as a raw value and checked here rather than by the
+        // macro's own deserialisation, so that a bad call answers the way every other
+        // bad call does. ADR-0011: "An error is a finding. Same objects and same stable
+        // codes as ADR-0006, including for invocation errors, so there is exactly one
+        // thing to parse across the surface." Letting the SDK reject it would honour
+        // that on the CLI and break it on the surface an agent actually uses.
+        let params: ValidateParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => {
+                // Both signals, deliberately. The rendered finding is what an agent
+                // parses, per ADR-0011; `isError` is what tells its client the call did
+                // not run at all. A `validate` that *did* run and found errors is the
+                // opposite case and stays `success` — there, ADR-0006 is explicit that
+                // the findings **are** the result, not a failure.
+                let report = Report::bad_invocation(format!("`validate`: {e}"));
+                return Ok(CallToolResult::error(vec![ContentBlock::text(
+                    montaget_core::wire::render(&report, Wire::Text { verbose: false }),
+                )]));
+            }
+        };
+
         let report = montaget_core::validate(&PathBuf::from(&params.project));
         let form = Wire::from_flags(params.json, params.verbose);
 

@@ -174,6 +174,82 @@ fn mcp_validate_advertises_the_schema_it_enforces() {
 }
 
 #[test]
+fn a_validate_that_ran_and_found_errors_is_not_a_tool_failure() {
+    // ADR-0006: the findings *are* the result. An `error` finding means the project is
+    // wrong, not that the call failed, and a client that retries on `isError` must not
+    // be told to retry a correct answer.
+    let project = scratch("mcp-errors", "broken.montaget.json", "{\n  \"fps\": ,\n}\n");
+    let session = mcp_session(&[
+        request(
+            1,
+            "initialize",
+            serde_json::json!({
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "clientInfo": {"name": "montaget-tests", "version": "0"}
+            }),
+        ),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({
+                "name": "validate",
+                "arguments": {"project": project.to_str().unwrap()}
+            }),
+        ),
+    ]);
+
+    let call = &session[&2];
+    assert_eq!(call["result"]["isError"], false, "{call}");
+    assert!(
+        call["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("E-PARSE")
+    );
+}
+
+#[test]
+fn mcp_rejects_a_bad_call_with_a_finding_like_every_other_surface() {
+    // ADR-0011: "An error is a finding. Same objects and same stable codes as ADR-0006,
+    // including for invocation errors, so there is exactly one thing to parse across the
+    // surface." Asserting only that a bad call is *rejected* is what let the SDK's own
+    // raw deserialisation message through here while the CLI answered with a finding.
+    let session = mcp_session(&[
+        request(
+            1,
+            "initialize",
+            serde_json::json!({
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "clientInfo": {"name": "montaget-tests", "version": "0"}
+            }),
+        ),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({
+                "name": "validate",
+                "arguments": {"project": 123}
+            }),
+        ),
+    ]);
+
+    let call = &session[&2];
+    let text = call["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered report, not a bare SDK error");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert!(text.contains("NOT CHECKED"), "{text}");
+    assert_eq!(
+        call["result"]["isError"], true,
+        "the client is also told the call did not run: {call}"
+    );
+}
+
+#[test]
 fn mcp_validate_json_returns_the_canonical_json_instead_of_the_text() {
     let project = scratch("mcp-json", "clean.montaget.json", HEADER_ONLY);
     let session = mcp_session(&[
