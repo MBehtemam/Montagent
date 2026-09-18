@@ -40,6 +40,12 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+  # So a failed scheduled run can raise an issue rather than relying on someone
+  # reading their email. See the `alarm` job.
+  issues: write
+
 jobs:
   prebuilt:
     # Prefixed so this job's check name cannot collide with `ci.yml`'s leg for
@@ -125,3 +131,58 @@ jobs:
           name: skia-build-log-${{ matrix.target }}
           path: ${{ runner.temp }}/skia-build.log
           retention-days: 14
+
+  # A canary nobody hears is a cron job burning minutes.
+  #
+  # GitHub emails the person who created the scheduled workflow, or who last
+  # changed its cron syntax — which is one person, one channel, and silently
+  # dependent on their Actions notification settings. ADR-0010 makes a sustained
+  # prebuilt miss the trigger to revisit toward the `tiny-skia` exit, so the
+  # signal has to land somewhere the project can see it and act on it.
+  #
+  # It files into the issue tracker, which `docs/agents/issue-tracker.md` names
+  # as where this repository's work lives, and comments on the existing issue
+  # rather than opening a new one every night — a duplicate a day would train
+  # everyone to ignore it, which is the same failure as silence.
+  alarm:
+    name: raise the alarm
+    needs: prebuilt
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open or update the prebuilt-miss issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Skia prebuilt canary is failing"
+          BODY=$(cat <<TEXT
+          The scheduled canary failed. ADR-0010 accepted a C++ dependency on the
+          premise that the required prebuilt is published for every desktop tier-1
+          target, and #36 exists to notice when that stops being true.
+
+          Run: $RUN_URL
+
+          The failing job's log says which target and which of these it was:
+
+          - the resolved feature set is no longer the pinned one, so the key moved;
+          - the prebuilt for that key is no longer published, so the download failed;
+          - a source build started, or \`no-skia-source-build\` refused one.
+
+          **A single red night is not the trigger.** ADR-0010 makes a *sustained*
+          miss on a tier-1 target the reason to revisit toward the \`tiny-skia\`
+          exit; upstream having a bad day is not. Leave this open while it keeps
+          firing, and close it when the canary is green again.
+          TEXT
+          )
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title --jq "[.[] | select(.title == \"$TITLE\")] | first | .number // empty")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "commented on #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
