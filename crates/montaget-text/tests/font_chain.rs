@@ -63,18 +63,27 @@ fn the_text_stack_is_built_without_system_font_discovery() {
     );
 }
 
-/// The Linux-only consequence, asserted because it is the one that showed up as a
-/// broken build rather than as a wrong picture: `system` pulls in
-/// `yeslogic-fontconfig-sys`, which needs `libfontconfig` headers present. Without
-/// it the six targets stop differing in what they link.
+/// No crate in the tree *queries* a machine's font book.
+///
+/// Note what this does and does not claim. It does **not** claim nothing links
+/// `fontconfig`: Skia's own Linux link line ends in `-lfreetype -lfontconfig`
+/// (`skia-bindings`' `platform/linux.rs`), so a Linux build needs those
+/// libraries present whatever `parley` is built with, and CI installs them.
+///
+/// What it claims is narrower and is the part that matters here:
+/// `yeslogic-fontconfig-sys` is the crate `fontique` uses to *enumerate and
+/// resolve* system font families, and it is absent. Skia linking a library it
+/// never asks Montaget's font questions through is incidental; a font-discovery
+/// crate in the tree would be a route by which a family name could resolve
+/// against the machine, which ADR-0007 and ADR-0010 rule out.
 #[test]
-fn nothing_in_the_workspace_links_fontconfig() {
+fn no_crate_in_the_tree_resolves_a_system_font_family() {
     let lock = repo_root().join("Cargo.lock");
     let text = fs::read_to_string(&lock).unwrap_or_else(|e| panic!("reading {lock:?}: {e}"));
     assert!(
         !text.contains("yeslogic-fontconfig-sys"),
         "`yeslogic-fontconfig-sys` is back in the lock file. It arrives with \
-         `fontique`'s `system` feature, and it makes a Linux build depend on \
-         `libfontconfig` being installed."
+         `fontique`'s `system` feature, and it is how a family name would come to \
+         resolve against whatever fonts a machine happens to have."
     );
 }

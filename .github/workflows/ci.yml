@@ -73,9 +73,21 @@ jobs:
       # (ADR-0009: `libx264` is GPL and linking `libavcodec` would make the
       # shipped binary a GPL combined work), so CI supplies one the same way a
       # user would.
-      - name: Install ffmpeg (Linux)
+      # Skia's own Linux link line ends in `-lstdc++ -lfreetype -lfontconfig`
+      # (`skia-bindings`' `platform/linux.rs`), so the prebuilt resolves fine and
+      # then nothing that links it will build without these. The canary does not
+      # catch it: it builds an rlib and never links, which is why it is green on
+      # Linux while the suite was not.
+      #
+      # `embed-freetype` would remove the freetype half — and it is one of the
+      # features `skia-bindings` keys its prebuilt on, so turning it on moves
+      # Montaget off `jpegd-jpege-pdf`. That is its own ticket that re-verifies
+      # all six targets (#189), not a thing to do while chasing a red build.
+      - name: Install ffmpeg and Skia's Linux link dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libfontconfig1-dev libfreetype6-dev
 
       - name: Install ffmpeg (macOS)
         if: runner.os == 'macOS'
