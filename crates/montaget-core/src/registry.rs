@@ -205,6 +205,76 @@ source range {source_start}..{source_end} ({declared_source_span} ms) reaches {o
 it.",
         status: Live,
     },
+    // ---- The anchor's resolution and the checks over it (#198). --------------------
+    //
+    // ADR-0019 states one bullet — *"target does not exist, or is itself an anchor →
+    // error"* — and this is three codes rather than one. Two reasons, and both are this
+    // table's own rules rather than a preference. ADR-0043's uniformity rule fixes the
+    // repair class **per code**, and a chained target's fix is not determined where a
+    // dangling one's next move is; one code could not carry both. And a code is
+    // ADR-0006's *"handle for suppressing a class"* and the identity `compare` will diff
+    // on, so three conditions an author fixes three different ways are three handles.
+    // The split is surface the ADR series has not ratified — raised as #243.
+    CheckSpec {
+        code: "E-ANCHOR-MISSING",
+        classes: &[Error],
+        // Advise, on `E-SOURCE-MISSING`'s reasoning: a reference that does not resolve is
+        // the same shape whether it names a file or an `id`, and the next move — name an
+        // element that is there, or state the layer outright — follows from the condition
+        // itself rather than from knowing which element was meant.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0019",
+        template: "{element}: the anchor `{side}` names `{target}`, which is not an element \
+in this project.",
+        status: Live,
+    },
+    CheckSpec {
+        code: "E-ANCHOR-SELF",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0019",
+        // Its own code rather than an instance of the one above, which it would otherwise
+        // be — the element *is* in the document, so "no such element" would be false — and
+        // because a self-reference reads as a copy-paste rather than as a typo, which is a
+        // different thing to go looking for.
+        template: "{element}: the anchor `{side}` names `{target}`, which is the element \
+itself.",
+        status: Live,
+    },
+    CheckSpec {
+        code: "E-ANCHOR-CHAIN",
+        classes: &[Error],
+        // Refuse, where its two siblings advise. The author wanted this element to track
+        // the target, and the two ways to make the document legal — pin this element to an
+        // integer, or re-point it at what the target anchors to — are not the same edit and
+        // the document does not say which was meant. Pinning also reintroduces exactly the
+        // hand-maintained `panel.layer = title.layer - 1` arithmetic ADR-0004 adopted
+        // anchoring to remove, so it is not the safe default it looks like.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0019",
+        template: "{element}: the anchor `{side}` names `{target}`, whose own `layer` is \
+itself an anchor. An anchor resolves in exactly one hop, so that resolution is refused \
+rather than walked.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0019's `review`: legal, renders, and *"the hardest class of error to catch by
+        // reading"* — a completed-looking edit that is a permanent no-op. Every number the
+        // reader needs to judge it is inline, because the point is that nothing on any
+        // frame will show them.
+        code: "R-ANCHOR-NO-OVERLAP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0019",
+        template: "{element}: the anchor `{side}` names `{target}`, and the two are never on \
+screen together — {element} runs {start}..{end} ms and {target} runs {target_start}..\
+{target_end} ms. It resolves to layer {layer} and can change nothing.",
+        status: Live,
+    },
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
         code: "E-RETIRED-KEY",

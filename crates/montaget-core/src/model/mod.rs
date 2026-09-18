@@ -203,6 +203,63 @@ pub struct FontAttestation {
     pub sha256: String,
 }
 
+/// An element's own place in the stack, overriding the one its track supplies.
+///
+/// Polymorphic on purpose, and ranked last on ease of writing by all eight agents in
+/// ADR-0004's evaluation — who asked for it anyway, because the alternative is
+/// hand-maintaining `panel.layer = title.layer - 1` and re-deriving it every time the
+/// title moves.
+///
+/// `untagged` rather than a wrapper object, because the two forms are what the format
+/// writes: `"layer": 12` and `"layer": {"below": "title"}`. There is no third spelling —
+/// an anchor carrying a bare string is a retired one, and ADR-0016's unknown-key error
+/// names its replacement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum Layer {
+    /// A plain integer — higher draws in front. **The only form an anchor's target may
+    /// carry**: ADR-0019 resolves in exactly one hop, so a target whose own layer is an
+    /// anchor is an error rather than a second lookup.
+    Absolute(i64),
+    /// Stated relative to another element's `id`.
+    Relative(Anchor),
+}
+
+/// A layer stated relative to another element's `id` — `{"below": "title"}` resolves to
+/// that element's layer minus one, wherever either of them sits (ADR-0019).
+///
+/// The target string resolves against the element `id` namespace **only**, never a track
+/// name: the two look alike as bare strings, and one of issue #8's three agents could not
+/// tell which `"title"` meant. `CONTEXT.md`'s **Id** entry records the separation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub enum Anchor {
+    Below(String),
+    Above(String),
+}
+
+impl Anchor {
+    /// The `id` this anchor names.
+    pub fn target(&self) -> &str {
+        match self {
+            Anchor::Below(target) | Anchor::Above(target) => target,
+        }
+    }
+
+    /// The layer this anchor resolves to, given its target's own integer layer.
+    ///
+    /// One hop and one step: `below` is minus one and `above` is plus one, which is what
+    /// ADR-0004 wrote and ADR-0019 left unchanged. Saturating rather than wrapping — a
+    /// project that anchors below `i64::MIN` has bigger problems than the arithmetic, and
+    /// wrapping to the top of the stack is the one answer that would be silently wrong.
+    pub fn resolve_against(&self, target_layer: i64) -> i64 {
+        match self {
+            Anchor::Below(_) => target_layer.saturating_sub(1),
+            Anchor::Above(_) => target_layer.saturating_add(1),
+        }
+    }
+}
+
 /// A named container holding elements, with an integer `layer` giving its place in the
 /// stack.
 ///
@@ -252,9 +309,9 @@ pub struct Project {
 
 /// One thing placed on the timeline.
 ///
-/// The first five fields are the universal prefix every element carries regardless of type
-/// — `id, type, group, start, end` — with `group` omitted entirely rather than written as
-/// `null` when the element carries none (ADR-0041).
+/// The first six fields are the universal prefix every element carries regardless of type
+/// — `id, type, group, start, end, layer` — with `group` and `layer` omitted entirely
+/// rather than written as `null` when the element carries neither (ADR-0041, ADR-0030).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Element {
     /// Required and unique. Its only job is to be a target — an anchor's `below`/`above`
@@ -268,6 +325,19 @@ pub struct Element {
     /// at 7500 and its neighbour starting at 7500 is (ADR-0005).
     pub start: i64,
     pub end: i64,
+    /// This element's own stacking position, overriding its track's (ADR-0004). Absent on
+    /// almost every element: the track is where stacking normally lives, and an override
+    /// is the exception that says *this one element sits somewhere else*.
+    ///
+    /// Last in the universal prefix, so it is the same position on every type. ADR-0041
+    /// enumerated the prefix as `id, type, group, start, end` and handed `layer`'s position
+    /// to "the ADR that introduces it into a given type's schema" — and neither ADR-0004,
+    /// which introduced the override, nor ADR-0019, which fixed the anchor's semantics,
+    /// took it. It is placed here rather than at the head of each type's tail because it is
+    /// a field of *every* type, which is what the prefix means; the per-type tails are the
+    /// fields that differ. Unratified surface, raised as #243 rather than left to be
+    /// discovered from the struct.
+    pub layer: Option<Layer>,
     /// The type-discriminated remainder. `type` is written between `id` and `group`, which
     /// is why the prefix is assembled by hand rather than by `#[serde(flatten)]`.
     pub body: Body,

@@ -166,6 +166,9 @@
               "type": "integer",
               "format": "int64"
             },
+            "layer": {
+              "$ref": "#/$defs/Layer"
+            },
             "source": {
               "type": "string",
               "description": "Inline, never an asset-table reference (ADR-0002)."
@@ -251,6 +254,9 @@
             "end": {
               "type": "integer",
               "format": "int64"
+            },
+            "layer": {
+              "$ref": "#/$defs/Layer"
             },
             "source": {
               "type": "string"
@@ -356,6 +362,9 @@
               "type": "integer",
               "format": "int64"
             },
+            "layer": {
+              "$ref": "#/$defs/Layer"
+            },
             "x": {
               "$ref": "#/$defs/Animatable"
             },
@@ -458,6 +467,9 @@
               "type": "integer",
               "format": "int64"
             },
+            "layer": {
+              "$ref": "#/$defs/Layer"
+            },
             "x": {
               "$ref": "#/$defs/Animatable"
             },
@@ -534,6 +546,9 @@
             "end": {
               "type": "integer",
               "format": "int64"
+            },
+            "layer": {
+              "$ref": "#/$defs/Layer"
             },
             "x": {
               "$ref": "#/$defs/Animatable"
@@ -612,6 +627,9 @@
               "type": "integer",
               "format": "int64"
             },
+            "layer": {
+              "$ref": "#/$defs/Layer"
+            },
             "source": {
               "type": "string"
             },
@@ -667,6 +685,9 @@
             "end": {
               "type": "integer",
               "format": "int64"
+            },
+            "layer": {
+              "$ref": "#/$defs/Layer"
             },
             "kind": {
               "$ref": "#/$defs/TransitionKind",
@@ -1189,6 +1210,49 @@
       "enum": [
         "crossfade"
       ]
+    },
+    "Layer": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "format": "int64",
+          "description": "A plain integer — higher draws in front. **The only form an anchor's target may\ncarry**: ADR-0019 resolves in exactly one hop, so a target whose own layer is an\nanchor is an error rather than a second lookup."
+        },
+        {
+          "$ref": "#/$defs/Anchor",
+          "description": "Stated relative to another element's `id`."
+        }
+      ],
+      "description": "An element's own place in the stack, overriding the one its track supplies.\n\nPolymorphic on purpose, and ranked last on ease of writing by all eight agents in\nADR-0004's evaluation — who asked for it anyway, because the alternative is\nhand-maintaining `panel.layer = title.layer - 1` and re-deriving it every time the\ntitle moves.\n\n`untagged` rather than a wrapper object, because the two forms are what the format\nwrites: `\"layer\": 12` and `\"layer\": {\"below\": \"title\"}`. There is no third spelling —\nan anchor carrying a bare string is a retired one, and ADR-0016's unknown-key error\nnames its replacement."
+    },
+    "Anchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "below": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "below"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "above": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "above"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "A layer stated relative to another element's `id` — `{\"below\": \"title\"}` resolves to\nthat element's layer minus one, wherever either of them sits (ADR-0019).\n\nThe target string resolves against the element `id` namespace **only**, never a track\nname: the two look alike as bare strings, and one of issue #8's three agents could not\ntell which `\"title\"` meant. `CONTEXT.md`'s **Id** entry records the separation."
     }
   }
 }

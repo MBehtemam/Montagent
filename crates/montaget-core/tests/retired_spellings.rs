@@ -16,13 +16,15 @@ use montaget_core::report::{ExitCode, Report};
 use montaget_core::{text, validate};
 
 mod common;
-use common::write_project;
+use common::{canonical, write_project};
 
-/// A one-track project around `elements`, written the way the fixture writes them.
+/// A one-track project around `elements`, written the way the fixture writes them —
+/// canonically, so that the one case that runs the whole verb is not also reporting
+/// `L-LAYOUT` about a string literal in this file.
 fn project_with(elements: &str) -> String {
-    format!(
+    canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"photos","layer":1,"elements":[{elements}]}}]}}"##
-    )
+    ))
 }
 
 /// The retired-spelling findings on a one-element project.
@@ -455,7 +457,9 @@ fn the_project_background_is_checked_too() {
     let path = write_project(
         &dir,
         "p.montaget.json",
-        r##"{"frame":{"width":1080,"height":1920},"fps":25,"background":"#FBF3E3FF","tracks":[]}"##,
+        &canonical(
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"background":"#FBF3E3FF","tracks":[]}"##,
+        ),
     );
 
     let findings = validate(&path).findings;

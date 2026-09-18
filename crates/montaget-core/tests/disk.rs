@@ -24,7 +24,7 @@ use montaget_core::media::tools;
 use montaget_core::report::{ExitCode, Report};
 
 mod common;
-use common::{has_ffprobe, write_project};
+use common::{canonical, has_ffprobe, write_project};
 
 /// `validate`, over a session with **no sidecar**.
 ///
@@ -53,11 +53,11 @@ fn fixture_dir() -> PathBuf {
 
 /// A one-element audio project around a source, written the way the fixture writes them.
 fn audio_project(source: &str, source_start: i64, source_end: i64) -> String {
-    format!(
+    canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":{span},"source":{source},"source_start":{source_start},"source_end":{source_end}}}]}}]}}"##,
         span = source_end - source_start,
         source = json_string(source)
-    )
+    ))
 }
 
 /// A path is not a JSON string until something escapes it.
@@ -278,13 +278,13 @@ fn every_referenced_source_is_probed_however_many_elements_share_one() {
     // "I already checked that file" is wrong the moment you look elsewhere. Two elements,
     // one file: both are checked, and the file is probed once.
     let (dir, duration) = scratch_with_audio(std::panic::Location::caller().line());
-    let body = format!(
+    let body = canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[
             {{"id":"vo-ok","type":"audio","start":0,"end":{duration},"source":"cobweb.mp3","source_start":0,"source_end":{duration}}},
             {{"id":"vo-over","type":"audio","start":2000,"end":4000,"source":"cobweb.mp3","source_start":0,"source_end":{over}}}
         ]}}]}}"##,
         over = duration + 500
-    );
+    ));
     let path = write_project(&dir, "p.montaget.json", &body);
 
     let report = validate(&path);
@@ -403,7 +403,7 @@ fn a_project_referencing_no_media_needs_no_ffmpeg() {
     let path = write_project(
         &dir,
         "p.montaget.json",
-        r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##,
+        &canonical(r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##),
     );
 
     let report = validate(&path);
@@ -417,10 +417,10 @@ fn a_project_referencing_no_media_needs_no_ffmpeg() {
 
 /// A one-element video project pointing at an absolute source.
 fn video_project(source: &str, source_end: i64) -> String {
-    format!(
+    canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"clip","layer":1,"elements":[{{"id":"clip-01","type":"video","start":0,"end":{source_end},"source":{source},"source_start":0,"source_end":{source_end},"x":0,"y":0,"origin":"top-left","width":1080,"height":1920,"fit":"cover"}}]}}]}}"##,
         source = json_string(source)
-    )
+    ))
 }
 
 #[test]
@@ -543,9 +543,9 @@ fn the_facts_print_under_verbose_and_stay_in_the_json_either_way() {
 
 /// An audio project carrying whatever `speed` spelling is under test.
 fn audio_project_at_speed(source: &str, source_start: i64, source_end: i64, speed: &str) -> String {
-    format!(
+    canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":100,"source":"{source}","source_start":{source_start},"source_end":{source_end},"speed":{speed}}}]}}]}}"##
-    )
+    ))
 }
 
 #[test]

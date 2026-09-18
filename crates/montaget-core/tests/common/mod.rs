@@ -23,6 +23,21 @@ pub fn write_project(dir: &Path, name: &str, body: &str) -> PathBuf {
     path
 }
 
+/// The same project, written in the canonical convention.
+///
+/// Test projects are usually composed by interpolation, which produces one long line — and
+/// `validate` reports that, correctly and unconditionally, as `L-LAYOUT` (ADR-0041). A test
+/// about some *other* question routes its project through here, so that the convention is
+/// not a thing every such test has to hand-maintain in a string literal. A test about layout
+/// itself writes its bytes directly; that is what `tests/fmt.rs` does.
+///
+/// It goes through the product's own writer rather than a hand-formatted literal, so a test
+/// project cannot drift from the convention the product enforces.
+pub fn canonical(body: &str) -> String {
+    let value: serde_json::Value = serde_json::from_str(body).expect("a test writes valid JSON");
+    montaget_core::write::canonical(&montaget_core::layout::canonicalise(&value))
+}
+
 /// Whether this machine has the `ffmpeg`/`ffprobe` the disk half of `validate` needs.
 ///
 /// ADR-0009 ships Montaget as *"a binary, plus an `ffmpeg` the user supplies"*, so not

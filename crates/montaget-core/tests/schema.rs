@@ -50,12 +50,14 @@ fn no_optional_field_may_be_written_as_null() {
 fn canonical_key_order_is_the_schemas_property_order() {
     // ADR-0041's measured table, which cost zero bytes against the committed fixture
     // because the four types it uses were already internally consistent.
-    let prefix = ["id", "type", "group", "start", "end"];
+    // ADR-0041 enumerated five; `layer` is the sixth, placed at the tail of the prefix
+    // because it is a field of every type rather than of one (#243).
+    let prefix = ["id", "type", "group", "start", "end", "layer"];
 
     let image = canonical_order(Published::Element("image")).expect("image is a published type");
-    assert_eq!(&image[..5], &prefix);
+    assert_eq!(&image[..6], &prefix);
     assert_eq!(
-        &image[5..14],
+        &image[6..15],
         &[
             "source", "x", "y", "origin", "width", "height", "fit", "clip", "scale"
         ]
@@ -65,7 +67,7 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     let text = canonical_order(Published::Element("text")).expect("text is a published type");
     assert_eq!(
-        &text[5..16],
+        &text[6..17],
         &[
             "x",
             "y",
@@ -83,12 +85,12 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     let rect = canonical_order(Published::Element("rect")).expect("rect is a published type");
     assert_eq!(
-        &rect[5..11],
+        &rect[6..12],
         &["x", "y", "origin", "width", "height", "fill"]
     );
 
     let audio = canonical_order(Published::Element("audio")).expect("audio is a published type");
-    assert_eq!(&audio[5..8], &["source", "source_start", "source_end"]);
+    assert_eq!(&audio[6..9], &["source", "source_start", "source_end"]);
 
     // `ellipse` inherits `rect`'s shape, which ADR-0041 says fixes its order too.
     assert_eq!(

@@ -15,6 +15,8 @@
 //! - [`checks`] is where the checks themselves live, one module per question.
 //! - [`media`] is the disk half of the question: `ffmpeg` resolution, `probe`, the
 //!   ADR-0023 dimensions pipeline and the probe caches.
+//! - [`stack`] resolves an anchor into an integer layer, in one hop — the one place draw
+//!   order is computed, for the checks that report on it and the render that paints it.
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
@@ -40,6 +42,7 @@ pub mod permissive;
 pub mod registry;
 pub mod report;
 pub mod schema;
+pub mod stack;
 pub mod text;
 pub mod verbs;
 pub mod wire;
