@@ -15,6 +15,24 @@ fn fixture() -> String {
     std::fs::read_to_string(FIXTURE).expect("the committed fixture")
 }
 
+/// The committed fixture is LF, and says so before the round-trip test has to
+/// discover it the hard way.
+///
+/// `write::canonical` emits `\n`, so a checkout that rewrote the committed bytes
+/// to CRLF would fail the round-trip with a diff that is invisible in a terminal.
+/// This fails first and names the cause.
+#[test]
+fn the_committed_fixture_is_checked_out_with_lf_line_endings() {
+    let source = fixture();
+    assert!(
+        !source.contains('\r'),
+        "the fixture on disk contains CR, so this checkout rewrote its line endings. \
+         ADR-0041 makes the canonical convention a byte convention and \
+         `write::canonical` emits LF, so `.gitattributes` pins `eol=lf` for every \
+         platform. If this fires, that file is missing or is not being applied."
+    );
+}
+
 #[test]
 fn the_committed_fixture_round_trips_byte_for_byte() {
     let source = fixture();
@@ -97,21 +115,30 @@ fn an_element_carries_no_duration_and_its_range_is_half_open() {
 
 /// The first line where two documents disagree, for a failure message that names the place
 /// rather than printing four thousand characters twice.
+/// Split on `\n` rather than with `lines()`, which strips `\r\n` and `\n` alike.
+///
+/// That blindness is not hypothetical: when a Windows checkout rewrote the
+/// fixture's line endings, every line compared equal, the walk ran to the end of
+/// both files, and the failure reported `expected: <end of file>` against
+/// `actual: <end of file>` — a difference this function could not see and a
+/// message that named nothing (#189). Keeping the `\r` on the line makes it a
+/// difference like any other, and `escape_debug` makes it visible in the panic.
 fn first_difference(expected: &str, actual: &str) -> (usize, String, String) {
-    let mut expected_lines = expected.lines();
-    let mut actual_lines = actual.lines();
+    fn render(line: Option<&str>) -> String {
+        match line {
+            Some(text) => format!("\"{}\"", text.escape_debug()),
+            None => "<end of file>".into(),
+        }
+    }
+
+    let mut expected_lines = expected.split('\n');
+    let mut actual_lines = actual.split('\n');
     let mut line = 0;
     loop {
         line += 1;
         match (expected_lines.next(), actual_lines.next()) {
             (None, None) => return (line, "<end of file>".into(), "<end of file>".into()),
-            (a, b) if a != b => {
-                return (
-                    line,
-                    a.unwrap_or("<end of file>").to_string(),
-                    b.unwrap_or("<end of file>").to_string(),
-                );
-            }
+            (a, b) if a != b => return (line, render(a), render(b)),
             _ => {}
         }
     }
