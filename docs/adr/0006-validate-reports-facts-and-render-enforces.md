@@ -55,6 +55,18 @@ status: accepted
 > header"* **contradicts the rule it illustrates**. What counts as content coverage is
 > [#23](https://github.com/MBehtemam/Montaget/issues/23). See ADR-0011's final section.
 
+> **The claim that every numeric claim was verified by script is itself
+> unreproducible** — surfaced by
+> [#154](https://github.com/MBehtemam/Montaget/issues/154). The project file
+> the scripted verification ran against, from #9's second (defective) editing
+> exercise, was never committed:
+> `git log --all --diff-filter=A -- '*.montaget.json'` returns exactly one
+> project file, and it is not that one. No later reader can re-run the
+> verification this ADR describes below, so the sentence should be read as an
+> unverifiable historical claim rather than a standing guarantee. See
+> `docs/agents/domain.md`'s evidence-commit checklist, tightened by #154 to
+> catch this case going forward.
+
 > **A fourth stated fact does not hold either** — surfaced by
 > [#60](https://github.com/MBehtemam/Montaget/issues/60). The *"`sentence-quiz`
 > overhangs its card's top edge by ~6 px"* claim below is **false against the
