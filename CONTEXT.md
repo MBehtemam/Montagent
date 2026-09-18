@@ -402,8 +402,15 @@ best-effort — an optional citation requirement leaves no provenance to inspect
 _Avoid_: reference, source (already spoken for — see Source), attribution
 
 **Report**:
-One verb's whole answer: its findings, a count per class, an exit code, and the
-`NOT CHECKED` block that states the report's own boundary. JSON is canonical and
+One verb's whole answer: its findings, a count per class, an exit code, the
+`NOT CHECKED` block that states the report's own boundary, and — for a run that
+read the disk — the **cache misses** and the **media facts** it established. The
+cache miss is there because ADR-0006 put it there (*"report the cache miss,
+unprompted, at the top"*) and ADR-0011 made it load-bearing rather than
+incidental: the document records no source duration, so that line is the only
+thing announcing a source that grew on disk. The media facts are there because a
+run that measured a duration and printed none of it leaves the reader to
+re-derive it. JSON is canonical and
 the prose form is generated from it — `--json` prints the JSON *instead of* the
 text, never alongside it. Errors and near-errors print in full while the
 informational classes collapse to one counted line, because `0 errors, 47 notes`

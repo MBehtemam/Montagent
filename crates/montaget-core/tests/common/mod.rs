@@ -1,5 +1,7 @@
 //! Scratch-directory helpers shared by the integration tests.
 
+#![allow(dead_code)]
+
 use std::path::{Path, PathBuf};
 
 /// A scratch directory created fresh on every run, unique to the line that asked for it
@@ -19,4 +21,21 @@ pub fn write_project(dir: &Path, name: &str, body: &str) -> PathBuf {
     let path = dir.join(name);
     std::fs::write(&path, body).expect("write project file");
     path
+}
+
+/// Whether this machine has the `ffmpeg`/`ffprobe` the disk half of `validate` needs.
+///
+/// ADR-0009 ships Montaget as *"a binary, plus an `ffmpeg` the user supplies"*, so not
+/// having one is a legitimate state rather than a broken checkout — and one the tool
+/// answers with exit 70 rather than with a verdict. Tests that need real media say so
+/// through this, which asks the same question `validate` asks; inferring it from an exit
+/// code afterwards would green-light every *other* internal failure too.
+pub fn has_ffprobe() -> bool {
+    match montaget_core::media::tools::resolve() {
+        Ok(_) => true,
+        Err(missing) => {
+            eprintln!("skipping: {}", missing.reason());
+            false
+        }
+    }
 }

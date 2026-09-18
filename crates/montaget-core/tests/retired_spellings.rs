@@ -12,7 +12,7 @@
 //! `effects: [{"name": "mask", "shape": "circle"}]`.
 
 use montaget_core::finding::{Class, Finding, Repair};
-use montaget_core::report::ExitCode;
+use montaget_core::report::{ExitCode, Report};
 use montaget_core::{text, validate};
 
 mod common;
@@ -25,11 +25,22 @@ fn project_with(elements: &str) -> String {
     )
 }
 
+/// The retired-spelling findings on a one-element project.
+///
+/// This drives the check rather than the whole verb, which it did until #203 gave
+/// `validate` its disk half. These elements carry a `source` that deliberately has no file
+/// beside the scratch project, so running the verb would now add an `E-SOURCE-MISSING` to
+/// every case and make "exactly one finding" a statement about two checks at once. Whether
+/// a retired spelling fires is a question about the document alone, so it is asked of the
+/// check alone — and `the_verb_still_runs_this_check` below keeps the wiring covered.
 #[track_caller]
 fn findings_on(elements: &str) -> Vec<Finding> {
     let dir = common::tempdir(std::panic::Location::caller().line());
     let path = write_project(&dir, "p.montaget.json", &project_with(elements));
-    let report = validate(&path);
+    let document = montaget_core::parse::read(&path).expect("the scratch project parses");
+
+    let mut report = Report::new("validate", Some(path.display().to_string()));
+    montaget_core::checks::retired::check(&document, &mut report);
     report.findings
 }
 
@@ -514,4 +525,42 @@ fn render(findings: &[Finding]) -> String {
         report.push(finding.clone());
     }
     text::render(&report.to_json(), text::Options::verbose()).unwrap()
+}
+
+#[test]
+fn the_verb_still_runs_this_check() {
+    // `findings_on` drives the check directly, which is the right unit for "does this
+    // spelling fire". The wiring is a separate claim, and it is the one that would break
+    // silently: a check nobody calls passes every test it has. So one case goes the whole
+    // way through `validate`, on a project whose media is real — the fixture's own — so
+    // that the disk half has nothing to say and the retired finding stands alone.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    std::fs::create_dir_all(dir.join("images")).unwrap();
+    std::fs::copy(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/en-halloween-decorating/images/05.png"),
+        dir.join("images/05.png"),
+    )
+    .unwrap();
+    let path = write_project(
+        &dir,
+        "p.montaget.json",
+        &project_with(&image("photo-06", r##""gravity":"bottom""##)),
+    );
+
+    let report = validate(&path);
+
+    assert_eq!(
+        report
+            .findings
+            .iter()
+            .map(|f| f.code.as_str())
+            .collect::<Vec<_>>(),
+        ["E-RETIRED-KEY"],
+        "the verb reaches the check, and the real image beside it reports nothing"
+    );
+    assert_eq!(report.exit_code(), ExitCode::Errors);
 }

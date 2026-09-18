@@ -79,8 +79,12 @@ fn cli_probe_reaches_the_probe_verb_and_exits_0() {
         return;
     }
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
-    assert!(out.stdout.starts_with("CACHE"), "{}", out.stdout);
     assert!(out.stdout.contains("1536×2720"), "{}", out.stdout);
+    // ADR-0006 puts the cache line at the top of the report, above the facts, and `probe`
+    // answers with the same report shape every other verb does.
+    let cache = out.stdout.find("CACHE").expect(&out.stdout);
+    let media = out.stdout.find("MEDIA").expect(&out.stdout);
+    assert!(cache < media, "{}", out.stdout);
 }
 
 #[test]
@@ -98,7 +102,7 @@ fn cli_probe_json_replaces_the_text_report_and_never_accompanies_it() {
     }
     let json: serde_json::Value = serde_json::from_str(&out.stdout)
         .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
-    assert_eq!(json["sources"][0]["state"], "probed");
+    assert_eq!(json["media"][0]["dimensions"]["width"], 1536);
     assert_eq!(json["network_attempts"], 0);
 }
 
@@ -166,6 +170,75 @@ fn cli_probe_with_an_ffprobe_too_old_for_our_flags_is_exit_70_not_a_media_findin
         !String::from_utf8_lossy(&out.stdout).contains("U-SOURCE-UNPROBEABLE"),
         "the media is not the thing that failed"
     );
+}
+
+#[test]
+fn cli_validate_offers_no_flag_that_narrows_the_disk_checks() {
+    // ADR-0006, unanimous 5 of 5: "No fast mode. No `--no-probe`. No scoping of what is
+    // checked." The reason is stated as a prediction about people: "the moment a fast path
+    // exists it becomes the mode used in the edit loop, so the single highest-value check
+    // in the tool surface is the one that gets skipped." A flag is the easiest thing in the
+    // world to add later, so the absence is asserted rather than assumed.
+    let out = montaget(&["validate", "--help"]);
+
+    assert_eq!(out.code, Some(0));
+    for forbidden in [
+        "--no-probe",
+        "--fast",
+        "--skip",
+        "--only",
+        "--scope",
+        "--group",
+        "--no-disk",
+        "--offline",
+    ] {
+        assert!(
+            !out.stdout.contains(forbidden),
+            "`{forbidden}` would be a way to not run the check that exists to catch the \
+             defect that changed on disk rather than in the project:\n{}",
+            out.stdout
+        );
+    }
+    // The two that do exist are about the *output*, which ADR-0006 explicitly permits
+    // scoping — "a checked-but-unprinted finding still exists; an unchecked one silently
+    // does not".
+    assert!(out.stdout.contains("--json"), "{}", out.stdout);
+    assert!(out.stdout.contains("--verbose"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_validate_that_loses_its_ffprobe_keeps_what_it_had_already_learned() {
+    // A run reaches the disk half having already read the document. With no `ffprobe` it
+    // has learned two things — the retired key, and that it cannot look at the media — and
+    // a report carrying only the second would send an agent off to fix its `PATH` and
+    // re-run before hearing about the key it could have fixed in the same turn. Exit 70
+    // still, because the run did not finish (ADR-0011).
+    //
+    // Driven as a child process because `PATH` is process-wide: setting it in-process
+    // would break every sibling test that runs at the same time.
+    let dir = scratch_dir("cli-lost-ffprobe");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"photos","layer":1,"elements":[{"id":"photo-06","type":"image","start":0,"end":1000,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"bottom"}]}]}"##,
+    )
+    .expect("write project");
+    let empty = scratch_dir("cli-lost-ffprobe-path");
+
+    let out = Command::new(binary())
+        .args(["validate", project.to_str().unwrap()])
+        .env("PATH", &empty)
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(out.status.code(), Some(70));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("E-RETIRED-KEY"),
+        "what the document half learned survives: {stdout}"
+    );
+    assert!(stdout.contains("E-INTERNAL"), "{stdout}");
+    assert!(stdout.contains("ffmpeg"), "{stdout}");
 }
 
 #[test]

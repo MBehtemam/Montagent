@@ -31,12 +31,12 @@
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::dimensions::{self, Decoded, Rotation, RotationSource, SourceDimensions};
 use super::tools::{Missing, Tools};
 use super::{Rational, milliseconds};
-use crate::finding::UncheckedReason;
+use crate::finding::{Finding, UncheckedReason};
 
 /// ADR-0011's quad, which is the whole reason `probe` exists.
 ///
@@ -647,6 +647,67 @@ fn pix_fmt_has_alpha(pix_fmt: &str) -> bool {
         // `ya8`/`ya16` are grey-plus-alpha; `gray` on its own is not.
         || name.starts_with("ya")
         || name.starts_with("gbrap")
+}
+
+/// The finding an outcome carries, where it carries one.
+///
+/// One function, in the layer both callers share: `validate`'s disk check and the `probe`
+/// verb report the same four outcomes, and a boundary drawn twice is a boundary that can be
+/// drawn differently.
+pub fn finding_for(outcome: &Outcome, declared: &str) -> Option<Finding> {
+    match outcome {
+        Outcome::Probed(_) => None,
+        Outcome::Missing { source, detail } => Some(
+            Finding::new("E-SOURCE-MISSING")
+                // The spelling the document used, so an agent can find the string to fix;
+                // the resolved path is what was actually looked for, and both matter.
+                .field("source", json!(declared))
+                .field("resolved", json!(source))
+                .field("detail", json!(detail))
+                .repair_value(json!({
+                    "value": "correct the source, or put the file where it says"
+                })),
+        ),
+        Outcome::ExistenceOnly { source, detail } => Some(
+            Finding::new("U-SOURCE-EXISTENCE-ONLY")
+                .field("source", json!(source))
+                .field("detail", json!(detail)),
+        ),
+        Outcome::Unchecked {
+            source,
+            reason,
+            detail,
+        } => {
+            let finding = Finding::new("U-SOURCE-UNPROBEABLE")
+                .field("source", json!(source))
+                .field("detail", json!(detail));
+            Some(match reason {
+                Some(reason) => finding.unchecked_because(reason.clone()),
+                None => finding,
+            })
+        }
+    }
+}
+
+/// Record what one probe established into a report: a finding where something is wrong, the
+/// facts where something is right.
+///
+/// `declared` is the spelling the document used, which is the string an agent has to edit;
+/// every finding carries it, and the resolved path travels beside it rather than in its
+/// place.
+pub fn record(outcome: &Outcome, declared: &str, report: &mut crate::report::Report) {
+    match finding_for(outcome, declared) {
+        Some(finding) => report.push(finding),
+        None => {
+            if let Some(probe) = outcome.probe() {
+                // One entry per distinct source: the same file referenced by four elements
+                // is one fact about the disk, not four.
+                if !report.media.iter().any(|seen| seen.source == probe.source) {
+                    report.media.push(probe.clone());
+                }
+            }
+        }
+    }
 }
 
 /// The identity a local probe is cached under. ADR-0006: *"cache on `(path, size, mtime)`
