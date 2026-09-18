@@ -184,8 +184,8 @@ const CHECKS: &[CheckSpec] = &[
         // forces the caller to pick: a finding that said "the source is 65216 ms" without
         // saying *which* 65216 would invite the reader to check it against the other one.
         template: "{element}: `{source}` holds {probed_duration} ms ({axis}), and the declared \
-source range {source_start}..{source_end} reaches {over_by} ms past it. The declared source span \
-of {declared_source_span} ms at speed {speed} needs {timeline_span} ms of timeline.",
+source range {source_start}..{source_end} ({declared_source_span} ms) reaches {over_by} ms past \
+it.",
         status: Live,
     },
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------

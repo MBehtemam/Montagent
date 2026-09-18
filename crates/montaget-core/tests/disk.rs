@@ -474,3 +474,88 @@ fn the_facts_print_under_verbose_and_stay_in_the_json_either_way() {
     assert!(json.contains("\"media\""), "{json}");
     assert!(json.contains("1776"), "{json}");
 }
+
+// ---------------------------------------------------------------------------
+// Numbers the finding must not invent (ADR-0045).
+// ---------------------------------------------------------------------------
+
+/// An audio project carrying whatever `speed` spelling is under test.
+fn audio_project_at_speed(source: &str, source_start: i64, source_end: i64, speed: &str) -> String {
+    format!(
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":100,"source":"{source}","source_start":{source_start},"source_end":{source_end},"speed":{speed}}}]}}]}}"##
+    )
+}
+
+#[test]
+fn the_overrun_finding_states_no_number_that_speed_would_have_decided() {
+    if !has_ffprobe() {
+        return;
+    }
+    // ADR-0045's own minimal counterexample: a 7 ms span at `speed: 0.560` is exactly 12.5
+    // in decimal, so round-half-up gives 13, while `f64` computes 12.499999999999998 and
+    // gives 12. An earlier version of this check divided in `f64` and printed 12 — a number
+    // #197's exact check would contradict on the same element.
+    //
+    // The fix is not a more careful division here: it is that this finding has no business
+    // doing one. Whether a source range names bytes the file holds is a question about the
+    // source alone, and the same range overruns by the same amount at any rate.
+    let (dir, duration) = scratch_with_audio(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montaget.json",
+        &audio_project_at_speed("cobweb.mp3", duration, duration + 7, "0.560"),
+    );
+
+    let report = validate(&path);
+    let finding = &report.findings[0];
+
+    assert_eq!(finding.code, "E-SOURCE-OVERRUN");
+    assert_eq!(finding.fields["over_by"], 7);
+    for invented in ["speed", "timeline_span"] {
+        assert!(
+            !finding.fields.contains_key(invented),
+            "`{invented}` is ADR-0020's invariant, evaluated exactly by its own check \
+             (ADR-0045) and not restated approximately here: {finding:?}"
+        );
+    }
+
+    let rendered =
+        montaget_core::wire::render(&report, montaget_core::Wire::Text { verbose: false });
+    assert!(!rendered.contains(" 12 "), "the wrong answer: {rendered}");
+}
+
+#[test]
+fn a_speed_the_document_does_not_carry_is_never_supplied_for_it() {
+    if !has_ffprobe() {
+        return;
+    }
+    // `speed: 0` is a schema error (ADR-0020 — it names a hold, not a rate) and a `speed`
+    // that is a string is a schema error too; both belong to the checks that own the
+    // schema. What must not happen is this check quietly reading either as `1.0`, or
+    // dividing by zero and reporting a timeline span of i64::MAX. Both did happen before
+    // the field went away.
+    let (dir, duration) = scratch_with_audio(std::panic::Location::caller().line());
+    for spelling in ["0", "\"0.645\"", "null", "-1"] {
+        let path = write_project(
+            &dir,
+            "p.montaget.json",
+            &audio_project_at_speed("cobweb.mp3", 0, duration + 100, spelling),
+        );
+
+        let report = validate(&path);
+        let finding = &report.findings[0];
+        assert_eq!(finding.code, "E-SOURCE-OVERRUN", "speed: {spelling}");
+        assert_eq!(finding.fields["over_by"], 100, "speed: {spelling}");
+
+        let rendered =
+            montaget_core::wire::render(&report, montaget_core::Wire::Text { verbose: false });
+        assert!(
+            !rendered.contains("9223372036854775807"),
+            "speed: {spelling} — {rendered}"
+        );
+        assert!(
+            !rendered.contains("speed"),
+            "speed: {spelling} — {rendered}"
+        );
+    }
+}

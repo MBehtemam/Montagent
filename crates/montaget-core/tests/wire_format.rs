@@ -18,16 +18,15 @@ fn a_report() -> Report {
             // #203 gave the check its implementation, and with it the fields ADR-0006's
             // "every relevant number inline" asks for: which duration was measured
             // against (ADR-0011 returns four and forces a pick), the declared range, and
-            // how far past the file it reaches.
+            // how far past the file it reaches. `speed` is not among them — whether a
+            // range names bytes the file holds is a question about the source alone.
             .field("source", json!("audio/sentence-06-spider.mp3"))
             .field("axis", json!("audio stream"))
             .field("source_start", json!(0))
             .field("source_end", json!(3368))
             .field("declared_source_span", json!(3368))
             .field("probed_duration", json!(2568))
-            .field("over_by", json!(800))
-            .field("speed", json!(0.645))
-            .field("timeline_span", json!(3981)),
+            .field("over_by", json!(800)),
     );
     report.push(
         Finding::new("N-QUANTIZATION")

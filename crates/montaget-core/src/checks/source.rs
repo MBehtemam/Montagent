@@ -135,13 +135,20 @@ fn overrun(element: &Value, probe: &Probe, declared: &str) -> Option<Finding> {
         return None;
     }
 
-    // ADR-0006: every relevant number inline. *"A finding that says 'see
-    // `vo-sentence-06-a`' forces a re-read of the whole project to act on it, and that
-    // re-read, not the validator's output, is the real context cost."*
-    let speed = element["speed"].as_f64().unwrap_or(1.0);
-    let declared_source_span = source_end - source_start;
-    let timeline_span = (declared_source_span as f64 / speed).round() as i64;
-
+    // ADR-0006 names what a finding must carry: *"every number inline — especially the
+    // numbers that are not in the file: the probed duration, the delta"*. That is the
+    // file's length, the range declared against it, and how far past it reaches.
+    //
+    // **`speed` is deliberately absent, and so is the timeline span it implies.** Whether a
+    // source range names bytes the file holds is a question about the source alone: the
+    // same range overruns by the same amount at any rate. The timeline consequence belongs
+    // to ADR-0020's invariant, which ADR-0045 then requires be evaluated in exact rational
+    // arithmetic *"never from a `float`/`f64` intermediate"* — and that invariant is
+    // #197's check, evaluated once, there. Restating it here in `f64` produced a second
+    // number that could disagree with the first: on ADR-0045's own minimal case, a 7 ms
+    // span at `speed: 0.560`, this printed 12 where exact arithmetic gives 13. A finding
+    // whose whole value is that its inline numbers are true cannot carry a number computed
+    // by the one method an ADR forbids.
     Some(
         Finding::new("E-SOURCE-OVERRUN")
             .field("source", json!(declared))
@@ -149,9 +156,7 @@ fn overrun(element: &Value, probe: &Probe, declared: &str) -> Option<Finding> {
             .field("axis", json!(axis.name(probe)))
             .field("source_start", json!(source_start))
             .field("source_end", json!(source_end))
-            .field("declared_source_span", json!(declared_source_span))
-            .field("speed", json!(speed))
-            .field("timeline_span", json!(timeline_span))
+            .field("declared_source_span", json!(source_end - source_start))
             .field("over_by", json!(source_end - available)),
     )
 }
@@ -191,24 +196,46 @@ impl Axis {
         }
     }
 
-    fn available_ms(self, probe: &Probe) -> Option<i64> {
-        let stream = match self {
+    /// This element's own axis, where the file states it.
+    fn stream_ms(self, probe: &Probe) -> Option<i64> {
+        match self {
             Axis::Audio => probe.audio.and_then(|audio| audio.audio_stream_ms),
             Axis::Video => probe.quad.video_stream_ms,
-        };
-        stream.or(probe.quad.container_ms)
+        }
     }
 
-    /// What the finding calls the number it used.
+    /// The other one — because a `video` element pointed at an audio-only file should be
+    /// measured against the stream that is actually there rather than fall straight through
+    /// to the container, which is the weaker claim and may include a muxing tail.
+    fn other(self) -> Axis {
+        match self {
+            Axis::Audio => Axis::Video,
+            Axis::Video => Axis::Audio,
+        }
+    }
+
+    fn available_ms(self, probe: &Probe) -> Option<i64> {
+        self.stream_ms(probe)
+            .or_else(|| self.other().stream_ms(probe))
+            .or(probe.quad.container_ms)
+    }
+
+    /// What the finding calls the number it used. Never a guess: whichever branch of
+    /// [`Axis::available_ms`] answered is the one named.
     fn name(self, probe: &Probe) -> &'static str {
-        let stated = match self {
-            Axis::Audio => probe.audio.and_then(|audio| audio.audio_stream_ms),
-            Axis::Video => probe.quad.video_stream_ms,
-        };
-        match (self, stated.is_some()) {
-            (_, false) => "container",
-            (Axis::Audio, true) => "audio stream",
-            (Axis::Video, true) => "video stream",
+        if self.stream_ms(probe).is_some() {
+            return self.spelling();
+        }
+        if self.other().stream_ms(probe).is_some() {
+            return self.other().spelling();
+        }
+        "container"
+    }
+
+    fn spelling(self) -> &'static str {
+        match self {
+            Axis::Audio => "audio stream",
+            Axis::Video => "video stream",
         }
     }
 }
@@ -300,6 +327,32 @@ mod tests {
             axis.name(&probe),
             "container",
             "the finding names the weaker axis rather than presenting it as the stream's"
+        );
+    }
+
+    #[test]
+    fn an_element_is_measured_against_the_stream_that_exists_before_the_container() {
+        // A `video` element pointed at an audio-only file: its own axis is silent, and the
+        // stream that is actually there is a better answer than the container, which may
+        // carry a muxing tail the decoder never reaches.
+        let probe = probe(
+            Quad {
+                video_stream_ms: None,
+                container_ms: Some(2000),
+                ..Quad::default()
+            },
+            Some(Audio {
+                audio_stream_ms: Some(1776),
+                ..Audio::default()
+            }),
+        );
+
+        let axis = Axis::for_element(Some("video"));
+        assert_eq!(axis.available_ms(&probe), Some(1776));
+        assert_eq!(
+            axis.name(&probe),
+            "audio stream",
+            "and it says which one it fell back to, rather than naming its own"
         );
     }
 
