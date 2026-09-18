@@ -24,11 +24,30 @@ const EXCERPT: &str = "excerpt";
 pub struct Options {
     /// Expand the informational classes that otherwise collapse to one counted line.
     pub verbose: bool,
+    /// Print the media facts the run established.
+    ///
+    /// Always for `probe`, whose whole answer they are; for `validate` only under
+    /// `--verbose`, because a clean run over the fixture establishes sixteen of them and
+    /// ADR-0006's noise budget is explicit that *"a check that is free to run and expensive
+    /// to report is still expensive"*. The canonical JSON carries them either way — this
+    /// filters what prints, never what was analysed.
+    pub media: bool,
 }
 
 impl Options {
     pub fn verbose() -> Self {
-        Options { verbose: true }
+        Options {
+            verbose: true,
+            media: false,
+        }
+    }
+
+    /// The form `probe` answers in: the facts are the point, at any verbosity.
+    pub fn with_media(verbose: bool) -> Self {
+        Options {
+            verbose,
+            media: true,
+        }
     }
 }
 
@@ -50,6 +69,29 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
 
     out.push_str(&summary_line(report)?);
     out.push('\n');
+
+    // ADR-0006: "Then report the cache miss, unprompted, at the top." Not behind
+    // `--verbose`, not collapsed into a count, and not omitted when it is the only thing
+    // that changed — ADR-0011 calls this line the sole mechanism announcing a source that
+    // grew on disk, so it prints before the findings do.
+    if let Some(misses) = report["cache_misses"].as_array().filter(|m| !m.is_empty()) {
+        out.push_str("\nCACHE\n");
+        for miss in misses {
+            out.push_str("  ");
+            out.push_str(&miss_line(miss));
+            out.push('\n');
+        }
+    }
+
+    if let Some(media) = report["media"]
+        .as_array()
+        .filter(|m| !m.is_empty() && (options.media || options.verbose))
+    {
+        out.push_str("\nMEDIA\n");
+        for probed in media {
+            out.push_str(&source_block(probed));
+        }
+    }
 
     let findings = report["findings"]
         .as_array()
@@ -93,6 +135,115 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
     }
 
     Ok(out)
+}
+
+/// One probe that ran, in the words ADR-0006 asks for: what changed, not that a cache was
+/// consulted.
+fn miss_line(miss: &Value) -> String {
+    let source = miss["source"].as_str().unwrap_or("?");
+    match miss["kind"].as_str() {
+        Some("first") => format!("{source} — probed (not yet in the probe cache)"),
+        // Both halves of ADR-0006's key, both sides of the change. The size alone is the
+        // number a reader acts on, and the mtime is what makes the claim checkable against
+        // a `stat` — a file rewritten to the same length is a change only the mtime shows.
+        Some("changed") => format!(
+            "{source} — CHANGED ON DISK since it was last probed: {} bytes → {} bytes, mtime {} → {}",
+            miss["previous_size"],
+            miss["size"],
+            mtime(&miss["previous_mtime_ns"]),
+            mtime(&miss["mtime_ns"])
+        ),
+        Some("remote") => {
+            format!("{source} — fetched (remote sources are never cached across runs)")
+        }
+        _ => format!("{source} — probed"),
+    }
+}
+
+/// A modification time as the report prints it, or an em dash where the filesystem would
+/// not say one.
+fn mtime(value: &Value) -> String {
+    match value.as_i64() {
+        Some(ns) => format!("{ns} ns"),
+        None => "—".to_string(),
+    }
+}
+
+/// One probed source, as ADR-0011's quad and the ADR-0023 dimensions.
+fn source_block(probed: &Value) -> String {
+    // Only sources that answered reach this block: a source that did not is a finding, and
+    // the report prints it in its own section. Repeating it here would put one fact in two
+    // voices.
+    let mut out = format!("  {}\n", probed["source"].as_str().unwrap_or("?"));
+    let mut row = |label: &str, value: String| {
+        out.push_str(&format!("    {label:<16}{value}\n"));
+    };
+
+    let quad = &probed["quad"];
+    let ms = |key: &str| match quad[key].as_i64() {
+        Some(ms) => format!("{ms} ms"),
+        None => "—".to_string(),
+    };
+    let rate = |key: &str| match (quad[key]["num"].as_i64(), quad[key]["den"].as_i64()) {
+        (Some(num), Some(den)) => format!("{num}/{den}"),
+        _ => "—".to_string(),
+    };
+
+    // The quad, spelled out. ADR-0011: the caller picks, so the caller must see all four.
+    row("video stream", ms("video_stream_ms"));
+    row("container", ms("container_ms"));
+    row("start_time", ms("start_time_ms"));
+    row("r_frame_rate", rate("r_frame_rate"));
+    row("avg_frame_rate", rate("avg_frame_rate"));
+
+    let dimensions = &probed["dimensions"];
+    if !dimensions.is_null() {
+        row(
+            "dimensions",
+            format!(
+                // ADR-0023 (extending ADR-0015): print the dimensions used *and* which
+                // rotation source was applied.
+                "{}×{} (decoded {}×{}, rotation {}° from {}, par {}:{})",
+                dimensions["width"],
+                dimensions["height"],
+                dimensions["decoded"]["width"],
+                dimensions["decoded"]["height"],
+                dimensions["rotation"]["degrees"],
+                dimensions["rotation"]["source"].as_str().unwrap_or("?"),
+                dimensions["par"]["num"],
+                dimensions["par"]["den"],
+            ),
+        );
+    }
+    if let Some(alpha) = probed["alpha"].as_bool() {
+        row("alpha", if alpha { "yes" } else { "no" }.to_string());
+    }
+    let audio = &probed["audio"];
+    if !audio.is_null() {
+        // A field the stream did not state prints as the same dash the quad's rows use.
+        // Printing JSON `null` at a reader would be a third spelling of "we do not know",
+        // next to the dash and the report's own NOT CHECKED.
+        let stated = |value: &Value| match value {
+            Value::Null => "—".to_string(),
+            other => other.to_string(),
+        };
+        row(
+            "audio",
+            format!(
+                "{} Hz, {} channel{}, {} ms",
+                stated(&audio["sample_rate"]),
+                stated(&audio["channels"]),
+                if audio["channels"].as_u64() == Some(1) {
+                    ""
+                } else {
+                    "s"
+                },
+                stated(&audio["audio_stream_ms"])
+            ),
+        );
+    }
+
+    out
 }
 
 fn summary_line(report: &Value) -> Result<String, RenderError> {

@@ -2,21 +2,32 @@
 # Every number in FINDINGS.md. Throwaway. ~10 min on an M1 Pro.
 set -e
 cd "$(dirname "$0")"
-B=./target/release/rast-bench
+# The harness is a workspace member now (#189), so the binary lands in the
+# workspace target directory rather than beside this script.
+ROOT=../../../..
+B=$ROOT/target/release/rast-bench
 mkdir -p frames out
 
 echo "=== 0. correctness: verify before timing (the #6 ground rule) ==="
+# Written to out/ (gitignored) rather than to frames/, which holds #34's
+# tracked evidence: since #189 the harness shapes in the vendored Open Runde
+# rather than the system SF Pro Rounded, so rendering over those files would
+# replace the evidence with differently-typeset images and dirty the tree.
+#
+# The two `ref-skiacanvas-t0.png` comparisons #34 ran are dropped here for the
+# same reason: that reference is typeset in SF Pro Rounded, so the diff would
+# now be measuring a font change rather than a rasterizer difference, and the
+# number in FINDINGS.md is not reproducible against it. FINDINGS.md records what
+# it measured at the time; the live arm-against-arm check is `tests/oracle.rs`.
 for b in skia tiny; do
-  $B --backend=$b --still --from=0  --out=frames/$b-t0.png  >/dev/null
-  $B --backend=$b --still --from=40 --out=frames/$b-t40.png >/dev/null
-  $B --backend=$b --scene=scene-video.json --still --from=40 --out=frames/$b-video-t40.png >/dev/null
+  $B --backend=$b --still --from=0  --out=out/$b-t0.png  >/dev/null
+  $B --backend=$b --still --from=40 --out=out/$b-t40.png >/dev/null
+  $B --backend=$b --scene=scene-video.json --still --from=40 --out=out/$b-video-t40.png >/dev/null
 done
 python3 compare.py \
-  frames/skia-t0.png  frames/tiny-t0.png  "skia-safe vs tiny-skia @ t=0" \
-  frames/skia-t40.png frames/tiny-t40.png "skia-safe vs tiny-skia @ t=40" \
-  frames/skia-video-t40.png frames/tiny-video-t40.png "with video @ t=40" \
-  frames/skia-t0.png  frames/ref-skiacanvas-t0.png "skia-safe vs #6 skia-canvas @ t=0" \
-  frames/tiny-t0.png  frames/ref-skiacanvas-t0.png "tiny-skia vs #6 skia-canvas @ t=0"
+  out/skia-t0.png  out/tiny-t0.png  "skia-safe vs tiny-skia @ t=0" \
+  out/skia-t40.png out/tiny-t40.png "skia-safe vs tiny-skia @ t=40" \
+  out/skia-video-t40.png out/tiny-video-t40.png "with video @ t=40"
 
 echo
 echo "=== 1. full render, 65.216 s at 1080x1920/30 (budget < 2 min) ==="
@@ -75,7 +86,7 @@ done
 
 echo
 echo "=== 4c. decoder seek: is #6's position pathology real with a decoder? ==="
-./seek.sh /Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4
+./seek.sh $ROOT/fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4
 
 echo
 echo "=== 5. the 4K pass — 2160x3840, never re-derived since ADR-0003 ==="

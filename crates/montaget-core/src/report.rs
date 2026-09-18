@@ -4,6 +4,8 @@
 use serde_json::{Value, json};
 
 use crate::finding::{Class, Finding};
+use crate::media::probe::Probe;
+use crate::media::session::CacheMiss;
 
 /// ADR-0006's `NOT CHECKED` block, verbatim.
 ///
@@ -63,6 +65,24 @@ pub struct Report {
     pub tool: String,
     pub project: Option<String>,
     pub findings: Vec<Finding>,
+    /// Every probe that actually ran, rather than being answered from the cache.
+    ///
+    /// On the report rather than on any one verb's answer, because ADR-0006 puts it there:
+    /// *"then report the cache miss, unprompted, at the top"* — of `validate`'s report,
+    /// which is where it was specified before `probe` existed to share it. ADR-0011 then
+    /// makes it load-bearing rather than incidental: the document records no source
+    /// duration, so this line is *"the sole mechanism"* announcing a source that grew on
+    /// disk. It is never behind a flag and never collapses into a count.
+    pub misses: Vec<CacheMiss>,
+    /// What the disk said about each source the run probed, one entry per distinct source.
+    ///
+    /// The facts themselves, not a judgement about them: ADR-0006's *"`validate` reports
+    /// facts"*, and #203's *"every referenced source is probed and its real duration and
+    /// dimensions reported"*. They are carried whether or not any check fired, because a
+    /// clean run that established the numbers and then printed none of them would leave
+    /// the reader to re-derive them — and because the fit checks downstream consume exactly
+    /// these dimensions rather than probing a second time.
+    pub media: Vec<Probe>,
     terminal: Option<Terminal>,
 }
 
@@ -72,6 +92,8 @@ impl Report {
             tool: tool.into(),
             project,
             findings: Vec::new(),
+            misses: Vec::new(),
+            media: Vec::new(),
             terminal: None,
         }
     }
@@ -84,6 +106,8 @@ impl Report {
             tool: tool.into(),
             project,
             findings: vec![finding],
+            misses: Vec::new(),
+            media: Vec::new(),
             terminal: Some(Terminal::Unparseable),
         }
     }
@@ -99,6 +123,8 @@ impl Report {
                     .field("reason", Value::String(reason.into()))
                     .repair_value(json!({"value": "fix the command"})),
             ],
+            misses: Vec::new(),
+            media: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
         }
     }
@@ -112,8 +138,24 @@ impl Report {
                 // Refuse-class comes from the registry; nothing here asks for it.
                 Finding::new("E-INTERNAL").field("reason", Value::String(reason.into())),
             ],
+            misses: Vec::new(),
+            media: Vec::new(),
             terminal: Some(Terminal::Internal),
         }
+    }
+
+    /// Montaget failed part-way through a run that had already established facts.
+    ///
+    /// The findings already in the report stay in it. A run that read the document, found
+    /// a retired spelling, and *then* discovered there is no `ffprobe` has learned two
+    /// things, and replacing the report with the second would throw away the first —
+    /// leaving an agent to fix its `PATH`, re-run, and only then be told about the key it
+    /// could have fixed in the same turn. The exit code still says 70, because the run did
+    /// not finish (ADR-0011).
+    pub fn fail_internally(&mut self, reason: impl Into<String>) {
+        self.findings
+            .push(Finding::new("E-INTERNAL").field("reason", Value::String(reason.into())));
+        self.terminal = Some(Terminal::Internal);
     }
 
     /// Add a finding to the report.
@@ -180,6 +222,8 @@ impl Report {
             },
             "exit_code": self.exit_code().as_u8(),
             "findings": self.findings,
+            "cache_misses": self.misses,
+            "media": self.media,
             // Unconditional. ADR-0006: "the report ends with its own scope,
             // unconditionally" — an exception for the reports that never reached a
             // project reads as reasonable and is exactly the erosion the ADR is written

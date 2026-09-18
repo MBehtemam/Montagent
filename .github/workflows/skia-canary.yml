@@ -1,0 +1,188 @@
+# The Skia prebuilt canary (#36), guarding the premise ADR-0010 rests on.
+#
+# ADR-0010 accepted a C++ dependency because the required prebuilt is published,
+# so nobody compiles Skia from source. That premise was verified once and decays:
+# `skia-safe` keys its download on the exact sorted feature set, so a version
+# bump, an added decode feature or an upstream change to the published asset
+# matrix can move or drop the key, and a miss falls back to a from-source build
+# needing LLVM/Clang, Python and Ninja.
+#
+# **Why this is a second workflow rather than a step in `ci.yml`.** #36's point
+# is that the failure arrives from upstream rather than from a commit, so it has
+# to run on a schedule; and it has to run **cold**, because a cached job would
+# reuse an already-downloaded prebuilt and could not see the download stop
+# working. `ci.yml` caches deliberately and is therefore structurally blind to
+# this. Four independent reviewers on four different models named this as the
+# single most likely regret path, unanimously and unprompted (#7).
+#
+# A sustained prebuilt miss on a tier-1 target is ADR-0010's stated trigger to
+# revisit toward the `tiny-skia` exit. This job failing is that signal.
+name: Skia prebuilt canary
+
+on:
+  schedule:
+    # Daily. The thing being watched changes on someone else's release cadence,
+    # so the useful question is "how long may a miss go unnoticed", not "how
+    # often does our code change".
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+  # Also on any change to the pin itself, so the six targets are re-verified by
+  # the pull request that moves the feature set rather than the night after it
+  # merged (#189: a change to the feature set is its own ticket that re-verifies
+  # all six targets).
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "crates/montaget-render/Cargo.toml"
+      - "ci/assert_prebuilt_key.py"
+      - ".github/workflows/skia-canary.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+  # So a failed scheduled run can raise an issue rather than relying on someone
+  # reading their email. See the `alarm` job.
+  issues: write
+
+jobs:
+  prebuilt:
+    # Prefixed so this job's check name cannot collide with `ci.yml`'s leg for
+    # the same target. A branch-protection rule matches a required check by
+    # name, and two workflows reporting `aarch64-apple-darwin` made "the suite
+    # passed on that target" and "the prebuilt resolved on that target"
+    # indistinguishable to the rule — with the canary's success able to stand in
+    # for the suite's. Only `ci.yml`'s legs are required; the canary runs on a
+    # schedule and on the pin's own paths, so requiring it would block every
+    # pull request that does not touch the pin.
+    name: canary ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-24.04
+          - target: aarch64-pc-windows-msvc
+            os: windows-11-arm
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+          targets: ${{ matrix.target }}
+
+      # No `rust-cache` step, and that omission is the job. An empty CARGO_HOME
+      # and an empty target directory are what #36 asks for: the registry, the
+      # download cache and the build artifacts all have to be absent, or the
+      # build proves nothing about whether the prebuilt is still fetchable.
+      - name: A cold CARGO_HOME and an empty target directory
+        shell: bash
+        run: |
+          echo "CARGO_HOME=${{ runner.temp }}/cold-cargo-home" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=${{ runner.temp }}/cold-target" >> "$GITHUB_ENV"
+          echo "${{ runner.temp }}/cold-cargo-home/bin" >> "$GITHUB_PATH"
+
+      # `montaget-render` declares `skia-safe` before anything calls it (#189),
+      # precisely so this builds something. `-vv` is what surfaces the build
+      # script's stdout, which is the only place the resolved key is stated.
+      #
+      # `no-skia-source-build` is on by default and forwards `skia-safe`'s
+      # `no-compile`: a prebuilt miss panics the build instead of spending forty
+      # minutes compiling Skia. It is a build-machinery switch rather than a Skia
+      # feature, so it does not move the key.
+      - name: Cold build of montaget-render
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo build -vv -p montaget-render --target ${{ matrix.target }} \
+            2>&1 | tee "${{ runner.temp }}/skia-build.log"
+
+      # Stricter than "the build succeeded": the resolved feature set must be
+      # exactly the pinned one, for exactly this target, actually downloaded.
+      # `if: always()` because the interesting failure fails the step above
+      # first: a prebuilt miss makes `skia-bindings` panic with "Refusing to
+      # full-build skia", `pipefail` propagates it, and without this the script
+      # that translates that panic into ADR-0010's revisit trigger would never
+      # run in the one case it was written for.
+      - name: The resolved prebuilt key is the pinned one
+        if: always()
+        run: >
+          python3 ci/assert_prebuilt_key.py
+          --log "${{ runner.temp }}/skia-build.log"
+          --target ${{ matrix.target }}
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skia-build-log-${{ matrix.target }}
+          path: ${{ runner.temp }}/skia-build.log
+          retention-days: 14
+
+  # A canary nobody hears is a cron job burning minutes.
+  #
+  # GitHub emails the person who created the scheduled workflow, or who last
+  # changed its cron syntax — which is one person, one channel, and silently
+  # dependent on their Actions notification settings. ADR-0010 makes a sustained
+  # prebuilt miss the trigger to revisit toward the `tiny-skia` exit, so the
+  # signal has to land somewhere the project can see it and act on it.
+  #
+  # It files into the issue tracker, which `docs/agents/issue-tracker.md` names
+  # as where this repository's work lives, and comments on the existing issue
+  # rather than opening a new one every night — a duplicate a day would train
+  # everyone to ignore it, which is the same failure as silence.
+  alarm:
+    name: raise the alarm
+    needs: prebuilt
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open or update the prebuilt-miss issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Skia prebuilt canary is failing"
+          BODY=$(cat <<TEXT
+          The scheduled canary failed. ADR-0010 accepted a C++ dependency on the
+          premise that the required prebuilt is published for every desktop tier-1
+          target, and #36 exists to notice when that stops being true.
+
+          Run: $RUN_URL
+
+          The failing job's log says which target and which of these it was:
+
+          - the resolved feature set is no longer the pinned one, so the key moved;
+          - the prebuilt for that key is no longer published, so the download failed;
+          - a source build started, or \`no-skia-source-build\` refused one.
+
+          **A single red night is not the trigger.** ADR-0010 makes a *sustained*
+          miss on a tier-1 target the reason to revisit toward the \`tiny-skia\`
+          exit; upstream having a bad day is not. Leave this open while it keeps
+          firing, and close it when the canary is green again.
+          TEXT
+          )
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title --jq "[.[] | select(.title == \"$TITLE\")] | first | .number // empty")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "commented on #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

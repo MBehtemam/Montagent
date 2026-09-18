@@ -1,3 +1,16 @@
+# The two-arm harness #34 built. ADR-0010 requires it to stay in-tree as the
+# correctness oracle that keeps the `tiny-skia` exit real, and as the
+# golden-frame guard — "that guard is not optional" — because a `skia-safe` bump
+# can quietly shift resampling and antialiasing with nothing erroring, and this
+# project has twice shipped a render that completed, looked plausible and was
+# wrong.
+#
+# It is a workspace member (#189) for two reasons: so `skia-safe`'s version and
+# feature set stay pinned in exactly one place (#36), and so `cargo test
+# --workspace` runs the oracle rather than leaving it a directory nobody builds.
+# Its own `Cargo.lock`, which recorded the exact versions #34 measured against,
+# is superseded by the workspace lock; the versions are in `FINDINGS.md` and in
+# this file's history.
 [package]
 name = "rast-bench"
 version = "0.0.0"
@@ -5,13 +18,10 @@ edition = "2021"
 publish = false
 
 [dependencies]
-image = "0.25.10"
-parley = "0.11.1"
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-skia-safe = "0.153.2"
-skrifa = "0.46.2"
-tiny-skia = "0.12.0"
-
-[profile.release]
-opt-level = 3
+image.workspace = true
+parley.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+skia-safe.workspace = true
+skrifa.workspace = true
+tiny-skia.workspace = true

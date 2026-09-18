@@ -45,20 +45,54 @@ impl Wire {
 /// every adapter an error to mishandle, say so in the output and print the canonical
 /// JSON, which is the one form that cannot itself fail.
 pub fn render(report: &Report, form: Wire) -> String {
-    let json = report.to_json();
-    let canonical = || serde_json::to_string_pretty(&json).unwrap_or_else(|_| json.to_string());
+    in_form(&report.to_json(), form)
+}
 
+/// Render a `probe` answer in one wire form.
+///
+/// `probe`'s canonical JSON is a report's plus the facts only it establishes, and its
+/// prose is that JSON's — so it renders through the same function, under the same rule,
+/// rather than through a second one in an adapter. ADR-0006's *"never both in one
+/// invocation"* is a property of [`Wire`]; it stays one only while every form goes through
+/// here.
+pub fn render_answer(answer: &crate::verbs::probe::Answer, form: Wire) -> String {
+    let json = answer.to_json();
     match form {
-        Wire::Json => canonical(),
-        Wire::Text { verbose } => {
-            let options = text::Options { verbose };
-            match text::render(&json, options) {
-                Ok(rendered) => rendered,
-                Err(e) => format!(
-                    "montaget could not render its own report: {e}\n{}\n",
-                    canonical()
-                ),
-            }
-        }
+        Wire::Json => canonical(&json),
+        // `probe`'s whole answer is the media facts, so they print at any verbosity. For
+        // `validate` the same block is `--verbose`-gated; the canonical JSON carries them
+        // either way.
+        Wire::Text { verbose } => prose(&json, text::Options::with_media(verbose)),
     }
+}
+
+/// One canonical JSON, one prose generator, one rule about which of them prints.
+fn in_form(json: &serde_json::Value, form: Wire) -> String {
+    match form {
+        Wire::Json => canonical(json),
+        Wire::Text { verbose } => prose(
+            json,
+            text::Options {
+                verbose,
+                media: false,
+            },
+        ),
+    }
+}
+
+/// The prose form, or — where Montaget cannot render its own report — the one form that
+/// cannot itself fail, with the reason above it.
+fn prose(json: &serde_json::Value, options: text::Options) -> String {
+    match text::render(json, options) {
+        Ok(rendered) => rendered,
+        Err(e) => format!(
+            "montaget could not render its own report: {e}\n{}\n",
+            canonical(json)
+        ),
+    }
+}
+
+/// The canonical JSON as bytes — the one form that cannot itself fail.
+fn canonical(json: &serde_json::Value) -> String {
+    serde_json::to_string_pretty(json).unwrap_or_else(|_| json.to_string())
 }

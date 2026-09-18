@@ -24,3 +24,12 @@
 //! frame Montaget rendered itself is self-confirming and can only catch regressions;
 //! only `fixtures/en-halloween-decorating/reference/frame-*.png`, extracted from the
 //! published video, can falsify the format.
+//!
+//! Two things in it are live from today rather than from a later ticket. The
+//! `skia-safe` dependency is **declared before anything calls it** (#189), because
+//! Cargo builds a declared dependency and the scheduled prebuilt canary is therefore
+//! real from the day the line lands rather than from the rasterizer ticket. And
+//! [`budget`] holds the performance budgets ADR-0021 states, so the verb tickets have
+//! somewhere to assert rather than each inventing a number.
+
+pub mod budget;

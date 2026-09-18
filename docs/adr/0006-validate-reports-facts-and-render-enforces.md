@@ -4,6 +4,15 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)**,
+> which designs the *"the probe cache is a gitignored sidecar"* consequence
+> this ADR stated and left undesigned, and **places it outside every
+> repository** rather than beside the project: one JSON file per user under
+> the platform cache directory, keyed on a canonicalised `(path, size, mtime)`,
+> holding the whole probe. A missing, corrupt or unwritable sidecar is a cache
+> miss and never a finding. The gitignore this ADR asked for is thereby
+> structural rather than a rule each repository must remember.
+
 > **Amended by [ADR-0061](./0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md)**,
 > which names the test this ADR's "may not state anything that requires
 > knowing what the video is for" sentence left implicit — **threshold

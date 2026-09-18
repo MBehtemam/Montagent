@@ -70,6 +70,266 @@ fn cli_a_bad_invocation_is_exit_3_on_stderr() {
 }
 
 #[test]
+fn cli_a_source_that_grew_between_two_runs_is_announced_by_the_second() {
+    // #231's criterion, at the only seam that can state it: two processes. Before the
+    // sidecar (ADR-0069) the second run reported a `First` miss — "not yet in this
+    // session's cache" — and the growth, the one defect class ADR-0011 says nothing else
+    // can catch, went unsaid.
+    let dir = scratch_dir("cli-grew-between-runs");
+    let cache = dir.join("cache");
+    let media = dir.join("take3.mp3");
+    std::fs::copy(fixture_dir().join("audio/05-cobweb.mp3"), &media).expect("copy a real mp3");
+    let source = media.to_str().unwrap().to_string();
+
+    let first = montaget_caching(&["probe", &source], &cache);
+    if first.code == Some(70) {
+        eprintln!("skipping: {}", first.stderr.trim());
+        return;
+    }
+    assert_eq!(first.code, Some(0), "{}{}", first.stdout, first.stderr);
+    assert!(
+        first.stdout.contains("not yet in the probe cache"),
+        "the first run is a `First` miss:\n{}",
+        first.stdout
+    );
+
+    // The file gains bytes — and, on this filesystem, a later mtime — between the runs.
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    let mut grown = std::fs::read(&media).unwrap();
+    grown.extend_from_slice(&std::fs::read(&media).unwrap());
+    std::fs::write(&media, &grown).unwrap();
+
+    let second = montaget_caching(&["probe", &source], &cache);
+    assert_eq!(second.code, Some(0), "{}{}", second.stdout, second.stderr);
+    assert!(
+        second.stdout.contains("CHANGED ON DISK"),
+        "the growth must be announced across the process boundary:\n{}",
+        second.stdout
+    );
+    // Both halves of ADR-0006's key, both sides of the change.
+    assert!(second.stdout.contains("bytes →"), "{}", second.stdout);
+    assert!(second.stdout.contains("mtime "), "{}", second.stdout);
+
+    // And a third run, with nothing changed, is a hit: no CACHE block at all.
+    let third = montaget_caching(&["probe", &source], &cache);
+    assert_eq!(third.code, Some(0), "{}{}", third.stdout, third.stderr);
+    assert!(
+        !third.stdout.contains("CACHE"),
+        "an unchanged file is not a miss:\n{}",
+        third.stdout
+    );
+}
+
+#[test]
+fn cli_the_probe_cache_never_lands_beside_the_project() {
+    // ADR-0069: the sidecar lives under the per-user cache directory, so there is nothing
+    // beside a project to commit by accident and ADR-0053's movable unit stays as it was.
+    let dir = scratch_dir("cli-no-sidecar-beside-the-project");
+    let cache = dir.join("cache");
+    let media = dir.join("take3.mp3");
+    std::fs::copy(fixture_dir().join("audio/05-cobweb.mp3"), &media).expect("copy a real mp3");
+
+    let out = montaget_caching(&["probe", media.to_str().unwrap()], &cache);
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+
+    let beside: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name != "cache")
+        .collect();
+    assert_eq!(
+        beside,
+        vec!["take3.mp3".to_string()],
+        "the run left something beside the media"
+    );
+    assert!(
+        cache.join("probe-cache.json").exists(),
+        "and wrote it here instead"
+    );
+}
+
+#[test]
+fn cli_probe_reaches_the_probe_verb_and_exits_0() {
+    let fixture = fixture_dir();
+    let out = montaget(&["probe", fixture.join("images/06.png").to_str().unwrap()]);
+
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("1536×2720"), "{}", out.stdout);
+    // ADR-0006 puts the cache line at the top of the report, above the facts, and `probe`
+    // answers with the same report shape every other verb does.
+    let cache = out.stdout.find("CACHE").expect(&out.stdout);
+    let media = out.stdout.find("MEDIA").expect(&out.stdout);
+    assert!(cache < media, "{}", out.stdout);
+}
+
+#[test]
+fn cli_probe_json_replaces_the_text_report_and_never_accompanies_it() {
+    let fixture = fixture_dir();
+    let out = montaget(&[
+        "probe",
+        fixture.join("images/06.png").to_str().unwrap(),
+        "--json",
+    ]);
+
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["media"][0]["dimensions"]["width"], 1536);
+    assert_eq!(json["network_attempts"], 0);
+}
+
+#[test]
+fn cli_probe_without_an_ffmpeg_on_path_is_exit_70() {
+    // ADR-0011's exit 70: "internal failure (ffmpeg died, font stack failed) → retry or
+    // report". The `PATH` is emptied for this child alone.
+    let empty = scratch_dir("cli-no-ffmpeg");
+    let out = Command::new(binary())
+        .args(["probe", "anything.mp4"])
+        .env("PATH", &empty)
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(out.status.code(), Some(70));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("ffmpeg"), "{stderr}");
+    assert!(
+        stderr.contains(&empty.display().to_string()),
+        "the search is the actionable half: {stderr}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn cli_probe_with_an_ffprobe_too_old_for_our_flags_is_exit_70_not_a_media_finding() {
+    // ADR-0009 ships "a binary, plus an `ffmpeg` the user supplies", so the supplied one
+    // may be older than the flags Montaget passes. Driven through a real executable on a
+    // real `PATH` rather than a hand-built value, because the claim under test is that
+    // some code path actually reaches exit 70 — not that the type can represent it.
+    let dir = scratch_dir("cli-old-ffprobe");
+    for program in ["ffprobe", "ffmpeg"] {
+        let path = dir.join(program);
+        std::fs::write(
+            &path,
+            "#!/bin/sh\necho \"Unrecognized option 'protocol_whitelist'.\" >&2\nexit 1\n",
+        )
+        .expect("write the stub");
+        let mut mode = std::fs::metadata(&path).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+        std::fs::set_permissions(&path, mode).expect("make the stub executable");
+    }
+
+    let fixture = fixture_dir();
+    let out = Command::new(binary())
+        .args(["probe", fixture.join("images/06.png").to_str().unwrap()])
+        .env("PATH", &dir)
+        // A cold cache, so the stub is actually reached: a warm sidecar (ADR-0069) would
+        // answer from the last run and the broken tool would never be asked anything.
+        .env(
+            montaget_core::media::sidecar::CACHE_DIR_VAR,
+            dir.join("cache"),
+        )
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(
+        out.status.code(),
+        Some(70),
+        "a broken tool is exit 70, never exit 0 with the media blamed: {}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("protocol_whitelist"), "{stderr}");
+    assert!(
+        stderr.contains(dir.join("ffprobe").to_str().unwrap()),
+        "exit 70 names the resolved path, which is the thing to go and look at: {stderr}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("U-SOURCE-UNPROBEABLE"),
+        "the media is not the thing that failed"
+    );
+}
+
+#[test]
+fn cli_validate_offers_no_flag_that_narrows_the_disk_checks() {
+    // ADR-0006, unanimous 5 of 5: "No fast mode. No `--no-probe`. No scoping of what is
+    // checked." The reason is stated as a prediction about people: "the moment a fast path
+    // exists it becomes the mode used in the edit loop, so the single highest-value check
+    // in the tool surface is the one that gets skipped." A flag is the easiest thing in the
+    // world to add later, so the absence is asserted rather than assumed.
+    let out = montaget(&["validate", "--help"]);
+
+    assert_eq!(out.code, Some(0));
+    for forbidden in [
+        "--no-probe",
+        "--fast",
+        "--skip",
+        "--only",
+        "--scope",
+        "--group",
+        "--no-disk",
+        "--offline",
+    ] {
+        assert!(
+            !out.stdout.contains(forbidden),
+            "`{forbidden}` would be a way to not run the check that exists to catch the \
+             defect that changed on disk rather than in the project:\n{}",
+            out.stdout
+        );
+    }
+    // The two that do exist are about the *output*, which ADR-0006 explicitly permits
+    // scoping — "a checked-but-unprinted finding still exists; an unchecked one silently
+    // does not".
+    assert!(out.stdout.contains("--json"), "{}", out.stdout);
+    assert!(out.stdout.contains("--verbose"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_validate_that_loses_its_ffprobe_keeps_what_it_had_already_learned() {
+    // A run reaches the disk half having already read the document. With no `ffprobe` it
+    // has learned two things — the retired key, and that it cannot look at the media — and
+    // a report carrying only the second would send an agent off to fix its `PATH` and
+    // re-run before hearing about the key it could have fixed in the same turn. Exit 70
+    // still, because the run did not finish (ADR-0011).
+    //
+    // Driven as a child process because `PATH` is process-wide: setting it in-process
+    // would break every sibling test that runs at the same time.
+    let dir = scratch_dir("cli-lost-ffprobe");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"photos","layer":1,"elements":[{"id":"photo-06","type":"image","start":0,"end":1000,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"bottom"}]}]}"##,
+    )
+    .expect("write project");
+    let empty = scratch_dir("cli-lost-ffprobe-path");
+
+    let out = Command::new(binary())
+        .args(["validate", project.to_str().unwrap()])
+        .env("PATH", &empty)
+        .output()
+        .expect("run montaget");
+
+    assert_eq!(out.status.code(), Some(70));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("E-RETIRED-KEY"),
+        "what the document half learned survives: {stdout}"
+    );
+    assert!(stdout.contains("E-INTERNAL"), "{stdout}");
+    assert!(stdout.contains("ffmpeg"), "{stdout}");
+}
+
+#[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);
     assert_eq!(out.code, Some(0));
@@ -108,6 +368,37 @@ fn mcp_validate_on_a_header_only_project_is_a_clean_report() {
     assert!(text.starts_with("0 errors"), "{text}");
     assert!(text.contains("NOT CHECKED"), "{text}");
     assert_eq!(call["result"]["isError"], false);
+}
+
+#[test]
+fn mcp_does_not_advertise_probe() {
+    // ADR-0011: `probe` is CLI-only, and the asymmetry is the point. "Every MCP tool
+    // schema occupies the agent's context and degrades tool selection on every turn,
+    // including turns with nothing to do with video. A CLI subcommand costs nothing until
+    // invoked." Asserted here because the cost is paid on turns this suite cannot see.
+    let session = mcp_session(&[
+        request(
+            1,
+            "initialize",
+            serde_json::json!({
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "clientInfo": {"name": "montaget-tests", "version": "0"}
+            }),
+        ),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+    ]);
+
+    let tools = session.get(&2).expect("a result for tools/list")["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap_or("?").to_string())
+        .collect::<Vec<_>>();
+
+    assert!(tools.iter().any(|name| name == "validate"), "{tools:?}");
+    assert!(!tools.iter().any(|name| name == "probe"), "{tools:?}");
 }
 
 #[test]
@@ -297,9 +588,25 @@ fn binary() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_montaget"))
 }
 
+/// One `montaget` run, against a probe cache no other run shares.
+///
+/// Cold by construction: the sidecar (ADR-0069) is real, and a test that asserted a `CACHE`
+/// block would otherwise pass once and then never again on the same machine.
 fn montaget(args: &[&str]) -> Output {
+    static RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    montaget_caching(
+        args,
+        &scratch_dir(&format!("cache/{}-{n}", std::process::id())),
+    )
+}
+
+/// The same, against a cache directory the caller owns — which is how two runs share one,
+/// and the only way to ask whether anything survived between them.
+fn montaget_caching(args: &[&str], cache: &Path) -> Output {
     let out = Command::new(binary())
         .args(args)
+        .env(montaget_core::media::sidecar::CACHE_DIR_VAR, cache)
         .output()
         .expect("run montaget");
     Output {
@@ -360,11 +667,23 @@ fn mcp_session(messages: &[String]) -> std::collections::BTreeMap<u64, serde_jso
     responses
 }
 
-fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
+/// The committed fixture's own directory — the only media this suite probes.
+fn fixture_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/en-halloween-decorating")
+        .canonicalize()
+        .expect("the committed fixture")
+}
+
+fn scratch_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("montaget-adapter-tests/{name}"));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create scratch dir");
-    let path = dir.join(file);
+    dir
+}
+
+fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
+    let path = scratch_dir(name).join(file);
     std::fs::write(&path, body).expect("write project");
     assert!(Path::new(&path).exists());
     path

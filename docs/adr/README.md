@@ -2,7 +2,7 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**Most of this series amends itself — 49 of 68 ADRs carry an `amends:` header.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+**Most of this series amends itself — 51 of 69 ADRs carry an `amends:` header.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
 **ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (15 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
 
@@ -38,6 +38,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0002](0002-inline-source-no-asset-table.md) | An element names its file inline. There is no asset table — the one carve-out is the `fonts` table | 0007, 0053 |
 | [0053](0053-asset-path-resolution-no-assetroot.md) | Paths resolve against the project file's own directory. No `assetRoot`; absolute paths permitted; a missing source is a plain error | 0056 |
 | [0056](0056-remote-source-probe-session-scoped-no-persistent-cache.md) | A URL source is probed once per session, deduplicated by URL, with no persistent cache. A network failure is `UNCHECKED`, never a confirmed defect | — |
+| [0069](0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md) | The **local** probe cache persists as one per-user JSON file under the platform cache directory — never beside the project — keyed on a canonicalised `(path, size, mtime)` and holding the whole probe. Every failure in it is a cache miss, never a finding. Remote stays uncached | — |
 | [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) | The file carries **no version number**. The unknown-key error is the migration mechanism, and there is no `montaget migrate` | 0017, 0041, 0042 |
 | [0017](0017-closed-schema-no-escape-hatch.md) | The schema is closed at every object level, including `run` and `keyframe`. No `x-` prefix, no in-band escape hatch | — |
 | [0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) | Canonical key order **is** schema property-declaration order. `validate` checks it under a `LAYOUT` category; `fmt` splits into `--check` and write | 0068 |
@@ -73,7 +74,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0015](0015-fit-is-a-derivation-claim-and-gravity-retires.md) | `fit` is a **derivation claim, not a layout mode** — it never executes, and its only consumer is `validate`. The set is `cover`/`contain`/`literal`; `gravity` retires | 0017, 0023, 0024, 0026, 0027 |
-| [0023](0023-video-source-dimensions-par-and-rotation.md) | One type-generic pipeline: decode, resolve rotation, apply PAR as an exact rational, round once. Images are the degenerate case | — |
+| [0023](0023-video-source-dimensions-par-and-rotation.md) | One type-generic pipeline: decode, resolve rotation, apply PAR as an exact rational, round once. Images are the degenerate case | 0069 |
 | [0024](0024-measure-writes-the-fit-repair-not-the-verdict.md) | `measure` returns the fitted extent as a **bare derivation** — no verdict, no diff. `width`/`height` stay required and author-written | — |
 | [0026](0026-exact-aspect-fit-both-spellings-stand.md) | At an exact aspect match both `cover` and `contain` are true and both stand; `fmt` must not canonicalize either | — |
 | [0027](0027-vector-sources-out-of-scope.md) | Vector sources are out of scope for v1 — a scope boundary, not a permanent rejection | — |
@@ -112,7 +113,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061 |
+| [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061, 0069 |
 | [0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md) | **Threshold provenance decides admission, not severity.** A check is fact-only if every number deciding whether it fires is derivable from the document. `R-CAPTION-PACE` is kept via a fenced exception with binding citation | — |
 | [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md) | Error-class findings whose repair needs intent the document lacks are **refuse-class**: a `repair` field, decided once per check, uniform across instances, non-bypassable | 0068 |
 | [0018](0018-cross-track-coverage-is-group-scoped-not-a-union.md) | Cross-track coverage is **group-scoped pairing**, not a frame-wide union — the union rule fires on zero of the fixture's 11 real gaps under all 2¹³ bases | — |

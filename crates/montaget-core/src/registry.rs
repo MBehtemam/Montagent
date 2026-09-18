@@ -133,7 +133,45 @@ const CHECKS: &[CheckSpec] = &[
         template: "Montaget failed internally: {reason}",
         status: Live,
     },
-    // ---- Declared by the ADR series; the checks themselves are later tickets. ------
+    // ---- The disk half of `validate`: the probe's findings (#190) and the check that
+    // ---- reads them (#203). --------------------------------------------------------
+    CheckSpec {
+        // Not a new check: this is the code for ADR-0002/ADR-0006's standing *"every
+        // `source` must resolve"* error, which ADR-0053 says "covers both a missing local
+        // file and, by extension, an absolute path that doesn't resolve on the current
+        // machine — no new finding code is introduced here". The check had no code until
+        // something implemented it; this registers the one it fires under.
+        code: "E-SOURCE-MISSING",
+        classes: &[Error],
+        // Advise, on E-READ's reasoning: there is no document whose author could have
+        // meant a file that is not there, and the next move — correct the path, or put
+        // the file where the document says — follows from the condition itself. ADR-0056
+        // narrows what may reach this code: a *confirmed* absence only. A probe that
+        // could not complete is `U-SOURCE-UNPROBEABLE`, never this.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0053",
+        // "Is not there", not "could not be resolved": the same code fires on a 404, where
+        // nothing about path resolution failed. It names both the spelling the document
+        // used — the string an agent has to edit — and the place that spelling resolved to,
+        // because a relative path and the directory it resolved against are two different
+        // things to get wrong (ADR-0053).
+        template: "{source} is not there: {detail}. Looked for it at {resolved}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0056: an existence-only result "is a strictly weaker claim than a local
+        // probe's, and reporting it identically would be exactly the false confidence
+        // ADR-0006 was written to prevent". Its own code rather than a flag on the one
+        // above, so the weaker claim can never occupy the slot a confirmed duration does.
+        code: "U-SOURCE-EXISTENCE-ONLY",
+        classes: &[Unchecked],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0056",
+        template: "{source}: existence confirmed; duration and dimensions NOT CHECKED. {detail}",
+        status: Live,
+    },
     CheckSpec {
         code: "E-SOURCE-OVERRUN",
         classes: &[Error],
@@ -142,9 +180,15 @@ const CHECKS: &[CheckSpec] = &[
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0006",
-        template: "{element}: the source is {probed_duration} ms on disk; the declared source span of {declared_source_span} ms at speed {speed} needs {timeline_span} ms of timeline.",
-        status: Declared,
+        // Names the axis it measured against, because ADR-0011 returns four durations and
+        // forces the caller to pick: a finding that said "the source is 65216 ms" without
+        // saying *which* 65216 would invite the reader to check it against the other one.
+        template: "{element}: `{source}` holds {probed_duration} ms ({axis}), and the declared \
+source range {source_start}..{source_end} ({declared_source_span} ms) reaches {over_by} ms past \
+it.",
+        status: Live,
     },
+    // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
         code: "E-RETIRED-KEY",
         classes: &[Error],
@@ -154,9 +198,29 @@ const CHECKS: &[CheckSpec] = &[
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0043",
-        template: "{element}: `{key}` is a retired spelling, carrying {value}. Surface this \
-finding verbatim to whoever is operating Montaget; do not repair it by ordinary file edit.",
-        status: Declared,
+        template: "{subject}: `{key}` is a retired spelling, carrying {value}; the format now \
+says this with {replacement}. Surface this finding verbatim to whoever is operating Montaget; \
+do not repair it by ordinary file edit.",
+        status: Live,
+    },
+    CheckSpec {
+        // The advise-class half of the same mechanism, and a separate code because it has
+        // to be: ADR-0043's uniformity rule and the two-class split cannot both hold
+        // inside one code. Every member is a transposition whose whole input is the
+        // string already in the file — the bare `mask` key never had accepted semantics
+        // for a repair to misread (ADR-0068), and the rest are one value spelled two ways.
+        code: "E-RETIRED-SPELLING",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        // ADR-0043, like its refuse-class twin: naming the replacement is ADR-0016's
+        // mechanism and is common to both, but what separates the two codes — and what
+        // makes this one a code at all — is ADR-0043's class and its uniformity rule.
+        // ADR-0068 is the ADR that first classified a retirement into this half.
+        adr: "ADR-0043",
+        template: "{subject}: `{key}` is a retired spelling, carrying {value}. Write \
+{replacement} instead.",
+        status: Live,
     },
     CheckSpec {
         code: "E-KEYFRAME-EASE",
@@ -225,8 +289,13 @@ finding verbatim to whoever is operating Montaget; do not repair it by ordinary 
         repair: None,
         threshold: Internal,
         adr: "ADR-0013",
-        template: "{source} could not be probed, so the disk half of the question is unanswered.",
-        status: Declared,
+        template: "{source} could not be probed, so the disk half of the question is unanswered: \
+{detail}",
+        // Live as of #190, which supplies the probe. ADR-0056 gave it its structured
+        // reason: present when the network was what failed, absent when nothing was
+        // attempted — the distinction that keeps "I could not look" from reading as
+        // "it is not there".
+        status: Live,
     },
     CheckSpec {
         code: "L-KEY-ORDER",

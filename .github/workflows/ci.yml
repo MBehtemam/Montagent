@@ -1,0 +1,164 @@
+# The suite, on all six desktop tier-1 targets (ADR-0064, #189).
+#
+# This is the per-PR job. It is deliberately *not* the Skia prebuilt canary:
+# this one caches, and a cached job structurally cannot see the failure #36 is
+# about, which arrives from upstream rather than from a commit. The canary is
+# `skia-canary.yml` and runs cold, on a schedule.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # So the matrix can be dry-run from a branch before it is required. The
+  # oracle's golden tolerance was calibrated on one architecture (see
+  # `tests/oracle.rs`) and the first run on the other five is also the first
+  # measurement of them.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  suite:
+    # This name is the branch-protection contract: `<target>`, one per leg of
+    # ADR-0064's six, plus `committed checks`. `check_names_do_not_collide` in
+    # `skia_pin.rs` keeps it distinct from the canary's.
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ADR-0064 commits to {aarch64, x86_64} x {apple-darwin,
+          # unknown-linux-gnu, pc-windows-msvc}. Every entry is a *native*
+          # runner: a cross-compiled job would resolve the prebuilt for the
+          # target but could not run the oracle, and the oracle is the half of
+          # this suite that looks at pixels.
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-24.04
+          - target: aarch64-pc-windows-msvc
+            os: windows-11-arm
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # `rust-version` in the workspace manifest. Stated here too because a
+          # runner's "stable" drifts and the MSRV claim should be checked, not
+          # assumed.
+          toolchain: "1.90"
+          targets: ${{ matrix.target }}
+          # An explicit toolchain makes the action install `--profile minimal`,
+          # which is rustc and cargo and nothing else. Without this the Clippy
+          # step below fails with "no such command: clippy" on every leg.
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Montaget spawns an `ffmpeg` the user supplies rather than bundling one
+      # (ADR-0009: `libx264` is GPL and linking `libavcodec` would make the
+      # shipped binary a GPL combined work), so CI supplies one the same way a
+      # user would.
+      # Skia's own Linux link line ends in `-lstdc++ -lfreetype -lfontconfig`
+      # (`skia-bindings`' `platform/linux.rs`), so the prebuilt resolves fine and
+      # then nothing that links it will build without these. The canary does not
+      # catch it: it builds an rlib and never links, which is why it is green on
+      # Linux while the suite was not.
+      #
+      # `embed-freetype` would remove the freetype half — and it is one of the
+      # features `skia-bindings` keys its prebuilt on, so turning it on moves
+      # Montaget off `jpegd-jpege-pdf`. That is its own ticket that re-verifies
+      # all six targets (#189), not a thing to do while chasing a red build.
+      - name: Install ffmpeg and Skia's Linux link dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libfontconfig1-dev libfreetype6-dev
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
+      - name: ffmpeg is on PATH
+        run: ffmpeg -version
+
+      - name: Clippy
+        # `-D warnings` after the `--` so it applies to the workspace rather than
+        # to every dependency: a warning in somebody else's crate is not a
+        # reason this repository cannot build.
+        run: cargo clippy --workspace --all-targets --target ${{ matrix.target }} -- -D warnings
+
+      # `--release` because the oracle rasterizes two full 1080x1920 frames per
+      # arm and a debug build of Skia's callers makes that minutes rather than
+      # seconds.
+      #
+      # `--no-fail-fast` because `cargo test` otherwise stops at the first test
+      # *binary* that fails, and on a target nobody has run before that turns a
+      # matrix into a serial search: the first Windows run reported 8 of 24
+      # binaries and stopped, so each fix bought exactly one more failure, a
+      # quarter of an hour apart. A red leg should say everything it knows in one
+      # go.
+      - name: Test suite
+        run: >
+          cargo test --workspace --all-targets --release
+          --target ${{ matrix.target }} --no-fail-fast
+
+      # `cargo test` captures a passing test's output, so the oracle's deltas —
+      # the numbers `tests/oracle.rs` says it "prints on every run" — were
+      # invisible on a green leg, which is exactly the leg whose measurement is
+      # worth having. The golden tolerance was calibrated on one architecture; if
+      # a target ever exceeds it, the fix is to widen to *that target's measured
+      # number*, and this is where that number comes from. Re-running costs a
+      # second: the build is warm and it rasterizes six 1080x1920 frames.
+      - name: The oracle's measured deltas, for the record
+        run: cargo test -p rast-bench --release --target ${{ matrix.target }} -- --nocapture
+
+      # `--all-targets` skips doctests, which is where several of the ADR
+      # citations in `montaget-core` live.
+      - name: Doctests
+        run: cargo test --workspace --doc --release --target ${{ matrix.target }}
+
+  checks:
+    # Formatting and the committed re-executable checks `docs/agents/domain.md`
+    # requires. All of it is platform-independent, so one runner is enough —
+    # `clippy` stays in the matrix above because it is not: a lint can fire on
+    # `cfg`-gated code that only one target compiles.
+    name: committed checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+          components: rustfmt
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: ADR headers, banners and index agree
+        run: python3 docs/adr/check_amendment_banners.py
+
+      - name: The prebuilt canary's assertion still tells good logs from bad
+        run: python3 ci/assert_prebuilt_key.py --self-test

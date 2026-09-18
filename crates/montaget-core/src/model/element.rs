@@ -26,7 +26,9 @@ impl Serialize for Element {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let body = serde_json::to_value(&self.body).map_err(serde::ser::Error::custom)?;
         let Value::Object(body) = body else {
-            return Err(serde::ser::Error::custom("an element body is always an object"));
+            return Err(serde::ser::Error::custom(
+                "an element body is always an object",
+            ));
         };
 
         // `group` is omitted entirely when absent rather than written as `null`, which is
@@ -72,7 +74,9 @@ impl<'de> Visitor<'de> for ElementVisitor {
         let mut rest = Map::new();
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
             if rest.insert(key.clone(), value).is_some() {
-                return Err(A::Error::custom(format!("`{key}` appears twice on one element")));
+                return Err(A::Error::custom(format!(
+                    "`{key}` appears twice on one element"
+                )));
             }
         }
 
@@ -87,7 +91,9 @@ impl<'de> Visitor<'de> for ElementVisitor {
                 )));
             }
             Some(other) => {
-                return Err(A::Error::custom(format!("`{id}`: `group` is {other}, not a name")));
+                return Err(A::Error::custom(format!(
+                    "`{id}`: `group` is {other}, not a name"
+                )));
             }
             None => None,
         };

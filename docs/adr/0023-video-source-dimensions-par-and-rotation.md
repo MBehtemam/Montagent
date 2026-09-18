@@ -5,6 +5,14 @@ amends: 0015 (discharges the deferred "PAR and video source dimensions" clause; 
 
 # Source dimensions generalise to video: rotation resolves, then PAR, then one integer
 
+> **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)**,
+> which answers the *"PAR provenance for the probe sidecar"* sub-question parked
+> under **Not settled here** below: **yes** — the resolved rotation-applied
+> dimensions and the file's own probed `par` are both stored in the sidecar. The
+> probe that fills an entry has already computed them, so the choice was never
+> between storing them and not paying for them, but between storing them and
+> throwing them away.
+
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) defined "source
 dimensions" — the input to `fit`'s `cover`/`contain` arithmetic — as *decoded,
 orientation-applied integer pixel dimensions*, and explicitly deferred non-square pixel

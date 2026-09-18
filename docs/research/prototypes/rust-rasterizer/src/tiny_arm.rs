@@ -1,3 +1,9 @@
+// #34's measured code, deliberately left as it was measured. The two lints
+// below want this module restyled; it is not, because what this module *draws*
+// is the thing under test, and a cleanup that shifts a pixel would invalidate
+// the golden frames ADR-0010 keeps it here to be guarded by.
+#![allow(clippy::map_entry, clippy::field_reassign_with_default)]
+
 use crate::backend::{path_els, src_rect, Backend};
 use crate::media::load_rgba;
 use crate::text::{PathEl, PlacedGlyph, TextShaper};
@@ -59,8 +65,7 @@ impl Backend for TinyArm {
     }
 
     fn bg(&mut self, c: [u8; 4]) {
-        self.pixmap
-            .fill(Color::from_rgba8(c[0], c[1], c[2], c[3]));
+        self.pixmap.fill(Color::from_rgba8(c[0], c[1], c[2], c[3]));
     }
 
     fn rect(&mut self, x: f64, y: f64, w: f64, h: f64, c: [u8; 4]) {
@@ -70,7 +75,13 @@ impl Backend for TinyArm {
         }
     }
 
-    fn still(&mut self, src: &str, crop: (f64, f64), s: (f64, f64, f64, f64), d: (f64, f64, f64, f64)) {
+    fn still(
+        &mut self,
+        src: &str,
+        crop: (f64, f64),
+        s: (f64, f64, f64, f64),
+        d: (f64, f64, f64, f64),
+    ) {
         self.still_pixmap(src); // load-on-first-use, then split the borrow
         let Self { pixmap, stills, .. } = self;
         let pm = &stills[src];
@@ -88,7 +99,13 @@ impl Backend for TinyArm {
         };
         let ts = fit(ox, oy, sw, sh, d);
         let mut paint = Paint::default();
-        paint.shader = Pattern::new(pm.as_ref(), SpreadMode::Pad, FilterQuality::Bilinear, 1.0, ts);
+        paint.shader = Pattern::new(
+            pm.as_ref(),
+            SpreadMode::Pad,
+            FilterQuality::Bilinear,
+            1.0,
+            ts,
+        );
         if let Some(r) = Rect::from_xywh(d.0 as f32, d.1 as f32, d.2 as f32, d.3 as f32) {
             pixmap.fill_rect(r, &paint, Transform::identity(), None);
         }
@@ -102,7 +119,8 @@ impl Backend for TinyArm {
         let mut paint = Paint::default();
         paint.shader = Pattern::new(view, SpreadMode::Pad, FilterQuality::Bilinear, 1.0, ts);
         if let Some(r) = Rect::from_xywh(d.0 as f32, d.1 as f32, d.2 as f32, d.3 as f32) {
-            self.pixmap.fill_rect(r, &paint, Transform::identity(), None);
+            self.pixmap
+                .fill_rect(r, &paint, Transform::identity(), None);
         }
     }
 

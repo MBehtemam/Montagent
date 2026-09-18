@@ -2,9 +2,17 @@
 // the rasterizer fills the paths. Settled by ADR-0009 — not what #34 tests, so
 // this module is shared verbatim by both backends.
 //
+// The font is the one the fixture vendors, registered from its file with system
+// fonts switched off (#189). #34 shaped against the system family "SF Pro
+// Rounded", which exists on one of ADR-0064's six tier-1 targets and would have
+// made the oracle unrunnable on the other five — and which #143 established is
+// not in the repository and is not redistributable. Nothing outside the declared
+// font file is opened, which is what ADR-0010 asks of the real renderer.
+//
 // No automatic wrapping (ADR-0007): each `\N`-separated line is one parley
 // layout with no wrap width. Block placement (the ASS \an anchor and the
 // size*1.2 leading) is #6's ops.js math, kept so the frames are comparable.
+use parley::fontique::{Blob, Collection, CollectionOptions, SourceCache};
 use parley::{
     Alignment, AlignmentOptions, FontContext, FontFamily, Layout, LayoutContext,
     PositionedLayoutItem, StyleProperty,
@@ -55,6 +63,10 @@ pub struct PlacedGlyph {
 }
 
 pub struct TextShaper {
+    /// The family the vendored file registered under. Every text op is shaped in
+    /// it; the scene's declared family name is deliberately ignored, because a
+    /// name that resolves differently per machine is the thing being removed.
+    family: String,
     font_cx: FontContext,
     layout_cx: LayoutContext<()>,
     fonts: Vec<(Vec<u8>, u32)>,
@@ -63,14 +75,41 @@ pub struct TextShaper {
 }
 
 impl TextShaper {
-    pub fn new() -> Self {
+    /// Register one font file and shape everything in it.
+    pub fn new(font_path: &std::path::Path) -> Self {
+        let data = std::fs::read(font_path)
+            .unwrap_or_else(|e| panic!("reading the vendored font {font_path:?}: {e}"));
+        let mut collection = Collection::new(CollectionOptions {
+            shared: false,
+            // The whole point: no machine's font book gets a vote.
+            system_fonts: false,
+        });
+        let registered = collection.register_fonts(Blob::new(std::sync::Arc::new(data)), None);
+        let (family_id, _) = registered
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("{font_path:?} registered no font family"));
+        let family = collection
+            .family_name(family_id)
+            .expect("a registered family has a name")
+            .to_string();
+
         Self {
-            font_cx: FontContext::new(),
+            family,
+            font_cx: FontContext {
+                collection,
+                source_cache: SourceCache::default(),
+            },
             layout_cx: LayoutContext::new(),
             fonts: Vec::new(),
             font_ix: HashMap::new(),
             outlines: HashMap::new(),
         }
+    }
+
+    /// The family every op is shaped in.
+    pub fn family(&self) -> &str {
+        &self.family
     }
 
     /// The outline for a cache key. Populated by `place`; both backends read it.
@@ -82,7 +121,6 @@ impl TextShaper {
     pub fn place(
         &mut self,
         lines: &[String],
-        family: &str,
         size: f64,
         x: f64,
         y: f64,
@@ -92,12 +130,16 @@ impl TextShaper {
         let lh = size * 1.2; // ops.js: leading is size * 1.2
         let block = (lines.len() as f64 - 1.0) * lh;
 
+        // Cloned out so the family can be read while `layout_cx` and `font_cx`
+        // are both mutably borrowed below.
+        let family = self.family.clone();
+
         let mut out = Vec::new();
         for (i, line_text) in lines.iter().enumerate() {
             let mut builder =
                 self.layout_cx
                     .ranged_builder(&mut self.font_cx, line_text, 1.0, true);
-            builder.push_default(StyleProperty::FontFamily(FontFamily::named(family)));
+            builder.push_default(StyleProperty::FontFamily(FontFamily::named(&family)));
             builder.push_default(StyleProperty::FontSize(size as f32));
             let mut layout: Layout<()> = builder.build(line_text);
             layout.break_all_lines(None); // no wrap width — ADR-0007
