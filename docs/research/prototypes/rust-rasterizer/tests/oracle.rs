@@ -51,15 +51,34 @@ const ARM_AGREEMENT_VISIBLE_FRACTION: f64 = 0.005;
 ///
 /// Byte equality is deliberately not asserted (#168): the same rasterizer on a
 /// different tier-1 target can take a different SIMD path, and a last-bit
-/// difference is not a regression. The number is calibrated against a change that
-/// *is* one — re-typesetting the scene in a different font moved the mean to
-/// **2.88** and the visibly-different fraction to **1.70%** — so this ceiling
-/// sits ~6x below a real visual change while absorbing last-bit noise. On the
-/// machine the goldens were rendered on, the measured delta is 0.
+/// difference is not a regression. The number is calibrated against a change
+/// that *is* one — re-typesetting the scene in a different font moved the mean
+/// to **2.88** and the visibly-different fraction to **1.70%**.
 ///
-/// The test prints its measurements on every run. If a tier-1 target exceeds
-/// this, the fix is to record that target's measured number and widen to it
-/// deliberately, not to loosen the threshold until it passes.
+/// **Measured on all six targets, rather than assumed.** The frames were
+/// rendered on `aarch64-apple-darwin`, and the first full matrix run gave:
+///
+/// | target | `skia` vs golden | `tiny` vs golden |
+/// |---|---|---|
+/// | `aarch64-apple-darwin` | mean 0.000, max 0 | mean 0.000, max 0 |
+/// | `x86_64-apple-darwin`  | mean 0.000, max 0 | mean 0.000, max 0 |
+/// | `aarch64-unknown-linux-gnu` | mean 0.003–0.004, max 2 | mean 0.000, max 0 |
+/// | `x86_64-unknown-linux-gnu`  | mean 0.003, max 1 | mean 0.000, max 0 |
+/// | `aarch64-pc-windows-msvc` | mean 0.003–0.004, max 2 | mean 0.000, max 0 |
+/// | `x86_64-pc-windows-msvc`  | mean 0.003, max 1 | mean 0.000, max 0 |
+///
+/// Two things in that worth keeping. Skia's CPU raster is **not** bit-identical
+/// across platforms — it differs by one or two least-significant bits off Apple
+/// targets — which is precisely why byte equality would have been the wrong
+/// assertion and a tolerance was the right one. And `tiny-skia` is bit-identical
+/// on all six, so the arm ADR-0010 keeps as the *exit* is the more reproducible
+/// of the two, a fact worth having recorded if that exit is ever taken.
+///
+/// The ceiling stays at 0.5 rather than being tightened to the ~0.004 observed:
+/// one run per platform is a data point, not a distribution, and the value is
+/// already ~600x below a real visual change. The test prints its measurements on
+/// every run (CI re-runs it with `--nocapture` for exactly this reason), so
+/// narrowing it later is a matter of reading logs rather than guessing.
 const GOLDEN_MEAN: f64 = 0.5;
 const GOLDEN_VISIBLE_FRACTION: f64 = 0.001;
 
