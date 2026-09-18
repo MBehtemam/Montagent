@@ -18,11 +18,31 @@
 use std::path::{Path, PathBuf};
 
 use montaget_core::finding::Class;
+use montaget_core::media::probe::ProcessRunner;
+use montaget_core::media::session::Session;
+use montaget_core::media::tools;
 use montaget_core::report::{ExitCode, Report};
-use montaget_core::validate;
 
 mod common;
 use common::{has_ffprobe, write_project};
+
+/// `validate`, over a session with **no sidecar**.
+///
+/// The sidecar is real behaviour and ADR-0069 asks for it — `tests/sidecar.rs` is where it
+/// is tested — but a cache that persists across runs would make the miss counts below
+/// depend on what an earlier `cargo test` left in the user's cache directory. These tests
+/// are about what *one* run reports, so they get a cache that begins and ends with the call.
+fn validate(path: &Path) -> Report {
+    match tools::resolve() {
+        Ok(tools) => {
+            let mut session = Session::with(tools, Box::new(ProcessRunner));
+            montaget_core::verbs::validate::validate_with(path, &mut session)
+        }
+        // No `ffprobe`: there is no session to hold a cache, and the exit-70 path is the
+        // behaviour under test.
+        Err(_) => montaget_core::validate(path),
+    }
+}
 
 fn fixture_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

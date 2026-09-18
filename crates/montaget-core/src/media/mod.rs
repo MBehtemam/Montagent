@@ -21,10 +21,14 @@
 //! - [`session`] holds the caches — `(path, size, mtime)` for local files, URL-keyed
 //!   deduplication for remote ones — and reports every miss unprompted (ADR-0006,
 //!   ADR-0056).
+//! - [`sidecar`] is where the local half persists: a per-user JSON cache, read when a
+//!   session opens and written when it ends, so the cache-miss line survives a process
+//!   boundary (ADR-0069). The remote half never reaches it.
 
 pub mod dimensions;
 pub mod probe;
 pub mod session;
+pub mod sidecar;
 pub mod tools;
 
 use std::path::{Path, PathBuf};

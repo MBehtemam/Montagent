@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use montaget_core::finding::{Class, UncheckedReason};
-use montaget_core::media::probe::{Execution, Outcome, Runner};
+use montaget_core::media::probe::{Execution, Outcome, ProcessRunner, Runner};
 use montaget_core::media::session::{MissKind, Session};
 use montaget_core::media::tools::{self, Tools};
 use montaget_core::media::{Rational, Source};
@@ -105,8 +105,11 @@ fn fixture_dir() -> PathBuf {
 /// A live session, or `None` where this machine has no `ffprobe` — which is a legitimate
 /// state, since ADR-0009 ships Montaget as *"a binary, plus an `ffmpeg` the user
 /// supplies"*.
+///
+/// Built without a sidecar (ADR-0069): these tests are about what a real `ffprobe` says,
+/// and a cache that outlived the process would mean a second `cargo test` never asked it.
 fn live() -> Option<Session> {
-    match Session::open() {
+    match tools::resolve().map(|tools| Session::with(tools, Box::new(ProcessRunner))) {
         Ok(session) => Some(session),
         Err(missing) => {
             eprintln!("skipping: {}", missing.reason());

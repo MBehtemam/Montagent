@@ -420,6 +420,23 @@ unrun one does.
 [ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
 _Avoid_: output, results, log
 
+**Probe sidecar**:
+Where the local probe cache persists between runs: one JSON file per user under
+the platform's cache directory, keyed on a canonicalised `(path, size, mtime)`
+and holding the whole probe — the quad, the resolved dimensions and the `par`
+that produced them, alpha and the audio facts. It lives outside every repository,
+so it cannot be committed by accident and a project stays a movable unit. Its
+purpose is the **cache miss**, not the saved work: without it, the line
+announcing a source that grew on disk can only fire twice within one process, and
+`probe` is CLI-only. Everything that can go wrong with it — absent, corrupt, an
+unknown version, unwritable — is a cache miss and never a finding, because a
+cache directory is not the project. Nothing about a **remote** source is ever
+stored in it.
+([ADR-0069](docs/adr/0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md),
+[ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0056](docs/adr/0056-remote-source-probe-session-scoped-no-persistent-cache.md))
+_Avoid_: index, database, manifest, cache file (unqualified)
+
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
 file was not compared against any prior version or instruction, and Montaget

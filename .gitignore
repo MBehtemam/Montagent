@@ -19,3 +19,8 @@ __pycache__/
 out/
 
 .DS_Store
+
+# The probe sidecar (ADR-0069). It lives under the per-user cache directory and never
+# inside a repository, so this rule covers exactly one case: MONTAGET_CACHE_DIR pointed
+# into a checkout. Stated once, here, so no project repo has to remember it.
+probe-cache.json*
