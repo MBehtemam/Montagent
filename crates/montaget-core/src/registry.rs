@@ -328,11 +328,17 @@ do not repair it by ordinary file edit.",
         status: Live,
     },
     CheckSpec {
-        // The rest of the convention: one element per line, two-space indent, the header
-        // on its own lines, one trailing newline. Its own code rather than a flag on
-        // `L-KEY-ORDER`, because the two are independently reachable — the incident agent
-        // pretty-printed the fixture from 154 lines to 1595 without disturbing a single
-        // key's position — and a reader who sees one should not be told the other.
+        // The rest of the convention: one element per line, the element sort ADR-0005
+        // states, two-space indent, the header's and each track's own key order, one
+        // trailing newline. Its own code rather than a flag on `L-KEY-ORDER`, because the
+        // two are independently reachable — the incident agent pretty-printed the fixture
+        // from 154 lines to 1595 **without disturbing a single key's position**, so a
+        // `--check` carrying only `L-KEY-ORDER` would have reported nothing on the very
+        // file ADR-0041 was written about.
+        //
+        // ADR-0041 specifies one finding shape and it is the element-scoped one, so this
+        // code is surface the ADR series has not ratified. Raised as #241 rather than left
+        // to be discovered from the table.
         code: "L-LAYOUT",
         classes: &[Layout],
         repair: None,

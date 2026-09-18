@@ -63,7 +63,7 @@ pub enum Mode {
 /// something can gate on, and #193 does not ask for an exit code at all. The awkwardness is
 /// left standing rather than settled here: a caller that wants a gate today reads the
 /// `layout` count out of `--json`, which is exact, and whether the ladder should grow a
-/// sixth code is an ADR's decision, not this verb's.
+/// sixth code is an ADR's decision, not this verb's. Raised as #241.
 pub fn fmt(path: &Path, mode: Mode) -> Report {
     let project = Some(path.display().to_string());
 
