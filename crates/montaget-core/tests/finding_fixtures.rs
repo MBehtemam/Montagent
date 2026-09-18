@@ -229,6 +229,10 @@ fn an_unchecked_finding_carries_a_structured_reason() {
     let f = Finding::new("U-SOURCE-UNPROBEABLE")
         .at_file("p.json")
         .field("source", json!("https://cdn.example/clip.mp4"))
+        // #190 made the check live and gave its template the transport's own words: the
+        // structured reason says which kind of unknown this is, and `detail` says what
+        // the thing that failed actually said.
+        .field("detail", json!("Server returned 503 Service Unavailable"))
         .unchecked_because(montaget_core::finding::UncheckedReason::Http { status: 503 });
     let json = serde_json::to_value(&f).unwrap();
 
