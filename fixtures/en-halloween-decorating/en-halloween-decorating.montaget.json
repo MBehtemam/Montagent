@@ -115,7 +115,7 @@
       "name": "handle-logo",
       "layer": 31,
       "elements": [
-        {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,"source":"brand/logo-en.png","x":478,"y":96,"origin":"top-left","width":68,"height":68,"fit":"cover","clip":[478,96,68,68],"mask":"circle"}
+        {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,"source":"brand/logo-en.png","x":478,"y":96,"origin":"top-left","width":68,"height":68,"fit":"cover","clip":[478,96,68,68],"effects":[{"name":"mask","shape":"circle"}]}
       ]
     },
     {

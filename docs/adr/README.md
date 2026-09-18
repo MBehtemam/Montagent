@@ -2,7 +2,9 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (14 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
+**Most of this series amends itself — 49 of 68 ADRs carry an `amends:` header.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+
+**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (15 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
 
 ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
@@ -38,7 +40,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0056](0056-remote-source-probe-session-scoped-no-persistent-cache.md) | A URL source is probed once per session, deduplicated by URL, with no persistent cache. A network failure is `UNCHECKED`, never a confirmed defect | — |
 | [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) | The file carries **no version number**. The unknown-key error is the migration mechanism, and there is no `montaget migrate` | 0017, 0041, 0042 |
 | [0017](0017-closed-schema-no-escape-hatch.md) | The schema is closed at every object level, including `run` and `keyframe`. No `x-` prefix, no in-band escape hatch | — |
-| [0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) | Canonical key order **is** schema property-declaration order. `validate` checks it under a `LAYOUT` category; `fmt` splits into `--check` and write | — |
+| [0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) | Canonical key order **is** schema property-declaration order. `validate` checks it under a `LAYOUT` category; `fmt` splits into `--check` and write | 0068 |
 | [0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) | `.montaget.json` is a documented convention, never enforced, with no in-document marker. `fmt` refuses only when `tracks`/`fps`/`frame` are wholesale missing | — |
 | [0030](0030-defaultable-field-presence-is-content.md) | A defaultable field's **presence is content**. `fmt` never adds or removes one; omission and explicit-at-default are two different declarations | — |
 
@@ -93,7 +95,8 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0014](0014-stroke-is-paint-the-text-box-is-required.md) | `rect` and `ellipse` are sibling element types; `line`/`polygon`/`path` are rejected because a point list has no declared extent. **Stroke is paint**, not an effect. The text box stays required | 0015, 0028, 0040, 0048, 0058 |
-| [0040](0040-effect-model-attachment-and-v1-vocabulary.md) | Effects attach as an ordered `effects: [...]` list — order is semantically real. v1 ships `blur`, `shadow`, shape-only `mask`. Effects attach to elements, never to a run | 0048, 0049, 0055, 0059 |
+| [0040](0040-effect-model-attachment-and-v1-vocabulary.md) | Effects attach as an ordered `effects: [...]` list — order is semantically real. v1 ships `blur`, `shadow`, shape-only `mask`. Effects attach to elements, never to a run | 0048, 0049, 0055, 0059, 0068 |
+| [0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) | The bare `mask` key **retires** — masks are `effects` members, resolving ADR-0040's contradiction with its own schema clause. A param-less `mask` is the **inscribed shape** of the element's rect; the full parameter set is graduated. `effects` sorts last in key order | — |
 | [0049](0049-v1-colour-filter-vocabulary-four-scalar-members.md) | Four flat scalar colour effects — `tint`, `saturation`, `brightness`, `contrast` — no `mode` discriminator, plus a mechanical stopping rule that excludes curves and LUTs | — |
 | [0059](0059-transitions-element-type-crossfade-only-exact-window.md) | A transition is **its own element type**, id-targeting two elements over an exact window. v1 `kind` is `crossfade` only | — |
 | [0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) | `volume` is a keyframable `0..1..>1` linear multiplier, flat on `audio`/`video`. No `mute`. Automatic ducking deferred — hand-authored as ordinary keyframes | — |
@@ -111,7 +114,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | --- | --- | --- |
 | [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061 |
 | [0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md) | **Threshold provenance decides admission, not severity.** A check is fact-only if every number deciding whether it fires is derivable from the document. `R-CAPTION-PACE` is kept via a fenced exception with binding citation | — |
-| [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md) | Error-class findings whose repair needs intent the document lacks are **refuse-class**: a `repair` field, decided once per check, uniform across instances, non-bypassable | — |
+| [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md) | Error-class findings whose repair needs intent the document lacks are **refuse-class**: a `repair` field, decided once per check, uniform across instances, non-bypassable | 0068 |
 | [0018](0018-cross-track-coverage-is-group-scoped-not-a-union.md) | Cross-track coverage is **group-scoped pairing**, not a frame-wide union — the union rule fires on zero of the fixture's 11 real gaps under all 2¹³ bases | — |
 | [0019](0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md) | An anchor names an element `id` (now a required unique field) and resolves in **one hop**. `error` for missing/self-anchored, `review` for a target that never overlaps in time | — |
 | [0060](0060-layer-tie-is-an-error-array-order-stays-meaningless.md) | A geometry-overlapping layer tie is an **error**, never a fallback order. Array order stays permanently meaningless | — |
@@ -134,7 +137,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 ## Reading order for a newcomer
 
-The series is 66 ADRs and mostly not worth reading front to back. To get the model:
+The series is 68 ADRs and mostly not worth reading front to back. To get the model:
 
 1. **[0003](0003-general-video-editor-not-channel-tooling.md)** — what this is and what the fixture is for. Read the anti-drift rule and take it seriously.
 2. **[0004](0004-tracks-as-constrained-lanes.md)** + **[0005](0005-absolute-integer-milliseconds.md)** — the shape of the document and its clock.

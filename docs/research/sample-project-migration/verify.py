@@ -51,6 +51,15 @@ for i,e in N.items():
         assert "width" in e and "height" in e, ("missing size",i)
     assert "box" not in e and "weight" not in e, i
     if e["type"]!="text": assert "align" not in e, i
+    # ADR-0068: the bare `mask` key retires; a mask is an `effects` member, and the
+    # param-less form means the inscribed shape. Both directions, per this project's
+    # fire/must-not-fire discipline.
+    assert "mask" not in e, ("ADR-0068 retired the bare `mask` key; use `effects`",i)
+    for fx in e.get("effects",[]):
+        assert fx["name"] in ("blur","shadow","mask","tint","saturation",
+                              "brightness","contrast"), ("closed effect vocabulary",i,fx)
+        if fx["name"]=="mask":
+            assert fx["shape"] in ("circle","rect","ellipse"), ("closed shape vocabulary",i,fx)
     # ADR-0015: `gravity` is retired, `fit` is required, and its value set is closed.
     # This assertion was inverted by ADR-0015 -- it previously required `gravity`.
     if e["type"]=="image":
