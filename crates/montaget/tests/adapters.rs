@@ -57,6 +57,32 @@ fn cli_validate_on_a_malformed_file_is_exit_2() {
 }
 
 #[test]
+fn cli_fmt_check_reaches_the_verb_without_writing_and_exits_1() {
+    // One test per subcommand, asserting argv reaches the right core call and the exit
+    // code is right (#168). The convention itself is tested in the core.
+    let pretty = "{\n  \"frame\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"fps\": 25,\n  \"tracks\": []\n}\n";
+    let project = scratch("cli-fmt-check", "p.montaget.json", pretty);
+    let out = montaget(&["fmt", project.to_str().unwrap(), "--check"]);
+
+    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("L-LAYOUT"), "{}", out.stdout);
+    assert_eq!(std::fs::read_to_string(&project).unwrap(), pretty);
+}
+
+#[test]
+fn cli_fmt_writes_and_exits_0() {
+    let pretty = "{\n  \"frame\": {\n    \"width\": 1080,\n    \"height\": 1920\n  },\n  \"fps\": 25,\n  \"tracks\": []\n}\n";
+    let project = scratch("cli-fmt-write", "p.montaget.json", pretty);
+    let out = montaget(&["fmt", project.to_str().unwrap()]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert_eq!(
+        std::fs::read_to_string(&project).unwrap(),
+        "{\n  \"frame\": {\"width\": 1080, \"height\": 1920},\n  \"fps\": 25,\n  \"tracks\": []\n}\n"
+    );
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 

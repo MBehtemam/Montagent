@@ -278,6 +278,18 @@ impl Finding {
         self
     }
 
+    /// The line a finding is about, where that is all the run knows.
+    ///
+    /// Separate from [`Finding::at_offset`] rather than a looser version of it: a parse
+    /// failure has a column and a byte offset because `serde_json` counted them, and a
+    /// layout finding about an element has neither — the element is a line, not a
+    /// position in one. Filling the other two with zeroes would publish two numbers
+    /// nothing measured.
+    pub fn at_line(mut self, line: u32) -> Self {
+        self.location.line = Some(line);
+        self
+    }
+
     pub fn at_offset(mut self, line: u32, column: u32, byte_offset: u64) -> Self {
         self.location.line = Some(line);
         self.location.column = Some(column);

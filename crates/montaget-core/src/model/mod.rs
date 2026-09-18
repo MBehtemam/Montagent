@@ -35,7 +35,9 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, MaskShape};
-pub use element::canonical_key_order;
+// Canonical key order lives in `layout` — the one place ADR-0041 asks for — and is
+// re-exported here because the element case is what the rule is usually quoted about.
+pub use crate::layout::canonical_key_order;
 pub use keyframe::{Animatable, Ease, EaseName, Keyframe};
 pub use text::{Align, Dir, Highlight, Run};
 

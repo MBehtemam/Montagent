@@ -25,10 +25,14 @@
 //!
 //! - [`schema`] is the JSON Schema, generated from [`model`] — which is what makes the
 //!   types the single place canonical key order can go stale (ADR-0041).
-//! - [`write`] is the canonical writing convention, the one place a project becomes bytes.
+//! - [`layout`] reads canonical key order back out of that schema, as the one predicate
+//!   `fmt` and `validate`'s `LAYOUT` check share rather than each reimplementing.
+//! - [`write`] is the canonical writing convention, the one place a project becomes bytes,
+//!   and the atomic whole-file write every write tool reuses.
 
 pub mod checks;
 pub mod finding;
+pub mod layout;
 pub mod media;
 pub mod model;
 pub mod parse;

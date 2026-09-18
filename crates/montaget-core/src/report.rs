@@ -47,6 +47,7 @@ enum Terminal {
     Unparseable,
     BadInvocation,
     Internal,
+    NeedsFixing,
 }
 
 /// How many findings of each class the run produced.
@@ -178,6 +179,22 @@ impl Report {
         self.findings.push(finding);
     }
 
+    /// The run established that the project needs changing, without any `error`-class
+    /// finding saying so.
+    ///
+    /// ADR-0011's exit codes are keyed to *what the caller does next*, and 1 is "fix the
+    /// project". `fmt --check`'s entire job is to answer that question — story 5, *"tell
+    /// me the file is in canonical convention without rewriting it, so that I can verify
+    /// before I commit"* — and a `--check` that exits 0 on a file it just reported as
+    /// non-canonical cannot be used to verify anything.
+    ///
+    /// It is a property of the run rather than a severity, which is why it is here and not
+    /// a promotion of `LAYOUT` to `error`. ADR-0041 is explicit that a key-order violation
+    /// is not one: the file still renders, and `validate` keeps exiting 0 on it.
+    pub fn needs_fixing(&mut self) {
+        self.terminal = Some(Terminal::NeedsFixing);
+    }
+
     pub fn summary(&self) -> Summary {
         let mut summary = Summary::default();
         for finding in &self.findings {
@@ -201,6 +218,7 @@ impl Report {
             Some(Terminal::Unparseable) => ExitCode::Unparseable,
             Some(Terminal::BadInvocation) => ExitCode::BadInvocation,
             Some(Terminal::Internal) => ExitCode::Internal,
+            Some(Terminal::NeedsFixing) => ExitCode::Errors,
             None if self.summary().error > 0 => ExitCode::Errors,
             None => ExitCode::Ok,
         }
