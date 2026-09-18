@@ -56,7 +56,15 @@ tiny-skia = "=0.12.0"
 
 # The text stack that stands beside the rasterizer (ADR-0010): parley shapes and
 # breaks, skrifa scales the outlines, the rasterizer fills the paths.
-parley = "=0.11.1"
+#
+# **Without `system`, deliberately.** That feature is `fontique`'s system-font
+# discovery, and dropping it makes ADR-0010's "the renderer opens nothing outside
+# the chain" — and spec #168's story 53, *"a project that renders on my machine
+# renders on a clean one"* — structural rather than a discipline: a system family
+# name cannot resolve because the code that would resolve it is not compiled in.
+# It also takes `yeslogic-fontconfig-sys` with it, so a Linux build needs no
+# `libfontconfig` and the six targets stop differing in what they link.
+parley = { version = "=0.11.1", default-features = false, features = ["std"] }
 skrifa = "=0.46.2"
 image = "=0.25.10"
 toml = "0.9"

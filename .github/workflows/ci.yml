@@ -100,6 +100,16 @@ jobs:
       - name: Test suite
         run: cargo test --workspace --all-targets --release --target ${{ matrix.target }}
 
+      # `cargo test` captures a passing test's output, so the oracle's deltas —
+      # the numbers `tests/oracle.rs` says it "prints on every run" — were
+      # invisible on a green leg, which is exactly the leg whose measurement is
+      # worth having. The golden tolerance was calibrated on one architecture; if
+      # a target ever exceeds it, the fix is to widen to *that target's measured
+      # number*, and this is where that number comes from. Re-running costs a
+      # second: the build is warm and it rasterizes six 1080x1920 frames.
+      - name: The oracle's measured deltas, for the record
+        run: cargo test -p rast-bench --release --target ${{ matrix.target }} -- --nocapture
+
       # `--all-targets` skips doctests, which is where several of the ADR
       # citations in `montaget-core` live.
       - name: Doctests

@@ -44,6 +44,16 @@ fn validate(path: &Path) -> Report {
     }
 }
 
+/// A resolved path with `/` separators, so a tail can be compared to one.
+///
+/// The project format writes `audio/05-cobweb.mp3`; a resolved path on Windows
+/// comes back with backslashes, and `ends_with("audio/05-cobweb.mp3")` is then
+/// false for a path that is entirely correct. The separator is the platform's,
+/// never the document's.
+fn with_forward_slashes(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
 fn fixture_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/en-halloween-decorating")
@@ -54,9 +64,52 @@ fn fixture_dir() -> PathBuf {
 /// A one-element audio project around a source, written the way the fixture writes them.
 fn audio_project(source: &str, source_start: i64, source_end: i64) -> String {
     format!(
-        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":{span},"source":"{source}","source_start":{source_start},"source_end":{source_end}}}]}}]}}"##,
-        span = source_end - source_start
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":{span},"source":{source},"source_start":{source_start},"source_end":{source_end}}}]}}]}}"##,
+        span = source_end - source_start,
+        source = json_string(source)
     )
+}
+
+/// A path is not a JSON string until something escapes it.
+///
+/// These builders write a project by interpolation, and an absolute Windows path
+/// carries backslashes: `C:\Users\...` lands in the file as the invalid escape
+/// `\U` and the whole project fails to parse. The product was right to refuse
+/// it; the test was wrong to write it. Found by #189's CI the first time the
+/// suite ran on `aarch64-pc-windows-msvc` -- which is the class of thing ADR-0064
+/// recorded a dissent about and asked implementation to report back on.
+fn json_string(value: &str) -> String {
+    serde_json::to_string(value).expect("a string is always serialisable")
+}
+
+/// The builders above escape what they are given, checked on a path this machine
+/// will never produce.
+///
+/// The bug these tests had was invisible on Unix: a source path with no
+/// backslashes interpolates into a JSON string literal unharmed, so four tests
+/// passed here and failed on `aarch64-pc-windows-msvc` the first time #189's CI
+/// ran them -- with `E-PARSE ... invalid escape` on a file the test itself had
+/// written. This asserts the fix from a platform that cannot reproduce the
+/// failure, so the guard does not depend on a Windows runner to be useful.
+#[test]
+fn a_windows_path_survives_being_written_into_a_project() {
+    let windows_path = r"C:\Users\RUNNER~1\AppData\Local\Temp\montaget\cobweb.mp3";
+
+    for project in [
+        audio_project(windows_path, 0, 1776),
+        video_project(windows_path, 65216),
+    ] {
+        let parsed: serde_json::Value = serde_json::from_str(&project).unwrap_or_else(|e| {
+            panic!("a path with backslashes did not survive into valid JSON: {e}\n{project}")
+        });
+        let source = parsed["tracks"][0]["elements"][0]["source"]
+            .as_str()
+            .expect("the source is a string");
+        assert_eq!(
+            source, windows_path,
+            "the path came back out changed, so escaping it altered what it names"
+        );
+    }
 }
 
 /// One real mp3 from the fixture, copied beside a scratch project, and its true length.
@@ -215,9 +268,7 @@ fn a_missing_local_source_is_a_plain_error_and_never_a_network_unknown() {
     assert_eq!(finding.reason, None, "nothing about a network was involved");
     assert_eq!(finding.fields["source"], "audio/typo.mp3");
     assert!(
-        finding.fields["resolved"]
-            .as_str()
-            .unwrap()
+        with_forward_slashes(finding.fields["resolved"].as_str().unwrap())
             .ends_with("audio/typo.mp3"),
         "{finding:?}"
     );
@@ -377,7 +428,8 @@ fn a_project_referencing_no_media_needs_no_ffmpeg() {
 /// A one-element video project pointing at an absolute source.
 fn video_project(source: &str, source_end: i64) -> String {
     format!(
-        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"clip","layer":1,"elements":[{{"id":"clip-01","type":"video","start":0,"end":{source_end},"source":"{source}","source_start":0,"source_end":{source_end},"x":0,"y":0,"origin":"top-left","width":1080,"height":1920,"fit":"cover"}}]}}]}}"##
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"clip","layer":1,"elements":[{{"id":"clip-01","type":"video","start":0,"end":{source_end},"source":{source},"source_start":0,"source_end":{source_end},"x":0,"y":0,"origin":"top-left","width":1080,"height":1920,"fit":"cover"}}]}}]}}"##,
+        source = json_string(source)
     )
 }
 
@@ -448,7 +500,7 @@ fn a_clean_run_reports_the_duration_and_dimensions_it_established() {
     let image = report
         .media
         .iter()
-        .find(|probe| probe.source.ends_with("images/06.png"))
+        .find(|probe| with_forward_slashes(&probe.source).ends_with("images/06.png"))
         .expect("the image is among them");
     let dimensions = image.dimensions.expect("an image has dimensions");
     assert_eq!((dimensions.width, dimensions.height), (1536, 2720));
@@ -456,7 +508,7 @@ fn a_clean_run_reports_the_duration_and_dimensions_it_established() {
     let audio = report
         .media
         .iter()
-        .find(|probe| probe.source.ends_with("audio/05-cobweb.mp3"))
+        .find(|probe| with_forward_slashes(&probe.source).ends_with("audio/05-cobweb.mp3"))
         .expect("the audio is among them");
     assert_eq!(
         audio.audio.and_then(|a| a.audio_stream_ms),
