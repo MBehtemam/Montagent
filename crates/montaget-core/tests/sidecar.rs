@@ -456,11 +456,23 @@ fn the_default_sidecar_is_never_inside_a_project() {
     // ADR-0069's answer to "where it lives": under the per-user cache directory, which is
     // not anybody's repository — so there is no file beside a project to commit by
     // accident, and ADR-0053's "movable unit" gains nothing that travels with it.
-    let path = Sidecar::default_path().expect("this machine says where a cache belongs");
+    let overridden = std::env::var_os(montaget_core::media::sidecar::CACHE_DIR_VAR);
+
+    let Some(path) = Sidecar::default_path() else {
+        // Two legitimate ways to have no default: the off switch is set, or this machine
+        // will not say where a cache belongs. Neither is a failure — "no sidecar" is the
+        // one place a sidecar certainly cannot be committed from.
+        assert_eq!(
+            overridden.as_deref(),
+            Some(std::ffi::OsStr::new("")),
+            "a machine with a cache directory and no override must name a default path"
+        );
+        return;
+    };
+
     assert!(path.is_absolute(), "{path:?}");
     assert!(
-        path.components().any(|c| c.as_os_str() == "montaget")
-            || std::env::var_os(montaget_core::media::sidecar::CACHE_DIR_VAR).is_some(),
+        path.components().any(|c| c.as_os_str() == "montaget") || overridden.is_some(),
         "the default path is namespaced to Montaget: {path:?}"
     );
 }
