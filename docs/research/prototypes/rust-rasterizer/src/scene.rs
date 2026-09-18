@@ -16,6 +16,17 @@ pub struct Span {
     pub zoom_to: f64,
     #[serde(rename = "zoomStep")]
     pub zoom_step: f64,
+    /// #159: optional destination rect, so more than one Ken Burns still can
+    /// be simultaneously live (e.g. a PiP inset) instead of always filling
+    /// the whole card. Absent => the original full-card placement.
+    #[serde(default)]
+    pub dx: Option<f64>,
+    #[serde(default)]
+    pub dy: Option<f64>,
+    #[serde(default)]
+    pub dw: Option<f64>,
+    #[serde(default)]
+    pub dh: Option<f64>,
 }
 
 #[derive(Deserialize, Clone)]

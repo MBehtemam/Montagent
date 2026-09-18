@@ -1,0 +1,328 @@
+{
+ "width": 2160,
+ "height": 3840,
+ "fps": 30.0,
+ "duration": 25.0,
+ "cardH": 2600,
+ "background": "#FBF3E3",
+ "spans": [
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/a-4k-still.png",
+   "start": 0.0,
+   "end": 25.0,
+   "cropW": 2160,
+   "cropH": 2600,
+   "zoomFrom": 1.0001,
+   "zoomTo": 1.12,
+   "zoomStep": 0.0009
+  },
+  {
+   "image": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/b-4k-still.png",
+   "start": 0.0,
+   "end": 25.0,
+   "cropW": 800,
+   "cropH": 800,
+   "zoomFrom": 1.0001,
+   "zoomTo": 1.15,
+   "zoomStep": 0.0012,
+   "dx": 1380,
+   "dy": 60,
+   "dw": 720,
+   "dh": 867
+  }
+ ],
+ "badge": {
+  "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/brand/logo-en.png",
+  "x": 470.0,
+  "y": 104.0,
+  "w": 64.0,
+  "h": 64.0
+ },
+ "events": [
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 48.0,
+   "y": 88.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 82.0,
+   "y": 103.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 82.0,
+   "y": 124.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 115.0,
+   "y": 103.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 182.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "English"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 438.0,
+   "y": 88.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 560.0,
+   "y": 130.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 540.0,
+   "y": 1373.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 80.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "skeleton  -  skeleton"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 10.15,
+   "end": 17.16,
+   "x": 48.0,
+   "y": 1453.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 10.15,
+   "end": 17.16,
+   "x": 540.0,
+   "y": 1537.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 57.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "I hang the skeleton",
+    "up by the door."
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 48.0,
+   "y": 588.0,
+   "w": 372.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 82.0,
+   "y": 603.0,
+   "w": 78.0,
+   "h": 54.0,
+   "colour": "#00246B"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 82.0,
+   "y": 624.0,
+   "w": 78.0,
+   "h": 12.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "rect",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 115.0,
+   "y": 603.0,
+   "w": 12.0,
+   "h": 54.0,
+   "colour": "#FFFFFF"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 182.0,
+   "y": 630.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 52.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "Deutsch"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 438.0,
+   "y": 588.0,
+   "w": 594.0,
+   "h": 84.0,
+   "colour": "#FBF3E3"
+  },
+  {
+   "kind": "text",
+   "layer": 2,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 560.0,
+   "y": 630.0,
+   "align": 4,
+   "colour": "#245C8C",
+   "size": 34.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "@FluencyInActionEnglish"
+   ]
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 5.0,
+   "end": 17.16,
+   "x": 540.0,
+   "y": 1873.0,
+   "align": 5,
+   "colour": "#245C8C",
+   "size": 80.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "Skelett  -  Skelett"
+   ]
+  },
+  {
+   "kind": "rect",
+   "layer": 0,
+   "start": 10.15,
+   "end": 17.16,
+   "x": 48.0,
+   "y": 1953.0,
+   "w": 984.0,
+   "h": 169.0,
+   "colour": "#1E344C"
+  },
+  {
+   "kind": "text",
+   "layer": 1,
+   "start": 10.15,
+   "end": 17.16,
+   "x": 540.0,
+   "y": 2037.0,
+   "align": 5,
+   "colour": "#FFF8E8",
+   "size": 57.0,
+   "font": "SF Pro Rounded",
+   "bold": false,
+   "lines": [
+    "Ich h\u00e4nge das Skelett",
+    "an die T\u00fcr."
+   ]
+  }
+ ],
+ "audio": [],
+ "clips": [
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/a-4k-video.mp4",
+   "start": 5.0,
+   "end": 25.0,
+   "srcStart": 5.0,
+   "dx": 0.0,
+   "dy": 0.0,
+   "dw": 2160,
+   "dh": 2600
+  },
+  {
+   "src": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/b-4k-video.mp4",
+   "start": 5.0,
+   "end": 25.0,
+   "srcStart": 0.0,
+   "dx": 1380,
+   "dy": 967,
+   "dw": 720,
+   "dh": 867
+  }
+ ]
+}
