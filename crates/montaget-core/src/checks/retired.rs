@@ -17,35 +17,40 @@
 //! - `E-RETIRED-SPELLING` is **advise-class**. Every member of it is a transposition
 //!   whose whole input is the string already in the file: the bare `mask` key
 //!   (ADR-0068), `anchor` carrying a string, `center-center`, the opaque eight-digit
-//!   colour, `bold`/`weight`, and `none`/`fill` as a `fit` value.
+//!   colour, and `none`/`fill` as a `fit` value.
 //!
 //! One code may not emit both shapes (ADR-0043's uniformity rule), so the split *is* the
 //! classification — and `tests/retired_spellings.rs` asserts it holds over every instance
 //! the checks can produce rather than over one of them.
 //!
-//! # Recorded, not decided: `box` and `align` on a non-text element
+//! # Recorded, not decided: `box`, `align` on a non-text element, and `bold`/`weight`
 //!
-//! Neither has been classified by any ADR, and both carry `gravity`'s fork:
+//! None of the three has been classified by any ADR. ADR-0043 says in its own banner that
+//! it *"classifies `gravity` and nothing else"*, and ADR-0068's remark that *"`box` was
+//! migrated by arithmetic script"* is a historical note about `migrate.py`, not a
+//! classification — a four-model jury read it that way 4–0
+//! (`docs/research/juries/retired-spelling-classes/`).
 //!
-//! - `box: [x,y,w,h]` retires into `x`, `y`, `origin`, `width`, `height` (ADR-0012). The
-//!   pivot the 4-array left implicit is precisely what the repair needs and the document
-//!   does not carry. Its other meaning, `box: "card-05"` — *the id of the element you must
-//!   fit inside* — retires into literal `width`/`height`, whose values live on an element
-//!   that 15 of the fixture's 22 text elements do not have at all.
-//! - `align` on an image meant *which part of the source survives the crop* (ADR-0012),
-//!   which is `gravity`'s question in `align`'s spelling, and inherits `gravity`'s fork
-//!   with it.
+//! All three refuse here, and each for its own reason, which is worth keeping distinct:
 //!
-//! ADR-0068 remarks in passing that *"`box` was migrated by arithmetic script"*, which
-//! points toward advise; ADR-0043 is explicit that it *"classifies `gravity` and nothing
-//! else"*. Until an ADR rules, both sit under ADR-0043's own standing rule — *"if any
-//! instance a check can match is capable of being load-bearing, the check emits
-//! `repair: "none"` for every instance it matches"* — which is the conservative half of
-//! the fork and the one whose cost that ADR has already accepted. **This placement is not
-//! the ruling.** The ruling belongs to an ADR — the question is open as
-//! [#228](https://github.com/MBehtemam/Montaget/issues/228), which also asks whether
-//! `bold`/`weight` belongs on this side of the line — and moving either spelling to the
-//! advise-class code is a one-line change here once one exists.
+//! - **`align` on an image** meant *which part of the source survives the crop*
+//!   (ADR-0012) — `gravity`'s question in `align`'s spelling, inheriting `gravity`'s fork
+//!   whole. Refuses on the same ground `gravity` does. Unanimous in the jury.
+//! - **`box`** refuses because its repair needs the **probed source dimensions**, which
+//!   ADR-0043's advise arm expressly admits ("the media on disk") but which this binary
+//!   cannot read until #190 lands. The jury called it advise-class 4–0 and then split 2–2
+//!   on what the repair is; the two who got it wrong would have dropped the aperture. See
+//!   the arm below.
+//! - **`bold`/`weight`** refuses because the fix names a font file that may not exist
+//!   yet. Its repair is an instruction rather than a value, and an advise-class repair
+//!   that cannot be applied verbatim spends the guarantee the field exists to give.
+//!
+//! **None of that is the ruling.** The ruling belongs to an ADR, and the question is open
+//! as [#228](https://github.com/MBehtemam/Montaget/issues/228) — which also carries the
+//! defect the jury's adversarial juror found in ADR-0043 itself: its stated ground for
+//! refusing `gravity`, that the deciding fact *"is not in the document"*, fails its own
+//! advise test, which admits the media on disk. Moving any of these three to the
+//! advise-class code is a one-line change here once an ADR says so.
 
 use serde_json::{Map, Value, json};
 
@@ -174,6 +179,11 @@ struct Locus {
     /// The element's `type`, which two of the retirements read: `align` is retired only
     /// off text, and `gravity`'s replacement differs where there is no aperture.
     type_name: String,
+    /// The element's `font`, which is what `weight`/`bold`'s census groups on — the chain
+    /// each affected element already points at. Carried on the locus rather than read
+    /// where the sighting is found, because the spelling appears on a run as often as on
+    /// the element, and a run's own `font` delta is usually absent.
+    font: Value,
 }
 
 impl Locus {
@@ -183,6 +193,7 @@ impl Locus {
             element: None,
             track: None,
             type_name: String::new(),
+            font: Value::Null,
         }
     }
 
@@ -197,6 +208,7 @@ impl Locus {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string(),
+            font: element.get("font").cloned().unwrap_or(Value::Null),
         }
     }
 
@@ -262,6 +274,23 @@ fn scan(object: &Map<String, Value>, locus: &Locus, out: &mut Vec<Sighting>) {
             )),
             // Retired in both of its meanings, which is why it cannot even produce a good
             // error message without reading its value's shape (ADR-0012).
+            //
+            // Refuses on a different ground from `gravity`, and the distinction is worth
+            // keeping straight. A four-model jury called the array form advise-class 4–0
+            // — and then split 2–2 on what the repair actually is. `migrate.py`, the
+            // historical migration, settles it: on an image the old `box` is the
+            // *aperture*, so the repair is `clip: box` with `width`/`height` derived by
+            // `cover()` against the **probed source dimensions**. The two jurors who
+            // answered `width: box[2], height: box[3]` would write 1300 where the
+            // fixture's own `photo-06` draws 1912, and drop the aperture entirely.
+            //
+            // So the fix here is determined — by the media on disk, which ADR-0043's
+            // advise arm expressly admits — but this binary cannot read it: probing is
+            // #190 and has not landed. Refusing is what is honest until it does; an
+            // advise-class repair computed without the source is the wrong repair, not a
+            // partial one. On a shape, where `width`/`height` are the array's own and no
+            // probe is needed, the same key needs no such caution — which is itself the
+            // per-check-granularity question #228 asks.
             "box" => out.push(at(
                 key,
                 value,
@@ -318,26 +347,27 @@ fn scan(object: &Map<String, Value>, locus: &Locus, out: &mut Vec<Sighting>) {
             )),
             // A different weight is a different file. With one declared file and no
             // family to search, `bold: true` could only mean synthetic emboldening, which
-            // is renderer-specific and machine-dependent (ADR-0007).
+            // is renderer-specific and machine-dependent (ADR-0007). The spelling sits on
+            // the text element as often as on a run — the one real project file carries
+            // `"weight": "bold"` on all 22 text elements — so the recursive walk catches
+            // both positions.
             //
-            // Advise, not refuse, and the call is close enough to record: the repair is
-            // an instruction rather than a value, because the file it names is not in the
-            // document. But ADR-0043's refuse test is *intent* — "the fix depends on
-            // knowing what the author meant" — and nothing here is in doubt about what
-            // `bold: true` meant. What is missing is an asset, which ADR-0016 says is
-            // "something an agent can do and a program categorically cannot", and
-            // refusing would send an ordinary authoring move to a human. `E-READ` already
-            // takes the same shape, for the same reason, with the same kind of value.
-            // Open as #228, with `box` and `align`: it is the same question from the
-            // other side of the line.
+            // Refuse. This ticket first shipped it as advise, reasoning that ADR-0043's
+            // refuse test is *intent* and nothing is in doubt about what `bold: true`
+            // meant. A four-model jury reversed that 4–0
+            // (`docs/research/juries/retired-spelling-classes/`): the repair emitted was
+            // an *instruction*, not a value, and an advise-class finding whose repair
+            // cannot be applied verbatim spends the machine-checkable guarantee that the
+            // field exists to give. What is missing here is an asset rather than an
+            // intent, which fits neither arm of ADR-0043 cleanly — two jurors located the
+            // gap here independently, and it is open as #228.
             "weight" | "bold" => out.push(at(
                 key,
                 value,
                 "a font file of that weight, declared in the project's `fonts` table and named by `font`".into(),
-                Verdict::Advise {
-                    repair: json!(
-                        "declare the weight as its own file in `fonts` and name that key in `font`"
-                    ),
+                Verdict::Refuse {
+                    census_field: "font",
+                    census_value: locus.font.clone(),
                 },
             )),
             "origin" if value == "center-center" => out.push(at(

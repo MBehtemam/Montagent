@@ -86,9 +86,12 @@ fn every_retired_spelling() -> Vec<(&'static str, String, &'static str)> {
             text_element("sentence-08", r##""runs":[{"text":"hi","bold":true}]"##),
             "fonts",
         ),
+        // On the element, not in a run: ADR-0007 records that the one real project file
+        // carries `"weight": "bold"` on all 22 of its text elements, so this is the
+        // position the corpus actually used and the run-level one is the variant.
         (
             "weight",
-            text_element("sentence-09", r##""runs":[{"text":"hi","weight":700}]"##),
+            text_element("sentence-09", r##""weight":"bold""##),
             "fonts",
         ),
         ("fit", image("photo-09", r##""fit":"none""##), "literal"),
@@ -270,6 +273,49 @@ fn the_bare_mask_key_is_advise_class_and_repairs_to_an_effects_member() {
     let rendered = render(&findings);
     assert!(rendered.contains("advise-class"), "{rendered}");
     assert!(rendered.contains("effects"), "{rendered}");
+}
+
+#[test]
+fn weight_refuses_and_censuses_the_font_chain_each_element_points_at() {
+    // Reversed from advise by a four-model jury, 4–0
+    // (`docs/research/juries/retired-spelling-classes/`): the repair names a font file
+    // that may not be vendored, so it is an instruction rather than a value, and an
+    // advise-class repair that cannot be applied verbatim spends the machine-checkable
+    // guarantee the field exists to give. Recorded in #228, because what is missing here
+    // is an asset rather than an intent and fits neither arm of ADR-0043 cleanly.
+    let elements = format!(
+        "{},{},{}",
+        text_element("sentence-05", r##""weight":"bold""##),
+        text_element("sentence-06", r##""weight":"bold""##),
+        // Same spelling, a different chain — which is the whole point of the census: the
+        // repair for this one is not the repair for the other two.
+        r##"{"id":"quiz-05","type":"text","start":0,"end":1000,"width":984,"height":169,"font":"brand-regular","size":55,"weight":"bold","runs":[{"text":"hi"}]}"##,
+    );
+    let findings = findings_on(&elements);
+
+    assert_eq!(findings.len(), 3);
+    for finding in &findings {
+        assert_eq!(finding.code, "E-RETIRED-KEY");
+        assert_eq!(finding.repair, Some(Repair::None));
+    }
+    let census = findings[0].census.as_ref().expect("a sibling census");
+    assert_eq!(census.field, "font");
+    assert_eq!(census.groups.len(), 2);
+    assert_eq!(census.groups[0].members, vec!["sentence-05", "sentence-06"]);
+    assert_eq!(census.groups[1].members, vec!["quiz-05"]);
+}
+
+#[test]
+fn the_weight_spelling_is_caught_on_the_element_and_inside_a_run() {
+    for element in [
+        text_element("sentence-05", r##""weight":"bold""##),
+        text_element("sentence-05", r##""runs":[{"text":"hi","weight":"bold"}]"##),
+        text_element("sentence-05", r##""runs":[{"text":"hi","bold":true}]"##),
+    ] {
+        let findings = findings_on(&element);
+        assert_eq!(findings.len(), 1, "{findings:#?}");
+        assert_eq!(findings[0].location.element, Some("sentence-05".into()));
+    }
 }
 
 #[test]
