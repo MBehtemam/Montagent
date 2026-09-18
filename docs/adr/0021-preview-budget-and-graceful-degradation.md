@@ -4,6 +4,13 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 ---
 
 # The performance budget splits in two, proxy-resolution previews get a fixed
+
+> **Amended by three later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) — states the deferred
+>   target resolution and ladder length; defers the floor
+> - [ADR-0050](0050-preview-hard-refuses-below-360p.md) — states the deferred floor
+> - [ADR-0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md)
 # target with a deferred number, and `preview` degrades gracefully
 
 The original budget — a 60 s render under 2 minutes, a 10 s preview under 5

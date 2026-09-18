@@ -5,6 +5,9 @@ amends: 0006 (retracts a commissioned check that violates the noise-budget princ
 
 # The group keyframe-time check is retracted from `validate` and reassigned to `compare`
 
+> **Amended by [ADR-0063](0063-compare-drift-checks-keyframe-instant-relationships.md).**
+> Designs the coupled-motion-drift mechanics it deferred.
+
 [Ticket #71](https://github.com/MBehtemam/Montaget/issues/71), from
 [#12](https://github.com/MBehtemam/Montaget/issues/12). [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)
 commissioned a `validate` check — fire when elements sharing a `group` have transform

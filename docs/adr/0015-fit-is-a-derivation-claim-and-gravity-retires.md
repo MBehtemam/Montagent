@@ -10,6 +10,16 @@ amends: 0013 (tiebreak (2) is false; the fit-deviation note becomes an error at 
 > is generalised from *decoded, orientation-applied* to *decoded, rotation-resolved,
 > PAR-applied* — the image case is unchanged, since PAR defaults to `1:1` and EXIF
 > orientation is the only rotation signal a raster image carries.
+>
+> **Also amended by these, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0017](0017-closed-schema-no-escape-hatch.md) — confirms "`gravity` is a schema 
+>   error on every element type" is implementable as written
+> - [ADR-0024](0024-measure-writes-the-fit-repair-not-the-verdict.md)
+> - [ADR-0026](0026-exact-aspect-fit-both-spellings-stand.md)
+> - [ADR-0027](0027-vector-sources-out-of-scope.md) — discharges its "sources with no 
+>   intrinsic pixel dimensions" deferral
 
 `fit` was on 8 of 8 image elements in the only real project file and **no document defined
 its value set**. [#48](https://github.com/MBehtemam/Montaget/issues/48) asked for the

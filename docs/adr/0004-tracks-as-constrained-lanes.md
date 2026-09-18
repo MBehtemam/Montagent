@@ -21,6 +21,14 @@ supersedes: partially supersedes 0001
 > a layer tie is never broken by declaration order, in any circumstance. A tie whose
 > elements' boxes overlap in time and space is `error`, not silently rendered; a tie that
 > never overlaps stays undefined and unchecked, since nothing on screen depends on it.
+>
+> **Also amended by this, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0059](0059-transitions-element-type-crossfade-only-exact-window.md) — confirms 
+>   the track non-overlap rule needs no exception — a transition's two bridged elements 
+>   still live on separate tracks/layers, exactly as any other simultaneous-visibility 
+>   case already requires
 
 A project holds a `tracks` array. Each track is a named container with an integer
 `layer` giving its stacking position — higher draws in front. Its elements keep

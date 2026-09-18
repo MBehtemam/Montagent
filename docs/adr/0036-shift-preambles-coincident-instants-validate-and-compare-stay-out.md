@@ -5,6 +5,13 @@ amends: 0005 (delivers the nearest-boundary message this ADR commissioned, for t
 
 # `shift` prints what it will do to every record at a coincident `at`; `validate` gets no coincidence census
 
+> **Amended by two later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)
+>   — the destroyed-coincidence precedent this ADR extends
+> - [ADR-0063](0063-compare-drift-checks-keyframe-instant-relationships.md) — designs the
+>   destroyed-coincidence mechanics it deferred
+
 [Ticket #69](https://github.com/MBehtemam/Montaget/issues/69), graduated from
 [#12](https://github.com/MBehtemam/Montaget/issues/12). This is what remained after
 *"`shift` silently desyncs a dependent animation"* was measured and substantially

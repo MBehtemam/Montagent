@@ -21,6 +21,18 @@ status: accepted
 > literally changes a shot that finished 397 ms **before** the edit point by 8.90 px of
 > framing. ADR-0012 carries the complete case table, the SPLIT rule for straddlers, and the
 > rounding rule this ADR left unpublished for `speed`.
+>
+> **Also amended by these, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0035](0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md) — 
+>   publishes the sampling rule the frame-alignment paragraph promised
+> - [ADR-0036](0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md) 
+>   — delivers the nearest-boundary message this ADR commissioned, for the coincident 
+>   case
+> - [ADR-0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) 
+>   — its writing-convention sentence stops being folklore and becomes a checked MUST, 
+>   with a stated order
 
 
 Every element carries `start` and `end` as **integer milliseconds** on the

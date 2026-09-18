@@ -5,6 +5,18 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by four later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) — settles the
+>   deferral that ADR excluded from its own scope
+> - [ADR-0049](0049-v1-colour-filter-vocabulary-four-scalar-members.md) — settles the
+>   colour-filter deferral that ADR named and excluded from its own scope
+> - [ADR-0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) — clarifies
+>   `effects` is scoped to visual treatment
+> - [ADR-0059](0059-transitions-element-type-crossfade-only-exact-window.md) — confirms the
+>   "own shape — likely id-targeting" prediction; the effect vocabulary's element-locality
+>   is not stretched to cover transitions
+
 [#22](https://github.com/MBehtemam/Montaget/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a
 stack in the After Effects sense, never a plugin architecture. What #22 owed: how an

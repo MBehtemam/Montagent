@@ -1,5 +1,14 @@
 # ADR-0016 — The project file carries no version number; the unknown-key error is the migration mechanism
 
+> **Amended by three later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0017](0017-closed-schema-no-escape-hatch.md) — settles the unknown-key policy
+>   ADR-0016 requires and does not take
+> - [ADR-0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) —
+>   closes the "published key order" entry left unsettled there
+> - [ADR-0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) — discharges
+>   its file-identification deferral
+
 **Status:** accepted
 **Ticket:** [#14](https://github.com/MBehtemam/Montaget/issues/14)
 **Amends:** [ADR-0011](./0011-tool-surface-reads-checks-renders.md) (the tool surface gains no `migrate` verb)

@@ -41,6 +41,17 @@ amended-by: 0029 (baseline placement within the line slot), 0057 (fonts vendor m
 > updated the worked example below to the post-ADR-0012 shape** — `box` dropped, literal
 > `width`/`height`/`align` added, and `start` corrected to the committed fixture's value —
 > since the code block still carried the pre-ADR-0012 field a copy-paste would reintroduce.
+>
+> **Also amended by these, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0028](0028-text-block-arithmetic-is-exact-tenths.md) — `line_height`'s numeric 
+>   domain
+> - [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) — strikes "text 
+>   background box" from #22's candidate list, already struck by ADR-0014; documented 
+>   here as inherited, not reopened
+> - [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) — a run gains 
+>   an optional timed style delta, in addition to its unconditional one
 
 A `text` element carries a base style and an ordered **`runs`** array. Each run is
 its own text plus style deltas over the base. Size is a **literal number**; the

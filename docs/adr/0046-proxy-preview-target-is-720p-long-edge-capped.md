@@ -5,6 +5,13 @@ amends: 0021 (states the deferred target resolution and ladder length; defers th
 
 # The proxy-preview target is a single 720p tier, long-edge capped
 
+> **Amended by two later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0050](0050-preview-hard-refuses-below-360p.md) — adopts a floor below the 720p
+>   target
+> - [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md) —
+>   confirms the long-edge cap survives 0065
+
 [ADR-0021](./0021-preview-budget-and-graceful-degradation.md) committed to a proxy-resolution
 mechanism for scrub `preview` above the render budget, deliberately deferring the specific
 target resolution, ladder length, and floor to a measurement ticket rather than guessing —

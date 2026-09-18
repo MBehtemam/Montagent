@@ -102,7 +102,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0030, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060 |
+| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060 |
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 
 ## `validate`
@@ -149,3 +149,21 @@ The series is 66 ADRs and mostly not worth reading front to back. To get the mod
 - **Amended, never rewritten.** An ADR that corrects an earlier one says so; the earlier one gets a pointer under its title.
 - **Evidence is committed before `status: accepted`.** A numeric claim needs a re-executable script; a qualitative one needs the artifact verbatim. See `docs/agents/domain.md`.
 - **ADRs land on `main` as their ticket closes.** Nine of these did not, for a while, and [#178](https://github.com/MBehtemam/Montaget/issues/178) is what that cost.
+
+### The amendment rule is now enforced, not just written
+
+`python3 docs/adr/check_amendment_banners.py` verifies that every declared amendment is
+discoverable from the ADR it amends — the banner names every amender, and this file's
+*Amended by* column agrees with both. It exits non-zero naming each defect. Run it when you
+add an ADR.
+
+It exists because ADR-0067's diagnosis of #178 was that *"the rule was already written; what
+was missing was anything that enforced it."* An amendment is recorded in the **amending**
+ADR's header, so the amended one carries no trace of it unless a human adds one — and 15 of
+27 amended ADRs had no banner at all while 6 more named only some of their amenders, which
+reads as exhaustive and is worse than silence.
+
+**Two frontmatter conventions are in use**, and both must be read: YAML (`amends: 0011
+(gloss)`) and prose (`**Amends:** [ADR-0011](...)`). ADR-0008, ADR-0016 and ADR-0064 use the
+prose form. Tooling that reads only YAML drops those amendments silently — which is exactly
+how ADR-0011's banner came to omit ADR-0016, and ADR-0006's to omit ADR-0043 and ADR-0044.

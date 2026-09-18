@@ -5,6 +5,10 @@ amends: 0007 (a run gains an optional timed style delta, in addition to its unco
 
 # Per-word (karaoke) highlighting is a timed window on the run: no run ids, no event array, no automatic wrapping
 
+> **Amended by
+> [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md).** Fulfills
+> the deferred authoring-time-tool obligation.
+
 [ADR-0040](./0040-effect-model-attachment-and-v1-vocabulary.md) excluded per-word
 highlighting from the effect model on two independent grounds — addressing (a word
 lives inside a run, not at the element level effects attach to) and timing (the

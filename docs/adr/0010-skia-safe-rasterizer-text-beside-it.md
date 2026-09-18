@@ -4,6 +4,9 @@ status: accepted
 
 # The renderer is `skia-safe`, with text layout beside it and FFmpeg outside it
 
+> **Amended by [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md).** Names its
+> "obvious members" — blur, drop shadow — as the accepted v1 set.
+
 Montaget rasterizes with **`skia-safe`** (Rust bindings to Google's C++ Skia).
 Text is shaped and positioned by **`parley`** and scaled by **`skrifa`** *outside*
 the rasterizer, which only fills paths. **FFmpeg is a separate subprocess** for

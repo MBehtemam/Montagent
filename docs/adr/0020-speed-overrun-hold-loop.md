@@ -5,6 +5,13 @@ amends: 0005 (settles the `speed`/`fill` fields it named but left undefined)
 
 # `speed` is a rate multiplier, `fill` is renamed `overrun`, and the two compose
 
+> **Amended by two later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0045](0045-speed-invariant-is-evaluated-in-exact-arithmetic.md) — states the
+>   arithmetic its rounding invariant must be evaluated in
+> - [ADR-0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) — extends the
+>   `speed`/`overrun` peer-field convention
+
 [ADR-0005](./0005-absolute-integer-milliseconds.md) required a time-based
 element to declare why its timeline range differs from its source range, and
 named the mechanism — `speed`, or an explicit `fill` of `hold`/`loop` — without

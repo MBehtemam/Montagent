@@ -35,6 +35,27 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 > rule this ADR asked a successor for (*"the rectangle is not integral: exact cover here is
 > 1912.5 px"*), spells the nine `origin` keywords this ADR used but never enumerated, and
 > contributes a measured fact to the open `gravity` question below without closing it.
+>
+> **Also amended by these, not summarised above** —
+> `docs/adr/README.md` carries the full *Amended by* view:
+>
+> - [ADR-0025](0025-clip-stays-static.md) — discharges its "whether `clip` is 
+>   keyframable" deferral
+> - [ADR-0030](0030-defaultable-field-presence-is-content.md)
+> - [ADR-0036](0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md) 
+>   — the preamble covers keyframe records, not just element boundaries
+> - [ADR-0037](0037-derived-time-signature-is-a-provenance-gap-not-a-tool.md) — derived 
+>   keyframe values stay literals, no computed-field escape hatch
+> - [ADR-0038](0038-ease-is-required-on-every-non-first-keyframe-record.md) — settles 
+>   what it left silent: presence of `ease` on non-first records
+> - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md) 
+>   — retracts its commissioned check and records why
+> - [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) — confirms skew stays 
+>   out of the transform model and does not migrate here
+> - [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) — confirms 
+>   keyframes stay transform-only; this is a separate, non-transform timing construct
+> - [ADR-0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) — names the 
+>   replacement for the `opacity`-on-audio schema error
 
 Every visual element is placed the same way — `x`, `y`, `origin`, plus a declared size —
 in **absolute integer pixels** on the project's frame. Any transform property may be a
