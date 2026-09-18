@@ -25,6 +25,9 @@ env:
 
 jobs:
   suite:
+    # This name is the branch-protection contract: `<target>`, one per leg of
+    # ADR-0064's six, plus `committed checks`. `check_names_do_not_collide` in
+    # `skia_pin.rs` keeps it distinct from the canary's.
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:

@@ -42,7 +42,15 @@ env:
 
 jobs:
   prebuilt:
-    name: ${{ matrix.target }}
+    # Prefixed so this job's check name cannot collide with `ci.yml`'s leg for
+    # the same target. A branch-protection rule matches a required check by
+    # name, and two workflows reporting `aarch64-apple-darwin` made "the suite
+    # passed on that target" and "the prebuilt resolved on that target"
+    # indistinguishable to the rule — with the canary's success able to stand in
+    # for the suite's. Only `ci.yml`'s legs are required; the canary runs on a
+    # schedule and on the pin's own paths, so requiring it would block every
+    # pull request that does not touch the pin.
+    name: canary ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
