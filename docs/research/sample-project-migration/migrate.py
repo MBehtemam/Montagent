@@ -73,8 +73,9 @@ ORIGIN_FROM_ALIGN = {"center": "center", "left": "center-left"}   # \an5, \an4
 ALIGN_MIGRATE     = {"center": "center", "left": "start"}         # ADR-0007 start/center/end
 
 KEY_ORDER = ["id","type","group","start","end","source","source_start","source_end",
-             "speed","x","y","origin","width","height","fit","clip","mask",
-             "fill","font","size","line_height","color","align","runs","scale"]
+             "speed","x","y","origin","width","height","fit","clip",
+             "fill","font","size","line_height","color","align","runs","scale",
+             "effects"]   # ADR-0068: `effects` appends after the type's existing fields
 
 def ordered(d):
     out = collections.OrderedDict()
@@ -105,7 +106,9 @@ def migrate(el, ease):
                                                   # drawn rect plus `clip` already say which
                                                   # part of the source survives.
             out["clip"] = [x, y, w, h]            # the aperture the old box was doing silently
-            if "mask" in e: out["mask"] = e.pop("mask")   # still #22, unchanged
+            if "mask" in e:                       # ADR-0068: the bare key retires; a mask
+                shape = e.pop("mask")             # is an `effects` member. Param-less means
+                out["effects"] = [{"name": "mask", "shape": shape}]   # the inscribed shape.
         else:
             out["width"], out["height"] = w, h
             out["fill"] = e.pop("fill")           # still #13, unchanged
@@ -156,13 +159,24 @@ def main(ease):
     doc = collections.OrderedDict()
     for k in ("frame","fps","background","duration","output"):
         doc[k] = old[k]
-    doc["fonts"] = {"brand": [{"file": "fonts/SFProRounded-Bold.ttf"}]}
+    # #143/ADR-0057: SF Pro Rounded was never in the repo and is not redistributable,
+    # so `brand` was re-vendored to Open Runde with a `fontVendor` attestation. This
+    # script was not updated at the time, and the byte-for-byte assertion at the end of
+    # verify.py had been failing silently ever since -- repaired by ADR-0068.
+    doc["fonts"] = {"brand": [{"file": "fonts/OpenRunde-Bold.otf"}]}
+    doc["fontVendor"] = {
+        "fonts/OpenRunde-Bold.otf": {
+            "licence": "OFL-1.1",
+            "source": "https://github.com/lauridskern/open-runde",
+            "sha256": "995f115d11590c73ed95cd58bf12db0417f8757986d95c9be773faf1583310fd",
+        }
+    }
     doc["tracks"] = tracks
 
     # ADR-0005/0007 writing convention: one element per line, stable key order.
     lines = ["{"]
     head = [f'  {json.dumps(k)}: {json.dumps(doc[k])}' for k in
-            ("frame","fps","background","duration","output","fonts")]
+            ("frame","fps","background","duration","output","fonts","fontVendor")]
     lines.append(",\n".join(head) + ",")
     lines.append('  "tracks": [')
     tblocks = []

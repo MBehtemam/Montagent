@@ -5,8 +5,13 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
-> **Amended by four later ADRs.** Read them before relying on anything below.
+> **Amended by five later ADRs.** Read them before relying on anything below.
 >
+> - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
+>   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
+>   clause: masks live in `effects`, so the fixture's bare `mask` key is an unknown key and
+>   does migrate. Also states the param-less `mask` member's geometry, which this ADR wrote
+>   as `...shape params` and left undecided
 > - [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) — settles the
 >   deferral that ADR excluded from its own scope
 > - [ADR-0049](0049-v1-colour-filter-vocabulary-four-scalar-members.md) — settles the

@@ -5,6 +5,14 @@ amends: 0005 (its writing-convention sentence stops being folklore and becomes a
 
 # Canonical key order is schema property order; `validate` checks it; `fmt` splits into `--check` and write
 
+> **Amended by [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md)**,
+> which supplies the position this ADR deferred for one of the fields it declined to
+> enumerate: **`effects` appends after a type's existing fields**, making `image`'s order
+> `source, x, y, origin, width, height, fit, clip, scale, effects`. The `image` row below
+> ends at `scale` and the prose describes the fixture's bare `mask` key as "appending after
+> their type's core fields" — that key no longer exists; it is now an `effects` member in
+> the same position.
+
 [Ticket #73](https://github.com/MBehtemam/Montaget/issues/73), from [#12](https://github.com/MBehtemam/Montaget/issues/12)
 and sharpened by [#8](https://github.com/MBehtemam/Montaget/issues/8) and
 [#16](https://github.com/MBehtemam/Montaget/issues/16). [ADR-0005](./0005-absolute-integer-milliseconds.md)

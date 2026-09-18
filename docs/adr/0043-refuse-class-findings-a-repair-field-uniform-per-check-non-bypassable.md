@@ -4,6 +4,14 @@ status: accepted
 
 # Refuse-class findings: a `repair` field, decided once per check, uniform across instances, and non-bypassable
 
+> **Amended by [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md)**,
+> which classifies the second retired spelling under this ADR's test: the bare `mask` key is
+> **advise-class**, because it never had accepted semantics in any document, so no prior
+> meaning exists for a repair to misread. This ADR classifies `gravity` and nothing else —
+> worth stating, because *"a retired spelling that names its replacement"* is a message-text
+> property under [ADR-0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md)
+> and **not** a repair class, and the two are easy to conflate.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montaget/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this
