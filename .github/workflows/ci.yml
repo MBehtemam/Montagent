@@ -109,8 +109,17 @@ jobs:
       # `--release` because the oracle rasterizes two full 1080x1920 frames per
       # arm and a debug build of Skia's callers makes that minutes rather than
       # seconds.
+      #
+      # `--no-fail-fast` because `cargo test` otherwise stops at the first test
+      # *binary* that fails, and on a target nobody has run before that turns a
+      # matrix into a serial search: the first Windows run reported 8 of 24
+      # binaries and stopped, so each fix bought exactly one more failure, a
+      # quarter of an hour apart. A red leg should say everything it knows in one
+      # go.
       - name: Test suite
-        run: cargo test --workspace --all-targets --release --target ${{ matrix.target }}
+        run: >
+          cargo test --workspace --all-targets --release
+          --target ${{ matrix.target }} --no-fail-fast
 
       # `cargo test` captures a passing test's output, so the oracle's deltas —
       # the numbers `tests/oracle.rs` says it "prints on every run" — were
