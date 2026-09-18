@@ -4,7 +4,8 @@
   "background": "#FBF3E3",
   "duration": 65216,
   "output": "out/en-halloween-decorating.mp4",
-  "fonts": {"brand": [{"file": "fonts/SFProRounded-Bold.ttf"}]},
+  "fonts": {"brand": [{"file": "fonts/OpenRunde-Bold.otf"}]},
+  "fontVendor": {"fonts/OpenRunde-Bold.otf": {"licence": "OFL-1.1", "source": "https://github.com/lauridskern/open-runde", "sha256": "995f115d11590c73ed95cd58bf12db0417f8757986d95c9be773faf1583310fd"}},
   "tracks": [
     {
       "name": "photo",
