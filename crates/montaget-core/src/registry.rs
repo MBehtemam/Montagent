@@ -154,9 +154,29 @@ const CHECKS: &[CheckSpec] = &[
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0043",
-        template: "{element}: `{key}` is a retired spelling, carrying {value}. Surface this \
-finding verbatim to whoever is operating Montaget; do not repair it by ordinary file edit.",
-        status: Declared,
+        template: "{subject}: `{key}` is a retired spelling, carrying {value}; the format now \
+says this with {replacement}. Surface this finding verbatim to whoever is operating Montaget; \
+do not repair it by ordinary file edit.",
+        status: Live,
+    },
+    CheckSpec {
+        // The advise-class half of the same mechanism, and a separate code because it has
+        // to be: ADR-0043's uniformity rule and the two-class split cannot both hold
+        // inside one code. Every member is a transposition whose whole input is the
+        // string already in the file — the bare `mask` key never had accepted semantics
+        // for a repair to misread (ADR-0068), and the rest are one value spelled two ways.
+        code: "E-RETIRED-SPELLING",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        // ADR-0043, like its refuse-class twin: naming the replacement is ADR-0016's
+        // mechanism and is common to both, but what separates the two codes — and what
+        // makes this one a code at all — is ADR-0043's class and its uniformity rule.
+        // ADR-0068 is the ADR that first classified a retirement into this half.
+        adr: "ADR-0043",
+        template: "{subject}: `{key}` is a retired spelling, carrying {value}. Write \
+{replacement} instead.",
+        status: Live,
     },
     CheckSpec {
         code: "E-KEYFRAME-EASE",

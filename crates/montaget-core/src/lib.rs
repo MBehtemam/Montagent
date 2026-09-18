@@ -12,6 +12,7 @@
 //!   format's types for the checks that want them.
 //! - [`registry`] declares every check: its class, its refuse class, its threshold
 //!   provenance and its prose template.
+//! - [`checks`] is where the checks themselves live, one module per question.
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
@@ -24,6 +25,7 @@
 //!   types the single place canonical key order can go stale (ADR-0041).
 //! - [`write`] is the canonical writing convention, the one place a project becomes bytes.
 
+pub mod checks;
 pub mod finding;
 pub mod model;
 pub mod parse;

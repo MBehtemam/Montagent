@@ -36,7 +36,8 @@ pub fn validate(path: &Path) -> Report {
 
 /// Every registered check, over the whole document.
 ///
-/// Empty by design: #188 builds the spine, and each later check ticket adds its own call
-/// here. The function exists now so that "where does a check go?" has one answer before
-/// the first check is written.
-fn run_checks(_document: &crate::permissive::Loose, _report: &mut Report) {}
+/// One call per check, in no significant order: a report's findings are a set of facts
+/// about the project, and nothing downstream may depend on which check spoke first.
+fn run_checks(document: &crate::permissive::Loose, report: &mut Report) {
+    crate::checks::retired::check(document, report);
+}

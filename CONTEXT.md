@@ -492,6 +492,20 @@ cannot even produce a good error message. The rect is now `x`,`y`,`origin`,`widt
 plus `clip`; the containment reference is now literal `width`/`height`, because fifteen of
 the fixture's twenty-two text elements have no element behind them to name.
 
+**Whether its error is refuse- or advise-class is open.** On an image the old `box` was the
+*aperture*, not the drawn rect: the migration writes `clip` from the array and derives
+`width`/`height` by `cover` against the **source's pixel dimensions**, which are on the
+media rather than in the document. On a shape no such derivation is needed. So one spelling
+has two repairs, one of which reads the disk — and `validate` cannot read it until the probe
+lands. The check refuses meanwhile, under
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md)'s
+standing rule that a check refuses where any instance it can match could be load-bearing.
+[ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md)'s remark
+that *"`box` was migrated by arithmetic script"* is a historical note about `migrate.py`,
+not a classification. The placement is provisional; the ruling belongs to an ADR
+([#228](https://github.com/MBehtemam/Montaget/issues/228), evidence in
+[`docs/research/juries/retired-spelling-classes/`](docs/research/juries/retired-spelling-classes/README.md)).
+
 **Align, for images**:
 `align` means one thing: how a text element's lines align to each other
 (`start`/`center`/`end`). On an image the same word once meant *which part of the source
@@ -502,6 +516,11 @@ naming `x`/`y`/`origin` and `clip` as the replacement. The collision is recorded
 caused a live misreading: the fixture's `align:"left"` on text was transcribing ASS `\an4`,
 **left-middle**, so its `y` was a centre and nothing in the file said so.
 ([#52](https://github.com/MBehtemam/Montaget/issues/52))
+
+**Its repair class is open for the same reason `box`'s is.** On an image the word meant
+exactly what `gravity` meant, so repairing it needs the same absent fact, and no ADR has
+ruled. The check refuses provisionally; see the note under Box
+([#228](https://github.com/MBehtemam/Montaget/issues/228)).
 
 **Path, line, polygon**:
 Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is
@@ -582,3 +601,13 @@ Not a field. A different weight is a different font file — with one declared f
 and no family to search, `bold: true` could only mean synthetic emboldening, which
 is renderer-specific and machine-dependent. Expect to reach for it out of CSS habit;
 the schema rejects it and names the replacement.
+
+**Its error is refuse-class, provisionally.** The replacement names a *file*, and the file
+may not be vendored yet — so the repair is an instruction rather than a value, and an
+advise-class finding whose repair cannot be applied verbatim spends the guarantee that
+field exists to give. What is missing is an asset rather than an intent, which fits neither
+arm of [ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md)
+cleanly; the ruling belongs to an ADR
+([#228](https://github.com/MBehtemam/Montaget/issues/228)). The spelling sits on the text
+element as often as on a run — the one real project file carried `"weight": "bold"` on all
+22 of its text elements.

@@ -34,8 +34,12 @@ fn refuse_class() -> Finding {
     Finding::new("E-RETIRED-KEY")
         .at_file("en-halloween-decorating.montaget.json")
         .at_element("photo-06")
+        .field("subject", json!("photo-06"))
         .field("key", json!("gravity"))
         .field("value", json!("bottom"))
+        // ADR-0016: the retired case names the replacement, refuse-class or not.
+        // Declining to state a *repair* is not declining to say what the format says now.
+        .field("replacement", json!("`x`, `y`, `origin` and the aperture's `clip`"))
         .census(
             Census::on("clip")
                 .group(
