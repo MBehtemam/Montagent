@@ -65,7 +65,11 @@ fn text_element(id: &str, extra: &str) -> String {
 /// value that separates a file written against an older vocabulary from a current one.
 fn every_retired_spelling() -> Vec<(&'static str, String, &'static str)> {
     vec![
-        ("gravity", image("photo-06", r##""gravity":"bottom""##), "clip"),
+        (
+            "gravity",
+            image("photo-06", r##""gravity":"bottom""##),
+            "clip",
+        ),
         (
             "box",
             image("photo-07", r##""box":[0,0,1080,1912]"##),
@@ -117,7 +121,10 @@ fn every_current_spelling() -> Vec<(&'static str, String)> {
         ("box", image("photo-07", "")),
         // `align` is not retired — it is retired *on a non-text element*. Its own type is
         // the must-not-fire case, and the sharpest one in the set.
-        ("align", text_element("sentence-05", r##""align":"center""##)),
+        (
+            "align",
+            text_element("sentence-05", r##""align":"center""##),
+        ),
         (
             "mask",
             image(
@@ -131,14 +138,20 @@ fn every_current_spelling() -> Vec<(&'static str, String)> {
             "anchor",
             text_element("sentence-06", r##""anchor":{"below":"title"}"##),
         ),
-        ("origin", text_element("sentence-07", r##""origin":"center""##)),
+        (
+            "origin",
+            text_element("sentence-07", r##""origin":"center""##),
+        ),
         // `center-left` contains `center` and is a legal keyword; only the doubled middle
         // is retired.
         (
             "origin",
             text_element("sentence-08", r##""origin":"center-left""##),
         ),
-        ("color", text_element("sentence-09", r##""color":"#FBF3E3""##)),
+        (
+            "color",
+            text_element("sentence-09", r##""color":"#FBF3E3""##),
+        ),
         // Eight digits are legal; it is the *opaque* eight-digit form that is a second
         // spelling of a six-digit value.
         (
@@ -147,7 +160,10 @@ fn every_current_spelling() -> Vec<(&'static str, String)> {
         ),
         (
             "bold",
-            text_element("sentence-11", r##""runs":[{"text":"hi","font":"brand-bold"}]"##),
+            text_element(
+                "sentence-11",
+                r##""runs":[{"text":"hi","font":"brand-bold"}]"##,
+            ),
         ),
         (
             "weight",
@@ -420,7 +436,10 @@ fn a_retired_value_is_named_with_the_value_the_file_carries() {
     // "One code, one field set, one template" — and the template's substance is the
     // element, the key and the value, so a reader never re-reads the project to learn
     // what the finding is about (ADR-0006).
-    let findings = findings_on(&text_element("sentence-06", r##""origin":"center-center""##));
+    let findings = findings_on(&text_element(
+        "sentence-06",
+        r##""origin":"center-center""##,
+    ));
     let rendered = render(&findings);
 
     assert!(rendered.contains("sentence-06"), "{rendered}");
@@ -457,7 +476,11 @@ fn the_bare_mask_key_is_retired_whatever_it_carries() {
     // into the `shape` slot. What that value then is, is the schema's question.
     for value in [r##""circle""##, r##"{"shape":"circle"}"##, "true"] {
         let findings = findings_on(&image("handle-logo", &format!(r##""mask":{value}"##)));
-        assert_eq!(findings.len(), 1, "`mask: {value}` should fire: {findings:#?}");
+        assert_eq!(
+            findings.len(),
+            1,
+            "`mask: {value}` should fire: {findings:#?}"
+        );
         assert_eq!(findings[0].fields["key"], "mask");
     }
 }
@@ -468,7 +491,8 @@ fn an_element_whose_type_cannot_be_read_is_not_a_non_text_element() {
     // misspelled is neither — it is an element whose type is the finding, which is a
     // schema question and another ticket's. Answering it here would answer it with a
     // non-bypassable refusal.
-    let untyped = r##"{"id":"mystery","start":0,"end":1000,"align":"center","width":10,"height":10}"##;
+    let untyped =
+        r##"{"id":"mystery","start":0,"end":1000,"align":"center","width":10,"height":10}"##;
     assert!(findings_on(untyped).is_empty());
 
     let misspelled = r##"{"id":"mystery","type":"imag","start":0,"end":1000,"align":"top","width":10,"height":10}"##;
@@ -481,7 +505,10 @@ fn an_element_whose_type_cannot_be_read_is_not_a_non_text_element() {
     );
     assert_eq!(findings.len(), 1);
     let named = findings[0].fields["replacement"].as_str().unwrap();
-    assert!(named.contains("clip") && named.contains("origin"), "{named}");
+    assert!(
+        named.contains("clip") && named.contains("origin"),
+        "{named}"
+    );
 }
 
 #[test]

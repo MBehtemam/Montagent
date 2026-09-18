@@ -3,6 +3,7 @@
 mod backend;
 mod media;
 mod ops;
+mod repo;
 mod scene;
 mod skia_arm;
 mod text;
@@ -64,7 +65,13 @@ fn audio_args(sc: &Scene, from: f64, to: f64) -> Vec<String> {
     out.push("-filter_complex".into());
     out.push(fc.join(";"));
     out.extend(["-map".into(), "0:v".into(), "-map".into(), "[aout]".into()]);
-    out.extend(["-c:a".into(), "aac".into(), "-b:a".into(), "64k".into(), "-shortest".into()]);
+    out.extend([
+        "-c:a".into(),
+        "aac".into(),
+        "-b:a".into(),
+        "64k".into(),
+        "-shortest".into(),
+    ]);
     out
 }
 
@@ -136,7 +143,14 @@ fn draw_frame(
                 let crop = if whole { (0.0, 0.0) } else { (crop_w, crop_h) };
                 be.still(&src, crop, (sx, sy, sw, sh), (dx, dy, dw, dh));
             }
-            Op::Video { src, at, dx, dy, dw, dh } => {
+            Op::Video {
+                src,
+                at,
+                dx,
+                dy,
+                dw,
+                dh,
+            } => {
                 if let Some(f) = decs.frame(&src, at) {
                     be.video(&f, decs.dw, decs.dh, (dx, dy, dw, dh));
                 }
@@ -147,13 +161,12 @@ fn draw_frame(
                 align,
                 colour,
                 size,
-                font,
                 lines,
             } => {
                 if skip.text {
                     continue;
                 }
-                let g = shaper.place(&lines, &font, size, x, y, align);
+                let g = shaper.place(&lines, size, x, y, align);
                 be.glyphs(&g, shaper, colour);
             }
         }
@@ -163,13 +176,15 @@ fn draw_frame(
 fn main() {
     let args = Args::parse();
     let scene_path = args.get("scene").unwrap_or("scene.json").to_string();
-    let sc: Scene =
-        serde_json::from_str(&std::fs::read_to_string(&scene_path).expect("scene.json")).unwrap();
+    let scene_file = repo::in_harness(&scene_path);
+    let mut sc: Scene =
+        serde_json::from_str(&std::fs::read_to_string(&scene_file).expect("scene.json")).unwrap();
+    // Scene asset paths are repository-relative so the harness runs from any
+    // checkout, on any of ADR-0064's six targets (#189).
+    sc.resolve_paths();
+    let sc = sc;
     let k = args.num("scale", 1.0);
-    let (w, h) = (
-        (sc.width as f64 * k) as u32,
-        (sc.height as f64 * k) as u32,
-    );
+    let (w, h) = ((sc.width as f64 * k) as u32, (sc.height as f64 * k) as u32);
     let from = args.num("from", 0.0);
     let to = args.num("to", sc.duration);
     let out = args.get("out").unwrap_or("out.mp4").to_string();
@@ -179,7 +194,11 @@ fn main() {
         "tiny" => Box::new(tiny_arm::TinyArm::new(w, h)),
         _ => Box::new(skia_arm::SkiaArm::new(w, h)),
     };
-    let mut shaper = TextShaper::new();
+    let font_path = args
+        .get("font")
+        .map(|f| std::path::PathBuf::from(repo::resolve(f)))
+        .unwrap_or_else(repo::vendored_font);
+    let mut shaper = TextShaper::new(&font_path);
     let mut decs = Decoders {
         open: HashMap::new(),
         fps: sc.fps,
@@ -211,8 +230,9 @@ fn main() {
         enc.save(&out).unwrap();
         let encode = t2.elapsed();
         println!(
-            "{} still t={from} raster={:.1}ms readback={:.1}ms encode={:.1}ms total={:.1}ms",
+            "{} still t={from} font={} raster={:.1}ms readback={:.1}ms encode={:.1}ms total={:.1}ms",
             be.name(),
+            shaper.family(),
             raster.as_secs_f64() * 1e3,
             read.as_secs_f64() * 1e3,
             encode.as_secs_f64() * 1e3,

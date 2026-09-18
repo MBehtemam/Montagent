@@ -8,7 +8,8 @@
 use montaget_core::model::{Body, Project};
 use montaget_core::write;
 
-const FIXTURE: &str = "../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json";
+const FIXTURE: &str =
+    "../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json";
 
 fn fixture() -> String {
     std::fs::read_to_string(FIXTURE).expect("the committed fixture")
@@ -52,7 +53,11 @@ fn the_fixture_is_read_as_the_types_it_is_written_in() {
     // The narration track is the only one carrying time-based elements, and the fixture's
     // slowed retakes are what pinned `speed` as a rate multiplier rather than its
     // reciprocal (ADR-0020).
-    let narration = project.tracks.iter().find(|t| t.name == "narration").unwrap();
+    let narration = project
+        .tracks
+        .iter()
+        .find(|t| t.name == "narration")
+        .unwrap();
     let slowed = narration
         .elements
         .iter()

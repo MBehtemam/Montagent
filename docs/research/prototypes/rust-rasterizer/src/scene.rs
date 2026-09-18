@@ -78,6 +78,10 @@ pub enum Event {
         align: u8,
         colour: String,
         size: f64,
+        /// Read from the scene and deliberately not used: the shaper registers
+        /// one vendored font file and shapes everything in it (#189), so a
+        /// family name that resolves differently per machine has no vote.
+        #[allow(dead_code)]
         font: String,
         #[allow(dead_code)]
         bold: bool,
@@ -119,6 +123,26 @@ pub struct Scene {
     pub audio: Vec<Audio>,
     #[serde(default)]
     pub clips: Vec<Clip>,
+}
+
+impl Scene {
+    /// Make every asset path absolute against the repository root.
+    ///
+    /// The scene files hold repository-relative paths (#189); #34's absolute
+    /// ones only ever worked on the machine that wrote them, which is not a
+    /// property an oracle running on six targets can have.
+    pub fn resolve_paths(&mut self) {
+        for s in &mut self.spans {
+            s.image = crate::repo::resolve(&s.image);
+        }
+        for a in &mut self.audio {
+            a.src = crate::repo::resolve(&a.src);
+        }
+        for c in &mut self.clips {
+            c.src = crate::repo::resolve(&c.src);
+        }
+        self.badge.src = crate::repo::resolve(&self.badge.src);
+    }
 }
 
 pub fn colour(hex: &str) -> [u8; 4] {

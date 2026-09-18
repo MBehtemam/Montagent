@@ -5,6 +5,12 @@ members = [
     "crates/montaget-text",
     "crates/montaget-render",
     "crates/montaget",
+    # ADR-0010 requires the two-arm harness to stay in-tree as the correctness
+    # oracle and golden-frame guard, and #168 names its path. It is a member so
+    # that `skia-safe` is pinned in exactly one place (#189) and so `cargo test
+    # --workspace` actually runs the oracle rather than leaving it a directory
+    # nobody builds.
+    "docs/research/prototypes/rust-rasterizer",
 ]
 
 [workspace.package]
@@ -21,3 +27,54 @@ montaget-render = { path = "crates/montaget-render", version = "0.1.0" }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+
+# --- The Skia pin. This is the one place (#189, #36). ---------------------
+#
+# ADR-0010 accepted a C++ dependency on the strength of one premise: the
+# required prebuilt is published for every target, so nobody compiles Skia from
+# source. `skia-safe` keys its prebuilt download on the *exact sorted feature
+# set*, so the feature list below is not a preference — it is the key.
+#
+# `default-features = false` plus the explicit list is deliberate: it means an
+# upstream change to `skia-safe`'s defaults cannot move Montaget's key without
+# a diff here. Changing this list is its own ticket that re-verifies all six
+# targets (#189); `svg` and `skottie` both imply `textlayout` and would move it.
+#
+# `crates/montaget-render/tests/skia_pin.rs` derives the resolved key from this
+# list and checks it against `workspace.metadata.skia.prebuilt-key` below, so
+# the key is computed from the pin rather than stated a second time.
+skia-safe = { version = "=0.153.2", default-features = false, features = [
+    "binary-cache",
+    "embed-icudtl",
+    "pdf",
+    "jpeg",
+] }
+
+# The named exit if the prebuilt story breaks (ADR-0010), and the second arm of
+# the golden-frame oracle. Never a parallel backend.
+tiny-skia = "=0.12.0"
+
+# The text stack that stands beside the rasterizer (ADR-0010): parley shapes and
+# breaks, skrifa scales the outlines, the rasterizer fills the paths.
+parley = "=0.11.1"
+skrifa = "=0.46.2"
+image = "=0.25.10"
+toml = "0.9"
+
+[workspace.metadata.skia]
+# The key the feature set above must resolve to — CPU-only, no `ganesh`, no
+# `gl` (ADR-0010). Derived from the pin and asserted by `skia_pin.rs`; read by
+# `ci/assert_prebuilt_key.py`, which is what the scheduled canary asserts
+# against a cold build's log (#36).
+prebuilt-key = "jpegd-jpege-pdf"
+
+# The six desktop tier-1 targets ADR-0064 commits to. The suite runs on all of
+# them; the canary resolves the prebuilt on all of them.
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+]

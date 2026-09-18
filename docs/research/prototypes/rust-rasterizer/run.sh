@@ -2,7 +2,10 @@
 # Every number in FINDINGS.md. Throwaway. ~10 min on an M1 Pro.
 set -e
 cd "$(dirname "$0")"
-B=./target/release/rast-bench
+# The harness is a workspace member now (#189), so the binary lands in the
+# workspace target directory rather than beside this script.
+ROOT=../../../..
+B=$ROOT/target/release/rast-bench
 mkdir -p frames out
 
 echo "=== 0. correctness: verify before timing (the #6 ground rule) ==="
@@ -75,7 +78,7 @@ done
 
 echo
 echo "=== 4c. decoder seek: is #6's position pathology real with a decoder? ==="
-./seek.sh /Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4
+./seek.sh $ROOT/fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4
 
 echo
 echo "=== 5. the 4K pass — 2160x3840, never re-derived since ADR-0003 ==="

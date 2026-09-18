@@ -39,7 +39,10 @@ fn refuse_class() -> Finding {
         .field("value", json!("bottom"))
         // ADR-0016: the retired case names the replacement, refuse-class or not.
         // Declining to state a *repair* is not declining to say what the format says now.
-        .field("replacement", json!("`x`, `y`, `origin` and the aperture's `clip`"))
+        .field(
+            "replacement",
+            json!("`x`, `y`, `origin` and the aperture's `clip`"),
+        )
         .census(
             Census::on("clip")
                 .group(

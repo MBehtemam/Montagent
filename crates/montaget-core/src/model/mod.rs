@@ -23,8 +23,8 @@
 //! the *only* signal an old binary has that a file was authored against a newer schema —
 //! and an optional signal is indistinguishable from no signal.
 
-mod element;
 pub mod effects;
+mod element;
 pub mod keyframe;
 pub mod text;
 
@@ -69,15 +69,22 @@ impl<'de> Deserialize<'de> for Colour {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let text = String::deserialize(d)?;
         let body = text.strip_prefix('#').ok_or_else(|| {
-            D::Error::custom(format!("{text} is not a colour; write `#RRGGBB` or `#RRGGBBAA`"))
+            D::Error::custom(format!(
+                "{text} is not a colour; write `#RRGGBB` or `#RRGGBBAA`"
+            ))
         })?;
-        if !body.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase()) {
+        if !body
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b.is_ascii_uppercase())
+        {
             return Err(D::Error::custom(format!(
                 "{text} is not a colour: hex digits are uppercase, and there are no CSS names"
             )));
         }
         if !body.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(D::Error::custom(format!("{text} is not a colour: expected hex digits")));
+            return Err(D::Error::custom(format!(
+                "{text} is not a colour: expected hex digits"
+            )));
         }
         // The three-digit shorthand and the fully-opaque eight-digit form are each a second
         // spelling of a value the six-digit form already says, and two spellings of one
@@ -233,7 +240,11 @@ pub struct Project {
     pub output: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
-    #[serde(rename = "fontVendor", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fontVendor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub font_vendor: Option<BTreeMap<String, FontAttestation>>,
     pub tracks: Vec<Track>,
 }

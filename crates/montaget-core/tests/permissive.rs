@@ -27,7 +27,10 @@ fn a_document_with_an_unknown_key_and_a_retired_one_round_trips_losslessly() {
     // unknown key an `error`. Both hold at once, which is why this path exists — the strict
     // model by construction cannot hold `reviewedBy`, and refusing to format the file would
     // make `fmt` unusable exactly when it is most wanted, mid-authoring.
-    let loose = Loose::new("awkward.montaget.json", serde_json::from_str(AWKWARD).unwrap());
+    let loose = Loose::new(
+        "awkward.montaget.json",
+        serde_json::from_str(AWKWARD).unwrap(),
+    );
 
     assert_eq!(loose.canonical(), AWKWARD);
 }
@@ -38,7 +41,10 @@ fn key_order_survives_the_round_trip_rather_than_being_repaired() {
     // which is canonical order. Reading and writing it back must not silently fix that:
     // `fmt` reorders keys and says so, and `validate` reports it as `LAYOUT` — a path that
     // quietly normalised on read would take that finding away from both of them.
-    let loose = Loose::new("awkward.montaget.json", serde_json::from_str(AWKWARD).unwrap());
+    let loose = Loose::new(
+        "awkward.montaget.json",
+        serde_json::from_str(AWKWARD).unwrap(),
+    );
     let written = loose.canonical();
 
     let fps = written.find("\"fps\"").unwrap();
@@ -57,10 +63,20 @@ fn field_presence_survives_the_round_trip() {
     // delete a line the agent just added; materialising the omitted `x`/`y`/`origin` would
     // insert up to seven lines into the element and invalidate any pending exact-string
     // replace whose context window touched the block.
-    let written = Loose::new("awkward.montaget.json", serde_json::from_str(AWKWARD).unwrap()).canonical();
+    let written = Loose::new(
+        "awkward.montaget.json",
+        serde_json::from_str(AWKWARD).unwrap(),
+    )
+    .canonical();
 
-    assert!(written.contains(r#""opacity":1.0"#), "an explicit default stays");
-    assert!(!written.contains(r#""x":"#), "an omitted field stays omitted");
+    assert!(
+        written.contains(r#""opacity":1.0"#),
+        "an explicit default stays"
+    );
+    assert!(
+        !written.contains(r#""x":"#),
+        "an omitted field stays omitted"
+    );
     assert!(!written.contains(r#""origin":"#));
 }
 
@@ -71,7 +87,9 @@ fn a_document_missing_the_keys_that_make_it_a_project_is_refused_by_name() {
     // not a correctness gate (ADR-0042).
     let transcript = serde_json::json!({"segments": [{"start": 0.0, "text": "hello"}]});
 
-    let refusal = Loose::new("transcript.json", transcript).shape().expect_err("not a project");
+    let refusal = Loose::new("transcript.json", transcript)
+        .shape()
+        .expect_err("not a project");
     assert_eq!(
         refusal,
         NotAProject {
@@ -108,9 +126,10 @@ fn the_committed_fixture_round_trips_through_the_permissive_path_too() {
     // One convention, one writer. If the two paths could disagree about layout, the file
     // `fmt` produced and the file the strict model produced would differ, and every
     // exact-string replace written against one of them would miss against the other.
-    let source =
-        std::fs::read_to_string("../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json")
-            .unwrap();
+    let source = std::fs::read_to_string(
+        "../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json",
+    )
+    .unwrap();
     let loose = Loose::new("fixture", serde_json::from_str(&source).unwrap());
 
     assert_eq!(loose.canonical(), source);
