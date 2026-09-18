@@ -135,6 +135,10 @@ fn every_current_spelling() -> Vec<(&'static str, String)> {
             "bold",
             text_element("sentence-11", r##""runs":[{"text":"hi","font":"brand-bold"}]"##),
         ),
+        (
+            "weight",
+            text_element("sentence-12", r##""runs":[{"text":"hi","size":44}]"##),
+        ),
         ("fit", image("photo-09", "")),
     ]
 }
@@ -270,22 +274,11 @@ fn the_bare_mask_key_is_advise_class_and_repairs_to_an_effects_member() {
 
 #[test]
 fn box_and_align_on_a_non_text_element_refuse_until_an_adr_rules() {
-    // **Recorded, not decided** (#192). Neither has been classified by any ADR:
-    //
-    // - `box: [x,y,w,h]` retires into `x`, `y`, `origin`, `width`, `height` — and the
-    //   pivot the 4-array left implicit is exactly the fact the repair needs and the
-    //   document does not carry. `box: "card-05"` retires into literal `width`/`height`,
-    //   whose values live on an element that 15 of the fixture's 22 text elements do not
-    //   have.
-    // - `align` on an image meant *which part of the source survives the crop*
-    //   (ADR-0012) — `gravity`'s question in `align`'s spelling, with `gravity`'s fork.
-    //
-    // ADR-0068 remarks in passing that *"`box` was migrated by arithmetic script"*, which
-    // points the other way, and ADR-0043 is explicit that it *"classifies `gravity` and
-    // nothing else"*. Until an ADR rules, these sit under ADR-0043's own standing rule —
-    // if any instance a check can match could be load-bearing, the check refuses — which
-    // is the conservative half of the fork and the one whose cost the ADR has already
-    // accepted. The ruling belongs to an ADR, not to this check.
+    // **Recorded, not decided** (#192). Neither has been classified by any ADR, and both
+    // carry `gravity`'s fork. The argument, and what would change it, is stated once —
+    // in `checks::retired`'s module doc and in `CONTEXT.md` under **Box** — rather than
+    // re-argued here. This test pins the behaviour that follows from it, so the day an
+    // ADR rules, the thing that fails is a named expectation and not a surprise.
     for element in [
         image("photo-07", r##""box":[0,0,1080,1912]"##),
         image("photo-08", r##""align":"top""##),
@@ -398,6 +391,75 @@ fn the_project_background_is_checked_too() {
         "{}",
         render(&findings)
     );
+}
+
+#[test]
+fn the_bare_mask_key_is_retired_whatever_it_carries() {
+    // ADR-0068: *"a bare `mask` key on any element"* — the value's shape does not qualify
+    // the retirement, and a repair that transposes the key carries whatever was written
+    // into the `shape` slot. What that value then is, is the schema's question.
+    for value in [r##""circle""##, r##"{"shape":"circle"}"##, "true"] {
+        let findings = findings_on(&image("handle-logo", &format!(r##""mask":{value}"##)));
+        assert_eq!(findings.len(), 1, "`mask: {value}` should fire: {findings:#?}");
+        assert_eq!(findings[0].fields["key"], "mask");
+    }
+}
+
+#[test]
+fn an_element_whose_type_cannot_be_read_is_not_a_non_text_element() {
+    // `align` is retired *on a non-text element*. An element whose `type` is absent or
+    // misspelled is neither — it is an element whose type is the finding, which is a
+    // schema question and another ticket's. Answering it here would answer it with a
+    // non-bypassable refusal.
+    let untyped = r##"{"id":"mystery","start":0,"end":1000,"align":"center","width":10,"height":10}"##;
+    assert!(findings_on(untyped).is_empty());
+
+    let misspelled = r##"{"id":"mystery","type":"imag","start":0,"end":1000,"align":"top","width":10,"height":10}"##;
+    assert!(findings_on(misspelled).is_empty());
+
+    // `gravity`, by contrast, is retired on *every* element type (ADR-0015), so it still
+    // fires — and names both halves of the replacement rather than a confident half.
+    let findings = findings_on(
+        r##"{"id":"mystery","type":"imag","start":0,"end":1000,"gravity":"top","width":10,"height":10}"##,
+    );
+    assert_eq!(findings.len(), 1);
+    let named = findings[0].fields["replacement"].as_str().unwrap();
+    assert!(named.contains("clip") && named.contains("origin"), "{named}");
+}
+
+#[test]
+fn the_css_habit_spelling_of_an_opaque_colour_is_caught_in_either_case() {
+    // `#fbf3e3ff` is two retired spellings at once — hex digits are uppercase (ADR-0014),
+    // and the opaque alpha is a second spelling of six digits — and it is the one a CSS
+    // habit actually types. `validate` reads the permissive spine, never `Colour`'s
+    // deserializer, so nothing else in the run would have caught it.
+    for written in ["#FBF3E3FF", "#fbf3e3ff", "#FBF3E3ff"] {
+        let findings = findings_on(&text_element(
+            "sentence-05",
+            &format!(r##""color":"{written}""##),
+        ));
+        assert_eq!(findings.len(), 1, "{written} should fire: {findings:#?}");
+        assert_eq!(
+            findings[0].fields["replacement"], "`#FBF3E3`",
+            "the six-digit form the schema will accept, in the case it will accept"
+        );
+    }
+}
+
+#[test]
+fn box_censuses_the_pivot_its_repair_would_need() {
+    // A file still carrying `box` predates `clip` — ADR-0012 retired one and introduced
+    // the other in the same breath — so an aperture census would group every affected
+    // element under "absent". The pivot is the fact the repair needs and the 4-array left
+    // implicit, so the census reports which of them state one.
+    let elements = r##"{"id":"card-05","type":"rect","start":0,"end":1,"box":[0,0,10,10],"width":10,"height":10,"fill":"#000000"},{"id":"card-06","type":"rect","start":0,"end":1,"box":[0,20,10,10],"origin":"top-left","width":10,"height":10,"fill":"#000000"}"##;
+    let findings = findings_on(elements);
+    let census = findings[0].census.as_ref().expect("a sibling census");
+
+    assert_eq!(census.field, "origin");
+    assert_eq!(census.groups.len(), 2);
+    assert_eq!(census.groups[0].members, vec!["card-05"]);
+    assert_eq!(census.groups[1].members, vec!["card-06"]);
 }
 
 fn render(findings: &[Finding]) -> String {

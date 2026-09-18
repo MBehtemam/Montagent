@@ -169,7 +169,11 @@ do not repair it by ordinary file edit.",
         classes: &[Error],
         repair: Some(Advise),
         threshold: Internal,
-        adr: "ADR-0016",
+        // ADR-0043, like its refuse-class twin: naming the replacement is ADR-0016's
+        // mechanism and is common to both, but what separates the two codes — and what
+        // makes this one a code at all — is ADR-0043's class and its uniformity rule.
+        // ADR-0068 is the ADR that first classified a retirement into this half.
+        adr: "ADR-0043",
         template: "{subject}: `{key}` is a retired spelling, carrying {value}. Write \
 {replacement} instead.",
         status: Live,

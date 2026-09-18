@@ -122,8 +122,15 @@ fn sightings(document: &Loose) -> Vec<Sighting> {
         return out;
     };
 
-    // The project's own colours, which are the only ones not on an element.
-    colours(root, "the project", &None, &None, &mut out);
+    // The project's own colours, which are the only ones not on an element. Its children
+    // are tracks, so this reads the root's own keys and does not recurse.
+    let project = Locus::project();
+    out.extend(
+        COLOUR_KEYS
+            .iter()
+            .filter_map(|key| Some((*key, root.get(*key)?)))
+            .filter_map(|(key, value)| project.retired_colour(key, value)),
+    );
 
     for track in root
         .get("tracks")
@@ -150,16 +157,71 @@ fn sightings(document: &Loose) -> Vec<Sighting> {
 }
 
 fn scan_element(element: &Map<String, Value>, track: &Option<String>, out: &mut Vec<Sighting>) {
-    let id = element.get("id").and_then(Value::as_str);
-    let subject = id.unwrap_or("an element carrying no `id`").to_string();
-    let located = id.map(str::to_string);
-    let type_name = element
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
+    scan(element, &Locus::element(element, track), out);
+}
 
-    scan(element, &subject, &located, track, &type_name, out);
+/// Where a sighting is, and what it is on. One value rather than four parameters, because
+/// the four never travel apart: everything nested inside an element — a `run`, a
+/// `highlight`, an effect — is reported at that element, since `runs[2]` is not a locus
+/// the report knows how to name.
+struct Locus {
+    /// What the prose names: an element's `id`, or the project itself.
+    subject: String,
+    element: Option<String>,
+    track: Option<String>,
+    /// The element's `type`, which two of the retirements read: `align` is retired only
+    /// off text, and `gravity`'s replacement differs where there is no aperture.
+    type_name: String,
+}
+
+impl Locus {
+    fn project() -> Self {
+        Locus {
+            subject: "the project".into(),
+            element: None,
+            track: None,
+            type_name: String::new(),
+        }
+    }
+
+    fn element(element: &Map<String, Value>, track: &Option<String>) -> Self {
+        let id = element.get("id").and_then(Value::as_str);
+        Locus {
+            subject: id.unwrap_or("an element carrying no `id`").to_string(),
+            element: id.map(str::to_string),
+            track: track.clone(),
+            type_name: element
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        }
+    }
+
+    fn sighting(&self, key: &str, value: &Value, replacement: String, verdict: Verdict) -> Sighting {
+        Sighting {
+            subject: self.subject.clone(),
+            element: self.element.clone(),
+            track: self.track.clone(),
+            key: key.to_string(),
+            value: value.clone(),
+            replacement,
+            verdict,
+        }
+    }
+
+    /// The one retirement that is a value rather than a key, and the one that can appear
+    /// on the project as well as on an element — so it is written once, here, rather than
+    /// in both traversals.
+    fn retired_colour(&self, key: &str, value: &Value) -> Option<Sighting> {
+        let six = opaque_eight_digit(value)?;
+        Some(self.sighting(
+            key,
+            value,
+            format!("`{six}`"),
+            Verdict::Advise { repair: json!(six) },
+        ))
+    }
 }
 
 /// One object inside an element, and everything nested under it — a `run`, a `highlight`,
@@ -167,28 +229,22 @@ fn scan_element(element: &Map<String, Value>, track: &Option<String>, out: &mut 
 /// because the retired spellings it looks for are, by construction, keys the types do not
 /// have: a scan written against the current field set would be a second enumeration of the
 /// schema, in the one place a drift between two enumerations goes unnoticed.
-fn scan(
-    object: &Map<String, Value>,
-    subject: &str,
-    element: &Option<String>,
-    track: &Option<String>,
-    type_name: &str,
-    out: &mut Vec<Sighting>,
-) {
-    let at = |key: &str, value: &Value, replacement: String, verdict: Verdict| Sighting {
-        subject: subject.to_string(),
-        element: element.clone(),
-        track: track.clone(),
-        key: key.to_string(),
-        value: value.clone(),
-        replacement,
-        verdict,
+fn scan(object: &Map<String, Value>, locus: &Locus, out: &mut Vec<Sighting>) {
+    let at = |key: &str, value: &Value, replacement: String, verdict: Verdict| {
+        locus.sighting(key, value, replacement, verdict)
     };
 
     // The aperture the refuse-class censuses group on: `clip` is the geometry fact that,
     // with the rect's own position, already determines which part of the source survives
     // — which is exactly the quantity the retired keys named.
     let clip = object.get("clip").cloned().unwrap_or(Value::Null);
+    // What `box`'s census groups on instead. A file still carrying `box` predates `clip`
+    // — ADR-0012 retired one and introduced the other in the same breath — so an aperture
+    // census would group every element under "absent" and narrow nothing. The pivot is
+    // the fact that repair needs and the 4-array left implicit, so the census reports
+    // which of the affected elements state one. Present geometry, never old semantics.
+    let origin = object.get("origin").cloned().unwrap_or(Value::Null);
+    let type_name = locus.type_name.as_str();
 
     for (key, value) in object {
         match key.as_str() {
@@ -212,13 +268,18 @@ fn scan(
                     _ => "`x`, `y`, `origin`, `width`, `height` and `clip`".into(),
                 },
                 Verdict::Refuse {
-                    census_field: "box",
-                    census_value: value.clone(),
+                    census_field: "origin",
+                    census_value: origin.clone(),
                 },
             )),
             // `align` is not retired; `align` on a non-text element is. On text it keeps
             // ADR-0007's meaning exactly — how lines align to each other.
-            "align" if type_name != "text" => out.push(at(
+            //
+            // An element whose `type` is absent or misspelled is *not* a non-text element
+            // — it is an element whose type is the finding, which is a schema question and
+            // another ticket's. Firing here would answer it, and answer it with a
+            // non-bypassable refusal.
+            "align" if is_visual_non_text(type_name) => out.push(at(
                 key,
                 value,
                 "`x`, `y`, `origin` and the aperture's `clip`".into(),
@@ -229,12 +290,13 @@ fn scan(
             )),
 
             // ---- Advise-class (ADR-0043). ------------------------------------------
-            // ADR-0068: the bare key never had accepted semantics in any document, so no
-            // prior meaning exists for a repair to misread, and the param-less form is
-            // now defined. The only input is the string itself — a shape outside the enum
-            // transposes the same way and is then an ordinary schema question about the
-            // value, which is not this check's to adjudicate.
-            "mask" if value.is_string() => out.push(at(
+            // ADR-0068: *"a bare `mask` key on any element"* — the value's shape does not
+            // qualify it, so neither does this. The key never had accepted semantics in
+            // any document, so no prior meaning exists for a repair to misread, and the
+            // repair carries whatever was written into the `shape` slot verbatim: a value
+            // outside the enum is then an ordinary schema question about that value,
+            // which is not this check's to adjudicate.
+            "mask" => out.push(at(
                 key,
                 value,
                 "`effects`".into(),
@@ -254,8 +316,16 @@ fn scan(
             )),
             // A different weight is a different file. With one declared file and no
             // family to search, `bold: true` could only mean synthetic emboldening, which
-            // is renderer-specific and machine-dependent (ADR-0007). The author's meaning
-            // is not in question — only the file is — so this advises rather than refuses.
+            // is renderer-specific and machine-dependent (ADR-0007).
+            //
+            // Advise, not refuse, and the call is close enough to record: the repair is
+            // an instruction rather than a value, because the file it names is not in the
+            // document. But ADR-0043's refuse test is *intent* — "the fix depends on
+            // knowing what the author meant" — and nothing here is in doubt about what
+            // `bold: true` meant. What is missing is an asset, which ADR-0016 says is
+            // "something an agent can do and a program categorically cannot", and
+            // refusing would send an ordinary authoring move to a human. `E-READ` already
+            // takes the same shape, for the same reason, with the same kind of value.
             "weight" | "bold" => out.push(at(
                 key,
                 value,
@@ -289,24 +359,19 @@ fn scan(
         }
 
         if COLOUR_KEYS.contains(&key.as_str())
-            && let Some(six) = opaque_eight_digit(value)
+            && let Some(sighting) = locus.retired_colour(key, value)
         {
-            out.push(at(
-                key,
-                value,
-                format!("`{six}`"),
-                Verdict::Advise { repair: json!(six) },
-            ));
+            out.push(sighting);
         }
 
         // Nested objects carry their element's identity: a `run`'s retired spelling is
         // still that element's, and `runs[2]` is not a locus the report knows how to name.
         match value {
-            Value::Object(nested) => scan(nested, subject, element, track, type_name, out),
+            Value::Object(nested) => scan(nested, locus, out),
             Value::Array(items) => {
                 for item in items {
                     if let Value::Object(nested) = item {
-                        scan(nested, subject, element, track, type_name, out);
+                        scan(nested, locus, out);
                     }
                 }
             }
@@ -315,52 +380,43 @@ fn scan(
     }
 }
 
-/// Colour keys on one object alone, without recursing. Used for the project root, whose
-/// children are tracks and are walked as elements.
-fn colours(
-    object: &Map<String, Value>,
-    subject: &str,
-    element: &Option<String>,
-    track: &Option<String>,
-    out: &mut Vec<Sighting>,
-) {
-    for key in COLOUR_KEYS {
-        let Some(value) = object.get(key) else {
-            continue;
-        };
-        if let Some(six) = opaque_eight_digit(value) {
-            out.push(Sighting {
-                subject: subject.to_string(),
-                element: element.clone(),
-                track: track.clone(),
-                key: key.to_string(),
-                value: value.clone(),
-                replacement: format!("`{six}`"),
-                verdict: Verdict::Advise { repair: json!(six) },
-            });
-        }
-    }
-}
-
 /// `#RRGGBBFF` is the opaque form of a colour the six-digit spelling already says, and two
 /// spellings of one value break the write-read round trip: `fmt` normalises on write and
 /// the agent's next exact-string replace finds nothing (ADR-0014). Eight digits are legal
 /// — it is the fully-opaque eight that are retired.
+///
+/// Matched case-insensitively and answered in uppercase, because `#fbf3e3ff` is what the
+/// CSS habit actually types and it is two retired spellings at once: hex digits are
+/// uppercase (ADR-0014), and the opaque alpha is a second spelling of six digits. The
+/// six-digit form this names is the one the schema will accept.
 fn opaque_eight_digit(value: &Value) -> Option<String> {
-    let text = value.as_str()?;
-    let body = text.strip_prefix('#')?;
-    if body.len() == 8 && body.bytes().all(|b| b.is_ascii_hexdigit()) && body.ends_with("FF") {
-        return Some(format!("#{}", &body[..6]));
+    let body = value.as_str()?.strip_prefix('#')?;
+    if body.len() == 8 && body.bytes().all(|b| b.is_ascii_hexdigit()) && body[6..].eq_ignore_ascii_case("FF")
+    {
+        return Some(format!("#{}", body[..6].to_ascii_uppercase()));
     }
     None
 }
 
+/// The element types `align` is retired on. Named positively rather than as "not text",
+/// so that an element whose `type` is absent or misspelled — a schema question, and
+/// another ticket's — does not collect a non-bypassable refusal on the way past.
+fn is_visual_non_text(type_name: &str) -> bool {
+    matches!(type_name, "image" | "video" | "rect" | "ellipse")
+}
+
 /// On an image or a video the message names the rect's own position and the aperture; on
 /// text and shapes there is no aperture, and ADR-0014's clause names `origin` alone.
+/// `gravity` is retired on *every* element type (ADR-0015), so an element whose type
+/// cannot be read still gets the finding — and gets both halves of the replacement,
+/// rather than a confident half that may be the wrong one.
 fn gravity_replacement(type_name: &str) -> String {
     match type_name {
         "image" | "video" => "`x`, `y`, `origin` and the aperture's `clip`".into(),
-        _ => "`origin`".into(),
+        "text" | "rect" | "ellipse" => "`origin`".into(),
+        _ => "`x`, `y`, `origin` and the aperture's `clip` — or `origin` alone, on a text \
+or shape element"
+            .into(),
     }
 }
 
