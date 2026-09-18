@@ -76,7 +76,10 @@ pub fn ops_at(scene: &Scene, frame: i64, k: f64) -> Vec<Op> {
         colour: colour(&scene.background),
     });
 
-    // --- Ken Burns still for the span covering t
+    // --- Ken Burns still(s) covering t. #159: every span whose window
+    // covers t is drawn (was: the first match only) so more than one can
+    // be simultaneously live; each keeps its own dest rect if given, else
+    // falls back to the original full-card placement.
     for s in &scene.spans {
         if t < s.start || t >= s.end {
             continue;
@@ -99,12 +102,11 @@ pub fn ops_at(scene: &Scene, frame: i64, k: f64) -> Vec<Op> {
             sy: (s.crop_h - sh) / 2.0,
             sw,
             sh,
-            dx: 0.0,
-            dy: 0.0,
-            dw: scene.width as f64 * k,
-            dh: scene.card_h * k,
+            dx: s.dx.unwrap_or(0.0) * k,
+            dy: s.dy.unwrap_or(0.0) * k,
+            dw: s.dw.map(|v| v * k).unwrap_or(scene.width as f64 * k),
+            dh: s.dh.map(|v| v * k).unwrap_or(scene.card_h * k),
         });
-        break;
     }
 
     // --- video clips, over the still, in the same card
