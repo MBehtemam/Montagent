@@ -22,18 +22,19 @@
 //!   mid-edit on; a half-written project is worse than an unformatted one.
 //!
 //! What it *does* is one function's worth of decision — [`crate::layout::canonicalise`] —
-//! and one writer, [`crate::write::canonical`]. Both are shared with `validate`'s `LAYOUT`
-//! check rather than reimplemented, which is ADR-0041's *"exactly one place the rule lives,
-//! not two that can disagree."*
+//! one writer, [`crate::write::canonical`], and one set of findings,
+//! [`crate::checks::layout`]. All three are `validate`'s `LAYOUT` check rather than a
+//! parallel copy of it, which is ADR-0041's *"exactly one place the rule lives, not two
+//! that can disagree."* This verb decides nothing about canonical form; it writes what the
+//! check describes.
 
 use std::path::Path;
 
 use serde_json::{Value, json};
 
+use crate::checks;
 use crate::finding::Finding;
-use crate::layout::{self, Published};
 use crate::parse;
-use crate::permissive::Loose;
 use crate::report::Report;
 use crate::write;
 
@@ -97,24 +98,19 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
         return report;
     }
 
-    let written = match std::fs::read_to_string(path) {
-        Ok(written) => written,
-        // The file parsed a moment ago, so this is a race or a filesystem failure rather
-        // than a fact about the project.
-        Err(e) => {
-            report.fail_internally(format!("{} could not be re-read: {e}", document.path()));
-            return report;
-        }
-    };
-    let canonical = write::canonical(&layout::canonicalise(document.value()));
+    // The bytes the parse read, rather than a second read of the file: the findings below
+    // are about the file that was parsed, and a file that changed in between would give
+    // them line numbers into a document nobody looked at.
+    let written = document.source().unwrap_or_default();
+    let canonical = checks::layout::canonical(&document);
 
     if written == canonical {
         return report;
     }
 
-    for finding in findings(&document, &written, &canonical) {
-        report.push(finding);
-    }
+    // The same findings `validate` produces, from the same function — `fmt --check` is a
+    // second place to *ask*, never a second rule (ADR-0041).
+    checks::layout::check(&document, &mut report);
 
     // On success the findings stay in the report — they are what the run changed, and an
     // agent that asked for a rewrite is owed the list.
@@ -125,131 +121,4 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
     }
 
     report
-}
-
-/// What a rewrite would change, as findings.
-///
-/// Two codes, because the two conditions are independently reachable: the incident agent
-/// pretty-printed the fixture without disturbing a single key's position, and an agent
-/// scripting an edit with `jq` reorders keys without touching a line break.
-fn findings(document: &Loose, written: &str, canonical: &str) -> Vec<Finding> {
-    let mut findings = Vec::new();
-
-    for (track, element) in document.elements_in_tracks() {
-        let Some(object) = element.as_object() else {
-            continue;
-        };
-        let published = Published::of_element(element);
-        if layout::is_canonical(published, object) {
-            continue;
-        }
-        let Some(expected) = layout::canonical_order(published) else {
-            // An element whose `type` the schema does not publish has no canonical order,
-            // so there is nothing to be out of. `is_canonical` already said so; this is
-            // the unreachable half of the same fact, kept rather than unwrapped.
-            continue;
-        };
-
-        let id = element.get("id").and_then(Value::as_str).unwrap_or("?");
-        let mut finding = Finding::new("L-KEY-ORDER")
-            .at_file(document.path())
-            .at_element(id)
-            .field("type", element["type"].clone())
-            // Only the keys the element actually carries. ADR-0030: naming the omitted
-            // ones would read as a list of fields to add, which is the one thing `fmt` is
-            // forbidden to do.
-            .field(
-                "expected",
-                Value::String(
-                    expected
-                        .iter()
-                        .filter(|key| object.contains_key(*key))
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join(","),
-                ),
-            );
-        if let Some(track) = track {
-            finding = finding.at_track(track);
-        }
-        if let Some(line) = line_of_element(written, id) {
-            finding = finding.at_line(line);
-        }
-        findings.push(finding);
-    }
-
-    // Everything else `fmt` would change — line breaks, indentation, the header's and the
-    // tracks' own key order, the trailing newline — as one finding about the file, because
-    // that is the granularity it is true at. The 154 → 1595 incident is one fact, not 1441
-    // of them.
-    //
-    // "Everything else" is measured, not assumed: the comparison is against the document
-    // canonicalised *except* for each element's own key order, so what is left is exactly
-    // the part of a rewrite no `L-KEY-ORDER` finding names. A file whose only fault is an
-    // element's keys produces those findings and nothing more; told both, a reader would be
-    // reading one fact twice, and ADR-0006's noise budget is explicit that a check free to
-    // run and expensive to report is still expensive.
-    let beyond_key_order =
-        write::canonical(&layout::canonicalise_except_elements(document.value()));
-    if written != beyond_key_order {
-        findings.push(
-            Finding::new("L-LAYOUT")
-                .at_file(document.path())
-                // The two line counts are the file the reader is looking at and the file
-                // `montaget fmt` would hand them — both about `canonical`, the real output.
-                .field("written_lines", json!(written.lines().count()))
-                .field("canonical_lines", json!(canonical.lines().count()))
-                // The line, though, is the first difference this finding is *about*: a
-                // difference on an element's own line already has an `L-KEY-ORDER` finding
-                // naming it, and sending the reader there twice is the duplicate-voice
-                // problem this comparison exists to avoid.
-                .at_line(first_difference(written, &beyond_key_order)),
-        );
-    }
-
-    findings
-}
-
-/// The first line on which `written` differs from `target`, 1-based, or the line after the
-/// shorter of them where one is a prefix of the other.
-///
-/// The number a reader opens their editor at. It is a line number in the file **as
-/// written**, which is the only one that means anything to someone looking at it; `target`
-/// is whichever canonical form the finding is about.
-///
-/// Split on `\n` rather than with `lines()`, which strips `\r\n` and `\n` alike. The
-/// convention is a *byte* convention (`.gitattributes`, #189), so a file checked out with
-/// CRLF differs from canonical on its very first line — and `lines()` would report every
-/// line equal and send the reader to the end of the file.
-fn first_difference(written: &str, target: &str) -> u32 {
-    let mut theirs = target.split('\n');
-    for (i, line) in written.split('\n').enumerate() {
-        if theirs.next() != Some(line) {
-            return i as u32 + 1;
-        }
-    }
-    written.split('\n').count() as u32 + 1
-}
-
-/// The line an element's `id` is written on, if it can be found unambiguously.
-///
-/// Located by text rather than by a span the parser kept, because `serde_json` keeps none.
-/// The search is deliberately narrow: the line must carry the `"id"` key and the id's own
-/// quoted spelling, and the id must appear on exactly one line — the same
-/// uniquely-matchable-substring property the whole convention exists to protect
-/// (ADR-0041). Where it is not unique the finding goes out without a line rather than with
-/// a guessed one, because ADR-0006's whole posture is that a stated number is a measured
-/// one.
-fn line_of_element(written: &str, id: &str) -> Option<u32> {
-    let quoted = format!("\"{id}\"");
-    let mut found = None;
-    for (i, line) in written.lines().enumerate() {
-        if line.contains("\"id\"") && line.contains(&quoted) {
-            if found.is_some() {
-                return None;
-            }
-            found = Some(i as u32 + 1);
-        }
-    }
-    found
 }

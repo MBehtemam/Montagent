@@ -1,12 +1,12 @@
 //! `Element`'s three hand-written impls, and the one reason they are hand-written.
 //!
-//! An element's canonical key order is `id, type, group, start, end, …` (ADR-0041) — the
-//! discriminator sits *second*, between two prefix fields. No derive produces that:
-//! `#[serde(tag = "type")]` writes the tag first, and `#[serde(flatten)]` would put the
-//! prefix first but silently drops `deny_unknown_fields`, which ADR-0017 requires at every
-//! object level. So the prefix is assembled by hand, in all three directions — the wire
-//! form, the parse, and the published schema — and each of the three is the same five
-//! names in the same order.
+//! An element's canonical key order is `id, type, group, start, end, layer, …` (ADR-0041,
+//! and #243 for `layer`'s position) — the discriminator sits *second*, between two prefix
+//! fields. No derive produces that: `#[serde(tag = "type")]` writes the tag first, and
+//! `#[serde(flatten)]` would put the prefix first but silently drops `deny_unknown_fields`,
+//! which ADR-0017 requires at every object level. So the prefix is assembled by hand, in
+//! all three directions — the wire form, the parse, and the published schema — and each of
+//! the three is the same six names in the same order.
 
 use std::fmt;
 
@@ -16,11 +16,11 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use super::{Body, Element};
+use super::{Body, Element, Layer};
 
 /// The universal prefix, in canonical order. `type` is the body's own discriminator and is
 /// spliced in at position 1 rather than carried as a field.
-const PREFIX: [&str; 5] = ["id", "type", "group", "start", "end"];
+const PREFIX: [&str; 6] = ["id", "type", "group", "start", "end", "layer"];
 
 impl Serialize for Element {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -41,6 +41,12 @@ impl Serialize for Element {
         }
         map.serialize_entry("start", &self.start)?;
         map.serialize_entry("end", &self.end)?;
+        // Omitted when absent, like `group`: the track supplies stacking unless this
+        // element overrides it, and writing the track's value here would turn a
+        // declaration ("wherever my track sits") into a pinned number (ADR-0030).
+        if let Some(layer) = &self.layer {
+            map.serialize_entry("layer", layer)?;
+        }
         for (key, value) in &body {
             if key != "type" {
                 map.serialize_entry(key, value)?;
@@ -99,6 +105,18 @@ impl<'de> Visitor<'de> for ElementVisitor {
         };
         let start = take_i64(&mut rest, "start", &id)?;
         let end = take_i64(&mut rest, "end", &id)?;
+        let layer = match rest.remove("layer") {
+            // The two forms the format writes, and no third: an integer, or an anchor.
+            // Anything else — a bare string, `{"below": 3}`, `null` — is a schema error
+            // here rather than a value some later stage has to second-guess.
+            Some(value) => Some(serde_json::from_value::<Layer>(value.clone()).map_err(|_| {
+                A::Error::custom(format!(
+                    "`{id}`: `layer` is {value}, not an integer or an anchor such as \
+{{\"below\": \"title\"}}"
+                ))
+            })?),
+            None => None,
+        };
 
         let body: Body = serde_json::from_value(Value::Object(rest))
             .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
@@ -108,6 +126,7 @@ impl<'de> Visitor<'de> for ElementVisitor {
             group,
             start,
             end,
+            layer,
             body,
         })
     }
@@ -201,6 +220,7 @@ impl JsonSchema for Element {
 fn prefix_property(generator: &mut SchemaGenerator, name: &str) -> Value {
     match name {
         "id" | "group" => generator.subschema_for::<String>().to_value(),
+        "layer" => generator.subschema_for::<Layer>().to_value(),
         _ => generator.subschema_for::<i64>().to_value(),
     }
 }

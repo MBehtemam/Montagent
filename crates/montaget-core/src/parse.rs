@@ -35,7 +35,10 @@ pub fn read(path: &Path) -> Result<Loose, Box<Finding>> {
     })?;
 
     match serde_json::from_str::<Value>(&source) {
-        Ok(value) => Ok(Loose::new(display, value)),
+        // The bytes travel with the tree: `LAYOUT` asks about the file's bytes where every
+        // other check asks about its tree, and re-reading the file to answer it would be a
+        // second read of a file that may have changed in between.
+        Ok(value) => Ok(Loose::new(display, value).as_written(source)),
         Err(e) => {
             let line = e.line() as u32;
             let column = e.column() as u32;

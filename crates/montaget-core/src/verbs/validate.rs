@@ -9,6 +9,11 @@
 //! individual check (ADR-0006): it **always runs every check on the whole project** —
 //! there is no fast mode, no `--no-probe` and no way to narrow what is analysed — and its
 //! report always ends with its own boundary. Output may be filtered; analysis may not.
+//!
+//! One of the checks answers a question that is not about the video at all. ADR-0041's
+//! `LAYOUT` is a fourth report category rather than a severity: a file written outside the
+//! canonical convention is *"unsafe to edit, not unsafe to render"*, so it is reported on
+//! every run and gates nothing.
 
 use std::path::Path;
 
@@ -71,6 +76,13 @@ fn run_checks(
     session: Option<&mut Session>,
 ) -> Result<(), Box<Missing>> {
     crate::checks::retired::check(document, report);
+    crate::checks::anchor::check(document, report);
+    // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected
+    // outright — the agent that pretty-printed the fixture from 154 lines to 1595 was not
+    // running a formatter and had no reason to invoke one, while `validate` runs on files
+    // nobody ever ran `fmt` over. Its findings are `LAYOUT`, which is not a severity: they
+    // never gate a render, because the video is byte-identical either way.
+    crate::checks::layout::check(document, report);
     // The one check that needs a subprocess, and the only one that can fail rather than
     // find. Whether it needs to open one at all is its own business — it is the thing that
     // knows whether the document references any media.

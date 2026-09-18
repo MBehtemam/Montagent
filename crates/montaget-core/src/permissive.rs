@@ -40,6 +40,7 @@ pub const REQUIRED: [&str; 3] = ["tracks", "fps", "frame"];
 pub struct Loose {
     path: String,
     value: Value,
+    source: Option<String>,
 }
 
 /// The document is not a Montaget project.
@@ -76,12 +77,33 @@ impl Loose {
         Loose {
             path: path.into(),
             value,
+            source: None,
         }
+    }
+
+    /// The bytes this document was parsed from, kept alongside the tree.
+    ///
+    /// The `LAYOUT` check (ADR-0041) is the reason: *"is this file written in the canonical
+    /// convention"* is a question about the file's **bytes**, and every other check asks
+    /// about its tree. Carried here rather than re-read at each asker, because a second
+    /// read is a second answer — the file may have changed between them, and a finding
+    /// located by line into bytes nobody parsed is a number that measured nothing.
+    pub fn as_written(mut self, source: impl Into<String>) -> Self {
+        self.source = Some(source.into());
+        self
     }
 
     /// The path the document was read from, as given.
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// The bytes the document was parsed from, where it came from a file.
+    ///
+    /// `None` only for a document built from a [`Value`] in memory, which today is tests
+    /// alone: [`crate::parse::read`] always supplies them.
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_deref()
     }
 
     /// Is there a project here at all?

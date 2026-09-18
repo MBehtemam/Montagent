@@ -13,5 +13,7 @@
 //! takes a probe session and can fail rather than find: *"there is no `ffprobe`"* is not a
 //! fact about the project and never becomes a finding about one (ADR-0011's exit 70).
 
+pub mod anchor;
+pub mod layout;
 pub mod retired;
 pub mod source;
