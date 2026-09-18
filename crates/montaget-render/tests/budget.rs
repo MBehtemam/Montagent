@@ -8,7 +8,8 @@
 
 use montaget_render::budget::{
     Budget, FRAME_LIMIT, FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
-    RENDER_MS_PER_OUTPUT_SECOND, SCRUB_PREVIEW_LIMIT, Verdict, Work,
+    RENDER_MS_PER_OUTPUT_SECOND, SCRUB_PREVIEW_LIMIT, SHIPPED_RASTERIZER, Verdict, Work,
+    nearest_reference,
 };
 use std::time::Duration;
 
@@ -112,10 +113,7 @@ fn every_other_arm_is_enforced() {
 /// pass"*. That is the behaviour being pinned here.
 #[test]
 fn an_observed_run_is_compared_against_the_nearest_reference() {
-    let reference = FULL_RESOLUTION_PREVIEW_REFERENCES
-        .iter()
-        .find(|r| r.source.starts_with("ADR-0021"))
-        .expect("ADR-0021's measured example is recorded");
+    let reference = skia_reference();
 
     let at_reference = Budget::FullResolutionPreview.judge(
         Work::span(reference.output_ms),
@@ -142,10 +140,7 @@ fn an_observed_run_is_compared_against_the_nearest_reference() {
 
 #[test]
 fn drift_is_scaled_to_the_length_of_the_span_being_compared() {
-    let reference = FULL_RESOLUTION_PREVIEW_REFERENCES
-        .iter()
-        .find(|r| r.source.starts_with("ADR-0021"))
-        .expect("ADR-0021's measured example is recorded");
+    let reference = skia_reference();
 
     // Half the output length for half the wall clock is the same speed, not a
     // 2x improvement.
@@ -161,6 +156,83 @@ fn drift_is_scaled_to_the_length_of_the_span_being_compared() {
     }
 }
 
+fn skia_reference() -> montaget_render::budget::Reference {
+    *FULL_RESOLUTION_PREVIEW_REFERENCES
+        .iter()
+        .find(|r| r.source.starts_with("ADR-0021"))
+        .expect("ADR-0021's measured example is recorded")
+}
+
+/// #34 measured the same span at 19.04 s through `skia-safe` and 30.0 s through
+/// `tiny-skia`. Both are recorded, and only the shipped arm may be a baseline:
+/// scoring a `skia-safe` run against the 1.58x-slower arm would let a real
+/// regression come out as drift below 1.0.
+#[test]
+fn only_the_shipped_rasterizer_can_be_a_baseline() {
+    let both_arms_recorded = FULL_RESOLUTION_PREVIEW_REFERENCES
+        .iter()
+        .any(|r| r.rasterizer != SHIPPED_RASTERIZER);
+    assert!(
+        both_arms_recorded,
+        "the exit arm's number is worth keeping (ADR-0010 names `tiny-skia` as the exit)"
+    );
+
+    let chosen = nearest_reference(Work::span(10_000)).expect("a baseline exists for 10 s");
+    assert_eq!(chosen.rasterizer, SHIPPED_RASTERIZER);
+    assert_eq!(chosen.elapsed_ms, skia_reference().elapsed_ms);
+}
+
+/// The doc comment tells a later ticket to append to the reference list. That
+/// instruction has to be safe: selection must not depend on array position.
+#[test]
+fn a_reference_is_chosen_by_its_values_rather_than_its_position() {
+    let chosen = nearest_reference(Work::span(10_000)).expect("a baseline exists");
+    let same_distance: Vec<_> = FULL_RESOLUTION_PREVIEW_REFERENCES
+        .iter()
+        .filter(|r| r.rasterizer == SHIPPED_RASTERIZER && r.output_ms == chosen.output_ms)
+        .collect();
+    assert!(
+        same_distance
+            .iter()
+            .all(|r| r.elapsed_ms >= chosen.elapsed_ms),
+        "a tie was broken on position: {same_distance:?} does not put {chosen:?} first"
+    );
+}
+
+#[test]
+fn a_wildly_negative_span_does_not_overflow_the_search_for_a_baseline() {
+    // The enforced arms clamp with `.max(0)`; this one does not, and the
+    // subtraction used to find the nearest reference must survive it.
+    let verdict = Budget::FullResolutionPreview.judge(Work::span(i64::MIN), Duration::from_secs(1));
+    assert!(!verdict.is_failure());
+}
+
+/// A span budget handed a still would otherwise get a 0 ms ceiling and report
+/// every measurement as a regression. It is a caller bug, and it says so.
+#[test]
+fn pairing_a_span_budget_with_a_still_is_a_loud_caller_bug() {
+    for budget in [
+        Budget::Render,
+        Budget::ScrubPreview,
+        Budget::FullResolutionPreview,
+    ] {
+        assert!(budget.is_span());
+        let mismatched = std::panic::catch_unwind(|| budget.limit(Work::Still));
+        assert!(
+            mismatched.is_err(),
+            "{} accepted a still and would have judged it against a zero budget",
+            budget.name()
+        );
+    }
+
+    assert!(!Budget::Frame.is_span());
+    let mismatched = std::panic::catch_unwind(|| Budget::Frame.limit(Work::span(10_000)));
+    assert!(
+        mismatched.is_err(),
+        "`frame` accepted a span; ADR-0021 keeps the two halves of the budget apart"
+    );
+}
+
 #[test]
 fn the_recorded_references_are_measurements_rather_than_targets() {
     assert!(
@@ -171,8 +243,8 @@ fn the_recorded_references_are_measurements_rather_than_targets() {
         assert!(r.output_ms > 0, "{}: a reference needs a span", r.source);
         assert!(r.elapsed_ms > 0, "{}: a reference needs a number", r.source);
         assert!(
-            !r.conditions.is_empty() && !r.source.is_empty(),
-            "a number with no stated conditions or provenance is not evidence"
+            !r.conditions.is_empty() && !r.source.is_empty() && !r.rasterizer.is_empty(),
+            "a number with no stated rasterizer, conditions or provenance is not evidence"
         );
     }
 }

@@ -10,6 +10,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # So the matrix can be dry-run from a branch before it is required. The
+  # oracle's golden tolerance was calibrated on one architecture (see
+  # `tests/oracle.rs`) and the first run on the other five is also the first
+  # measurement of them.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -32,9 +37,9 @@ jobs:
           # target but could not run the oracle, and the oracle is the half of
           # this suite that looks at pixels.
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15-intel
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
           - target: x86_64-unknown-linux-gnu
@@ -55,6 +60,10 @@ jobs:
           # assumed.
           toolchain: "1.90"
           targets: ${{ matrix.target }}
+          # An explicit toolchain makes the action install `--profile minimal`,
+          # which is rustc and cargo and nothing else. Without this the Clippy
+          # step below fails with "no such command: clippy" on every leg.
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:

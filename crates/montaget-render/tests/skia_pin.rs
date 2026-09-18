@@ -282,6 +282,35 @@ fn manifests(dir: &Path, found: &mut Vec<PathBuf>) {
     }
 }
 
+/// Every dependency table in a manifest, including the platform-gated ones.
+///
+/// `[target.'cfg(windows)'.dependencies]` is checked because it is the shape a
+/// second pin would realistically take: the reason to add one is a
+/// platform-specific backend, and `d3d` or `metal` moves the prebuilt key on
+/// that target while the root pin and the canary still describe the old one.
+fn dependency_tables(manifest: &toml::Value) -> Vec<(String, &toml::Value)> {
+    const TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
+    let mut found = Vec::new();
+
+    for table in TABLES {
+        if let Some(t) = manifest.get(table) {
+            found.push((format!("[{table}]"), t));
+        }
+    }
+
+    if let Some(targets) = manifest.get("target").and_then(toml::Value::as_table) {
+        for (cfg, spec) in targets {
+            for table in TABLES {
+                if let Some(t) = spec.get(table) {
+                    found.push((format!("[target.'{cfg}'.{table}]"), t));
+                }
+            }
+        }
+    }
+
+    found
+}
+
 /// Exactly one place. Every other manifest that wants Skia takes the workspace
 /// pin; a second literal version anywhere in the tree is the drift #36 asks to
 /// be made impossible.
@@ -303,25 +332,49 @@ fn no_manifest_declares_skia_independently() {
         let Ok(value) = toml::from_str::<toml::Value>(&text) else {
             continue;
         };
-        for table in ["dependencies", "dev-dependencies", "build-dependencies"] {
-            let Some(dep) = value.get(table).and_then(|t| t.get("skia-safe")) else {
+        let relative = path.strip_prefix(&root).unwrap_or(&path).display();
+        for (table, deps) in dependency_tables(&value) {
+            let Some(dep) = deps.get("skia-safe") else {
                 continue;
             };
-            let relative = path.strip_prefix(&root).unwrap_or(&path).display();
             assert_eq!(
                 dep.get("workspace").and_then(toml::Value::as_bool),
                 Some(true),
-                "{relative} declares `skia-safe` itself in [{table}]. The version and \
+                "{relative} declares `skia-safe` itself in {table}. The version and \
                  feature set are pinned in exactly one place (#36); use \
                  `skia-safe.workspace = true`."
             );
             assert!(
                 dep.get("features").is_none() && dep.get("version").is_none(),
-                "{relative} adds to the workspace `skia-safe` pin in [{table}]. \
+                "{relative} adds to the workspace `skia-safe` pin in {table}. \
                  Any addition moves the prebuilt key."
             );
         }
     }
+}
+
+/// The sweep above is only worth anything if it can see a platform-gated table.
+#[test]
+fn the_single_pin_guard_looks_inside_target_specific_tables() {
+    let manifest: toml::Value = toml::from_str(
+        r#"
+        [dependencies]
+        serde = "1"
+
+        [target.'cfg(windows)'.dependencies]
+        skia-safe = { version = "=0.153.2", features = ["d3d"] }
+        "#,
+    )
+    .expect("the fixture parses");
+
+    let tables = dependency_tables(&manifest);
+    assert!(
+        tables
+            .iter()
+            .any(|(name, deps)| name.contains("cfg(windows)") && deps.get("skia-safe").is_some()),
+        "a platform-gated second pin would have gone unseen: {:?}",
+        tables.iter().map(|(n, _)| n).collect::<Vec<_>>()
+    );
 }
 
 /// ADR-0064 commits to all six desktop tier-1 targets, and #189 requires the
@@ -352,30 +405,80 @@ fn the_target_matrix_is_adr_0064s_six() {
     );
 }
 
-/// Both workflows cover every target in the matrix. A target that is in the pin
-/// but in neither job is a target nobody is checking.
+/// Every `- target: <triple>` / `os: <label>` pair a workflow declares, in
+/// order. Parsed by shape rather than as YAML so the test needs no dependency
+/// for something this regular.
+fn matrix_entries(text: &str) -> Vec<(String, String)> {
+    let mut entries = Vec::new();
+    let mut pending: Option<String> = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(target) = line.strip_prefix("- target:") {
+            pending = Some(target.trim().to_string());
+        } else if let Some(os) = line.strip_prefix("os:")
+            && let Some(target) = pending.take()
+        {
+            entries.push((target, os.trim().to_string()));
+        }
+    }
+    entries
+}
+
+/// Both workflows cover every target, on the same runner. A target that is in
+/// the pin but in neither matrix is a target nobody is checking; a target the
+/// two workflows run on *different* runners is a suite and a canary that are no
+/// longer answering about the same machine.
+///
+/// What this cannot check is whether a runner label still exists — GitHub
+/// retires images, and a retired label fails to schedule rather than failing a
+/// test. Keeping the two files in lockstep at least means a retirement is one
+/// decision rather than two, and cannot be half-applied.
 #[test]
-fn both_workflows_cover_every_target() {
+fn both_workflows_cover_every_target_on_the_same_runner() {
     let root = repo_root();
     let manifest = workspace_manifest();
-    let targets: Vec<String> = manifest["workspace"]["metadata"]["skia"]["targets"]
+    let targets: BTreeSet<String> = manifest["workspace"]["metadata"]["skia"]["targets"]
         .as_array()
         .unwrap()
         .iter()
         .map(|v| v.as_str().unwrap().to_string())
         .collect();
 
+    let mut seen: Vec<(&str, Vec<(String, String)>)> = Vec::new();
     for workflow in ["ci.yml", "skia-canary.yml"] {
         let path = root.join(".github/workflows").join(workflow);
         let text = fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("{workflow} must exist for #189 to be done: {e}"));
-        for target in &targets {
+        let entries = matrix_entries(&text);
+
+        let covered: BTreeSet<String> = entries.iter().map(|(t, _)| t.clone()).collect();
+        assert_eq!(
+            covered, targets,
+            "{workflow}'s matrix is not ADR-0064's six targets; the suite and the canary \
+             both run on all six (#36)"
+        );
+        for (target, os) in &entries {
             assert!(
-                text.contains(target.as_str()),
-                "{workflow} does not mention {target}; the suite and the canary both run \
-                 on all six tier-1 targets (ADR-0064, #36)"
+                !os.is_empty() && !os.contains("${{"),
+                "{workflow}: {target} has no literal runner label"
             );
         }
+        seen.push((workflow, entries));
+    }
+
+    let (first_name, first) = &seen[0];
+    let (second_name, second) = &seen[1];
+    for (target, os) in first {
+        let other = second
+            .iter()
+            .find(|(t, _)| t == target)
+            .map(|(_, os)| os.as_str())
+            .unwrap_or("<missing>");
+        assert_eq!(
+            os, other,
+            "{first_name} runs {target} on {os} but {second_name} runs it on {other}; \
+             the suite and the canary must answer about the same machine"
+        );
     }
 }
 

@@ -62,6 +62,16 @@ pub const RENDER_MS_PER_OUTPUT_SECOND: u64 = 2_000;
 /// reference examples rather than inventing a target"*.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Reference {
+    /// Which rasterizer produced the number.
+    ///
+    /// Load-bearing rather than descriptive: #34 measured the same span at
+    /// 19.04 s through `skia-safe` and 30.0 s through `tiny-skia`, so a
+    /// measurement scored against the wrong arm's baseline is off by 1.58x —
+    /// enough to hide exactly the 2x drift this arm exists to flag. Only
+    /// [`SHIPPED_RASTERIZER`] entries are eligible as a baseline; the other arm
+    /// is recorded because ADR-0010 keeps `tiny-skia` as the named exit and a
+    /// number for it is worth having if that exit is ever taken.
+    pub rasterizer: &'static str,
     /// What was rendered, and on what — enough for a later reader to tell
     /// whether their own run is comparable.
     pub conditions: &'static str,
@@ -73,19 +83,27 @@ pub struct Reference {
     pub source: &'static str,
 }
 
+/// The rasterizer Montaget ships (ADR-0010). A reference from any other arm is
+/// kept as a record but is never chosen as a baseline.
+pub const SHIPPED_RASTERIZER: &str = "skia-safe";
+
 /// Every full-resolution preview number this project has actually measured.
 ///
 /// Add to it; do not replace an entry, because an entry is a record of what was
-/// once true on stated hardware rather than a current expectation.
+/// once true on stated hardware rather than a current expectation. Order carries
+/// no meaning — [`nearest_reference`] breaks a tie deterministically on the
+/// entry's own values rather than on its position, so appending is safe.
 pub const FULL_RESOLUTION_PREVIEW_REFERENCES: &[Reference] = &[
     Reference {
-        conditions: "2160x3840/30, one video clip on the timeline, M1 Pro, skia-safe",
+        rasterizer: "skia-safe",
+        conditions: "2160x3840/30, one video clip on the timeline, M1 Pro",
         output_ms: 10_000,
         elapsed_ms: 19_040,
         source: "ADR-0021, from #34",
     },
     Reference {
-        conditions: "2160x3840/30, one video clip on the timeline, M1 Pro, tiny-skia",
+        rasterizer: "tiny-skia",
+        conditions: "2160x3840/30, one video clip on the timeline, M1 Pro",
         output_ms: 10_000,
         elapsed_ms: 30_000,
         source: "#34 (the named exit's arm, recorded for the same span)",
@@ -142,9 +160,35 @@ pub enum Budget {
 }
 
 impl Budget {
+    /// Whether this budget is judged over a span of output. `frame` is the one
+    /// that is not: ADR-0021 keeps the two halves of the budget separate and
+    /// forbids collapsing them.
+    pub fn is_span(self) -> bool {
+        !matches!(self, Budget::Frame)
+    }
+
     /// The wall-clock ceiling for this much work, or `None` when the budget is
     /// observational and there is deliberately no ceiling to encode.
+    ///
+    /// # Panics
+    ///
+    /// If the budget and the work disagree about whether there is a span. A
+    /// span budget given a still has an output length of zero, which would come
+    /// out as a 0 ms ceiling that every measurement misses — a mis-pairing
+    /// reported as a performance regression. It is a caller bug and says so.
+    #[track_caller]
     pub fn limit(self, work: Work) -> Option<Duration> {
+        assert_eq!(
+            self.is_span(),
+            matches!(work, Work::Span { .. }),
+            "`{}` is judged over {}, and was handed {work:?}",
+            self.name(),
+            if self.is_span() {
+                "a span of output"
+            } else {
+                "one still"
+            }
+        );
         match self {
             Budget::Frame => Some(FRAME_LIMIT),
             Budget::ScrubPreview => Some(SCRUB_PREVIEW_LIMIT),
@@ -222,14 +266,30 @@ impl Budget {
     }
 }
 
-/// The nearest recorded reference for a piece of work — nearest by output
-/// length, since that is the axis the references vary along.
-fn nearest_reference(work: Work) -> Option<Reference> {
+/// The nearest recorded reference for a piece of work.
+///
+/// Nearest by output length, since that is the axis the references vary along,
+/// and restricted to [`SHIPPED_RASTERIZER`] so a `tiny-skia` record can never
+/// become a `skia-safe` measurement's baseline. A remaining tie is broken on the
+/// slower entry rather than on array position, so appending a reference cannot
+/// silently re-baseline every existing assertion, and a tie-break that is wrong
+/// errs toward reporting less drift rather than inventing some.
+///
+/// The distance is `saturating_sub` rather than `-`: the enforced arms clamp a
+/// negative span with `.max(0)`, this one does not, and a caller's bad
+/// arithmetic should not be an overflow panic.
+pub fn nearest_reference(work: Work) -> Option<Reference> {
     let target = work.output_ms();
     FULL_RESOLUTION_PREVIEW_REFERENCES
         .iter()
         .copied()
-        .min_by_key(|r| (r.output_ms - target).abs())
+        .filter(|r| r.rasterizer == SHIPPED_RASTERIZER)
+        .min_by_key(|r| {
+            (
+                r.output_ms.saturating_sub(target).saturating_abs(),
+                r.elapsed_ms,
+            )
+        })
 }
 
 /// What a measurement came to.
