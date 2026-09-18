@@ -2,10 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
-/// A scratch directory unique to one call site, created fresh on every run.
-pub fn tempdir(discriminator: u32) -> PathBuf {
+/// A scratch directory created fresh on every run, unique to the line that asked for it
+/// so that tests running in parallel never share one.
+pub fn tempdir(caller_line: u32) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
-        "montaget-core-tests/{}-{discriminator}",
+        "montaget-core-tests/{}-line-{caller_line}",
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&dir);

@@ -144,6 +144,20 @@ fn a_bad_invocation_is_exit_3() {
 }
 
 #[test]
+fn even_a_report_that_never_reached_a_project_prints_not_checked() {
+    // ADR-0006: "the report ends with its own scope, unconditionally." An exception for
+    // the reports that opened no file reads as reasonable, and is how the block starts
+    // becoming optional.
+    for report in [
+        montaget_core::report::Report::bad_invocation("--nope is not a flag"),
+        montaget_core::report::Report::internal_failure("the font stack failed"),
+    ] {
+        let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+        assert!(rendered.contains("NOT CHECKED"), "{rendered}");
+    }
+}
+
+#[test]
 fn an_internal_failure_is_exit_70() {
     let report = montaget_core::report::Report::internal_failure("the font stack failed");
 
@@ -175,7 +189,7 @@ fn errors_exit_1_and_no_errors_exit_0() {
     assert_eq!(errored.exit_code(), ExitCode::Errors);
 }
 
-/// A scratch directory under the target dir, unique per test binary + test name.
+/// A scratch directory of this test's own, keyed on the line that called for it.
 #[track_caller]
 fn tempdir() -> std::path::PathBuf {
     common::tempdir(std::panic::Location::caller().line())

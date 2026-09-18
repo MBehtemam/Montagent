@@ -14,6 +14,7 @@
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
+//! - [`wire`] is the one place a report becomes bytes, in one form per invocation.
 
 pub mod document;
 pub mod finding;
@@ -22,5 +23,7 @@ pub mod registry;
 pub mod report;
 pub mod text;
 pub mod verbs;
+pub mod wire;
 
 pub use verbs::validate::validate;
+pub use wire::Wire;

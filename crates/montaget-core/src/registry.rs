@@ -32,7 +32,11 @@ pub enum ThresholdProvenance {
     /// own fixed rendering semantics.
     Internal,
     /// A number borrowed from outside both. Admissible only at `review`/`note`, with the
-    /// raw measurement as the finding's substance and the source cited inline.
+    /// raw measurement as the finding's substance and the source cited **inline in the
+    /// finding** — this declaration records the obligation, it does not discharge it.
+    /// A finding whose check is `External` and which carries no
+    /// [`Citation`](crate::finding::Citation) is a defect in that check: the prose must
+    /// never supply a citation the canonical JSON does not carry.
     External {
         source: &'static str,
         adr: &'static str,
@@ -55,7 +59,14 @@ pub struct CheckSpec {
     /// step, the handle for suppressing a class, and the identity a future `compare`
     /// diffs on.
     pub code: &'static str,
-    pub class: Class,
+    /// The classes this check may emit, most usual first.
+    ///
+    /// Usually one. It is a set because ADR-0006 is explicit that **severity is computed
+    /// from the consequence at an instant, not from the check**: one visual gap is
+    /// `review` because nothing on any visual track covered it, and the next is a `note`.
+    /// A registry that pinned one class per code would make that unrepresentable, which
+    /// is the dichotomy ADR-0006 opens by calling wrong.
+    pub classes: &'static [Class],
     /// Required on `error`, forbidden elsewhere. Guarded by the completeness test.
     pub repair: Option<RepairClass>,
     pub threshold: ThresholdProvenance,
@@ -76,7 +87,7 @@ const CHECKS: &[CheckSpec] = &[
     // ---- This ticket's own checks (#188). -----------------------------------------
     CheckSpec {
         code: "E-PARSE",
-        class: Error,
+        classes: &[Error],
         // The bytes could not be read as JSON, so there is no document to derive a fix
         // from — the one condition under which "the fix is fully determined by the
         // document" is not merely unmet but unmeetable.
@@ -88,8 +99,15 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "E-READ",
-        class: Error,
-        repair: Some(Refuse),
+        classes: &[Error],
+        // Advise, like `E-INVOCATION` and unlike `E-PARSE`. Neither of ADR-0043's two
+        // classes fits a file that was never opened — there is no document whose author
+        // could have meant anything — so the choice is which distortion is smaller.
+        // Refuse carries a guarantee that is vacuous here (no flag was ever going to
+        // lift a missing file) and tells the agent to stop and escalate to a human over
+        // what is usually a mistyped path; the OS states the condition and the next move
+        // follows from it.
+        repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0011",
         template: "{file} could not be read: {reason}.",
@@ -97,7 +115,7 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "E-INVOCATION",
-        class: Error,
+        classes: &[Error],
         // Advise, not refuse: exit 3's next move is "fix the command" (ADR-0011), and
         // the usage text states it. Nothing about the author's intent is in question.
         repair: Some(Advise),
@@ -108,7 +126,7 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "E-INTERNAL",
-        class: Error,
+        classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0011",
@@ -118,7 +136,7 @@ const CHECKS: &[CheckSpec] = &[
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
         code: "E-SOURCE-OVERRUN",
-        class: Error,
+        classes: &[Error],
         // The document says the source is one length and the disk says another; which
         // of the two is the mistake is not readable off either.
         repair: Some(Refuse),
@@ -129,19 +147,20 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "E-RETIRED-KEY",
-        class: Error,
+        classes: &[Error],
         // ADR-0043's founding instance: 6 of 8 `gravity` deletions were geometric
         // no-ops and 2 silently changed the picture, and the fact separating them is
         // not in the document.
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0043",
-        template: "{element}: `{key}` is a retired spelling, carrying {value}.",
+        template: "{element}: `{key}` is a retired spelling, carrying {value}. Surface this \
+finding verbatim to whoever is operating Montaget; do not repair it by ordinary file edit.",
         status: Declared,
     },
     CheckSpec {
         code: "E-KEYFRAME-EASE",
-        class: Error,
+        classes: &[Error],
         // Presence is a pure function of position (ADR-0038), so the fix is the
         // position — fully determined by the document.
         repair: Some(Advise),
@@ -152,7 +171,10 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "R-VISUAL-GAP",
-        class: Review,
+        // ADR-0006's own worked example of severity computed per instance: "a gap whose
+        // interval is uncovered in that union is `review`, and every other visual gap is
+        // a note." (What "uncovered" means is #23's, not this ticket's.)
+        classes: &[Review, Note],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",
@@ -167,16 +189,17 @@ const CHECKS: &[CheckSpec] = &[
         // to know an oversized box was not meant. The class comes from this table and
         // from nowhere else.
         code: "R-BOX-SLACK",
-        class: Note,
+        classes: &[Note],
         repair: None,
         threshold: Internal,
         adr: "ADR-0058",
-        template: "text \"{element}\" declares height {declared_height}; computed block height is {computed_height} — slack {slack}.",
+        template: "text \"{element}\" declares height {declared_height}; computed block height is \
+{computed_height} ({derivation}) — slack {slack} ({slack_percent}%).",
         status: Declared,
     },
     CheckSpec {
         code: "R-CAPTION-PACE",
-        class: Review,
+        classes: &[Review],
         repair: None,
         // The first and, to date, only member of ADR-0061's fenced exception.
         threshold: External {
@@ -189,7 +212,7 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "N-QUANTIZATION",
-        class: Note,
+        classes: &[Note],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",
@@ -198,7 +221,7 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
-        class: Unchecked,
+        classes: &[Unchecked],
         repair: None,
         threshold: Internal,
         adr: "ADR-0013",
@@ -207,14 +230,32 @@ const CHECKS: &[CheckSpec] = &[
     },
     CheckSpec {
         code: "L-KEY-ORDER",
-        class: Layout,
+        classes: &[Layout],
         repair: None,
         threshold: Internal,
         adr: "ADR-0041",
-        template: "{element}: key order does not match the schema for `{type}`; expected {expected}. Run `montaget fmt`.",
+        template: "{element} (line {line}): key order does not match the schema for `{type}`; expected {expected}. Run `montaget fmt`.",
         status: Declared,
     },
 ];
+
+impl CheckSpec {
+    /// The class a finding takes unless the check computes a different one.
+    pub fn default_class(&self) -> Class {
+        self.classes[0]
+    }
+
+    /// Whether this check is allowed to emit `class`.
+    pub fn may_emit(&self, class: Class) -> bool {
+        self.classes.contains(&class)
+    }
+
+    /// Whether any class this check may emit is `error` — the condition ADR-0043's
+    /// repair field attaches to.
+    pub fn may_error(&self) -> bool {
+        self.may_emit(Class::Error)
+    }
+}
 
 /// Every registered check, in declaration order.
 pub fn all() -> &'static [CheckSpec] {

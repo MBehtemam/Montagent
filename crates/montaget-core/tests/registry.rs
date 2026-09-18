@@ -6,11 +6,11 @@ use montaget_core::registry::{self, ThresholdProvenance};
 #[test]
 fn every_registered_error_class_code_has_a_declared_refuse_class() {
     // ADR-0043: the class is decided once, by whoever authors the check, at the moment
-    // the check is written. A registered `error` with no declared class is a check whose
-    // author skipped that decision.
+    // the check is written. A check that may emit an `error` with no declared repair
+    // class is one whose author skipped that decision.
     let missing: Vec<_> = registry::all()
         .iter()
-        .filter(|spec| spec.class == Class::Error && spec.repair.is_none())
+        .filter(|spec| spec.may_error() && spec.repair.is_none())
         .map(|spec| spec.code)
         .collect();
 
@@ -26,7 +26,7 @@ fn only_error_class_checks_declare_a_refuse_class() {
     // finding", and a `note` carrying one would read as a fourth severity.
     let stray: Vec<_> = registry::all()
         .iter()
-        .filter(|spec| spec.class != Class::Error && spec.repair.is_some())
+        .filter(|spec| !spec.may_error() && spec.repair.is_some())
         .map(|spec| spec.code)
         .collect();
 
@@ -41,9 +41,8 @@ fn an_externally_sourced_threshold_is_never_error_class_and_always_cites() {
     // ADR-0061's fenced exception, as a registry invariant rather than a convention.
     for spec in registry::all() {
         if let ThresholdProvenance::External { source, adr } = spec.threshold {
-            assert_ne!(
-                spec.class,
-                Class::Error,
+            assert!(
+                !spec.may_error(),
                 "{}: an external threshold may never be `error`",
                 spec.code
             );
@@ -82,10 +81,40 @@ fn a_codes_prefix_is_not_its_class() {
     // reading the class off the code would get that one backwards.
     let box_slack = registry::spec("R-BOX-SLACK").unwrap();
     assert_eq!(
-        box_slack.class,
+        box_slack.default_class(),
         Class::Note,
         "ADR-0058 resolved it as `note`"
     );
+}
+
+#[test]
+fn every_check_declares_at_least_one_class_it_may_emit() {
+    for spec in registry::all() {
+        assert!(!spec.classes.is_empty(), "{}: no class declared", spec.code);
+    }
+}
+
+#[test]
+fn a_check_may_take_its_severity_from_the_consequence_rather_than_from_itself() {
+    // ADR-0006: "Severity is computed from the consequence at an instant. Not from the
+    // check, and not from the track." Its own worked example is the visual gap: one is
+    // `review` because nothing on any visual track covered it, and every other is a
+    // note. A registry that pinned one class per code would make that unrepresentable.
+    let gap = registry::spec("R-VISUAL-GAP").unwrap();
+    assert!(gap.may_emit(Class::Review));
+    assert!(gap.may_emit(Class::Note));
+    assert!(!gap.may_emit(Class::Error));
+
+    let review = montaget_core::finding::Finding::at_class("R-VISUAL-GAP", Class::Review);
+    let note = montaget_core::finding::Finding::at_class("R-VISUAL-GAP", Class::Note);
+    assert_eq!(review.code, note.code);
+    assert_ne!(review.class, note.class);
+}
+
+#[test]
+#[should_panic(expected = "not declared as able to emit")]
+fn a_check_may_not_emit_a_class_it_never_declared() {
+    montaget_core::finding::Finding::at_class("R-VISUAL-GAP", Class::Error);
 }
 
 #[test]

@@ -16,16 +16,20 @@ use std::path::Path;
 use crate::parse;
 use crate::report::Report;
 
+/// The verb's own name, as it travels in the report. One spelling, so the two exits
+/// from the function below cannot disagree about which tool answered.
+const TOOL: &str = "validate";
+
 /// Validate the project file at `path`.
 pub fn validate(path: &Path) -> Report {
     let project = Some(path.display().to_string());
 
     let document = match parse::read(path) {
         Ok(document) => document,
-        Err(finding) => return Report::unparseable("validate", project, *finding),
+        Err(finding) => return Report::unparseable(TOOL, project, *finding),
     };
 
-    let mut report = Report::new("validate", project);
+    let mut report = Report::new(TOOL, project);
     run_checks(&document, &mut report);
     report
 }

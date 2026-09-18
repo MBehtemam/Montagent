@@ -16,7 +16,7 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::transport::stdio;
 use rmcp::{ErrorData, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 
-use montaget_core::text;
+use montaget_core::Wire;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ValidateParams {
@@ -55,23 +55,13 @@ impl Montaget {
         Parameters(params): Parameters<ValidateParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let report = montaget_core::validate(&PathBuf::from(&params.project));
-        let json = report.to_json();
+        let form = Wire::from_flags(params.json, params.verbose);
 
         // An `error` finding is an answer, not a protocol failure — ADR-0006's whole
-        // point is that the findings *are* the result. Only a failure of Montaget
-        // itself would be an MCP error.
-        let body = if params.json {
-            serde_json::to_string_pretty(&json)
-                .map_err(|e| ErrorData::internal_error(e.to_string(), None))?
-        } else {
-            let options = if params.verbose {
-                text::Options::verbose()
-            } else {
-                text::Options::default()
-            };
-            text::render(&json, options)
-                .map_err(|e| ErrorData::internal_error(e.to_string(), None))?
-        };
+        // point is that the findings *are* the result. The tool result carries the
+        // report whatever it says; only a failure of Montaget itself would be an MCP
+        // error, and this call has none to raise.
+        let body = montaget_core::wire::render(&report, form);
 
         Ok(CallToolResult::success(vec![ContentBlock::text(body)]))
     }

@@ -13,7 +13,7 @@ use serde_json::Value;
 use std::fmt;
 
 use crate::finding::Class;
-use crate::registry::{self, ThresholdProvenance};
+use crate::registry;
 
 /// The reserved field rendered as an indented block rather than interpolated: the
 /// offending line and its caret, which ADR-0011 requires of every tool's parse failure.
@@ -79,17 +79,17 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         }
     }
 
-    // ADR-0006: printed on every report that examined a project, clean ones included, so
-    // a clean run is never read as "the file is right". A report that never reached a
-    // project — a bad invocation — has no `not_checked` block to print, because it made
-    // no claim about a file whose scope would need bounding.
-    if let Some(boundary) = report["not_checked"].as_str() {
-        out.push_str("\nNOT CHECKED\n");
-        for line in wrap(boundary, 76) {
-            out.push_str("  ");
-            out.push_str(&line);
-            out.push('\n');
-        }
+    // ADR-0006: "the report ends with its own scope, unconditionally." Without it a
+    // clean run reads as "the file is right", which is ADR-0004's `sequence` label
+    // wearing a `validate` label instead.
+    let boundary = report["not_checked"]
+        .as_str()
+        .ok_or_else(|| RenderError("report has no `not_checked` block".into()))?;
+    out.push_str("\nNOT CHECKED\n");
+    for line in wrap(boundary, 76) {
+        out.push_str("  ");
+        out.push_str(&line);
+        out.push('\n');
     }
 
     Ok(out)
@@ -125,27 +125,24 @@ fn plural(n: u64, noun: &str) -> String {
 /// classes. ADR-0006's noise budget: `0 errors, 47 notes` must not read as a pass, and
 /// 47 printed alignment lines are how a reader learns to skip the output.
 fn collapsed(findings: &[&Value]) -> String {
-    let mut order: Vec<&str> = Vec::new();
-    let mut counts: Vec<usize> = Vec::new();
+    // Counted in first-appearance order rather than by size: a report that reordered its
+    // own classes by how many of each there are would be ranking them, and ADR-0006's
+    // whole point about the informational classes is that they are inert.
+    let mut counted: Vec<(&str, usize)> = Vec::new();
     for finding in findings {
         let code = finding["code"].as_str().unwrap_or("?");
-        match order.iter().position(|c| *c == code) {
-            Some(i) => counts[i] += 1,
-            None => {
-                order.push(code);
-                counts.push(1);
-            }
+        match counted.iter_mut().find(|(c, _)| *c == code) {
+            Some((_, count)) => *count += 1,
+            None => counted.push((code, 1)),
         }
     }
 
-    let mut out = String::new();
-    for (code, count) in order.iter().zip(&counts) {
-        let class = findings[0]["class"].as_str().unwrap_or("?");
-        out.push_str(&format!(
-            "{class}  {code}  {count} — expand with --verbose\n"
-        ));
-    }
-    out
+    // Every finding here shares one class — the caller groups by it before collapsing.
+    let class = findings[0]["class"].as_str().unwrap_or("?");
+    counted
+        .into_iter()
+        .map(|(code, count)| format!("{class}  {code}  {count} — expand with --verbose\n"))
+        .collect()
 }
 
 fn full(finding: &Value) -> Result<String, RenderError> {
@@ -158,7 +155,9 @@ fn full(finding: &Value) -> Result<String, RenderError> {
         ))
     })?;
 
-    let class = finding["class"].as_str().unwrap_or(spec.class.as_str());
+    let class = finding["class"]
+        .as_str()
+        .unwrap_or(spec.default_class().as_str());
     let locus = finding["location"]["element"]
         .as_str()
         .or_else(|| finding["location"]["track"].as_str())
@@ -192,11 +191,16 @@ fn full(finding: &Value) -> Result<String, RenderError> {
     // renderer states the class in words on every `error`-class finding.
     match finding.get("repair") {
         Some(Value::String(s)) if s == "none" => {
+            // Class and guarantee only. ADR-0043's further instruction — stop, and
+            // surface the finding verbatim to whoever is operating Montaget — is carried
+            // by the templates of the checks it was written for, because it is advice
+            // about a document an agent might otherwise plausibly repair. Told to an
+            // agent that has just broken its own JSON with `sed`, it sends a typo to a
+            // human instead of to the caret two lines above.
             out.push_str(
-                "  This finding is refuse-class: no repair is determined by the document, the\n  \
-                 media on disk or the published rendering semantics, and no flag, force mode\n  \
-                 or write tool can lift it. Stop, do not repair by hand, and surface this\n  \
-                 finding verbatim to whoever is operating Montaget.\n",
+                "  This finding is refuse-class: Montaget will not state a repair, because none\n  \
+                 is determined by the document, the media on disk or the published rendering\n  \
+                 semantics — and no flag, force mode or write tool can lift it. Do not guess one.\n",
             );
         }
         Some(repair) if !repair.is_null() => {
@@ -228,17 +232,18 @@ fn full(finding: &Value) -> Result<String, RenderError> {
         out.push_str(&format!("  census {field}: {}\n", groups.join(", ")));
     }
 
-    // ADR-0061: the threshold's source is cited inline in the finding.
+    // ADR-0061: the threshold's source is cited inline **in the finding**. There is
+    // deliberately no fallback to the registry's own `ThresholdProvenance::External`
+    // here: reaching for it would have the prose state a fact the canonical JSON does
+    // not carry, which is the one thing the wire rule exists to prevent. A finding whose
+    // check borrows a threshold and which arrives without a citation is a defect in that
+    // check, and it should read as one rather than be papered over at render time.
     if let Some(citation) = finding.get("citation").filter(|c| !c.is_null()) {
         out.push_str(&format!(
             "  Threshold {} is external, cited from {} ({}).\n",
             compact(&citation["threshold"]),
             citation["source"].as_str().unwrap_or("?"),
             citation["adr"].as_str().unwrap_or("?"),
-        ));
-    } else if let ThresholdProvenance::External { source, adr } = spec.threshold {
-        out.push_str(&format!(
-            "  Threshold is external, cited from {source} ({adr}).\n"
         ));
     }
 

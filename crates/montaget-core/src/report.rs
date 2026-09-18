@@ -153,11 +153,6 @@ impl Report {
     /// from the registry; nothing is assembled twice.
     pub fn to_json(&self) -> Value {
         let summary = self.summary();
-        // The boundary bounds a claim about a project. A report that never reached one —
-        // a bad invocation, an internal failure — makes no such claim, and printing
-        // "this file was not compared against any prior version" over a usage error
-        // would be the report describing a file it never opened.
-        let not_checked = self.project.as_ref().map(|_| NOT_CHECKED);
         json!({
             "tool": self.tool,
             "project": self.project,
@@ -170,7 +165,11 @@ impl Report {
             },
             "exit_code": self.exit_code().as_u8(),
             "findings": self.findings,
-            "not_checked": not_checked,
+            // Unconditional. ADR-0006: "the report ends with its own scope,
+            // unconditionally" — an exception for the reports that never reached a
+            // project reads as reasonable and is exactly the erosion the ADR is written
+            // against, since the next exception argues from this one.
+            "not_checked": NOT_CHECKED,
         })
     }
 }

@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use montaget_core::Wire;
 use montaget_core::report::Report;
-use montaget_core::text;
 
 #[derive(Parser)]
 #[command(
@@ -55,7 +55,7 @@ where
             // same stable codes as everything else, so there is exactly one thing to
             // parse across the surface.
             let report = Report::bad_invocation(e.to_string().trim_end());
-            eprint!("{}", render(&report, false));
+            eprint!("{}", montaget_core::wire::render(&report, PLAIN));
             return exit_code(&report);
         }
         // `--help` and `--version` are not failures; clap has the text, and it goes to
@@ -72,44 +72,79 @@ where
             json,
             verbose,
         } => {
-            let report = montaget_core::validate(&project);
-            if json {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&report.to_json()).expect("report JSON")
-                );
-            } else {
-                print!("{}", render(&report, verbose));
+            let form = Wire::from_flags(json, verbose);
+            match run_verb(|| montaget_core::validate(&project)) {
+                Ok(report) => {
+                    // `println!`, not `print!`: the JSON form ends without a newline.
+                    println!("{}", montaget_core::wire::render(&report, form).trim_end());
+                    exit_code(&report)
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
             }
-            exit_code(&report)
         }
         Command::Mcp => match crate::mcp::serve() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 let report = Report::internal_failure(e);
-                eprint!("{}", render(&report, false));
+                eprint!("{}", montaget_core::wire::render(&report, PLAIN));
                 exit_code(&report)
             }
         },
     }
 }
 
-fn render(report: &Report, verbose: bool) -> String {
-    let options = if verbose {
-        text::Options::verbose()
-    } else {
-        text::Options::default()
-    };
-    let json = report.to_json();
-    match text::render(&json, options) {
-        Ok(rendered) => rendered,
-        // The renderer only fails when a finding's code has no registered template,
-        // which is a bug in Montaget rather than a fact about the project. Say so in
-        // the one wire format that cannot itself fail.
-        Err(e) => format!("montaget could not render its own report: {e}\n{json}\n"),
-    }
+/// Run one verb, turning a panic into ADR-0011's exit 70 rather than an abort.
+///
+/// Exit 70's stated next move is *"retry or report"*, which needs the process to have
+/// exited with 70 and said something. Without this, the failures the code treats as
+/// programmer errors — a check emitting an unregistered code, an arithmetic overflow —
+/// abort with a Rust backtrace and no finding, and the one exit code reserved for
+/// "Montaget broke" would never be produced by Montaget breaking.
+fn run_verb(verb: impl FnOnce() -> Report + std::panic::UnwindSafe) -> Result<Report, Report> {
+    std::panic::catch_unwind(verb).map_err(|payload| {
+        let what = payload
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "a panic carrying no message".to_string());
+        Report::internal_failure(what)
+    })
 }
+
+/// The form a report reaches stderr in: prose, unexpanded. Neither a bad invocation nor
+/// an internal failure has informational findings for `--verbose` to expand, and neither
+/// has read a `--json` flag that could have asked for the other form.
+const PLAIN: Wire = Wire::Text { verbose: false };
 
 fn exit_code(report: &Report) -> ExitCode {
     ExitCode::from(report.exit_code().as_u8())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panicking_verb_becomes_exit_70_rather_than_an_abort() {
+        let report = run_verb(|| panic!("the font stack failed")).expect_err("a panic");
+
+        assert_eq!(
+            report.exit_code(),
+            montaget_core::report::ExitCode::Internal
+        );
+        assert_eq!(report.findings[0].code, "E-INTERNAL");
+        assert!(
+            montaget_core::wire::render(&report, PLAIN).contains("the font stack failed"),
+            "the panic's own message is what makes exit 70 actionable"
+        );
+    }
+
+    #[test]
+    fn a_verb_that_returns_normally_is_handed_back_untouched() {
+        let report = run_verb(|| Report::new("validate", Some("p.json".into()))).expect("no panic");
+        assert_eq!(report.exit_code(), montaget_core::report::ExitCode::Ok);
+    }
 }

@@ -16,6 +16,8 @@ fn census_carrying() -> Finding {
         .field("declared_height", json!(169))
         .field("computed_height", json!(66))
         .field("slack", json!(103))
+        .field("derivation", json!("size 55 × line_height 1.2 × 1 line"))
+        .field("slack_percent", json!(156))
         .census(
             Census::on("height")
                 .group(
@@ -117,11 +119,18 @@ fn a_refuse_class_finding_says_none_in_json_and_says_so_in_words() {
         rendered.contains("refuse-class"),
         "the prose renderer states the class in words (ADR-0043):\n{rendered}"
     );
-    // Wrapped for the terminal, so compare on collapsed whitespace.
+    // ADR-0043's instruction to the agent — stop, do not repair by ordinary file edit,
+    // surface it — rides on this check's own template rather than on the shared
+    // refuse-class paragraph, which a malformed-JSON finding also prints. Wrapped for
+    // the terminal, so compare on collapsed whitespace.
     let flowed = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
-        flowed.contains("surface this finding verbatim"),
+        flowed.contains("Surface this finding verbatim to whoever is operating Montaget"),
         "stop, do not repair, surface it (ADR-0043):\n{rendered}"
+    );
+    assert!(
+        flowed.contains("do not repair it by ordinary file edit"),
+        "{rendered}"
     );
 }
 
@@ -188,7 +197,7 @@ fn every_class_has_a_home_in_the_summary() {
         ("L-KEY-ORDER", Class::Layout),
     ] {
         assert_eq!(
-            montaget_core::registry::spec(code).unwrap().class,
+            montaget_core::registry::spec(code).unwrap().default_class(),
             class,
             "{code} is registered as {class:?}"
         );

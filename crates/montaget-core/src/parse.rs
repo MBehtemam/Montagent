@@ -27,7 +27,7 @@ pub fn read(path: &Path) -> Result<Document, Box<Finding>> {
             Finding::new("E-READ")
                 .at_file(&display)
                 .field("reason", Value::String(e.to_string()))
-                .refuse_class(),
+                .advise_class(serde_json::json!({"value": "check the path and its permissions"})),
         )
     })?;
 

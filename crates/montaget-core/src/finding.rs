@@ -171,6 +171,12 @@ pub struct Citation {
 /// ADR-0056's mandatory structured reason on `UNCHECKED`, so that a network-flavoured
 /// unknown is distinguishable from an unattempted one without promoting either into its
 /// own severity.
+///
+/// Exactly ADR-0056's enumeration — `timeout` / `dns` / `unreachable` / an HTTP status —
+/// and no more. A `missing` variant is deliberately absent: ADR-0013 calls a missing file
+/// `UNCHECKED` and ADR-0053/ADR-0056 call a *confirmed* absence "the plain `error`", and
+/// which of those a local missing source is belongs to the probe ticket that implements
+/// the check, not to the ticket that builds the type it will use.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum UncheckedReason {
@@ -178,8 +184,6 @@ pub enum UncheckedReason {
     Dns,
     Unreachable,
     Http { status: u16 },
-    Missing,
-    PermissionDenied,
 }
 
 /// One fact about the project, with a stable code and every relevant number inline.
@@ -201,9 +205,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    /// Start a finding for a registered code. The class comes from the registry rather
-    /// than from the call site, so a code cannot mean `error` in one check and `note` in
-    /// another.
+    /// Start a finding for a registered code, at that check's usual class.
     ///
     /// # Panics
     ///
@@ -213,9 +215,31 @@ impl Finding {
     pub fn new(code: &str) -> Self {
         let spec =
             registry::spec(code).unwrap_or_else(|| panic!("{code} is not a registered check code"));
+        Finding::at_class(code, spec.default_class())
+    }
+
+    /// Start a finding at a class the check computed for this instance.
+    ///
+    /// ADR-0006: *"Severity is computed from the consequence at an instant. Not from the
+    /// check, and not from the track."* A visual gap nothing covers is `review` and the
+    /// next one is a `note`, from one code. The registry bounds which classes a code may
+    /// take, so the freedom stays a computation rather than a free hand.
+    ///
+    /// # Panics
+    ///
+    /// If `code` is not registered, or is not declared as able to emit `class`.
+    #[track_caller]
+    pub fn at_class(code: &str, class: Class) -> Self {
+        let spec =
+            registry::spec(code).unwrap_or_else(|| panic!("{code} is not a registered check code"));
+        assert!(
+            spec.may_emit(class),
+            "{code} is not declared as able to emit {class:?}; the registry allows {:?}",
+            spec.classes
+        );
         Finding {
             code: spec.code.to_string(),
-            class: spec.class,
+            class,
             location: Location::default(),
             fields: BTreeMap::new(),
             repair: None,
