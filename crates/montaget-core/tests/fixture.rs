@@ -31,41 +31,59 @@ fn the_fixture_parses_and_reports_clean() {
 }
 
 #[test]
-fn the_spine_reads_the_fixtures_shape() {
+fn the_fixture_is_a_project_by_the_shared_structural_predicate() {
     let document = parse::read(&fixture()).expect("the fixture parses");
 
-    assert_eq!(document.fps, Some(25));
-    assert_eq!(document.duration, Some(65216));
-    let frame = document.frame.expect("a frame");
-    assert_eq!((frame.width, frame.height), (1080, 1920));
-    assert_eq!(document.tracks.len(), 14, "14 tracks");
+    assert!(document.shape().is_ok());
     assert_eq!(document.elements().count(), 60, "60 elements");
+    assert_eq!(
+        document.value()["tracks"].as_array().unwrap().len(),
+        14,
+        "14 tracks"
+    );
+}
 
-    // Every element carries the same shape whatever its type (`CONTEXT.md`).
-    for element in document.elements() {
-        assert!(
-            element.id.is_some(),
-            "every element has a required unique id"
-        );
-        assert!(element.kind.is_some(), "every element has a type");
-        assert!(
-            element.start.is_some() && element.end.is_some(),
-            "a time range"
-        );
-    }
+#[test]
+fn the_fixture_fits_the_format_s_own_types() {
+    // The strict view is the whole format, and the fixture is the only evidence that it
+    // describes a coherent document rather than seven ADRs that each read well alone.
+    let project = parse::read(&fixture())
+        .expect("the fixture parses")
+        .strict()
+        .expect("the fixture is a legal project");
+
+    assert_eq!(project.fps, 25);
+    assert_eq!(project.duration, Some(65216));
+    assert_eq!((project.frame.width, project.frame.height), (1080, 1920));
+    assert_eq!(project.tracks.len(), 14);
+
+    // Every element carries the same shape whatever its type (`CONTEXT.md`) — which the
+    // types now enforce rather than assert: `id`, `start` and `end` are not `Option`.
+    let ids: Vec<&str> = project
+        .tracks
+        .iter()
+        .flat_map(|track| track.elements.iter())
+        .map(|element| element.id.as_str())
+        .collect();
+    assert_eq!(ids.len(), 60);
+    assert_eq!(
+        ids.iter().collect::<std::collections::BTreeSet<_>>().len(),
+        60,
+        "every element id is unique (ADR-0019)"
+    );
 }
 
 #[test]
 fn the_raw_value_stays_beside_the_typed_view() {
-    // Later checks read fields this ticket's spine does not type — the schema layer is
-    // ADR-0016/ADR-0017's, and a later ticket's. They must not have to re-read the file.
+    // A check that reports on a document the types cannot hold — which is every check that
+    // reports on a broken one — reads the value. It must not have to re-read the file.
     let document = parse::read(&fixture()).expect("the fixture parses");
     let first = document.elements().next().expect("an element");
 
-    assert_eq!(first.value["source"], "images/05.png");
-    assert_eq!(first.value["clip"], serde_json::json!([0, 0, 1080, 1300]));
+    assert_eq!(first["source"], "images/05.png");
+    assert_eq!(first["clip"], serde_json::json!([0, 0, 1080, 1300]));
     assert_eq!(
-        document.value["fonts"]["brand"][0]["file"],
+        document.value()["fonts"]["brand"][0]["file"],
         "fonts/OpenRunde-Bold.otf"
     );
 }

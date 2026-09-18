@@ -1,0 +1,1194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project",
+  "description": "The whole video, as a single declarative document.\n\nField order is canonical key order (ADR-0041), and matches the committed fixture\nexactly. `loop` is the one field whose position no ADR states — ADR-0062 introduced it\nand ADR-0041's rule hands the position to the introducing ADR, which did not take it.\nIt is placed next to `duration` because that is the field it talks about: `loop: true`\nasserts that `duration` connects back to `0`. Recorded rather than decided silently.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "frame": {
+      "$ref": "#/$defs/Frame"
+    },
+    "fps": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "background": {
+      "$ref": "#/$defs/Colour"
+    },
+    "duration": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "loop": {
+      "type": "boolean",
+      "description": "ADR-0062. Default `false`/absent; affects nothing but one `validate` check, and\nMontaget writes no container-level loop metadata."
+    },
+    "output": {
+      "type": "string"
+    },
+    "fonts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/FontFile"
+        }
+      }
+    },
+    "fontVendor": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/FontAttestation"
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Track"
+      }
+    }
+  },
+  "required": [
+    "frame",
+    "fps",
+    "tracks"
+  ],
+  "$defs": {
+    "Frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "height": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "description": "The project's pixel dimensions."
+    },
+    "Colour": {
+      "type": "string",
+      "description": "`#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else."
+    },
+    "FontFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "description": "For `.ttc` collections. 49 of the fonts in a stock macOS `/System/Library/Fonts`\nare collections, so this is the normal case rather than an exotic one."
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "description": "One entry in a font's ordered fallback chain: always a file path relative to the\nproject, never a system family name (ADR-0007)."
+    },
+    "FontAttestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "licence": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "licence",
+        "source",
+        "sha256"
+      ],
+      "description": "What `fonts vendor` learned about one font file, keyed by that file's path.\n\nADR-0057 put this in its own top-level table rather than inline on each chain entry:\nthe `fonts` table is a *reference* structure and one file may appear under several\nkeys, so inlining would duplicate the same hash and licence at every point of reference\n— and duplicated facts drift the moment one copy is re-vendored and the other is not."
+    },
+    "Track": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Element"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "layer",
+        "elements"
+      ],
+      "description": "A named container holding elements, with an integer `layer` giving its place in the\nstack.\n\nA track supplies *stacking*, never *timing*: it has no start, no duration and no clock\n(ADR-0004). Array order carries no meaning, for timing or for stacking — ADR-0060\nconfirmed a layer tie is never broken by declaration order."
+    },
+    "Element": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "image"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "source": {
+              "type": "string",
+              "description": "Inline, never an asset-table reference (ADR-0002)."
+            },
+            "x": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "y": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "origin": {
+              "$ref": "#/$defs/Origin"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Required, never defaulted: the source's dimensions are not in the document, so a\nnatural-size default would make the element's rendered rect unreadable — and it\nwould fail *quietly*, because a centre-cropped photo looks plausible (ADR-0012)."
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "fit": {
+              "$ref": "#/$defs/Fit",
+              "description": "Required on every element carrying a raster source; omission is a schema error\nnaming the three values (ADR-0015)."
+            },
+            "clip": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "scale": {
+              "$ref": "#/$defs/Animatable2"
+            },
+            "rotation": {
+              "description": "Degrees clockwise, and **never normalised into `[0,360)`** — `1080` is three turns,\nand a writer that wraps it silently renders one third of the motion.",
+              "$ref": "#/$defs/Animatable3"
+            },
+            "opacity": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Effect"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "source",
+            "width",
+            "height",
+            "fit"
+          ],
+          "description": "`source, x, y, origin, width, height, fit, clip, scale` — ADR-0041's measured order —\nthen the two transform properties ADR-0012 declares after `scale`, then `effects`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "video"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "source": {
+              "type": "string"
+            },
+            "source_start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "source_end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "y": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "origin": {
+              "$ref": "#/$defs/Origin"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "fit": {
+              "$ref": "#/$defs/Fit"
+            },
+            "clip": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "scale": {
+              "$ref": "#/$defs/Animatable2"
+            },
+            "rotation": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "opacity": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "speed": {
+              "type": "number",
+              "format": "double",
+              "description": "A rate multiplier, strictly greater than zero: `0.645` plays the source slower.\nNegative is a schema error — reverse is a real need, deferred to its own explicit\nfield rather than overloaded onto this one as a sign bit (ADR-0020)."
+            },
+            "overrun": {
+              "$ref": "#/$defs/Overrun"
+            },
+            "volume": {
+              "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
+              "$ref": "#/$defs/Animatable3"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Effect"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "source",
+            "source_start",
+            "source_end",
+            "width",
+            "height",
+            "fit"
+          ],
+          "description": "An image that also has a clock.\n\nADR-0041 has no measured order for `video` — the fixture has no instance — and states\nthat whichever ADR first fixes its full property set fixes its order too. No ADR has,\nso this ticket does, following the two orders that *are* measured: `image`'s visual\nsequence, with `audio`'s `source_start, source_end` in `audio`'s own relative position\ndirectly after `source`, then the fields a video shares with audio."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "text"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "y": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "origin": {
+              "$ref": "#/$defs/Origin"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64",
+              "description": "The box the text must fit inside — required, because an omitted `height` would be\nindistinguishable from a decision not to check (ADR-0014). It is a *container\nclaim*, not drawn geometry, which is why a stroke grows into it rather than past it."
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "font": {
+              "type": "string",
+              "description": "A key into the project's `fonts` table, never a system family name."
+            },
+            "size": {
+              "type": "integer",
+              "format": "int64",
+              "description": "A literal number. The renderer never chooses a size and never chooses a line break\n(ADR-0007) — the fitted sizes in the fixture came from a pipeline that measured and\nwrote literals, and that loop moves to authoring time rather than disappearing.\n\nAn integer, by ADR-0012's absolute-integer-pixels rule: a size is a length in the\nproject's frame space, like `width` and `height`, and all 22 of the fixture's text\nelements carry one. A float would additionally give every whole size two spellings —\n`55` and `55.0` — which is the ambiguity `center-center` and the `scale` union were\neach retired for."
+            },
+            "line_height": {
+              "type": "number",
+              "format": "double",
+              "description": "Restricted to one decimal digit, always exactly representable as `n/10`, so the\nblock-height derivation is exact integer arithmetic and never IEEE double\n(ADR-0028). Defaults to `1.2` when omitted."
+            },
+            "color": {
+              "$ref": "#/$defs/Colour"
+            },
+            "align": {
+              "$ref": "#/$defs/Align"
+            },
+            "runs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Run"
+              }
+            },
+            "stroke": {
+              "$ref": "#/$defs/Colour"
+            },
+            "stroke_width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "scale": {
+              "$ref": "#/$defs/Animatable2"
+            },
+            "rotation": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "opacity": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Effect"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "width",
+            "height",
+            "font",
+            "size",
+            "runs"
+          ],
+          "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the transform properties, and `effects`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "rect"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "y": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "origin": {
+              "$ref": "#/$defs/Origin"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "fill": {
+              "description": "Optional when a `stroke` is present, giving an outlined shape. A shape with neither\nis a schema error naming both, because an element that deliberately renders nothing\nand an element that forgot its paint must not look alike.",
+              "$ref": "#/$defs/Colour"
+            },
+            "stroke": {
+              "description": "On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`\nstill occupies exactly 984×169 (ADR-0014).",
+              "$ref": "#/$defs/Colour"
+            },
+            "stroke_width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "scale": {
+              "$ref": "#/$defs/Animatable2"
+            },
+            "rotation": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "opacity": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Effect"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "width",
+            "height"
+          ],
+          "description": "`rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which\nis exactly what distinguishes it from the point-list shapes ADR-0014 rejected.\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and\n`stroke_width` follow, from the ADR that introduced them."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "ellipse"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "y": {
+              "$ref": "#/$defs/Animatable"
+            },
+            "origin": {
+              "$ref": "#/$defs/Origin"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "fill": {
+              "description": "Optional when a `stroke` is present, giving an outlined shape. A shape with neither\nis a schema error naming both, because an element that deliberately renders nothing\nand an element that forgot its paint must not look alike.",
+              "$ref": "#/$defs/Colour"
+            },
+            "stroke": {
+              "description": "On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`\nstill occupies exactly 984×169 (ADR-0014).",
+              "$ref": "#/$defs/Colour"
+            },
+            "stroke_width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "scale": {
+              "$ref": "#/$defs/Animatable2"
+            },
+            "rotation": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "opacity": {
+              "$ref": "#/$defs/Animatable3"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Effect"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "width",
+            "height"
+          ],
+          "description": "`rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which\nis exactly what distinguishes it from the point-list shapes ADR-0014 rejected.\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and\n`stroke_width` follow, from the ADR that introduced them."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "audio"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "source": {
+              "type": "string"
+            },
+            "source_start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "source_end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "speed": {
+              "type": "number",
+              "format": "double"
+            },
+            "overrun": {
+              "description": "`hold` is a schema error on audio: there is no non-arbitrary meaning for holding the\nlast sample, and \"then silence\" is already free as a shorter element plus a gap.",
+              "$ref": "#/$defs/Overrun"
+            },
+            "volume": {
+              "$ref": "#/$defs/Animatable3"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "source",
+            "source_start",
+            "source_end"
+          ],
+          "description": "`source, source_start, source_end` — ADR-0041's measured order — then the fields the\nfixture appends after a type's core set.\n\nAn audio element carries no transform: `x` on it is a schema error naming the\nreplacement, and the specific trap is `opacity`, which an agent will write meaning\nvolume and which would fade nothing, forever (ADR-0012)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "transition"
+            },
+            "group": {
+              "type": "string"
+            },
+            "start": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "end": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "kind": {
+              "$ref": "#/$defs/TransitionKind",
+              "description": "`crossfade` is the whole v1 vocabulary. Wipe, slide and push are deferred — not\nbecause they are unwanted but because reference-class ubiquity is no evidence for\nhow they parameterize, and freezing a closed-vocabulary member on a guess is the\ntrap ADR-0040 avoided with colour filter."
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "start",
+            "end",
+            "kind",
+            "from",
+            "to"
+          ],
+          "description": "A transition is its own element type, with its own time range and two id references —\nnot a property on either bridged element, which would create an unprincipled ownership\nquestion, and not an effect, which is element-local by construction (ADR-0059).\n\nADR-0059 names *\"two id references\"* without naming the fields. This ticket calls them\n`from` and `to`, and records that as a spelling the ADR series may want to ratify."
+        }
+      ],
+      "description": "The per-type field set, discriminated by `type`.\n\nADR-0012: the field set is a **function of `type`** — *\"`x` on an audio element is a\nschema error naming the replacement\"*, never a silently-ignored field. That is also why\nshapes are sibling types rather than one `shape` type with a discriminator inside it: a\nsecond, omissible discriminator would let a malformed ellipse render as a rect, silently\nand plausibly (ADR-0014)."
+    },
+    "Animatable": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "format": "int64",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keyframe"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "Keyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+    },
+    "Ease": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EaseName"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "`[x1, y1, x2, y2]`. `x` outside `[0,1]` is a schema error; `y` outside is legal,\nbecause overshoot is a real need beziers give away free."
+        }
+      ],
+      "description": "The closed easing set: a published name, or the four control points directly.\n\nADR-0012: *\"A name is sugar over one evaluator, never a second mechanism.\"* The raw\nform is forced rather than chosen — splitting `ease-in-out` at an arbitrary instant\nyields a bezier that is no named ease and is not in the family, and snapping to the\nnearest name costs more framing than the reading `shift` was disqualified for."
+    },
+    "EaseName": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "linear",
+          "description": "`[0, 0, 1, 1]`"
+        },
+        {
+          "type": "string",
+          "const": "ease",
+          "description": "`[0.25, 0.1, 0.25, 1]`"
+        },
+        {
+          "type": "string",
+          "const": "ease-in",
+          "description": "`[0.42, 0, 1, 1]`"
+        },
+        {
+          "type": "string",
+          "const": "ease-out",
+          "description": "`[0, 0, 0.58, 1]`"
+        },
+        {
+          "type": "string",
+          "const": "ease-in-out",
+          "description": "`[0.42, 0, 0.58, 1]`"
+        },
+        {
+          "type": "string",
+          "const": "step",
+          "description": "Named `step`, not `hold`: *\"hold\" reads as a claim about what happens next — a\n`leaving` intuition sitting in an `entering` slot* (ADR-0012)."
+        }
+      ],
+      "description": "Each name is published in the schema as its cubic bezier (ADR-0012)."
+    },
+    "Origin": {
+      "type": "string",
+      "enum": [
+        "top-left",
+        "top-center",
+        "top-right",
+        "center-left",
+        "center",
+        "center-right",
+        "bottom-left",
+        "bottom-center",
+        "bottom-right"
+      ],
+      "description": "The nine-way point of an element's own box that its `x`,`y` places, and about which\ntransforms pivot. Vertical component first.\n\n`center-center` is deliberately absent and is a schema error naming `center`: the middle\nelides to `center` alone, because two spellings of one value break the write-read round\ntrip. It is `center-left`, never `middle-left` — `top-center` needs a horizontal-middle\nword regardless, so a separate `middle` would spell one concept two ways depending on\naxis (ADR-0013)."
+    },
+    "Fit": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "cover",
+          "description": "Drawn rect ⊇ the `clip` box. Requires `clip`."
+        },
+        {
+          "type": "string",
+          "const": "contain",
+          "description": "Drawn rect ⊆ the `clip` box. Requires `clip`."
+        },
+        {
+          "type": "string",
+          "const": "literal",
+          "description": "No derivation rule. The escape value needed a name and `literal` is not a coinage —\nADR-0007's headline is *\"Literal `size`. No fit-to-box.\"*"
+        }
+      ],
+      "description": "A claim about how the author computed `width`/`height` — not a layout mode.\n\nADR-0015's load-bearing sentence: the declared rect is authoritative at render, so `fit`\n**never executes**. No renderer reads it; its only consumer is `validate`. It is the\nformat's first field that is purely an assertion — a provenance tag on two integers."
+    },
+    "Animatable2": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keyframe2"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "Keyframe2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+    },
+    "Animatable3": {
+      "anyOf": [
+        {
+          "type": "number",
+          "format": "double",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Keyframe3"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "Keyframe3": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "number",
+          "format": "double"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+    },
+    "Effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "radius": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "blur"
+            }
+          },
+          "required": [
+            "name",
+            "radius"
+          ],
+          "description": "Gaussian blur; one parameter."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dx": {
+              "type": "number",
+              "format": "double"
+            },
+            "dy": {
+              "type": "number",
+              "format": "double"
+            },
+            "radius": {
+              "type": "number",
+              "format": "double"
+            },
+            "color": {
+              "$ref": "#/$defs/Colour"
+            },
+            "opacity": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "shadow"
+            }
+          },
+          "required": [
+            "name",
+            "dx",
+            "dy",
+            "radius",
+            "color",
+            "opacity"
+          ],
+          "description": "Drop shadow."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "$ref": "#/$defs/MaskShape"
+            },
+            "name": {
+              "type": "string",
+              "const": "mask"
+            }
+          },
+          "required": [
+            "name",
+            "shape"
+          ],
+          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\nADR-0068 states the param-less form's geometry, which ADR-0040 left as an ellipsis:\n`{\"name\": \"mask\", \"shape\": \"circle\"}` with no geometry parameters means the largest\ncircle inscribed in the element's own rect, and `rect`/`ellipse` take the element's\nrect itself. The full parameter surface — explicit centre and radius, corner radii,\ntwo axes, and what any of them mean under a keyframed `scale` — is graduated to its\nown ticket, so this carries the shape and nothing else."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Colour"
+            },
+            "amount": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "tint"
+            }
+          },
+          "required": [
+            "name",
+            "color",
+            "amount"
+          ],
+          "description": "Pushes pixel colour toward `color` by `amount` (0–1).\n\n`color` is ADR-0049's sole grandfathered exception to *\"parameters must be bounded\nscalars\"*, and the exception is closed: a future colour operation does not get the\nsame allowance by citing `tint` as precedent."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "saturation"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "`0` = fully desaturated (a bare `grayscale`, which is deliberately not its own\nmember), `1` = unchanged, `>1` = oversaturated."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "brightness"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "Signed offset from unchanged at `0`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "contrast"
+            }
+          },
+          "required": [
+            "name",
+            "amount"
+          ],
+          "description": "Signed offset from unchanged at `0`."
+        }
+      ],
+      "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."
+    },
+    "MaskShape": {
+      "type": "string",
+      "enum": [
+        "circle",
+        "rect",
+        "ellipse"
+      ]
+    },
+    "Overrun": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "hold",
+          "description": "The last in-range frame freezes and repeats. A schema error on audio, where the\ncorrect spelling of \"then silence\" is a shorter element and a gap."
+        },
+        {
+          "type": "string",
+          "const": "loop",
+          "description": "The source restarts from `source_start` with a hard cut — no crossfade, which would\nneed an unstated duration and curve."
+        }
+      ],
+      "description": "What a time-based element does past the end of its (possibly speed-adjusted) source.\n\nThere is no third value and no `\"none\"`: the field's presence alone signals the\ncondition, so an explicit \"no overrun\" would be indistinguishable from omission\n(ADR-0020)."
+    },
+    "Align": {
+      "type": "string",
+      "enum": [
+        "start",
+        "center",
+        "end"
+      ],
+      "description": "How lines align to each other — text only, and `start`/`end` rather than `left`/`right`\nbecause RTL is in v1 (ADR-0007). Distinct from `origin`, which places the box."
+    },
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "UTF-8, NFC, raw characters — the serializer never emits `\\uXXXX` above U+007F,\nbecause escaping destroys the unique-substring guarantee uniformly rather than\noccasionally. Whitespace inside a run is content: the fixture's `cobweb  -  cobweb`\ncarries deliberate double spaces that no tidying pass may touch."
+        },
+        "font": {
+          "type": "string",
+          "description": "Style deltas over the element's base style. Every one is optional because a delta\nthat is absent is a delta that was not made."
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "color": {
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke": {
+          "description": "ADR-0014: on text the stroke falls **outside** the glyph contour and grows into the\ndeclared box rather than enlarging the element.",
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke_width": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "dir": {
+          "description": "A per-run direction override with **isolate** semantics only — never LRO/RLO, which\nexist for legacy data and turn \"my text renders backwards\" into an unfalsifiable\nmystery (ADR-0007).",
+          "$ref": "#/$defs/Dir"
+        },
+        "highlight": {
+          "description": "The timed window during which this run wears a different style (ADR-0048). Every\nhighlighted word is its own run, and a run carries at most one window — letting one\nrun span several words would need sub-run character offsets, which a later text\nedit invalidates silently while leaving the JSON structurally valid.",
+          "$ref": "#/$defs/Highlight"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "description": "One stretch of a text element's content.\n\nAlways an array, never a bare string: ADR-0007 rejected the shorthand because *\"it\noptimises every edit except the one that actually occurred\"* — adding a second style to\na flat string is a shape change that retypes the original text at precisely the moment\nthe author is doing something typographically delicate."
+    },
+    "Dir": {
+      "type": "string",
+      "enum": [
+        "ltr",
+        "rtl"
+      ]
+    },
+    "Highlight": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Literal integers, authored once and frozen in the document — never a reference into\nan external alignment file, which would put an ASR model's opinion inside the\nrender path (ADR-0048)."
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "color": {
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke": {
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke_width": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "description": "A start/end window inside the element's own range, plus the style that applies during\nit. Outside the window the run falls back to its unconditional style."
+    },
+    "TransitionKind": {
+      "type": "string",
+      "enum": [
+        "crossfade"
+      ]
+    }
+  }
+}

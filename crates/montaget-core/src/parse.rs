@@ -7,14 +7,14 @@
 use serde_json::Value;
 use std::path::Path;
 
-use crate::document::Document;
 use crate::finding::Finding;
+use crate::permissive::Loose;
 
 /// Read and parse a project file, or produce the one finding that means "fix the file".
 ///
 /// The error is boxed because a `Finding` is a large value and every caller on the happy
 /// path would otherwise carry its width.
-pub fn read(path: &Path) -> Result<Document, Box<Finding>> {
+pub fn read(path: &Path) -> Result<Loose, Box<Finding>> {
     let display = path.display().to_string();
 
     let source = std::fs::read_to_string(path).map_err(|e| {
@@ -35,7 +35,7 @@ pub fn read(path: &Path) -> Result<Document, Box<Finding>> {
     })?;
 
     match serde_json::from_str::<Value>(&source) {
-        Ok(value) => Ok(Document::from_value(display, value)),
+        Ok(value) => Ok(Loose::new(display, value)),
         Err(e) => {
             let line = e.line() as u32;
             let column = e.column() as u32;

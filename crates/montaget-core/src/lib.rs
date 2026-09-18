@@ -8,22 +8,33 @@
 //! The pieces, in the order a run touches them:
 //!
 //! - [`parse`] reads the bytes, or produces the one finding that means "fix the *file*".
-//! - [`document`] is the lenient spine every check reads from.
+//! - [`permissive`] is the lenient spine every check reads from, and [`model`] is the
+//!   format's types for the checks that want them.
 //! - [`registry`] declares every check: its class, its refuse class, its threshold
 //!   provenance and its prose template.
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
 //! - [`wire`] is the one place a report becomes bytes, in one form per invocation.
+//!
+//! Two more sit beside that path rather than on it, and both exist because the format is
+//! published as well as parsed:
+//!
+//! - [`schema`] is the JSON Schema, generated from [`model`] — which is what makes the
+//!   types the single place canonical key order can go stale (ADR-0041).
+//! - [`write`] is the canonical writing convention, the one place a project becomes bytes.
 
-pub mod document;
 pub mod finding;
+pub mod model;
 pub mod parse;
+pub mod permissive;
 pub mod registry;
 pub mod report;
+pub mod schema;
 pub mod text;
 pub mod verbs;
 pub mod wire;
+pub mod write;
 
 pub use verbs::validate::validate;
 pub use wire::Wire;

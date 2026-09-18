@@ -428,6 +428,7 @@ dependencies = [
 name = "montaget-core"
 version = "0.1.0"
 dependencies = [
+ "schemars",
  "serde",
  "serde_json",
 ]

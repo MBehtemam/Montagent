@@ -39,4 +39,4 @@ pub fn validate(path: &Path) -> Report {
 /// Empty by design: #188 builds the spine, and each later check ticket adds its own call
 /// here. The function exists now so that "where does a check go?" has one answer before
 /// the first check is written.
-fn run_checks(_document: &crate::document::Document, _report: &mut Report) {}
+fn run_checks(_document: &crate::permissive::Loose, _report: &mut Report) {}
