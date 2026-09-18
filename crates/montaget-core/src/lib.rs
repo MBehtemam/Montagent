@@ -22,13 +22,15 @@
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
 //! - [`wire`] is the one place a report becomes bytes, in one form per invocation.
 //!
-//! Two more sit beside that path rather than on it, and both exist because the format is
-//! published as well as parsed:
+//! Four more sit beside that path rather than on it, and all four exist because the format
+//! is published as well as parsed:
 //!
 //! - [`schema`] is the JSON Schema, generated from [`model`] — which is what makes the
 //!   types the single place canonical key order can go stale (ADR-0041).
 //! - [`layout`] reads canonical key order back out of that schema, as the one predicate
 //!   `fmt` and `validate`'s `LAYOUT` check share rather than each reimplementing.
+//! - [`resources`] is what the MCP surface publishes for discovery (ADR-0011): that same
+//!   generated schema, and the format docs carrying the rules a schema cannot express.
 //! - [`write`] is the canonical writing convention, the one place a project becomes bytes,
 //!   and the atomic whole-file write every write tool reuses.
 
@@ -41,6 +43,7 @@ pub mod parse;
 pub mod permissive;
 pub mod registry;
 pub mod report;
+pub mod resources;
 pub mod schema;
 pub mod stack;
 pub mod text;

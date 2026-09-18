@@ -85,6 +85,55 @@ fn cli_fmt_writes_and_exits_0() {
 }
 
 #[test]
+fn cli_create_project_reaches_the_verb_and_writes_the_scaffold() {
+    let dir = scratch_dir("cli-create-project");
+    let project = dir.join("new.montaget.json");
+    let out = montaget(&[
+        "create-project",
+        project.to_str().unwrap(),
+        "--width",
+        "1080",
+        "--height",
+        "1920",
+        "--fps",
+        "25",
+        "--background",
+        "#FBF3E3",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert_eq!(
+        std::fs::read_to_string(&project).unwrap(),
+        "{\n  \"frame\": {\"width\": 1080, \"height\": 1920},\n  \"fps\": 25,\n  \
+         \"background\": \"#FBF3E3\",\n  \"tracks\": []\n}\n"
+    );
+    // ADR-0011's write-tool invariant: the findings are the result, so what comes back is
+    // `validate`'s report on the new file rather than a receipt.
+    assert!(out.stdout.starts_with("0 errors"), "{}", out.stdout);
+    assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_create_project_onto_an_existing_file_is_exit_1_and_changes_nothing() {
+    let mine = "{\"an afternoon\": \"of work\"}\n";
+    let project = scratch("cli-create-project-exists", "mine.montaget.json", mine);
+    let out = montaget(&[
+        "create-project",
+        project.to_str().unwrap(),
+        "--width",
+        "1080",
+        "--height",
+        "1920",
+        "--fps",
+        "25",
+    ]);
+
+    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("E-PROJECT-EXISTS"), "{}", out.stdout);
+    assert_eq!(std::fs::read_to_string(&project).unwrap(), mine);
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 
@@ -370,15 +419,7 @@ fn cli_help_is_not_a_failure() {
 fn mcp_validate_on_a_header_only_project_is_a_clean_report() {
     let project = scratch("mcp-clean", "clean.montaget.json", HEADER_ONLY);
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(2, "tools/list", serde_json::json!({})),
         request(
@@ -405,15 +446,7 @@ fn mcp_does_not_advertise_probe() {
     // including turns with nothing to do with video. A CLI subcommand costs nothing until
     // invoked." Asserted here because the cost is paid on turns this suite cannot see.
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(2, "tools/list", serde_json::json!({})),
     ]);
@@ -433,15 +466,7 @@ fn mcp_does_not_advertise_probe() {
 fn mcp_validate_advertises_the_schema_it_enforces() {
     let project = scratch("mcp-schema", "clean.montaget.json", HEADER_ONLY);
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(2, "tools/list", serde_json::json!({})),
         // The schema says `project` is required and the other two are optional; calling
@@ -499,15 +524,7 @@ fn a_validate_that_ran_and_found_errors_is_not_a_tool_failure() {
     // be told to retry a correct answer.
     let project = scratch("mcp-errors", "broken.montaget.json", "{\n  \"fps\": ,\n}\n");
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(
             2,
@@ -536,15 +553,7 @@ fn mcp_rejects_a_bad_call_with_a_finding_like_every_other_surface() {
     // surface." Asserting only that a bad call is *rejected* is what let the SDK's own
     // raw deserialisation message through here while the CLI answered with a finding.
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(
             2,
@@ -572,15 +581,7 @@ fn mcp_rejects_a_bad_call_with_a_finding_like_every_other_surface() {
 fn mcp_validate_json_returns_the_canonical_json_instead_of_the_text() {
     let project = scratch("mcp-json", "clean.montaget.json", HEADER_ONLY);
     let session = mcp_session(&[
-        request(
-            1,
-            "initialize",
-            serde_json::json!({
-                "protocolVersion": "2026-07-28",
-                "capabilities": {},
-                "clientInfo": {"name": "montaget-tests", "version": "0"}
-            }),
-        ),
+        handshake(1),
         notification("notifications/initialized"),
         request(
             2,
@@ -600,6 +601,171 @@ fn mcp_validate_json_returns_the_canonical_json_instead_of_the_text() {
     assert!(
         !text.contains("NOT CHECKED\n  This file"),
         "not both forms: {text}"
+    );
+}
+
+#[test]
+fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_states_findings() {
+    let dir = scratch_dir("mcp-create-project");
+    let project = dir.join("new.montaget.json");
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "create_project",
+                "arguments": {
+                    "project": project.to_str().unwrap(),
+                    "width": 1080,
+                    "height": 1920,
+                    "fps": 25,
+                    "background": "#FBF3E3",
+                    "duration": 65216,
+                    "output": "out/clean.mp4"
+                }
+            }),
+        ),
+        // Every required property missing but `project` — rejected rather than scaffolded
+        // against invented numbers.
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({
+                "name": "create_project",
+                "arguments": {"project": dir.join("other.montaget.json").to_str().unwrap()}
+            }),
+        ),
+    ]);
+
+    let create = session[&2]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "create_project")
+        .expect("a `create_project` tool")
+        .clone();
+    let schema = &create["inputSchema"];
+    assert_eq!(schema["type"], "object");
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project", "width", "height", "fps"]),
+        "the two the format requires, plus where to write it"
+    );
+    for property in ["background", "duration", "output", "json", "verbose"] {
+        assert!(
+            !schema["properties"][property].is_null(),
+            "the schema advertises `{property}`"
+        );
+    }
+
+    let call = &session[&3];
+    assert_eq!(call["result"]["isError"], false, "{call}");
+    let text = call["result"]["content"][0]["text"].as_str().unwrap();
+    // ADR-0011's write-tool invariant, at the surface it was argued for: "every write tool
+    // returns the new state's findings, never `ok`". Not a receipt, not a path echoed back.
+    assert!(text.starts_with("0 errors"), "{text}");
+    assert!(text.contains("NOT CHECKED"), "{text}");
+    assert_eq!(
+        std::fs::read_to_string(&project).unwrap(),
+        "{\n  \"frame\": {\"width\": 1080, \"height\": 1920},\n  \"fps\": 25,\n  \
+         \"background\": \"#FBF3E3\",\n  \"duration\": 65216,\n  \"output\": \
+         \"out/clean.mp4\",\n  \"tracks\": []\n}\n"
+    );
+
+    let rejected = &session[&4];
+    assert!(
+        rejected.get("error").is_some() || rejected["result"]["isError"] == true,
+        "a call missing `width`/`height`/`fps` must be rejected: {rejected}"
+    );
+    assert!(
+        !dir.join("other.montaget.json").exists(),
+        "and must write nothing"
+    );
+}
+
+#[test]
+fn mcp_publishes_the_schema_and_the_format_docs_as_resources() {
+    // ADR-0011: "the schema and format docs as resources. Discoverability is the schema's
+    // job, and a resource costs no tool slot. This is what makes 'how does the agent know
+    // how to edit project.json' answerable at all." Asserted at the protocol, because the
+    // cost this buys is paid on turns this suite cannot see.
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "resources/list", serde_json::json!({})),
+        request(
+            3,
+            "resources/read",
+            serde_json::json!({"uri": "montaget://schema.json"}),
+        ),
+        request(
+            4,
+            "resources/read",
+            serde_json::json!({"uri": "montaget://format.md"}),
+        ),
+        request(
+            5,
+            "resources/read",
+            serde_json::json!({"uri": "montaget://nothing-here"}),
+        ),
+        request(6, "tools/list", serde_json::json!({})),
+    ]);
+
+    let listed: Vec<String> = session[&2]["result"]["resources"]
+        .as_array()
+        .expect("a resource list")
+        .iter()
+        .map(|resource| resource["uri"].as_str().unwrap_or("?").to_string())
+        .collect();
+    assert_eq!(
+        listed,
+        vec![
+            "montaget://schema.json".to_string(),
+            "montaget://format.md".to_string()
+        ]
+    );
+
+    // The schema resource is the *generated* artifact, not the committed copy of it: the
+    // two are compared in the core's own suite, and what is served here is the function.
+    let served = session[&3]["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("the schema's bytes");
+    assert_eq!(served, montaget_core::schema::generated_bytes());
+    assert_eq!(
+        session[&3]["result"]["contents"][0]["mimeType"],
+        "application/schema+json"
+    );
+
+    let docs = session[&4]["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("the format docs");
+    assert!(docs.contains("Presence is content"), "{docs}");
+    assert_eq!(
+        session[&4]["result"]["contents"][0]["mimeType"],
+        "text/markdown"
+    );
+
+    assert!(
+        session[&5].get("error").is_some(),
+        "an unpublished URI is an error, not an empty document: {}",
+        session[&5]
+    );
+
+    // And neither of them cost a tool slot, which is the whole reason they are resources.
+    let tools: Vec<String> = session[&6]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap_or("?").to_string())
+        .collect();
+    assert!(
+        !tools
+            .iter()
+            .any(|name| name.contains("schema") || name.contains("docs")),
+        "{tools:?}"
     );
 }
 
@@ -642,6 +808,19 @@ fn montaget_caching(args: &[&str], cache: &Path) -> Output {
         stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
     }
+}
+
+/// The `initialize` every session opens with.
+fn handshake(id: u64) -> String {
+    request(
+        id,
+        "initialize",
+        serde_json::json!({
+            "protocolVersion": "2026-07-28",
+            "capabilities": {},
+            "clientInfo": {"name": "montaget-tests", "version": "0"}
+        }),
+    )
 }
 
 fn request(id: u64, method: &str, params: serde_json::Value) -> String {
