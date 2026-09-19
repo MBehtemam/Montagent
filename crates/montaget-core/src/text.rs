@@ -93,6 +93,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         }
     }
 
+    // `timeline`'s whole answer, and the only block on the wire that is a view rather than
+    // a finding. It prints wherever it is present, at any verbosity: a verb whose output is
+    // the view has nothing left to say if the view is filtered out.
+    if let Some(overview) = report.get("timeline").filter(|view| !view.is_null()) {
+        out.push_str(&timeline_block(overview));
+    }
+
     let findings = report["findings"]
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
@@ -459,4 +466,267 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
         lines.push(line);
     }
     lines
+}
+
+// ---- `timeline`'s wide view (#195) ---------------------------------------------------
+
+/// The whole view, generated from the `timeline` block of the canonical JSON.
+///
+/// Column widths are measured from the rows themselves rather than fixed, so a project of
+/// short ids does not print a field of blanks and one of long ids does not have its detail
+/// column knocked out of alignment. No column is measured against the *terminal*: ADR-0031
+/// names terminal-width sensitivity as one of the costs a spatial view would have imposed,
+/// and a view with no axis has no reason to take it on.
+fn timeline_block(overview: &Value) -> String {
+    let mut out = String::from("\nTIMELINE\n");
+    let mut row = |label: &str, value: String| {
+        out.push_str(&format!("  {label:<12}{value}\n"));
+    };
+
+    row("frame", frame_words(&overview["frame"], &overview["fps"]));
+    row("duration", milliseconds(&overview["duration_ms"]));
+    // Keyed on presence, not on type. ADR-0030 makes omission and a stated value two
+    // different declarations, and this view is wanted on half-written documents — so a
+    // `background` of `12` prints as `12` rather than disappearing from the prose while the
+    // canonical JSON still carries it.
+    for (label, key) in [("background", "background"), ("output", "output")] {
+        if !overview[key].is_null() {
+            row(label, compact(&overview[key]));
+        }
+    }
+    // ADR-0062: `loop` asserts that `duration` connects back to 0, so it belongs next to the
+    // length it talks about — and only when the document states it, since omission and
+    // explicit `false` are different declarations (ADR-0030).
+    if !overview["loop"].is_null() {
+        row("loop", compact(&overview["loop"]));
+    }
+
+    let counts = &overview["counts"];
+    out.push_str(&format!(
+        "  {}, {}, {}\n",
+        counted(&counts["elements"], "element"),
+        counted(&counts["tracks"], "track"),
+        counted(&counts["groups"], "group"),
+    ));
+
+    out.push_str(&tracks_block(&overview["tracks"]));
+    out.push_str(&groups_block(&overview["groups"]));
+    out
+}
+
+/// `1080×1920 at 25 fps`, or whatever of it the document actually states.
+fn frame_words(frame: &Value, fps: &Value) -> String {
+    let size = match (&frame["width"], &frame["height"]) {
+        (Value::Null, Value::Null) => compact(frame),
+        (width, height) => format!("{width}×{height}"),
+    };
+    match fps {
+        Value::Null => size,
+        fps => format!("{size} at {} fps", compact(fps)),
+    }
+}
+
+/// Every track, back to front — the one thing a track supplies (ADR-0004).
+fn tracks_block(tracks: &Value) -> String {
+    let Some(tracks) = tracks.as_array().filter(|tracks| !tracks.is_empty()) else {
+        return String::new();
+    };
+
+    let layers: Vec<String> = tracks
+        .iter()
+        .map(|track| layer_words(&track["layer"]))
+        .collect();
+    let names: Vec<String> = tracks.iter().map(|track| compact(&track["name"])).collect();
+    let layer_width = width_of(layers.iter().map(String::as_str));
+    let name_width = width_of(names.iter().map(String::as_str));
+
+    let mut out = String::from("\nTRACKS\n");
+    for ((track, layer), name) in tracks.iter().zip(&layers).zip(&names) {
+        out.push_str(&format!(
+            "  {layer:<layer_width$}  {name:<name_width$}  {}\n",
+            counted(&track["elements"], "element"),
+        ));
+    }
+    out
+}
+
+/// One block per group, each holding its elements in the order the clock reaches them.
+fn groups_block(groups: &Value) -> String {
+    let Some(groups) = groups.as_array().filter(|groups| !groups.is_empty()) else {
+        return String::new();
+    };
+
+    // Each group's rows, gathered per group and kept that way. The rows were never
+    // flattened, so nothing has to pair them back to a heading afterwards — the structure
+    // the document has is the structure this walks.
+    let blocks: Vec<(&Value, Vec<Row>)> = groups
+        .iter()
+        .map(|group| {
+            let rows = group["elements"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .map(Row::of)
+                .collect();
+            (group, rows)
+        })
+        .collect();
+
+    // Measured across every block at once, so the columns line up down the whole view
+    // rather than restarting at each heading.
+    let width = Widths::over(blocks.iter().flat_map(|(_, rows)| rows));
+
+    // The unit is stated on the heading rather than on every row: ADR-0004 asks that
+    // absolute times be unmissable, and a reader working out what `0..3018` counts in has
+    // missed them.
+    let mut out = String::from("\nGROUPS  (start..end in absolute milliseconds)\n");
+    for (group, rows) in &blocks {
+        out.push_str(&format!("  {}\n", group_heading(group)));
+        for row in rows {
+            out.push_str(row.line(&width).trim_end());
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// One element's cells, in the order they print.
+struct Row {
+    range: String,
+    span: String,
+    layer: String,
+    kind: String,
+    id: String,
+    track: String,
+    detail: String,
+}
+
+impl Row {
+    fn of(element: &Value) -> Row {
+        Row {
+            range: range_words(element),
+            span: milliseconds(&element["duration_ms"]),
+            layer: layer_words(&element["layer"]),
+            kind: named(&element["type"]),
+            id: named(&element["id"]),
+            track: named(&element["track"]),
+            detail: element["detail"].as_str().unwrap_or_default().to_string(),
+        }
+    }
+
+    fn line(&self, width: &Widths) -> String {
+        format!(
+            "    {:<range$}  {:>span$}  {:<layer$}  {:<kind$}  {:<id$}  {:<track$}  {}",
+            self.range,
+            self.span,
+            self.layer,
+            self.kind,
+            self.id,
+            self.track,
+            self.detail,
+            range = width.range,
+            span = width.span,
+            layer = width.layer,
+            kind = width.kind,
+            id = width.id,
+            track = width.track,
+        )
+    }
+}
+
+/// The widest cell in each column. No column is measured against the *terminal*: ADR-0031
+/// names terminal-width sensitivity among the costs a spatial view would have imposed, and
+/// a view with no axis has no reason to take it on.
+#[derive(Default)]
+struct Widths {
+    range: usize,
+    span: usize,
+    layer: usize,
+    kind: usize,
+    id: usize,
+    track: usize,
+}
+
+impl Widths {
+    fn over<'a>(rows: impl Iterator<Item = &'a Row> + Clone) -> Widths {
+        let widest =
+            |cell: fn(&Row) -> &String| width_of(rows.clone().map(|row| cell(row).as_str()));
+        Widths {
+            range: widest(|row| &row.range),
+            span: widest(|row| &row.span),
+            layer: widest(|row| &row.layer),
+            kind: widest(|row| &row.kind),
+            id: widest(|row| &row.id),
+            track: widest(|row| &row.track),
+        }
+    }
+}
+
+/// `item-05  0..17472  17472 ms, 11 elements`, or as much of it as the group determines.
+fn group_heading(group: &Value) -> String {
+    // `CONTEXT.md` makes `group` optional, so the residue needs a name of its own rather
+    // than a blank heading that reads as a group whose label went missing.
+    let label = match group["group"].as_str() {
+        Some(label) => label.to_string(),
+        None => "(no group)".to_string(),
+    };
+    let count = group["elements"].as_array().map_or(0, Vec::len);
+    let elements = plural(count as u64, "element");
+    match (group["start"].as_i64(), group["end"].as_i64()) {
+        (Some(start), Some(end)) => format!(
+            "{label}  {start}..{end}  {}, {elements}",
+            milliseconds(&group["duration_ms"])
+        ),
+        _ => format!("{label}  {elements}"),
+    }
+}
+
+/// `0..3018`, with a question mark for either half the document does not state — never a
+/// guess, and never a row silently dropped for being half-written.
+fn range_words(row: &Value) -> String {
+    match (&row["start"], &row["end"]) {
+        (Value::Null, Value::Null) => "—".to_string(),
+        (start, end) => format!("{}..{}", stated_number(start), stated_number(end)),
+    }
+}
+
+/// The widest cell in a column, counted in **characters** rather than bytes: an id or a
+/// track name may be any UTF-8 at all, and padding by byte length misaligns the whole
+/// column under one non-ASCII character.
+fn width_of<'a>(cells: impl Iterator<Item = &'a str>) -> usize {
+    cells.map(|cell| cell.chars().count()).max().unwrap_or(0)
+}
+
+/// A name the document writes, or a question mark where it does not. Never `null`: the
+/// reader is looking at a view, and the word would read as a value rather than as a gap.
+fn named(value: &Value) -> String {
+    match value.as_str() {
+        Some(name) => name.to_string(),
+        None => "?".to_string(),
+    }
+}
+
+fn stated_number(value: &Value) -> String {
+    match value {
+        Value::Null => "?".to_string(),
+        other => compact(other),
+    }
+}
+
+fn layer_words(layer: &Value) -> String {
+    format!("L{}", stated_number(layer))
+}
+
+fn milliseconds(value: &Value) -> String {
+    match value {
+        Value::Null => "—".to_string(),
+        other => format!("{} ms", compact(other)),
+    }
+}
+
+/// The same pluraliser the summary line uses, over a count the canonical JSON carries.
+/// One spelling of "1 element" across the whole report, rather than one per block.
+fn counted(count: &Value, noun: &str) -> String {
+    plural(count.as_u64().unwrap_or(0), noun)
 }

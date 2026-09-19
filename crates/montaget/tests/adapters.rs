@@ -134,6 +134,45 @@ fn cli_create_project_onto_an_existing_file_is_exit_1_and_changes_nothing() {
 }
 
 #[test]
+fn cli_timeline_reaches_the_verb_and_exits_0() {
+    let project = scratch("cli-timeline", "clean.montaget.json", HEADER_ONLY);
+    let out = montaget(&["timeline", project.to_str().unwrap()]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("TIMELINE"), "{}", out.stdout);
+    assert!(out.stdout.contains("1080×1920 at 25 fps"), "{}", out.stdout);
+    assert!(
+        out.stdout.contains("0 elements, 0 tracks, 0 groups"),
+        "{}",
+        out.stdout
+    );
+}
+
+#[test]
+fn cli_timeline_json_replaces_the_text_view_and_never_accompanies_it() {
+    let project = scratch("cli-timeline-json", "clean.montaget.json", HEADER_ONLY);
+    let out = montaget(&["timeline", project.to_str().unwrap(), "--json"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(!out.stdout.contains("TIMELINE"), "{}", out.stdout);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).expect("the JSON form");
+    assert_eq!(json["tool"], "timeline");
+    assert_eq!(json["timeline"]["duration_ms"], 65216);
+}
+
+#[test]
+fn cli_timeline_takes_no_flag_that_collapses_the_view() {
+    // The view *is* the answer, so there is nothing for a `--verbose` to expand and nothing
+    // a default would have collapsed. A flag that did neither would still have to be
+    // supported forever, so its absence is asserted rather than left to drift in.
+    let out = montaget(&["timeline", "--help"]);
+
+    assert_eq!(out.code, Some(0));
+    assert!(out.stdout.contains("--json"), "{}", out.stdout);
+    assert!(!out.stdout.contains("--verbose"), "{}", out.stdout);
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 
@@ -460,6 +499,28 @@ fn mcp_does_not_advertise_probe() {
 
     assert!(tools.iter().any(|name| name == "validate"), "{tools:?}");
     assert!(!tools.iter().any(|name| name == "probe"), "{tools:?}");
+}
+
+#[test]
+fn mcp_does_not_advertise_timeline() {
+    // ADR-0011's unequal split, and #195's second acceptance criterion. `timeline` is the
+    // *human's* wide view; ADR-0031 measured that an agent's overview need not be spatial
+    // and noted the agent already reaches these facts through `query`. Advertising it would
+    // spend the agent's context on every turn to duplicate a verb it has.
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+    ]);
+
+    let tools = session.get(&2).expect("a result for tools/list")["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap_or("?").to_string())
+        .collect::<Vec<_>>();
+
+    assert!(!tools.iter().any(|name| name == "timeline"), "{tools:?}");
 }
 
 #[test]

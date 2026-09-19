@@ -103,6 +103,19 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Print the project's wide view.
+    ///
+    /// CLI-only (ADR-0011): this is the *human's* view, and the one verb whose reader is
+    /// not the agent. It offers no verbosity switch, because it has no informational
+    /// findings to expand — the view itself is the answer, and it is never collapsed.
+    Timeline {
+        /// The project file.
+        project: PathBuf,
+        /// Print the canonical JSON *instead of* the text view, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Serve the MCP tools over stdio.
     ///
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
@@ -217,9 +230,7 @@ where
             verbose,
         } => {
             let form = Wire::from_flags(json, verbose);
-            let probed = std::panic::catch_unwind(|| montaget_core::verbs::probe::probe(&sources));
-
-            match probed {
+            match run_verb(|| montaget_core::verbs::probe::probe(&sources)) {
                 Ok(Ok(answer)) => {
                     // The same two lines as `validate`: one core call, one `wire::render`,
                     // one exit code. The adapter decides nothing about the wire format.
@@ -234,8 +245,25 @@ where
                     eprint!("{}", montaget_core::wire::render(&report, PLAIN));
                     exit_code(&report)
                 }
-                Err(payload) => {
-                    let report = panic_report(payload);
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Timeline { project, json } => {
+            // `--verbose` is deliberately absent, so `false` here is the only form there is
+            // rather than a flag the adapter decided for the caller.
+            let form = Wire::from_flags(json, false);
+            match run_verb(|| montaget_core::verbs::timeline::timeline(&project)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_timeline(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
                     eprint!("{}", montaget_core::wire::render(&report, PLAIN));
                     exit_code(&report)
                 }
@@ -259,9 +287,13 @@ where
 /// programmer errors — a check emitting an unregistered code, an arithmetic overflow —
 /// abort with a Rust backtrace and no finding, and the one exit code reserved for
 /// "Montaget broke" would never be produced by Montaget breaking.
-fn run_verb(verb: impl FnOnce() -> Report + std::panic::UnwindSafe) -> Result<Report, Box<Report>> {
-    // Boxed on the error side alone: both arms carry a report and only the stream they
-    // print to differs, and a `Report` is wide enough that carrying two inline widens every
+/// Generic in what the verb answers with, because the guarantee is about the *panic* and
+/// not about the answer: `validate` hands back a `Report`, `probe` and `timeline` hand back
+/// their own answer carrying one, and all three need the same exit code when the verb dies
+/// mid-run.
+fn run_verb<T>(verb: impl FnOnce() -> T + std::panic::UnwindSafe) -> Result<T, Box<Report>> {
+    // Boxed on the error side alone: every caller prints a report either way and only the
+    // stream differs, and a `Report` is wide enough that carrying one inline widens every
     // call on the happy path.
     std::panic::catch_unwind(verb).map_err(|payload| Box::new(panic_report(payload)))
 }
