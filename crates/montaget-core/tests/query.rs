@@ -740,6 +740,101 @@ fn a_predicate_matching_nothing_is_an_empty_answer_and_not_a_failure() {
     assert_eq!(json["exit_code"], 0);
 }
 
+#[test]
+fn there_is_no_or_and_the_refusal_says_what_to_do_instead() {
+    // ADR-0070 ratifies the absence rather than the implementation happening to lack it, so
+    // the refusal teaches the rule: an agent that types `or` learns in one turn that two
+    // calls answer it, rather than reading `is left over` and guessing at the spelling.
+    let answer = query::query(
+        &fixture(),
+        &Ask {
+            predicate: Some("type = text or type = image".into()),
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    let reason = answer.report().findings[0].fields["reason"]
+        .as_str()
+        .expect("a reason")
+        .to_string();
+    assert!(reason.contains("no `or`"), "{reason}");
+    assert!(reason.contains("two calls"), "{reason}");
+    // A bare word that merely begins with `or` is a value, not the keyword.
+    assert_eq!(
+        query::query(
+            &fixture(),
+            &Ask {
+                predicate: Some("id = orange".into()),
+                ..Ask::default()
+            },
+        )
+        .report()
+        .exit_code(),
+        ExitCode::Ok
+    );
+}
+
+#[test]
+fn an_index_segment_reaches_one_member_of_an_array_and_a_comparison_never_matches_a_substring() {
+    let dir = common::tempdir(line!());
+    let path = common::write_project(
+        &dir,
+        "indexed.montaget.json",
+        &common::canonical(
+            &json!({
+                "frame": {"width": 1080, "height": 1920},
+                "fps": 25,
+                "fonts": {"brand": "fonts/A.otf", "brand-old": "fonts/B.otf"},
+                "tracks": [{"name": "caption", "layer": 0, "elements": [
+                    {"id": "mixed", "type": "text", "start": 0, "end": 100,
+                     "x": 0, "y": 0, "origin": "center", "width": 10, "height": 10,
+                     "font": "brand", "size": 55, "line_height": 1.1, "color": "#FFF8E8",
+                     "align": "center",
+                     "runs": [{"text": "new "}, {"text": "old", "font": "brand-old"}]},
+                    {"id": "plain", "type": "text", "start": 100, "end": 200,
+                     "x": 0, "y": 0, "origin": "center", "width": 10, "height": 10,
+                     "font": "brand", "size": 55, "line_height": 1.1, "color": "#FFF8E8",
+                     "align": "center", "runs": [{"text": "new"}]}
+                ]}]
+            })
+            .to_string(),
+        ),
+    );
+
+    // An all-digit segment indexes the array. It is there because a digit segment has to
+    // mean *something*, and a path that silently matches nothing is the worse answer: read
+    // as a key, `runs.1.font` would reach nothing on every array the format has.
+    assert_eq!(
+        ids(
+            &matching(&path, "runs.1.font = brand-old", None)["query"],
+            "matched"
+        ),
+        ["mixed"]
+    );
+    // The second run is the only one that states a font, so the first run states none.
+    assert_eq!(
+        ids(
+            &matching(&path, "runs.0.font missing", None)["query"],
+            "matched"
+        ),
+        ["mixed", "plain"]
+    );
+
+    // Whole values, never substrings: `brand` is not `brand-old`, which is what keeps a
+    // census beneath a predicate readable — every group is a value some element states.
+    assert_eq!(
+        ids(&matching(&path, "font = brand", None)["query"], "matched"),
+        ["mixed", "plain"]
+    );
+    assert!(
+        ids(
+            &matching(&path, "runs.*.font = brand", None)["query"],
+            "matched"
+        )
+        .is_empty()
+    );
+}
+
 // ---- Neither mode resolves anything ---------------------------------------------------
 
 #[test]

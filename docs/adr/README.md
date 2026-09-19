@@ -2,9 +2,9 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**Most of this series amends itself — 51 of 69 ADRs carry an `amends:` header.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+**Most of this series amends itself — 55 of 70 ADRs carry an `amends:` header.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
-**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (15 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
+**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (16 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
 
 ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
@@ -106,7 +106,8 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060 |
+| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070 |
+| [0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) | `query --where`'s predicate is **a conjunction of whole-value terms over what the document writes**: `and` only, no substring or regex, `exists`/`missing`, `*` and array indices, `track` reserved, nothing resolved. *"Resolved values, never echoed fields"* is `--at`'s rule | — |
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 
 ## `validate`

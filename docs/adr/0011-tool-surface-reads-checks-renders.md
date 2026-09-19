@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by fifteen later ADRs.** Read them before relying on anything below.
+> **Amended by sixteen later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -36,6 +36,9 @@ status: accepted
 >   confirms the tool surface is unchanged
 > - [ADR-0060](0060-layer-tie-is-an-error-array-order-stays-meaningless.md) — records the
 >   fallback-order question this ADR closes as no longer open
+> - [ADR-0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) —
+>   specifies the `--where` predicate grammar left undefined here, and bounds *"returns
+>   resolved values, never echoed fields"* to `--at`
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

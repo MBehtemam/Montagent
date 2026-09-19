@@ -1,10 +1,11 @@
 //! `--where`'s predicate: the smallest language that expresses the question the ADR asks.
 //!
 //! ADR-0011 specifies `query --where <predicate> [--census <field>]` and does not say what
-//! a predicate looks like. The shape here is chosen against its own worked example —
-//! *"four of five siblings agree and one does not"* — and against ADR-0011's cost argument
-//! for the whole verb: a predicate an agent has to look up is a predicate it will write a
-//! `jq` filter instead of.
+//! a predicate looks like. **ADR-0070 does**, and this file implements it: the grammar is
+//! spec, so a change here amends that ADR. It was chosen against ADR-0011's own worked
+//! example — *"four of five siblings agree and one does not"* — and against its cost
+//! argument for the whole verb: a predicate an agent has to look up is a predicate it will
+//! write a `jq` filter instead of.
 //!
 //! ```text
 //! predicate := term (`and` term)*
@@ -14,9 +15,9 @@
 //! segment   := a key, an array index, or `*` for every member of an array
 //! ```
 //!
-//! Three deliberate absences:
+//! Three deliberate absences (ADR-0070 ratifies each, with the cost of each stated):
 //!
-//! - **No `or`.** Two queries answer it, and a disjunction is the first step towards an
+//! - **No `or`.** Two calls answer it, and a disjunction is the first step towards an
 //!   expression language whose grammar has to be published as a resource. `and` is kept
 //!   because the ADR's own example — *siblings*, a set narrowed twice — needs it.
 //! - **No resolution of any kind.** A path names what the document *writes*, so
@@ -31,14 +32,15 @@
 //!   census groups by, and a half-matching predicate would make the distribution beneath
 //!   it unreadable.
 //!
-//! ## This grammar is not ratified
+//! ## Where the argument is had
 //!
 //! Every decision above is a real format-surface decision rather than implementation
 //! detail — it is what an agent has to learn, and it is as good as permanent once an
-//! agent's prompts contain it. ADR-0011 does not own any of it, so it is raised as
-//! [#249](https://github.com/MBehtemam/Montaget/issues/249) rather than left to be
-//! discovered from this file, in the same spirit as #241. A reader who disagrees with the
-//! shape knows where the argument is being had.
+//! agent's prompts contain it. ADR-0011 owned none of it, which
+//! [#249](https://github.com/MBehtemam/Montaget/issues/249) raised in the same spirit as
+//! #241; [ADR-0070](../../../../../docs/adr/0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md)
+//! settled it. A reader who disagrees with the shape argues with that ADR, not with this
+//! file.
 //!
 //! ## The one reserved name
 //!
@@ -47,7 +49,9 @@
 //! the most ordinary question there is. The reservation is unconditional rather than a
 //! fallback for elements that write no `track` key, because a rule with an exception is a
 //! rule an agent has to test: ADR-0017's closed schema gives no element type a `track`
-//! field, so there is nothing for the reservation to shadow.
+//! field, so there is nothing for the reservation to shadow — checked, not assumed, by
+//! `docs/adr/predicate_reserved_names_scan.py`, which also holds the schema to the
+//! no-all-digit-key premise the index segment above rests on.
 
 use serde_json::Value;
 
@@ -426,9 +430,19 @@ impl<'a> Scanner<'a> {
         if self.rest().is_empty() {
             return Ok(());
         }
+        let left_over = self.rest().trim_end().to_string();
+        // `or` is absent by decision (ADR-0070) rather than by oversight, so the refusal
+        // names the decision and the move that answers it. Reported as leftover text, the
+        // caller's next guess is a spelling — `||`, `OR` — and the turn is spent on syntax
+        // rather than on learning that the language has no disjunction at all.
+        if self.keyword("or")? {
+            return Err(format!(
+                "`{left_over}` is left over: there is no `or` — two calls answer a \
+                 disjunction, one per term, and the union of their matched sets is the answer"
+            ));
+        }
         Err(format!(
-            "`{}` is left over; terms are joined with `and`",
-            self.rest().trim_end()
+            "`{left_over}` is left over; terms are joined with `and`"
         ))
     }
 }

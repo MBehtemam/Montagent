@@ -336,15 +336,17 @@ _Avoid_: edit list, shot list, segments, keyframes (spoken for), sampling
 The expression `query --where` matches elements against: terms of the form
 `<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with `and`.
 A field is a dotted path into the element, with `*` for every member of an
-array, plus the reserved `track` — the name of the track the element sits in,
-which the element itself does not carry. It matches **what the document
-writes**: nothing is interpolated and no anchor is resolved, so an animated `x`
-is reached by `x exists` and never by the value it passes through. There is no
-`or` and no substring matching. **The grammar itself is not ratified** — ADR-0011
-specifies `--where` and says nothing about what a predicate looks like, so the
-shape above is the source tree's and is held open at
-[#249](https://github.com/MBehtemam/Montaget/issues/249).
-([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md) for the mode
+array and an all-digit segment for one, plus the reserved `track` — the name of
+the track the element sits in, which the element itself does not carry. It
+matches **what the document writes**: nothing is interpolated and no anchor is
+resolved, so an animated `x` is reached by `x exists` and never by the value it
+passes through — *"resolved values, never echoed fields"* is `--at`'s rule, and
+`--where` has no instant to resolve at. Values match whole: there is no `or` and
+no substring matching, and a term holds if **any** value at the path satisfies
+it.
+([ADR-0070](docs/adr/0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md)
+for the grammar,
+[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md) for the mode
 itself)
 _Avoid_: filter, selector, query (the verb's name), expression
 
