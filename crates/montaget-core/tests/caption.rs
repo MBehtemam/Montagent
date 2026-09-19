@@ -741,7 +741,8 @@ fn the_fixture_s_one_caption_that_outruns_the_pace_floor_is_the_loop_out() {
     // count *including* the `\n`, which the ADR's own metric paragraph excludes two
     // paragraphs earlier ("spaces included, `\n` excluded"). Counted the way the metric
     // states, it is 45 characters in 2260 ms — 19.9 cps, under the line. The normative
-    // sentence wins over the illustrative table (#259).
+    // sentence wins over the illustrative table — corrected in ADR-0071, whose
+    // `caption_check_scan.py` re-derives both counts off this fixture.
     let quiz = report
         .findings
         .iter()

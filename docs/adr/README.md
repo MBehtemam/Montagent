@@ -83,7 +83,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0007](0007-text-runs-literal-size-declared-fonts.md) | Text is **styled runs at a literal size**, always an array, in fonts the project declares by path. No fit-to-box, no auto-wrap, no `weight`/`bold`, no variable axes. NFC, raw UTF-8 | 0012, 0014, 0028, 0029, 0040, 0048, 0057 |
+| [0007](0007-text-runs-literal-size-declared-fonts.md) | Text is **styled runs at a literal size**, always an array, in fonts the project declares by path. No fit-to-box, no auto-wrap, no `weight`/`bold`, no variable axes. NFC, raw UTF-8 | 0012, 0014, 0028, 0029, 0030, 0040, 0048, 0057 |
 | [0008](0008-line-breaks-belong-to-the-agent.md) | The renderer never needs a break opportunity; the agent always does. `\n` is the only mechanism, `measure` gains a break-opportunity output, and **Montaget owns the line partition** via UAX #14 | — |
 | [0028](0028-text-block-arithmetic-is-exact-tenths.md) | `line_height` is restricted to tenths; block height is `ceil`, in exact integer arithmetic, never IEEE double. States the general rule for any such field | — |
 | [0029](0029-line-baseline-half-leading.md) | The baseline is half-leading — `slot_centre_y + (ascent − descent) / 2` — read across **every** run on the line, not the largest | — |
@@ -106,7 +106,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070 |
+| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0031, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070 |
 | [0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) | `query --where`'s predicate is **a conjunction of whole-value terms over what the document writes**: `and` only, no substring or regex, `exists`/`missing`, `*` and array indices, `track` reserved, nothing resolved. *"Resolved values, never echoed fields"* is `--at`'s rule | — |
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 
@@ -115,14 +115,15 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061, 0069 |
-| [0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md) | **Threshold provenance decides admission, not severity.** A check is fact-only if every number deciding whether it fires is derivable from the document. `R-CAPTION-PACE` is kept via a fenced exception with binding citation | — |
+| [0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md) | **Threshold provenance decides admission, not severity.** A check is fact-only if every number deciding whether it fires is derivable from the document. `R-CAPTION-PACE` is kept via a fenced exception with binding citation | 0071 |
 | [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md) | Error-class findings whose repair needs intent the document lacks are **refuse-class**: a `repair` field, decided once per check, uniform across instances, non-bypassable | 0068 |
 | [0018](0018-cross-track-coverage-is-group-scoped-not-a-union.md) | Cross-track coverage is **group-scoped pairing**, not a frame-wide union — the union rule fires on zero of the fixture's 11 real gaps under all 2¹³ bases | — |
 | [0019](0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md) | An anchor names an element `id` (now a required unique field) and resolves in **one hop**. `error` for missing/self-anchored, `review` for a target that never overlaps in time | — |
 | [0060](0060-layer-tie-is-an-error-array-order-stays-meaningless.md) | A geometry-overlapping layer tie is an **error**, never a fallback order. Array order stays permanently meaningless | — |
 | [0033](0033-same-source-cut-continuity-is-a-review-check.md) | `R-SOURCE-CUT-POP` at `review`, keyed on same track + canonicalized source + adjacency — **never `group`** | 0062 |
-| [0034](0034-caption-pace-and-repeat-duration-checks.md) | `R-CAPTION-PACE` (cps over grapheme clusters) and `R-CAPTION-REPEAT-DURATION` (symmetric, not "shorter on repeat"), both `review` | 0054 |
+| [0034](0034-caption-pace-and-repeat-duration-checks.md) | `R-CAPTION-PACE` (cps over grapheme clusters) and `R-CAPTION-REPEAT-DURATION` (symmetric, not "shorter on repeat"), both `review` | 0054, 0061, 0071 |
 | [0054](0054-caption-audio-backing-and-minimum-duration-checks.md) | `R-CAPTION-NO-AUDIO` and `R-CAPTION-MIN-DURATION` (834 ms, a script-agnostic floor), both `review` | — |
+| [0071](0071-caption-check-evidence-corrected-and-the-fenced-category-has-two-members.md) | **Corrects what the caption ADRs say their own checks fire on**: the pace floor fires once on the fixture and not twice (the evidence table counts the `\n` the metric excludes), the repeat check finds three disagreements and not one, and the fenced category has two members — counted in `crate::registry`, never in prose | — |
 | [0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md) | `R-OFF-CANVAS` at `review`: a **standing** check, not history-triggered — fires when an element's rect never intersects the frame at any instant of its active range | — |
 | [0052](0052-review-check-for-inert-ease-on-held-keyframes.md) | `R-EASE-INERT` at `review`, on literal exact equality of author-written `v`, one finding per run of consecutive holds | — |
 | [0058](0058-text-box-slack-is-a-note-with-sibling-census.md) | `R-BOX-SLACK` at `note`, height-only, `slack > max(2px, 10%)`, carrying a sibling census | — |

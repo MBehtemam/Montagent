@@ -48,9 +48,16 @@ def declared_amendments(text):
 
     yaml = re.match(r"^---\n(.*?)\n---", text, re.S)
     if yaml:
-        line = re.search(r"^amends:\s*(.*)$", yaml.group(1), re.M)
-        if line:
-            targets |= set(re.findall(r"\b(\d{4})\b", line.group(1)))
+        # The whole value, not its first line. A YAML block scalar continues onto every
+        # following indented line, and the headers that run to several lines are the ones
+        # on the ADRs that amend the most — ADR-0061 declares 0006 and 0034, and reading
+        # one line saw only 0006, so its amendment of ADR-0034 was invisible to the check
+        # that exists to make amendments discoverable (ADR-0071).
+        block = re.search(
+            r"^amends:[ \t]*(.*(?:\n[ \t]+.*)*)$", yaml.group(1), re.M
+        )
+        if block:
+            targets |= set(re.findall(r"\b(\d{4})\b", block.group(1)))
 
     # Prose form, e.g. `**Amends:** [ADR-0011](./0011-...md) (gloss),`
     for line in re.findall(r"^\*\*Amends:\*\*\s*(.*)$", text, re.M):

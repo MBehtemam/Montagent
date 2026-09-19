@@ -541,8 +541,8 @@ timeline range {start}..{end} is {timeline_span} ms.",
         classes: &[Review],
         repair: None,
         // The first member of ADR-0061's fenced exception, and until #199 its only one —
-        // `R-CAPTION-MIN-DURATION` below is the second, which ADR-0061's prose still says
-        // does not exist (#260).
+        // `R-CAPTION-MIN-DURATION` below is the second. ADR-0071 retires the count in
+        // ADR-0061's prose and makes this table the live answer instead.
         threshold: External {
             source: "Netflix and BBC timed-text guidance",
             adr: "ADR-0034",
@@ -595,8 +595,8 @@ frame at {fps} fps — {detail}.",
         status: Live,
     },
     CheckSpec {
-        // The second member of ADR-0061's fenced category, where that ADR's own prose says
-        // there is one (#260). Not a contradiction of it but the rule it wrote: ADR-0054 puts this floor "in the same register as
+        // The second member of ADR-0061's fenced category, which ADR-0071 records as this
+        // table's to answer rather than that ADR's prose. Not a contradiction of it but the rule it wrote: ADR-0054 puts this floor "in the same register as
         // `R-CAPTION-PACE`'s 20 cps — an externally documented constant about human reading
         // capacity, not a property of the render", and ADR-0061's citation requirement is
         // "binding policy for future checks of this shape, not best-effort". Strip 834 and

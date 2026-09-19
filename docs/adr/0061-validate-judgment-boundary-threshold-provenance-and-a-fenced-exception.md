@@ -10,6 +10,13 @@ amends: 0006 (states explicitly, as a named test plus a fenced exception, the
 
 # `validate`'s fact/judgment boundary: threshold provenance decides admission, not severity; a fenced exception for a cited external number
 
+> **Amended by [ADR-0071](0071-caption-check-evidence-corrected-and-the-fenced-category-has-two-members.md).**
+> **The fenced category has two members, not one.** `R-CAPTION-MIN-DURATION`'s 834 ms
+> (ADR-0054) fails the same fact-only test and is admitted on the same three conditions —
+> which is this ADR's rule working, not being bent. What is retired is counting the
+> members in prose: `crate::registry`'s `ThresholdProvenance` is the live answer, and the
+> test below already holds every `External` check to the fence rather than a named one.
+
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) says `validate`
 answers one question — is this file internally legal, and does it agree with the
 media on disk — and never *"does this file say what you meant it to say."* Two
