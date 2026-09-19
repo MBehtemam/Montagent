@@ -128,10 +128,15 @@ fn the_fixture_s_notes_are_its_own_gaps_and_they_collapse_to_one_line() {
         report
             .findings
             .iter()
-            .filter(|f| !f.code.starts_with("R-CAPTION-") && f.code != "R-VISUAL-GAP")
+            .filter(|f| {
+                !f.code.starts_with("R-CAPTION-")
+                    && f.code != "R-VISUAL-GAP"
+                    && f.code != "R-BOX-SLACK"
+            })
             .count(),
-        "nothing but the gaps, the group-paired silences (asserted separately, below) and \
-         the ten caption findings two ADRs asked for: {:?}",
+        "nothing but the gaps, the group-paired silences and the seven `R-BOX-SLACK` \
+         findings (asserted separately, below) and the ten caption findings two ADRs asked \
+         for: {:?}",
         report.findings
     );
     assert_eq!(gaps.len(), 27, "27 gaps across three tracks");
@@ -196,6 +201,57 @@ fn the_fixture_s_group_pairs_hold_their_photos_through_every_narration_breath() 
     assert!(
         gaps.iter().all(|f| f.fields["group"] != "header"),
         "the header group carries no audio member and is not evaluated: {gaps:#?}"
+    );
+}
+
+#[test]
+fn the_fixture_s_box_slack_is_the_seven_elements_adr_0058_enumerates() {
+    // ADR-0058's own re-derivation, exactly: 7 of 22 text elements declare a `height`
+    // that copies a card/chip/panel's rather than their own computed block height, and
+    // the remaining 15 read exactly zero slack and never fire.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let report = validate(&fixture());
+
+    let mut findings: Vec<(&str, i64, i64, i64, i64)> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-BOX-SLACK")
+        .map(|f| {
+            (
+                f.location.element.as_deref().unwrap(),
+                f.fields["declared_height"].as_i64().unwrap(),
+                f.fields["computed_height"].as_i64().unwrap(),
+                f.fields["slack"].as_i64().unwrap(),
+                f.fields["slack_percent"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    findings.sort();
+
+    assert_eq!(
+        findings,
+        [
+            ("chip-text", 84, 58, 26, 45),
+            ("handle-text", 84, 38, 46, 121),
+            ("sentence-05", 169, 61, 108, 177),
+            ("sentence-06", 169, 126, 43, 34),
+            ("sentence-07", 169, 126, 43, 34),
+            ("sentence-08", 169, 61, 108, 177),
+            ("sentence-quiz", 169, 61, 108, 177),
+        ],
+        "{:#?}",
+        report.findings
+    );
+    assert!(
+        report
+            .findings
+            .iter()
+            .filter(|f| f.code == "R-BOX-SLACK")
+            .all(|f| f.class == montaget_core::finding::Class::Note && f.census.is_some()),
+        "note-class, every one carrying a sibling census on `height`: {:?}",
+        report.findings
     );
 }
 

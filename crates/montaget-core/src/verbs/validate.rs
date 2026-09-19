@@ -134,6 +134,11 @@ fn run_checks(
     // of the one that looks like it needs the disk — which is why this call takes no
     // session and can sit anywhere in this list.
     crate::checks::caption::check(document, report);
+    // `R-BOX-SLACK` (#201, ADR-0058): a declared text-box `height` that overshoots the
+    // computed block height beyond `max(2px, 10%)`. Height-only arithmetic on fields the
+    // document already carries — no font, no I/O — so this too can sit anywhere in the
+    // list.
+    crate::checks::box_slack::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);

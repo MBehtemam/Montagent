@@ -1,4 +1,5 @@
-//! Exact arithmetic: the two places the format divides, and neither of them in `f64`.
+//! Exact arithmetic: the places the format puts a boundary-sensitive operation in front
+//! of a value that must not reach it through `f64`.
 //!
 //! Two ADRs put a division in front of a rounding boundary, and both say the same thing
 //! about how it is evaluated:
@@ -16,6 +17,12 @@
 //! One module for both, because they are one obligation: a rounding boundary reached
 //! through a division, evaluated on integers. Nothing here returns a float, and nothing
 //! here takes one.
+//!
+//! A third, [`Decimal::tenths`] and [`text_block_height`], is the same obligation reached
+//! through a *multiplication* instead: **ADR-0028**'s text-block height,
+//! `ceil(size × line_height × line_count)`, evaluated as exact integer arithmetic on
+//! `line_height`'s tenths rather than on the `f64` product the ADR measured diverging
+//! from the exact value on 6.35% of sampled cases.
 //!
 //! # How the literal reaches this module
 //!
@@ -139,6 +146,41 @@ impl Decimal {
     fn as_ratio(self) -> Option<(i128, i128)> {
         Some((self.units, pow10(self.scale)?))
     }
+
+    /// **ADR-0028's `line_height`**: this decimal as `n` where the value is exactly
+    /// `n/10` — recovered from the literal's own digits, never from `f64 × 10`, which
+    /// ADR-0028 measured diverging from the exact value on 6.35% of sampled
+    /// `(size, line_count)` pairs at `line_height = 1.1`.
+    ///
+    /// `None` if the value is not an exact multiple of `0.1` — ADR-0028 makes that a
+    /// schema-time error belonging to another check, not a value for this function to
+    /// round toward.
+    pub fn tenths(self) -> Option<i64> {
+        if self.scale <= 1 {
+            i64::try_from(self.units.checked_mul(pow10(1 - self.scale)?)?).ok()
+        } else {
+            let divisor = pow10(self.scale - 1)?;
+            (self.units % divisor == 0)
+                .then(|| i64::try_from(self.units / divisor).ok())
+                .flatten()
+        }
+    }
+}
+
+/// **ADR-0028's text-block height**: `ceil(size × line_height × line_count)`, evaluated
+/// as exact integer arithmetic on `line_height`'s tenths —
+/// `(size × line_height_tenths × line_count + 9) // 10` — never `f64`.
+///
+/// `None` where any input is not positive, or where the arithmetic would not fit; both
+/// are schema facts belonging to another check, not a height for this function to guess.
+pub fn text_block_height(size: i64, line_height_tenths: i64, line_count: i64) -> Option<i64> {
+    if size <= 0 || line_height_tenths <= 0 || line_count <= 0 {
+        return None;
+    }
+    let numerator = i128::from(size)
+        .checked_mul(i128::from(line_height_tenths))?
+        .checked_mul(i128::from(line_count))?;
+    i64::try_from(ceil_div(numerator, 10)).ok()
 }
 
 impl std::fmt::Display for Decimal {
@@ -391,5 +433,39 @@ mod tests {
         assert_eq!(holds_a_sampled_frame(40, 40, 25), None);
         assert_eq!(holds_a_sampled_frame(80, 40, 25), None);
         assert_eq!(holds_a_sampled_frame(0, 40, 0), None);
+    }
+
+    #[test]
+    fn line_height_recovers_its_tenths_from_the_literal_not_from_f64_times_ten() {
+        assert_eq!(Decimal::parse("1.1").unwrap().tenths(), Some(11));
+        assert_eq!(Decimal::parse("1.2").unwrap().tenths(), Some(12));
+        assert_eq!(Decimal::parse("1").unwrap().tenths(), Some(10));
+        // A trailing zero is still an exact tenth: `1.10` is `1.1`.
+        assert_eq!(Decimal::parse("1.10").unwrap().tenths(), Some(11));
+        // Not a multiple of `0.1` — a schema-time error belonging to another check.
+        assert_eq!(Decimal::parse("1.15").unwrap().tenths(), None);
+    }
+
+    #[test]
+    fn adr_0028_s_own_measured_divergence_a_ceil_boundary_f64_lands_on_the_wrong_side_of() {
+        // `size = 25`, `line_height = 1.1`, two lines: the exact product is `550/10 =
+        // 55.0`, an integer, so the true `ceil` is `55`. The naive "parse `line_height`
+        // as `f64`, multiply, `ceil`" route computes `25.0 * 1.1 * 2.0 ==
+        // 55.00000000000001` and ceils it to `56` — one pixel short of what the document
+        // actually states, exactly the ULP hazard ADR-0028 measured on 6.35% of sampled
+        // `(size, line_count)` pairs.
+        let naive = (25.0f64 * 1.1f64 * 2.0f64).ceil() as i64;
+        assert_eq!(naive, 56, "the f64 route is still wrong; that is the point");
+        assert_eq!(
+            text_block_height(25, Decimal::parse("1.1").unwrap().tenths().unwrap(), 2),
+            Some(55)
+        );
+    }
+
+    #[test]
+    fn a_non_positive_input_has_no_block_height_here() {
+        assert_eq!(text_block_height(0, 11, 1), None);
+        assert_eq!(text_block_height(55, 0, 1), None);
+        assert_eq!(text_block_height(55, 11, 0), None);
     }
 }
