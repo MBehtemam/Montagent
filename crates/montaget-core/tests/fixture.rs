@@ -21,7 +21,7 @@ fn fixture() -> PathBuf {
 }
 
 #[test]
-fn the_fixture_parses_and_reports_clean() {
+fn the_fixture_parses_and_reports_nothing_to_act_on() {
     // Since #203 this exercises the disk half too, so it needs the `ffmpeg` ADR-0009 has
     // the user supply. Asked directly rather than inferred from the exit code afterwards,
     // which would also swallow every other internal failure.
@@ -30,12 +30,79 @@ fn the_fixture_parses_and_reports_clean() {
     }
     let report = validate(&fixture());
 
-    assert!(
-        report.findings.is_empty(),
-        "the fixture is a published video; a finding on it is a defect in the check: {:?}",
+    let summary = report.summary();
+    assert_eq!(
+        (
+            summary.error,
+            summary.review,
+            summary.unchecked,
+            summary.layout
+        ),
+        (0, 0, 0, 0),
+        "the fixture is a published video; anything to act on is a defect in the check: {:?}",
         report.findings
     );
     assert_eq!(report.exit_code(), ExitCode::Ok);
+}
+
+#[test]
+fn the_only_thing_the_fixture_has_to_say_is_its_own_gaps() {
+    // The one check that fires on the fixture, and an ADR says it should: ADR-0004
+    // requires the validator to distinguish an overlap from a gap rather than pass a gap
+    // in silence, and `CONTEXT.md` calls a gap legal and ordinary — "the silence between
+    // two narration lines is a gap". Nineteen of these are in `narration` and are exactly
+    // that.
+    //
+    // **27, against ADR-0006's and #200's "eleven".** Not a disagreement: that eleven is
+    // the count of *visual* gaps, which is the question `R-VISUAL-GAP` asks (ADR-0018,
+    // #200) — this check counts every track's, `narration` included, and the fixture's
+    // audio track is where most of them are.
+    //
+    // They are `note`, so ADR-0006's noise budget collapses them to one counted line: the
+    // clean case is still one line, and an edit that punched black frames into a track
+    // moves the count.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let report = validate(&fixture());
+
+    let gaps: Vec<&montaget_core::finding::Finding> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "N-TRACK-GAP")
+        .collect();
+    assert_eq!(
+        gaps.len(),
+        report.findings.len(),
+        "nothing else fires: {:?}",
+        report.findings
+    );
+    assert_eq!(gaps.len(), 27, "27 gaps across three tracks");
+
+    // The shortest is the 450 ms between the intro and the hook, and the longest the
+    // 7260 ms `sentence-card` holds between item-08 and the quiz. Both are silence a
+    // reader can hear in the published video.
+    let sizes: Vec<i64> = gaps
+        .iter()
+        .map(|f| f.fields["size"].as_i64().unwrap())
+        .collect();
+    assert_eq!(sizes.iter().min(), Some(&450));
+    assert_eq!(sizes.iter().max(), Some(&7260));
+    assert!(
+        gaps.iter()
+            .all(|f| f.class == montaget_core::finding::Class::Note),
+        "a gap is never an error, and the review belongs to the check that can see the \
+         whole frame (ADR-0018, #200)"
+    );
+
+    let rendered =
+        montaget_core::text::render(&report.to_json(), montaget_core::text::Options::default())
+            .unwrap();
+    assert_eq!(
+        rendered.matches("N-TRACK-GAP").count(),
+        1,
+        "one counted line, not 27:\n{rendered}"
+    );
 }
 
 #[test]

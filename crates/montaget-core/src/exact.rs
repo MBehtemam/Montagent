@@ -1,0 +1,395 @@
+//! Exact arithmetic: the two places the format divides, and neither of them in `f64`.
+//!
+//! Two ADRs put a division in front of a rounding boundary, and both say the same thing
+//! about how it is evaluated:
+//!
+//! - **ADR-0045**: `speed`'s invariant, `end - start == round(source_span / speed)`, is
+//!   evaluated *"as exact rational/decimal arithmetic ... never from a `float`/`f64`
+//!   intermediate"*. Its measured case is `7 / 0.560`, which is exactly `12.5` in decimal
+//!   and so rounds half-up to `13` — where `f64` computes `12.499999999999998` and gives
+//!   `12`.
+//! - **ADR-0035**: the frame grid is `1000/fps` ms, *"not necessarily integral"*, and the
+//!   sampled-instant formula is to be evaluated *"in exact rational arithmetic (integer
+//!   numerator/denominator, never float)"* — at `fps = 30` the step is `100/3` ms and only
+//!   multiples of 100 ms are frame-exact.
+//!
+//! One module for both, because they are one obligation: a rounding boundary reached
+//! through a division, evaluated on integers. Nothing here returns a float, and nothing
+//! here takes one.
+//!
+//! # How the literal reaches this module
+//!
+//! ADR-0045 asks that *"the exact literal must reach the arithmetic as a string or an
+//! exact type before any division happens"*, and names a parser that eagerly widens to
+//! `f64` as insufficient **on its own**. [`Decimal::parse`] is the string door, and
+//! [`Decimal::of`] is the door a `serde_json::Number` comes through.
+//!
+//! `serde_json`'s `arbitrary_precision` — the feature that would carry the literal's own
+//! digits all the way here — is **not** enabled, and cannot be: it is documented as
+//! incompatible with `#[serde(untagged)]`, which [`crate::model::keyframe`] uses for the
+//! two record shapes the format publishes, so turning it on would break the strict parse
+//! of every keyframe in the fixture. What reaches [`Decimal::of`] instead is the `Number`'s
+//! own `Display`, which is the shortest decimal that round-trips the value — for every
+//! finite decimal an author can write, that is the literal itself. The residual gap is a
+//! literal carrying more significant digits than an `f64` can distinguish (`0.6450000000000000001`),
+//! which no author writes and which the parser has already lost before any Montaget code
+//! runs; it is raised as [#256](https://github.com/MBehtemam/Montaget/issues/256) rather
+//! than left to be discovered here.
+//!
+//! What this module does **not** do is the thing ADR-0045 was written about: it never
+//! divides in `f64`. The literal's digits become an exact rational and the division is
+//! integer arithmetic from there.
+
+/// A finite decimal, held exactly: `units × 10⁻ˢᶜᵃˡᵉ`.
+///
+/// `0.645` is `Decimal { units: 645, scale: 3 }` — the exact rational `645/1000` ADR-0045
+/// says it already is, with no `f64` anywhere in its construction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Decimal {
+    units: i128,
+    scale: u32,
+}
+
+/// The widest decimal this module will hold, in **significant** digits — leading zeros do
+/// not count against it.
+///
+/// Well past `f64`'s 17 and past anything the format's numbers reach: a `speed` of
+/// `0.645` against a source span in milliseconds leaves the product `span × 10^scale`
+/// many orders below `i128`'s range. A literal beyond it is refused rather than
+/// silently truncated, because a truncated literal is exactly the wrong answer this
+/// module exists to avoid.
+const MAX_DIGITS: usize = 30;
+
+impl Decimal {
+    /// The decimal a string of digits spells, or `None` if it does not spell one.
+    ///
+    /// Accepts what JSON's number grammar produces, including the exponent form `ryu`
+    /// reaches for on very small magnitudes.
+    pub fn parse(literal: &str) -> Option<Decimal> {
+        let literal = literal.trim();
+        let (negative, rest) = match literal.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, literal.strip_prefix('+').unwrap_or(literal)),
+        };
+
+        let (mantissa, exponent) = match rest.split_once(['e', 'E']) {
+            Some((mantissa, exponent)) => (mantissa, exponent.parse::<i32>().ok()?),
+            None => (rest, 0),
+        };
+        let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        if whole.is_empty() && fraction.is_empty() {
+            return None;
+        }
+        if !whole
+            .bytes()
+            .chain(fraction.bytes())
+            .all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+
+        let digits = format!("{whole}{fraction}");
+        // Leading zeros are not significant — `0.0000000001` is one digit and a scale,
+        // not eleven — so they are stripped before the width is judged. Counting them
+        // would refuse a legal literal for being written with a long run of nothing.
+        if digits.trim_start_matches('0').len() > MAX_DIGITS {
+            return None;
+        }
+        let units: i128 = digits.parse().ok()?;
+        // The exponent moves the point; a positive one takes the scale below zero, which
+        // is not a decimal place but a multiplier.
+        let scale = i32::try_from(fraction.len()).ok()? - exponent;
+        let (units, scale) = if scale < 0 {
+            (units.checked_mul(pow10(scale.unsigned_abs())?)?, 0)
+        } else {
+            (units, u32::try_from(scale).ok()?)
+        };
+        // The scale is bounded here rather than at the division. `1e-40` has one
+        // significant digit and a scale `10^scale` cannot hold, and a `Decimal` that
+        // parses but whose ratio overflows would reach the check as a rate it silently
+        // declines to evaluate — a `speed` that is neither legal nor reported.
+        pow10(scale)?;
+
+        Some(Decimal {
+            units: if negative { -units } else { units },
+            scale,
+        })
+    }
+
+    /// The decimal a JSON number holds.
+    ///
+    /// Integers travel as integers; everything else travels as the `Number`'s own
+    /// `Display`, which is the module doc's one concession and its only one.
+    pub fn of(number: &serde_json::Number) -> Option<Decimal> {
+        if let Some(units) = number.as_i64() {
+            return Some(Decimal {
+                units: units as i128,
+                scale: 0,
+            });
+        }
+        Decimal::parse(&number.to_string())
+    }
+
+    /// Is this decimal strictly greater than zero? ADR-0020's condition on `speed`.
+    pub fn is_positive(self) -> bool {
+        self.units > 0
+    }
+
+    /// `numerator / denominator`, as the exact rational this decimal is.
+    fn as_ratio(self) -> Option<(i128, i128)> {
+        Some((self.units, pow10(self.scale)?))
+    }
+}
+
+impl std::fmt::Display for Decimal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.scale == 0 {
+            return write!(f, "{}", self.units);
+        }
+        let sign = if self.units < 0 { "-" } else { "" };
+        let digits = self.units.unsigned_abs().to_string();
+        let scale = self.scale as usize;
+        let padded = format!("{:0>width$}", digits, width = scale + 1);
+        let split = padded.len() - scale;
+        write!(f, "{sign}{}.{}", &padded[..split], &padded[split..])
+    }
+}
+
+fn pow10(exponent: u32) -> Option<i128> {
+    10i128.checked_pow(exponent)
+}
+
+/// `numerator / denominator`, rounded half-up to an integer, on a positive denominator.
+///
+/// Round-half-up rather than round-half-even because ADR-0020 says so, and an exact tie
+/// under it *"is not ambiguous — it has one correct answer"* (ADR-0045).
+fn round_half_up(numerator: i128, denominator: i128) -> Option<i128> {
+    if denominator <= 0 {
+        return None;
+    }
+    // `floor((2n + d) / 2d)`: the half-up tie-break folded into one floored division, so
+    // there is no branch on the remainder to get wrong.
+    let doubled = numerator.checked_mul(2)?.checked_add(denominator)?;
+    let divisor = denominator.checked_mul(2)?;
+    Some(floor_div(doubled, divisor))
+}
+
+fn floor_div(numerator: i128, denominator: i128) -> i128 {
+    let quotient = numerator / denominator;
+    if numerator % denominator != 0 && (numerator < 0) != (denominator < 0) {
+        quotient - 1
+    } else {
+        quotient
+    }
+}
+
+/// **ADR-0020's invariant, evaluated exactly**: how long a source span of `source_span` ms
+/// plays for at `speed`.
+///
+/// `round(source_span / speed)`, round-half-up, in exact rational arithmetic —
+/// `source_span × 10ˢᶜᵃˡᵉ / units`, integers throughout. `None` where `speed` is not
+/// strictly positive (ADR-0020 makes that a schema error, which is another check's
+/// finding, not this function's guess) or where the arithmetic would not fit.
+pub fn played_ms(source_span: i64, speed: Decimal) -> Option<i64> {
+    if !speed.is_positive() {
+        return None;
+    }
+    let (units, decimal_scale) = speed.as_ratio()?;
+    let numerator = i128::from(source_span).checked_mul(decimal_scale)?;
+    i64::try_from(round_half_up(numerator, units)?).ok()
+}
+
+/// **The `speed` that would satisfy the invariant**, as a decimal an author can write.
+///
+/// ADR-0020 designates `speed` as the free variable — *"`start`/`end` and
+/// `source_start`/`source_end` are authoritative and must never move silently"* — and
+/// requires `validate` to *print* the corrective value rather than only flag the
+/// mismatch.
+///
+/// The exact quotient `source_span / timeline_span` is usually not a finite decimal, so
+/// what is stated is the shortest decimal that **is verified to satisfy the invariant**,
+/// widening a place at a time. A stated repair that does not in fact repair is worse than
+/// none, and the check that already evaluates the invariant is the one thing that can tell.
+pub fn corrective_speed(source_span: i64, timeline_span: i64) -> Option<Decimal> {
+    if source_span <= 0 || timeline_span <= 0 {
+        return None;
+    }
+    // The satisfying set is the interval `(span/(D+½), span/(D−½)]`, whose width is
+    // `span/(D²−¼)` and which contains the exact quotient strictly, so some finite decimal
+    // inside it always exists. The search is bounded rather than trusted: eighteen places
+    // covers any timeline the format's integer milliseconds can address, and the caller
+    // states the exact ratio rather than a guess if it ever does not.
+    // From zero, so an exact integer repair prints as `2` and not `2.0`.
+    (0..=18).find_map(|scale| {
+        let unit = pow10(scale)?;
+        let units = round_half_up(
+            i128::from(source_span).checked_mul(unit)?,
+            i128::from(timeline_span),
+        )?;
+        let candidate = Decimal { units, scale };
+        (played_ms(source_span, candidate)? == timeline_span).then_some(candidate)
+    })
+}
+
+/// **ADR-0035's grid**, asked the one question a check needs of it: does any sampled frame
+/// fall inside `[from, to)`?
+///
+/// Frame *N* samples at `N × 1000/fps` ms, which is not an integer in general. The test is
+/// kept on integers rather than on that instant: the first frame at or after `from` is
+/// `N = ceil(from × fps / 1000)`, and it lands inside the half-open range exactly when
+/// `N × 1000 < to × fps`.
+///
+/// A range no frame falls in is a range the render never shows — an element that does not
+/// appear, or a gap whose black frames are not there.
+///
+/// A negative `from` is clamped to zero, which the published formula does not state
+/// because the format's times are not negative: there is no frame *−1* to be the first one
+/// at or after it, and `ceil` on a negative would name one.
+pub fn holds_a_sampled_frame(from: i64, to: i64, fps: i64) -> Option<bool> {
+    if fps <= 0 || to <= from {
+        return None;
+    }
+    let first = ceil_div(i128::from(from.max(0)).checked_mul(i128::from(fps))?, 1000);
+    Some(first.checked_mul(1000)? < i128::from(to).checked_mul(i128::from(fps))?)
+}
+
+fn ceil_div(numerator: i128, denominator: i128) -> i128 {
+    -floor_div(-numerator, denominator)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_literal_becomes_the_rational_it_already_is() {
+        // ADR-0045: "`speed`'s authored literal (`0.645`) is already a finite decimal —
+        // already an exact rational (`645/1000`). No information is lost at the
+        // file-format boundary."
+        assert_eq!(
+            Decimal::parse("0.645"),
+            Some(Decimal {
+                units: 645,
+                scale: 3
+            })
+        );
+        assert_eq!(Decimal::parse("1"), Some(Decimal { units: 1, scale: 0 }));
+        assert_eq!(
+            Decimal::parse("-2.50"),
+            Some(Decimal {
+                units: -250,
+                scale: 2
+            })
+        );
+        // The exponent form `ryu` reaches for on small magnitudes.
+        assert_eq!(Decimal::parse("1e-3"), Some(Decimal { units: 1, scale: 3 }));
+        assert_eq!(
+            Decimal::parse("2e2"),
+            Some(Decimal {
+                units: 200,
+                scale: 0
+            })
+        );
+        assert_eq!(Decimal::parse("abc"), None);
+        assert_eq!(Decimal::parse(""), None);
+    }
+
+    #[test]
+    fn the_tie_f64_lands_on_the_wrong_side_of() {
+        // ADR-0045's minimal case, verbatim: "`7 / 0.560` is exactly `12.5` in decimal, so
+        // round-half-up gives `13`, but `f64` computes `12.499999999999998`, giving `12`."
+        let speed = Decimal::parse("0.560").unwrap();
+        assert_eq!(played_ms(7, speed), Some(13));
+        // And the divergence it is a guard against, spelled out: the naive evaluation.
+        let naive = (7.0f64 / 0.560f64 + 0.5).floor() as i64;
+        assert_eq!(naive, 12, "the f64 route is still wrong; that is the point");
+    }
+
+    #[test]
+    fn the_fixtures_own_speed_is_unchanged_by_exact_evaluation() {
+        // ADR-0045: "All four `speed` elements in the committed fixture ... share
+        // `speed: 0.645` ... None sits on a round-half-up tie."
+        let speed = Decimal::parse("0.645").unwrap();
+        assert_eq!(played_ms(2184, speed), Some(3386));
+        assert_eq!(played_ms(2568, speed), Some(3981));
+        assert_eq!(played_ms(1992, speed), Some(3088));
+    }
+
+    #[test]
+    fn a_speed_of_one_is_the_identity_adr_0005_stated() {
+        assert_eq!(played_ms(2568, Decimal::parse("1").unwrap()), Some(2568));
+    }
+
+    #[test]
+    fn a_speed_that_is_not_strictly_positive_has_no_answer_here() {
+        // ADR-0020 makes `0` and negatives schema errors. This function reports that it
+        // cannot answer rather than inventing one.
+        assert_eq!(played_ms(2568, Decimal::parse("0").unwrap()), None);
+        assert_eq!(played_ms(2568, Decimal::parse("-0.5").unwrap()), None);
+    }
+
+    #[test]
+    fn the_corrective_speed_is_verified_to_satisfy_the_invariant() {
+        // Every corrective value this states is fed back through the invariant it is
+        // supposed to repair, for a span that has no finite-decimal quotient at all.
+        for (source_span, timeline_span) in [(2184, 3386), (2568, 3981), (7, 13), (1000, 3000)] {
+            let corrective = corrective_speed(source_span, timeline_span).unwrap();
+            assert_eq!(
+                played_ms(source_span, corrective),
+                Some(timeline_span),
+                "{source_span} / {corrective} must come back to {timeline_span}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_literal_too_wide_to_hold_exactly_is_refused_rather_than_truncated() {
+        // A truncated literal is exactly the wrong answer this module exists to avoid, so
+        // both widths refuse: too many significant digits, and a scale `10^scale` cannot
+        // hold. The second is the one that matters — a `Decimal` that parsed and then
+        // overflowed at the division would reach the check as a rate it silently declines
+        // to evaluate.
+        assert_eq!(Decimal::parse(&format!("0.{}", "1".repeat(31))), None);
+        assert_eq!(Decimal::parse("1e-40"), None);
+
+        // Leading zeros are not significant and do not count against the width.
+        let tiny = Decimal::parse("0.000000000000000001").expect("one digit, and a scale");
+        assert_eq!(tiny.to_string(), "0.000000000000000001");
+    }
+
+    #[test]
+    fn an_exact_integer_repair_is_written_as_an_integer() {
+        // `2568 / 1284` is exactly 2, and a repair that said `2.0` would be telling an
+        // author to write a spelling the fixture never uses.
+        assert_eq!(corrective_speed(2568, 1284).unwrap().to_string(), "2");
+    }
+
+    #[test]
+    fn a_decimal_prints_the_way_a_project_would_write_it() {
+        assert_eq!(Decimal::parse("0.645").unwrap().to_string(), "0.645");
+        assert_eq!(Decimal::parse("1").unwrap().to_string(), "1");
+        assert_eq!(Decimal::parse("-0.5").unwrap().to_string(), "-0.5");
+        assert_eq!(Decimal { units: 5, scale: 3 }.to_string(), "0.005");
+    }
+
+    #[test]
+    fn the_grid_step_is_not_necessarily_integral() {
+        // ADR-0035: "at `fps=30` the grid step is `100/3` ms and ... multiples of 100ms
+        // [are] the only frame-exact instants". A 34 ms window starting at 1 ms holds the
+        // frame at 100/3 ≈ 33.3; a 1 ms window between two frames holds none.
+        assert_eq!(holds_a_sampled_frame(1, 35, 30), Some(true));
+        assert_eq!(holds_a_sampled_frame(34, 35, 30), Some(false));
+        // At 25 fps the step is exactly 40 ms, so a 40 ms window always holds one and a
+        // window strictly inside one step need not.
+        assert_eq!(holds_a_sampled_frame(0, 40, 25), Some(true));
+        assert_eq!(holds_a_sampled_frame(41, 79, 25), Some(false));
+        assert_eq!(holds_a_sampled_frame(41, 81, 25), Some(true));
+    }
+
+    #[test]
+    fn an_empty_or_inverted_range_holds_nothing_and_says_so() {
+        assert_eq!(holds_a_sampled_frame(40, 40, 25), None);
+        assert_eq!(holds_a_sampled_frame(80, 40, 25), None);
+        assert_eq!(holds_a_sampled_frame(0, 40, 0), None);
+    }
+}

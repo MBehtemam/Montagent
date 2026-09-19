@@ -17,6 +17,14 @@
 //!   ADR-0023 dimensions pipeline and the probe caches.
 //! - [`stack`] resolves an anchor into an integer layer, in one hop — the one place draw
 //!   order is computed, for the checks that report on it and the render that paints it.
+//! - [`exact`] is the arithmetic the two dividing rules are evaluated in — `speed`'s
+//!   rounding invariant (ADR-0045) and the frame grid (ADR-0035), on integers and never
+//!   in `f64`.
+//! - [`track`] derives a track's elements in *time* order and the gaps between them —
+//!   the traversal the two clock-reading checks share rather than each writing.
+//! - [`slack`] derives the distance from every boundary to its nearest neighbour, once,
+//!   for the two write-side verbs that would otherwise disagree about what one is
+//!   (ADR-0032).
 //! - [`finding`] is the object every verb answers with — *"an error is a finding."*
 //! - [`report`] collects them, summarises them, and derives the exit code.
 //! - [`text`] generates the prose form **from the canonical JSON and nothing else**.
@@ -35,6 +43,7 @@
 //!   and the atomic whole-file write every write tool reuses.
 
 pub mod checks;
+pub mod exact;
 pub mod finding;
 pub mod layout;
 pub mod media;
@@ -45,8 +54,10 @@ pub mod registry;
 pub mod report;
 pub mod resources;
 pub mod schema;
+pub mod slack;
 pub mod stack;
 pub mod text;
+pub mod track;
 pub mod verbs;
 pub mod wire;
 pub mod write;

@@ -332,13 +332,17 @@ fn a_side_resolves_one_step_and_saturates_rather_than_wrapping() {
 
 #[test]
 fn a_missing_target_is_an_error_naming_both_the_side_and_the_target() {
-    let report = report_on(&track(
-        "titles",
-        20,
-        &format!(
-            "{},{}",
-            rect("title", 0, 1000, None),
-            rect("panel", 0, 1000, Some(r##"{"below":"titel"}"##)),
+    // One element per track. An anchor is for stacking two elements that are on screen at
+    // once, and ADR-0004 requires exactly that to live in two tracks — "elements that
+    // should overlap belong in different tracks" — so a one-track spelling of this project
+    // is an `E-TRACK-OVERLAP` before it is anything about an anchor.
+    let report = report_on(&format!(
+        "{},{}",
+        track("titles", 20, &rect("title", 0, 1000, None)),
+        track(
+            "panels",
+            21,
+            &rect("panel", 0, 1000, Some(r##"{"below":"titel"}"##))
         ),
     ));
 
@@ -346,7 +350,7 @@ fn a_missing_target_is_an_error_naming_both_the_side_and_the_target() {
     let finding = &report.findings[0];
     assert_eq!(finding.class, Class::Error);
     assert_eq!(finding.location.element.as_deref(), Some("panel"));
-    assert_eq!(finding.location.track.as_deref(), Some("titles"));
+    assert_eq!(finding.location.track.as_deref(), Some("panels"));
     assert_eq!(finding.fields["side"], "below");
     assert_eq!(finding.fields["target"], "titel");
     assert_eq!(report.exit_code(), ExitCode::Errors);
@@ -381,14 +385,18 @@ fn a_chained_target_is_an_error_that_states_no_repair() {
     // ADR-0043: the author wanted this element to track the target, and the two ways to
     // make the document legal are not the same edit. Pinning an integer is also exactly the
     // hand-maintained arithmetic ADR-0004 adopted anchoring to remove.
-    let report = report_on(&track(
-        "titles",
-        20,
-        &format!(
-            "{},{},{}",
-            rect("title", 0, 1000, None),
-            rect("panel", 0, 1000, Some(r##"{"below":"title"}"##)),
-            rect("caption", 0, 1000, Some(r##"{"below":"panel"}"##)),
+    let report = report_on(&format!(
+        "{},{},{}",
+        track("titles", 20, &rect("title", 0, 1000, None)),
+        track(
+            "panels",
+            21,
+            &rect("panel", 0, 1000, Some(r##"{"below":"title"}"##))
+        ),
+        track(
+            "captions",
+            22,
+            &rect("caption", 0, 1000, Some(r##"{"below":"panel"}"##))
         ),
     ));
 
@@ -468,13 +476,13 @@ fn a_target_that_never_overlaps_in_time_is_review_with_every_number_inline() {
 fn a_target_that_does_overlap_is_not_reported_at_all() {
     // One millisecond of shared time is enough for the z-order to have a consequence, so
     // the check has nothing to say.
-    let report = report_on(&track(
-        "titles",
-        20,
-        &format!(
-            "{},{}",
-            rect("title", 0, 5001, None),
-            rect("panel", 5000, 9000, Some(r##"{"below":"title"}"##)),
+    let report = report_on(&format!(
+        "{},{}",
+        track("titles", 20, &rect("title", 0, 5001, None)),
+        track(
+            "panels",
+            21,
+            &rect("panel", 5000, 9000, Some(r##"{"below":"title"}"##))
         ),
     ));
 
@@ -527,16 +535,16 @@ fn an_anchor_whose_target_states_no_layer_is_left_to_the_check_that_owns_the_sch
 fn every_defective_anchor_in_one_file_is_reported() {
     // ADR-0006: every check runs over the whole project, every time. A check that stopped
     // at the first defect would send an agent round the loop once per anchor.
-    let report = report_on(&track(
-        "titles",
-        20,
-        &format!(
-            "{},{},{},{}",
-            rect("title", 0, 1000, None),
-            rect("a", 0, 1000, Some(r##"{"below":"nobody"}"##)),
-            rect("b", 0, 1000, Some(r##"{"above":"b"}"##)),
-            rect("c", 0, 1000, Some(r##"{"below":"a"}"##)),
+    let report = report_on(&format!(
+        "{},{},{},{}",
+        track("titles", 20, &rect("title", 0, 1000, None)),
+        track(
+            "as",
+            21,
+            &rect("a", 0, 1000, Some(r##"{"below":"nobody"}"##))
         ),
+        track("bs", 22, &rect("b", 0, 1000, Some(r##"{"above":"b"}"##))),
+        track("cs", 23, &rect("c", 0, 1000, Some(r##"{"below":"a"}"##))),
     ));
 
     assert_eq!(
