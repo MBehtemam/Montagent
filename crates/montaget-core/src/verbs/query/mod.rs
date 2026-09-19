@@ -12,22 +12,27 @@
 //! ## Why these two are not the `jq` half of the verb, quite
 //!
 //! ADR-0011's verifier ran all eight components of the disputed `--at` output and found the
-//! shell reaches the presence list, the painter's order, the resolved keyframe value and
-//! the previous/next boundary — *"the rebuttal to the kill was itself half wrong"*. So the
-//! honest claim for these two modes is not that a shell cannot compute them. It is that the
-//! shell computes each one **per invocation, correctly only if the invoker got the
-//! half-open convention, the layer ties and the `null` cases right**, and that ADR-0011's
-//! own record of the painter's-order one-liner is that it *"silently invents an order at
-//! layer ties"*. What this verb supplies is one implementation of those conventions, tested,
-//! shared with `validate` and `render`, and named in the output.
+//! shell reaches the presence list, the resolved keyframe value and the previous/next
+//! boundary — *"the rebuttal to the kill was itself half wrong"*. So the honest claim for
+//! these two modes is not that a shell cannot compute them. It is that the shell computes
+//! each one **per invocation, correctly only if the invoker got the half-open convention
+//! and the absent cases right**, and that getting them right is a property of one tested
+//! implementation rather than of the person typing the filter.
 //!
-//! ## Neither mode resolves a keyframe
+//! The one component ADR-0011 records the shell getting *wrong* — the painter's-order
+//! one-liner that *"silently invents an order at layer ties"* — is deliberately **not**
+//! answered here. Draw order is a resolved value: an element may state its layer as
+//! `{"below": "card"}`, and naming the integer would be exactly the resolution #196 keeps
+//! out of these two modes. It belongs to `--at`, with the rest of the resolved stack.
+//!
+//! ## Neither mode resolves anything
 //!
 //! #196's acceptance criterion is *"asserted by it working with no resolver present"*, and
 //! the assertion is structural rather than a test's discipline: nothing in this module, in
 //! [`cuts`] or in [`predicate`] reads a `{t,v,ease}` record, consults [`crate::stack`], or
-//! touches the disk. A range comes from `start` and `end`, and a predicate compares against
-//! what the document writes.
+//! opens anything. A range comes from `start` and `end`, and a predicate compares against
+//! what the document writes. The one file a run does open is the project itself, through
+//! the same [`parse::read`] every verb reads it with.
 
 pub mod cuts;
 pub mod predicate;
@@ -117,20 +122,60 @@ pub struct Matches {
     pub census: Option<Census>,
 }
 
-/// One element in the matched set.
+/// Who an element is, as both modes name it.
 ///
-/// The identifying fields and the range, and no more. ADR-0011's organising rule for
-/// `query` is that it *"returns resolved values, never echoed fields"* — and this mode
-/// resolves nothing, so echoing each matched element's whole object back would be the
-/// failure that rule names, at length. The caller has the document; what it did not have is
-/// which elements match.
-#[derive(Debug, Clone, Serialize)]
-pub struct Matched {
+/// The identifying fields and no more. ADR-0011's organising rule for `query` is that it
+/// *"returns resolved values, never echoed fields"* — and these two modes resolve nothing,
+/// so echoing each element's whole object back would be the failure that rule names, at
+/// length. The caller has the document; what it did not have is which elements these are.
+///
+/// One struct rather than one per mode, because it is one question — a cut list's member
+/// and a matched element are the same element, and two readings of the permissive tree
+/// would be two places the answer to *"what is this element called"* could drift.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Named {
     pub id: Option<String>,
     #[serde(rename = "type")]
     pub kind: Option<String>,
     pub track: Option<String>,
     pub group: Option<String>,
+}
+
+impl Named {
+    /// Read an element's identity off the permissive tree, however malformed it is.
+    ///
+    /// Every field is optional because every one of them can be missing from a document
+    /// that is still worth answering about (ADR-0042) — and naming *which* way an element is
+    /// malformed is `validate`'s job, never a view's.
+    pub fn of(element: &Value, track: Option<&str>) -> Named {
+        let string = |key: &str| element.get(key).and_then(Value::as_str).map(str::to_string);
+        Named {
+            id: string("id"),
+            kind: string("type"),
+            track: track.map(str::to_string),
+            group: string("group"),
+        }
+    }
+
+    /// What a census or a boundary calls this element in a list of names.
+    ///
+    /// ADR-0019 requires a unique `id`; where the document does not carry one the element is
+    /// named by where it was found, so that two id-less elements are two names. A shared
+    /// placeholder would deduplicate against itself wherever names are grouped, and would
+    /// undercount the one number a census is for.
+    pub fn called(&self, index: usize) -> String {
+        match &self.id {
+            Some(id) => id.clone(),
+            None => format!("(element {index}, no id)"),
+        }
+    }
+}
+
+/// One element in the matched set: who it is, and the range the document gives it.
+#[derive(Debug, Clone, Serialize)]
+pub struct Matched {
+    #[serde(flatten)]
+    pub named: Named,
     pub start: Option<i64>,
     pub end: Option<i64>,
 }
@@ -320,36 +365,24 @@ fn matches(
     let mut groups: Vec<CensusGroup> = Vec::new();
     let mut absent: Vec<String> = Vec::new();
 
-    for (track, element) in document.elements_in_tracks() {
+    for (index, (track, element)) in document.elements_in_tracks().enumerate() {
         let track_name = track.map(|name| Value::String(name.to_string()));
         if !predicate.matches(element, track_name.as_ref()) {
             continue;
         }
 
-        let id = element.get("id").and_then(Value::as_str);
+        let named = Named::of(element, track);
+        let member = named.called(index);
         matched.push(Matched {
-            id: id.map(str::to_string),
-            kind: element
-                .get("type")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            track: track.map(str::to_string),
-            group: element
-                .get("group")
-                .and_then(Value::as_str)
-                .map(str::to_string),
+            named,
             start: element.get("start").and_then(Value::as_i64),
             end: element.get("end").and_then(Value::as_i64),
         });
 
         let Some(field) = census else { continue };
-        // ADR-0019 requires a unique `id`; where the document does not carry one there is
-        // nothing to name the member by, and a census listing an empty string would read as
-        // a member whose id is blank.
-        let member = id.unwrap_or("(no id)");
         let values = field.values(element, track_name.as_ref());
         if values.is_empty() {
-            absent.push(member.to_string());
+            absent.push(member);
             continue;
         }
         // A `*` path reaches several values on one element — `runs.*.font` on a two-run
@@ -359,13 +392,15 @@ fn matches(
         for value in values {
             match groups.iter_mut().find(|group| group.value == *value) {
                 Some(group) => {
-                    if !group.members.iter().any(|seen| seen == member) {
-                        group.members.push(member.to_string());
+                    // An element reaching one value twice — two runs of the same font — is
+                    // one member of that group and not two.
+                    if group.members.last() != Some(&member) {
+                        group.members.push(member.clone());
                     }
                 }
                 None => groups.push(CensusGroup {
                     value: value.clone(),
-                    members: vec![member.to_string()],
+                    members: vec![member.clone()],
                 }),
             }
         }

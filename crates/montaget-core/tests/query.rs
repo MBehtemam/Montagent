@@ -284,6 +284,127 @@ fn an_element_the_document_does_not_place_on_the_clock_is_named_rather_than_drop
 // ---- The boundary immediately outside the range, on each side ------------------------
 
 #[test]
+fn an_interval_is_as_long_as_the_presence_set_stays_the_same() {
+    // "The intervals over which the presence set is constant" — so an interval that could
+    // have been longer is not one. A zero-length element occupies no instant of the
+    // half-open clock (ADR-0005) and still contributes two boundaries, so cutting at every
+    // boundary would produce neighbours a reader cannot tell apart.
+    let dir = common::tempdir(line!());
+    let path = common::write_project(
+        &dir,
+        "zero-length.montaget.json",
+        &common::canonical(
+            &json!({
+                "frame": {"width": 1080, "height": 1920},
+                "fps": 25,
+                "tracks": [
+                    {"name": "photo", "layer": 0, "elements": [
+                        {"id": "held", "type": "rect", "start": 0, "end": 1000,
+                         "x": 0, "y": 0, "width": 10, "height": 10, "fill": "#000000"}
+                    ]},
+                    {"name": "marker", "layer": 1, "elements": [
+                        {"id": "instant", "type": "rect", "start": 500, "end": 500,
+                         "x": 0, "y": 0, "width": 10, "height": 10, "fill": "#FFFFFF"}
+                    ]}
+                ]
+            })
+            .to_string(),
+        ),
+    );
+
+    let json = cuts(&path, 0, 1000);
+    let intervals = json["query"]["intervals"]
+        .as_array()
+        .expect("intervals")
+        .clone();
+    assert_eq!(intervals.len(), 1, "500 changes nothing: {intervals:?}");
+    assert_eq!(intervals[0]["start"], 0);
+    assert_eq!(intervals[0]["end"], 1000);
+    assert_eq!(intervals[0]["duration_ms"], 1000);
+    assert_eq!(ids(&intervals[0], "present"), ["held"]);
+    // The instant is still a boundary of the document, so it is still findable from outside
+    // the range — the merge is about the intervals, not about what the document says.
+    assert_eq!(cuts(&path, 600, 700)["query"]["previous"]["at"], 500);
+}
+
+#[test]
+fn two_elements_with_no_id_are_two_members_and_not_one() {
+    // ADR-0019 requires a unique `id`, so a document without one is already a `validate`
+    // finding — but the census beneath it must still count. A shared placeholder would
+    // deduplicate against itself and report a distribution that is short by one.
+    let dir = common::tempdir(line!());
+    let path = common::write_project(
+        &dir,
+        "no-ids.montaget.json",
+        &common::canonical(
+            &json!({
+                "frame": {"width": 1080, "height": 1920},
+                "fps": 25,
+                "tracks": [{"name": "photo", "layer": 0, "elements": [
+                    {"type": "rect", "start": 0, "end": 100,
+                     "x": 0, "y": 7, "width": 10, "height": 10, "fill": "#000000"},
+                    {"type": "rect", "start": 100, "end": 200,
+                     "x": 0, "y": 7, "width": 10, "height": 10, "fill": "#000000"}
+                ]}]
+            })
+            .to_string(),
+        ),
+    );
+
+    let census = matching(&path, "type = rect", Some("y"))["query"]["census"].clone();
+    assert_eq!(
+        census["groups"][0]["members"]
+            .as_array()
+            .expect("members")
+            .len(),
+        2,
+        "both elements are at y = 7: {census}"
+    );
+    // And each is named by where it was found, so the two reports can be read side by side.
+    assert_eq!(
+        ids(&census["groups"][0], "members"),
+        ["(element 0, no id)", "(element 1, no id)"]
+    );
+    // A boundary's entering/leaving lists are names, so they use the same spelling; a
+    // presence member is the element itself, so its `id` stays what the document writes —
+    // `null` — rather than a name this verb made up.
+    let boundary = cuts(&path, 50, 60)["query"]["next"].clone();
+    assert_eq!(ids(&boundary, "entering"), ["(element 1, no id)"]);
+    assert!(
+        cuts(&path, 0, 50)["query"]["intervals"][0]["present"][0]["id"].is_null(),
+        "a presence member echoes the document, and the document writes no id"
+    );
+}
+
+#[test]
+fn an_element_reaching_one_value_twice_is_one_member_of_that_group() {
+    // A two-run element whose runs name the same font is one user of it, not two.
+    let dir = common::tempdir(line!());
+    let path = common::write_project(
+        &dir,
+        "same-font-twice.montaget.json",
+        &common::canonical(
+            &json!({
+                "frame": {"width": 1080, "height": 1920},
+                "fps": 25,
+                "fonts": {"brand": "fonts/A.otf"},
+                "tracks": [{"name": "caption", "layer": 0, "elements": [
+                    {"id": "twice", "type": "text", "start": 0, "end": 100,
+                     "x": 0, "y": 0, "origin": "center", "width": 10, "height": 10,
+                     "font": "brand", "size": 55, "line_height": 1.1, "color": "#FFF8E8",
+                     "align": "center",
+                     "runs": [{"text": "a", "font": "brand"}, {"text": "b", "font": "brand"}]}
+                ]}]
+            })
+            .to_string(),
+        ),
+    );
+
+    let census = matching(&path, "type = text", Some("runs.*.font"))["query"]["census"].clone();
+    assert_eq!(ids(&census["groups"][0], "members"), ["twice"]);
+}
+
+#[test]
 fn the_boundary_immediately_outside_the_range_is_named_on_each_side() {
     // ADR-0011: it "must always name the boundary immediately outside the range on each
     // side... without the caller guessing a window."
@@ -657,10 +778,16 @@ fn a_predicate_matches_what_the_document_writes_and_never_an_interpolated_value(
 }
 
 #[test]
-fn neither_mode_reaches_for_a_resolver_the_disk_or_the_stack() {
+fn neither_mode_reaches_for_a_resolver_the_stack_or_the_disk() {
     // The structural form of #196's "asserted by it working with no resolver present". A
     // test that only ran the verb would pass on a build that had grown a dependency on one
     // and happened not to need it for the fixture.
+    //
+    // The project file itself is read, through the same `parse::read` every verb reads it
+    // with — which is why the file that calls it is not in this list. What these three must
+    // not reach for is anything *beyond* the document: a probe, a session, a sidecar, or the
+    // one hop that turns an anchor into an integer (ADR-0019), which is a resolved value and
+    // belongs to `--at`.
     for (name, source) in [
         ("query/mod.rs", include_str!("../src/verbs/query/mod.rs")),
         ("query/cuts.rs", include_str!("../src/verbs/query/cuts.rs")),

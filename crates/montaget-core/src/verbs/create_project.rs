@@ -87,7 +87,7 @@ pub fn create_project(path: &Path, scaffold: &Scaffold) -> Report {
 
     let header = match header(scaffold) {
         Ok(header) => header,
-        Err(reason) => return bad_invocation(reason, project),
+        Err(reason) => return Report::rejected(TOOL, project, reason),
     };
 
     // A missing parent is the agent's path argument being wrong, not Montaget breaking, and
@@ -97,12 +97,13 @@ pub fn create_project(path: &Path, scaffold: &Scaffold) -> Report {
         && !parent.as_os_str().is_empty()
         && !parent.is_dir()
     {
-        return bad_invocation(
+        return Report::rejected(
+            TOOL,
+            project,
             format!(
                 "`create_project`: {} is not a directory that exists",
                 parent.display()
             ),
-            project,
         );
     }
 
@@ -156,16 +157,4 @@ fn header(scaffold: &Scaffold) -> Result<Value, String> {
         tracks: Vec::new(),
     };
     serde_json::to_value(&project).map_err(|e| format!("`create_project`: {e}"))
-}
-
-/// ADR-0011's exit 3, wearing this verb's name.
-///
-/// [`Report::bad_invocation`] is argv's shape — no tool, no project — because that is where
-/// the CLI raises it. A tool call that names a project and gets an argument wrong is the
-/// same finding about a known file, and saying so costs nothing.
-fn bad_invocation(reason: String, project: Option<String>) -> Report {
-    let mut report = Report::bad_invocation(reason);
-    report.tool = TOOL.to_string();
-    report.project = project;
-    report
 }

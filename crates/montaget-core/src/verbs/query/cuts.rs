@@ -19,6 +19,12 @@
 //!   started, and the drift ADR-0011's own consumer task hunts — *"an 800 ms drift on
 //!   disk"* — is a relationship between a narration boundary and a photo boundary.
 //!
+//! Under #196's own rule — *"where this ticket and an ADR disagree, the ADR wins"* — that
+//! argument does not get to settle itself here, so it is raised as
+//! [#250](https://github.com/MBehtemam/Montaget/issues/250) rather than left to be
+//! discovered from this file. `unplaced`, below, is surface no ADR states either and is
+//! raised in the same place.
+//!
 //! Nothing here judges the intervals. Whether a stretch with nothing in it is a defect is
 //! `validate`'s question (ADR-0006), and this verb reports that the stretch exists.
 
@@ -26,6 +32,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::permissive::Loose;
+
+use super::Named;
 
 /// The cut list over one range, with the boundary immediately outside it on each side.
 #[derive(Debug, Clone, Serialize)]
@@ -73,25 +81,16 @@ pub struct Interval {
     /// `end - start`. Derived, never stored — the format carries no `duration` on anything
     /// that has a range (ADR-0005).
     pub duration_ms: i64,
-    pub present: Vec<Present>,
-}
-
-/// One element, as a member of a presence set.
-#[derive(Debug, Clone, Serialize)]
-pub struct Present {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub kind: Option<String>,
-    pub track: Option<String>,
-    pub group: Option<String>,
+    pub present: Vec<Named>,
 }
 
 /// An element the document places on the clock.
 struct Placed {
-    id: String,
+    /// What the lists of names above call it — its `id`, or where it was found.
+    name: String,
     start: i64,
     end: i64,
-    present: Present,
+    named: Named,
 }
 
 /// Build the cut list over `[from, to)`.
@@ -104,33 +103,19 @@ pub fn cuts(document: &Loose, from: i64, to: i64) -> Cuts {
         // would report a presence set that is not the document's. ADR-0019 requires the id;
         // that it is missing is `validate`'s finding, and this names the element by where it
         // was found so the two reports can be read side by side.
-        let id = element
-            .get("id")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .unwrap_or_else(|| format!("(element {index}, no id)"));
+        let named = Named::of(element, track);
+        let name = named.called(index);
         match (
             element.get("start").and_then(Value::as_i64),
             element.get("end").and_then(Value::as_i64),
         ) {
             (Some(start), Some(end)) => placed.push(Placed {
-                id: id.clone(),
+                name,
                 start,
                 end,
-                present: Present {
-                    id,
-                    kind: element
-                        .get("type")
-                        .and_then(Value::as_str)
-                        .map(str::to_string),
-                    track: track.map(str::to_string),
-                    group: element
-                        .get("group")
-                        .and_then(Value::as_str)
-                        .map(str::to_string),
-                },
+                named,
             }),
-            _ => unplaced.push(id),
+            _ => unplaced.push(name),
         }
     }
 
@@ -145,10 +130,12 @@ pub fn cuts(document: &Loose, from: i64, to: i64) -> Cuts {
     boundaries.dedup();
 
     let cut_points = cut_points(&boundaries, from, to);
-    let intervals = cut_points
-        .windows(2)
-        .map(|pair| interval(&placed, pair[0], pair[1]))
-        .collect();
+    let intervals = merged(
+        cut_points
+            .windows(2)
+            .map(|pair| interval(&placed, pair[0], pair[1]))
+            .collect(),
+    );
 
     Cuts {
         from,
@@ -186,6 +173,34 @@ fn cut_points(boundaries: &[i64], from: i64, to: i64) -> Vec<i64> {
     points
 }
 
+/// Join adjacent intervals whose presence set is the same one.
+///
+/// The claim the mode makes is *"the intervals over which the presence set is constant"*,
+/// and an interval that could have been longer is not that: it is a cut the reader has to
+/// notice nothing happened at. The case is real rather than theoretical — an element whose
+/// `start` equals its `end` occupies no instant of the half-open clock (ADR-0005) but still
+/// contributes two boundaries, so cutting at every boundary produces neighbours that are
+/// indistinguishable.
+fn merged(intervals: Vec<Interval>) -> Vec<Interval> {
+    let mut out: Vec<Interval> = Vec::with_capacity(intervals.len());
+    for interval in intervals {
+        match out.last_mut() {
+            Some(last) if same_members(last, &interval) => {
+                last.end = interval.end;
+                last.duration_ms = last.end.saturating_sub(last.start);
+            }
+            _ => out.push(interval),
+        }
+    }
+    out
+}
+
+/// Two presence sets are the same set when they hold the same elements in the same order —
+/// and the order is one traversal's, so equal membership implies equal order.
+fn same_members(a: &Interval, b: &Interval) -> bool {
+    a.present.len() == b.present.len() && a.present.iter().zip(&b.present).all(|(a, b)| a == b)
+}
+
 fn interval(placed: &[Placed], start: i64, end: i64) -> Interval {
     Interval {
         start,
@@ -199,7 +214,7 @@ fn interval(placed: &[Placed], start: i64, end: i64) -> Interval {
         present: placed
             .iter()
             .filter(|element| element.start <= start && element.end > start)
-            .map(|element| element.present.clone())
+            .map(|element| element.named.clone())
             .collect(),
     }
 }
@@ -210,12 +225,12 @@ fn boundary(placed: &[Placed], at: i64) -> Boundary {
         entering: placed
             .iter()
             .filter(|element| element.start == at)
-            .map(|element| element.id.clone())
+            .map(|element| element.name.clone())
             .collect(),
         leaving: placed
             .iter()
             .filter(|element| element.end == at)
-            .map(|element| element.id.clone())
+            .map(|element| element.name.clone())
             .collect(),
     }
 }

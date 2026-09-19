@@ -701,8 +701,14 @@ fn range_words(row: &Value) -> String {
 /// The widest cell in a column, counted in **characters** rather than bytes: an id or a
 /// track name may be any UTF-8 at all, and padding by byte length misaligns the whole
 /// column under one non-ASCII character.
-fn width_of<'a>(cells: impl Iterator<Item = &'a str>) -> usize {
-    cells.map(|cell| cell.chars().count()).max().unwrap_or(0)
+///
+/// Generic over what a cell is held as, because some columns are borrowed out of the
+/// canonical JSON and some are computed on the way past.
+fn width_of(cells: impl Iterator<Item = impl AsRef<str>>) -> usize {
+    cells
+        .map(|cell| cell.as_ref().chars().count())
+        .max()
+        .unwrap_or(0)
 }
 
 /// A name the document writes, or a question mark where it does not. Never `null`: the
@@ -805,20 +811,16 @@ fn cuts_block(cuts: &Value) -> String {
             .map(Vec::as_slice)
             .unwrap_or(&[]);
         let names: Vec<String> = present.iter().map(|member| named(&member["id"])).collect();
-        out.push_str(
-            format!(
-                "  {range:<range_width$}  {span:>span_width$}  {}\n",
-                // Not a blank cell: an interval nothing is present over is a fact about the
-                // project — the frame is the background — and a reader scanning a column of
-                // ids would read a blank as a rendering slip.
-                match names.is_empty() {
-                    true => "(nothing present)".to_string(),
-                    false => names.join(", "),
-                }
-            )
-            .trim_end(),
-        );
-        out.push('\n');
+        out.push_str(&row(format!(
+            "{range:<range_width$}  {span:>span_width$}  {}",
+            // Not a blank cell: an interval nothing is present over is a fact about the
+            // project — the frame is the background — and a reader scanning a column of ids
+            // would read a blank as a rendering slip.
+            match names.is_empty() {
+                true => "(nothing present)".to_string(),
+                false => names.join(", "),
+            }
+        )));
     }
 
     out.push_str(&outside_row("after", &cuts["next"]));
@@ -828,20 +830,28 @@ fn cuts_block(cuts: &Value) -> String {
     // the prose reader never sees.
     if let Some(unplaced) = cuts["unplaced"].as_array().filter(|ids| !ids.is_empty()) {
         let names: Vec<String> = unplaced.iter().map(named).collect();
-        out.push_str(&format!(
-            "  {} state no integer range and are not in the cut list: {}\n",
+        out.push_str(&row(format!(
+            "{} state no integer range and are not in the cut list: {}",
             plural(names.len() as u64, "element"),
             names.join(", "),
-        ));
+        )));
     }
     out
+}
+
+/// One row of a block: two-space indent, and never any trailing padding — a column measured
+/// to its widest cell would otherwise leave every shorter row with a tail of spaces.
+fn row(cells: String) -> String {
+    format!("  {}\n", cells.trim_end())
 }
 
 /// One of the two boundaries immediately outside the range, or a line saying the document
 /// has none on that side.
 fn outside_row(side: &str, boundary: &Value) -> String {
     if boundary.is_null() {
-        return format!("  {side}  no boundary outside the range on this side\n");
+        return row(format!(
+            "{side}  no boundary outside the range on this side"
+        ));
     }
     let names = |key: &str| -> Option<String> {
         let ids: Vec<String> = boundary[key].as_array()?.iter().map(named).collect();
@@ -854,14 +864,11 @@ fn outside_row(side: &str, boundary: &Value) -> String {
         .iter()
         .filter_map(|key| names(key))
         .collect();
-    format!(
-        "  {side}  {}  {}\n",
+    row(format!(
+        "{side}  {}  {}",
         stated_number(&boundary["at"]),
         what.join("; "),
-    )
-    .trim_end()
-    .to_string()
-        + "\n"
+    ))
 }
 
 /// The matched set, and the census under it where one was asked for.
@@ -877,21 +884,17 @@ fn matches_block(matches: &Value) -> String {
     );
 
     let cell = |element: &Value, key: &str| named(&element[key]);
-    let widest = |key: &'static str| width_of_owned(matched.iter().map(move |e| cell(e, key)));
+    let widest = |key: &'static str| width_of(matched.iter().map(move |e| cell(e, key)));
     let (id, kind, track) = (widest("id"), widest("type"), widest("track"));
 
     for element in matched {
-        out.push_str(
-            format!(
-                "  {:<id$}  {:<kind$}  {:<track$}  {}",
-                cell(element, "id"),
-                cell(element, "type"),
-                cell(element, "track"),
-                range_words(element),
-            )
-            .trim_end(),
-        );
-        out.push('\n');
+        out.push_str(&row(format!(
+            "{:<id$}  {:<kind$}  {:<track$}  {}",
+            cell(element, "id"),
+            cell(element, "type"),
+            cell(element, "track"),
+            range_words(element),
+        )));
     }
 
     if let Some(census) = matches.get("census").filter(|c| !c.is_null()) {
@@ -930,9 +933,4 @@ fn census_block(census: &Value) -> String {
         ));
     }
     out
-}
-
-/// [`width_of`] over cells that are computed rather than borrowed.
-fn width_of_owned(cells: impl Iterator<Item = String>) -> usize {
-    cells.map(|cell| cell.chars().count()).max().unwrap_or(0)
 }

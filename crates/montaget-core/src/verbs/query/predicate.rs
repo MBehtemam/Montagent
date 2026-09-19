@@ -31,6 +31,15 @@
 //!   census groups by, and a half-matching predicate would make the distribution beneath
 //!   it unreadable.
 //!
+//! ## This grammar is not ratified
+//!
+//! Every decision above is a real format-surface decision rather than implementation
+//! detail — it is what an agent has to learn, and it is as good as permanent once an
+//! agent's prompts contain it. ADR-0011 does not own any of it, so it is raised as
+//! [#249](https://github.com/MBehtemam/Montaget/issues/249) rather than left to be
+//! discovered from this file, in the same spirit as #241. A reader who disagrees with the
+//! shape knows where the argument is being had.
+//!
 //! ## The one reserved name
 //!
 //! **`track`** is the containing track's `name`, always. An element does not carry the
@@ -120,9 +129,12 @@ impl Path {
             }
             segments.push(match part {
                 "*" => Segment::Every,
-                // An all-digit segment indexes an array. A JSON object may legally have a
-                // key that is all digits, and the format has none: every object key the
-                // schema declares is an identifier.
+                // An all-digit segment indexes an array. Not because anything asks for
+                // `runs.0.font`, but because a digit segment has to mean *something*: read
+                // as a key it would reach nothing on every array in the format, and a path
+                // that silently matches nothing is the worse of the two answers. A JSON
+                // object may legally have an all-digit key and the format has none — every
+                // object key the schema declares is an identifier.
                 digits if digits.chars().all(|c| c.is_ascii_digit()) => Segment::Index(
                     digits
                         .parse()
