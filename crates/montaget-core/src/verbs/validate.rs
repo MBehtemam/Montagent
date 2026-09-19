@@ -75,6 +75,13 @@ fn run_checks(
     report: &mut Report,
     session: Option<&mut Session>,
 ) -> Result<(), Box<Missing>> {
+    // ADR-0017's closed schema, turned into findings (#244). Not gating: every other check
+    // still runs on a document that does not fit the types, because every other check reads
+    // the permissive tree and each of them has something true to say about a file mid-edit.
+    // What changes is that the file no longer validates *clean* while carrying a key the
+    // format does not publish — which is ADR-0016's whole migration mechanism, and was
+    // unfired until this call existed.
+    crate::checks::schema::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected

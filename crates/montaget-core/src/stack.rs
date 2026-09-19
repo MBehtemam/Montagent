@@ -107,7 +107,8 @@ enum Own<'a> {
     /// A `layer` that is neither an integer nor an object — a bare string, a float, an
     /// array. Reachable only through the permissive tree, and it is a *schema* error:
     /// resolution reports that it cannot answer and says nothing about the key, which
-    /// belongs to the check that owns the schema — #244, which nothing implements yet.
+    /// belongs to the check that owns the schema — [`crate::checks::schema`], live as of
+    /// #244.
     Malformed,
 }
 
@@ -172,7 +173,8 @@ pub enum Unresolved<'a> {
     /// Neither the element nor its track states an integer layer.
     Unstated,
     /// A `layer` value that is neither an integer nor an object, here or on the target. A
-    /// schema error, reported by whatever check owns the schema (#244).
+    /// schema error, reported by the check that owns the schema
+    /// ([`crate::checks::schema`], #244).
     Malformed,
 }
 

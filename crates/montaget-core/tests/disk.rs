@@ -605,8 +605,14 @@ fn a_speed_the_document_does_not_carry_is_never_supplied_for_it() {
         );
 
         let report = validate(&path);
-        let finding = &report.findings[0];
-        assert_eq!(finding.code, "E-SOURCE-OVERRUN", "speed: {spelling}");
+        // By code rather than by position: since #244 the check that owns the schema
+        // actually fires, so a `speed` of `"0.645"` now produces its `E-SCHEMA` finding
+        // alongside this one — which is the whole point of the comment above.
+        let finding = report
+            .findings
+            .iter()
+            .find(|f| f.code == "E-SOURCE-OVERRUN")
+            .unwrap_or_else(|| panic!("speed: {spelling} — no overrun in {:?}", report.findings));
         assert_eq!(finding.fields["over_by"], 100, "speed: {spelling}");
 
         let rendered =

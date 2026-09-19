@@ -68,8 +68,9 @@ pub fn check(document: &Loose, report: &mut Report) {
             // The target resolves to nothing an integer can be read from, or carries a
             // `layer` that is not one of the format's two forms. Both are schema facts
             // about a document mid-edit, and the check that owns the schema says so — this
-            // one would be adding a second voice to a defect it did not find. That check
-            // does not exist yet, which is #244 and not a reason to grow a second one here.
+            // one would be adding a second voice to a defect it did not find. That check is
+            // `crate::checks::schema`, live as of #244, and `tests/schema_check.rs` asserts
+            // both conditions against it rather than leaving this silence unwitnessed.
             Err(Unresolved::Unstated | Unresolved::Malformed) => {}
             // `placements()` yields what the index was built from, so there is always an
             // element here. Kept as a branch rather than an `unwrap`, because an

@@ -16,4 +16,5 @@
 pub mod anchor;
 pub mod layout;
 pub mod retired;
+pub mod schema;
 pub mod source;

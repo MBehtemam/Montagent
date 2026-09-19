@@ -100,6 +100,36 @@ pub fn check(document: &Loose, report: &mut Report) {
     }
 }
 
+/// One spelling this check names, as the schema check needs to recognise it.
+///
+/// The element is `None` for a sighting on the project itself. A sighting nested inside an
+/// element — a `run`'s `weight`, an effect's key — is reported at that element, so the
+/// locus is the same one the schema check's element-scoped parse produces.
+pub(crate) struct Named {
+    pub element: Option<String>,
+    pub key: String,
+    pub value: Value,
+}
+
+/// Every spelling this check names — the predicate the schema check reads so that one
+/// retirement is not reported twice, in two voices, with two different repair classes.
+///
+/// ADR-0016 requires exactly this separation, in the message text: an unknown key is *"not
+/// a key this Montaget knows, **and not one it has retired**"*, against a retired one,
+/// which names the replacement. The schema check asks this *predicate* rather than reading
+/// the report, because ADR-0006 puts the checks in no significant order and forbids
+/// anything depending on which spoke first.
+pub(crate) fn named(document: &Loose) -> Vec<Named> {
+    sightings(document)
+        .into_iter()
+        .map(|sighting| Named {
+            element: sighting.element,
+            key: sighting.key,
+            value: sighting.value,
+        })
+        .collect()
+}
+
 /// One retired spelling, found in one place.
 struct Sighting {
     /// What the prose names: an element's `id`, or the project itself.

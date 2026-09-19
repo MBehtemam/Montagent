@@ -299,6 +299,63 @@ screen together — {element} runs {start}..{end} ms and {target} runs {target_s
 {target_end} ms. It resolves to layer {layer} and can change nothing.",
         status: Live,
     },
+    // ---- The closed schema, turned into findings (#244). ---------------------------
+    //
+    // ADR-0017 closes the schema and ADR-0016 makes the unknown-key error the whole
+    // migration mechanism, *"because an optional signal is indistinguishable from no
+    // signal"*. Two codes rather than one, on this table's own rule that a code is
+    // ADR-0006's handle for suppressing a class and the identity `compare` will diff on:
+    // ADR-0016 settles the unknown key's message and its repair and settles neither for a
+    // value that does not fit its type, and the two are acted on differently — one asks
+    // whether the *binary* is stale, the other asks the author for a value. The split, and
+    // the classes below, are surface the ADR series has not ratified — raised as #253.
+    CheckSpec {
+        code: "E-SCHEMA-UNKNOWN-KEY",
+        classes: &[Error],
+        // Refuse, and ADR-0016 writes the guarantee into the message itself: *"Check your
+        // Montaget version before removing it. Do not delete the key to make the file
+        // validate."* Deletion is the one repair an agent would reach for and the one the
+        // ADR forbids, because the key may be a newer revision's and this binary cannot
+        // tell. ADR-0043's uniformity rule then settles the rest: the check matches a typo
+        // and a newer-format key alike, and if any instance is load-bearing every instance
+        // refuses.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0016",
+        // ADR-0016's own text, which is measured rather than drafted: of nine agents met by
+        // a stale binary, the arm naming the binary preserved and compensated where the arm
+        // printing a bare key list squashed the photos. "Not one it has retired" is the
+        // second half of the ADR's two-case requirement, and it is true here because the
+        // check asks `retired::named_keys` before it speaks.
+        template: "{subject}: unknown key `{key}` — not a key this Montaget knows, and not one \
+it has retired. It may belong to a newer format revision than this binary implements. Check \
+your Montaget version before removing it. Do not delete the key to make the file validate. \
+Here the format publishes {expected}.",
+        status: Live,
+    },
+    CheckSpec {
+        // Everything else the published types refuse: a value of the wrong type, a required
+        // key absent, a value outside a closed vocabulary, a `null` where the convention
+        // omits. One code rather than three, because the three are one condition — *this
+        // value is not one the format publishes* — and one repair: write a value it does.
+        code: "E-SCHEMA",
+        classes: &[Error],
+        // Refuse, on `E-PARSE`'s stated reasoning one level up. `E-PARSE` refuses because
+        // *"there is no document to derive a fix from"*; here there are bytes and a tree,
+        // but the part of the tree the finding is about is exactly the part the format
+        // cannot read — so the fix is whatever the author meant by it, which is the
+        // condition ADR-0043 reserves for refusal. The prose renderer already states the
+        // guarantee in words on every refuse-class finding, so the template does not.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0017",
+        // The reason is the format's own words wherever the types state one — `#FBF3E3FF is
+        // the opaque form of #FBF3E3`, `not integer milliseconds`, `written as null; omit
+        // the key instead` — rather than a sentence this table would have to keep in step
+        // with them.
+        template: "{subject} does not fit the published schema: {reason}.",
+        status: Live,
+    },
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
         code: "E-RETIRED-KEY",
