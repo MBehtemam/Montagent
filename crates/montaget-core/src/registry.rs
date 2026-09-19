@@ -510,15 +510,23 @@ timeline range {start}..{end} is {timeline_span} ms.",
     },
     CheckSpec {
         code: "R-VISUAL-GAP",
-        // ADR-0006's own worked example of severity computed per instance: "a gap whose
-        // interval is uncovered in that union is `review`, and every other visual gap is
-        // a note." (What "uncovered" means is #23's, not this ticket's.)
+        // ADR-0018 **withdrew** ADR-0006's frame-wide union — it fired on zero of the
+        // fixture's eleven real visual gaps — and replaced it with group-scoped pairing:
+        // for every `group` carrying both an audio and a visual element, report either
+        // side's time-union left uncovered by the other's, symmetric. Severity still
+        // varies per instance, as ADR-0006's "computed from the consequence, not the
+        // check" always meant, but the split is no longer union-membership — it is
+        // direction: audio outrunning its group's visual is `review` (ADR-0018's own two
+        // founding defects, and zero of them on the committed fixture), the reverse is
+        // `note` (an ordinary narration pause, 21 of them on the fixture, the same kind
+        // of fact `N-TRACK-GAP` already reports). See `crate::checks::coverage`.
         classes: &[Review, Note],
         repair: None,
         threshold: Internal,
-        adr: "ADR-0006",
-        template: "nothing on any visual track from {from} ms to {to} ms.",
-        status: Declared,
+        adr: "ADR-0018",
+        template: "`{group}`: nothing on {missing} from {from} ms to {to} ms ({size} ms), \
+while {elements} plays on {active}.",
+        status: Live,
     },
     CheckSpec {
         // A worked counterexample to the tempting rule that a code's prefix *is* its

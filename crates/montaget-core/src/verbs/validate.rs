@@ -127,6 +127,9 @@ fn run_checks(
     // arithmetic, never `f64` (ADR-0045).
     crate::checks::track::check(document, report);
     crate::checks::speed::check(document, report);
+    // The cross-track coverage question the track check cannot see (ADR-0018, #200):
+    // group-scoped pairing, not a frame-wide union — see `crate::checks::coverage`.
+    crate::checks::coverage::check(document, report);
     // The four caption checks (#199). Every one is a pure document read — ADR-0054 says so
     // of the one that looks like it needs the disk — which is why this call takes no
     // session and can sit anywhere in this list.

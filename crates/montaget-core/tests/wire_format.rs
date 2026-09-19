@@ -127,8 +127,13 @@ fn errors_and_reviews_always_print_in_full() {
         report.push(
             Finding::new("R-VISUAL-GAP")
                 .at_file("p.json")
+                .field("group", json!("item-05"))
                 .field("from", json!(i * 1000))
-                .field("to", json!(i * 1000 + 800)),
+                .field("to", json!(i * 1000 + 800))
+                .field("size", json!(800))
+                .field("active", json!("audio"))
+                .field("missing", json!("visual"))
+                .field("elements", json!("vo-word-05-a")),
         );
     }
 
