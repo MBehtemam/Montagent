@@ -1,12 +1,25 @@
 ---
 status: accepted
-amended-by: 0054 (audio-backing and minimum-duration checks)
+amended-by: 0054 (audio-backing and minimum-duration checks), 0061 (`R-CAPTION-PACE` is
+  fenced rather than moved), 0071 (both "on the fixture" paragraphs corrected against this
+  ADR's own mechanics)
 ---
 
 # `validate` gains two caption checks: a reading-pace floor and repeat-duration disagreement
 
 > **Amended by [ADR-0054](0054-caption-audio-backing-and-minimum-duration-checks.md).**
 > Settles the audio-backing and minimum-duration deferrals.
+>
+> **Amended by [ADR-0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md).**
+> `R-CAPTION-PACE`'s borrowed 20 cps is fenced rather than grandfathered: it stays in
+> `validate` on three binding conditions, all of which this ADR already met.
+>
+> **Amended by [ADR-0071](0071-caption-check-evidence-corrected-and-the-fenced-category-has-two-members.md).**
+> **Both "On the fixture" paragraphs below are wrong and are corrected there.** The pace
+> floor fires **once**, not twice — the evidence table counts the `\n` the **Metric**
+> paragraph excludes, which puts `quiz-question` at 19.91 cps and under the line — and the
+> repeat check finds **three** disagreements project-wide, not one. Neither check's rule
+> changes; `caption_check_scan.py` re-derives every number.
 
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s check list has no
 entry for either defect this ADR names — both were found by eye while resolving

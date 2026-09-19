@@ -1,7 +1,9 @@
 ---
 status: accepted
 amends: 0002 (fonts carve-out), 0006 (overflow check gains a box and a width term)
-amended-by: 0029 (baseline placement within the line slot), 0057 (fonts vendor mechanics, licence check, substitute policy)
+amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'s presence
+  is content: omitted and explicit-at-default both stand), 0057 (fonts vendor mechanics,
+  licence check, substitute policy)
 ---
 
 # Text is styled runs at a literal size, in fonts the project declares
@@ -13,6 +15,12 @@ amended-by: 0029 (baseline placement within the line slot), 0057 (fonts vendor m
 > schema gains a path-keyed `fontVendor` attestation table separate from the
 > `fonts` reference structure, and a refusal may suggest — never
 > auto-vendor — an open substitute. Every other decision below stands.
+
+> **Amended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**, which states
+> that `line_height`'s **presence** is content: an omitted one and an explicit `1.2` are
+> two different documents, and `fmt` may not normalise either into the other. (Discovered
+> unbannered by ADR-0071's fix to `check_amendment_banners.py`, which until then read only
+> the first line of a multi-line `amends:` header.)
 
 > **Amended by [ADR-0029](./0029-line-baseline-half-leading.md)**, which states the
 > baseline-placement rule this ADR's slot definition never gave: half-leading,
