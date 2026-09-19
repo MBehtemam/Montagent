@@ -15,7 +15,9 @@ true when the schema grows:
      `fonts` table's names — are not checked and do not need to be: a predicate path starts
      at an element, and no element reaches that table.
 
-Run this before adding a property to `schema/montaget.schema.json`. A failure here is not
+Run this before adding a property to `schema/montaget.schema.json` — by hand. It is
+registered in `.github/workflows/ci.yml` beside the amendment-banner check, but GitHub
+Actions is disabled for this repository, so nothing runs it for you. A failure here is not
 a bug in the scan — it means ADR-0070 needs an amendment, because a predicate that used to
 reach a field would have stopped reaching it.
 """

@@ -221,9 +221,13 @@ the crop rectangle and the ink box. Until it ships, that question is asked as
   paid the cost ADR-0011's `jq` argument was avoiding.
 - **`CONTEXT.md`'s *Predicate* entry loses its "not ratified" note** and cites this ADR.
 - **`schema/montaget.schema.json` acquires two standing constraints**: no element property
-  named `track`, and no declared property spelled in digits alone. Both are checked in CI,
-  beside the amendment-banner check, so a schema that grows either is told at the pull
-  request rather than at the predicate that stops reaching a field.
+  named `track`, and no declared property spelled in digits alone. Both are re-derivable by
+  one command, which is what makes them constraints rather than a note — but **nothing runs
+  it for you today**: GitHub Actions is disabled for this repository, so the step registered
+  in `ci.yml` beside the amendment-banner check is a standing arrangement rather than a
+  gate. Whoever adds a property to the schema runs
+  `python3 docs/adr/predicate_reserved_names_scan.py`, the way
+  `docs/agents/domain.md`'s evidence rule is a checklist step and not a mechanical one.
 
 ## Evidence
 
@@ -233,7 +237,8 @@ question, ADR-0017's closed schema, ADR-0030's presence rule, ADR-0042's refusal
 precondition — and the two claims about the *schema* rather than about the argument are
 re-executable:
 
-- `docs/adr/predicate_reserved_names_scan.py` — re-derives both against the committed
+- `docs/adr/predicate_reserved_names_scan.py` — a check a reader runs, not one a robot
+  runs for them (see the Consequences). It re-derives both against the committed
   `schema/montaget.schema.json`, and exits non-zero the moment either stops holding: no
   element variant declares `track` (across all 7 variants), and no object property
   anywhere in the schema is spelled in digits alone. Each claim is checked and reported
