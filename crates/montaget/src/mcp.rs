@@ -94,6 +94,38 @@ pub struct CreateProjectParams {
     pub verbose: bool,
 }
 
+/// `query`'s arguments: the two modes ADR-0011 specifies that read the document alone.
+///
+/// One question per call. `from`/`to` ask for the cut list; `where` asks for the matched
+/// set, and `census` for its distribution. Which combinations are legal is the verb's rule
+/// and is enforced there — this adapter carries the arguments and decides nothing (ADR-0011).
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct QueryParams {
+    /// Path to the project file.
+    pub project: String,
+    /// The start of the range, in absolute milliseconds. Asked for with `to`.
+    #[serde(default)]
+    pub from: Option<i64>,
+    /// The end of the range, exclusive: a range is half-open `[from, to)`.
+    #[serde(default)]
+    pub to: Option<i64>,
+    /// Which elements to match, e.g. `type = text and group = item-05`.
+    ///
+    /// Terms are `<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with
+    /// `and`. `<op>` is one of `=`, `!=`, `<`, `<=`, `>`, `>=`. A field is a dotted path
+    /// into the element — `clip.width`, `runs.*.font` — plus the reserved `track`, which is
+    /// the name of the track the element sits in. Values are matched **as the document
+    /// writes them**; nothing is resolved.
+    #[serde(default, rename = "where")]
+    pub predicate: Option<String>,
+    /// Distribute the matched set over this field, as a dotted path.
+    #[serde(default)]
+    pub census: Option<String>,
+    /// Return the canonical JSON *instead of* the text answer, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+}
+
 /// The project's `frame` object, as the schema shapes it.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FrameParam {
@@ -190,6 +222,48 @@ impl Montaget {
         // `success` here; only a failure of Montaget itself would be an MCP error.
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render(&report, form),
+        )]))
+    }
+    #[tool(
+        name = "query",
+        description = "What is true over a range, or across a predicate? `from`/`to` \
+                       returns the cut list — the intervals over which the set of elements \
+                       present is constant, with the boundary immediately outside the range \
+                       named on each side, so you never have to guess a window. `where` \
+                       returns the matched set, and `census` its distribution over one \
+                       field, so \"four of five siblings agree and one does not\" is one \
+                       call rather than a script. Both read the document alone: values are \
+                       matched as written, and no keyframe is resolved.",
+        input_schema = advertised::<QueryParams>()
+    )]
+    fn query(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: QueryParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("query", &e)),
+        };
+
+        let answer = montaget_core::verbs::query::query(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::query::Ask {
+                from: params.from,
+                to: params.to,
+                predicate: params.predicate,
+                census: params.census,
+            },
+        );
+        // `verbose` is deliberately absent from this tool's schema: `query` has no
+        // informational findings to expand, and an argument that changed nothing would cost
+        // the agent context on every turn for no answer it could get back.
+        let form = Wire::from_flags(params.json, false);
+
+        // An answer about a project that does not parse is still an answer, not a protocol
+        // failure — ADR-0006's findings **are** the result. Only a failure of Montaget
+        // itself would be an MCP error, and this call has none to raise.
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render_query(&answer, form),
         )]))
     }
 }

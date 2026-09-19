@@ -479,6 +479,38 @@ is unreconciled and should not be quoted as a count.)
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 
+**Presence set**:
+Every element whose timeline range contains a given instant — the whole of what
+the document puts on the clock there, audio included, since *"audio is an
+element like any other"*
+([ADR-0001](docs/adr/0001-flat-element-list.md)). Membership is decided by the
+half-open range alone: an element ending at `t` is already out of the set at `t`.
+It is a statement about the *document*, never about the picture — what covers
+what, and what the frame actually looks like, is the stack's question and
+`frame`'s.
+_Avoid_: active set, on-screen set (it includes audio), visible elements
+
+**Cut list**:
+What `query --from --to` answers with: the intervals over which the presence set
+is constant, each carrying its members — and never sampled instants. It always
+names the boundary immediately outside the range on each side, which is what
+saves the caller guessing a window, and its intervals partition the range asked
+for, so a stretch with nothing in it is one interval rather than a hole.
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: edit list, shot list, segments, keyframes (spoken for), sampling
+
+**Predicate**:
+The expression `query --where` matches elements against: terms of the form
+`<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with `and`.
+A field is a dotted path into the element, with `*` for every member of an
+array, plus the reserved `track` — the name of the track the element sits in,
+which the element itself does not carry. It matches **what the document
+writes**: nothing is interpolated and no anchor is resolved, so an animated `x`
+is reached by `x exists` and never by the value it passes through. There is no
+`or` and no substring matching.
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: filter, selector, query (the verb's name), expression
+
 **Registry**:
 The single declaration of every code Montaget can emit, and what is true of it:
 which classes it may carry, whether it is refuse- or advise-class, whether its

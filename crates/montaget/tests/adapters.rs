@@ -173,6 +173,92 @@ fn cli_timeline_takes_no_flag_that_collapses_the_view() {
 }
 
 #[test]
+fn cli_query_from_to_reaches_the_cut_list_and_exits_0() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "query",
+        fixture.to_str().unwrap(),
+        "--from",
+        "17000",
+        "--to",
+        "19000",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stdout.contains("QUERY  cut list over [17000, 19000)"),
+        "{}",
+        out.stdout
+    );
+    // ADR-0011: the boundary immediately outside the range, on each side, so the caller
+    // never has to guess a window.
+    assert!(out.stdout.contains("\n  before  "), "{}", out.stdout);
+    assert!(out.stdout.contains("\n  after  "), "{}", out.stdout);
+}
+
+#[test]
+fn cli_query_where_and_census_reach_the_matched_set_and_the_distribution() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "query",
+        fixture.to_str().unwrap(),
+        "--where",
+        "track = sentence-text",
+        "--census",
+        "y",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("5 matched elements"), "{}", out.stdout);
+    assert!(out.stdout.contains("census y: 5 at 1537"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_query_json_replaces_the_text_answer_and_never_accompanies_it() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "query",
+        fixture.to_str().unwrap(),
+        "--where",
+        "type = ellipse",
+        "--json",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(!out.stdout.contains("QUERY"), "{}", out.stdout);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).expect("the JSON form");
+    assert_eq!(json["tool"], "query");
+    assert_eq!(json["query"]["mode"], "matches");
+}
+
+#[test]
+fn cli_query_with_no_question_is_exit_3_from_the_verb() {
+    // The mode rule lives in the verb, not in argv, so that the MCP surface — which has no
+    // `clap` to arrange its arguments — is covered by the same one (ADR-0011).
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&["query", fixture.to_str().unwrap()]);
+
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("E-INVOCATION"), "{}", out.stdout);
+    assert!(out.stdout.contains("needs a question"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_query_takes_no_flag_that_collapses_the_answer() {
+    // The answer *is* the output, so there is nothing for a `--verbose` to expand — the
+    // same absence `timeline` asserts, for the same reason.
+    let out = montaget(&["query", "--help"]);
+
+    assert_eq!(out.code, Some(0));
+    assert!(out.stdout.contains("--json"), "{}", out.stdout);
+    assert!(out.stdout.contains("--where"), "{}", out.stdout);
+    assert!(!out.stdout.contains("--verbose"), "{}", out.stdout);
+    // `--at` is the third mode, and it is blocked on the crop rectangle and on `measure`
+    // (ADR-0011). Advertising it before it answers would be the worst of both.
+    assert!(!out.stdout.contains("--at"), "{}", out.stdout);
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 
@@ -636,6 +722,108 @@ fn mcp_rejects_a_bad_call_with_a_finding_like_every_other_surface() {
         call["result"]["isError"], true,
         "the client is also told the call did not run: {call}"
     );
+}
+
+#[test]
+fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
+    // ADR-0011 puts `query` on both surfaces: it is what an agent calls in the loop, and
+    // the cost argument that keeps `probe`, `fmt` and `timeline` off MCP does not apply to
+    // a verb the agent needs on every edit.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let project = fixture.to_str().unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "query",
+                "arguments": {"project": project, "from": 17000, "to": 19000}
+            }),
+        ),
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({
+                "name": "query",
+                "arguments": {"project": project, "where": "track = sentence-text", "census": "y"}
+            }),
+        ),
+        // The one required property missing — rejected rather than answered about nothing.
+        request(
+            5,
+            "tools/call",
+            serde_json::json!({"name": "query", "arguments": {"from": 0, "to": 1}}),
+        ),
+    ]);
+
+    let query = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "query")
+        .expect("a `query` tool")
+        .clone();
+    let schema = &query["inputSchema"];
+    assert_eq!(schema["type"], "object");
+    assert_eq!(schema["required"], serde_json::json!(["project"]));
+    for property in ["project", "from", "to", "where", "census", "json"] {
+        assert!(
+            !schema["properties"][property].is_null(),
+            "the schema advertises `{property}`: {schema}"
+        );
+    }
+    // `verbose` would cost the agent context on every turn and change nothing: `query` has
+    // no informational findings to expand.
+    assert!(schema["properties"]["verbose"].is_null(), "{schema}");
+    // `--at` is the third mode and is blocked on the crop rectangle and on `measure`.
+    assert!(schema["properties"]["at"].is_null(), "{schema}");
+
+    let cuts = session[&3]["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered answer");
+    assert!(
+        cuts.contains("QUERY  cut list over [17000, 19000)"),
+        "{cuts}"
+    );
+    let matches = session[&4]["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered answer");
+    assert!(matches.contains("census y: 5 at 1537"), "{matches}");
+
+    let rejected = &session[&5];
+    let text = rejected["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered report, not a bare SDK error");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_query_with_no_question_answers_with_a_finding_rather_than_a_protocol_error() {
+    // The verb ran and rejected its arguments, which is an answer about the call: same
+    // code, same object, same thing to parse as every other surface (ADR-0011).
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({
+                "name": "query",
+                "arguments": {"project": fixture.to_str().unwrap()}
+            }),
+        ),
+    ]);
+
+    let call = &session[&2];
+    let text = call["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert!(text.contains("needs a question"), "{text}");
+    assert!(text.contains("NOT CHECKED"), "{text}");
 }
 
 #[test]

@@ -74,6 +74,16 @@ pub fn render_timeline(answer: &crate::verbs::timeline::Answer, form: Wire) -> S
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `query` answer in one wire form.
+///
+/// Through the same function and the same rule as everything else. ADR-0011 transplants
+/// ADR-0006's wire decision onto this verb by name and gives its own reason for it: an
+/// answer from `query` is *"an explanation of one moment, and prose is the denser encoding
+/// of an explanation."*
+pub fn render_query(answer: &crate::verbs::query::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// One canonical JSON, one prose generator, one rule about which of them prints.
 fn in_form(json: &serde_json::Value, form: Wire) -> String {
     match form {

@@ -129,6 +129,33 @@ impl Report {
         }
     }
 
+    /// One verb rejected its own arguments.
+    ///
+    /// The same code, class and exit as the adapter-level [`Report::bad_invocation`] —
+    /// ADR-0011's *"an error is a finding... so there is exactly one thing to parse across
+    /// the surface"* — differing only in saying which verb rejected the call and which
+    /// project it was pointed at. Which combinations of a verb's flags are legal is a rule
+    /// about the verb, so it is enforced in the verb rather than twice in the two adapters,
+    /// and this is how the answer gets back out with exit 3 intact.
+    pub fn rejected(
+        tool: impl Into<String>,
+        project: Option<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        Report {
+            tool: tool.into(),
+            project,
+            findings: vec![
+                Finding::new("E-INVOCATION")
+                    .field("reason", Value::String(reason.into()))
+                    .repair_value(json!({"value": "fix the command"})),
+            ],
+            misses: Vec::new(),
+            media: Vec::new(),
+            terminal: Some(Terminal::BadInvocation),
+        }
+    }
+
     /// Montaget itself failed — ffmpeg died, the font stack failed.
     pub fn internal_failure(reason: impl Into<String>) -> Self {
         Report {
