@@ -38,25 +38,26 @@ fn narration(id: &str, start: i64, end: i64) -> String {
     )
 }
 
-/// The four caption checks alone, over a project written to a scratch directory.
-///
-/// Asked directly rather than through [`validate`] for [`tests/time.rs`]'s reason and one
-/// of its own. The audio elements here carry no `source`, which the schema requires — a
-/// real mp3 beside every project would put the disk half's findings in front of a question
-/// that is entirely about declared times — and the elements are deliberately placed to
-/// exercise the checks rather than to satisfy ADR-0004's overlap rule.
-///
-/// It is also the acceptance criterion in executable form: **there is no probe session to
-/// pass**. `check` takes a document and a report, so "no file is read by any of the four"
-/// is a property of the signature rather than a claim a test has to make.
 /// A narration bed covering `0..end`, for the tests that are not about audio backing.
 ///
-/// `R-CAPTION-NO-AUDIO` is project-wide and looks at every caption, so a project written to
-/// exercise the pace floor would otherwise report one of these under every element in it.
+/// `R-CAPTION-NO-AUDIO` looks at every text element in the project, so one written to
+/// exercise the pace floor would otherwise report a second finding under every element in
+/// it.
 fn bed(end: i64) -> String {
     track("narration", 0, &narration("bed", 0, end))
 }
 
+/// The four caption checks alone, over a project written to a scratch directory.
+///
+/// Asked directly rather than through `validate` for `tests/time.rs`'s reason and one of
+/// its own. The audio elements here carry no `source`, which the schema requires — a real
+/// mp3 beside every project would put the disk half's findings in front of a question that
+/// is entirely about declared times — and the elements are deliberately placed to exercise
+/// the checks rather than to satisfy ADR-0004's overlap rule.
+///
+/// It is also the fourth acceptance criterion in executable form: **there is no probe
+/// session to pass**. `check` takes a document and a report, so "no file is read by any of
+/// the four" is a property of the signature rather than a claim a test has to make.
 #[track_caller]
 fn report_on(tracks: &str) -> Report {
     let dir = common::tempdir(std::panic::Location::caller().line());
@@ -81,6 +82,22 @@ fn caption_codes(report: &Report) -> Vec<&str> {
 fn render(report: &Report) -> String {
     montaget_core::text::render(&report.to_json(), montaget_core::text::Options::verbose())
         .expect("the report renders")
+}
+
+/// How many occurrences a repeat finding listed.
+trait Occurrences {
+    fn count_of_occurrences(&self) -> usize;
+}
+
+impl Occurrences for montaget_core::finding::Finding {
+    fn count_of_occurrences(&self) -> usize {
+        self.fields["detail"]
+            .as_str()
+            .expect("the listing")
+            .matches('`')
+            .count()
+            / 2
+    }
 }
 
 /// The one finding carrying `code`.
@@ -553,17 +570,29 @@ fn a_group_of_five_is_one_finding_listing_five_and_not_ten_pairwise_comparisons(
     ));
 
     let finding = only(&report, "R-CAPTION-REPEAT-DURATION");
-    let occurrences = finding.fields["occurrences"].as_array().expect("a list");
-    assert_eq!(occurrences.len(), 5);
-    assert_eq!(occurrences[0]["id"], "say-0");
-    assert_eq!(occurrences[0]["start"], 0);
-    assert_eq!(occurrences[0]["duration"], 1000);
-    assert_eq!(occurrences[4]["duration"], 1400);
+    assert_eq!(finding.count_of_occurrences(), 5);
+    let detail = finding.fields["detail"].as_str().expect("the listing");
+    assert_eq!(finding.fields["count"], 5);
 
-    // The census is ADR-0006's move: every value named, no group ranked.
-    let census = finding.census.as_ref().expect("a census");
-    assert_eq!(census.field, "duration");
-    assert_eq!(census.groups.len(), 5);
+    // Every occurrence's id, start and duration, and all of it in the rendered report
+    // rather than only in the JSON — a reader who cannot see `start` cannot go and look at
+    // the moment the finding is about.
+    for (id, start, duration) in [
+        ("say-0", 0, 1000),
+        ("say-1", 10_000, 1100),
+        ("say-2", 20_000, 1200),
+        ("say-3", 30_000, 1300),
+        ("say-4", 40_000, 1400),
+    ] {
+        assert!(
+            detail.contains(&format!(
+                "`{id}` {start}..{} ms ({duration} ms)",
+                start + duration
+            )),
+            "{id} is missing from: {detail}"
+        );
+    }
+    assert!(render(&report).contains("say-4"), "{}", render(&report));
 }
 
 #[test]
@@ -583,7 +612,7 @@ fn a_repeat_is_recognised_by_its_text_and_never_by_its_track_or_group() {
     ));
 
     let finding = only(&report, "R-CAPTION-REPEAT-DURATION");
-    assert_eq!(finding.fields["occurrences"].as_array().unwrap().len(), 2);
+    assert_eq!(finding.count_of_occurrences(), 2);
 }
 
 #[test]
@@ -607,7 +636,35 @@ fn two_spellings_of_one_string_group_together_after_nfc_normalization() {
 
     let finding = only(&report, "R-CAPTION-REPEAT-DURATION");
     assert_eq!(finding.fields["text"], "caf\u{e9}");
-    assert_eq!(finding.fields["occurrences"].as_array().unwrap().len(), 2);
+    assert_eq!(finding.count_of_occurrences(), 2);
+}
+
+#[test]
+fn elements_carrying_no_text_are_not_repeats_of_each_other() {
+    // The empty string is the one value shared by elements that have nothing in common.
+    // ADR-0034 recognises a caption "by its text", and two blank elements of unequal length
+    // are not one line shown two ways — reporting them would be the check asserting a
+    // repeat that nobody wrote.
+    let report = report_on(&format!(
+        "{},{}",
+        track(
+            "caption",
+            10,
+            &format!(
+                "{},{}",
+                caption("blank-long", 0, 5000, ""),
+                caption("blank-short", 10_000, 11_000, "")
+            )
+        ),
+        bed(30_000)
+    ));
+
+    assert_eq!(
+        caption_codes(&report),
+        Vec::<&str>::new(),
+        "{:?}",
+        report.findings
+    );
 }
 
 #[test]
@@ -629,7 +686,7 @@ fn two_different_lines_are_two_groups_and_neither_sees_the_other() {
 
     let finding = only(&report, "R-CAPTION-REPEAT-DURATION");
     assert_eq!(finding.fields["text"], "first line");
-    assert_eq!(finding.fields["occurrences"].as_array().unwrap().len(), 2);
+    assert_eq!(finding.count_of_occurrences(), 2);
 }
 
 // ---------------------------------------------------------------------------

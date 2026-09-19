@@ -569,11 +569,11 @@ characters per second, against a threshold of {threshold_cps}.",
         // Deliberately directionless. ADR-0034 rejects "shorter on repeat" as an
         // authorial-intent claim ADR-0006 forbids a finding from making, so the template
         // says the durations disagree, names both ends and the tolerance they cleared, and
-        // leaves which one is right to the reader. The per-occurrence id/start/duration
-        // list rides in `occurrences` and the values are grouped by the census.
+        // leaves which one is right to the reader. `detail` is the ADR's own
+        // "(id, start, duration)" listing, one entry per occurrence.
         template: "{count} elements carry the text \"{text}\", and their on-screen \
 durations disagree: {shortest} ms to {longest} ms, a spread of {spread} ms against one \
-frame at {fps} fps.",
+frame at {fps} fps — {detail}.",
         status: Live,
     },
     CheckSpec {
