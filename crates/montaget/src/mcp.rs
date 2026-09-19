@@ -112,10 +112,13 @@ pub struct QueryParams {
     /// Which elements to match, e.g. `type = text and group = item-05`.
     ///
     /// Terms are `<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with
-    /// `and`. `<op>` is one of `=`, `!=`, `<`, `<=`, `>`, `>=`. A field is a dotted path
-    /// into the element — `clip.width`, `runs.*.font` — plus the reserved `track`, which is
-    /// the name of the track the element sits in. Values are matched **as the document
-    /// writes them**; nothing is resolved.
+    /// `and`; there is no `or`, and two calls answer one. `<op>` is one of `=`, `!=`, `<`,
+    /// `<=`, `>`, `>=`. A field is a dotted path into the element — `clip.width`,
+    /// `runs.*.font`, `runs.0.font` — plus the reserved `track`, which is the name of the
+    /// track the element sits in. A bare value reads as the JSON scalar it spells and
+    /// quoting forces a string (`loop = true` the boolean, `id = "true"` the word). Values
+    /// match **whole** — no substrings — **as the document writes them**; nothing is
+    /// resolved. A term holds if any value the path reaches satisfies it.
     #[serde(default, rename = "where")]
     pub predicate: Option<String>,
     /// Distribute the matched set over this field, as a dotted path.
