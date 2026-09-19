@@ -29,9 +29,16 @@ fn a_report() -> Report {
             .field("over_by", json!(800)),
     );
     report.push(
+        // Its whole field set: the grid it was derived from, the count, and what actually
+        // changed — "one code, one field set, one template".
         Finding::new("N-QUANTIZATION")
             .at_file("en-halloween-decorating.montaget.json")
-            .field("changed", json!(0)),
+            .field("fps", json!(25))
+            .field("changed", json!(2))
+            .field(
+                "detail",
+                json!("`chip-text` (1000..1020 ms) holds no sampled frame"),
+            ),
     );
     report
 }
@@ -77,27 +84,38 @@ fn the_canonical_json_carries_the_summary_the_exit_code_and_the_boundary() {
 fn informational_classes_collapse_to_one_counted_line_and_expand_on_request() {
     // ADR-0006's noise budget: "errors and near-errors print in full; informational
     // classes collapse to one counted line carrying their code, expandable on request."
+    //
+    // `N-TRACK-GAP` rather than a stand-in: the committed fixture holds 27 of them and is
+    // a published video, so this is the shape the budget was written for rather than a
+    // hypothetical one. (`N-QUANTIZATION` cannot stand in any more — it is one
+    // project-scoped finding carrying a count, which is the same rule applied inside the
+    // check instead of at the report.)
     let mut report = Report::new("validate", Some("p.json".into()));
     for i in 0..47 {
         report.push(
-            Finding::new("N-QUANTIZATION")
+            Finding::new("N-TRACK-GAP")
                 .at_file("p.json")
-                .at_element(format!("el-{i:02}"))
-                .field("changed", json!(i)),
+                .at_track("narration")
+                .field("track", json!("narration"))
+                .field("from", json!(i * 1000))
+                .field("to", json!(i * 1000 + 450))
+                .field("size", json!(450))
+                .field("after", json!(format!("vo-{i:02}")))
+                .field("before", json!(format!("vo-{:02}", i + 1))),
         );
     }
     let json = report.to_json();
 
     let collapsed = text::render(&json, text::Options::default()).unwrap();
     assert_eq!(
-        collapsed.matches("N-QUANTIZATION").count(),
+        collapsed.matches("N-TRACK-GAP").count(),
         1,
         "one counted line:\n{collapsed}"
     );
     assert!(collapsed.contains("47"), "carrying its count:\n{collapsed}");
 
     let expanded = text::render(&json, text::Options::verbose()).unwrap();
-    assert_eq!(expanded.matches("N-QUANTIZATION").count(), 47);
+    assert_eq!(expanded.matches("N-TRACK-GAP").count(), 47);
 }
 
 #[test]

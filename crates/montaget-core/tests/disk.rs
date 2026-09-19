@@ -131,9 +131,15 @@ fn the_committed_fixture_agrees_with_the_media_beside_it() {
     }
     let report = validate(&fixture_dir().join("en-halloween-decorating.montaget.json"));
 
+    assert_eq!(
+        report.summary().error + report.summary().review,
+        0,
+        "the fixture is a published video; anything to act on is a defect in the check: {:?}",
+        report.findings
+    );
     assert!(
-        report.findings.is_empty(),
-        "the fixture is a published video; a finding on it is a defect in the check: {:?}",
+        report.findings.iter().all(|f| f.code == "N-TRACK-GAP"),
+        "and the only facts it states are its 27 gaps: {:?}",
         report.findings
     );
     assert_eq!(report.exit_code(), ExitCode::Ok);
@@ -281,9 +287,13 @@ fn every_referenced_source_is_probed_however_many_elements_share_one() {
     let body = canonical(&format!(
         r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[
             {{"id":"vo-ok","type":"audio","start":0,"end":{duration},"source":"cobweb.mp3","source_start":0,"source_end":{duration}}},
-            {{"id":"vo-over","type":"audio","start":2000,"end":4000,"source":"cobweb.mp3","source_start":0,"source_end":{over}}}
+            {{"id":"vo-over","type":"audio","start":{duration},"end":{end},"source":"cobweb.mp3","source_start":0,"source_end":{over}}}
         ]}}]}}"##,
-        over = duration + 500
+        over = duration + 500,
+        // Adjacent, and each element's timeline span equal to its source span: the two
+        // structural time checks (#197) have nothing to say about this project, so the one
+        // finding left is the one it is about.
+        end = duration + duration + 500
     ));
     let path = write_project(&dir, "p.montaget.json", &body);
 
@@ -542,9 +552,17 @@ fn the_facts_print_under_verbose_and_stay_in_the_json_either_way() {
 // ---------------------------------------------------------------------------
 
 /// An audio project carrying whatever `speed` spelling is under test.
-fn audio_project_at_speed(source: &str, source_start: i64, source_end: i64, speed: &str) -> String {
+/// `end` is a parameter because ADR-0020's invariant is now checked (#197): a timeline
+/// span picked for readability is a second finding on every project this builds.
+fn audio_project_at_speed(
+    source: &str,
+    source_start: i64,
+    source_end: i64,
+    speed: &str,
+    end: i64,
+) -> String {
     canonical(&format!(
-        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":100,"source":"{source}","source_start":{source_start},"source_end":{source_end},"speed":{speed}}}]}}]}}"##
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"tracks":[{{"name":"vo","layer":1,"elements":[{{"id":"vo-01","type":"audio","start":0,"end":{end},"source":"{source}","source_start":{source_start},"source_end":{source_end},"speed":{speed}}}]}}]}}"##
     ))
 }
 
@@ -565,13 +583,26 @@ fn the_overrun_finding_states_no_number_that_speed_would_have_decided() {
     let path = write_project(
         &dir,
         "p.montaget.json",
-        &audio_project_at_speed("cobweb.mp3", duration, duration + 7, "0.560"),
+        // The timeline span is 13 — the exact answer, so ADR-0020's invariant holds and
+        // this project has exactly one thing wrong with it. Writing 12 here (the `f64`
+        // answer) would make the same project carry an `E-SPEED-MISMATCH` as well, which
+        // is the cross-check: the two checks agree on this element or one of them is the
+        // one dividing in `f64`.
+        &audio_project_at_speed("cobweb.mp3", duration, duration + 7, "0.560", 13),
     );
 
     let report = validate(&path);
-    let finding = &report.findings[0];
+    let finding = report
+        .findings
+        .iter()
+        .find(|f| f.code == "E-SOURCE-OVERRUN")
+        .unwrap_or_else(|| panic!("no overrun in {:?}", report.findings));
 
-    assert_eq!(finding.code, "E-SOURCE-OVERRUN");
+    assert_eq!(
+        codes(&report),
+        ["E-SOURCE-OVERRUN"],
+        "13 is the exact answer, so the invariant holds and nothing else fires"
+    );
     assert_eq!(finding.fields["over_by"], 7);
     for invented in ["speed", "timeline_span"] {
         assert!(
@@ -601,7 +632,7 @@ fn a_speed_the_document_does_not_carry_is_never_supplied_for_it() {
         let path = write_project(
             &dir,
             "p.montaget.json",
-            &audio_project_at_speed("cobweb.mp3", 0, duration + 100, spelling),
+            &audio_project_at_speed("cobweb.mp3", 0, duration + 100, spelling, 100),
         );
 
         let report = validate(&path);

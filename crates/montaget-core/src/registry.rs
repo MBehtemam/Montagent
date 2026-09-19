@@ -412,6 +412,98 @@ do not repair it by ordinary file edit.",
         template: "{element}: `ease` presence does not match keyframe position on `{property}` at t={t}.",
         status: Declared,
     },
+    // ---- The structural time checks, and `slack` (#197). ---------------------------
+    //
+    // Four codes for what reads as two rules, and the split is this table's own: ADR-0043
+    // fixes the repair class **per code**, and ADR-0006 makes a code the handle an author
+    // suppresses and `compare` diffs on. An overlap and a gap are one traversal and two
+    // findings *because ADR-0004 says so* — "the overlap rule needs a validator, and it
+    // must distinguish *overlap* from *gap*: a forgotten shift leaving a silent gap passes
+    // an overlap-only check." A `speed` mismatch and an `overrun` that covers nothing are
+    // two arms of ADR-0020's one invariant and repair opposite ways round.
+    //
+    // No ADR names any of these four spellings — ADR-0004, ADR-0006 and ADR-0020 each
+    // state the condition and none states a code. That is surface the ADR series has not
+    // ratified, raised as #255 rather than left to be discovered from this table.
+    CheckSpec {
+        code: "E-TRACK-OVERLAP",
+        classes: &[Error],
+        // Refuse. Two elements of one track share an instant, and *which of the two is in
+        // the wrong place* is not readable off the document: an edit that stretched the
+        // first and an edit that dragged the second produce the identical file. ADR-0004
+        // bought the constraint deliberately — "two elements that genuinely should overlap
+        // now need two tracks" — and moving one to a second track is a third repair the
+        // document cannot choose between either.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0004",
+        template: "`{element}` ({start}..{end}) and `{other}` ({other_start}..{other_end}) \
+are both in track `{track}` and overlap by {overlap} ms.",
+        status: Live,
+    },
+    CheckSpec {
+        // A gap is legal, ordinary content — "the silence between two narration lines is a
+        // gap" — and ADR-0006 restates that it is *never* an error in the same breath as
+        // the severity rule that could be misread as overturning it. It is reported
+        // because ADR-0004 requires the validator to distinguish one from an overlap
+        // rather than pass it in silence, and it collapses to one counted line because
+        // ADR-0006's noise budget is a safety property.
+        //
+        // `note` and not `review`: whether the picture actually goes black across a gap is
+        // a question about *other tracks*, which this check does not look at. ADR-0006
+        // computes that severity "from the consequence at an instant" and hands the
+        // computation to the cross-track coverage question — `R-VISUAL-GAP`, ADR-0018 and
+        // #200. One gap, two checks, and the one that can see the whole frame owns the
+        // `review`.
+        code: "N-TRACK-GAP",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0004",
+        template: "nothing in track `{track}` from {from} ms to {to} ms ({size} ms), \
+between `{after}` and `{before}`.",
+        status: Live,
+    },
+    CheckSpec {
+        code: "E-SPEED-MISMATCH",
+        classes: &[Error],
+        // Advise, and ADR-0020 is the one that decides it rather than this table:
+        // "`start`/`end` and `source_start`/`source_end` are authoritative and must never
+        // move silently to satisfy this check ... `speed` is the free variable: when the
+        // invariant fails, `validate`'s error reports the `speed` value that would satisfy
+        // it, and the agent edits `speed`, never the spans." One free variable is a fully
+        // determined fix.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0020",
+        // Every number inline, including the two that are not in the file: the played
+        // duration and the timeline span it is supposed to equal. ADR-0045 is what makes
+        // `played` trustworthy — it is evaluated in exact rational arithmetic, so the
+        // number printed here is the number the invariant was decided on.
+        template: "`{element}`: source range {source_start}..{source_end} ({source_span} ms) \
+at `speed` {speed} plays for {played} ms, and the timeline range {start}..{end} is \
+{timeline_span} ms.",
+        status: Live,
+    },
+    CheckSpec {
+        // The other arm of the same invariant: "with `overrun` declared, `end - start` must
+        // be strictly *greater than* that value. An `overrun` declared on an element that
+        // doesn't need it — where `end - start` doesn't exceed the played duration — is
+        // itself a `validate` error" (ADR-0020).
+        code: "E-OVERRUN-UNNEEDED",
+        classes: &[Error],
+        // Refuse, where its sibling advises, and that is the reason they are two codes.
+        // The element is too short for its own `overrun`, and the document does not say
+        // whether the author meant the element to run longer or meant no `overrun` at all
+        // — deleting the key and extending `end` are different videos.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0020",
+        template: "`{element}`: `overrun` is \"{overrun}\", and there is nothing past the \
+source to cover — {source_span} ms at `speed` {speed} plays for {played} ms, and the \
+timeline range {start}..{end} is {timeline_span} ms.",
+        status: Live,
+    },
     CheckSpec {
         code: "R-VISUAL-GAP",
         // ADR-0006's own worked example of severity computed per instance: "a gap whose
@@ -454,13 +546,23 @@ do not repair it by ordinary file edit.",
         status: Declared,
     },
     CheckSpec {
+        // ADR-0006 restated ADR-0005's instruction because the literal one is wrong:
+        // "109 of its 120 time values — 47 of 48 distinct instants — are off the 40 ms grid
+        // at the project's own 25 fps ... A check with a 98% hit rate on a correct,
+        // published project is not a check; it is the alarm fatigue this ADR already
+        // identified as a safety problem." So this reports what quantization *changes*,
+        // and on a project where it changes nothing it says nothing at all.
         code: "N-QUANTIZATION",
         classes: &[Note],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",
-        template: "quantization changes {changed} boundaries.",
-        status: Declared,
+        // The template ADR-0006's own summary line implies — a count — plus the `fps` the
+        // grid is derived from and the list of what actually changed. Without the list the
+        // count is a number the reader cannot act on or check, which is the anti-vagueness
+        // rule the same ADR states.
+        template: "quantization at {fps} fps changes {changed} boundaries: {detail}.",
+        status: Live,
     },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",

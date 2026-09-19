@@ -120,6 +120,16 @@ fn run_checks(
     crate::checks::schema::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
+    // The checks that read the clock (#197). Three questions and one traversal each: two
+    // elements of one track sharing an instant is the rule tracks exist to enforce
+    // (ADR-0004); a gap is reported apart from an overlap and is never an error
+    // (ADR-0006); and the source/timeline invariant is evaluated in exact rational
+    // arithmetic, never `f64` (ADR-0045).
+    crate::checks::track::check(document, report);
+    crate::checks::speed::check(document, report);
+    // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
+    // what the grid actually changes, which on a correct project is nothing (ADR-0006).
+    crate::checks::quantization::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected
     // outright — the agent that pretty-printed the fixture from 154 lines to 1595 was not
     // running a formatter and had no reason to invoke one, while `validate` runs on files

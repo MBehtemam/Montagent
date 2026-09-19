@@ -15,9 +15,12 @@
 
 pub mod anchor;
 pub mod layout;
+pub mod quantization;
 pub mod retired;
 pub mod schema;
 pub mod source;
+pub mod speed;
+pub mod track;
 
 /// What a finding's prose calls the project itself, where the subject is not an element.
 pub(crate) const PROJECT: &str = "the project";
