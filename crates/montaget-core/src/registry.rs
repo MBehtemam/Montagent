@@ -542,7 +542,7 @@ while {elements} plays on {active}.",
         adr: "ADR-0058",
         template: "text \"{element}\" declares height {declared_height}; computed block height is \
 {computed_height} ({derivation}) — slack {slack} ({slack_percent}%).",
-        status: Declared,
+        status: Live,
     },
     CheckSpec {
         code: "R-CAPTION-PACE",
