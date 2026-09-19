@@ -139,6 +139,13 @@ fn run_checks(
     // document already carries — no font, no I/O — so this too can sit anywhere in the
     // list.
     crate::checks::box_slack::check(document, report);
+    // `E-HIGHLIGHT-RANGE`/`E-HIGHLIGHT-OVERLAP` (#202, ADR-0051): a per-word `highlight`
+    // window out of its parent run's own range, or overlapping a sibling's. And
+    // `E-TRANSITION-RANGE` (#202, ADR-0059): a transition's derived range drifted from
+    // its two bridged elements. All three read only the document, so — like the checks
+    // above — they can sit anywhere in this list.
+    crate::checks::highlight::check(document, report);
+    crate::checks::transition::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);

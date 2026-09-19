@@ -544,6 +544,51 @@ while {elements} plays on {active}.",
 {computed_height} ({derivation}) — slack {slack} ({slack_percent}%).",
         status: Live,
     },
+    // ---- The `highlight` and transition document checks (#202). --------------------
+    CheckSpec {
+        // ADR-0051's containment check. Refuse, on `E-TRACK-OVERLAP`'s reasoning: the
+        // document does not say whether the run's window or the element's own range is
+        // the one that is wrong — a whole-document offset mixup could be either, and the
+        // two repairs are not the same edit.
+        code: "E-HIGHLIGHT-RANGE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0051",
+        template: "{element}: the highlight window on run \"{run}\" ({start}..{end}) falls \
+outside the element's own range {element_start}..{element_end}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0051's non-overlap check. Its own code rather than an instance of the one
+        // above — a window sliced against the wrong sentence is legal containment and
+        // still wrong — and refuse-class for the same reason `E-TRACK-OVERLAP` is: two
+        // windows disagree about which word lights up at an instant, and nothing in the
+        // document says which of the two is the copy-paste.
+        code: "E-HIGHLIGHT-OVERLAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0051",
+        template: "{element}: the highlight window on run \"{run}\" ({start}..{end}) \
+overlaps run \"{other}\" ({other_start}..{other_end}) by {overlap} ms.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0059: a transition's range is derived, redundant data that must track the
+        // two elements it bridges. Advise, unlike its two siblings above — the ADR states
+        // the check as "a closed-form function of the two referenced elements' own
+        // ranges", so unlike an overlap or a highlight mixup, the correct value is fully
+        // determined by the document and the repair is exactly that recomputed window.
+        code: "E-TRANSITION-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0059",
+        template: "{element}: the transition's range {start}..{end} does not match the \
+intersection of `{from}` and `{to}`, which is {derived_start}..{derived_end}.",
+        status: Live,
+    },
     CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],
