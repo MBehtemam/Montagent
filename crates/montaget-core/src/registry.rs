@@ -540,14 +540,82 @@ timeline range {start}..{end} is {timeline_span} ms.",
         code: "R-CAPTION-PACE",
         classes: &[Review],
         repair: None,
-        // The first and, to date, only member of ADR-0061's fenced exception.
+        // The first member of ADR-0061's fenced exception, and until #199 its only one —
+        // `R-CAPTION-MIN-DURATION` below is the second, which ADR-0061's prose still says
+        // does not exist (#260).
         threshold: External {
             source: "Netflix and BBC timed-text guidance",
             adr: "ADR-0034",
         },
         adr: "ADR-0034",
-        template: "{element}: {measured_cps} characters per second, against a threshold of {threshold_cps}.",
-        status: Declared,
+        // The three numbers ADR-0034 asks the finding to carry — "the computed cps, the
+        // character count and the duration so a reader can judge the margin without
+        // re-deriving it" — and they are also what ADR-0061's second condition requires:
+        // the raw measured fact as the substance, never a pass/fail.
+        template: "{element}: {characters} characters in {duration} ms is {measured_cps} \
+characters per second, against a threshold of {threshold_cps}.",
+        status: Live,
+    },
+    CheckSpec {
+        // Internal, and ADR-0061 says why in this check's own words: "`R-CAPTION-REPEAT-DURATION`'s
+        // one-frame tolerance comes from the project's own declared `fps`, so the check
+        // passes even though 'captions shouldn't visibly shrink on repeat' is itself a
+        // human intuition." What is tested is the *deciding* number, not the subject matter.
+        code: "R-CAPTION-REPEAT-DURATION",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0034",
+        // Deliberately directionless. ADR-0034 rejects "shorter on repeat" as an
+        // authorial-intent claim ADR-0006 forbids a finding from making, so the template
+        // says the durations disagree, names both ends and the tolerance they cleared, and
+        // leaves which one is right to the reader. `detail` is the ADR's own
+        // "(id, start, duration)" listing, one entry per occurrence.
+        template: "{count} elements carry the text \"{text}\", and their on-screen \
+durations disagree: {shortest} ms to {longest} ms, a spread of {spread} ms against one \
+frame at {fps} fps — {detail}.",
+        status: Live,
+    },
+    CheckSpec {
+        // Internal, and the contrast with its two siblings is the point ADR-0061 makes:
+        // "what matters is the *deciding* number". This check has none — it asks whether a
+        // set is empty over an interval the document itself states — so nothing here is
+        // borrowed, however much "a caption should have something spoken under it" sounds
+        // like a judgment.
+        code: "R-CAPTION-NO-AUDIO",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0054",
+        // Says what it looked for and what it found, because the check's silence has a
+        // shape a reader must be able to see: it is presence of *any* audio-bearing
+        // element, never narration coverage (ADR-0054).
+        template: "{element}: no `audio` or `video` element overlaps {start}..{end} ms \
+({duration} ms), so nothing is declared to be heard under it.",
+        status: Live,
+    },
+    CheckSpec {
+        // The second member of ADR-0061's fenced category, where that ADR's own prose says
+        // there is one (#260). Not a contradiction of it but the rule it wrote: ADR-0054 puts this floor "in the same register as
+        // `R-CAPTION-PACE`'s 20 cps — an externally documented constant about human reading
+        // capacity, not a property of the render", and ADR-0061's citation requirement is
+        // "binding policy for future checks of this shape, not best-effort". Strip 834 and
+        // the check has no predicate left, and 834 is nowhere in any document.
+        code: "R-CAPTION-MIN-DURATION",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: "Netflix Timed Text Style Guide, General Requirements: a 5/6-second \
+minimum caption duration",
+            adr: "ADR-0054",
+        },
+        adr: "ADR-0054",
+        // The measured duration first and the floor second, in the same shape as
+        // `R-CAPTION-PACE`: a reader who disagrees with 834 still has the number. The range
+        // is named because a duration with no instants is a number you cannot go and look at.
+        template: "{element}: on screen for {duration} ms ({start}..{end} ms), below the \
+{floor} ms floor.",
+        status: Live,
     },
     CheckSpec {
         // ADR-0006 restated ADR-0005's instruction because the literal one is wrong:
