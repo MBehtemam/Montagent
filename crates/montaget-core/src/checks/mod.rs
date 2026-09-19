@@ -15,6 +15,7 @@
 
 pub mod anchor;
 pub mod caption;
+pub mod coverage;
 pub mod layout;
 pub mod quantization;
 pub mod retired;

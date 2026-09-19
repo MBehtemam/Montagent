@@ -128,9 +128,10 @@ fn the_fixture_s_notes_are_its_own_gaps_and_they_collapse_to_one_line() {
         report
             .findings
             .iter()
-            .filter(|f| !f.code.starts_with("R-CAPTION-"))
+            .filter(|f| !f.code.starts_with("R-CAPTION-") && f.code != "R-VISUAL-GAP")
             .count(),
-        "nothing but the gaps and the ten caption findings two ADRs asked for: {:?}",
+        "nothing but the gaps, the group-paired silences (asserted separately, below) and \
+         the ten caption findings two ADRs asked for: {:?}",
         report.findings
     );
     assert_eq!(gaps.len(), 27, "27 gaps across three tracks");
@@ -158,6 +159,43 @@ fn the_fixture_s_notes_are_its_own_gaps_and_they_collapse_to_one_line() {
         rendered.matches("N-TRACK-GAP").count(),
         1,
         "one counted line, not 27:\n{rendered}"
+    );
+}
+
+#[test]
+fn the_fixture_s_group_pairs_hold_their_photos_through_every_narration_breath() {
+    // ADR-0018, #200: group-scoped coverage, symmetric between audio and visual. The
+    // fixture's `header` group — eight elements, no audio member — is exactly the case
+    // the union rule it replaces could never tell apart from real content, and pairing
+    // asserts nothing about it rather than a false "covered".
+    //
+    // The 21 it does fire on are every group's ordinary narration breath: a photo held
+    // through the silence between two lines, the same fact `N-TRACK-GAP` already reports
+    // for the audio track's own gap. **Zero** fire the other way — audio outrunning its
+    // group's visual, ADR-0018's own two founding defects (#23) — which is why this
+    // fixture's `review` count (asserted elsewhere as 10) does not move: a published
+    // video has none of that defect to report.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let report = validate(&fixture());
+
+    let gaps: Vec<&montaget_core::finding::Finding> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-VISUAL-GAP")
+        .collect();
+    assert_eq!(gaps.len(), 21, "{gaps:#?}");
+    assert!(
+        gaps.iter()
+            .all(|f| f.class == montaget_core::finding::Class::Note
+                && f.fields["active"] == "visual"
+                && f.fields["missing"] == "audio"),
+        "every one is the ordinary direction — a photo outlasting a narration breath: {gaps:#?}"
+    );
+    assert!(
+        gaps.iter().all(|f| f.fields["group"] != "header"),
+        "the header group carries no audio member and is not evaluated: {gaps:#?}"
     );
 }
 
