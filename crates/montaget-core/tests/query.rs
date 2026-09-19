@@ -759,6 +759,23 @@ fn there_is_no_or_and_the_refusal_says_what_to_do_instead() {
         .to_string();
     assert!(reason.contains("no `or`"), "{reason}");
     assert!(reason.contains("two calls"), "{reason}");
+    // The spellings an agent reaches for next are the ones the refusal has to catch, or it
+    // has taught nothing: `OR` and `||` land on the same sentence.
+    for spelling in ["type = text OR type = image", "type = text || type = image"] {
+        let answer = query::query(
+            &fixture(),
+            &Ask {
+                predicate: Some(spelling.into()),
+                ..Ask::default()
+            },
+        );
+        let reason = answer.report().findings[0].fields["reason"]
+            .as_str()
+            .expect("a reason")
+            .to_string();
+        assert!(reason.contains("no `or`"), "{spelling}: {reason}");
+    }
+
     // A bare word that merely begins with `or` is a value, not the keyword.
     assert_eq!(
         query::query(

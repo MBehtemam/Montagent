@@ -10,8 +10,10 @@ schema, and a fact about a schema is exactly the kind of claim that quietly stop
 true when the schema grows:
 
   1. no element variant declares a `track` property, so the reservation shadows nothing;
-  2. no object property anywhere in the schema is spelled with digits alone, so reading a
-     digit segment as an index never steals a reachable key.
+  2. no property the schema *declares*, anywhere, is spelled with digits alone, so reading
+     a digit segment as an index never steals a reachable key. Author-chosen keys — the
+     `fonts` table's names — are not checked and do not need to be: a predicate path starts
+     at an element, and no element reaches that table.
 
 Run this before adding a property to `schema/montaget.schema.json`. A failure here is not
 a bug in the scan — it means ADR-0070 needs an amendment, because a predicate that used to

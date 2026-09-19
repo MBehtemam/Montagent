@@ -38,7 +38,7 @@
 //! detail — it is what an agent has to learn, and it is as good as permanent once an
 //! agent's prompts contain it. ADR-0011 owned none of it, which
 //! [#249](https://github.com/MBehtemam/Montaget/issues/249) raised in the same spirit as
-//! #241; [ADR-0070](../../../../../docs/adr/0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md)
+//! #241; [ADR-0070](../../../../../../docs/adr/0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md)
 //! settled it. A reader who disagrees with the shape argues with that ADR, not with this
 //! file.
 //!
@@ -432,10 +432,11 @@ impl<'a> Scanner<'a> {
         }
         let left_over = self.rest().trim_end().to_string();
         // `or` is absent by decision (ADR-0070) rather than by oversight, so the refusal
-        // names the decision and the move that answers it. Reported as leftover text, the
-        // caller's next guess is a spelling — `||`, `OR` — and the turn is spent on syntax
-        // rather than on learning that the language has no disjunction at all.
-        if self.keyword("or")? {
+        // names the decision and the move that answers it. Reported as leftover text alone,
+        // the caller's next guess is a spelling — and so the spellings it would guess are
+        // caught here too, or the sentence has taught nothing: what has to be learnt is that
+        // the language has no disjunction, not that this one was typed wrong.
+        if reads_as_or(&left_over) {
             return Err(format!(
                 "`{left_over}` is left over: there is no `or` — two calls answer a \
                  disjunction, one per term, and the union of their matched sets is the answer"
@@ -445,6 +446,20 @@ impl<'a> Scanner<'a> {
             "`{left_over}` is left over; terms are joined with `and`"
         ))
     }
+}
+
+/// Whether leftover text begins with something the caller meant as a disjunction.
+///
+/// `or` in any case, and the two operator spellings a caller arriving from `jq` or from a
+/// programming language reaches for. `or` is matched as a whole word so that leftover text
+/// beginning `orange` is reported as leftover text.
+fn reads_as_or(left_over: &str) -> bool {
+    if left_over.starts_with('|') {
+        return true;
+    }
+    let mut chars = left_over.chars();
+    let word = chars.by_ref().take(2).collect::<String>();
+    word.eq_ignore_ascii_case("or") && !chars.next().is_some_and(is_path_char)
 }
 
 /// A bare word as the JSON scalar it spells.

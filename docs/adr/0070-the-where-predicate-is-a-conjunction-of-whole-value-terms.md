@@ -8,7 +8,10 @@ amends: 0011 (specifies the `--where` predicate grammar it named and left undefi
 [ADR-0011](./0011-tool-surface-reads-checks-renders.md) specifies
 `query --where <predicate> [--census <field>]` and stops there. It says what the mode is
 for — *"naming will go wrong, and the surface's job is to make it go wrong before the
-write"* — and nothing about what a predicate looks like.
+write"* — and nothing about what a predicate looks like. The question the mode answers is
+[ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s sibling census, one
+call rather than a script: *"Four of five are 1597, one is 1537 is inert data about the
+file: it carries the fix without proposing it."*
 [#196](https://github.com/MBehtemam/Montaget/issues/196) built the mode, so a grammar had
 to exist, and the one it shipped was argued in
 `crates/montaget-core/src/verbs/query/predicate.rs`.
@@ -33,23 +36,29 @@ plus one reserved first segment, `track`, meaning the containing track's `name`.
 
 ## `and`, and no `or`
 
-`and` is kept because ADR-0011's own worked example needs it: *"four of five siblings agree
-and one does not"* is a set narrowed twice, and a census is only readable over a set that
-was narrowed to the siblings first.
+`and` is kept because the sibling census needs it. ADR-0006's *"the other four elements of
+this track are at y = 1597"* is a census over a set narrowed twice — this track, and this
+kind of element — and a census is only readable over a set that was narrowed to the
+siblings first. ADR-0011's own recorded naming failure is the same shape from the other
+side: the agent that resolved it did so by *"finding three independent selectors that
+agreed on the same five elements"*, and a selector with one term is not three.
 
 `or` is refused. Two calls answer a disjunction and the union of their matched sets is the
 answer, so what a disjunction buys is one turn — against which a disjunction is the first
 step towards an expression language. The step after `or` is precedence, and after
 precedence parentheses, and at that point the grammar has to be published as an MCP
-resource and versioned, which is a cost ADR-0011 spent its whole `jq` argument avoiding:
-*"a predicate an agent has to look up is a predicate it will write a `jq` filter instead
-of."* A language a reader can hold in their head after one example is the asset here, and
-`and`-only is the largest such language.
+resource and versioned. ADR-0011's `jq` section is what makes that cost load-bearing
+rather than aesthetic: it concedes that *"`jq` does not replace `query`, but it gets
+further than the rebuttal claimed"* — five of its eight components are a one-liner — so
+this mode competes with a tool the agent already knows. A predicate an agent has to look
+up is a predicate it will write a `jq` filter instead of. A language a reader can hold in
+their head after one example is the asset here, and `and`-only is the largest such
+language.
 
 The cost is stated: a question of the form *"every element that is text **or** audio"* is
-two calls and a merge the caller performs. **The refusal names the rule** rather than
-reporting leftover text, because an agent told `` `or type = image` is left over `` will
-next guess `||`, then `OR`, and spend the turn on spelling.
+two calls and a merge the caller performs. **The refusal names the rule**, alongside the
+text it could not read, because an agent told only `` `or type = image` is left over ``
+will next guess `||`, then `OR`, and spend the turn on spelling.
 
 ## Whole values only: no substring matching and no regular expressions
 
@@ -59,7 +68,7 @@ The reason is `--census`, which is the argument for the whole mode. A census gro
 matched set by the values at one path, and every group it names is a value some element
 actually states. Under a half-matching predicate the set beneath it is a set of elements
 that agreed *partly*, and the distribution stops being a distribution over anything —
-*"four of five siblings agree"* becomes four of five siblings whose fonts share a prefix,
+*"four of five are 1597, one is 1537"* becomes four of five whose fonts share a prefix,
 which is not a fact about the document. Whole-value matching is also what makes the two
 halves of the answer commute: the matched set is a set the census could have been taken
 over directly.
@@ -100,8 +109,10 @@ the format has. A path that silently matches nothing is the worse of the two ans
 since an empty matched set is also what a *correct* predicate returns when the document
 disagrees with the caller.
 
-This is only safe while no schema property is spelled in digits alone, which
-`predicate_reserved_names_scan.py` re-derives and fails on.
+This is only safe while no property the schema *declares* is spelled in digits alone,
+which `predicate_reserved_names_scan.py` re-derives and fails on. Author-chosen keys are
+outside the question: the `fonts` table is the format's one open map, and a predicate path
+starts at an element, which never reaches it.
 
 ## A comparison holds if **any** value at the path satisfies it
 
@@ -113,11 +124,15 @@ has to be a predicate about an element.
 Two consequences follow and are ratified with it. An element reaching one value twice is
 one member of its census group, not two — the answer is a set. And an ordering comparison
 between two values of different kinds (`<` against a string on one element and a number on
-another) is **no match** rather than an error, because
-[ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md)'s permissive
-tree is the spine every read goes through: a query routinely runs over a document holding
-an `fps` of `"25"`, and a verb that aborted on the first such element would answer nothing
-about the other fifty-nine.
+another) is **no match** rather than an error. The reason is that a query is not read
+through the strict model: it reads the permissive tree, which exists because
+[ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) refuses a
+document only when it is *"missing the required top-level keys that make it recognizable as
+a project at all"*, since a `note`- or `review`-level finding *"does not make a file any
+less a legitimate, safely-formattable Montaget project"* — while
+[ADR-0017](./0017-closed-schema-no-escape-hatch.md) makes an unknown key an error. So a
+query routinely runs over a document holding an `fps` of `"25"`, and a verb that aborted on
+the first such element would answer nothing about the other fifty-nine.
 
 ## Literals: a bare word is the JSON scalar it spells, and quoting forces a string
 
@@ -200,32 +215,38 @@ the crop rectangle and the ink box. Until it ships, that question is asked as
 - **The grammar is spec.** A change to it amends this ADR, the way a change to the format
   amends the ADR that owns the field.
 - **`or` is refused with a sentence that names the rule** and points at the two calls that
-  answer it, rather than with the generic leftover-text error.
+  answer it, in place of the generic leftover-text error.
 - **The published help states the whole language**, including the quoting rule and the
   any-value reading — an agent that has to read this ADR to write a predicate has already
   paid the cost ADR-0011's `jq` argument was avoiding.
 - **`CONTEXT.md`'s *Predicate* entry loses its "not ratified" note** and cites this ADR.
 - **`schema/montaget.schema.json` acquires two standing constraints**: no element property
-  named `track`, and no property spelled in digits alone. Both are checked.
+  named `track`, and no declared property spelled in digits alone. Both are checked in CI,
+  beside the amendment-banner check, so a schema that grows either is told at the pull
+  request rather than at the predicate that stops reaching a field.
 
 ## Evidence
 
-The decisions are argued from committed spec text — ADR-0011's `--at` argument and its
-recorded naming failure, ADR-0007's font question, ADR-0017's closed schema, ADR-0030's
-presence rule, ADR-0042's permissive tree — and the two claims about the *schema* rather
-than about the argument are re-executable:
+The decisions are argued from committed spec text — ADR-0011's `--at` argument, its `jq`
+section and its recorded naming failure, ADR-0006's sibling census, ADR-0007's font
+question, ADR-0017's closed schema, ADR-0030's presence rule, ADR-0042's refusal
+precondition — and the two claims about the *schema* rather than about the argument are
+re-executable:
 
-- `docs/adr/predicate_reserved_names_scan.py` — re-derives both, and exits non-zero the
-  moment either stops holding: no element variant declares `track` (across all 7
-  variants), and no object property anywhere in the schema is spelled in digits alone. It
-  was checked against a deliberately mutated schema and fails on each violation
-  independently.
-- `crates/montaget-core/tests/query.rs` — the behaviour, at the verb's seam: the reserved
-  `track` path, the wildcard and its census, `exists`/`missing` with the `!=`-does-not-mean-absent
-  pin, numbers compared numerically and quoting forcing a string, an index segment,
-  whole-value matching that does not match a prefix, the refusal of `or` and the pin that a
-  value merely beginning `or` is a value, and the keyframe list that `y = 1597` does not
-  match.
+- `docs/adr/predicate_reserved_names_scan.py` — re-derives both against the committed
+  `schema/montaget.schema.json`, and exits non-zero the moment either stops holding: no
+  element variant declares `track` (across all 7 variants), and no object property
+  anywhere in the schema is spelled in digits alone. Each claim is checked and reported
+  independently, so a schema that grows one of them is told which.
+- `crates/montaget-core/tests/query.rs` — the behaviour, at the verb's seam. #196 already
+  pinned most of what is ratified here: the reserved `track` path, the wildcard and its
+  census, `exists`/`missing` with the `!=`-does-not-mean-absent pin, numbers compared
+  numerically and quoting forcing a string, and — the document-literal decision, at the
+  seam it is decided at — an `x` written as a keyframe list passing through 100, which
+  `x = 100` does not match and `x exists` does. Ratifying added the three that were
+  decided but unpinned: an index segment reaching one member, whole-value matching that
+  does not match a prefix, and the refusal of `or` (in each spelling a caller would try)
+  beside the pin that a value merely beginning with those letters is a value.
 
 No jury was convened. Every question #249 raised is settled by a requirement already
 written down in this series, and the one that was genuinely in tension — document-literal

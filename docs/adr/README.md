@@ -139,7 +139,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 ## Reading order for a newcomer
 
-The series is 68 ADRs and mostly not worth reading front to back. To get the model:
+The series is 70 ADRs and mostly not worth reading front to back. To get the model:
 
 1. **[0003](0003-general-video-editor-not-channel-tooling.md)** — what this is and what the fixture is for. Read the anti-drift rule and take it seriously.
 2. **[0004](0004-tracks-as-constrained-lanes.md)** + **[0005](0005-absolute-integer-milliseconds.md)** — the shape of the document and its clock.
