@@ -2,8 +2,9 @@
 //! media on disk?"* (ADR-0006).
 //!
 //! Both halves now run. The document is read, or one `E-PARSE`/`E-READ` finding comes back
-//! and nothing is partially processed; then every registered check runs over the whole
-//! project, and every source it references is probed.
+//! and nothing is partially processed; the file is confirmed to be a project at all
+//! (ADR-0042), or one `E-NOT-A-PROJECT` finding comes back instead; then every registered
+//! check runs over the whole project, and every source it references is probed.
 //!
 //! Two properties of `validate` are structural and are settled here rather than by any
 //! individual check (ADR-0006): it **always runs every check on the whole project** —
@@ -17,6 +18,9 @@
 
 use std::path::Path;
 
+use serde_json::{Value, json};
+
+use crate::finding::Finding;
 use crate::media::session::Session;
 use crate::media::tools::Missing;
 use crate::parse;
@@ -52,6 +56,38 @@ fn run(path: &Path, session: Option<&mut Session>) -> Report {
     };
 
     let mut report = Report::new(TOOL, project);
+
+    if let Err(not_a_project) = document.shape() {
+        // ADR-0042's precondition, which `fmt`, `timeline` and `query` already hold and
+        // `validate` did not — because until #244 nothing downstream noticed. The gap the
+        // ADR found was message quality: a `validate` pointed at a transcript export should
+        // *"name the likely mismatch, not dump a raw schema error"*, and a schema check that
+        // has just learned to speak would do exactly that — "the project does not fit the
+        // published schema: missing field `frame`" — about a file that was never a project.
+        //
+        // What a verb does about the failure is the verb's own business, and this is
+        // `validate`'s answer: the three other verbs' answer, for the three other verbs'
+        // reason. It does not narrow what is analysed on a *project*, which is what ADR-0006
+        // forbids; it declines to analyse something that is not one.
+        report.push(
+            Finding::new("E-NOT-A-PROJECT")
+                .at_file(document.path())
+                .field(
+                    "missing",
+                    Value::String(
+                        not_a_project
+                            .missing
+                            .iter()
+                            .map(|key| format!("`{key}`"))
+                            .collect::<Vec<_>>()
+                            .join("/"),
+                    ),
+                )
+                .repair_value(json!({"value": "point validate at the project file"})),
+        );
+        return report;
+    }
+
     if let Err(missing) = run_checks(&document, &mut report, session) {
         // There is no `ffprobe`, so the disk half of the question cannot be asked. ADR-0006
         // forbids answering it with silence, and ADR-0011 gives "Montaget could not run"
@@ -75,6 +111,13 @@ fn run_checks(
     report: &mut Report,
     session: Option<&mut Session>,
 ) -> Result<(), Box<Missing>> {
+    // ADR-0017's closed schema, turned into findings (#244). Not gating: every other check
+    // still runs on a document that does not fit the types, because every other check reads
+    // the permissive tree and each of them has something true to say about a file mid-edit.
+    // What changes is that the file no longer validates *clean* while carrying a key the
+    // format does not publish — which is ADR-0016's whole migration mechanism, and was
+    // unfired until this call existed.
+    crate::checks::schema::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected

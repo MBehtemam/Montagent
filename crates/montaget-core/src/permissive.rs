@@ -174,6 +174,34 @@ impl Loose {
             })
     }
 
+    /// The line an element's `id` is written on, if it can be found unambiguously.
+    ///
+    /// Located by text rather than by a span the parser kept, because `serde_json` keeps
+    /// none. The search is deliberately narrow: the line must carry the `"id"` key and the
+    /// id's own quoted spelling, and the id must appear on exactly one line — the same
+    /// uniquely-matchable-substring property the whole canonical convention exists to
+    /// protect (ADR-0041). Where it is not unique the caller goes without a line rather
+    /// than with a guessed one, because ADR-0006's whole posture is that a stated number is
+    /// a measured one.
+    ///
+    /// It lives on the document rather than in any one check because two now ask it — the
+    /// `LAYOUT` check and the schema check — and a second copy is a second place for
+    /// "unambiguously" to come to mean something else.
+    pub fn line_of_element(&self, id: &str) -> Option<u32> {
+        let written = self.source()?;
+        let quoted = format!("\"{id}\"");
+        let mut found = None;
+        for (i, line) in written.lines().enumerate() {
+            if line.contains("\"id\"") && line.contains(&quoted) {
+                if found.is_some() {
+                    return None;
+                }
+                found = Some(i as u32 + 1);
+            }
+        }
+        found
+    }
+
     /// The document in the canonical convention — the same writer the strict model prints
     /// through, because there is one convention and a second implementation of it would be
     /// a second place for it to go stale.

@@ -86,7 +86,7 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
         if let Some(track) = track {
             finding = finding.at_track(track);
         }
-        if let Some(line) = written.and_then(|written| line_of_element(written, id)) {
+        if let Some(line) = document.line_of_element(id) {
             finding = finding.at_line(line);
         }
         findings.push(finding);
@@ -158,27 +158,4 @@ fn first_difference(written: &str, target: &str) -> u32 {
         }
     }
     written.split('\n').count() as u32 + 1
-}
-
-/// The line an element's `id` is written on, if it can be found unambiguously.
-///
-/// Located by text rather than by a span the parser kept, because `serde_json` keeps none.
-/// The search is deliberately narrow: the line must carry the `"id"` key and the id's own
-/// quoted spelling, and the id must appear on exactly one line — the same
-/// uniquely-matchable-substring property the whole convention exists to protect
-/// (ADR-0041). Where it is not unique the finding goes out without a line rather than with
-/// a guessed one, because ADR-0006's whole posture is that a stated number is a measured
-/// one.
-fn line_of_element(written: &str, id: &str) -> Option<u32> {
-    let quoted = format!("\"{id}\"");
-    let mut found = None;
-    for (i, line) in written.lines().enumerate() {
-        if line.contains("\"id\"") && line.contains(&quoted) {
-            if found.is_some() {
-                return None;
-            }
-            found = Some(i as u32 + 1);
-        }
-    }
-    found
 }

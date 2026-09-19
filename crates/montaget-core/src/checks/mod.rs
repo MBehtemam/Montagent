@@ -16,4 +16,18 @@
 pub mod anchor;
 pub mod layout;
 pub mod retired;
+pub mod schema;
 pub mod source;
+
+/// What a finding's prose calls the project itself, where the subject is not an element.
+pub(crate) const PROJECT: &str = "the project";
+
+/// What a finding's prose calls one element.
+///
+/// Here rather than in either check because two now name one, and ADR-0006's *"one code,
+/// one field set, one template"* is undone at the report if two checks call the same
+/// element two things — an element with no readable `id` is exactly the case where the
+/// spellings would diverge without anyone noticing, since it is the rare one.
+pub(crate) fn subject_of(id: Option<&str>) -> String {
+    id.unwrap_or("an element carrying no `id`").to_string()
+}
