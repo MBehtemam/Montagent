@@ -68,7 +68,9 @@ fn the_canonical_json_carries_the_summary_the_exit_code_and_the_boundary() {
     assert_eq!(json["tool"], "validate");
     assert_eq!(json["project"], "en-halloween-decorating.montaget.json");
     assert_eq!(json["summary"]["error"], 1);
-    assert_eq!(json["summary"]["note"], 1);
+    // `review`, not `note`: ADR-0006 escalates the two conditions `N-QUANTIZATION` fires
+    // on, and a code's prefix is not its class.
+    assert_eq!(json["summary"]["review"], 1);
     assert_eq!(json["exit_code"], 1);
     assert!(
         json["not_checked"]

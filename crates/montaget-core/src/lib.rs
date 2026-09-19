@@ -20,6 +20,8 @@
 //! - [`exact`] is the arithmetic the two dividing rules are evaluated in — `speed`'s
 //!   rounding invariant (ADR-0045) and the frame grid (ADR-0035), on integers and never
 //!   in `f64`.
+//! - [`track`] derives a track's elements in *time* order and the gaps between them —
+//!   the traversal the two clock-reading checks share rather than each writing.
 //! - [`slack`] derives the distance from every boundary to its nearest neighbour, once,
 //!   for the two write-side verbs that would otherwise disagree about what one is
 //!   (ADR-0032).
@@ -55,6 +57,7 @@ pub mod schema;
 pub mod slack;
 pub mod stack;
 pub mod text;
+pub mod track;
 pub mod verbs;
 pub mod wire;
 pub mod write;

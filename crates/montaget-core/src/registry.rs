@@ -420,7 +420,11 @@ do not repair it by ordinary file edit.",
     // findings *because ADR-0004 says so* — "the overlap rule needs a validator, and it
     // must distinguish *overlap* from *gap*: a forgotten shift leaving a silent gap passes
     // an overlap-only check." A `speed` mismatch and an `overrun` that covers nothing are
-    // two arms of ADR-0020's one invariant and repair opposite ways round.
+    // two arms of ADR-0020's one invariant that repair opposite ways round, and they are
+    // written as **two checks** rather than one branching function precisely so that
+    // ADR-0043's "granularity is per check, not per instance" stays literally true of
+    // them: `crate::checks::speed` splits at the question, and each half then answers
+    // uniformly for every instance it matches.
     //
     // No ADR names any of these four spellings — ADR-0004, ADR-0006 and ADR-0020 each
     // state the condition and none states a code. That is surface the ADR series has not
@@ -553,7 +557,20 @@ timeline range {start}..{end} is {timeline_span} ms.",
         // identified as a safety problem." So this reports what quantization *changes*,
         // and on a project where it changes nothing it says nothing at all.
         code: "N-QUANTIZATION",
-        classes: &[Note],
+        // `review`, and the code's `N-` prefix is not the objection — "the prefix is a
+        // convention and not a rule" (`CONTEXT.md`). ADR-0006 escalates exactly the two
+        // conditions this check fires on: "Escalate to `review` only for the cases in (1)
+        // and (2)" — an element that rounds out of existence, and a rounding that
+        // manufactures an overlap or a gap. Both mean the rendered frames do not show what
+        // the document declares, which is what `review` is: legal, renders, and you must
+        // look at a frame.
+        //
+        // `note` is declared beside it because ADR-0006's third derived fact — the twelve
+        // instants where a picture cut and a speech boundary land up to 18 ms apart — is
+        // one, and is the alignment detail the same ADR puts "behind `--verbose`". Nothing
+        // emits it yet; ADR-0035 gave the grid arithmetic to `measure` (#205), and where
+        // that fact belongs is #257.
+        classes: &[Review, Note],
         repair: None,
         threshold: Internal,
         adr: "ADR-0006",

@@ -50,7 +50,13 @@ fn the_only_thing_the_fixture_has_to_say_is_its_own_gaps() {
     // The one check that fires on the fixture, and an ADR says it should: ADR-0004
     // requires the validator to distinguish an overlap from a gap rather than pass a gap
     // in silence, and `CONTEXT.md` calls a gap legal and ordinary — "the silence between
-    // two narration lines is a gap". Seventeen of these are exactly that.
+    // two narration lines is a gap". Nineteen of these are in `narration` and are exactly
+    // that.
+    //
+    // **27, against ADR-0006's and #200's "eleven".** Not a disagreement: that eleven is
+    // the count of *visual* gaps, which is the question `R-VISUAL-GAP` asks (ADR-0018,
+    // #200) — this check counts every track's, `narration` included, and the fixture's
+    // audio track is where most of them are.
     //
     // They are `note`, so ADR-0006's noise budget collapses them to one counted line: the
     // clean case is still one line, and an edit that punched black frames into a track

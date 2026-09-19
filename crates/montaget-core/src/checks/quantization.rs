@@ -37,11 +37,10 @@
 use serde_json::{Value, json};
 
 use crate::exact;
-use crate::finding::Finding;
+use crate::finding::{Class, Finding};
 use crate::permissive::Loose;
 use crate::report::Report;
-
-use super::track;
+use crate::track;
 
 /// The whole project, against its own frame grid.
 ///
@@ -68,7 +67,7 @@ pub fn check(document: &Loose, report: &mut Report) {
                 ));
             }
         }
-        for gap in track::gaps_in(&sequence) {
+        for gap in sequence.gaps() {
             if exact::holds_a_sampled_frame(gap.from, gap.to, fps) == Some(false) {
                 changed.extend([gap.from, gap.to]);
                 detail.push(format!(
@@ -94,7 +93,11 @@ pub fn check(document: &Loose, report: &mut Report) {
     changed.dedup();
 
     report.push(
-        Finding::new("N-QUANTIZATION")
+        // ADR-0006: "Escalate to `review` only for the cases in (1) and (2)" — which are
+        // the only two cases this check fires on, so every finding it emits is one. The
+        // frames the renderer samples do not show what the document declares, and no
+        // arithmetic can tell you whether that was meant.
+        Finding::at_class("N-QUANTIZATION", Class::Review)
             .at_file(document.path())
             .field("fps", json!(fps))
             .field("changed", json!(changed.len()))

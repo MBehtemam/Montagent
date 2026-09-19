@@ -503,7 +503,10 @@ fn an_element_no_sampled_frame_falls_inside_is_what_quantization_changes() {
 
     assert_eq!(codes(&report), ["N-QUANTIZATION"]);
     let finding = &report.findings[0];
-    assert_eq!(finding.class, Class::Note);
+    // ADR-0006: "Escalate to `review` only for the cases in (1) and (2)" — and this is
+    // case (1) verbatim. The `N-` prefix is not the class: "the prefix is a convention and
+    // not a rule" (`CONTEXT.md`).
+    assert_eq!(finding.class, Class::Review);
     assert_eq!(finding.fields["fps"], 25);
     assert_eq!(finding.fields["changed"], 2, "its two boundaries");
     assert!(
@@ -621,24 +624,66 @@ fn slack_is_the_distance_to_the_nearest_boundary_in_any_track() {
     // The 4 ms one is named by both its ends, which is ADR-0047's identity.
     let cross_track = slack::at(&slacks, 56112, 56116).expect("the pair names a real slack");
     assert_eq!(
-        cross_track.opens[0].element, "vo-quiz",
+        cross_track.from_edges[0].element, "vo-quiz",
         "the narration's end opens it"
     );
     assert_eq!(
-        cross_track.closes[0].element, "photo-quiz",
+        cross_track.to_edges[0].element, "photo-quiz",
         "and the photo's end closes it"
     );
+    assert_eq!(
+        cross_track.to_edges[0].track,
+        Some("photo"),
+        "each end names its track, because `shift`'s refusal does (ADR-0032)"
+    );
+    assert_eq!(cross_track.to_edges[0].side, slack::Side::End);
     assert!(!cross_track.to_duration);
 
     // And the project's own last boundary is the derived `duration`, with nothing on its
     // far end to point at.
     let lead_out = slack::at(&slacks, 56116, 62000).expect("the tail is a slack too");
     assert!(lead_out.to_duration);
-    assert!(lead_out.closes.is_empty());
+    assert!(lead_out.to_edges.is_empty());
 
     // A pair the document does not currently bound is not a slack — ADR-0047 requires
     // `shift --release` to refuse exactly this.
     assert!(slack::at(&slacks, 56112, 62000).is_none());
+}
+
+#[test]
+fn an_element_stating_only_half_a_range_contributes_no_boundary() {
+    // Both or neither. An element mid-edit carrying a `start` and no `end` states no
+    // range, and one boundary of a range that is not there would manufacture a slack out
+    // of a half-written element. `crate::track` holds the same rule, and the two agreeing
+    // is the point — spec #168 names slack as the quantity two verbs would otherwise
+    // define twice.
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montaget.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"duration":9000,"tracks":[{}]}}"##,
+            track(
+                "photo",
+                10,
+                &format!(
+                    "{},{}",
+                    rect("whole", 0, 3000),
+                    r##"{"id":"half","type":"rect","start":5000,"x":0,"y":0,"width":10,"height":10}"##
+                )
+            )
+        )),
+    );
+    let document = parse::read(&path).expect("parses");
+
+    assert_eq!(
+        slack::of(&document)
+            .iter()
+            .map(|s| (s.from, s.to))
+            .collect::<Vec<_>>(),
+        [(0, 3000), (3000, 9000)],
+        "5000 is not a boundary, so no slack is measured to it"
+    );
 }
 
 #[test]
@@ -740,7 +785,7 @@ fn the_registry_declares_every_code_these_checks_can_fire() {
             &[Class::Error][..],
             Some(RepairClass::Refuse),
         ),
-        ("N-QUANTIZATION", &[Class::Note][..], None),
+        ("N-QUANTIZATION", &[Class::Review, Class::Note][..], None),
     ] {
         let spec = registry::spec(code).unwrap_or_else(|| panic!("{code} is not registered"));
         assert_eq!(spec.classes, classes, "{code}");

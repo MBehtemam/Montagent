@@ -50,7 +50,8 @@ pub struct Decimal {
     scale: u32,
 }
 
-/// The widest decimal this module will hold, in significant digits.
+/// The widest decimal this module will hold, in **significant** digits — leading zeros do
+/// not count against it.
 ///
 /// Well past `f64`'s 17 and past anything the format's numbers reach: a `speed` of
 /// `0.645` against a source span in milliseconds leaves the product `span × 10^scale`
@@ -88,7 +89,10 @@ impl Decimal {
         }
 
         let digits = format!("{whole}{fraction}");
-        if digits.len() > MAX_DIGITS {
+        // Leading zeros are not significant — `0.0000000001` is one digit and a scale,
+        // not eleven — so they are stripped before the width is judged. Counting them
+        // would refuse a legal literal for being written with a long run of nothing.
+        if digits.trim_start_matches('0').len() > MAX_DIGITS {
             return None;
         }
         let units: i128 = digits.parse().ok()?;
@@ -98,8 +102,13 @@ impl Decimal {
         let (units, scale) = if scale < 0 {
             (units.checked_mul(pow10(scale.unsigned_abs())?)?, 0)
         } else {
-            (units, scale as u32)
+            (units, u32::try_from(scale).ok()?)
         };
+        // The scale is bounded here rather than at the division. `1e-40` has one
+        // significant digit and a scale `10^scale` cannot hold, and a `Decimal` that
+        // parses but whose ratio overflows would reach the check as a rate it silently
+        // declines to evaluate — a `speed` that is neither legal nor reported.
+        pow10(scale)?;
 
         Some(Decimal {
             units: if negative { -units } else { units },
@@ -210,7 +219,8 @@ pub fn corrective_speed(source_span: i64, timeline_span: i64) -> Option<Decimal>
     // inside it always exists. The search is bounded rather than trusted: eighteen places
     // covers any timeline the format's integer milliseconds can address, and the caller
     // states the exact ratio rather than a guess if it ever does not.
-    (1..=18).find_map(|scale| {
+    // From zero, so an exact integer repair prints as `2` and not `2.0`.
+    (0..=18).find_map(|scale| {
         let unit = pow10(scale)?;
         let units = round_half_up(
             i128::from(source_span).checked_mul(unit)?,
@@ -231,6 +241,10 @@ pub fn corrective_speed(source_span: i64, timeline_span: i64) -> Option<Decimal>
 ///
 /// A range no frame falls in is a range the render never shows — an element that does not
 /// appear, or a gap whose black frames are not there.
+///
+/// A negative `from` is clamped to zero, which the published formula does not state
+/// because the format's times are not negative: there is no frame *−1* to be the first one
+/// at or after it, and `ceil` on a negative would name one.
 pub fn holds_a_sampled_frame(from: i64, to: i64, fps: i64) -> Option<bool> {
     if fps <= 0 || to <= from {
         return None;
@@ -326,6 +340,28 @@ mod tests {
                 "{source_span} / {corrective} must come back to {timeline_span}"
             );
         }
+    }
+
+    #[test]
+    fn a_literal_too_wide_to_hold_exactly_is_refused_rather_than_truncated() {
+        // A truncated literal is exactly the wrong answer this module exists to avoid, so
+        // both widths refuse: too many significant digits, and a scale `10^scale` cannot
+        // hold. The second is the one that matters — a `Decimal` that parsed and then
+        // overflowed at the division would reach the check as a rate it silently declines
+        // to evaluate.
+        assert_eq!(Decimal::parse(&format!("0.{}", "1".repeat(31))), None);
+        assert_eq!(Decimal::parse("1e-40"), None);
+
+        // Leading zeros are not significant and do not count against the width.
+        let tiny = Decimal::parse("0.000000000000000001").expect("one digit, and a scale");
+        assert_eq!(tiny.to_string(), "0.000000000000000001");
+    }
+
+    #[test]
+    fn an_exact_integer_repair_is_written_as_an_integer() {
+        // `2568 / 1284` is exactly 2, and a repair that said `2.0` would be telling an
+        // author to write a spelling the fixture never uses.
+        assert_eq!(corrective_speed(2568, 1284).unwrap().to_string(), "2");
     }
 
     #[test]
