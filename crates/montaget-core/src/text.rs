@@ -100,6 +100,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&timeline_block(overview));
     }
 
+    // `query`'s whole answer, on the same rule as `timeline`'s view: it prints wherever it
+    // is present and at any verbosity, because a verb whose output is the answer has nothing
+    // left to say if the answer is filtered out.
+    if let Some(query) = report.get("query").filter(|view| !view.is_null()) {
+        out.push_str(&query_block(query));
+    }
+
     let findings = report["findings"]
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
@@ -694,8 +701,14 @@ fn range_words(row: &Value) -> String {
 /// The widest cell in a column, counted in **characters** rather than bytes: an id or a
 /// track name may be any UTF-8 at all, and padding by byte length misaligns the whole
 /// column under one non-ASCII character.
-fn width_of<'a>(cells: impl Iterator<Item = &'a str>) -> usize {
-    cells.map(|cell| cell.chars().count()).max().unwrap_or(0)
+///
+/// Generic over what a cell is held as, because some columns are borrowed out of the
+/// canonical JSON and some are computed on the way past.
+fn width_of(cells: impl Iterator<Item = impl AsRef<str>>) -> usize {
+    cells
+        .map(|cell| cell.as_ref().chars().count())
+        .max()
+        .unwrap_or(0)
 }
 
 /// A name the document writes, or a question mark where it does not. Never `null`: the
@@ -729,4 +742,195 @@ fn milliseconds(value: &Value) -> String {
 /// One spelling of "1 element" across the whole report, rather than one per block.
 fn counted(count: &Value, noun: &str) -> String {
     plural(count.as_u64().unwrap_or(0), noun)
+}
+
+// ---- `query`'s two reading modes (#196) ----------------------------------------------
+
+/// The answer, generated from the `query` block of the canonical JSON.
+///
+/// Both modes share one heading so that a reader — or a grep — finds the answer in the same
+/// place whichever question was asked, and each states its own question underneath it: a
+/// cut list read without knowing the range it was taken over is a column of numbers.
+fn query_block(query: &Value) -> String {
+    match query["mode"].as_str() {
+        Some("cuts") => cuts_block(query),
+        Some("matches") => matches_block(query),
+        // The two modes are an internally-tagged enum, so a third spelling means this
+        // renderer is older than the verb it is rendering. Say that, rather than print
+        // nothing and let the answer look empty.
+        other => format!(
+            "\nQUERY\n  this build cannot render a `{}` answer\n",
+            other.unwrap_or("(unnamed)")
+        ),
+    }
+}
+
+/// The cut list, with the boundary immediately outside the range named on each side.
+///
+/// The two outside boundaries are rows of their own rather than extra intervals, and they
+/// say which side they are on in words. ADR-0011 asks for them so that *"the caller never
+/// has to guess a window"* — a row that looked like an interval would leave the caller
+/// working out whether it was inside the range they asked about.
+fn cuts_block(cuts: &Value) -> String {
+    let intervals = cuts["intervals"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    // The unit and the convention on the heading rather than on every row: ADR-0004 asks
+    // that absolute times be unmissable, and ADR-0005 makes the half-open bracket the
+    // difference between an element being in an interval and not.
+    let mut out = format!(
+        "\nQUERY  cut list over [{}, {}) — {} (absolute milliseconds, half-open)\n",
+        stated_number(&cuts["from"]),
+        stated_number(&cuts["to"]),
+        plural(intervals.len() as u64, "interval"),
+    );
+
+    out.push_str(&outside_row("before", &cuts["previous"]));
+
+    let ranges: Vec<String> = intervals
+        .iter()
+        .map(|interval| {
+            format!(
+                "{}..{}",
+                stated_number(&interval["start"]),
+                stated_number(&interval["end"])
+            )
+        })
+        .collect();
+    let spans: Vec<String> = intervals
+        .iter()
+        .map(|interval| milliseconds(&interval["duration_ms"]))
+        .collect();
+    let range_width = width_of(ranges.iter().map(String::as_str));
+    let span_width = width_of(spans.iter().map(String::as_str));
+
+    for ((interval, range), span) in intervals.iter().zip(&ranges).zip(&spans) {
+        let present = interval["present"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let names: Vec<String> = present.iter().map(|member| named(&member["id"])).collect();
+        out.push_str(&row(format!(
+            "{range:<range_width$}  {span:>span_width$}  {}",
+            // Not a blank cell: an interval nothing is present over is a fact about the
+            // project — the frame is the background — and a reader scanning a column of ids
+            // would read a blank as a rendering slip.
+            match names.is_empty() {
+                true => "(nothing present)".to_string(),
+                false => names.join(", "),
+            }
+        )));
+    }
+
+    out.push_str(&outside_row("after", &cuts["next"]));
+
+    // Named rather than dropped, and stated where the count is, so a cut list taken over
+    // fewer elements than the project has says so next to the answer rather than in JSON
+    // the prose reader never sees.
+    if let Some(unplaced) = cuts["unplaced"].as_array().filter(|ids| !ids.is_empty()) {
+        let names: Vec<String> = unplaced.iter().map(named).collect();
+        out.push_str(&row(format!(
+            "{} state no integer range and are not in the cut list: {}",
+            plural(names.len() as u64, "element"),
+            names.join(", "),
+        )));
+    }
+    out
+}
+
+/// One row of a block: two-space indent, and never any trailing padding — a column measured
+/// to its widest cell would otherwise leave every shorter row with a tail of spaces.
+fn row(cells: String) -> String {
+    format!("  {}\n", cells.trim_end())
+}
+
+/// One of the two boundaries immediately outside the range, or a line saying the document
+/// has none on that side.
+fn outside_row(side: &str, boundary: &Value) -> String {
+    if boundary.is_null() {
+        return row(format!(
+            "{side}  no boundary outside the range on this side"
+        ));
+    }
+    let names = |key: &str| -> Option<String> {
+        let ids: Vec<String> = boundary[key].as_array()?.iter().map(named).collect();
+        match ids.is_empty() {
+            true => None,
+            false => Some(format!("{key} {}", ids.join(", "))),
+        }
+    };
+    let what: Vec<String> = ["entering", "leaving"]
+        .iter()
+        .filter_map(|key| names(key))
+        .collect();
+    row(format!(
+        "{side}  {}  {}",
+        stated_number(&boundary["at"]),
+        what.join("; "),
+    ))
+}
+
+/// The matched set, and the census under it where one was asked for.
+fn matches_block(matches: &Value) -> String {
+    let matched = matches["matched"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let mut out = format!(
+        "\nQUERY  where {} — {}\n",
+        matches["predicate"].as_str().unwrap_or("?"),
+        plural(matched.len() as u64, "matched element"),
+    );
+
+    let cell = |element: &Value, key: &str| named(&element[key]);
+    let widest = |key: &'static str| width_of(matched.iter().map(move |e| cell(e, key)));
+    let (id, kind, track) = (widest("id"), widest("type"), widest("track"));
+
+    for element in matched {
+        out.push_str(&row(format!(
+            "{:<id$}  {:<kind$}  {:<track$}  {}",
+            cell(element, "id"),
+            cell(element, "type"),
+            cell(element, "track"),
+            range_words(element),
+        )));
+    }
+
+    if let Some(census) = matches.get("census").filter(|c| !c.is_null()) {
+        out.push_str(&census_block(census));
+    }
+    out
+}
+
+/// *"Four of five are 1597, one is 1537"* — in the order the groups were first seen, and
+/// never sorted by size (ADR-0043).
+fn census_block(census: &Value) -> String {
+    let field = census["field"].as_str().unwrap_or("?");
+    let groups: Vec<String> = census["groups"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+        .iter()
+        .map(|group| {
+            let members = group["members"].as_array().map_or(0, Vec::len);
+            format!("{members} at {}", compact(&group["value"]))
+        })
+        .collect();
+
+    let mut out = match groups.is_empty() {
+        true => format!("  census {field}: no matched element states it\n"),
+        false => format!("  census {field}: {}\n", groups.join(", ")),
+    };
+    // ADR-0030: omitted and explicit-at-default are different declarations, so "states no
+    // `y`" is its own line and never a group whose value is `null`.
+    if let Some(absent) = census["absent"].as_array().filter(|ids| !ids.is_empty()) {
+        let names: Vec<String> = absent.iter().map(named).collect();
+        out.push_str(&format!(
+            "  {} state no {field}: {}\n",
+            plural(names.len() as u64, "matched element"),
+            names.join(", "),
+        ));
+    }
+    out
 }

@@ -308,6 +308,46 @@ straddler, rather than silently absorbing the difference.
 ([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
 _Avoid_: ripple (as the primary term), slide, nudge
 
+**Presence set**:
+Every element whose timeline range contains a given instant — the whole of what
+the document puts on the clock there, audio included, since *"audio is an
+element like any other"*
+([ADR-0001](docs/adr/0001-flat-element-list.md)). Membership is decided by the
+half-open range alone: an element ending at `t` is already out of the set at `t`.
+It is a statement about the *document*, never about the picture — what covers
+what, and what the frame actually looks like, is the stack's question and
+`frame`'s. Whether it holds every element or only the visual ones is open —
+ADR-0011 says *"on-screen"* and the implementation reads every element, which is
+argued at [#250](https://github.com/MBehtemam/Montaget/issues/250).
+_Avoid_: active set, on-screen set (it includes audio), visible elements
+
+**Cut list**:
+What `query --from --to` answers with: the intervals over which the presence set
+is constant, each carrying its members — and never sampled instants. It always
+names the boundary immediately outside the range on each side, which is what
+saves the caller guessing a window, and its intervals partition the range asked
+for, so a stretch with nothing in it is one interval rather than a hole. An
+interval is as long as the presence set stays the same: two neighbours a reader
+could not tell apart are one interval.
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: edit list, shot list, segments, keyframes (spoken for), sampling
+
+**Predicate**:
+The expression `query --where` matches elements against: terms of the form
+`<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with `and`.
+A field is a dotted path into the element, with `*` for every member of an
+array, plus the reserved `track` — the name of the track the element sits in,
+which the element itself does not carry. It matches **what the document
+writes**: nothing is interpolated and no anchor is resolved, so an animated `x`
+is reached by `x exists` and never by the value it passes through. There is no
+`or` and no substring matching. **The grammar itself is not ratified** — ADR-0011
+specifies `--where` and says nothing about what a predicate looks like, so the
+shape above is the source tree's and is held open at
+[#249](https://github.com/MBehtemam/Montaget/issues/249).
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md) for the mode
+itself)
+_Avoid_: filter, selector, query (the verb's name), expression
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montaget has

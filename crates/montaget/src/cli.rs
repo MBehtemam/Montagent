@@ -116,6 +116,42 @@ enum Command {
         json: bool,
     },
 
+    /// What is true over a range, or across a predicate?
+    ///
+    /// Two of ADR-0011's three modes. `--from --to` returns the cut list — the intervals
+    /// over which the presence set is constant, with the boundary immediately outside the
+    /// range named on each side. `--where` returns the matched set, and `--census` its
+    /// distribution over one field. Neither reads the disk, and neither resolves anything:
+    /// a value is matched as the document writes it.
+    ///
+    /// It offers no verbosity switch, because it has no informational findings to
+    /// expand — the answer itself is the output, and it is never collapsed.
+    Query {
+        /// The project file.
+        project: PathBuf,
+        /// The start of the range, in absolute milliseconds. Asked for with `--to`.
+        #[arg(long, value_name = "MS")]
+        from: Option<i64>,
+        /// The end of the range, exclusive: a range is half-open `[from, to)`.
+        #[arg(long, value_name = "MS")]
+        to: Option<i64>,
+        /// Which elements to match, e.g. `type = text and group = item-05`.
+        ///
+        /// Terms are `<field> <op> <value>`, `<field> exists` or `<field> missing`, joined
+        /// with `and`. `<op>` is one of `=`, `!=`, `<`, `<=`, `>`, `>=`. A field is a
+        /// dotted path into the element — `clip.width`, `runs.*.font` — plus the reserved
+        /// `track`, which is the name of the track the element sits in. Values are matched
+        /// **as the document writes them**; nothing is resolved.
+        #[arg(long = "where", value_name = "PREDICATE")]
+        predicate: Option<String>,
+        /// Distribute the matched set over this field.
+        #[arg(long, value_name = "FIELD")]
+        census: Option<String>,
+        /// Print the canonical JSON *instead of* the text answer, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Serve the MCP tools over stdio.
     ///
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
@@ -260,6 +296,40 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_timeline(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Query {
+            project,
+            from,
+            to,
+            predicate,
+            census,
+            json,
+        } => {
+            // `--verbose` is deliberately absent, so `false` here is the only form there is
+            // rather than a flag the adapter decided for the caller.
+            let form = Wire::from_flags(json, false);
+            // Which combinations of these flags are legal is the verb's rule, not argv's:
+            // the MCP surface takes the same four arguments with no `clap` to arrange them,
+            // and a `clap` argument group would leave that surface uncovered (ADR-0011).
+            let ask = montaget_core::verbs::query::Ask {
+                from,
+                to,
+                predicate,
+                census,
+            };
+            match run_verb(|| montaget_core::verbs::query::query(&project, &ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_query(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

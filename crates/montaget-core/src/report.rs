@@ -129,6 +129,28 @@ impl Report {
         }
     }
 
+    /// One verb rejected its own arguments.
+    ///
+    /// [`Report::bad_invocation`] is argv's shape — no tool, no project — because that is
+    /// where the CLI raises it. A verb that names a project and gets an argument wrong is
+    /// the same finding about a known file, with the same code, class and exit: ADR-0011's
+    /// *"an error is a finding... so there is exactly one thing to parse across the
+    /// surface."* Which combinations of a verb's flags are legal is a rule about the verb,
+    /// so it is enforced in the verb rather than twice in the two adapters, and this is how
+    /// that answer gets back out with exit 3 intact.
+    pub fn rejected(
+        tool: impl Into<String>,
+        project: Option<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        // Built from the one above rather than beside it: a second spelling of the finding
+        // is a second place its code, class and repair could drift.
+        let mut report = Report::bad_invocation(reason);
+        report.tool = tool.into();
+        report.project = project;
+        report
+    }
+
     /// Montaget itself failed — ffmpeg died, the font stack failed.
     pub fn internal_failure(reason: impl Into<String>) -> Self {
         Report {
