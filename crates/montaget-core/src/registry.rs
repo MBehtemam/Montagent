@@ -702,6 +702,27 @@ minimum caption duration",
         template: "quantization at {fps} fps changes {changed} boundaries: {detail}.",
         status: Live,
     },
+    // ---- `fit`'s only consumer (#204). ---------------------------------------------
+    CheckSpec {
+        // ADR-0013 shipped this as a `note`; ADR-0015's court overturned that
+        // unanimously, on the same behavioural evidence #44 was founded on — three of
+        // six authoring tasks under the `note`'s preferred tolerance produced two
+        // different, equally legal files for one input. Strict equality breaks 0 of 8
+        // committed elements, the same price the loose rule paid.
+        code: "E-FIT-DEVIATION",
+        classes: &[Error],
+        // Advise, on `E-SPEED-MISMATCH`'s reasoning: the document names a rule and a
+        // source, and the rule's value is fully determined by the document plus the
+        // media on disk — there is no second reading of what the author meant.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0015",
+        template: "{element}: `fit:\"{fit}\"` from `{source}` ({source_width}x\
+{source_height}) derives {rule_width}x{rule_height}; the declared rect is \
+{declared_width}x{declared_height}. Write {rule_width}x{rule_height}, or `fit:\"literal\"` \
+if deliberate.",
+        status: Live,
+    },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],

@@ -155,8 +155,34 @@ fn run_checks(
     // nobody ever ran `fmt` over. Its findings are `LAYOUT`, which is not a severity: they
     // never gate a render, because the video is byte-identical either way.
     crate::checks::layout::check(document, report);
-    // The one check that needs a subprocess, and the only one that can fail rather than
-    // find. Whether it needs to open one at all is its own business — it is the thing that
-    // knows whether the document references any media.
-    crate::checks::source::check(document, session, report)
+
+    // The two checks that need a subprocess, and the only ones that can fail rather than
+    // find. Whether one needs to be opened at all is decided once, here, rather than per
+    // check: `crate::checks::fit` needs the identical session `crate::checks::source`
+    // does, and a project referencing no media has nothing to ask either of them.
+    if !document.elements().any(|e| e["source"].is_string()) {
+        return Ok(());
+    }
+    match session {
+        Some(session) => run_disk_checks(document, session, report),
+        None => {
+            let mut session = Session::open().map_err(Box::new)?;
+            session.begin_run();
+            run_disk_checks(document, &mut session, report)
+        }
+    }
+}
+
+/// The checks that read the disk, over the one session both share.
+///
+/// `source` first: it is what populates `report.misses`, and `fit` re-probing the same
+/// sources afterwards is a cache hit that adds none — running them in the other order
+/// would leave `fit`'s partial view overwriting `source`'s complete one.
+fn run_disk_checks(
+    document: &Loose,
+    session: &mut Session,
+    report: &mut Report,
+) -> Result<(), Box<Missing>> {
+    crate::checks::source::check(document, session, report)?;
+    crate::checks::fit::check(document, session, report)
 }
