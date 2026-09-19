@@ -127,6 +127,10 @@ fn run_checks(
     // arithmetic, never `f64` (ADR-0045).
     crate::checks::track::check(document, report);
     crate::checks::speed::check(document, report);
+    // The four caption checks (#199). Every one is a pure document read — ADR-0054 says so
+    // of the one that looks like it needs the disk — which is why this call takes no
+    // session and can sit anywhere in this list.
+    crate::checks::caption::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);

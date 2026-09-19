@@ -28,6 +28,16 @@ schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 
+# ADR-0034's pace metric is counted over **grapheme clusters** — "not UTF-16 code
+# units — combining marks and emoji must not double-count" — and its repeat check
+# groups on text that is byte-identical **after NFC normalization**. Neither is a
+# table Montaget can carry itself: both are derived from the Unicode character
+# database, which is versioned and revised, and a hand-rolled approximation of
+# either would be a threshold with no provenance (ADR-0061) wearing the costume of
+# an implementation detail.
+unicode-segmentation = "=1.13.3"
+unicode-normalization = "=0.1.23"
+
 # --- The Skia pin. This is the one place (#189, #36). ---------------------
 #
 # ADR-0010 accepted a C++ dependency on the strength of one premise: the

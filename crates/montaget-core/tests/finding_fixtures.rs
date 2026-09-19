@@ -55,11 +55,17 @@ fn refuse_class() -> Finding {
 
 /// ADR-0061: a document-derived fact compared against a cited external threshold, at
 /// `review`, stating the raw measurement as its substance.
+///
+/// The numbers are `hook-loop`'s as #199's check measures them: 30 grapheme clusters — the
+/// `\n` excluded, which ADR-0034's metric paragraph requires and its worked table does not
+/// do — in 1200 ms, so 25.0 cps rather than the table's 25.8.
 fn citation_carrying() -> Finding {
     Finding::new("R-CAPTION-PACE")
         .at_file("en-halloween-decorating.montaget.json")
         .at_element("hook-loop")
-        .field("measured_cps", json!(25.8))
+        .field("measured_cps", json!(25.0))
+        .field("characters", json!(30))
+        .field("duration", json!(1200))
         .field("threshold_cps", json!(20))
         .citation(Citation {
             threshold: json!(20),
@@ -162,11 +168,11 @@ fn a_citation_carrying_finding_states_the_measurement_and_cites_its_source() {
         "Netflix and BBC timed-text guidance"
     );
     assert_eq!(json["citation"]["adr"], "ADR-0034");
-    assert_eq!(json["fields"]["measured_cps"], 25.8);
+    assert_eq!(json["fields"]["measured_cps"], 25.0);
 
     let rendered = render_one(f);
     assert!(
-        rendered.contains("25.8"),
+        rendered.contains("25"),
         "the raw measured fact:\n{rendered}"
     );
     assert!(

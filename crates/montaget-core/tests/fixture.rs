@@ -21,7 +21,7 @@ fn fixture() -> PathBuf {
 }
 
 #[test]
-fn the_fixture_parses_and_reports_nothing_to_act_on() {
+fn the_fixture_parses_and_carries_only_the_findings_two_adrs_asked_for() {
     // Since #203 this exercises the disk half too, so it needs the `ffmpeg` ADR-0009 has
     // the user supply. Asked directly rather than inferred from the exit code afterwards,
     // which would also swallow every other internal failure.
@@ -32,21 +32,73 @@ fn the_fixture_parses_and_reports_nothing_to_act_on() {
 
     let summary = report.summary();
     assert_eq!(
-        (
-            summary.error,
-            summary.review,
-            summary.unchecked,
-            summary.layout
-        ),
-        (0, 0, 0, 0),
-        "the fixture is a published video; anything to act on is a defect in the check: {:?}",
+        (summary.error, summary.unchecked, summary.layout),
+        (0, 0, 0),
+        "the fixture is a published video: {:?}",
         report.findings
     );
+
+    // **Ten `review` findings, and the fixture is still correct.** Spec #168 makes the
+    // fixture the regression guard — "a check that fires on it is wrong *unless an ADR
+    // says otherwise*" — and here two ADRs say otherwise about this exact file. ADR-0034
+    // was written *from* `hook-loop`: 1200 ms for a line its own first showing gives 2298,
+    // "at exactly the seam a looping short is supposed to make invisible". ADR-0054 was
+    // written from the same element's silence. Every one of the ten is a caption finding
+    // (`caption_findings` below names them one by one), none of them is an `error`, and
+    // none of them gates the render.
+    assert_eq!(summary.review, 10, "{:?}", report.findings);
     assert_eq!(report.exit_code(), ExitCode::Ok);
 }
 
 #[test]
-fn the_only_thing_the_fixture_has_to_say_is_its_own_gaps() {
+fn the_fixture_s_ten_review_findings_are_the_two_defects_its_own_adrs_name() {
+    // Named individually rather than counted, because a count that moved would not say
+    // which check moved. ADR-0034: `hook-loop` outruns the pace floor, and three lines are
+    // repeated at durations that disagree. ADR-0054: the loop-out and the five countdown
+    // cards have nothing declared to be heard under them.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let report = validate(&fixture());
+
+    let mut captions: Vec<(String, String)> = report
+        .findings
+        .iter()
+        .filter(|f| f.code.starts_with("R-CAPTION-"))
+        .map(|f| {
+            let subject = f
+                .location
+                .element
+                .clone()
+                .unwrap_or_else(|| f.fields["text"].as_str().unwrap_or("?").to_string());
+            (f.code.clone(), subject)
+        })
+        .collect();
+    captions.sort();
+
+    assert_eq!(
+        captions,
+        [
+            ("R-CAPTION-NO-AUDIO", "count-1"),
+            ("R-CAPTION-NO-AUDIO", "count-2"),
+            ("R-CAPTION-NO-AUDIO", "count-3"),
+            ("R-CAPTION-NO-AUDIO", "count-4"),
+            ("R-CAPTION-NO-AUDIO", "count-5"),
+            ("R-CAPTION-NO-AUDIO", "hook-loop"),
+            ("R-CAPTION-PACE", "hook-loop"),
+            ("R-CAPTION-REPEAT-DURATION", "I hang cobwebs over the door."),
+            (
+                "R-CAPTION-REPEAT-DURATION",
+                "What is this called\nin English?"
+            ),
+            ("R-CAPTION-REPEAT-DURATION", "cobweb  -  cobweb"),
+        ]
+        .map(|(code, subject)| (code.to_string(), subject.to_string()))
+    );
+}
+
+#[test]
+fn the_fixture_s_notes_are_its_own_gaps_and_they_collapse_to_one_line() {
     // The one check that fires on the fixture, and an ADR says it should: ADR-0004
     // requires the validator to distinguish an overlap from a gap rather than pass a gap
     // in silence, and `CONTEXT.md` calls a gap legal and ordinary — "the silence between
@@ -73,8 +125,12 @@ fn the_only_thing_the_fixture_has_to_say_is_its_own_gaps() {
         .collect();
     assert_eq!(
         gaps.len(),
-        report.findings.len(),
-        "nothing else fires: {:?}",
+        report
+            .findings
+            .iter()
+            .filter(|f| !f.code.starts_with("R-CAPTION-"))
+            .count(),
+        "nothing but the gaps and the ten caption findings two ADRs asked for: {:?}",
         report.findings
     );
     assert_eq!(gaps.len(), 27, "27 gaps across three tracks");

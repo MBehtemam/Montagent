@@ -132,14 +132,19 @@ fn the_committed_fixture_agrees_with_the_media_beside_it() {
     let report = validate(&fixture_dir().join("en-halloween-decorating.montaget.json"));
 
     assert_eq!(
-        report.summary().error + report.summary().review,
+        report.summary().error,
         0,
-        "the fixture is a published video; anything to act on is a defect in the check: {:?}",
+        "the fixture is a published video; anything that gates its render is a defect in \
+         the check: {:?}",
         report.findings
     );
     assert!(
-        report.findings.iter().all(|f| f.code == "N-TRACK-GAP"),
-        "and the only facts it states are its 27 gaps: {:?}",
+        report
+            .findings
+            .iter()
+            .all(|f| f.code == "N-TRACK-GAP" || f.code.starts_with("R-CAPTION-")),
+        "and the only facts it states are its 27 gaps and the ten caption findings \
+         ADR-0034 and ADR-0054 were written from (`tests/fixture.rs` names them): {:?}",
         report.findings
     );
     assert_eq!(report.exit_code(), ExitCode::Ok);

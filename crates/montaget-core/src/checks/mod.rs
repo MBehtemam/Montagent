@@ -14,6 +14,7 @@
 //! fact about the project and never becomes a finding about one (ADR-0011's exit 70).
 
 pub mod anchor;
+pub mod caption;
 pub mod layout;
 pub mod quantization;
 pub mod retired;
