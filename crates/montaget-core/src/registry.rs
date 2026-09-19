@@ -309,6 +309,17 @@ screen together — {element} runs {start}..{end} ms and {target} runs {target_s
     // value that does not fit its type, and the two are acted on differently — one asks
     // whether the *binary* is stale, the other asks the author for a value. The split, and
     // the classes below, are surface the ADR series has not ratified — raised as #253.
+    //
+    // **Neither carries a sibling census, and ADR-0043 says a refuse-class finding does.**
+    // `E-PARSE` and `E-ANCHOR-CHAIN` are already refuse-class without one, so the practice
+    // is that the census attaches where a sibling group exists; here it cannot honestly be
+    // measured. `serde` stops at the first fault in an object, so a census counted over
+    // what this check reported would group "elements whose *first* fault was this key" and
+    // print it as "elements carrying this key" — and ADR-0006's whole posture is that a
+    // stated number is a measured one. A second, independent scan for the key would be
+    // exact at the top level of an element and blind inside a `run`, which is the
+    // multiplicity ADR-0017 names as the one that matters. Recorded here and in #253 rather
+    // than discharged with a number that is right about some documents.
     CheckSpec {
         code: "E-SCHEMA-UNKNOWN-KEY",
         classes: &[Error],
@@ -326,7 +337,7 @@ screen together — {element} runs {start}..{end} ms and {target} runs {target_s
         // a stale binary, the arm naming the binary preserved and compensated where the arm
         // printing a bare key list squashed the photos. "Not one it has retired" is the
         // second half of the ADR's two-case requirement, and it is true here because the
-        // check asks `retired::named_keys` before it speaks.
+        // check asks `retired::named` before it speaks.
         template: "{subject}: unknown key `{key}` — not a key this Montaget knows, and not one \
 it has retired. It may belong to a newer format revision than this binary implements. Check \
 your Montaget version before removing it. Do not delete the key to make the file validate. \

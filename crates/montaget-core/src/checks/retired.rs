@@ -102,6 +102,12 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// One spelling this check names, as the schema check needs to recognise it.
 ///
+/// Deliberately narrower than [`Sighting`], which it is otherwise a projection of: a
+/// predicate hands over the three facts needed to recognise the same spelling again, and
+/// nothing else. Handing over the sighting would hand over its [`Verdict`] and its census
+/// too — and a check that can read another check's verdict is one edit away from deciding
+/// its own class from it, which is the per-instance triage ADR-0043 forbids.
+///
 /// The element is `None` for a sighting on the project itself. A sighting nested inside an
 /// element — a `run`'s `weight`, an effect's key — is reported at that element, so the
 /// locus is the same one the schema check's element-scoped parse produces.
@@ -222,7 +228,7 @@ struct Locus {
 impl Locus {
     fn project() -> Self {
         Locus {
-            subject: "the project".into(),
+            subject: super::PROJECT.into(),
             element: None,
             track: None,
             type_name: String::new(),
@@ -233,7 +239,7 @@ impl Locus {
     fn element(element: &Map<String, Value>, track: &Option<String>) -> Self {
         let id = element.get("id").and_then(Value::as_str);
         Locus {
-            subject: id.unwrap_or("an element carrying no `id`").to_string(),
+            subject: super::subject_of(id),
             element: id.map(str::to_string),
             track: track.clone(),
             type_name: element

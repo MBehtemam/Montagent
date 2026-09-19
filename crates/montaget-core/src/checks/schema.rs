@@ -35,7 +35,7 @@
 //! text"* — a key that may belong to a newer revision, and a key this binary has retired
 //! — and its own draft message says the first out loud: *"not a key this Montaget knows,
 //! **and not one it has retired**"*. So `E-SCHEMA-UNKNOWN-KEY` asks
-//! [`crate::checks::retired::named_keys`] and stays silent where the retired check is
+//! `retired::named` (private to the crate, so a plain span rather than a link) and stays silent where the retired check is
 //! already speaking. It asks the *predicate*, never the report: ADR-0006 puts the checks
 //! in no significant order and forbids anything depending on which spoke first.
 //!
@@ -228,16 +228,16 @@ impl<'a> Locus<'a> {
         }
     }
 
-    /// What the prose names. The same three spellings the retired check uses, so one
-    /// document's findings read as one voice — and ADR-0016's own draft message, whose
-    /// subject is a bare element id.
+    /// What the prose names — ADR-0016's own draft message, whose subject is a bare element
+    /// id. The element spellings come from [`super::subject_of`] rather than from here, so
+    /// that this check and the retirement cannot come to call one element two things. The
+    /// track spellings are this check's own: it is the only check that reports at a track.
     fn subject(&self) -> String {
         match (self.scope, self.element, self.track) {
-            (Scope::Element, Some(id), _) => id.to_string(),
-            (Scope::Element, None, _) => "an element carrying no `id`".into(),
+            (Scope::Element, id, _) => super::subject_of(id),
             (Scope::Track, _, Some(name)) => format!("the track `{name}`"),
             (Scope::Track, _, None) => "a track carrying no `name`".into(),
-            (Scope::Project, _, _) => "the project".into(),
+            (Scope::Project, _, _) => super::PROJECT.into(),
         }
     }
 

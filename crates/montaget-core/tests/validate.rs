@@ -206,6 +206,42 @@ fn errors_exit_1_and_no_errors_exit_0() {
     assert_eq!(errored.exit_code(), ExitCode::Errors);
 }
 
+#[test]
+fn a_file_that_is_not_a_project_is_named_as_one_not_dumped_as_a_schema_error() {
+    // ADR-0042's precondition, which `validate` now holds alongside `fmt`, `timeline` and
+    // `query`. The gap the ADR found was message quality — a file missing its required keys
+    // wholesale should "name the likely mismatch, not dump a raw schema error" — and since
+    // #244 there is a schema check standing ready to do exactly that.
+    let dir = tempdir();
+    let path = write_project(
+        &dir,
+        "transcript.json",
+        r#"{"segments": [{"start": 0.0, "text": "hello"}]}
+"#,
+    );
+
+    let report = validate(&path);
+
+    assert_eq!(
+        report.findings.len(),
+        1,
+        "one finding about the file, and nothing about a project that is not there: {:?}",
+        report.findings
+    );
+    assert_eq!(report.findings[0].code, "E-NOT-A-PROJECT");
+    assert_eq!(report.exit_code(), ExitCode::Errors);
+
+    let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+    assert!(
+        rendered.contains("does not look like a Montaget project file"),
+        "{rendered}"
+    );
+    assert!(
+        !rendered.contains("published schema"),
+        "the raw schema error is the thing ADR-0042 asked not to be dumped:\n{rendered}"
+    );
+}
+
 /// A scratch directory of this test's own, keyed on the line that called for it.
 #[track_caller]
 fn tempdir() -> std::path::PathBuf {
