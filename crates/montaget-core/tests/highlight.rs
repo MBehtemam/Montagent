@@ -77,7 +77,12 @@ fn a_highlight_window_outside_the_elements_range_fires() {
 #[test]
 fn a_window_starting_before_the_elements_own_start_fires() {
     let report = report_on(&track(&text("t1", 500, 1000, &run("cobwebs", 400, 600))));
-    assert_eq!(findings(&report, "E-HIGHLIGHT-RANGE").len(), 1, "{:?}", report.findings);
+    assert_eq!(
+        findings(&report, "E-HIGHLIGHT-RANGE").len(),
+        1,
+        "{:?}",
+        report.findings
+    );
 }
 
 #[test]
@@ -132,12 +137,7 @@ fn one_window_wholly_containing_two_later_ones_is_caught_against_both() {
 
 #[test]
 fn a_run_with_no_highlight_never_fires() {
-    let report = report_on(&track(&text(
-        "t1",
-        0,
-        1000,
-        r##"{"text":"plain"}"##,
-    )));
+    let report = report_on(&track(&text("t1", 0, 1000, r##"{"text":"plain"}"##)));
     assert!(findings(&report, "E-HIGHLIGHT-RANGE").is_empty());
     assert!(findings(&report, "E-HIGHLIGHT-OVERLAP").is_empty());
 }

@@ -31,10 +31,19 @@
 //! criteria name all four. This mode is the half that reads the document alone, and it opens
 //! nothing.
 //!
+//! A fifth component appears in ADR-0011's verifier table — *"previous / next boundary"* —
+//! and is deliberately **not** here either, on the reading that the table is the hostile
+//! consumer's analysis rather than a specification of this mode. The ADR's own sentence
+//! naming what the output carries lists six things and that is not among them, and the
+//! boundary want is folded into `--from`/`--to` by name: *"it must always name the boundary
+//! immediately outside the range on each side, which folds in the `boundaries` want without
+//! a fourth verb"*. Stated rather than left silent, because the alternative reading is
+//! available to anyone who reads the table first.
+//!
 //! ## The surface, and where it is argued
 //!
 //! ADR-0011 names the components this answer must carry and not the shape it is written in,
-//! so the keys below — and the two readings under them — are this ticket's own.
+//! so the keys below — and the readings above and below them — are this ticket's own.
 //! [#269](https://github.com/MBehtemam/Montaget/issues/269) carries them for ratification,
 //! rather than leaving them to be discovered from this file.
 //!
@@ -53,7 +62,7 @@ use serde_json::Value;
 
 use crate::model::{Animatable, Scale};
 use crate::permissive::Loose;
-use crate::resolve::{self, Tween};
+use crate::resolve::{self, Interpolate, Unresolvable};
 use crate::stack::{Stack, Unresolved};
 
 use super::Named;
@@ -226,7 +235,7 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
 /// One property, read as the format's own type and resolved at the instant.
 fn resolved<T>(property: &str, written: &Value, instant: i64) -> Resolved
 where
-    T: serde::de::DeserializeOwned + Tween,
+    T: serde::de::DeserializeOwned + Interpolate,
     T::Out: Serialize,
 {
     let unreadable = |animated: bool, reason: String| Resolved {
@@ -245,8 +254,9 @@ where
     };
     let animated = matches!(animatable, Animatable::Keyed(_));
 
-    let Some(value) = resolve::at(&animatable, instant) else {
-        return unreadable(animated, "the keyframe list is empty".to_string());
+    let value = match resolve::at(&animatable, instant) {
+        Ok(value) => value,
+        Err(unresolvable) => return unreadable(animated, unanswered(unresolvable)),
     };
     match serde_json::to_value(value) {
         Ok(value) => Resolved {
@@ -257,6 +267,23 @@ where
         },
         // A value JSON cannot carry — an infinity or a NaN reached by interpolating one.
         Err(e) => unreadable(animated, e.to_string()),
+    }
+}
+
+/// Why the resolver could not answer, in a sentence.
+///
+/// It refuses rather than holding the previous value, and the sentence says which document
+/// state produced the refusal — because ADR-0011 asks this verb for resolved values, and a
+/// number the document does not determine, printed in the column resolved values live in,
+/// is worse than no number at all.
+fn unanswered(unresolvable: Unresolvable) -> String {
+    match unresolvable {
+        Unresolvable::Empty => "its keyframe list carries no records".to_string(),
+        Unresolvable::NoEase { t } => format!(
+            "the record at `t` {t} states no `ease`, so how the value travels into it is not \
+             in the document — the list is written out of clock order, and `ease` is required \
+             by position in the array",
+        ),
     }
 }
 

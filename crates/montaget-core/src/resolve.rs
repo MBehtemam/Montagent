@@ -35,25 +35,33 @@
 //! nearest integer"* is not a contradiction — it scopes itself to SPLIT, which is `shift`
 //! **writing** a record back into the document, and this module writes nothing.
 //!
-//! That last rule is why [`Tween::Out`] exists. A resolved `x` is not an `i64`: the document
+//! That last rule is why [`Interpolate::Out`] exists. A resolved `x` is not an `i64`: the document
 //! states `x` in absolute integer pixels (ADR-0012), but a value interpolating between two
 //! of them passes through the numbers in between, and a resolver that handed back an integer
 //! would be publishing a rounding rule ADR-0035 says there is not. The type says so.
 //!
 //! `scale`, `rotation`, `opacity` and `ease` control points are *"continuous-only and
 //! explicitly exempt"* from the exact-arithmetic rule (#168, restating ADR-0028's scope), so
-//! `f64` here is the specified arithmetic rather than a shortcut past
-//! [`crate::exact`].
+//! `f64` here is the specified arithmetic rather than a shortcut past [`crate::exact`].
+//! `x`, `y` and `volume` are not on that list and run through `f64` here all the same,
+//! which is the same rule arriving by ADR-0035's route rather than ADR-0028's: the exempt
+//! list is about the *fields the document stores*, and #168's three named exact sites are
+//! all derivations that feed a `ceil`/`floor`/`round`. A resolved value feeds none — it is
+//! rounded nowhere, by that ADR's own decision — so there is no rounding step for exact
+//! arithmetic to protect.
 
-use crate::model::{Animatable, Ease, Keyframe};
+use crate::model::{Animatable, Ease, EaseName, Keyframe};
 
 /// A value that can be interpolated, and what interpolating it produces.
+///
+/// Spelled `Interpolate` rather than the shorter word the animation world uses for it:
+/// `CONTEXT.md` lists *tween* under `_Avoid_` twice, on **Keyframe** and on **Easing**.
 ///
 /// The associated type is the load-bearing part. `x` and `y` are `Animatable<i64>` in the
 /// document and resolve to a continuous quantity; `scale` is a pair and resolves to a pair.
 /// Writing that as one trait keeps [`at`] a single function over every animated property the
 /// format has, rather than one per value shape.
-pub trait Tween {
+pub trait Interpolate {
     /// What this property reads as once resolved.
     type Out;
 
@@ -65,7 +73,7 @@ pub trait Tween {
     fn held(value: &Self) -> Self::Out;
 }
 
-impl Tween for f64 {
+impl Interpolate for f64 {
     type Out = f64;
 
     fn between(a: &Self, b: &Self, p: f64) -> f64 {
@@ -77,7 +85,7 @@ impl Tween for f64 {
     }
 }
 
-impl Tween for i64 {
+impl Interpolate for i64 {
     /// A resolved `x` is not an integer. See the module note: the integer-pixel rule
     /// constrains what the document may *state*, never what interpolation passes through.
     type Out = f64;
@@ -91,7 +99,7 @@ impl Tween for i64 {
     }
 }
 
-impl Tween for [f64; 2] {
+impl Interpolate for [f64; 2] {
     type Out = [f64; 2];
 
     fn between(a: &Self, b: &Self, p: f64) -> [f64; 2] {
@@ -103,44 +111,74 @@ impl Tween for [f64; 2] {
     }
 }
 
+/// Why a keyframe list has no value at an instant.
+///
+/// Both members are documents the format should not admit, and neither is a value: a
+/// resolver that answered them with a number would be the one thing ADR-0011 asks this verb
+/// never to do — state a resolved value the document does not determine. Returned rather
+/// than panicked on, because a resolver that aborts turns a malformed document into exit 70
+/// (ADR-0042).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unresolvable {
+    /// A keyframe list with no records. The published schema forbids it and so does
+    /// [`Animatable`]'s deserializer, which reads an empty array as a static value and
+    /// fails there.
+    Empty,
+    /// The segment arriving at the record at this `t` states no `ease`, so how the value
+    /// travels along it is not in the document. Reachable only where a list is written out
+    /// of clock order — the array-order-versus-clock-order gap of
+    /// [#270](https://github.com/MBehtemam/Montaget/issues/270) — because ADR-0038's rule is
+    /// enforced on array position and this module reads the clock.
+    ///
+    /// **No default is supplied**, here or anywhere: ADR-0038 weighed publishing `linear`
+    /// and rejected it, because *"a default is still a fact every reader must independently
+    /// know and correctly apply; the file itself does not display it."* Holding the previous
+    /// value would be that default under another name, and would arrive at the caller
+    /// indistinguishable from a hold the author wrote.
+    NoEase { t: i64 },
+}
+
 /// **One animated property's value at one instant.**
 ///
 /// A static property is that value at every instant, which is not a special case so much as
 /// the shortest list: ADR-0012's clamping already makes a one-record list constant
 /// everywhere, and a caller must never have to ask which of the two shapes it holds.
-///
-/// `None` only where the list is empty — a shape no parse can produce, since an empty array
-/// deserialises as a static value and fails there. It is returned rather than panicked on
-/// because a resolver that aborts is a resolver that turns a malformed document into exit
-/// 70 (ADR-0042).
-pub fn at<T: Tween>(property: &Animatable<T>, t: i64) -> Option<T::Out> {
+pub fn at<T: Interpolate>(property: &Animatable<T>, t: i64) -> Result<T::Out, Unresolvable> {
     match property {
-        Animatable::Static(value) => Some(T::held(value)),
+        Animatable::Static(value) => Ok(T::held(value)),
         Animatable::Keyed(records) => keyed(records, t),
     }
 }
 
 /// The resolved value of a keyframe list at `t`.
-fn keyed<T: Tween>(records: &[Keyframe<T>], t: i64) -> Option<T::Out> {
+fn keyed<T: Interpolate>(records: &[Keyframe<T>], t: i64) -> Result<T::Out, Unresolvable> {
     // Sorted by `t` rather than read in array order. A keyframe's `t` is the whole of what
     // places it on the clock (ADR-0012), so array order determines nothing here — the same
     // reading ADR-0060 fixed for elements, where *"array order carries no meaning"*. Stable,
     // so two records written at one instant keep the order the file has: SPLIT's rule is
     // *"never two records at one `t`"*, and a file that breaks it is not one this resolver
     // gets to silently reorder.
+    //
+    // **This is the one place the clock and the schema rule can disagree**, and the
+    // disagreement is real rather than theoretical: ADR-0038 makes `ease` *"a pure function
+    // of position in the list"* and `Animatable`'s deserializer counts **array** position, so
+    // a list written out of clock order can satisfy the schema and still put an `ease` on the
+    // record that is earliest here — leaving the one after it with none. Which reading is
+    // right is open and is [#270](https://github.com/MBehtemam/Montaget/issues/270); what
+    // this module does about it is `Unresolvable::NoEase`, which refuses rather than guesses.
     let mut order: Vec<&Keyframe<T>> = records.iter().collect();
     order.sort_by_key(|record| record.t);
 
-    let first = *order.first()?;
-    let last = *order.last()?;
+    let first = *order.first().ok_or(Unresolvable::Empty)?;
+    let last = *order.last().ok_or(Unresolvable::Empty)?;
     // Clamped at both ends (ADR-0012), inclusively: at exactly the first or last `t` the
     // value *is* that record's, and taking the branch here rather than through the segment
     // arithmetic keeps the endpoint exact rather than the result of a division.
     if t <= first.t {
-        return Some(T::held(&first.v));
+        return Ok(T::held(&first.v));
     }
     if t >= last.t {
-        return Some(T::held(&last.v));
+        return Ok(T::held(&last.v));
     }
 
     // The segment `t` is inside: `[a.t, b.t)`, half-open like every other range in the
@@ -149,37 +187,42 @@ fn keyed<T: Tween>(records: &[Keyframe<T>], t: i64) -> Option<T::Out> {
     // the predicate holds only where `a.t <= t < b.t`, so `b.t - a.t` is never zero — which
     // is what keeps two records written at one instant (SPLIT's *"never two records at one
     // `t`"*, broken) from dividing by zero rather than merely being answered oddly.
+    // Sorted, and `t` lies strictly between the first and last records, so some window
+    // contains it. `Empty` is the honest answer if that ever stops being true, rather than a
+    // panic in a view.
     let (a, b) = order
         .windows(2)
         .map(|pair| (pair[0], pair[1]))
-        .find(|(a, b)| a.t <= t && t < b.t)?;
+        .find(|(a, b)| a.t <= t && t < b.t)
+        .ok_or(Unresolvable::Empty)?;
 
     let fraction = (t - a.t) as f64 / (b.t - a.t) as f64;
     // `ease` on `b`, never on `a`: it describes the segment **entering** its record
     // (ADR-0012).
-    Some(match progress(b.ease.as_ref(), fraction) {
-        Some(p) => T::between(&a.v, &b.v, p),
-        // A `step` segment, and the one other case: a non-first record carrying no `ease` at
-        // all. That is a schema error (ADR-0038) and no parse of this format can produce it
-        // — `Animatable`'s deserializer refuses it by position — so this branch is reachable
-        // only from a value built in code. It holds the previous value rather than assuming
-        // `linear`, because **no default ease is ever defined** (ADR-0038): *"there is never
-        // an absent value to normalize."* Inventing one here would be the published default
-        // that ADR rejected, hidden one layer down.
-        None => T::held(&a.v),
-    })
+    match &b.ease {
+        // `step` is the one ease with no bezier — *"it is not a curve"* (ADR-0012) — so the
+        // value stays at the previous record until this record's own instant, which the
+        // clamp and the segment bounds above already deliver.
+        Some(Ease::Named(EaseName::Step)) => Ok(T::held(&a.v)),
+        Some(ease) => Ok(T::between(&a.v, &b.v, progress(ease, fraction))),
+        None => Err(Unresolvable::NoEase { t: b.t }),
+    }
 }
 
-/// The eased progress along a segment, given the raw fraction of its time, or `None` where
-/// the segment does not travel at all.
-fn progress(ease: Option<&Ease>, fraction: f64) -> Option<f64> {
-    match ease? {
-        // Named `step`, not `hold`, and it has no bezier: it is not a curve, it is the
-        // absence of one (ADR-0012). The value stays at the previous record until this
-        // record's own instant, which the clamp and the segment bounds above already deliver
-        // — so `None` here is the same answer as `step`, arrived at honestly.
-        Ease::Named(name) => name.bezier().map(|points| bezier(points, fraction)),
-        Ease::Bezier(points) => Some(bezier(*points, fraction)),
+/// The eased progress along a segment, given the raw fraction of its time.
+///
+/// Every ease but `step` is a bezier, and `step` is handled by its caller rather than here —
+/// it is *"not a curve"* (ADR-0012), and an evaluator with a not-a-curve branch in it is the
+/// second mechanism that ADR forbids.
+fn progress(ease: &Ease, fraction: f64) -> f64 {
+    match ease {
+        Ease::Named(name) => match name.bezier() {
+            Some(points) => bezier(points, fraction),
+            // `step`, which its caller took. Unreachable, and answered rather than panicked:
+            // holding is what `step` means.
+            None => 0.0,
+        },
+        Ease::Bezier(points) => bezier(*points, fraction),
     }
 }
 

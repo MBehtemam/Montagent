@@ -731,7 +731,8 @@
           "items": {
             "$ref": "#/$defs/Keyframe"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "minItems": 1
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
@@ -788,6 +789,32 @@
         },
         {
           "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "`x1` — the curve's own time, which runs from 0 to 1. Outside that is a schema error (ADR-0012)."
+            },
+            {
+              "type": "number",
+              "format": "double",
+              "description": "`y1` — outside `[0, 1]` is legal, because overshoot is a real need beziers give away free (ADR-0012)."
+            },
+            {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "`x2` — the curve's own time, which runs from 0 to 1. Outside that is a schema error (ADR-0012)."
+            },
+            {
+              "type": "number",
+              "format": "double",
+              "description": "`y2` — outside `[0, 1]` is legal, because overshoot is a real need beziers give away free (ADR-0012)."
+            }
+          ],
           "items": {
             "type": "number",
             "format": "double"
@@ -891,7 +918,8 @@
           "items": {
             "$ref": "#/$defs/Keyframe2"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "minItems": 1
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
@@ -968,7 +996,8 @@
           "items": {
             "$ref": "#/$defs/Keyframe3"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax."
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "minItems": 1
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."

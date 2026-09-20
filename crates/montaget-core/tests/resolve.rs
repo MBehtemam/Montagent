@@ -412,9 +412,11 @@ fn an_ease_on_the_first_record_is_a_schema_error_naming_the_convention() {
         .filter(|finding| finding.code == "E-SCHEMA")
         .collect();
     assert_eq!(schema.len(), 1, "{:?}", report.findings);
+    // By code plus the number in it (#168): the `t` of the record at fault is what sends an
+    // author to the right line, and the wording around it stays free to improve.
+    assert_eq!(schema[0].location.element.as_deref(), Some("wrong"));
     let reason = schema[0].fields["reason"].as_str().expect("a reason");
-    assert!(reason.contains("first keyframe record"), "{reason}");
-    assert!(reason.contains("arriving at"), "{reason}");
+    assert!(reason.contains('0'), "{reason}");
 }
 
 #[test]
@@ -441,19 +443,13 @@ fn a_missing_ease_on_a_later_record_is_a_schema_error_and_no_default_is_publishe
         .fields["reason"]
         .as_str()
         .expect("a reason");
-    assert!(reason.contains("keyframe record 2"), "{reason}");
-    assert!(reason.contains("no default"), "{reason}");
+    assert!(reason.contains("500"), "{reason}");
 
     // And the view says it could not answer rather than assuming `linear`.
     let answer = at(&path, 250);
     let opacity = value(&answer, "wrong", "opacity");
     assert_eq!(opacity["value"], Value::Null);
-    assert!(
-        opacity["unresolved"]
-            .as_str()
-            .is_some_and(|reason| reason.contains("ease")),
-        "{opacity}",
-    );
+    assert!(!opacity["unresolved"].is_null(), "{opacity}");
 }
 
 #[test]
@@ -496,6 +492,166 @@ fn the_published_schema_states_the_positional_rule_too() {
             .is_none(),
         "{}",
         defs["FirstKeyframe"],
+    );
+}
+
+#[test]
+fn a_list_written_out_of_clock_order_resolves_on_the_clock_and_guesses_no_ease() {
+    // The one place the clock and ADR-0038's positional rule can disagree, pinned rather
+    // than left to be met in the field: the schema counts array position, the resolver reads
+    // `t`, and a list written backwards satisfies the first while putting the `ease` on the
+    // record the second sees first. Which reading is right is #270.
+    let path = project(
+        line!(),
+        spread(vec![rect(
+            "backwards",
+            0,
+            2000,
+            json!({"opacity": [
+                {"t": 800, "v": 1.0},
+                {"t": 0, "v": 0.0, "ease": "linear"},
+            ]}),
+        )]),
+    );
+
+    // The schema is satisfied — index 0 carries no `ease` and index 1 does.
+    assert!(
+        !montaget_core::validate(&path)
+            .findings
+            .iter()
+            .any(|finding| finding.code == "E-SCHEMA"),
+    );
+    // And the segment with no stated easing resolves to nothing at all — not to a held
+    // value, which would be ADR-0038's rejected `linear` default wearing a hold's clothes and
+    // would reach the caller indistinguishable from a hold the author wrote.
+    let midway = at(&path, 400);
+    let mid = value(&midway, "backwards", "opacity");
+    assert_eq!(mid["value"], Value::Null);
+    assert!(!mid["unresolved"].is_null(), "{mid}");
+    // The endpoints are still answerable: clamping needs no easing.
+    assert_eq!(
+        value(&at(&path, 800), "backwards", "opacity")["value"],
+        json!(1.0),
+    );
+    assert_eq!(
+        value(&at(&path, 0), "backwards", "opacity")["value"],
+        json!(0.0),
+    );
+}
+
+#[test]
+fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
+    // The drift guard over the one table `--at` keeps by hand. It reads the permissive tree,
+    // so which type each animated property carries cannot come from a struct field — and a
+    // hand-maintained list is exactly what #168 retired for key order ("the schema is one
+    // artifact, not two"). So the *expectation* is derived from the published schema: an
+    // eighth animated property added to the model lands in the schema, and this test then
+    // names it as one the resolved stack does not carry.
+    let schema = montaget_core::schema::generate();
+    let mut animatable: Vec<String> = Vec::new();
+    collect_animatable(&schema, None, &mut animatable);
+    animatable.sort();
+    animatable.dedup();
+    assert!(
+        !animatable.is_empty(),
+        "the schema publishes animated properties"
+    );
+
+    // Two elements carry the whole set between them: a shape takes the five transform
+    // properties, and `volume` is audio's (ADR-0055).
+    let path = project(
+        line!(),
+        json!({
+            "frame": {"width": 1080, "height": 1920},
+            "fps": 25,
+            "tracks": [
+                {"name": "visual", "layer": 0, "elements": [
+                    {"id": "shape", "type": "rect", "start": 0, "end": 1000,
+                     "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
+                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0}]},
+                {"name": "sound", "layer": 1, "elements": [
+                    {"id": "noise", "type": "audio", "start": 0, "end": 1000,
+                     "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1000,
+                     "volume": 1.0}]},
+            ],
+        }),
+    );
+    let answer = at(&path, 500);
+    let mut resolved: Vec<String> = ["shape", "noise"]
+        .iter()
+        .flat_map(|id| {
+            element(&answer, id)["values"]
+                .as_array()
+                .expect("values is a list")
+                .iter()
+                .map(|value| value["property"].as_str().unwrap_or("?").to_string())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    resolved.sort();
+
+    assert_eq!(resolved, animatable);
+}
+
+/// Every property the published schema gives an `Animatable` value.
+fn collect_animatable(schema: &Value, key: Option<&str>, found: &mut Vec<String>) {
+    match schema {
+        Value::Object(body) => {
+            if let (Some(key), Some(reference)) = (key, body.get("$ref").and_then(Value::as_str))
+                && reference.contains("Animatable")
+            {
+                found.push(key.to_string());
+            }
+            for (child, value) in body {
+                collect_animatable(value, Some(child), found);
+            }
+        }
+        Value::Array(items) => items
+            .iter()
+            .for_each(|item| collect_animatable(item, key, found)),
+        _ => {}
+    }
+}
+
+#[test]
+fn a_bezier_whose_x_leaves_the_unit_interval_is_a_schema_error() {
+    // ADR-0012: *"`x1`/`x2` outside `[0,1]` is a schema error; `y` outside is legal, because
+    // overshoot is a real need beziers give away free."* The bound is what keeps the curve's
+    // `x` monotonic, and so what keeps a resolved instant a question with one answer.
+    // On `x`, not on `opacity`: an overshoot is what a bezier with a `y` outside `[0, 1]`
+    // buys, and a position that swings past its own start is the thing anyone would want it
+    // for.
+    let with = |ease: Value| {
+        project(
+            line!(),
+            spread(vec![rect(
+                "e",
+                0,
+                1000,
+                json!({"x": [{"t": 0, "v": 0}, {"t": 500, "v": 100, "ease": ease}]}),
+            )]),
+        )
+    };
+    let fires = |path: &Path| {
+        montaget_core::validate(path)
+            .findings
+            .iter()
+            .any(|finding| finding.code == "E-SCHEMA")
+    };
+
+    assert!(fires(&with(json!([1.5, 0.0, 0.5, 1.0]))));
+    assert!(fires(&with(json!([0.5, 0.0, -0.2, 1.0]))));
+    // The pair: `y` may leave the interval, and does so on purpose — that is an overshoot,
+    // and it must keep resolving.
+    let overshoot = with(json!([0.5, -0.5, 0.5, 1.5]));
+    assert!(!fires(&overshoot));
+    let early = at(&overshoot, 100);
+    assert!(
+        value(&early, "e", "x")["value"]
+            .as_f64()
+            .is_some_and(|x| x < 0.0),
+        "an overshooting ease swings past its own start: {}",
+        value(&early, "e", "x"),
     );
 }
 

@@ -74,6 +74,12 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
 /// was unstated"*, and one reclassified its own correct output as a violation. Both sides of
 /// the rule are stated out loud below for that reason: the message names the convention,
 /// which is the whole of what ADR-0012 asked the first-record error to do.
+///
+/// **Position here is position in the array**, which is what both ADRs say and what the
+/// published schema's `prefixItems` can express. Whether it should instead be position on
+/// the clock — the two coincide on every list anyone writes, and come apart on one written
+/// backwards — is open, and is
+/// [#270](https://github.com/MBehtemam/Montaget/issues/270).
 fn positional_ease<T>(records: &[Keyframe<T>]) -> Result<(), String> {
     for (index, record) in records.iter().enumerate() {
         match (index, &record.ease) {
@@ -125,13 +131,47 @@ pub struct Keyframe<T> {
 /// form is forced rather than chosen — splitting `ease-in-out` at an arbitrary instant
 /// yields a bezier that is no named ease and is not in the family, and snapping to the
 /// nearest name costs more framing than the reading `shift` was disqualified for.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Ease {
     Named(EaseName),
     /// `[x1, y1, x2, y2]`. `x` outside `[0,1]` is a schema error; `y` outside is legal,
     /// because overshoot is a real need beziers give away free.
     Bezier([f64; 4]),
+}
+
+impl<'de> Deserialize<'de> for Ease {
+    /// ADR-0012: *"`x1`/`x2` outside `[0,1]` is a schema error; `y` outside is legal, because
+    /// overshoot is a real need beziers give away free."*
+    ///
+    /// Enforced on the way in rather than left to a check, for the reason the positional
+    /// `ease` rule is: it is a schema fact. It also keeps [`crate::resolve`]'s evaluator
+    /// well-posed — the curve's `x` is what a resolved instant is solved against, and `x`
+    /// control points outside the unit interval make that `x` non-monotonic, so there can be
+    /// several parameters at one instant and no reason to prefer any of them. The refusal is
+    /// what keeps the resolver from having to pick.
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error as _;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+        // A name is a string and the control points are an array, so the two forms are told
+        // apart on shape — not tried in turn, whose only report is that neither matched.
+        if value.is_string() {
+            return serde_json::from_value(value)
+                .map(Ease::Named)
+                .map_err(D::Error::custom);
+        }
+        let points: [f64; 4] = serde_json::from_value(value).map_err(D::Error::custom)?;
+        for (name, x) in [("x1", points[0]), ("x2", points[2])] {
+            if !(0.0..=1.0).contains(&x) {
+                return Err(D::Error::custom(format!(
+                    "the ease's `{name}` is {x}: a bezier's `x` control points are the \
+                     curve's own time and must be within `[0, 1]` — only `y` may overshoot"
+                )));
+            }
+        }
+        Ok(Ease::Bezier(points))
+    }
 }
 
 /// Each name is published in the schema as its cubic bezier (ADR-0012).

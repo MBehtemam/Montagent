@@ -963,26 +963,22 @@ fn at_block(at: &Value) -> String {
         plural(stack.len() as u64, "element"),
     );
 
-    let layers: Vec<String> = stack.iter().map(|e| layer_words(&e["layer"])).collect();
-    let ids: Vec<String> = stack.iter().map(|e| named(&e["id"])).collect();
-    let kinds: Vec<String> = stack.iter().map(|e| named(&e["type"])).collect();
-    let ranges: Vec<String> = stack.iter().map(range_words).collect();
+    // One row per element, then the widths, then the print — `timeline`'s arrangement, for
+    // its reason: a column measured by walking four parallel vectors in step is a column
+    // that silently misaligns the day a fifth is added.
+    let rows: Vec<Resolution> = stack.iter().map(Resolution::of).collect();
+    let widest = |cell: fn(&Resolution) -> &String| width_of(rows.iter().map(cell));
     let (layer, id, kind, range) = (
-        width_of(layers.iter()),
-        width_of(ids.iter()),
-        width_of(kinds.iter()),
-        width_of(ranges.iter()),
+        widest(|row| &row.layer),
+        widest(|row| &row.id),
+        widest(|row| &row.kind),
+        widest(|row| &row.range),
     );
 
-    for (((element, layer_cell), id_cell), (kind_cell, range_cell)) in stack
-        .iter()
-        .zip(&layers)
-        .zip(&ids)
-        .zip(kinds.iter().zip(&ranges))
-    {
+    for resolution in &rows {
         out.push_str(&row(format!(
-            "{layer_cell:<layer$}  {id_cell:<id$}  {kind_cell:<kind$}  {range_cell:<range$}  {}",
-            resolved_cells(element),
+            "{:<layer$}  {:<id$}  {:<kind$}  {:<range$}  {}",
+            resolution.layer, resolution.id, resolution.kind, resolution.range, resolution.resolved,
         )));
     }
 
@@ -997,6 +993,27 @@ fn at_block(at: &Value) -> String {
         )));
     }
     out
+}
+
+/// One element of the resolved stack, as the five cells its row is printed from.
+struct Resolution {
+    layer: String,
+    id: String,
+    kind: String,
+    range: String,
+    resolved: String,
+}
+
+impl Resolution {
+    fn of(element: &Value) -> Resolution {
+        Resolution {
+            layer: layer_words(&element["layer"]),
+            id: named(&element["id"]),
+            kind: named(&element["type"]),
+            range: range_words(element),
+            resolved: resolved_cells(element),
+        }
+    }
 }
 
 /// What one element resolved to: why its layer did not, where it did not, then every

@@ -22,12 +22,18 @@ pub const PUBLISHED: &str = "schema/montaget.schema.json";
 pub fn generate() -> Value {
     let mut schema = schemars::schema_for!(Project).to_value();
     deny_null(&mut schema);
-    positional_ease(&mut schema);
+    publish_positional_ease(&mut schema);
+    publish_bezier_bounds(&mut schema);
     header_first(schema)
 }
 
 /// Say ADR-0038's positional `ease` rule in the schema, where the types can only say it in
 /// their deserializer.
+///
+/// Named for the publishing rather than for the rule, so that it and
+/// `crate::model::keyframe`'s enforcement of the same rule do not read as one function in
+/// two places. They are two statements of one rule, in the two artifacts #168 requires to
+/// agree.
 ///
 /// *"`ease` is required on every keyframe record except the first, where it remains a schema
 /// error. Presence is a pure function of position in the list."* A Rust struct has no way to
@@ -40,7 +46,7 @@ pub fn generate() -> Value {
 /// So this pass derives the first-record shape from the record shape mechanically — the same
 /// arrangement, and the same reason, as [`deny_null`] above. There is no second hand-written
 /// record definition to keep in step.
-fn positional_ease(schema: &mut Value) {
+fn publish_positional_ease(schema: &mut Value) {
     let Some(Value::Object(defs)) = schema.get_mut("$defs") else {
         return;
     };
@@ -142,6 +148,11 @@ fn with_prefix_item(schema: &mut Value, name: &str) {
             }
             ordered.insert(key, value);
         }
+        // `prefixItems` constrains index 0 and does not require it to exist, so an empty
+        // array would satisfy the schema while `Animatable`'s deserializer refuses it — it
+        // reads `[]` as a static value and fails there. A list of no records is not a
+        // property that never changes; it is a property with nothing said about it.
+        ordered.insert("minItems".into(), json!(1));
         *body = ordered;
     };
     walk_objects(schema, &mut visit);
@@ -158,6 +169,65 @@ fn walk_objects(schema: &mut Value, visit: &mut impl FnMut(&mut serde_json::Map<
         }
         Value::Array(items) => items.iter_mut().for_each(|item| walk_objects(item, visit)),
         _ => {}
+    }
+}
+
+/// Say ADR-0012's bound on a raw ease's `x` control points in the schema.
+///
+/// *"`x1`/`x2` outside `[0,1]` is a schema error; `y` outside is legal, because overshoot is
+/// a real need beziers give away free."* A Rust `[f64; 4]` cannot say that — the bound holds
+/// for two of the four positions — so [`crate::model::Ease`] enforces it in its
+/// deserializer, and this says the same thing in the published schema, by position, the way
+/// [`publish_positional_ease`] does for `ease`.
+fn publish_bezier_bounds(schema: &mut Value) {
+    let Some(Value::Object(ease)) = schema.pointer_mut("/$defs/Ease") else {
+        return;
+    };
+    let Some(Value::Array(branches)) = ease.get_mut("anyOf") else {
+        return;
+    };
+    for branch in branches {
+        let Value::Object(body) = branch else {
+            continue;
+        };
+        // The raw form is the one branch of the union that is an array of four numbers; the
+        // other is the published name.
+        if body.get("type").and_then(Value::as_str) != Some("array") {
+            continue;
+        }
+        let bound = |axis: &str, index: usize| {
+            json!({
+                "type": "number",
+                "format": "double",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": format!(
+                    "`{axis}{index}` — the curve's own time, which runs from 0 to 1. Outside \
+                     that is a schema error (ADR-0012)."
+                ),
+            })
+        };
+        let free = |axis: &str, index: usize| {
+            json!({
+                "type": "number",
+                "format": "double",
+                "description": format!(
+                    "`{axis}{index}` — outside `[0, 1]` is legal, because overshoot is a real \
+                     need beziers give away free (ADR-0012)."
+                ),
+            })
+        };
+        let mut ordered = serde_json::Map::new();
+        for (key, value) in std::mem::take(body) {
+            if key == "items" {
+                ordered.insert(
+                    "prefixItems".into(),
+                    json!([bound("x", 1), free("y", 1), bound("x", 2), free("y", 2)]),
+                );
+            }
+            ordered.insert(key, value);
+        }
+        *body = ordered;
     }
 }
 
