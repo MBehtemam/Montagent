@@ -100,6 +100,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&timeline_block(overview));
     }
 
+    // `frame`'s block: what the picture is, and what of the document it does and does not
+    // show. It prints above the `query` block because that block is its caption — the
+    // picture first, then which elements produced it.
+    if let Some(frame) = report.get("frame").filter(|view| !view.is_null()) {
+        out.push_str(&frame_block(frame));
+    }
+
     // `query`'s whole answer, on the same rule as `timeline`'s view: it prints wherever it
     // is present and at any verbosity, because a verb whose output is the answer has nothing
     // left to say if the answer is filtered out.
@@ -921,6 +928,87 @@ fn pixels(value: &Value) -> String {
 }
 
 // ---- `query`'s two reading modes (#196) ----------------------------------------------
+
+/// `frame`'s block: the picture, and what of the document reached it.
+///
+/// **Nothing here is behind a verbosity switch**, which is the same rule the `query --at`
+/// block beneath it follows and for the same reason (ADR-0011): an agent looking at a
+/// picture without knowing which elements produced it attributes the defect to the wrong
+/// element, and an agent that cannot tell *"not there"* from *"this build does not draw
+/// that yet"* does the same thing one step later.
+fn frame_block(frame: &Value) -> String {
+    let number = |key: &str| frame[key].as_i64().unwrap_or_default();
+    let text = |key: &str| frame[key].as_str().unwrap_or("?").to_string();
+    let mut out = format!(
+        "\nFRAME  at {} — {}, {} scale, {}x{} from a {}x{} frame\n",
+        stated_number(&frame["at"]),
+        text("encoding"),
+        text("scale"),
+        number("width"),
+        number("height"),
+        frame["rasterized"]["width"].as_i64().unwrap_or_default(),
+        frame["rasterized"]["height"].as_i64().unwrap_or_default(),
+    );
+
+    if let Some(crop) = frame.get("crop").filter(|crop| !crop.is_null()) {
+        out.push_str(&row(format!(
+            "crop        {},{} {}x{}",
+            crop["x"].as_i64().unwrap_or_default(),
+            crop["y"].as_i64().unwrap_or_default(),
+            crop["width"].as_i64().unwrap_or_default(),
+            crop["height"].as_i64().unwrap_or_default(),
+        )));
+    }
+    if let Some(path) = frame["path"].as_str() {
+        out.push_str(&row(format!(
+            "written to  {path} ({})",
+            plural(number("bytes") as u64, "byte")
+        )));
+    }
+
+    // Painter's order, named as such: the last name is the one on top, and a reader who
+    // does not know that will read the list upside down.
+    let painted: Vec<String> = frame["painted"]
+        .as_array()
+        .map(|ids| ids.iter().map(named).collect())
+        .unwrap_or_default();
+    out.push_str(&row(if painted.is_empty() {
+        "painted     nothing — the frame is its background alone".to_string()
+    } else {
+        format!(
+            "painted     {} (back to front): {}",
+            plural(painted.len() as u64, "element"),
+            painted.join(", ")
+        )
+    }));
+
+    for (key, label) in [
+        ("painted_partially", "in part    "),
+        ("not_painted", "not painted"),
+    ] {
+        for entry in frame[key].as_array().into_iter().flatten() {
+            out.push_str(&row(format!(
+                "{label} {} — {}",
+                named(&entry["element"]),
+                entry["reason"].as_str().unwrap_or("(no reason given)"),
+            )));
+        }
+    }
+
+    // Every file the picture opened, and — for fonts — the claim that is the whole point of
+    // listing them: ADR-0007's chain is what was opened, and nothing else was.
+    for (key, label) in [("sources", "sources"), ("fonts", "fonts")] {
+        let files: Vec<String> = frame[key]
+            .as_array()
+            .map(|paths| paths.iter().map(named).collect())
+            .unwrap_or_default();
+        if files.is_empty() {
+            continue;
+        }
+        out.push_str(&row(format!("{label:<11} {}", files.join(", "))));
+    }
+    out
+}
 
 /// The answer, generated from the `query` block of the canonical JSON.
 ///

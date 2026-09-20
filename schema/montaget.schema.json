@@ -499,6 +499,11 @@
               "type": "integer",
               "format": "int64"
             },
+            "radius": {
+              "type": "integer",
+              "format": "int64",
+              "description": "A single integer, defaulting to 0 — one corner radius, not four.\n\nThe fixture is measurably square and the README's *\"rounded cream panel\"* was wrong,\nwhich under ADR-0003's asymmetry is **not** evidence against the field: a rounded\nrectangle is unremarkable in the CapCut/Premiere reference class, and admitting it\nnow costs one clause where admitting it later is a schema change."
+            },
             "scale": {
               "$ref": "#/$defs/Animatable2"
             },
@@ -523,7 +528,7 @@
             "width",
             "height"
           ],
-          "description": "`rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which\nis exactly what distinguishes it from the point-list shapes ADR-0014 rejected.\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and\n`stroke_width` follow, from the ADR that introduced them."
+          "description": "A rounded or square rectangle.\n\n**`rect` and `ellipse` are two types rather than one with a `shape` discriminator\ninside it** (ADR-0014): ADR-0012 already made the field set a function of `type`, so a\nsecond narrowing mechanism would add a second, *omissible* one — and a malformed\nellipse missing its discriminator would render as a rect, silently and plausibly, which\nis this format's named failure class.\n\nThey are also two *structs*, and the one field that differs is why: ADR-0014's heading\nis *\"`radius` is a field on `rect`\"*, so `radius` on an ellipse is an unknown key rather\nthan a field that quietly does nothing. An ellipse inscribing its rect has no corners to\nround, and ADR-0007 has ruled twice that *\"a field the renderer cannot honour is worse\nthan no field.\"*\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; the three fields\nADR-0014 adds follow, in the order that ADR's own headings introduce them — `stroke`,\n`stroke_width`, then `radius`. ADR-0041 hands a new field's position to the ADR that\nintroduces it and ADR-0014 did not take it explicitly, so that reading is this\nticket's and is raised for ratification rather than left to be discovered from the\nstruct (#212)."
         },
         {
           "type": "object",
@@ -603,7 +608,7 @@
             "width",
             "height"
           ],
-          "description": "`rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which\nis exactly what distinguishes it from the point-list shapes ADR-0014 rejected.\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and\n`stroke_width` follow, from the ADR that introduced them."
+          "description": "An ellipse inscribing its declared rect — which is exactly what distinguishes it from\nthe point-list shapes ADR-0014 rejected: it needs no new placement rule.\n\n[`Rect`]'s field set minus `radius`; see that type for why the two are separate."
         },
         {
           "type": "object",

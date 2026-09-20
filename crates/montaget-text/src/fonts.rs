@@ -115,6 +115,15 @@ pub struct Fonts {
     context: FontContext,
     /// Key → the synthetic family names of its chain, in the order the author wrote them.
     chains: BTreeMap<String, Vec<String>>,
+    /// Every font file this registry has actually read, in the order it read them.
+    ///
+    /// Kept so a caller can *report* it. ADR-0007's "the renderer opens nothing outside
+    /// the declared chain" is structural — `fontique`'s system-font discovery is not
+    /// compiled in — but a structural property is invisible to a test, and #212 asks for
+    /// one asserted with a decoy font installed. This list is what that test reads: the
+    /// answer says which files were opened, and a decoy that was never opened cannot be
+    /// in it.
+    opened: Vec<PathBuf>,
 }
 
 impl Default for Fonts {
@@ -139,7 +148,17 @@ impl Fonts {
                 source_cache: SourceCache::default(),
             },
             chains: BTreeMap::new(),
+            opened: Vec::new(),
         }
+    }
+
+    /// Every font file this registry has read, in the order it read them.
+    ///
+    /// The whole set, which is the point: it is not "the files from the chain" filtered
+    /// after the fact but every path [`Fonts::register`] passed to the filesystem, so a
+    /// file from anywhere else would appear here if one were ever opened.
+    pub fn opened(&self) -> &[PathBuf] {
+        &self.opened
     }
 
     /// Register one key's whole chain, in order.
@@ -191,6 +210,12 @@ impl Fonts {
         file: &FontFile,
     ) -> Result<String, FontError> {
         let bytes = std::fs::read(&file.path).map_err(|e| FontError::unreadable(&file.path, &e))?;
+        // Recorded on the read rather than on success: a file that was opened and then
+        // rejected was still opened, and a list that quietly dropped it would be a weaker
+        // claim than the one ADR-0007 makes.
+        if !self.opened.contains(&file.path) {
+            self.opened.push(file.path.clone());
+        }
 
         let family = synthetic_family(key, position);
         let registered = self.context.collection.register_fonts(

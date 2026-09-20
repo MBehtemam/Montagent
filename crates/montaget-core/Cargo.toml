@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+montaget-render.workspace = true
 montaget-text.workspace = true
 schemars.workspace = true
 serde.workspace = true
@@ -22,3 +23,8 @@ sha2.workspace = true
 # the file through `skrifa`, so the expected value comes from somewhere other than the code
 # under test rather than being recomputed the way that code computes it.
 skrifa.workspace = true
+# The independent decoder for `tests/frame.rs`. A claim about pixels is the one class of
+# claim no report can reach, and an encoder agreeing with its own decoder proves they agree
+# rather than that the bytes are a picture — so the test reads them back with something
+# other than the Skia codec that wrote them.
+image.workspace = true

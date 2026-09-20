@@ -72,9 +72,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::exact::{self, Decimal};
+use crate::media::Source;
 use crate::media::probe::Outcome;
 use crate::media::session::Session;
-use crate::media::Source;
 use crate::model::{Animatable, Scale};
 use crate::permissive::Loose;
 use crate::resolve::{self, Interpolate, Unresolvable};
@@ -319,17 +319,33 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
             }
         }
 
-        let (source_offset, source_offset_unresolved) = source_offset(element, kind, start, instant);
+        let (source_offset, source_offset_unresolved) =
+            source_offset(element, kind, start, instant);
         let (crop, crop_unresolved) = match frame {
-            Some(frame) => crop_for(document, element, kind, instant, frame, session.as_deref_mut()),
-            None => (None, Some("the project carries no legal `frame`".to_string())),
+            Some(frame) => crop_for(
+                document,
+                element,
+                kind,
+                instant,
+                frame,
+                session.as_deref_mut(),
+            ),
+            None => (
+                None,
+                Some("the project carries no legal `frame`".to_string()),
+            ),
         };
         let (ink_box, ink_box_unresolved) = match (kind, frame) {
-            (Some("text"), Some(frame)) => match geometry::ink_box(document, element, instant, frame) {
-                Ok(ink_box) => (Some(ink_box), None),
-                Err(reason) => (None, Some(reason)),
-            },
-            (Some("text"), None) => (None, Some("the project carries no legal `frame`".to_string())),
+            (Some("text"), Some(frame)) => {
+                match geometry::ink_box(document, element, instant, frame) {
+                    Ok(ink_box) => (Some(ink_box), None),
+                    Err(reason) => (None, Some(reason)),
+                }
+            }
+            (Some("text"), None) => (
+                None,
+                Some("the project carries no legal `frame`".to_string()),
+            ),
             _ => (None, None),
         };
 
@@ -384,10 +400,7 @@ fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
 /// do not, and are excluded from both `NOT COVERED`'s union and its refusal: a rotated
 /// `rect` blocks the computation, but an audio element playing underneath never could.
 fn covers_the_frame(kind: Option<&str>) -> bool {
-    matches!(
-        kind,
-        Some("image" | "video" | "text" | "rect" | "ellipse")
-    )
+    matches!(kind, Some("image" | "video" | "text" | "rect" | "ellipse"))
 }
 
 fn geometry_number_opacity(element: &Value, instant: i64) -> f64 {
@@ -421,7 +434,7 @@ fn clip_rect(element: &Value) -> Option<Rect> {
 /// second implementation of one judgment ADR-0006 forbids carrying twice. So a document
 /// whose declared range disagrees with the real file answers here exactly as it is
 /// written, and `validate`'s finding is where the disagreement is reported.
-fn source_offset(
+pub(crate) fn source_offset(
     element: &Value,
     kind: Option<&str>,
     start: i64,
@@ -454,7 +467,10 @@ fn source_offset(
     let Some(speed) = speed.filter(|d| d.is_positive()) else {
         return (
             None,
-            Some("`speed` is not a positive number, which is `validate`'s finding to make".to_string()),
+            Some(
+                "`speed` is not a positive number, which is `validate`'s finding to make"
+                    .to_string(),
+            ),
         );
     };
 
@@ -469,7 +485,10 @@ fn source_offset(
     if elapsed < played {
         return match exact::source_advance(elapsed, speed) {
             Some(advance) => (Some(source_start + advance), None),
-            None => (None, Some("the source position could not be computed".to_string())),
+            None => (
+                None,
+                Some("the source position could not be computed".to_string()),
+            ),
         };
     }
 
@@ -520,7 +539,10 @@ fn crop_for(
     let Some(clip) = clip_rect(element) else {
         return (
             None,
-            Some("the element carries no `clip`, so there is no aperture to crop against".to_string()),
+            Some(
+                "the element carries no `clip`, so there is no aperture to crop against"
+                    .to_string(),
+            ),
         );
     };
     let (Some(width), Some(height)) = (
@@ -562,18 +584,14 @@ fn crop_for(
     let outcome = match session.probe(&Source::resolve(source, &base)) {
         Ok(outcome) => outcome,
         Err(_missing) => {
-            return (
-                None,
-                Some("ffmpeg/ffprobe is not on `PATH`".to_string()),
-            );
+            return (None, Some("ffmpeg/ffprobe is not on `PATH`".to_string()));
         }
     };
     let Outcome::Probed(probe) = &outcome else {
         return (
             None,
             Some(
-                "the source could not be probed, so its real dimensions are not known"
-                    .to_string(),
+                "the source could not be probed, so its real dimensions are not known".to_string(),
             ),
         );
     };
@@ -593,7 +611,10 @@ fn crop_for(
         Some(rect) => (Some(rect), None),
         None => (
             None,
-            Some("`clip` excludes the element entirely; none of the source reaches the screen".to_string()),
+            Some(
+                "`clip` excludes the element entirely; none of the source reaches the screen"
+                    .to_string(),
+            ),
         ),
     }
 }

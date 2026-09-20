@@ -92,10 +92,26 @@ fn canonical_key_order_is_the_schemas_property_order() {
     let audio = canonical_order(Published::Element("audio")).expect("audio is a published type");
     assert_eq!(&audio[6..9], &["source", "source_start", "source_end"]);
 
-    // `ellipse` inherits `rect`'s shape, which ADR-0041 says fixes its order too.
+    // ADR-0014 adds three fields to a shape — `stroke`, `stroke_width` and `radius` — in
+    // the order that ADR's own headings introduce them, after ADR-0041's measured six.
     assert_eq!(
-        canonical_order(Published::Element("ellipse")),
-        canonical_order(Published::Element("rect"))
+        &rect[12..15],
+        &["stroke", "stroke_width", "radius"],
+        "the three fields ADR-0014 adds, in its own order (#212)"
+    );
+
+    // `ellipse` is `rect`'s order **minus `radius`**, and the difference is exactly one
+    // key. ADR-0014's heading is *"`radius` is a field on `rect`"*, and an ellipse
+    // inscribing its rect has no corners to round — so `radius` on one is an unknown key
+    // rather than a field that quietly does nothing (ADR-0007: "a field the renderer
+    // cannot honour is worse than no field").
+    let ellipse = canonical_order(Published::Element("ellipse")).expect("a published type");
+    assert_eq!(
+        ellipse,
+        rect.iter()
+            .filter(|key| *key != "radius")
+            .cloned()
+            .collect::<Vec<_>>()
     );
 }
 

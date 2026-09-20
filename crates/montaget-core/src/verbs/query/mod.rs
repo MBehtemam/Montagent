@@ -35,7 +35,7 @@
 
 pub mod at;
 pub mod cuts;
-mod geometry;
+pub(crate) mod geometry;
 pub mod predicate;
 
 use std::path::Path as FilePath;
