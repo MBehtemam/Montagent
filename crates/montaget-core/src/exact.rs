@@ -299,6 +299,106 @@ fn ceil_div(numerator: i128, denominator: i128) -> i128 {
     -floor_div(-numerator, denominator)
 }
 
+/// **ADR-0013/ADR-0015's `cover`/`contain` rule**: `cover` or `contain`. `literal` names
+/// no rule and is not a member — a caller holding one has nothing to ask this function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FitRule {
+    /// Drawn rect ⊇ the box.
+    Cover,
+    /// Drawn rect ⊆ the box.
+    Contain,
+}
+
+/// Which axis took the box dimension verbatim.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrivingAxis {
+    Width,
+    Height,
+}
+
+/// A fitted extent, and which axis drove it. **No verdict, no diff** — ADR-0024 draws
+/// that line at `validate` alone; this is the bare derivation, the same one `measure`
+/// (#205) will hand an author before they write.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FittedExtent {
+    pub width: i64,
+    pub height: i64,
+    pub driving_axis: DrivingAxis,
+}
+
+/// **ADR-0013's fitted-extent arithmetic, extended to `contain` by ADR-0015**: a source
+/// `sw x sh` fit into a box `bw x bh`, in exact integer arithmetic throughout.
+///
+/// The driving axis is chosen by integer cross-multiplication — width drives `cover`
+/// when `bw*sh >= bh*sw`, and `contain` when `bw*sh <= bh*sw` — **never** by comparing
+/// `bw/sw` against `bh/sh` as floats. ADR-0013 measured the float method disagreeing
+/// with this one on 4.466% of 31,402,800 sampled (source, box) pairs; its worked
+/// divergence is `sw=103, bw=1920`, where `bw as f64 / sw as f64 * sw as f64` computes
+/// `1919.9999999999998` and floors to **1919**, a pixel short of the box on the axis
+/// that is exact by construction — see `the_driving_axis_never_reaches_a_float` below.
+///
+/// The driving axis takes the box dimension **verbatim**. The slack axis is
+/// `(s_slack * b_driving) // s_driving`, floor, in integer division — the same floor for
+/// `contain` as for `cover` (ADR-0015's court found ceil equally safe for `contain`, but
+/// floor still wins on additivity and implementation entropy, so there is one rounding
+/// operation across the whole vocabulary rather than a per-value table).
+///
+/// A legal `0` on the slack axis — `contain` of a 300x7 source into a 10x10 box gives
+/// 10x**0** — is returned exactly as computed, **never clamped** (ADR-0015: a clamp would
+/// fabricate an integer the published rule did not produce).
+///
+/// `None` where a source or aperture dimension is not positive — nothing this rule can
+/// divide by, or draw a box through, and another check's fact to report, not this
+/// function's to guess. Nothing in the published schema bounds `clip`'s width/height
+/// below, so a malformed document is exactly the input this guards.
+pub fn fitted_extent(
+    rule: FitRule,
+    source: (i64, i64),
+    aperture: (i64, i64),
+) -> Option<FittedExtent> {
+    let (source_width, source_height) = source;
+    let (box_width, box_height) = aperture;
+    if source_width <= 0 || source_height <= 0 || box_width <= 0 || box_height <= 0 {
+        return None;
+    }
+
+    let cross_box_width = i128::from(box_width).checked_mul(i128::from(source_height))?;
+    let cross_box_height = i128::from(box_height).checked_mul(i128::from(source_width))?;
+    let width_drives = match rule {
+        FitRule::Cover => cross_box_width >= cross_box_height,
+        FitRule::Contain => cross_box_width <= cross_box_height,
+    };
+
+    // The driving axis takes its own (source, box) pair verbatim; the slack axis takes
+    // the source half of the *other* pair and floors against the driving box dimension.
+    // Picking `(driving_source, driving_box, slack_source)` once, by axis, is what keeps
+    // `floor_div` written in exactly one place rather than once per branch with its
+    // operands swapped by hand.
+    let (driving_axis, driving_source, driving_box, slack_source) = if width_drives {
+        (DrivingAxis::Width, source_width, box_width, source_height)
+    } else {
+        (DrivingAxis::Height, source_height, box_height, source_width)
+    };
+    let slack = i64::try_from(floor_div(
+        i128::from(slack_source).checked_mul(i128::from(driving_box))?,
+        i128::from(driving_source),
+    ))
+    .ok()?;
+
+    Some(match driving_axis {
+        DrivingAxis::Width => FittedExtent {
+            width: driving_box,
+            height: slack,
+            driving_axis,
+        },
+        DrivingAxis::Height => FittedExtent {
+            width: slack,
+            height: driving_box,
+            driving_axis,
+        },
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,5 +567,75 @@ mod tests {
         assert_eq!(text_block_height(0, 11, 1), None);
         assert_eq!(text_block_height(55, 0, 1), None);
         assert_eq!(text_block_height(55, 11, 0), None);
+    }
+
+    #[test]
+    fn the_fixture_s_seven_photos_derive_the_published_1912() {
+        // ADR-0013's own worked case: `images/06.png` is 1536x2720, `clip` is
+        // 1080x1300, and the published element is `width:1080, height:1912`. Exact
+        // cover is 1912.5; the rule floors.
+        let extent =
+            fitted_extent(FitRule::Cover, (1536, 2720), (1080, 1300)).expect("positive source");
+        assert_eq!((extent.width, extent.height), (1080, 1912));
+        assert_eq!(extent.driving_axis, DrivingAxis::Width);
+    }
+
+    #[test]
+    fn the_driving_axis_never_reaches_a_float() {
+        // ADR-0013's measured divergence: `sw=103, bw=1920`. The naive route — compute
+        // the scale factor in `f64`, multiply back through — loses the driving axis to
+        // a ULP.
+        let naive = (103.0f64 * (1920.0f64 / 103.0f64)) as i64;
+        assert_eq!(
+            naive, 1919,
+            "the f64 route is a pixel short; that is the bug"
+        );
+
+        // The box's height is chosen large enough that width still drives under
+        // `cover`: `bw*sh = 1920*900 = 1,728,000 >= bh*sw = 100*103 = 10,300`.
+        let extent =
+            fitted_extent(FitRule::Cover, (103, 900), (1920, 100)).expect("positive source");
+        assert_eq!(
+            extent.width, 1920,
+            "the driving axis takes the box dimension verbatim, never a rounded float"
+        );
+    }
+
+    #[test]
+    fn contain_can_derive_a_legal_zero_with_no_clamp() {
+        // ADR-0015's own example: a 300x7 source into a 10x10 box.
+        let extent = fitted_extent(FitRule::Contain, (300, 7), (10, 10)).expect("positive source");
+        assert_eq!((extent.width, extent.height), (10, 0));
+    }
+
+    #[test]
+    fn exact_aspect_match_makes_cover_and_contain_agree() {
+        // ADR-0026: `handle-logo`'s 800x800 source into a 68x68 aperture — cover and
+        // contain compute the identical rect, so both spellings are simultaneously true.
+        let cover = fitted_extent(FitRule::Cover, (800, 800), (68, 68)).expect("positive source");
+        let contain =
+            fitted_extent(FitRule::Contain, (800, 800), (68, 68)).expect("positive source");
+        assert_eq!((cover.width, cover.height), (68, 68));
+        assert_eq!((cover.width, cover.height), (contain.width, contain.height));
+    }
+
+    #[test]
+    fn a_non_positive_source_dimension_has_no_fitted_extent_here() {
+        assert_eq!(fitted_extent(FitRule::Cover, (0, 10), (5, 5)), None);
+        assert_eq!(fitted_extent(FitRule::Cover, (10, 0), (5, 5)), None);
+        assert_eq!(fitted_extent(FitRule::Contain, (-1, 10), (5, 5)), None);
+    }
+
+    #[test]
+    fn a_non_positive_aperture_dimension_has_no_fitted_extent_here() {
+        // Nothing in the published schema bounds `clip`'s width/height below, so a
+        // malformed `[x, y, -500, -500]` must not flow through to a `width: -500` taken
+        // verbatim — there is no box to draw that rect through.
+        assert_eq!(fitted_extent(FitRule::Cover, (100, 100), (0, 5)), None);
+        assert_eq!(fitted_extent(FitRule::Cover, (100, 100), (5, 0)), None);
+        assert_eq!(
+            fitted_extent(FitRule::Contain, (100, 100), (-500, -500)),
+            None
+        );
     }
 }

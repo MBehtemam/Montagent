@@ -42,27 +42,18 @@ use crate::report::Report;
 /// The error is ADR-0011's exit 70: there is no `ffprobe`, so the disk half of the
 /// question cannot be asked at all. Answering it with silence — or with a run that quietly
 /// checked less — is the one thing ADR-0006 forbids.
+///
+/// Takes an already-open session rather than an `Option`: whether a project references
+/// any media at all, and therefore whether a session is worth opening in the first place,
+/// is `crate::verbs::validate`'s own call — `crate::checks::fit` needs the identical
+/// session for the same reason, and *"a project referencing no media has nothing to ask a
+/// subprocess"* is a decision made once, not per check.
 pub fn check(
     document: &Loose,
-    session: Option<&mut Session>,
+    session: &mut Session,
     report: &mut Report,
 ) -> Result<(), Box<Missing>> {
-    // A project referencing no media has nothing to ask a subprocess, so none is opened.
-    // This is not the fast mode ADR-0006 forbids: what is skipped is *a tool Montaget has
-    // no question for*, never a source it has a question about. The distinction is that no
-    // input can reach this branch and also have a source to check.
-    if !document.elements().any(|e| e["source"].is_string()) {
-        return Ok(());
-    }
-
-    match session {
-        Some(session) => probe_every_source(document, session, report),
-        None => {
-            let mut session = Session::open().map_err(Box::new)?;
-            session.begin_run();
-            probe_every_source(document, &mut session, report)
-        }
-    }
+    probe_every_source(document, session, report)
 }
 
 fn probe_every_source(
@@ -72,7 +63,7 @@ fn probe_every_source(
 ) -> Result<(), Box<Missing>> {
     // ADR-0053: a relative `source` resolves against the directory the project file lives
     // in, and nothing else. There is no `assetRoot` and no flag.
-    let base = project_dir(document);
+    let base = crate::checks::project_dir(document);
 
     for element in document.elements() {
         let Some(source) = element["source"].as_str() else {
@@ -111,14 +102,6 @@ fn locate(report: &mut Report, before: usize, file: &str, element: &str) {
         finding.location.file = file.to_string();
         finding.location.element = Some(element.to_string());
     }
-}
-
-/// The directory a relative `source` resolves against: the project file's own.
-fn project_dir(document: &Loose) -> std::path::PathBuf {
-    std::path::Path::new(document.path())
-        .parent()
-        .unwrap_or(std::path::Path::new("."))
-        .to_path_buf()
 }
 
 /// Does the declared source range name bytes the file does not hold?

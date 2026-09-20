@@ -590,6 +590,27 @@ intersection of `{from}` and `{to}`, which is {derived_start}..{derived_end}.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0059's closed-form function — `max(start)..min(end)` — has no legitimate
+        // domain when `from` and `to` never coexist: the "intersection" collapses to an
+        // empty or inverted range, and `E-TRANSITION-RANGE`'s own repair ("set `start` to
+        // X and `end` to Y") would recommend that same inverted pair back, an advise-class
+        // finding claiming a fix is "fully determined" when it is not — the document does
+        // not say whether the transition should move, one of the bridged elements should
+        // move, or the transition should not exist at all. Its own code and refuse-class,
+        // on `E-TRACK-OVERLAP`'s reasoning, rather than a branch inside `E-TRANSITION-RANGE`
+        // that would have to state one class for two differently-determined outcomes.
+        // Surface the ADR series has not ratified, found reviewing #202's own merge.
+        code: "E-TRANSITION-NO-OVERLAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0059",
+        template: "{element}: the transition bridges `{from}` ({from_start}..{from_end}) and \
+`{to}` ({to_start}..{to_end}), which never overlap — there is no window for a crossfade \
+between them.",
+        status: Live,
+    },
+    CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],
         repair: None,
@@ -700,6 +721,27 @@ minimum caption duration",
         // count is a number the reader cannot act on or check, which is the anti-vagueness
         // rule the same ADR states.
         template: "quantization at {fps} fps changes {changed} boundaries: {detail}.",
+        status: Live,
+    },
+    // ---- `fit`'s only consumer (#204). ---------------------------------------------
+    CheckSpec {
+        // ADR-0013 shipped this as a `note`; ADR-0015's court overturned that
+        // unanimously, on the same behavioural evidence #44 was founded on — three of
+        // six authoring tasks under the `note`'s preferred tolerance produced two
+        // different, equally legal files for one input. Strict equality breaks 0 of 8
+        // committed elements, the same price the loose rule paid.
+        code: "E-FIT-DEVIATION",
+        classes: &[Error],
+        // Advise, on `E-SPEED-MISMATCH`'s reasoning: the document names a rule and a
+        // source, and the rule's value is fully determined by the document plus the
+        // media on disk — there is no second reading of what the author meant.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0015",
+        template: "{element}: `fit:\"{fit}\"` from `{source}` ({source_width}x\
+{source_height}) derives {rule_width}x{rule_height}; the declared rect is \
+{declared_width}x{declared_height}. Write {rule_width}x{rule_height}, or `fit:\"literal\"` \
+if deliberate.",
         status: Live,
     },
     CheckSpec {

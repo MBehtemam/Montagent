@@ -17,6 +17,7 @@ pub mod anchor;
 pub mod box_slack;
 pub mod caption;
 pub mod coverage;
+pub mod fit;
 pub mod highlight;
 pub mod layout;
 pub mod quantization;
@@ -38,4 +39,15 @@ pub(crate) const PROJECT: &str = "the project";
 /// spellings would diverge without anyone noticing, since it is the rare one.
 pub(crate) fn subject_of(id: Option<&str>) -> String {
     id.unwrap_or("an element carrying no `id`").to_string()
+}
+
+/// The directory a relative `source` resolves against: the project file's own (ADR-0053).
+///
+/// Shared by every check that resolves a `source` off disk — [`source`] and [`fit`] both
+/// need it, and a second copy is a second place for ADR-0053's rule to drift.
+pub(crate) fn project_dir(document: &crate::permissive::Loose) -> std::path::PathBuf {
+    std::path::Path::new(document.path())
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf()
 }
