@@ -749,13 +749,8 @@ fn counted(count: &Value, noun: &str) -> String {
     plural(count.as_u64().unwrap_or(0), noun)
 }
 
-// ---- `query`'s two reading modes (#196) ----------------------------------------------
+// ---- `measure`'s answer (#205) ------------------------------------------------------
 
-/// The answer, generated from the `query` block of the canonical JSON.
-///
-/// Both modes share one heading so that a reader — or a grep — finds the answer in the same
-/// place whichever question was asked, and each states its own question underneath it: a
-/// cut list read without knowing the range it was taken over is a column of numbers.
 /// What the text occupies, as prose.
 ///
 /// The block's numbers first, then one row per line, then the break opportunities. The
@@ -914,6 +909,13 @@ fn pixels(value: &Value) -> String {
     }
 }
 
+// ---- `query`'s two reading modes (#196) ----------------------------------------------
+
+/// The answer, generated from the `query` block of the canonical JSON.
+///
+/// Both modes share one heading so that a reader — or a grep — finds the answer in the same
+/// place whichever question was asked, and each states its own question underneath it: a
+/// cut list read without knowing the range it was taken over is a column of numbers.
 fn query_block(query: &Value) -> String {
     match query["mode"].as_str() {
         Some("cuts") => cuts_block(query),

@@ -51,8 +51,10 @@ impl Line<'_> {
 /// Is this character a UAX #14 mandatory break — class BK, CR, LF or NL?
 ///
 /// The whole set, spelled out rather than reached through a character-class table: it is
-/// eight code points fixed by the standard, and a reader checking Montaget against UAX #14
-/// should be able to see all eight without resolving a dependency.
+/// seven code points fixed by the standard, and a reader checking Montaget against UAX #14
+/// should be able to see all seven without resolving a dependency. The eighth mandatory
+/// break ADR-0008 lists — CRLF — is a *pair*, and is [`partition`]'s to recognise rather
+/// than this predicate's.
 pub fn is_mandatory_break(c: char) -> bool {
     matches!(
         c,

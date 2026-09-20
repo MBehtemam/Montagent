@@ -39,13 +39,31 @@
 //! driving axis. The arithmetic for it exists and is shared ([`crate::exact::fitted_extent`],
 //! #204); what is missing is this verb's second input mode. An element whose `type` is not
 //! `text` is refused by name rather than measured as if it were text.
+//!
+//! ADR-0011 also names a **per-line ink box** beside the advance width. It is not here, and
+//! the reason is that it is not an extra field: an ink box is an absolute rect, so it needs
+//! the block's *horizontal* placement — `x`, `origin`'s horizontal component, and how
+//! `align`'s `start`/`end` resolve against a line's base direction under bidi. No ADR
+//! settles the last of those, and the same geometry is what `query --at`'s crop rectangle
+//! is blocked on. It belongs with that, decided once, rather than invented twice.
+//!
+//! ADR-0035 gives `measure` a third answer that has nothing to do with text — *"the nearest
+//! sampled instant at-or-before a given time, for the project's own `fps`"*, so an author
+//! targeting an exact rendered value never derives the grid arithmetic by hand. Its
+//! arithmetic is already exact and shared ([`crate::exact`]); like the fitted extent, what
+//! is missing is the input mode.
+//!
+//! All three are named here rather than left to be discovered, because a verb that answers
+//! one of its questions and is silent about the others reads as finished.
 
 use std::path::Path as FilePath;
 
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use montaget_text::{Anchor, Fonts, MeasuredLine, Measurement, Run, Segmenter, Spec};
+use montaget_text::{
+    Extent, Fonts, MeasuredLine, Measurement, Run, Segmenter, Spec, VerticalOrigin,
+};
 
 use crate::exact::{Decimal, block_height_of_tenths};
 use crate::finding::Finding;
@@ -144,14 +162,6 @@ pub struct View {
     pub segmenter: Segmenter,
 }
 
-/// The stroked extent, and the stroke it was grown by.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub struct Extent {
-    pub width: f64,
-    pub height: f64,
-    pub stroke_width: i64,
-}
-
 /// The style the measurement was taken in, read back off the element.
 ///
 /// `line_height` as tenths rather than as the decimal the document writes: it is the
@@ -219,7 +229,7 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
             line_height_tenths: spec.asked.line_height_tenths,
             stroke_width: spec.asked.stroke_width,
             y: spec.asked.y,
-            anchor: spec.anchor,
+            vertical_origin: spec.vertical_origin,
         },
     ) {
         Ok(measured) => measured,
@@ -249,11 +259,7 @@ impl View {
             block_height: block_height_of_tenths(measured.block_height_tenths),
             block_top: measured.block_top,
             block_bottom: measured.block_bottom,
-            extent: Extent {
-                width: measured.extent.width,
-                height: measured.extent.height,
-                stroke_width: measured.extent.stroke_width,
-            },
+            extent: measured.extent,
             lines: measured.lines,
             segmenter: measured.segmenter,
         }
@@ -263,7 +269,7 @@ impl View {
 /// An element's own measurable style, read off the JSON permissively.
 struct Measurable {
     asked: Asked,
-    anchor: Anchor,
+    vertical_origin: VerticalOrigin,
 }
 
 impl Measurable {
@@ -342,7 +348,7 @@ impl Measurable {
                     .and_then(|v| v.as_str().map(str::to_string))
                     .unwrap_or_else(|| "center".into()),
             },
-            anchor: anchor_of(origin),
+            vertical_origin: vertical_origin_of(origin),
         })
     }
 
@@ -385,11 +391,11 @@ fn runs_of(element: &Value) -> Vec<Run<'_>> {
 }
 
 /// `origin`'s vertical component — the half that places the block (ADR-0013).
-fn anchor_of(origin: Origin) -> Anchor {
+fn vertical_origin_of(origin: Origin) -> VerticalOrigin {
     match origin {
-        Origin::TopLeft | Origin::TopCenter | Origin::TopRight => Anchor::Top,
-        Origin::CenterLeft | Origin::Center | Origin::CenterRight => Anchor::Center,
-        Origin::BottomLeft | Origin::BottomCenter | Origin::BottomRight => Anchor::Bottom,
+        Origin::TopLeft | Origin::TopCenter | Origin::TopRight => VerticalOrigin::Top,
+        Origin::CenterLeft | Origin::Center | Origin::CenterRight => VerticalOrigin::Center,
+        Origin::BottomLeft | Origin::BottomCenter | Origin::BottomRight => VerticalOrigin::Bottom,
     }
 }
 

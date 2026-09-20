@@ -30,5 +30,5 @@ pub mod fonts;
 pub mod lines;
 
 pub use breaks::{SEGMENTER, Segmenter};
-pub use engine::{Anchor, Extent, MeasuredLine, Measurement, Run, Spec, measure};
+pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
 pub use fonts::{FontError, FontFile, Fonts};

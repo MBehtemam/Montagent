@@ -67,11 +67,16 @@ pub struct Run<'a> {
 /// Which part of the block its `y` places — `origin`'s vertical component (ADR-0013).
 ///
 /// The vertical half alone, because the vertical half is all the baseline needs. The block
-/// is placed by `origin` (ADR-0007), and `origin` anchors the element's box and the block
-/// to the same point, so the two readings of *"placed according to `origin`"* agree on
-/// every one of the nine keywords.
+/// is placed by `origin` (ADR-0007), which fixes the same point on the element's box and on
+/// the block, so the two readings of *"placed according to `origin`"* agree on every one of
+/// the nine keywords.
+///
+/// Spelled `VerticalOrigin` rather than the shorter word `CONTEXT.md` puts on **Origin**'s
+/// avoid-list: in this project an **Anchor** is a layer stated relative to another
+/// element's `id`, and a second meaning would be the `title`-the-track-or-the-element
+/// collision the glossary already records once.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Anchor {
+pub enum VerticalOrigin {
     Top,
     Center,
     Bottom,
@@ -90,9 +95,9 @@ pub struct Spec<'a> {
     pub line_height_tenths: i64,
     /// The element's base `stroke_width`, in element space.
     pub stroke_width: i64,
-    /// The `y` the block is placed at, through [`Spec::anchor`].
+    /// The `y` the block is placed at, through [`Spec::vertical_origin`].
     pub y: i64,
-    pub anchor: Anchor,
+    pub vertical_origin: VerticalOrigin,
 }
 
 /// One line's measurement.
@@ -149,7 +154,7 @@ pub struct Measurement {
     /// overflow `crate::checks::box_slack` already widened away from — a panic in a debug
     /// build and a wrapped, plausible number in a release one.
     pub block_height_tenths: i128,
-    /// Where the block sits, from [`Spec::y`] through [`Spec::anchor`].
+    /// Where the block sits, from [`Spec::y`] through [`Spec::vertical_origin`].
     pub block_top: f64,
     pub block_bottom: f64,
     /// The **stroked** extent (ADR-0014), which is what an author compares a box against.
@@ -197,11 +202,11 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     // The element's whole text, with each run's place in it. Runs concatenate: a run
     // boundary is style only, and a line break is a `\n` inside a run's text (ADR-0007).
     let mut full = String::new();
-    let mut spans = Vec::with_capacity(spec.runs.len());
+    let mut run_ranges = Vec::with_capacity(spec.runs.len());
     for run in spec.runs {
         let start = full.len();
         full.push_str(run.text);
-        spans.push(start..full.len());
+        run_ranges.push(start..full.len());
     }
 
     let lines = partition(&full);
@@ -218,7 +223,7 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
         // leaves therefore has no run at all, and falls back to the element's base style —
         // which is what ADR-0007's base-plus-deltas model says an absent delta means.
         let on_line: Vec<usize> = (0..spec.runs.len())
-            .filter(|&i| spans[i].start < line.end() && spans[i].end > line.start)
+            .filter(|&i| run_ranges[i].start < line.end() && run_ranges[i].end > line.start)
             .collect();
 
         let mut builder = layout_context.ranged_builder(
@@ -230,8 +235,8 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
         builder.push_default(StyleProperty::FontFamily(base_chain.clone()));
         builder.push_default(StyleProperty::FontSize(spec.size as f32));
         for &i in &on_line {
-            let start = spans[i].start.max(line.start) - line.start;
-            let end = spans[i].end.min(line.end()) - line.start;
+            let start = run_ranges[i].start.max(line.start) - line.start;
+            let end = run_ranges[i].end.min(line.end()) - line.start;
             if let Some(chain) = &run_chains[i] {
                 builder.push(StyleProperty::FontFamily(chain.clone()), start..end);
             }
@@ -275,20 +280,23 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
             advance = 0.0;
         }
 
-        let size = on_line
-            .iter()
-            .filter_map(|&i| spec.runs[i].size)
-            .chain(std::iter::once(spec.size))
-            .max()
-            .unwrap_or(spec.size);
-        let stroke_width = on_line
-            .iter()
-            .filter_map(|&i| spec.runs[i].stroke_width)
-            .chain(std::iter::once(spec.stroke_width))
-            .max()
-            .unwrap_or(spec.stroke_width);
+        // ADR-0007: "A line's height is *the largest `size` among the runs on that line* x
+        // `line_height`." The runs on the line, resolved — so the element's base `size`
+        // counts where a run does not override it, and **not** where every run does. A base
+        // of 88 with every run on the line at 40 reserves 40's slot, not 88's: the base is a
+        // default under ADR-0007's base-plus-deltas model, and a default a delta has
+        // replaced is not still in force.
+        let size = greatest_of(&on_line, spec.size, |run| run.size, spec.runs);
+        // ADR-0014 makes stroke a run-addressable paint, so the stroked extent resolves on
+        // exactly the same rule.
+        let stroke_width = greatest_of(
+            &on_line,
+            spec.stroke_width,
+            |run| run.stroke_width,
+            spec.runs,
+        );
 
-        shaped.push(Shaped {
+        shaped.push(LineMetrics {
             advance,
             ascent,
             descent,
@@ -305,10 +313,10 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     // In twentieths, so that the block's half — which `center` needs — stays an integer.
     let block = slots.iter().sum::<i128>() * 2;
     let block_top = i128::from(spec.y) * UNIT
-        - match spec.anchor {
-            Anchor::Top => 0,
-            Anchor::Center => block / 2,
-            Anchor::Bottom => block,
+        - match spec.vertical_origin {
+            VerticalOrigin::Top => 0,
+            VerticalOrigin::Center => block / 2,
+            VerticalOrigin::Bottom => block,
         };
 
     let mut measured = Vec::with_capacity(lines.len());
@@ -346,14 +354,14 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
         .unwrap_or(spec.stroke_width);
     Ok(Measurement {
         line_count: measured.len(),
-        advance_width: fold(&measured, |line| line.advance_width),
-        ascent: fold(&measured, |line| line.ascent),
-        descent: fold(&measured, |line| line.descent),
+        advance_width: greatest(&measured, |line| line.advance_width),
+        ascent: greatest(&measured, |line| line.ascent),
+        descent: greatest(&measured, |line| line.descent),
         block_height_tenths: slots.iter().sum(),
         block_top: pixels(block_top),
         block_bottom: pixels(block_top + block),
         extent: Extent {
-            width: fold(&measured, |line| line.extent_width),
+            width: greatest(&measured, |line| line.extent_width),
             height: pixels(block) + 2.0 * stroke_width as f64,
             stroke_width,
         },
@@ -362,8 +370,8 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     })
 }
 
-/// One line's metrics, before it knows where it sits.
-struct Shaped {
+/// One line's own metrics, before it knows where in the block it sits.
+struct LineMetrics {
     advance: f64,
     ascent: f64,
     descent: f64,
@@ -378,6 +386,31 @@ fn pixels(units: i128) -> f64 {
 
 /// The largest of one measurement across every line, or zero where there is no line —
 /// which [`partition`] never produces, since it emits at least one.
-fn fold(lines: &[MeasuredLine], of: impl Fn(&MeasuredLine) -> f64) -> f64 {
+fn greatest(lines: &[MeasuredLine], of: impl Fn(&MeasuredLine) -> f64) -> f64 {
     lines.iter().map(of).fold(0.0, f64::max)
+}
+
+/// The largest value one style delta takes across the runs on a line, falling back to the
+/// element's base **only where a run leaves the delta unstated**.
+///
+/// The fallback's placement is the whole point, and getting it wrong over-reports: a base
+/// that every run on the line has overridden is a default that has been replaced, not a
+/// floor the line still has to clear. ADR-0007's model is base-plus-deltas, and *"a delta
+/// that is absent is a delta that was not made"* — so absence is what admits the base, and
+/// nothing else does.
+fn greatest_of(
+    on_line: &[usize],
+    base: i64,
+    delta: impl Fn(&Run<'_>) -> Option<i64>,
+    runs: &[Run<'_>],
+) -> i64 {
+    // A line carrying no run at all — the empty line a trailing mandatory break leaves —
+    // is the base's, for the same reason: it states no delta.
+    let any_unstated = on_line.is_empty() || on_line.iter().any(|&i| delta(&runs[i]).is_none());
+    on_line
+        .iter()
+        .filter_map(|&i| delta(&runs[i]))
+        .chain(any_unstated.then_some(base))
+        .max()
+        .unwrap_or(base)
 }

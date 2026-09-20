@@ -108,8 +108,9 @@ fn line_texts(view: &Value) -> Vec<String> {
         .collect()
 }
 
+/// One pixel measurement off the answer, as a number rather than a `Value`.
 #[track_caller]
-fn f(value: &Value) -> f64 {
+fn px(value: &Value) -> f64 {
     value
         .as_f64()
         .unwrap_or_else(|| panic!("{value} is not a number"))
@@ -194,7 +195,7 @@ fn a_trailing_break_leaves_an_empty_last_line() {
     );
     // And the empty line advances by nothing — parley lays an empty paragraph out as one
     // synthetic whitespace cluster, whose width is not a width this line has.
-    assert_eq!(f(&view["lines"][1]["advance_width"]), 0.0);
+    assert_eq!(px(&view["lines"][1]["advance_width"]), 0.0);
 }
 
 #[test]
@@ -351,9 +352,9 @@ fn adr_0007s_worked_example_reproduces_exactly() {
 
     let view = view(&measure(&project, element));
 
-    assert_eq!(f(&view["block_top"]), 1506.75);
-    assert_eq!(f(&view["block_bottom"]), 1567.25);
-    assert_eq!(f(&view["lines"][0]["slot_height"]), 60.5);
+    assert_eq!(px(&view["block_top"]), 1506.75);
+    assert_eq!(px(&view["block_bottom"]), 1567.25);
+    assert_eq!(px(&view["lines"][0]["slot_height"]), 60.5);
 }
 
 #[test]
@@ -372,13 +373,13 @@ fn the_baseline_is_half_leading_around_the_slots_own_centre() {
     // come from the font file, read by `skrifa` rather than by the shaping under test.
     let (ascent, descent) = font_metrics(55.0);
     assert_eq!(
-        f(&view["lines"][0]["baseline_y"]),
+        px(&view["lines"][0]["baseline_y"]),
         1537.0 + (ascent - descent) / 2.0
     );
 
     // And the metrics themselves are the font's, not something derived from `size`.
-    assert_eq!(f(&view["ascent"]), ascent);
-    assert_eq!(f(&view["descent"]), descent);
+    assert_eq!(px(&view["ascent"]), ascent);
+    assert_eq!(px(&view["descent"]), descent);
 }
 
 #[test]
@@ -395,7 +396,7 @@ fn ascent_and_descent_exceed_the_slot_which_is_why_the_convention_had_to_be_deci
     // why ADR-0029 exists at all. If this ever stops holding, the ADR's motivating case has
     // changed and someone should know.
     assert!(
-        f(&view["ascent"]) + f(&view["descent"]) > f(&view["lines"][0]["slot_height"]),
+        px(&view["ascent"]) + px(&view["descent"]) > px(&view["lines"][0]["slot_height"]),
         "the leading is negative in this font at this size"
     );
 }
@@ -410,16 +411,16 @@ fn each_line_sits_in_its_own_slot_below_the_one_before() {
     element["origin"] = json!("top-left");
 
     let view = view(&measure(&project, element));
-    let slot_top = |i: usize| f(&view["lines"][i]["slot_top"]);
+    let slot_top = |i: usize| px(&view["lines"][i]["slot_top"]);
 
     // `top-*` puts the block's top at `y`, and the slots stack from there — 50 x 1.2 = 60
     // apiece (ADR-0007).
-    assert_eq!(f(&view["block_top"]), 0.0);
+    assert_eq!(px(&view["block_top"]), 0.0);
     assert_eq!([slot_top(0), slot_top(1), slot_top(2)], [0.0, 60.0, 120.0]);
-    assert_eq!(f(&view["block_bottom"]), 180.0);
+    assert_eq!(px(&view["block_bottom"]), 180.0);
 
     // The baselines are one slot apart, exactly.
-    let baseline = |i: usize| f(&view["lines"][i]["baseline_y"]);
+    let baseline = |i: usize| px(&view["lines"][i]["baseline_y"]);
     assert_eq!(baseline(1) - baseline(0), 60.0);
     assert_eq!(baseline(2) - baseline(1), 60.0);
 }
@@ -434,7 +435,7 @@ fn the_nine_origin_keywords_place_the_block_three_ways() {
         element["y"] = json!(1000);
         element["origin"] = json!(origin);
         let view = view(&measure(&project, element));
-        (f(&view["block_top"]), f(&view["block_bottom"]))
+        (px(&view["block_top"]), px(&view["block_bottom"]))
     };
 
     // A 60 px block, placed at y = 1000 by each keyword's vertical component (ADR-0013's
@@ -464,7 +465,7 @@ fn origin_defaults_to_center_when_the_element_does_not_write_one() {
     // plausible." The answer echoes the origin it used, so the default is visible rather
     // than silently applied.
     assert_eq!(view["asked"]["origin"], "center");
-    assert_eq!(f(&view["block_top"]), 970.0);
+    assert_eq!(px(&view["block_top"]), 970.0);
 }
 
 #[test]
@@ -479,8 +480,61 @@ fn a_line_reserves_the_slot_of_its_largest_run_and_not_the_elements_base_size() 
     let view = view(&measure(&project, element));
 
     assert_eq!(view["lines"][0]["size"], 60);
-    assert_eq!(f(&view["lines"][0]["slot_height"]), 60.0);
+    assert_eq!(px(&view["lines"][0]["slot_height"]), 60.0);
     assert_eq!(view["block_height"], 60);
+}
+
+#[test]
+fn a_base_size_every_run_overrides_sets_no_slot_of_its_own() {
+    let project = project(line!());
+
+    // The other direction of ADR-0007's rule, and the one that over-reports if the base is
+    // folded in unconditionally: base 88, and every run on the line at 40. The slot is
+    // 40's. ADR-0007's model is base-plus-deltas and "a delta that is absent is a delta
+    // that was not made" — so a base every run has replaced is not still in force, and a
+    // block reported at 88's height would put an author's `height` 48 px out.
+    let mut element = text(
+        88,
+        json!([{"text": "small ", "size": 40}, {"text": "also small", "size": 40}]),
+    );
+    element["line_height"] = json!(1.0);
+
+    let overridden = view(&measure(&project, element));
+
+    assert_eq!(overridden["lines"][0]["size"], 40);
+    assert_eq!(px(&overridden["lines"][0]["slot_height"]), 40.0);
+    assert_eq!(overridden["block_height"], 40);
+
+    // One run leaving `size` unstated brings the base back: that run *is* at 88.
+    let mut mixed = text(
+        88,
+        json!([{"text": "base "}, {"text": "small", "size": 40}]),
+    );
+    mixed["line_height"] = json!(1.0);
+    assert_eq!(view(&measure(&project, mixed))["block_height"], 88);
+}
+
+#[test]
+fn a_base_stroke_width_every_run_overrides_sets_no_extent_of_its_own() {
+    let project = project(line!());
+
+    // ADR-0014 makes stroke a run-addressable paint, so it resolves on the same rule — and
+    // gets the same wrong answer if the base is folded in unconditionally. Every run
+    // overrides 10 down to 2, so the extent grows by 4, not 20.
+    let mut element = text(
+        50,
+        json!([{"text": "a", "stroke_width": 2}, {"text": "b", "stroke_width": 2}]),
+    );
+    element["line_height"] = json!(1.0);
+    element["stroke_width"] = json!(10);
+
+    let view = view(&measure(&project, element));
+
+    assert_eq!(view["extent"]["stroke_width"], 2);
+    assert_eq!(
+        px(&view["extent"]["width"]),
+        px(&view["advance_width"]) + 4.0
+    );
 }
 
 #[test]
@@ -500,10 +554,10 @@ fn two_lines_of_different_sizes_each_reserve_their_own_slot() {
     // 20 then 60, summed — which is the case `ceil(size x line_height x line_count)` cannot
     // express, and the reason `measure` sums the slots itself and hands the total to
     // ADR-0028's one `ceil` rather than calling the three-argument form.
-    assert_eq!(f(&view["lines"][0]["slot_height"]), 20.0);
-    assert_eq!(f(&view["lines"][1]["slot_height"]), 60.0);
+    assert_eq!(px(&view["lines"][0]["slot_height"]), 20.0);
+    assert_eq!(px(&view["lines"][1]["slot_height"]), 60.0);
     assert_eq!(view["block_height"], 80);
-    assert_eq!(f(&view["lines"][1]["slot_top"]), 20.0);
+    assert_eq!(px(&view["lines"][1]["slot_top"]), 20.0);
 }
 
 #[test]
@@ -524,8 +578,8 @@ fn ascent_is_read_across_every_run_on_the_line() {
     let view = view(&measure(&project, element));
 
     let (ascent, descent) = font_metrics(58.0);
-    assert_eq!(f(&view["lines"][0]["ascent"]), ascent);
-    assert_eq!(f(&view["lines"][0]["descent"]), descent);
+    assert_eq!(px(&view["lines"][0]["ascent"]), ascent);
+    assert_eq!(px(&view["lines"][0]["descent"]), descent);
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +632,7 @@ fn the_block_height_is_exact_where_ieee_double_diverges() {
         "a `f64` product would reach 23 here — ADR-0028's whole subject"
     );
     // And the exact tenths are what the `ceil` was taken of: 22.0 px, not 22.000000000000004.
-    assert_eq!(f(&view["lines"][0]["slot_height"]), 22.0);
+    assert_eq!(px(&view["lines"][0]["slot_height"]), 22.0);
 }
 
 #[test]
@@ -636,26 +690,26 @@ fn the_extent_is_the_stroked_one_and_the_advance_beside_it_is_not() {
     // numbers "every author adds `2 x stroke_width` by hand and they diverge" — ADR-0005's
     // `speed` failure exactly.
     assert_eq!(
-        f(&stroked["extent"]["width"]),
-        f(&bare["extent"]["width"]) + 16.0
+        px(&stroked["extent"]["width"]),
+        px(&bare["extent"]["width"]) + 16.0
     );
     assert_eq!(
-        f(&stroked["extent"]["height"]),
-        f(&bare["extent"]["height"]) + 16.0
+        px(&stroked["extent"]["height"]),
+        px(&bare["extent"]["height"]) + 16.0
     );
     assert_eq!(stroked["extent"]["stroke_width"], 8);
 
     // The typographic advance is unchanged and is reported separately, so the derivation
     // stays inspectable rather than mysterious. A stroke is paint, and paint moves no glyph.
     assert_eq!(
-        f(&stroked["advance_width"]),
-        f(&bare["advance_width"]),
+        px(&stroked["advance_width"]),
+        px(&bare["advance_width"]),
         "a stroke is a second paint on the same outline, not a re-layout"
     );
     // And it moves no baseline: the block's own height is the typography's.
     assert_eq!(
-        f(&stroked["lines"][0]["baseline_y"]),
-        f(&bare["lines"][0]["baseline_y"])
+        px(&stroked["lines"][0]["baseline_y"]),
+        px(&bare["lines"][0]["baseline_y"])
     );
     assert_eq!(stroked["block_height"], bare["block_height"]);
 }
@@ -673,7 +727,10 @@ fn a_runs_own_stroke_width_reaches_the_extent() {
     // one word* is not expressible at all" — so the extent has to see a run's own.
     assert_eq!(view["extent"]["stroke_width"], 4);
     assert_eq!(view["lines"][0]["stroke_width"], 4);
-    assert_eq!(f(&view["extent"]["width"]), f(&view["advance_width"]) + 8.0);
+    assert_eq!(
+        px(&view["extent"]["width"]),
+        px(&view["advance_width"]) + 8.0
+    );
 }
 
 #[test]
@@ -683,7 +740,7 @@ fn no_stroke_means_the_extent_and_the_advance_agree() {
     let view = view(&measure(&project, text(50, one_run("hello"))));
 
     assert_eq!(view["extent"]["stroke_width"], 0);
-    assert_eq!(f(&view["extent"]["width"]), f(&view["advance_width"]));
+    assert_eq!(px(&view["extent"]["width"]), px(&view["advance_width"]));
 }
 
 // ---------------------------------------------------------------------------
@@ -850,7 +907,7 @@ fn a_relative_font_path_resolves_against_the_project_file() {
 
     let view = view(&measure(&project, text(50, one_run("hello"))));
 
-    assert!(f(&view["advance_width"]) > 0.0);
+    assert!(px(&view["advance_width"]) > 0.0);
 }
 
 #[test]
@@ -1035,7 +1092,7 @@ fn an_element_with_no_runs_at_all_measures_as_one_empty_line() {
     // begun — and reporting parley's synthetic-whitespace advance would report a width for
     // an element carrying no character.
     assert_eq!(view["line_count"], 1);
-    assert_eq!(f(&view["advance_width"]), 0.0);
+    assert_eq!(px(&view["advance_width"]), 0.0);
     assert_eq!(view["block_height"], 60);
 }
 
