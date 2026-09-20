@@ -49,8 +49,8 @@
 //! with [#214](https://github.com/MBehtemam/Montaget/issues/214) and is applied by
 //! [`Canvas::through`], in element space, in the order the list is written.
 //!
-//! What is **not** here, and is the core's rather than an omission: `crossfade` and a
-//! run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
+//! What is **not** here, and is the core's business rather than an omission: `crossfade`
+//! and a run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
 //! opacity the two bridged elements already carry and a highlight is which of a run's two
 //! declared styles applies at this instant — so both are settled in `montaget-core` and
 //! reach this crate as the numbers every other element's do.
@@ -295,7 +295,7 @@ impl MaskShape {
 /// API takes σ directly. CSS is the one an agent has seen before and the one the reference
 /// class's own numbers are quoted in, so it is the one written here — and it is a function
 /// rather than a literal so the day an ADR states otherwise there is one line to change.
-/// Raised at [#277](https://github.com/MBehtemam/Montaget/issues/277).
+/// Raised at [#280](https://github.com/MBehtemam/Montaget/issues/280).
 fn sigma(radius: f64) -> f32 {
     (radius.max(0.0) / 2.0) as f32
 }
@@ -322,10 +322,12 @@ impl Effect {
                 colour,
                 opacity,
             } => {
-                // `opacity` multiplies the shadow colour's own alpha rather than replacing
-                // it: ADR-0040 gives `shadow` both a `color` and an `opacity`, and a
-                // `#00000080` at `opacity: 0.5` is a quarter-strength shadow in every
-                // editor in the reference class.
+                // `opacity` multiplies the shadow colour's own alpha rather than
+                // replacing it: ADR-0040 gives `shadow` both a `color` and an `opacity`
+                // and does not say what the pair means, and multiplying is both what
+                // every editor offering the two controls does and what keeps
+                // `opacity: 1` the identity. Raised at
+                // [#280](https://github.com/MBehtemam/Montaget/issues/280).
                 let [r, g, b, a] = colour.0;
                 let alpha = f32::from(a) / 255.0 * opacity.clamp(0.0, 1.0) as f32;
                 let colour = Color4f::new(
@@ -343,8 +345,14 @@ impl Effect {
                     None,
                 )
             }
-            colour => image_filters::color_filter(
-                color_filters::matrix_row_major(&colour.matrix(), None),
+            // The four colour scalars, named rather than caught by a wildcard: it is what
+            // makes `matrix`'s own exhaustive match a compiler-checked claim about which
+            // members reach it, instead of a comment asserting it.
+            Effect::Tint { .. }
+            | Effect::Saturation { .. }
+            | Effect::Brightness { .. }
+            | Effect::Contrast { .. } => image_filters::color_filter(
+                color_filters::matrix_row_major(&self.matrix(), None),
                 None,
                 None,
             ),
@@ -432,9 +440,10 @@ impl Effect {
                     0.0, 0.0, 0.0, 1.0, 0.0,
                 ]
             }
-            // Unreachable: `filter` sends only the four colour members here, and a match
-            // arm is how that stays true under a later edit rather than a comment saying
-            // it does.
+            // Never reached: [`Effect::filter`] names the four colour members explicitly
+            // and sends nothing else here. The identity is what a new member would get if
+            // that ever stopped being true, and adding one to the enum breaks *this* match
+            // first, which is the point of spelling the three out rather than `_`.
             Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
@@ -849,7 +858,8 @@ impl Canvas {
         // **Outside the effects**, so `opacity` fades the finished element — its shadow
         // included. Inside them, a half-transparent element would cast a full-strength
         // shadow, which is the one thing every editor in the reference class agrees it
-        // does not do.
+        // does not do. Neither ADR-0012 nor ADR-0040 says which wraps which; raised at
+        // [#280](https://github.com/MBehtemam/Montaget/issues/280).
         let layered = transform.opacity < 1.0;
         if layered {
             canvas.save_layer_alpha_f(None, transform.opacity as f32);

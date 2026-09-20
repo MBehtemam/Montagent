@@ -197,24 +197,80 @@ _Avoid_: outline, border, bord
 A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
 element — never an open plugin architecture. A list, not a map or a single field,
 because application order is semantically real: blur-then-shadow is a different
-frame from shadow-then-drop. v1's vocabulary is `blur`, `shadow` and `mask`
-(shape-only). Effects attach to whole elements, never to a run — that boundary is
-what excludes `stroke` (a run-addressable paint field) from this vocabulary, and
-what excludes per-word text highlighting, which needs run addressing and a
-timing model keyframes don't provide (keyframes animate transform properties
-only). Static in v1: no effect parameter is keyframable.
-([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
-_Avoid_: filter (for the whole concept — see Colour filter, deferred, below), plugin, stack
+frame from shadow-then-drop, and two effects of the same name are ordinary rather
+than forbidden. v1's vocabulary is seven members — `blur`, `shadow`, `mask`
+(shape-only), and the four Colour filter scalars below. Effects attach to whole
+elements, never to a run — that boundary is what excludes `stroke` (a
+run-addressable paint field) from this vocabulary, and what excluded per-word
+Highlight, which needed run addressing and a timing model keyframes don't provide
+and got its own construct instead. Static in v1: no effect parameter is
+keyframable.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
+[ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md))
+_Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack
+
+**Colour filter**:
+The four scalar `effects` members that change pixel colour rather than geometry:
+`tint{color, amount}`, `saturation{amount}`, `brightness{amount}` and
+`contrast{amount}`. Flat named members, each sitting in the same ordered list as
+`blur` and `shadow` — never one `color{mode}` effect with an internal
+discriminator, which would be the vocabulary's only two-level lookup. There is no
+fifth, and no new one arrives without an ADR clearing the four-clause
+admissibility rule: fixed arity, bounded scalar parameters, a documented identity
+value, and not reproducible by composing two members that already exist.
+`grayscale` is not a member — it is `saturation` at its zero endpoint — and
+`sepia` is that composed with a warm `tint`. `tint.color` is the sole
+grandfathered exception to "parameters are bounded scalars", and the exception is
+closed.
+([ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md))
+_Avoid_: grayscale, sepia, duotone, LUT, curve
 
 **Mask**:
-An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) with
-numeric parameters only, that clips an element's rendered pixels. Shape-only in
-v1 — a soft or alpha mask sourced from an image is deferred, since it introduces
-a second asset reference and unresolved fitting/colour-space questions.
-([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md))
+An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) that
+keeps an element's rendered pixels where the shape is and erases the rest.
+Shape-only in v1 — a soft or alpha mask sourced from an image is deferred, since
+it introduces a second asset reference and unresolved fitting/colour-space
+questions. **The param-less form is the only spelling there is**: a bare
+`{"name": "mask", "shape": "circle"}` means the largest circle inscribed in the
+element's own rect, and `rect`/`ellipse` take the rect itself. An explicit
+geometry vocabulary — centre, radius, corner radii, two axes — is its own future
+ticket, and a bare `mask` key outside `effects` is a retired spelling.
+([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
+[ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
 different concept that happens to sound alike)
+
+**Transition**:
+Its own element type — `type: "transition"` — with its own `id`, `start`/`end`,
+a closed `kind` vocabulary, and two id references naming the elements it bridges.
+Not a property on either bridged element, which would make ownership
+unprincipled, and not an `effects` member, because an effect is element-local and
+a transition reads two elements' pixels together. Its `start`/`end` must exactly
+equal the intersection of the two bridged elements' own ranges: outside that
+window only one of the two exists, so a wider declared range is a field the
+renderer cannot honour. The per-track non-overlap rule is untouched — the two
+bridged elements live on separate tracks, exactly as anything else needing
+simultaneous visibility already does. **`crossfade` is the whole of v1's `kind`
+vocabulary**; wipe, slide and push are deferred until a forcing case shapes their
+parameters.
+([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md))
+_Avoid_: dissolve, wipe (as a v1 value), transition effect
+
+**Highlight**:
+A run's optional timed window — `{start, end, ...style delta}` — during which it
+wears a different style, falling back to its unconditional one outside it. The
+karaoke construct, and deliberately *not* an effect: effects attach to elements
+and a run lives inside one. It lives on the run rather than in a separate
+element-level event array, because a `{t, run, style}` array would reintroduce
+the join a reader has to perform by hand. Every highlighted word is its own run
+and a run carries at most one window — spanning several words would need sub-run
+character offsets, which a later text edit invalidates in silence. The times are
+literal integers frozen at authoring time, never a reference into an external
+alignment file: a highlight window is content, the same status a clip's
+`start`/`end` already has.
+([ADR-0048](docs/adr/0048-per-word-highlighting-is-a-timed-window-on-the-run.md))
+_Avoid_: karaoke (as a field name), word timing, active word
 
 **Colour**:
 `#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else. No three-digit shorthand, no CSS

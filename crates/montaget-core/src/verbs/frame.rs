@@ -77,6 +77,12 @@
 //! [`montaget_render::canvas::JPEG_QUALITY`]; and an absent `background` is opaque black
 //! (argued at [`montaget_render::canvas::Rgba::BLACK`]).
 //!
+//! #214 adds six more again, collected at
+//! [#280](https://github.com/MBehtemam/Montaget/issues/280) and argued at their sites: a
+//! blur or shadow `radius` is `2σ` rather than `σ`, a crossfade's ramp is linear,
+//! `opacity` composites outside the effects, a shadow's `opacity` multiplies its colour's
+//! alpha, a `highlight` is paint only, and the answer gains a `crossfades` block.
+//!
 //! #213 adds six more of the same kind, collected at
 //! [#277](https://github.com/MBehtemam/Montaget/issues/277) and argued at their sites: an
 //! absent `color` is opaque black ([`DEFAULT_INK`]), an absent `align` is `start`
@@ -246,7 +252,9 @@ pub struct Picture {
     /// `query --at` block beside the picture prints each element's *declared* `opacity`,
     /// which is what the document says and not what the frame shows — and an agent reading
     /// `opacity 1` under a half-faded element goes looking for a defect in the wrong
-    /// place. This is the sentence that closes that gap.
+    /// place. This is the sentence that closes that gap — new answer surface, raised for
+    /// ratification at [#280](https://github.com/MBehtemam/Montaget/issues/280) on the
+    /// precedent [#274](https://github.com/MBehtemam/Montaget/issues/274) set.
     pub crossfades: Vec<Crossfade>,
     /// Every media file opened, in the order it was opened.
     pub sources: Vec<String>,
@@ -744,7 +752,7 @@ impl<'a> Painter<'a> {
             match serde_json::from_value::<model::Effect>(value.clone())
                 .ok()
                 .as_ref()
-                .and_then(effect)
+                .and_then(effect_of)
             {
                 Some(effect) => effects.push(effect),
                 None => self.partially(
@@ -778,49 +786,111 @@ impl<'a> Painter<'a> {
     /// `ease` is what a document would have written by hand. Linear is also the only shape
     /// under which the two halves sum to a constant at every instant, which is what stops
     /// a crossfade dipping through the background halfway. Recorded here and raised at
-    /// [#277](https://github.com/MBehtemam/Montaget/issues/277).
+    /// [#280](https://github.com/MBehtemam/Montaget/issues/280).
     fn resolve_crossfades(&mut self) {
         let stack = crate::stack::Stack::of(self.document);
         for (_, element) in self.document.elements_in_tracks() {
             if element.get("type").and_then(Value::as_str) != Some("transition") {
                 continue;
             }
-            // `crossfade` is the whole v1 vocabulary (ADR-0059). A `kind` the format does
-            // not have is `validate`'s schema error, and nothing here invents a ramp for
-            // it.
-            if element.get("kind").and_then(Value::as_str) != Some("crossfade") {
-                continue;
+            match self.crossfade(&stack, element) {
+                Ok(Some(fade)) => {
+                    self.fades.push((fade.from.clone(), 1.0 - fade.progress));
+                    self.fades.push((fade.to.clone(), fade.progress));
+                    self.crossfades.push(fade);
+                }
+                // Not running at this instant, which is not a thing the picture is
+                // missing — a transition is only ever doing something inside its own
+                // window.
+                Ok(None) => {}
+                // Running, or claiming to be, and unusable. Named on the same rule every
+                // other element in this verb is: an agent that cannot tell "the fade has
+                // not started" from "the fade could not be read" will go looking for the
+                // defect in the wrong place.
+                Err(reason) => {
+                    if self.present(element) {
+                        let name = name_of(element);
+                        self.defer(&name, reason);
+                    }
+                }
             }
-            let (Some(from), Some(to)) = (
-                element.get("from").and_then(Value::as_str),
-                element.get("to").and_then(Value::as_str),
-            ) else {
-                continue;
-            };
-            let (Some(from_range), Some(to_range)) = (
-                stack.placement(from).and_then(|placement| placement.range),
-                stack.placement(to).and_then(|placement| placement.range),
-            ) else {
-                continue;
-            };
-
-            let start = from_range.start.max(to_range.start);
-            let end = from_range.end.min(to_range.end);
-            if end <= start || self.instant < start || self.instant >= end {
-                continue;
-            }
-            let progress = (self.instant - start) as f64 / (end - start) as f64;
-            self.fades.push((from.to_string(), 1.0 - progress));
-            self.fades.push((to.to_string(), progress));
-            self.crossfades.push(Crossfade {
-                element: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
-                from: from.to_string(),
-                to: to.to_string(),
-                start,
-                end,
-                progress,
-            });
         }
+    }
+
+    /// One transition's contribution at this instant: the crossfade it is running, nothing
+    /// (because the instant is outside its window), or the reason it could not be read.
+    fn crossfade(
+        &self,
+        stack: &crate::stack::Stack<'_>,
+        element: &Value,
+    ) -> Result<Option<Crossfade>, String> {
+        // `crossfade` is the whole v1 vocabulary (ADR-0059): "wipe, slide and push are
+        // deferred", and freezing a closed-vocabulary member on a guess is the trap that
+        // ADR avoided. A `kind` the format does not have is `validate`'s schema error, and
+        // nothing here invents a ramp for it.
+        match element.get("kind").and_then(Value::as_str) {
+            Some("crossfade") => {}
+            Some(other) => {
+                return Err(format!(
+                    "`crossfade` is the whole of v1's transition vocabulary, and this one \
+                     is a `{other}`"
+                ));
+            }
+            None => return Err("it states no `kind`".to_string()),
+        }
+        let (Some(from), Some(to)) = (
+            element.get("from").and_then(Value::as_str),
+            element.get("to").and_then(Value::as_str),
+        ) else {
+            return Err("it does not name both the elements it bridges".to_string());
+        };
+        // A `from`/`to` naming nothing in the document is a dangling reference, which is
+        // `validate`'s to classify — but it is also the reason this frame shows no fade,
+        // so it is said here too.
+        let (Some(from_range), Some(to_range)) = (
+            stack.placement(from).and_then(|placement| placement.range),
+            stack.placement(to).and_then(|placement| placement.range),
+        ) else {
+            return Err(format!(
+                "`{from}` and `{to}` do not both resolve to an element with a range"
+            ));
+        };
+
+        let start = from_range.start.max(to_range.start);
+        let end = from_range.end.min(to_range.end);
+        if end <= start {
+            return Err(format!(
+                "`{from}` and `{to}` share no instant, so there is no window to cross over"
+            ));
+        }
+        if self.instant < start || self.instant >= end {
+            return Ok(None);
+        }
+        Ok(Some(Crossfade {
+            element: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
+            from: from.to_string(),
+            to: to.to_string(),
+            start,
+            end,
+            progress: (self.instant - start) as f64 / (end - start) as f64,
+        }))
+    }
+
+    /// Does this element's own declared range contain the instant?
+    ///
+    /// Asked only of a transition, and only to decide whether an unusable one is worth a
+    /// sentence. Every other element reaches [`Painter::element`] through the caption's
+    /// stack, which has already answered this.
+    fn present(&self, element: &Value) -> bool {
+        let (Some(start), Some(end)) = (
+            element.get("start").and_then(Value::as_i64),
+            element.get("end").and_then(Value::as_i64),
+        ) else {
+            // A transition with no range of its own cannot be placed in time at all, and
+            // saying so is more use than silence.
+            return true;
+        };
+        self.instant >= start && self.instant < end
     }
 
     /// What this element's `opacity` is multiplied by, from every crossfade it is bridged
@@ -1251,11 +1321,15 @@ fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>], instant: i64) -> 
                 Some(window) => Fill {
                     // The window's own deltas over the run's, on exactly the rule the
                     // run's sit over the element's: absent is not a delta.
-                    fill: window.color.as_ref().and_then(ink).or(unconditional.fill),
+                    fill: window
+                        .color
+                        .as_ref()
+                        .and_then(rgba_of)
+                        .or(unconditional.fill),
                     stroke: window
                         .stroke
                         .as_ref()
-                        .and_then(ink)
+                        .and_then(rgba_of)
                         .or(unconditional.stroke),
                     stroke_width: window
                         .stroke_width
@@ -1280,10 +1354,37 @@ fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>], instant: i64) -> 
 /// the delta to the run-addressable paint fields ADR-0048 names — so a `size` or a `font`
 /// smuggled into a highlight cannot restyle a word mid-line into a layout `measure` never
 /// saw.
+///
+/// **A highlight is paint and only paint, which diverges from ADR-0048's own sentence.**
+/// That ADR says the delta's *"shape matches the run's existing unconditional delta
+/// fields"*, and `stroke_width` is one of them — but on an unconditional run that key
+/// changes *layout*, because ADR-0014 puts a text stroke outside the contour and
+/// `montaget-text` grows a line's extent by `2 × stroke_width`. Letting it through here
+/// would make a word jump sideways at the instant it lit up, and would make `measure`'s
+/// answer — taken once, at authoring time, and the number the author sized the box
+/// against — stop describing the frame for the length of every window. So the element is
+/// laid out from the runs' unconditional style and the window changes what is painted
+/// into the slots, never where the slots are. Raised at
+/// [#280](https://github.com/MBehtemam/Montaget/issues/280), asserted by
+/// `tests/effects.rs::a_highlight_moves_no_glyph`.
 fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {
     let window: crate::model::Highlight =
         serde_json::from_value(run.get("highlight")?.clone()).ok()?;
     (instant >= window.start && instant < window.end).then_some(window)
+}
+
+/// What the answer calls this element — its `id`, or the one phrase an id-less element is
+/// known by.
+///
+/// The same string [`Painter::paint`] takes off the caption's row, so a transition named
+/// here and an element named there are named the same way. The caption's rows come from
+/// [`Named`], which reads the very same field.
+fn name_of(element: &Value) -> String {
+    element
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| "(element with no id)".to_string())
 }
 
 /// Does any run carry this field?
@@ -1332,13 +1433,13 @@ fn path_element(element: montaget_text::PathEl) -> PathEl {
 /// second, more permissive answer to *"is this a colour"*, and the renderer would then draw
 /// things the document's own rules say are not there.
 fn rgba(value: &Value) -> Option<Rgba> {
-    ink(&serde_json::from_value::<Colour>(value.clone()).ok()?)
+    rgba_of(&serde_json::from_value::<Colour>(value.clone()).ok()?)
 }
 
 /// The same conversion, from a colour that has already been through that deserializer —
 /// which is where an `effects` member's colour arrives, the whole list having been parsed
 /// as the model's own type.
-fn ink(colour: &Colour) -> Option<Rgba> {
+fn rgba_of(colour: &Colour) -> Option<Rgba> {
     let body = colour.as_str().strip_prefix('#')?;
     let byte = |at: usize| u8::from_str_radix(body.get(at..at + 2)?, 16).ok();
     Some(Rgba([
@@ -1358,8 +1459,8 @@ fn ink(colour: &Colour) -> Option<Rgba> {
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
-fn effect(effect: &model::Effect) -> Option<Effect> {
-    Some(match effect {
+fn effect_of(declared: &model::Effect) -> Option<Effect> {
+    Some(match declared {
         model::Effect::Blur { radius } => Effect::Blur { radius: *radius },
         model::Effect::Shadow {
             dx,
@@ -1371,7 +1472,7 @@ fn effect(effect: &model::Effect) -> Option<Effect> {
             dx: *dx,
             dy: *dy,
             radius: *radius,
-            colour: ink(color)?,
+            colour: rgba_of(color)?,
             opacity: *opacity,
         },
         model::Effect::Mask { shape } => Effect::Mask {
@@ -1382,7 +1483,7 @@ fn effect(effect: &model::Effect) -> Option<Effect> {
             },
         },
         model::Effect::Tint { color, amount } => Effect::Tint {
-            colour: ink(color)?,
+            colour: rgba_of(color)?,
             amount: *amount,
         },
         model::Effect::Saturation { amount } => Effect::Saturation { amount: *amount },

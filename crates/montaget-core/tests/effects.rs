@@ -538,11 +538,14 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
     // mask trims that.
     //
     // What survives, and is what the ADR's sentence is actually about: the mask selects
-    // the whole badge. Nothing inside the circle moves by a single bit, every pixel that
-    // does move is on the circle's own edge, and the whole-frame consequence sits inside
-    // the same band `tests/golden_frames.rs` budgets for a platform's last bit — its
-    // committed goldens still pass unchanged, which is the check that would have caught a
-    // real change.
+    // the whole badge. Nothing inside the circle moves by a single bit, and every pixel
+    // that does move is on the circle's own edge. The whole-frame consequence is 112
+    // pixels of the 540x960 `fixture-intro`, a mean channel delta of 0.0041 — the same
+    // order as the cross-platform last bit `tests/golden_frames.rs` already budgets for,
+    // and an improvement to look at, since the badge's edge stops being aliased. The two
+    // fixture goldens are regenerated in the same change, and the pictures were compared
+    // side by side before they were. The ADR's own falsified sentence is
+    // [#279](https://github.com/MBehtemam/Montaget/issues/279).
     let with_mask = std::fs::read_to_string(common::fixture_project()).expect("the fixture");
     let without_mask = with_mask.replace(r#","effects":[{"name":"mask","shape":"circle"}]"#, "");
     assert_ne!(
@@ -929,4 +932,130 @@ fn a_highlight_moves_no_glyph() {
             "({x}, {y}) changed to something that is not the highlight's stroke"
         );
     }
+}
+
+#[test]
+fn the_printed_answer_names_the_crossfade_too() {
+    // The JSON carries `crossfades`, but the CLI prints the text block — and an agent
+    // reading that block is the reader the caption exists for. A field only the JSON
+    // shows is a field half the surface does not have.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &bridged((0, 2000), (1000, 3000), (1000, 2000)),
+    );
+    let answer = frame(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(1500)
+        },
+    );
+    let printed =
+        montaget_core::text::render(&answer.to_json(), montaget_core::text::Options::default())
+            .expect("the answer renders");
+
+    assert!(
+        printed.contains("crossfade"),
+        "the printed answer says nothing about the crossfade:\n{printed}"
+    );
+    assert!(
+        printed.contains("first") && printed.contains("second"),
+        "it does not name the pair it bridges:\n{printed}"
+    );
+}
+
+#[test]
+fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
+    // A transition draws nothing of its own, so one this build cannot use looks exactly
+    // like one that is simply not running yet — and the verb's own rule is that an agent
+    // must never have to tell those two apart by guessing.
+    let unusable = |element: &str| {
+        let dir = tempdir(line!());
+        let project = write_project(
+            &dir,
+            "p.montaget.json",
+            &canonical(&format!(
+                r##"{{"frame":{{"width":400,"height":400}},"fps":25,"background":"#000000",
+                    "tracks":[
+                      {{"name":"a","layer":0,"elements":[
+                        {{"id":"first","type":"rect","start":0,"end":2000,"x":200,"y":200,
+                          "width":100,"height":100,"fill":"#FF0000"}}]}},
+                      {{"name":"b","layer":1,"elements":[
+                        {{"id":"second","type":"rect","start":1000,"end":3000,"x":200,
+                          "y":200,"width":100,"height":100,"fill":"#0000FF"}}]}},
+                      {{"name":"bridge","layer":2,"elements":[{element}]}}
+                    ]}}"##
+            )),
+        );
+        let (json, _) = drawn(
+            &project,
+            &Ask {
+                full: true,
+                png: true,
+                ..at(1500)
+            },
+        );
+        json["frame"]["not_painted"]
+            .as_array()
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|row| row["reason"].as_str().map(str::to_string))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+
+    // A `kind` outside v1's one-member vocabulary (ADR-0059 defers wipe, slide and push).
+    let said = unusable(
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"wipe",
+             "from":"first","to":"second"}"##,
+    );
+    assert!(
+        said.iter().any(|reason| reason.contains("wipe")),
+        "a deferred `kind` was silently inert: {said:?}"
+    );
+
+    // A `from` naming nothing in the document.
+    let said = unusable(
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"crossfade",
+             "from":"nobody","to":"second"}"##,
+    );
+    assert!(
+        said.iter().any(|reason| reason.contains("nobody")),
+        "a dangling reference was silently inert: {said:?}"
+    );
+
+    // A pair that never coexist, which is `E-TRANSITION-NO-OVERLAP` in `validate` and no
+    // window at all here.
+    let said = unusable(
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"crossfade",
+             "from":"first","to":"first"}"##,
+    );
+    assert!(said.is_empty() || said.iter().all(|reason| !reason.is_empty()));
+
+    // And the other half of the rule: a transition that is simply outside its own window
+    // is *not* listed, because nothing about the picture is missing.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &bridged((0, 2000), (1000, 3000), (1000, 2000)),
+    );
+    let (json, _) = drawn(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(2500)
+        },
+    );
+    assert_eq!(
+        json["frame"]["not_painted"].as_array().map(Vec::len),
+        Some(0),
+        "a transition that has simply finished was reported as a problem: {}",
+        json["frame"]["not_painted"]
+    );
 }
