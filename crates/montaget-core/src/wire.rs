@@ -92,6 +92,22 @@ pub fn render_measure(answer: &crate::verbs::measure::Answer, form: Wire) -> Str
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `fonts list` answer in one wire form.
+///
+/// The inventory is a block on the canonical JSON, and the prose is that block generated
+/// from it — the same rule as `timeline`'s view and `measure`'s answer (ADR-0006).
+pub fn render_fonts_list(answer: &crate::verbs::fonts::Listing, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
+/// Render a `fonts vendor` answer in one wire form.
+///
+/// A write tool's answer is the new state's findings (ADR-0011), plus one block saying
+/// what was written and the chain entry to write next; both go through the one rule.
+pub fn render_fonts_vendor(answer: &crate::verbs::fonts::Vendored, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// One canonical JSON, one prose generator, one rule about which of them prints.
 fn in_form(json: &serde_json::Value, form: Wire) -> String {
     match form {

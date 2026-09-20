@@ -214,6 +214,15 @@ fn quoted(key: &str) -> String {
 /// what is canonical is [`canonical`]'s business, and what is durable is this function's,
 /// and neither should be able to change the other by accident.
 pub fn atomically(path: &Path, bytes: &str) -> std::io::Result<()> {
+    atomically_bytes(path, bytes.as_bytes())
+}
+
+/// The same, for a file that is not text — the font `fonts vendor` copies into the repo.
+///
+/// One rename, one temp-file convention: a font half-copied into `fonts/` is a file
+/// `validate` would hash and report as a mismatch against an attestation that was never
+/// written, and the whole point of the attestation is that the two agree by construction.
+pub fn atomically_bytes(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     let temp = directory.join(temp_name(path));
 
@@ -222,7 +231,7 @@ pub fn atomically(path: &Path, bytes: &str) -> std::io::Result<()> {
     // the class of defect the six-target suite exists to catch (#189).
     let written = (|| {
         let mut file = std::fs::File::create(&temp)?;
-        file.write_all(bytes.as_bytes())?;
+        file.write_all(bytes)?;
         // `write_all` returning `Ok` only means the bytes reached the OS. Without this, a
         // machine that loses power between the rename and the flush has a file that is
         // present, named correctly, and empty.

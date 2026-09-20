@@ -92,6 +92,12 @@ icu_segmenter = { version = "=2.3.0", default-features = false, features = [
 image = "=0.25.10"
 toml = "0.9"
 
+# ADR-0057's attestation carries the vendored file's content hash, and `validate`'s
+# integrity check recomputes it on every run. Pinned exactly, like everything a committed
+# fixture's bytes depend on: a hash the fixture records must be the hash this binary
+# derives.
+sha2 = "=0.10.9"
+
 [workspace.metadata.skia]
 # The key the feature set above must resolve to — CPU-only, no `ganesh`, no
 # `gl` (ADR-0010). Derived from the pin and asserted by `skia_pin.rs`; read by

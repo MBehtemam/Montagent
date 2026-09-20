@@ -744,6 +744,109 @@ minimum caption duration",
 if deliberate.",
         status: Live,
     },
+    // ---- Font vendoring: the gate in `fonts vendor`, and the attestation checks in
+    // ---- `validate` (#207, ADR-0057). ------------------------------------------------
+    //
+    // ADR-0057 names the conditions and none of the codes; every spelling below is surface
+    // the ADR series has not ratified, and the split into six is this table's own rule
+    // (ADR-0043 fixes the repair class per code) applied to conditions that repair
+    // differently.
+    CheckSpec {
+        // Bucket 1. Refuse, and the refusal is the whole point of the bucket: "an override
+        // affordance is itself the thing that makes the project a knowing party to an
+        // illegal copy". Fired by `fonts vendor` before any bytes are copied; `validate`
+        // never re-adjudicates licence law (ADR-0057).
+        code: "E-FONT-BLOCKLISTED",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "`{font}` calls itself `{name}`, which matches `{matched}` on Montaget's \
+blocklist of known non-redistributable fonts (Apple's system fonts are licensed for UI \
+mockups on Apple's own platforms and may not be embedded in other software). Nothing was \
+copied, and no flag will copy it. Known open substitutes, none of them metric-compatible: \
+{substitutes}.",
+        status: Live,
+    },
+    CheckSpec {
+        // Bucket 3. Advise, and the tension is recorded rather than hidden: the fix is
+        // *shaped* by the document — re-run with `--licence` — but its value is a fact a
+        // human verifies outside it. Refuse-class was rejected because its printed
+        // guarantee, "no flag can lift it", is exactly false here: ADR-0057 designed
+        // `--licence` as the way through this bucket, so a finding that said no flag exists
+        // would send an agent to a human with the wrong question. The repair value says
+        // the human step in words instead.
+        code: "E-FONT-LICENCE-UNKNOWN",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "`{font}` ({name}) carries no licence Montaget recognises — {detail} — so \
+nothing was copied. Once a human has confirmed the file may be redistributed, re-run with \
+`--licence <identifier>` to record that declaration; a false declaration is the declarer's \
+liability, recorded in the file.",
+        status: Live,
+    },
+    CheckSpec {
+        // `validate`'s attestation check, missing half. Advise: the next move is the one
+        // verb that writes attestations, and it follows from the condition itself.
+        code: "E-FONT-UNATTESTED",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "`{file}` is in the `fonts` table and has no `fontVendor` entry: nothing \
+records its licence or the bytes that were vendored. Run `montaget fonts vendor` on it.",
+        status: Live,
+    },
+    CheckSpec {
+        // `validate`'s attestation check, mismatched half. Refuse, on `E-SOURCE-OVERRUN`'s
+        // reasoning: the document records one hash and the disk holds another, and which
+        // of the two is the mistake — a font swapped in place, or an attestation edited by
+        // hand — is not readable off either. ADR-0007 is why it is an `error` at all: a
+        // font swapped in place "is a silent whole-project render change that no census
+        // sees".
+        code: "E-FONT-HASH-MISMATCH",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "`{file}` hashes to {actual} on disk, and its `fontVendor` entry records \
+{recorded}. The file was changed after it was vendored, or the entry was, and the document \
+does not say which; every measured size and break in this project was taken in the font \
+that was attested, not the one on disk.",
+        status: Live,
+    },
+    CheckSpec {
+        // A `fonts`-table path with no file behind it. Not in ADR-0057's list, and needed
+        // by its check: a hash cannot be compared against bytes that are not there, and
+        // reporting that as a mismatch would be the false confidence ADR-0006 forbids.
+        // ADR-0007 already names "font-file resolution" as a `validate` `error`; this is
+        // the code it fires under. Advise, on `E-SOURCE-MISSING`'s reasoning.
+        code: "E-FONT-MISSING",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "`{file}` is in the `fonts` table and is not there: {detail}. Looked for \
+it at {resolved}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0057: "a path referenced by no remaining chain ... is a `validate` warning,
+        // never a silent drop — an orphaned attestation may still be wanted, and pruning
+        // it is a decision an author makes, not one `fmt` makes for them." #207 resolves
+        // the ADR's "warning" to `note`: nothing on any frame changes, and a fact you may
+        // want and will not act on today is what a note is.
+        code: "N-FONT-ATTESTATION-ORPHANED",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "`fontVendor` attests `{file}`, which no `fonts` chain references. It is \
+kept, never pruned: remove it yourself if the file is gone for good.",
+        status: Live,
+    },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],

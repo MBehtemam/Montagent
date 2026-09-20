@@ -15,6 +15,9 @@
 //! - [`checks`] is where the checks themselves live, one module per question.
 //! - [`media`] is the disk half of the question: `ffmpeg` resolution, `probe`, the
 //!   ADR-0023 dimensions pipeline and the probe caches.
+//! - [`fonts`] is the font-vendoring rules: ADR-0057's three-bucket licence gate, the
+//!   blocklist, and the content hash the `fontVendor` attestation carries — read by the
+//!   two `fonts` verbs and by `validate`'s attestation check.
 //! - [`stack`] resolves an anchor into an integer layer, in one hop — the one place draw
 //!   order is computed, for the checks that report on it and the render that paints it.
 //! - [`exact`] is the arithmetic the two dividing rules are evaluated in — `speed`'s
@@ -45,6 +48,7 @@
 pub mod checks;
 pub mod exact;
 pub mod finding;
+pub mod fonts;
 pub mod layout;
 pub mod media;
 pub mod model;

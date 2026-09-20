@@ -179,11 +179,67 @@ enum Command {
         json: bool,
     },
 
+    /// Find a font on this machine, or freeze one into the project (ADR-0057).
+    ///
+    /// CLI-only (ADR-0011): vendoring is a once-per-project act, not a step in the edit
+    /// loop, and a subcommand costs the agent nothing until invoked.
+    Fonts {
+        #[command(subcommand)]
+        command: FontsCommand,
+    },
+
     /// Serve the MCP tools over stdio.
     ///
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
     /// how the agent's client starts the process that offers them.
     Mcp,
+}
+
+#[derive(Subcommand)]
+enum FontsCommand {
+    /// Every font file on this machine, with its faces and their licence status.
+    ///
+    /// `blocklisted` will be refused by `vendor` and nothing lifts that; `recognised-open`
+    /// vendors and records the licence it found; `unknown` vendors only with a
+    /// `--licence` you have verified.
+    List {
+        /// Walk these directories instead of the platform's font directories.
+        #[arg(long = "root", value_name = "DIR")]
+        roots: Vec<PathBuf>,
+        /// Print the canonical JSON *instead of* the text listing, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Copy a local font file into the project behind the licence gate, and record its
+    /// licence, source and hash in the `fontVendor` table.
+    ///
+    /// The checks run before any bytes are copied. A blocklisted font is refused with no
+    /// override; a font whose licence text is not recognised is refused until you declare
+    /// one with `--licence`. It never edits the `fonts` table — the answer echoes the chain
+    /// entry to write.
+    Vendor {
+        /// The project file.
+        project: PathBuf,
+        /// The local font file to copy. No URL, no family name: a path.
+        font: PathBuf,
+        /// The licence identifier a human has verified, e.g. `OFL-1.1`. Required when the
+        /// font's own licence text is not recognised; ignored by the blocklist.
+        #[arg(long, value_name = "IDENTIFIER")]
+        licence: Option<String>,
+        /// Where the file came from, recorded in the attestation. Defaults to the absolute
+        /// path it was copied from.
+        #[arg(long, value_name = "TEXT")]
+        source: Option<String>,
+        /// The path to vendor under, relative to the project. Defaults to `fonts/<name>`.
+        #[arg(long = "as", value_name = "PATH")]
+        destination: Option<String>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
 }
 
 pub fn run<I, T>(args: I) -> ExitCode
@@ -394,6 +450,64 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_measure(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Fonts {
+            command: FontsCommand::List { roots, json },
+        } => {
+            // `--verbose` is deliberately absent: the listing is the answer and is never
+            // collapsed. Which directories are the platform's is the core's to say.
+            let form = Wire::from_flags(json, false);
+            let roots = if roots.is_empty() {
+                montaget_core::verbs::fonts::system_roots()
+            } else {
+                roots
+            };
+            match run_verb(|| montaget_core::verbs::fonts::list(&roots)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_fonts_list(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Fonts {
+            command:
+                FontsCommand::Vendor {
+                    project,
+                    font,
+                    licence,
+                    source,
+                    destination,
+                    json,
+                    verbose,
+                },
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            let ask = montaget_core::verbs::fonts::Vendor {
+                font,
+                licence,
+                source,
+                destination,
+            };
+            match run_verb(|| montaget_core::verbs::fonts::vendor(&project, &ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_fonts_vendor(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

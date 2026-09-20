@@ -155,6 +155,12 @@ fn run_checks(
     // nobody ever ran `fmt` over. Its findings are `LAYOUT`, which is not a severity: they
     // never gate a render, because the video is byte-identical either way.
     crate::checks::layout::check(document, report);
+    // ADR-0057's two attestation checks (#207): every `fonts`-table path resolves to a
+    // `fontVendor` entry whose hash matches the bytes on disk, and every entry is still
+    // referenced. Reads the disk — the font files — but needs no subprocess, so it sits
+    // here rather than behind the session below, and it runs whether or not the project
+    // references any media.
+    crate::checks::fonts::check(document, report);
 
     // The two checks that need a subprocess, and the only ones that can fail rather than
     // find. Whether one needs to be opened at all is decided once, here, rather than per

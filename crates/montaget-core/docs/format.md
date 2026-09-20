@@ -148,6 +148,16 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   (ADR-0007, ADR-0057).
   The renderer opens nothing outside that chain, which is what makes a project that renders
   on your machine render on a clean one.
+- **Every font file is vendored through `montaget fonts vendor`, and the `fontVendor` table
+  is its receipt** (ADR-0057). The table is keyed by file path — one path, one licence, one
+  `sha256` — however many `fonts` chains reference the file, and it is written by the tool,
+  never by hand. `validate` checks that every chain path has an entry whose hash matches the
+  bytes on disk (`error` when it does not) and that every entry is still referenced (a
+  `note` when not; nothing prunes it for you). It re-checks integrity, never licence law.
+  `fonts vendor` runs its licence check *before* any bytes are copied: a font on the
+  blocklist of known non-redistributable fonts is refused with no override, a recognised
+  open licence is recorded, and anything else needs a `--licence` you have verified. Use
+  `montaget fonts list` to see each installed font's status before you try.
 
 ## Values
 

@@ -10,6 +10,9 @@ repository.workspace = true
 [dependencies]
 parley = { workspace = true, features = ["complex-scripts"] }
 icu_segmenter.workspace = true
+# `names` reads a font file's `name` table — what a file calls itself, and what it says
+# about its own licence — for `fonts list` and the gate in `fonts vendor` (ADR-0057).
+skrifa.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

@@ -8,6 +8,7 @@
 
 pub mod create_project;
 pub mod fmt;
+pub mod fonts;
 pub mod measure;
 pub mod probe;
 pub mod query;

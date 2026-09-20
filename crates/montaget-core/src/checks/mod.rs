@@ -18,6 +18,7 @@ pub mod box_slack;
 pub mod caption;
 pub mod coverage;
 pub mod fit;
+pub mod fonts;
 pub mod highlight;
 pub mod layout;
 pub mod quantization;

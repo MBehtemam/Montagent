@@ -14,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 unicode-segmentation.workspace = true
 unicode-normalization.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 # The independent oracle for `tests/measure.rs`. `measure`'s ascent and descent reach it
