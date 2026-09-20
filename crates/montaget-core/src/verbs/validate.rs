@@ -107,6 +107,12 @@ fn run_checks(
     crate::checks::schema::check(document, report);
     crate::checks::retired::check(document, report);
     crate::checks::anchor::check(document, report);
+    // ADR-0060's layer tie (#209): two elements resolving to one layer whose boxes
+    // actually overlap, in both time and space. It reads the same `crate::stack`
+    // resolution the anchor check above does — one rule, asked twice, never implemented
+    // twice — and samples geometry across the pair's shared time range, which is why it is
+    // its own check and not a branch of that one.
+    crate::checks::tie::check(document, report);
     // The checks that read the clock (#197). Three questions and one traversal each: two
     // elements of one track sharing an instant is the rule tracks exist to enforce
     // (ADR-0004); a gap is reported apart from an overlap and is never an error

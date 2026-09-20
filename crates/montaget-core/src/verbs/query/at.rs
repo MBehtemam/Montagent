@@ -81,7 +81,7 @@ use crate::resolve::{self, Interpolate, Unresolvable};
 use crate::stack::{Stack, Unresolved};
 
 use super::Named;
-use super::geometry::{self, InkBox, NotAxisAligned, Rect};
+use super::geometry::{self, InkBox, NotAxisAligned, Rect, clip_rect, covers_the_frame};
 
 /// The resolved stack at one instant.
 #[derive(Debug, Clone, Serialize)]
@@ -297,7 +297,7 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
             && geometry_number_opacity(element, instant) != 0.0
             && let Some(frame) = frame
         {
-            match geometry::drawn_rect(element, instant, frame) {
+            match geometry::visible_rect(element, instant, frame) {
                 Some(Err(NotAxisAligned::Rotated(degrees))) => {
                     not_covered_unresolved.get_or_insert_with(|| {
                         format!(
@@ -306,15 +306,9 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
                         )
                     });
                 }
-                Some(Ok(rect)) => {
-                    let visible = match clip_rect(element) {
-                        Some(clip) => rect.intersect(clip),
-                        None => Some(rect),
-                    };
-                    if let Some(visible) = visible {
-                        covering.push(visible);
-                    }
-                }
+                Some(Ok(visible)) => covering.push(visible),
+                // No readable box, or a `clip` that excludes the element entirely: either
+                // way it paints nothing and covers nothing.
                 None => {}
             }
         }
@@ -400,13 +394,6 @@ pub(crate) fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
     ))
 }
 
-/// Whether this element type has a frame-space footprint at all — audio and `transition`
-/// do not, and are excluded from both `NOT COVERED`'s union and its refusal: a rotated
-/// `rect` blocks the computation, but an audio element playing underneath never could.
-fn covers_the_frame(kind: Option<&str>) -> bool {
-    matches!(kind, Some("image" | "video" | "text" | "rect" | "ellipse"))
-}
-
 fn geometry_number_opacity(element: &Value, instant: i64) -> f64 {
     let Some(written) = element.get("opacity") else {
         return 1.0;
@@ -415,20 +402,6 @@ fn geometry_number_opacity(element: &Value, instant: i64) -> f64 {
         return 1.0;
     };
     resolve::at(&animatable, instant).unwrap_or(1.0)
-}
-
-/// `clip`, as a [`Rect`] — only `image` and `video` carry the field.
-fn clip_rect(element: &Value) -> Option<Rect> {
-    let clip = element.get("clip")?.as_array()?;
-    if clip.len() != 4 {
-        return None;
-    }
-    Some(Rect {
-        x: clip[0].as_i64()?,
-        y: clip[1].as_i64()?,
-        width: clip[2].as_i64()?,
-        height: clip[3].as_i64()?,
-    })
 }
 
 /// **Offset into source** (ADR-0020) — computed from the document's own declared

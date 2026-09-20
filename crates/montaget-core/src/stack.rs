@@ -294,7 +294,8 @@ impl<'a> Stack<'a> {
     ///
     /// What it does *not* determine is a tie: two elements resolving to one layer is legal
     /// while their boxes never meet, and an `error` once they do (ADR-0060). That check
-    /// samples across keyframes and belongs to the ticket that can.
+    /// samples geometry across keyframes and is [`crate::checks::tie`], a caller of this
+    /// function rather than a second reading of it.
     pub fn resolved(&self) -> impl Iterator<Item = (&'a str, Result<i64, Unresolved<'a>>)> {
         self.placements
             .iter()

@@ -157,6 +157,52 @@ pub(crate) fn origin_fraction(origin: Origin) -> (f64, f64) {
     (h, v)
 }
 
+/// Whether this element type has a frame-space footprint at all — audio and `transition`
+/// do not, and are excluded from both `NOT COVERED`'s union and its refusal: a rotated
+/// `rect` blocks the computation, but an audio element playing underneath never could.
+///
+/// `pub(crate)` for the same reason the rest of this module is: the layer-tie check
+/// (ADR-0060) asks the identical question about the identical set of types, and a second
+/// list would be a second answer to *"does this element claim pixels"* — the drift this
+/// module exists to prevent.
+pub(crate) fn covers_the_frame(kind: Option<&str>) -> bool {
+    matches!(kind, Some("image" | "video" | "text" | "rect" | "ellipse"))
+}
+
+/// `clip`, as a [`Rect`] — only `image` and `video` carry the field.
+pub(crate) fn clip_rect(element: &Value) -> Option<Rect> {
+    let clip = element.get("clip")?.as_array()?;
+    if clip.len() != 4 {
+        return None;
+    }
+    Some(Rect {
+        x: clip[0].as_i64()?,
+        y: clip[1].as_i64()?,
+        width: clip[2].as_i64()?,
+        height: clip[3].as_i64()?,
+    })
+}
+
+/// **The visible rectangle**: [`drawn_rect`] cut down by `clip` where the element carries
+/// one — the frame-space pixels this element can actually paint at `instant`.
+///
+/// `None` where the element has no rectangle to speak of (no readable `width`/`height`)
+/// or where `clip` excludes it entirely; `Err` where it rotates, which this module
+/// answers in rectangles only.
+pub(crate) fn visible_rect(
+    element: &Value,
+    instant: i64,
+    frame: (i64, i64),
+) -> Option<Result<Rect, NotAxisAligned>> {
+    match drawn_rect(element, instant, frame)? {
+        Err(not_axis_aligned) => Some(Err(not_axis_aligned)),
+        Ok(rect) => match clip_rect(element) {
+            Some(clip) => rect.intersect(clip).map(Ok),
+            None => Some(Ok(rect)),
+        },
+    }
+}
+
 /// **The crop rectangle**: which part of the *source file's own pixels* survive onto the
 /// screen, in source pixel space.
 ///
