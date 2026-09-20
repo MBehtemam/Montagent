@@ -455,17 +455,17 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
     // An agent that cannot tell "the element is not there" from "this build does not draw
     // that yet" goes looking for a defect in the document.
     //
-    // A `transition`, because #213 took text off this list and a `transition` is what is
-    // left of #214 on the element side. The fixture carries none — every element it has
-    // at 11 000 ms is now drawn — so the case needs its own project, which is the right
-    // shape for it anyway: the assertion is about the *list*, not about the fixture.
+    // #213 took text off this list and #214 took the effect vocabulary, `crossfade` and
+    // `highlight`, so what is left is an element whose `type` this build does not know —
+    // which is the right shape for the assertion anyway: it is about the *list*, not about
+    // any one deferral, and it must keep working after the last of them lands.
     let dir = tempdir(line!());
     let project = write_project(
         &dir,
         "p.montaget.json",
         &one_track(
-            r##"{"id":"fade","type":"transition","start":0,"end":1000,
-                 "kind":"crossfade","from":"a","to":"b"}"##,
+            r##"{"id":"unheard-of","type":"hologram","start":0,"end":1000,"x":0,"y":0,
+                 "width":100,"height":100}"##,
         ),
     );
     let (json, _) = drawn(&project, &at(500));
@@ -476,7 +476,7 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
         .iter()
         .filter_map(|entry| entry["element"].as_str())
         .collect();
-    assert!(deferred.contains(&"fade"), "{deferred:?}");
+    assert!(deferred.contains(&"unheard-of"), "{deferred:?}");
     assert!(
         json["frame"]["not_painted"]
             .as_array()
@@ -486,27 +486,47 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
         "every entry states why"
     );
 
-    // And the other half of the same rule, on the fixture: an element painted without
-    // something the document asks of it.
-    let (json, _) = drawn(&fixture_project(), &at(11000));
+    // And the other half of the same rule: an element painted, but not in full. The
+    // fixture no longer has one — `handle-logo`'s `mask` is drawn as of #214 — so this is
+    // an element asking for a member the effect vocabulary does not have.
+    let project = write_project(
+        &dir,
+        "partial.montaget.json",
+        &one_track(
+            r##"{"id":"half-drawn","type":"rect","start":0,"end":1000,"x":0,"y":0,
+                 "width":100,"height":100,"fill":"#FF0000",
+                 "effects":[{"name":"kaleidoscope","turns":3}]}"##,
+        ),
+    );
+    let (json, _) = drawn(&project, &at(500));
 
-    // An element that *was* painted, but not in full, is a different report from one that
-    // was not painted at all — `handle-logo` carries the fixture's `mask` effect (#214).
     let partial: Vec<&str> = json["frame"]["painted_partially"]
         .as_array()
         .expect("a painted_partially list")
         .iter()
         .filter_map(|entry| entry["element"].as_str())
         .collect();
-    assert_eq!(partial, ["handle-logo"]);
+    assert_eq!(partial, ["half-drawn"]);
     assert!(
         json["frame"]["painted"]
             .as_array()
             .expect("a list")
             .iter()
-            .any(|id| id == "handle-logo"),
-        "an element painted without its effects is still painted"
+            .any(|id| id == "half-drawn"),
+        "an element painted without one of its effects is still painted"
     );
+
+    // The fixture itself now has neither list populated: every element it carries at
+    // 11 000 ms is drawn, in full.
+    let (fixture, _) = drawn(&fixture_project(), &at(11000));
+    for list in ["not_painted", "painted_partially"] {
+        assert_eq!(
+            fixture["frame"][list].as_array().map(Vec::len),
+            Some(0),
+            "the fixture has a {list} entry: {}",
+            fixture["frame"][list]
+        );
+    }
 }
 
 #[test]
@@ -1794,39 +1814,4 @@ fn a_text_element_whose_chain_does_not_resolve_is_named_rather_than_drawn_in_any
         "an unresolvable chain draws nothing at all, rather than something in a \
          substituted face"
     );
-}
-
-#[test]
-fn a_runs_highlight_window_is_painted_in_its_unconditional_style_and_says_so() {
-    // ADR-0048's timed restyle is #214's. The element is still painted — an agent looking
-    // at a frame needs the words — and the half it is not getting is named beside the
-    // picture, which is the rule `painted_partially` exists for.
-    let (json, picture) = typeset(
-        line!(),
-        r##"{"id":"timed","type":"text","start":0,"end":1000,"x":300,"y":200,
-            "origin":"center","width":560,"height":120,"font":"brand","size":56,
-            "color":"#FF0000","align":"center",
-            "runs":[{"text":"now","highlight":{"start":0,"end":1000,"color":"#0000FF"}}]}"##,
-    );
-
-    assert!(
-        json["frame"]["painted"]
-            .as_array()
-            .expect("a list")
-            .iter()
-            .any(|id| id == "timed")
-    );
-    assert!(
-        json["frame"]["painted_partially"][0]["reason"]
-            .as_str()
-            .is_some_and(|reason| reason.contains("#214")),
-        "the window is named as deferred: {}",
-        json["frame"]["painted_partially"]
-    );
-    // And it really is the unconditional colour on the frame, not the window's.
-    let blue = (0..picture.height())
-        .flat_map(|y| (0..picture.width()).map(move |x| (x, y)))
-        .filter(|&(x, y)| rgb(&picture, x, y) == BLUE)
-        .count();
-    assert_eq!(blue, 0, "the highlight colour was painted after all");
 }

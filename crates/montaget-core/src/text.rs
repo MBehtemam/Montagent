@@ -986,6 +986,22 @@ fn frame_block(frame: &Value) -> String {
         )
     }));
 
+    // A crossfade draws nothing of its own, so without this line the only trace of it in
+    // the answer is two elements at an opacity the `query --at` block below prints as `1`
+    // — the document's number, not the frame's. An agent reading that goes looking for a
+    // defect in the wrong element, which is the failure the caption exists to prevent.
+    for fade in frame["crossfades"].as_array().into_iter().flatten() {
+        out.push_str(&row(format!(
+            "crossfade   {} — {}% from {} to {}, over {}..{}",
+            named(&fade["element"]),
+            (fade["progress"].as_f64().unwrap_or_default() * 100.0).round(),
+            named(&fade["from"]),
+            named(&fade["to"]),
+            fade["start"].as_i64().unwrap_or_default(),
+            fade["end"].as_i64().unwrap_or_default(),
+        )));
+    }
+
     for (key, label) in [
         ("painted_partially", "in part    "),
         ("not_painted", "not painted"),

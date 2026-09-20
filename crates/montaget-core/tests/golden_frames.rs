@@ -185,3 +185,104 @@ fn the_text_features_the_fixture_does_not_use_render_the_same_way_too() {
     );
     against_golden("text-features", &rendered(&project, 500, /* full */ false));
 }
+
+#[test]
+fn the_paint_vocabulary_the_fixture_does_not_use_renders_the_same_way_too() {
+    // The same argument as the golden above, one ticket later. The committed fixture
+    // exercises exactly one member of #214's vocabulary — `handle-logo`'s param-less
+    // `mask`, whose whole point (ADR-0068) is that it changes nothing there — and carries
+    // no transition and no highlighted run at all. So a `skia-safe` bump could move every
+    // blur kernel, every colour matrix and every shadow in the crate and the two goldens
+    // above would not notice.
+    //
+    // One frame with the whole of it: an ordered pair of effects, two members of the same
+    // name, all four colour scalars, each mask shape, a crossfade caught mid-window, and a
+    // run inside its own highlight.
+    let dir = tempdir(line!());
+    let font = common::with_forward_slashes(
+        &fixture_dir()
+            .join("fonts/OpenRunde-Bold.otf")
+            .display()
+            .to_string(),
+    );
+    let project = write_project(
+        &dir,
+        "paint-vocabulary.montaget.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":640,"height":640}},"fps":25,"background":"#1E344C",
+                "fonts":{{"brand":[{{"file":"{font}"}}]}},
+                "tracks":[
+                  {{"name":"effects","layer":0,"elements":[
+                    {{"id":"blurred-then-shadowed","type":"rect","start":0,"end":2000,
+                      "x":110,"y":110,"origin":"center","width":140,"height":100,
+                      "radius":12,"fill":"#FBF3E3","effects":[
+                        {{"name":"blur","radius":10}},
+                        {{"name":"shadow","dx":14,"dy":14,"radius":8,"color":"#000000",
+                          "opacity":0.7}}]}},
+                    {{"id":"twice-shadowed","type":"rect","start":0,"end":2000,
+                      "x":320,"y":110,"origin":"center","width":140,"height":100,
+                      "fill":"#FFF8E8","effects":[
+                        {{"name":"shadow","dx":12,"dy":0,"radius":4,"color":"#B03A2E",
+                          "opacity":1}},
+                        {{"name":"shadow","dx":-12,"dy":0,"radius":4,"color":"#245C8C",
+                          "opacity":1}}]}},
+                    {{"id":"all-four-scalars","type":"ellipse","start":0,"end":2000,
+                      "x":530,"y":110,"origin":"center","width":140,"height":100,
+                      "fill":"#FF8A00","effects":[
+                        {{"name":"saturation","amount":0.4}},
+                        {{"name":"brightness","amount":0.1}},
+                        {{"name":"contrast","amount":0.3}},
+                        {{"name":"tint","color":"#245C8C","amount":0.35}}]}},
+                    {{"id":"masked-circle","type":"image","start":0,"end":2000,
+                      "x":110,"y":280,"origin":"center","width":140,"height":100,
+                      "source":"{logo}","fit":"cover",
+                      "effects":[{{"name":"mask","shape":"circle"}}]}},
+                    {{"id":"masked-ellipse","type":"image","start":0,"end":2000,
+                      "x":320,"y":280,"origin":"center","width":140,"height":100,
+                      "source":"{logo}","fit":"cover",
+                      "effects":[{{"name":"mask","shape":"ellipse"}}]}},
+                    {{"id":"masked-then-blurred","type":"image","start":0,"end":2000,
+                      "x":530,"y":280,"origin":"center","width":140,"height":100,
+                      "source":"{logo}","fit":"cover","effects":[
+                        {{"name":"mask","shape":"rect"}},
+                        {{"name":"blur","radius":6}}]}}
+                  ]}},
+                  {{"name":"outgoing","layer":1,"elements":[
+                    {{"id":"leaving","type":"rect","start":0,"end":1000,"x":210,"y":440,
+                      "origin":"center","width":220,"height":100,"fill":"#B03A2E"}}
+                  ]}},
+                  {{"name":"incoming","layer":2,"elements":[
+                    {{"id":"arriving","type":"rect","start":500,"end":2000,"x":430,"y":440,
+                      "origin":"center","width":220,"height":100,"fill":"#245C8C"}}
+                  ]}},
+                  {{"name":"bridge","layer":3,"elements":[
+                    {{"id":"fade","type":"transition","start":500,"end":1000,
+                      "kind":"crossfade","from":"leaving","to":"arriving"}}
+                  ]}},
+                  {{"name":"karaoke","layer":4,"elements":[
+                    {{"id":"line","type":"text","start":0,"end":2000,"x":320,"y":570,
+                      "origin":"center","width":600,"height":100,"font":"brand","size":52,
+                      "color":"#FFF8E8","align":"center","runs":[
+                        {{"text":"lit "}},
+                        {{"text":"now","highlight":{{"start":600,"end":900,
+                          "color":"#FFD34D","stroke":"#B03A2E","stroke_width":4}}}},
+                        {{"text":" then"}}
+                      ]}}
+                  ]}}
+                ]}}"##,
+            logo = common::with_forward_slashes(
+                &fixture_dir()
+                    .join("brand/logo-en.png")
+                    .display()
+                    .to_string()
+            ),
+        )),
+    );
+    // 750 ms is the midpoint of the crossfade's derived window and inside the highlight's,
+    // so one frame catches both mid-flight. A golden taken at either end would agree with
+    // a renderer that had stopped running them.
+    against_golden(
+        "paint-vocabulary",
+        &rendered(&project, 750, /* full */ false),
+    );
+}
