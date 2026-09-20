@@ -129,6 +129,30 @@ pub struct QueryParams {
     pub json: bool,
 }
 
+/// `measure`'s arguments: **a whole text element, in the shape the schema gives it.**
+///
+/// The same shape ADR-0011 fixes for the write side, and the right shape here for a reason
+/// of this verb's own: ADR-0024 requires `measure` to *"work identically for an element
+/// being authored for the first time"*, and such an element has no `id` to name. So the
+/// argument is the element you are about to write, not a handle on one already in the file.
+///
+/// `width` and `height` are never read, even when the element carries them — ADR-0024 gives
+/// `measure` the derivation and `validate` the verdict, and there is no declared value
+/// anywhere in the verb to compare against.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct MeasureParams {
+    /// Path to the project file. Its `fonts` table is what `font` is a key into, and its
+    /// directory is what the declared font files resolve against.
+    pub project: String,
+    /// The text element, as `montaget://schema.json` shapes one: `runs`, `font`, `size`,
+    /// and optionally `line_height`, `y`, `origin` and `stroke_width`. Any other field is
+    /// ignored, so an element still being authored measures as readily as a finished one.
+    pub element: serde_json::Value,
+    /// Return the canonical JSON *instead of* the text answer, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+}
+
 /// The project's `frame` object, as the schema shapes it.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FrameParam {
@@ -267,6 +291,47 @@ impl Montaget {
         // itself would be an MCP error, and this call has none to raise.
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render_query(&answer, form),
+        )]))
+    }
+
+    #[tool(
+        name = "measure",
+        description = "What does this text actually occupy, in the fonts the project \
+                       declares? Returns the advance width, ascent and descent, the line \
+                       count, each line's resolved baseline_y, and the block height — the \
+                       integer a text element's required `height` field takes. The extent \
+                       it reports is the **stroked** one, so you are never adding 2 x \
+                       stroke_width by hand. It also returns the break opportunities: the \
+                       byte offsets at which a line may legally break, so you can place a \
+                       `\\n` yourself in a script that writes no spaces. Montaget never \
+                       places one for you, and never wraps. Pass the element you are about \
+                       to write; it needs no `id` and need not exist in the file yet. It \
+                       reaches no verdict — it will not tell you whether the text fits its \
+                       box, which is `validate`'s alone to say.",
+        input_schema = advertised::<MeasureParams>()
+    )]
+    fn measure(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: MeasureParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("measure", &e)),
+        };
+
+        let answer = montaget_core::verbs::measure::measure(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::measure::Ask {
+                element: Some(params.element),
+            },
+        );
+        // `verbose` is deliberately absent, as it is on `query`: the answer *is* the
+        // output and is never collapsed, so an argument that changed nothing would cost the
+        // agent context on every turn.
+        let form = Wire::from_flags(params.json, false);
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render_measure(&answer, form),
         )]))
     }
 }

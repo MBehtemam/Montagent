@@ -9,7 +9,7 @@
 //! Every sentence comes from the registered template for a finding's code, filled from
 //! that finding's own field set — *"one code, one field set, one template."*
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::fmt;
 
 use crate::finding::Class;
@@ -105,6 +105,11 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
     // left to say if the answer is filtered out.
     if let Some(query) = report.get("query").filter(|view| !view.is_null()) {
         out.push_str(&query_block(query));
+    }
+
+    // `measure`'s whole answer, on the same rule again.
+    if let Some(measure) = report.get("measure").filter(|view| !view.is_null()) {
+        out.push_str(&measure_block(measure));
     }
 
     let findings = report["findings"]
@@ -751,6 +756,164 @@ fn counted(count: &Value, noun: &str) -> String {
 /// Both modes share one heading so that a reader — or a grep — finds the answer in the same
 /// place whichever question was asked, and each states its own question underneath it: a
 /// cut list read without knowing the range it was taken over is a column of numbers.
+/// What the text occupies, as prose.
+///
+/// The block's numbers first, then one row per line, then the break opportunities. The
+/// order is the order an author reads them in: the block height is the integer they are
+/// about to type into `height`, and the opportunities are what they act on only once the
+/// extent tells them a break is needed at all.
+///
+/// Every number the canonical JSON carries prints here, and nothing else: ADR-0006 makes
+/// the prose a rendering *of* that JSON, so a sentence stating something the JSON does not
+/// is unreachable by construction.
+fn measure_block(measure: &Value) -> String {
+    let asked = &measure["asked"];
+    let lines = measure["lines"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let extent = &measure["extent"];
+
+    let mut out = format!(
+        "\nMEASURE  {} in `{}` at size {}, line_height {}, origin {}\n",
+        match asked["id"].as_str() {
+            Some(id) => format!("`{id}`"),
+            // ADR-0024: `measure` must work identically for an element being authored for
+            // the first time, and such an element has no `id` to print.
+            None => "an element carrying no `id`".to_string(),
+        },
+        named(&asked["font"]),
+        stated_number(&asked["size"]),
+        tenths(&asked["line_height_tenths"]),
+        named(&asked["origin"]),
+    );
+
+    let mut field = |label: &str, value: String| {
+        out.push_str(&format!("    {label:<18}{value}\n"));
+    };
+    field("lines", stated_number(&measure["line_count"]));
+    // ADR-0014's consequence, spelled out where it is read rather than left to be
+    // inferred: the extent is the stroked one, and the advance beside it is not.
+    field(
+        "extent (stroked)",
+        format!(
+            "{} x {} px  (stroke_width {})",
+            pixels(&extent["width"]),
+            pixels(&extent["height"]),
+            stated_number(&extent["stroke_width"])
+        ),
+    );
+    field(
+        "advance width",
+        format!(
+            "{} px (typographic, before the stroke)",
+            pixels(&measure["advance_width"])
+        ),
+    );
+    field(
+        "ascent / descent",
+        format!(
+            "{} / {} px  (the maximum across every run on a line — ADR-0029)",
+            pixels(&measure["ascent"]),
+            pixels(&measure["descent"])
+        ),
+    );
+    field(
+        "block height",
+        format!(
+            "{} px  — the integer `height` takes",
+            stated_number(&measure["block_height"])
+        ),
+    );
+    field(
+        "block",
+        format!(
+            "y {} .. {} px",
+            pixels(&measure["block_top"]),
+            pixels(&measure["block_bottom"])
+        ),
+    );
+
+    out.push_str("\n  LINES\n");
+    for line in lines {
+        out.push_str(&row(format!(
+            "  {:>3}  baseline_y {:>10}  advance {:>10}  size {:<4} slot {} .. {}  {:?}",
+            stated_number(&line["index"]),
+            pixels(&line["baseline_y"]),
+            pixels(&line["advance_width"]),
+            stated_number(&line["size"]),
+            pixels(&line["slot_top"]),
+            pixels(&slot_bottom(line)),
+            line["text"].as_str().unwrap_or_default(),
+        )));
+    }
+
+    // ADR-0008: Montaget never places a line break itself, so these are offered and never
+    // applied. The sentence says so, because a column of offsets does not.
+    out.push_str(&format!(
+        "\n  BREAK OPPORTUNITIES  byte offsets into the element's text, from {} {} ({})\n  \
+         places a `\\n` may legally go — never one Montaget would place itself\n",
+        named(&measure["segmenter"]["name"]),
+        named(&measure["segmenter"]["version"]),
+        named(&measure["segmenter"]["model"]),
+    ));
+    for line in lines {
+        let offsets = line["break_opportunities"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let offsets = if offsets.is_empty() {
+            "none".to_string()
+        } else {
+            offsets
+                .iter()
+                .map(stated_number)
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        out.push_str(&row(format!(
+            "  {:>3}  {offsets}",
+            stated_number(&line["index"])
+        )));
+    }
+    out
+}
+
+/// Where one line's slot ends — its top plus its height, so the two edges read as a range
+/// rather than as an offset and a length the reader adds in their head.
+fn slot_bottom(line: &Value) -> Value {
+    match (line["slot_top"].as_f64(), line["slot_height"].as_f64()) {
+        (Some(top), Some(height)) => json!(top + height),
+        _ => Value::Null,
+    }
+}
+
+/// A `line_height` held as tenths, printed as the decimal the document writes.
+///
+/// The conversion is exact and one-way: tenths is what the arithmetic ran on (ADR-0028),
+/// and this is the only place it becomes a decimal again — for a human to recognise `1.1`.
+fn tenths(value: &Value) -> String {
+    match value.as_i64() {
+        Some(tenths) => format!("{}.{}", tenths / 10, tenths % 10),
+        None => "?".to_string(),
+    }
+}
+
+/// A pixel measurement, printed without a trailing `.0` on a whole number.
+fn pixels(value: &Value) -> String {
+    match value.as_f64() {
+        Some(px) => {
+            let rounded = (px * 1000.0).round() / 1000.0;
+            let mut text = format!("{rounded}");
+            if let Some(stripped) = text.strip_suffix(".0") {
+                text = stripped.to_string();
+            }
+            text
+        }
+        None => "?".to_string(),
+    }
+}
+
 fn query_block(query: &Value) -> String {
     match query["mode"].as_str() {
         Some("cuts") => cuts_block(query),

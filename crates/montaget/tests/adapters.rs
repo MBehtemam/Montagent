@@ -259,6 +259,77 @@ fn cli_query_takes_no_flag_that_collapses_the_answer() {
 }
 
 #[test]
+fn cli_measure_reaches_the_verb_and_exits_0() {
+    // One test per subcommand, asserting argv reaches the right core call and the exit code
+    // is right (#168). The arithmetic is tested in the core.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        r#"{"id":"intro-title","type":"text","y":1470,"origin":"center","font":"brand","size":58,"line_height":1.1,"runs":[{"text":"4 English words for\ndecorating the house"}]}"#,
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stdout.contains("MEASURE  `intro-title`"),
+        "{}",
+        out.stdout
+    );
+    assert!(out.stdout.contains("BREAK OPPORTUNITIES"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_measure_json_replaces_the_text_answer_and_never_accompanies_it() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        r#"{"font":"brand","size":58,"runs":[{"text":"x"}]}"#,
+        "--json",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["measure"]["line_count"], 1);
+}
+
+#[test]
+fn cli_measure_with_an_element_that_is_not_json_is_exit_3() {
+    // The one thing argv must do that the MCP surface does not: an element arrives here as
+    // a string. A string that is not JSON is an invocation error, with the same code and
+    // the same object as every other one (ADR-0011).
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        "{not json",
+    ]);
+
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(out.stderr.contains("E-INVOCATION"), "{}", out.stderr);
+}
+
+#[test]
+fn cli_measure_takes_no_flag_that_collapses_the_answer() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        r#"{"font":"brand","size":58,"runs":[{"text":"x"}]}"#,
+        "--verbose",
+    ]);
+
+    // Same rule as `timeline` and `query`: a verb whose output *is* the answer has nothing
+    // left to say if the answer is filtered out, so there is no verbosity switch to offer.
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 
@@ -794,6 +865,81 @@ fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
     assert!(matches.contains("census y: 5 at 1537"), "{matches}");
 
     let rejected = &session[&5];
+    let text = rejected["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered report, not a bare SDK error");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
+    // ADR-0011 puts `measure` on both surfaces: ADR-0007 makes it *mandatory in the text
+    // authoring loop*, which is the agent's loop and not a human's.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let project = fixture.to_str().unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "measure",
+                "arguments": {
+                    "project": project,
+                    "element": {
+                        "type": "text", "font": "brand", "size": 55, "line_height": 1.1,
+                        "y": 1537, "origin": "center",
+                        "runs": [{"text": "I hang cobwebs over the door."}]
+                    },
+                    "json": true
+                }
+            }),
+        ),
+        // The element missing — rejected rather than answered about nothing.
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({"name": "measure", "arguments": {"project": project}}),
+        ),
+    ]);
+
+    let schema = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "measure")
+        .expect("a `measure` tool")["inputSchema"]
+        .clone();
+    assert_eq!(schema["type"], "object");
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project", "element"]),
+        "{schema}"
+    );
+    // The argument is the element itself, not a field name and not an id — ADR-0024
+    // requires `measure` to work for an element being authored for the first time.
+    assert!(!schema["properties"]["element"].is_null(), "{schema}");
+    for absent in ["id", "text", "font", "size", "verbose"] {
+        assert!(
+            schema["properties"][absent].is_null(),
+            "the schema advertises no `{absent}`: {schema}"
+        );
+    }
+
+    let answered: serde_json::Value = serde_json::from_str(
+        session[&3]["result"]["content"][0]["text"]
+            .as_str()
+            .expect("a rendered answer"),
+    )
+    .expect("`json: true` returns the canonical JSON");
+    // ADR-0007's own worked example, reaching the agent through the surface it calls.
+    assert_eq!(answered["measure"]["block_top"], 1506.75);
+    assert_eq!(answered["measure"]["block_bottom"], 1567.25);
+
+    let rejected = &session[&4];
     let text = rejected["result"]["content"][0]["text"]
         .as_str()
         .expect("a rendered report, not a bare SDK error");

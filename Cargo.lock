@@ -1183,9 +1183,11 @@ dependencies = [
 name = "montaget-core"
 version = "0.1.0"
 dependencies = [
+ "montaget-text",
  "schemars",
  "serde",
  "serde_json",
+ "skrifa 0.46.2",
  "unicode-normalization",
  "unicode-segmentation",
 ]
@@ -1202,6 +1204,10 @@ dependencies = [
 name = "montaget-text"
 version = "0.1.0"
 dependencies = [
+ "icu_segmenter",
+ "parley",
+ "serde",
+ "skrifa 0.46.2",
  "toml 0.9.12+spec-1.1.0",
 ]
 

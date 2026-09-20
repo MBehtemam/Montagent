@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+parley = { workspace = true, features = ["complex-scripts"] }
+skrifa.workspace = true
+icu_segmenter.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 toml.workspace = true
