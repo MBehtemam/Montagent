@@ -26,6 +26,7 @@ pub mod retired;
 pub mod schema;
 pub mod source;
 pub mod speed;
+pub mod tie;
 pub mod track;
 pub mod transition;
 

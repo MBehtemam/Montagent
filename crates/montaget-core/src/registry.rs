@@ -299,6 +299,50 @@ screen together — {element} runs {start}..{end} ms and {target} runs {target_s
 {target_end} ms. It resolves to layer {layer} and can change nothing.",
         status: Live,
     },
+    // ---- The layer tie (#209, ADR-0060). -------------------------------------------
+    CheckSpec {
+        // ADR-0060: two elements resolving to one layer whose boxes overlap in both time
+        // and space. Not `review`, which reserves itself for *"legal, renders, and a human
+        // must look at a frame to know if it was meant"* — there is no single frame to
+        // look at, because which one renders is implementation-defined, and two tools have
+        // already disagreed about the same document.
+        code: "E-LAYER-TIE",
+        classes: &[Error],
+        // Refuse. The fix costs one field — an integer `layer` override or an anchor
+        // naming the other element — and *which* of the two goes in front is exactly the
+        // fact the document does not carry. An advised value would be this table picking a
+        // draw order, which is the thing ADR-0060 refuses to define.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0060",
+        template: "{element} and {other} both resolve to layer {layer}, and their boxes \
+overlap at {instant} ms — {overlap_width}×{overlap_height} px at ({overlap_x}, \
+{overlap_y}). Nothing in the document says which draws in front. State one: give either \
+element its own integer `layer`, or an anchor naming the other.",
+        status: Live,
+    },
+    CheckSpec {
+        // The tie check answers in rectangles, and a rotated element's footprint is a
+        // parallelogram — the refusal `crate::verbs::query::geometry` already records for
+        // the same reason. Its bounding box would refuse projects whose elements never
+        // touch; silence would pass a tie nobody looked at. ADR-0006 has a third answer,
+        // and this is it: a check that could not run says so, and gates nothing.
+        //
+        // ADR-0060 does not name this case, so the code is surface the ADR series has not
+        // ratified — raised as #282 rather than left to be discovered from this table.
+        // #282 also records what this refusal does *not* do: it is per pair and is never
+        // narrowed by a bounding-box pre-test, so a rotated element ties `unchecked` with
+        // something across the frame it could not possibly touch.
+        code: "U-LAYER-TIE-ROTATED",
+        classes: &[Unchecked],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0060",
+        template: "{element} and {other} both resolve to layer {layer}, and {rotated}'s \
+resolved `rotation` is {degrees}° at {instant} ms. Whether their boxes overlap is \
+unanswered: the tie check measures rectangles, and a rotated footprint is not one.",
+        status: Live,
+    },
     // ---- The closed schema, turned into findings (#244). ---------------------------
     //
     // ADR-0017 closes the schema and ADR-0016 makes the unknown-key error the whole

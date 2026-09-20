@@ -19,7 +19,8 @@
 //!
 //! **What is not here.** Two elements *resolving to the same layer* is ADR-0060's business,
 //! not this module's: it is legal while their boxes never meet and an `error` once they do,
-//! which needs geometry sampled across keyframes rather than a lookup. It is #209.
+//! which needs geometry sampled across keyframes rather than a lookup. That is
+//! [`super::tie`], which asks [`crate::stack`] the same question this module does.
 
 use serde_json::json;
 
