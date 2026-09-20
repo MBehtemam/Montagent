@@ -157,6 +157,28 @@ enum Command {
         json: bool,
     },
 
+    /// What does this text actually occupy, in the fonts the project declares?
+    ///
+    /// Takes the text element itself, as JSON — the same shape you are about to write
+    /// into the file, and the shape `montaget://schema.json` publishes. It needs no `id`
+    /// and need not exist in the file yet (ADR-0024).
+    ///
+    /// It offers no verbosity switch, because it has no informational findings to expand —
+    /// the answer itself is the output, and it is never collapsed.
+    Measure {
+        /// The project file. Its `fonts` table is what the element's `font` is a key into.
+        project: PathBuf,
+        /// The text element, as JSON: `runs`, `font`, `size`, and optionally
+        /// `line_height`, `y`, `origin` and `stroke_width`. Any other field is ignored —
+        /// `width` and `height` included, because `measure` derives and never judges
+        /// (ADR-0024).
+        #[arg(long, value_name = "JSON")]
+        element: String,
+        /// Print the canonical JSON *instead of* the text answer, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Serve the MCP tools over stdio.
     ///
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
@@ -335,6 +357,43 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_query(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Measure {
+            project,
+            element,
+            json,
+        } => {
+            // `--verbose` is deliberately absent, so `false` here is the only form there is
+            // rather than a flag the adapter decided for the caller.
+            let form = Wire::from_flags(json, false);
+            // The one thing argv must do that the MCP surface does not: an element arrives
+            // there as an object and here as a string. Parsing it is transport, not a rule
+            // — and a string that is not JSON is an invocation error, which is the same
+            // finding with the same code either way (ADR-0011).
+            let ask = match serde_json::from_str(&element) {
+                Ok(element) => montaget_core::verbs::measure::Ask {
+                    element: Some(element),
+                },
+                Err(e) => {
+                    let report =
+                        Report::bad_invocation(format!("`--element` is not valid JSON: {e}"));
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+            match run_verb(|| montaget_core::verbs::measure::measure(&project, &ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_measure(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

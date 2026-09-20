@@ -84,6 +84,14 @@ pub fn render_query(answer: &crate::verbs::query::Answer, form: Wire) -> String 
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `measure` answer in one wire form.
+///
+/// Through the same function and the same rule as everything else: the answer is a block on
+/// the canonical JSON, and the prose is that block generated from it (ADR-0006).
+pub fn render_measure(answer: &crate::verbs::measure::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// One canonical JSON, one prose generator, one rule about which of them prints.
 fn in_form(json: &serde_json::Value, form: Wire) -> String {
     match form {

@@ -177,10 +177,29 @@ pub fn text_block_height(size: i64, line_height_tenths: i64, line_count: i64) ->
     if size <= 0 || line_height_tenths <= 0 || line_count <= 0 {
         return None;
     }
-    let numerator = i128::from(size)
+    let tenths = i128::from(size)
         .checked_mul(i128::from(line_height_tenths))?
         .checked_mul(i128::from(line_count))?;
-    i64::try_from(ceil_div(numerator, 10)).ok()
+    block_height_of_tenths(tenths)
+}
+
+/// The same `ceil`, over a block height already summed in tenths.
+///
+/// **This is the one implementation**, and [`text_block_height`] is the uniform-size case
+/// of it: `size × line_height × line_count` is what `Σ (largest size on line ×
+/// line_height)` comes to when every line carries one size. `measure` sums the per-line
+/// slots itself — a line's height is *the largest `size` among the runs on that line* ×
+/// `line_height` (ADR-0007), which the three-argument form cannot express once two lines
+/// differ — and then arrives here, so the two never carry two `ceil`s that could disagree
+/// about a boundary (ADR-0028's whole subject).
+///
+/// `None` where the height is not positive, or where the arithmetic would not fit.
+pub fn block_height_of_tenths(tenths: impl Into<i128>) -> Option<i64> {
+    let tenths = tenths.into();
+    if tenths <= 0 {
+        return None;
+    }
+    i64::try_from(ceil_div(tenths, 10)).ok()
 }
 
 impl std::fmt::Display for Decimal {

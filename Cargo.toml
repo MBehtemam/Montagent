@@ -76,6 +76,19 @@ tiny-skia = "=0.12.0"
 # `libfontconfig` and the six targets stop differing in what they link.
 parley = { version = "=0.11.1", default-features = false, features = ["std"] }
 skrifa = "=0.46.2"
+
+# ADR-0008's break opportunities. **The same shared node `parley` already links** — the
+# ADR names `icu_segmenter` v2.3.0 as *"the same shared node parley links"* and says it
+# *"can be called directly by `measure` whichever crate renders"*, because the `SA`
+# dictionary fork is an authoring-tool requirement rather than a renderer one. Direct,
+# rather than read back out of a `parley` layout, because the ADR asks for the offsets
+# **and the segmenter's data version** alongside them, and a layout reports neither.
+#
+# `default-features = false` plus `compiled_data` is `parley`'s own feature set for this
+# dependency, so declaring it here adds no data to the binary that was not already in it.
+icu_segmenter = { version = "=2.3.0", default-features = false, features = [
+    "compiled_data",
+] }
 image = "=0.25.10"
 toml = "0.9"
 
