@@ -2,6 +2,8 @@
 
 #![allow(dead_code)]
 
+pub mod compare;
+
 use std::path::{Path, PathBuf};
 
 /// A scratch directory created fresh on every run, unique to the line that asked for it
@@ -64,4 +66,20 @@ pub fn has_ffprobe() -> bool {
 /// separator is the platform's, never the document's.
 pub fn with_forward_slashes(path: &str) -> String {
     path.replace('\\', "/")
+}
+
+/// The committed fixture's directory.
+///
+/// One definition, because four test binaries want it and a path spelled four times is
+/// four things to fix when the fixture moves.
+pub fn fixture_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/en-halloween-decorating")
+        .canonicalize()
+        .expect("the committed fixture")
+}
+
+/// The fixture's project file.
+pub fn fixture_project() -> PathBuf {
+    fixture_dir().join("en-halloween-decorating.montaget.json")
 }

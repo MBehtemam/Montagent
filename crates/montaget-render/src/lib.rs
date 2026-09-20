@@ -24,18 +24,22 @@
 //! Nothing is reimplemented on either side of that line: this crate takes numbers that are
 //! already resolved and paints them.
 //!
-//! It is tested at spec #168's **seam 2**: golden frames compared by SSIM against a
-//! stated threshold, never byte equality. Note which frames can falsify what — a golden
-//! frame Montaget rendered itself is self-confirming and can only catch regressions;
-//! only `fixtures/en-halloween-decorating/reference/frame-*.png`, extracted from the
-//! published video, can falsify the format.
+//! It is tested at spec #168's **seam 2**: frames compared by SSIM against a stated
+//! threshold, never byte equality. Which frames can falsify what is the whole of the
+//! distinction, and #213 built the two halves as two files with two names — a *golden*
+//! frame Montaget rendered itself is self-confirming and can only catch a regression
+//! (`montaget-core/tests/golden_frames.rs`), while only the frames extracted from the
+//! published video can say the format is wrong
+//! (`montaget-core/tests/reference_frames.rs`).
 //!
 //! What is live today, and what is a later ticket:
 //!
 //! - [`canvas`] and [`decode`] are #212's — the rasterizer, the transform, `rect` and
-//!   `ellipse`, the image resample and the video seek.
-//! - Glyph painting is [#213](https://github.com/MBehtemam/Montaget/issues/213), and the
-//!   effect vocabulary, colour filters, transitions and highlight are
+//!   `ellipse`, the image resample and the video seek — plus
+//!   [#213](https://github.com/MBehtemam/Montaget/issues/213)'s [`canvas::Canvas::text`],
+//!   which fills glyph **outlines**: this crate still links no font crate and knows no
+//!   string, because ADR-0010 puts the text stack beside it rather than inside it.
+//! - The effect vocabulary, colour filters, transitions and highlight are
 //!   [#214](https://github.com/MBehtemam/Montaget/issues/214).
 //! - The encode path to a deliverable, the atomic rename and the proxy ladder are #215
 //!   and #218.

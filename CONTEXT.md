@@ -379,6 +379,34 @@ for the grammar,
 itself)
 _Avoid_: filter, selector, query (the verb's name), expression
 
+**Reference frame**:
+A frame of the already-published short, extracted from
+`fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4` and committed
+beside it. Produced by a Python/FFmpeg/ASS pipeline that knows nothing about Montaget, so
+nothing Montaget does can change it — which is what makes it the only thing in the
+repository capable of **falsifying** the format rather than merely catching a change to
+it. Compared against by SSIM over a stated region at a stated threshold, never by byte
+equality, with the regions that differ for a known reason — the typeface substitution
+([#186](https://github.com/MBehtemam/Montaget/issues/186)) and the fixture's Ken Burns
+pivot — masked out of the gate and measured beside it.
+`crates/montaget-core/tests/reference_frames.rs`.
+(spec [#168](https://github.com/MBehtemam/Montaget/issues/168),
+[ADR-0010](docs/adr/0010-skia-safe-rasterizer-text-beside-it.md))
+_Avoid_: golden frame (it is the opposite — see below), expected output, baseline. The
+bare word *reference* is also spoken for by Citation's avoid-list; this is the two-word
+term and only ever the two-word term.
+
+**Golden frame**:
+A frame **Montaget rendered and committed**, under `crates/montaget-core/tests/golden/`
+and `docs/research/prototypes/rust-rasterizer/frames/oracle/`. Self-confirming by
+construction: it catches an unintended change — a `skia-safe` bump that shifts
+antialiasing, a text change that moves every baseline — and it can never say the format is
+wrong, because the thing under test produced it. Both kinds are useful and they are not
+the same kind, so they never share a file or a name.
+([ADR-0010](docs/adr/0010-skia-safe-rasterizer-text-beside-it.md), whose golden-frame
+guard is *"not optional"*)
+_Avoid_: reference frame, snapshot, approved output
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montaget has
