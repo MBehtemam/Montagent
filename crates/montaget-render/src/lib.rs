@@ -39,8 +39,12 @@
 //!   [#213](https://github.com/MBehtemam/Montaget/issues/213)'s [`canvas::Canvas::text`],
 //!   which fills glyph **outlines**: this crate still links no font crate and knows no
 //!   string, because ADR-0010 puts the text stack beside it rather than inside it.
-//! - The effect vocabulary, colour filters, transitions and highlight are
-//!   [#214](https://github.com/MBehtemam/Montaget/issues/214).
+//! - The ordered effect vocabulary and the four colour scalars are
+//!   [#214](https://github.com/MBehtemam/Montaget/issues/214)'s
+//!   [`canvas::Effect`], applied in element space in the order the list is written.
+//!   `crossfade` and a run's `highlight` window landed with the same ticket but are
+//!   *resolutions* rather than paint rules, so they live in `montaget-core` and reach
+//!   this crate as an `opacity` and a paint like any other.
 //! - The encode path to a deliverable, the atomic rename and the proxy ladder are #215
 //!   and #218.
 

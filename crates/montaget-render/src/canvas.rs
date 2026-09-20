@@ -45,14 +45,20 @@
 //! rasterizer"*, so this crate does not depend on `montaget-text` and there is no string,
 //! no font and no font file anywhere in it.
 //!
-//! What is **not** here, and is a later ticket rather than an omission: the effect
-//! vocabulary, colour filters, transitions and highlight
-//! ([#214](https://github.com/MBehtemam/Montaget/issues/214)).
+//! The ordered [`Effect`] list — blur, shadow, mask and the four colour scalars — arrived
+//! with [#214](https://github.com/MBehtemam/Montaget/issues/214) and is applied by
+//! [`Canvas::through`], in element space, in the order the list is written.
+//!
+//! What is **not** here, and is the core's rather than an omission: `crossfade` and a
+//! run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
+//! opacity the two bridged elements already carry and a highlight is which of a run's two
+//! declared styles applies at this instant — so both are settled in `montaget-core` and
+//! reach this crate as the numbers every other element's do.
 
 use skia_safe::{
-    AlphaType, Color, Color4f, ColorType, Data, EncodedImageFormat, ISize, Image, ImageInfo,
-    Paint as SkPaint, PaintStyle, Path, PathBuilder, Rect, SamplingOptions, Surface, images,
-    surfaces,
+    AlphaType, BlendMode, Color, Color4f, ColorType, Data, EncodedImageFormat, ISize, Image,
+    ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType, Rect,
+    SamplingOptions, Surface, canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
 };
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
@@ -188,6 +194,255 @@ pub struct Glyph {
     /// Which of the `outlines` slice to draw.
     pub outline: usize,
     pub paint: Fill,
+}
+
+/// One member of the closed `effects` vocabulary, already parsed.
+///
+/// The rasterizer's own spelling of what `montaget-core`'s model reads, for the same
+/// reason [`PathEl`] and [`Region`] are: this crate names no type of the crate that reads
+/// the document. What reaches here is numbers and colours.
+///
+/// **Two effects of the same name are ordinary** (ADR-0040) — a `&[Effect]` rather than a
+/// set, precisely so a second shadow has somewhere to go — and **the order is semantically
+/// real**: `[blur, shadow]` casts a shadow from an already-blurred silhouette, `[shadow,
+/// blur]` blurs a picture that already has a hard-edged shadow in it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Effect {
+    /// Gaussian blur, one parameter (ADR-0040).
+    Blur { radius: f64 },
+    /// Drop shadow: the element, with a blurred copy of its own silhouette behind it.
+    Shadow {
+        dx: f64,
+        dy: f64,
+        radius: f64,
+        colour: Rgba,
+        opacity: f64,
+    },
+    /// Keep only what falls inside a shape, param-less (ADR-0068).
+    Mask { shape: MaskShape },
+    /// Push pixel colour toward `colour` by `amount` (ADR-0049).
+    Tint { colour: Rgba, amount: f64 },
+    /// `0` is grayscale, `1` unchanged, `>1` oversaturated (ADR-0049).
+    Saturation { amount: f64 },
+    /// Signed offset from unchanged at `0` (ADR-0049).
+    Brightness { amount: f64 },
+    /// Signed offset from unchanged at `0` (ADR-0049).
+    Contrast { amount: f64 },
+}
+
+/// The param-less mask shapes, each derived from the element's own rect (ADR-0068).
+///
+/// Distinct from [`Shape`], which is a *drawn* element with a paint and a `radius`. A mask
+/// has neither: ADR-0068 fixed the param-less form as the only spelling there is until the
+/// explicit geometry vocabulary lands, so there is nothing here to carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MaskShape {
+    /// The largest circle inscribed in the element's rect — diameter `min(width, height)`,
+    /// centred on it.
+    Circle,
+    /// The element's rect itself.
+    Rect,
+    /// The ellipse inscribed in the element's rect.
+    Ellipse,
+}
+
+impl MaskShape {
+    /// Everything an element box of `extent` holds **except** the shape — an
+    /// inverse-filled path, at `(0, 0)` in element space.
+    ///
+    /// Inverse rather than the shape itself, because a mask has to erase what it does not
+    /// select and a draw call only ever reaches the pixels its own geometry covers.
+    /// Painting the shape in `DstIn` looks like the right gesture and does nothing at all:
+    /// inside the shape it multiplies by an alpha of 1, and outside it there is no draw.
+    /// The complement, painted in `Clear`, is the operation — and antialiased, so the
+    /// mask's edge is a coverage ramp rather than a staircase.
+    fn outside(self, extent: Extent) -> Path {
+        let (width, height) = (extent.width as f32, extent.height as f32);
+        let mut path = PathBuilder::new();
+        match self {
+            MaskShape::Circle => {
+                let diameter = width.min(height);
+                path.add_oval(
+                    Rect::from_xywh(
+                        (width - diameter) / 2.0,
+                        (height - diameter) / 2.0,
+                        diameter,
+                        diameter,
+                    ),
+                    None,
+                    None,
+                );
+            }
+            MaskShape::Rect => {
+                path.add_rect(Rect::from_xywh(0.0, 0.0, width, height), None, None);
+            }
+            MaskShape::Ellipse => {
+                path.add_oval(Rect::from_xywh(0.0, 0.0, width, height), None, None);
+            }
+        }
+        let mut path = path.detach();
+        path.set_fill_type(PathFillType::InverseWinding);
+        path
+    }
+}
+
+/// A blur or shadow `radius` as the Gaussian sigma Skia takes.
+///
+/// **`sigma = radius / 2`, a recorded reading rather than an ADR's.** ADR-0040 names
+/// `blur`'s one parameter `radius` and `shadow`'s blur `radius`, and no accepted document
+/// says what a radius *is* in a Gaussian. Two conventions exist and they differ by 2×:
+/// CSS's `filter: blur(r)` and `box-shadow`'s blur radius are both `2σ`, while Skia's own
+/// API takes σ directly. CSS is the one an agent has seen before and the one the reference
+/// class's own numbers are quoted in, so it is the one written here — and it is a function
+/// rather than a literal so the day an ADR states otherwise there is one line to change.
+/// Raised at [#277](https://github.com/MBehtemam/Montaget/issues/277).
+fn sigma(radius: f64) -> f32 {
+    (radius.max(0.0) / 2.0) as f32
+}
+
+/// Skia's luma weights, which are the ones its own `SkColorMatrix::setSaturation` uses.
+/// Stated here rather than borrowed from a header so that the matrix below can be read
+/// without one.
+const LUMA: [f32; 3] = [0.213, 0.715, 0.072];
+
+impl Effect {
+    /// This effect as an image filter over whatever was painted before it, or `None` for
+    /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
+    /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
+    fn filter(self) -> Option<ImageFilter> {
+        match self {
+            Effect::Mask { .. } => None,
+            Effect::Blur { radius } => {
+                image_filters::blur((sigma(radius), sigma(radius)), None, None, None)
+            }
+            Effect::Shadow {
+                dx,
+                dy,
+                radius,
+                colour,
+                opacity,
+            } => {
+                // `opacity` multiplies the shadow colour's own alpha rather than replacing
+                // it: ADR-0040 gives `shadow` both a `color` and an `opacity`, and a
+                // `#00000080` at `opacity: 0.5` is a quarter-strength shadow in every
+                // editor in the reference class.
+                let [r, g, b, a] = colour.0;
+                let alpha = f32::from(a) / 255.0 * opacity.clamp(0.0, 1.0) as f32;
+                let colour = Color4f::new(
+                    f32::from(r) / 255.0,
+                    f32::from(g) / 255.0,
+                    f32::from(b) / 255.0,
+                    alpha,
+                );
+                image_filters::drop_shadow(
+                    (dx as f32, dy as f32),
+                    (sigma(radius), sigma(radius)),
+                    colour,
+                    None,
+                    None,
+                    None,
+                )
+            }
+            colour => image_filters::color_filter(
+                color_filters::matrix_row_major(&colour.matrix(), None),
+                None,
+                None,
+            ),
+        }
+    }
+
+    /// The four colour scalars as one row-major colour matrix (ADR-0049).
+    ///
+    /// Skia applies the matrix to **unpremultiplied** colour and premultiplies afterwards,
+    /// so the alpha row is identity in every one of them and a transparent pixel stays
+    /// transparent however hard it is tinted. The translation column is in unit rather
+    /// than byte range, which is why `brightness` writes `amount` and not `amount × 255`.
+    fn matrix(self) -> [f32; 20] {
+        match self {
+            Effect::Saturation { amount } => {
+                // The identity is `amount: 1`, so `0` is the grayscale case ADR-0049
+                // folded the `grayscale` member into and `>1` oversaturates.
+                let a = amount.max(0.0) as f32;
+                let [lr, lg, lb] = LUMA;
+                let (d, o) = (|w: f32| w + a * (1.0 - w), |w: f32| w * (1.0 - a));
+                [
+                    d(lr),
+                    o(lg),
+                    o(lb),
+                    0.0,
+                    0.0, //
+                    o(lr),
+                    d(lg),
+                    o(lb),
+                    0.0,
+                    0.0, //
+                    o(lr),
+                    o(lg),
+                    d(lb),
+                    0.0,
+                    0.0, //
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                ]
+            }
+            Effect::Brightness { amount } => {
+                // A signed offset, unchanged at 0 (ADR-0049) — added to each channel
+                // rather than multiplied into it, which is what makes `0` the identity
+                // and `-1` black rather than a scale that can never reach either end.
+                let b = amount as f32;
+                [
+                    1.0, 0.0, 0.0, 0.0, b, //
+                    0.0, 1.0, 0.0, 0.0, b, //
+                    0.0, 0.0, 1.0, 0.0, b, //
+                    0.0, 0.0, 0.0, 1.0, 0.0,
+                ]
+            }
+            Effect::Contrast { amount } => {
+                // Pivoted on mid-grey, so `0` is the identity and the two directions are
+                // symmetric: `c' = (c - 0.5) × (1 + amount) + 0.5`.
+                let s = (1.0 + amount as f32).max(0.0);
+                let t = 0.5 - 0.5 * s;
+                [
+                    s, 0.0, 0.0, 0.0, t, //
+                    0.0, s, 0.0, 0.0, t, //
+                    0.0, 0.0, s, 0.0, t, //
+                    0.0, 0.0, 0.0, 1.0, 0.0,
+                ]
+            }
+            Effect::Tint { colour, amount } => {
+                // A straight lerp toward the tint: `c' = c × (1 - a) + tint × a`, which is
+                // ADR-0049's "pushes pixel colour toward `color` by `amount`" and nothing
+                // more. `amount: 0` is the documented identity that makes the non-scalar
+                // `color` admissible at all.
+                let a = (amount.clamp(0.0, 1.0)) as f32;
+                let [r, g, b, _] = colour.0;
+                let (tr, tg, tb) = (
+                    f32::from(r) / 255.0 * a,
+                    f32::from(g) / 255.0 * a,
+                    f32::from(b) / 255.0 * a,
+                );
+                let k = 1.0 - a;
+                [
+                    k, 0.0, 0.0, 0.0, tr, //
+                    0.0, k, 0.0, 0.0, tg, //
+                    0.0, 0.0, k, 0.0, tb, //
+                    0.0, 0.0, 0.0, 1.0, 0.0,
+                ]
+            }
+            // Unreachable: `filter` sends only the four colour members here, and a match
+            // arm is how that stays true under a later edit rather than a comment saying
+            // it does.
+            Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. } => [
+                1.0, 0.0, 0.0, 0.0, 0.0, //
+                0.0, 1.0, 0.0, 0.0, 0.0, //
+                0.0, 0.0, 1.0, 0.0, 0.0, //
+                0.0, 0.0, 0.0, 1.0, 0.0,
+            ],
+        }
+    }
 }
 
 /// A decoded raster source, ready to be resampled into an element's declared box.
@@ -379,11 +634,12 @@ impl Canvas {
         transform: &Transform,
         paint: &Fill,
         clip: Option<Region>,
+        effects: &[Effect],
     ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
             return;
         }
-        self.in_element_space(extent, transform, clip, |canvas| {
+        self.in_element_space(extent, transform, clip, effects, |canvas| {
             let box_rect = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
 
             if let Some(colour) = paint.fill {
@@ -457,8 +713,9 @@ impl Canvas {
         extent: Extent,
         transform: &Transform,
         clip: Option<Region>,
+        effects: &[Effect],
     ) {
-        self.in_element_space(extent, transform, clip, |canvas| {
+        self.in_element_space(extent, transform, clip, effects, |canvas| {
             let destination = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
             let paint = SkPaint::default();
             canvas.draw_image_rect_with_sampling_options(
@@ -502,6 +759,7 @@ impl Canvas {
         extent: Extent,
         transform: &Transform,
         clip: Option<Region>,
+        effects: &[Effect],
     ) {
         if glyphs.is_empty() {
             return;
@@ -510,7 +768,7 @@ impl Canvas {
         // on, so a repeated letter is one path however many times it appears.
         let paths: Vec<Path> = outlines.iter().map(|outline| path_of(outline)).collect();
 
-        self.in_element_space(extent, transform, clip, |canvas| {
+        self.in_element_space(extent, transform, clip, effects, |canvas| {
             for pass in [Pass::Stroke, Pass::Fill] {
                 for glyph in glyphs {
                     let Some(path) = paths.get(glyph.outline) else {
@@ -574,6 +832,7 @@ impl Canvas {
         extent: Extent,
         transform: &Transform,
         clip: Option<Region>,
+        effects: &[Effect],
         draw: impl FnOnce(&skia_safe::Canvas),
     ) {
         if extent.width <= 0.0 || extent.height <= 0.0 || transform.opacity <= 0.0 {
@@ -586,6 +845,11 @@ impl Canvas {
         }
         // One layer for the whole element rather than alpha on each paint: a fill and an
         // inside stroke overlap, and two alphas would blend the overlap twice.
+        //
+        // **Outside the effects**, so `opacity` fades the finished element — its shadow
+        // included. Inside them, a half-transparent element would cast a full-strength
+        // shadow, which is the one thing every editor in the reference class agrees it
+        // does not do.
         let layered = transform.opacity < 1.0;
         if layered {
             canvas.save_layer_alpha_f(None, transform.opacity as f32);
@@ -599,11 +863,67 @@ impl Canvas {
             (-transform.origin.0 * extent.width) as f32,
             (-transform.origin.1 * extent.height) as f32,
         ));
-        draw(canvas);
+        Canvas::through(canvas, extent, effects, draw);
         if layered {
             canvas.restore();
         }
         canvas.restore();
+    }
+
+    /// Run `draw` inside the ordered `effects` list, in element space.
+    ///
+    /// **One layer per effect, the last one outermost.** A layer's paint filters its
+    /// contents at the moment it is composited into its parent, so nesting them in reverse
+    /// is what makes `effects[0]` see the bare element and `effects[n-1]` see everything
+    /// before it — ADR-0040's *"order is semantically real"*, implemented as the order the
+    /// layers unwind in rather than arranged by a second sort.
+    ///
+    /// **The filters run in element space**, because that is the coordinate space the
+    /// canvas is already in when the layers are opened and Skia maps an image filter
+    /// through the current matrix. So a `blur` of radius 8 on an element at `scale: 2` is
+    /// 16 frame pixels wide, exactly as ADR-0014's `stroke_width` is — the same rule, for
+    /// the same reason, and not a second one written down here.
+    ///
+    /// **A `mask` is not a filter and is not a clip.** It is [`MaskShape::outside`] —
+    /// everything the shape does not cover — painted over its own layer in `Clear`, which
+    /// erases the layer everywhere the mask does not select. A clip would have done the
+    /// same thing more cheaply and been wrong for a specific reason: a clip established
+    /// *before* an enclosing layer restricts that layer's bounds, so `[mask, blur]` would
+    /// hand the blur an input already cut to the mask and the blur would lose every
+    /// contribution from just outside it. Painting the complement keeps each effect's
+    /// input the full element.
+    fn through(
+        canvas: &skia_safe::Canvas,
+        extent: Extent,
+        effects: &[Effect],
+        draw: impl FnOnce(&skia_safe::Canvas),
+    ) {
+        for effect in effects.iter().rev() {
+            match effect.filter() {
+                Some(filter) => {
+                    let mut paint = SkPaint::default();
+                    paint.set_image_filter(filter);
+                    canvas.save_layer(&SaveLayerRec::default().paint(&paint));
+                }
+                // A `mask`, and also any filter Skia declined to build — an effect that
+                // cannot be made is a layer that changes nothing rather than a missing
+                // layer, so the unwinding below stays in step with the list whatever
+                // happens here.
+                None => {
+                    canvas.save_layer(&SaveLayerRec::default());
+                }
+            };
+        }
+        draw(canvas);
+        for effect in effects {
+            if let Effect::Mask { shape } = effect {
+                let mut paint = SkPaint::default();
+                paint.set_anti_alias(true);
+                paint.set_blend_mode(BlendMode::Clear);
+                canvas.draw_path(&shape.outside(extent), &paint);
+            }
+            canvas.restore();
+        }
     }
 
     /// Crop, scale and encode — the three things that happen to the finished frame, in the
@@ -779,6 +1099,7 @@ mod tests {
                 opacity: 1.0,
             },
             None,
+            &[],
         );
         canvas
             .encode(None, Scale::Full, Encoding::Png)

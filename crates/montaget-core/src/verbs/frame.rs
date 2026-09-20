@@ -48,11 +48,22 @@
 //! partition, the slot heights and every baseline come back from
 //! [`montaget_text::place`], which reads them off the same shaping pass
 //! [`montaget_text::measure`] uses — so what `measure` tells an author and what the
-//! picture shows are one derivation rather than two that agree. Effects, colour filters,
-//! transitions and highlight are still
-//! [#214](https://github.com/MBehtemam/Montaget/issues/214). Every element this build
-//! cannot paint is listed in the answer with the reason, because an agent that cannot tell
-//! "not there" from "not drawn yet" will chase the wrong defect.
+//! picture shows are one derivation rather than two that agree.
+//!
+//! **The rest of the paint vocabulary is
+//! [#214](https://github.com/MBehtemam/Montaget/issues/214)**, and it arrives in this verb
+//! split three ways, because the three things are three different kinds of rule. The
+//! ordered `effects` list is *painting*, so it is read here ([`Painter::effects_of`]) and
+//! applied there ([`montaget_render::canvas::Effect`]). A `crossfade` is *resolution* —
+//! ADR-0059 makes a transition "purely descriptive", and what it descriptively says is
+//! what the two bridged elements' opacities are — so it is settled before a pixel is drawn
+//! ([`Painter::resolve_crossfades`]) and the rasterizer never hears of it. A run's
+//! `highlight` is the same shape of thing one level down: which of the run's two declared
+//! styles applies at this instant ([`highlight_at`]).
+//!
+//! Every element this build cannot paint is still listed in the answer with the reason,
+//! because an agent that cannot tell "not there" from "not drawn yet" will chase the wrong
+//! defect — and so is every element painted without something it asked for.
 //!
 //! ## The surface, and what of it no ADR states
 //!
@@ -80,13 +91,13 @@ use serde::Serialize;
 use serde_json::Value;
 
 use montaget_render::canvas::{
-    Canvas, Encoded, Encoding, Extent, Fill, Glyph, PathEl, Raster, Region, Rgba, Scale, Shape,
-    Transform,
+    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskShape, PathEl, Raster, Region,
+    Rgba, Scale, Shape, Transform,
 };
 
 use crate::finding::Finding;
 use crate::media::{Source, tools};
-use crate::model::{Colour, Origin};
+use crate::model::{self, Colour, Origin};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -227,6 +238,16 @@ pub struct Picture {
     /// element in the picture missing its shadow are not the same report, and one list
     /// naming both would have every entry read as the worse of the two.
     pub painted_partially: Vec<NotPainted>,
+    /// Every `crossfade` running at this instant, with the window it runs over and how far
+    /// through it this frame is.
+    ///
+    /// Its own list, because a transition draws nothing of its own and would otherwise be
+    /// invisible in the answer while being the reason two elements are half-strength. The
+    /// `query --at` block beside the picture prints each element's *declared* `opacity`,
+    /// which is what the document says and not what the frame shows — and an agent reading
+    /// `opacity 1` under a half-faded element goes looking for a defect in the wrong
+    /// place. This is the sentence that closes that gap.
+    pub crossfades: Vec<Crossfade>,
     /// Every media file opened, in the order it was opened.
     pub sources: Vec<String>,
     /// Every font file opened (ADR-0007). A file from outside the declared chain would
@@ -249,6 +270,24 @@ const NO_EXTENT: &str = "it states no positive integer `width`/`height`";
 pub struct NotPainted {
     pub element: String,
     pub reason: String,
+}
+
+/// One `crossfade` in effect at the instant drawn (ADR-0059).
+#[derive(Debug, Clone, Serialize)]
+pub struct Crossfade {
+    /// The transition element's own id.
+    pub element: String,
+    pub from: String,
+    pub to: String,
+    /// **The derived window** — the intersection of the two bridged elements' ranges —
+    /// rather than whatever the transition declares. ADR-0059 requires the two to be equal
+    /// and gives `validate` the drift; where they disagree this is the one the picture was
+    /// drawn over.
+    pub start: i64,
+    pub end: i64,
+    /// `0` at the window's start, approaching `1` at its end — the fraction of the way
+    /// across, which is the outgoing element's lost opacity and the incoming one's gained.
+    pub progress: f64,
 }
 
 /// Draw one frame.
@@ -439,6 +478,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         painted: painter.painted,
         not_painted: painter.not_painted,
         painted_partially: painter.painted_partially,
+        crossfades: painter.crossfades,
         sources: painter.sources,
         fonts: painter.fonts,
     };
@@ -554,6 +594,18 @@ struct Painter<'a> {
     painted: Vec<String>,
     not_painted: Vec<NotPainted>,
     painted_partially: Vec<NotPainted>,
+    /// Every crossfade running at this instant, in document order.
+    crossfades: Vec<Crossfade>,
+    /// Each bridged element's id and the factor its `opacity` is multiplied by — the one
+    /// place a crossfade touches the picture.
+    ///
+    /// A list rather than a map, and a *multiplication* rather than a replacement, for the
+    /// same reason: an element can be the `to` of one transition and the `from` of the
+    /// next — a sequence of cross-fading clips, which ADR-0059 calls the "checkerboard" of
+    /// tracks the model costs — and at the instant where those two windows meet it is
+    /// fading in and out at once. Replacing would let whichever transition was read last
+    /// win.
+    fades: Vec<(String, f64)>,
     sources: Vec<String>,
     fonts: Vec<String>,
     /// Every declared chain this frame has opened, **one registry for the whole frame**.
@@ -583,6 +635,8 @@ impl<'a> Painter<'a> {
             painted: Vec::new(),
             not_painted: Vec::new(),
             painted_partially: Vec::new(),
+            crossfades: Vec::new(),
+            fades: Vec::new(),
             sources: Vec::new(),
             fonts: Vec::new(),
             registry: montaget_text::Fonts::new(),
@@ -599,6 +653,7 @@ impl<'a> Painter<'a> {
     /// carefully written, would be a second place draw order could be decided, and the one
     /// failure the caption exists to prevent is a defect attributed to the wrong element.
     fn paint(&mut self, canvas: &mut Canvas, view: &At) {
+        self.resolve_crossfades();
         canvas.background(self.background());
 
         for present in &view.stack {
@@ -655,7 +710,12 @@ impl<'a> Painter<'a> {
             // that draws nothing is not a thing the picture is missing.
             Some("audio") => {}
             Some("text") => self.text(canvas, name, element),
-            Some("transition") => self.defer(name, "transitions are #214"),
+            // No frame-space footprint of its own. ADR-0059 keeps a transition's job
+            // "purely descriptive: name the pair, own the exact window" — what it does to
+            // the picture is already in the two bridged elements' opacities, resolved in
+            // `resolve_crossfades` before a single element was drawn. Listing it as
+            // unpainted would say the picture is missing something it is not.
+            Some("transition") => {}
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
             Some("image") | Some("video") => {
                 self.raster(canvas, name, element, kind, source_offset)
@@ -663,19 +723,117 @@ impl<'a> Painter<'a> {
             Some(other) => self.defer(name, format!("this build draws no `{other}` element")),
             None => self.defer(name, "the element states no `type`"),
         }
-        // Drawn, and then said: an element carrying effects is painted without them rather
-        // than not painted at all, and the agent is told which half it is looking at.
-        if element
-            .get("effects")
-            .and_then(Value::as_array)
-            .is_some_and(|effects| !effects.is_empty())
-            && self.painted.iter().any(|painted| painted == name)
-        {
-            self.painted_partially.push(NotPainted {
-                element: name.to_string(),
-                reason: "its `effects` are #214, and it is painted without them".to_string(),
+    }
+
+    /// The element's ordered `effects` list, in the rasterizer's spelling.
+    ///
+    /// **A member the format does not admit does not silently disappear.** The list is
+    /// parsed through the model's own closed vocabulary, and an entry that does not parse
+    /// — an invented `grayscale`, a `mask` carrying geometry parameters, a malformed
+    /// colour — leaves the element painted *without that member* and puts a sentence on
+    /// [`Picture::painted_partially`] saying so. `validate` names it as a schema error;
+    /// this is the same fact at the surface the agent is looking at, because an agent that
+    /// cannot tell "the blur is subtle" from "the blur was never applied" will chase the
+    /// wrong defect.
+    fn effects_of(&mut self, name: &str, element: &Value) -> Vec<Effect> {
+        let Some(declared) = element.get("effects").and_then(Value::as_array) else {
+            return Vec::new();
+        };
+        let mut effects = Vec::with_capacity(declared.len());
+        for (i, value) in declared.iter().enumerate() {
+            match serde_json::from_value::<model::Effect>(value.clone())
+                .ok()
+                .as_ref()
+                .and_then(effect)
+            {
+                Some(effect) => effects.push(effect),
+                None => self.partially(
+                    name,
+                    format!(
+                        "`effects[{i}]` is not a member of the effect vocabulary, and is \
+                         painted as though it were not there"
+                    ),
+                ),
+            }
+        }
+        effects
+    }
+
+    /// Read every `transition` in the document and work out what each bridged element's
+    /// opacity is multiplied by at this instant (ADR-0059).
+    ///
+    /// **The window is derived, not declared.** ADR-0059 requires a transition's
+    /// `start`/`end` to equal the intersection of the two elements it bridges, and
+    /// `E-TRANSITION-RANGE` is the check that says so — through the same
+    /// [`crate::stack::Stack`] index this reads, rather than a second one. Where a
+    /// document states a wider window the renderer cannot honour it: outside the
+    /// intersection one of the two elements does not exist, so there is nothing to cross
+    /// to. ADR-0007 settles what to do with a field like that — *"worse than no field"* —
+    /// so the picture is drawn over the intersection and the drift stays `validate`'s to
+    /// report.
+    ///
+    /// **The ramp is linear.** No ADR states a shape, and ADR-0059's whole argument for
+    /// the element type is that *"a pair of opposite opacity ramps on two tracks"* is what
+    /// a crossfade already was — those ramps being ADR-0012 keyframes, whose own default
+    /// `ease` is what a document would have written by hand. Linear is also the only shape
+    /// under which the two halves sum to a constant at every instant, which is what stops
+    /// a crossfade dipping through the background halfway. Recorded here and raised at
+    /// [#277](https://github.com/MBehtemam/Montaget/issues/277).
+    fn resolve_crossfades(&mut self) {
+        let stack = crate::stack::Stack::of(self.document);
+        for (_, element) in self.document.elements_in_tracks() {
+            if element.get("type").and_then(Value::as_str) != Some("transition") {
+                continue;
+            }
+            // `crossfade` is the whole v1 vocabulary (ADR-0059). A `kind` the format does
+            // not have is `validate`'s schema error, and nothing here invents a ramp for
+            // it.
+            if element.get("kind").and_then(Value::as_str) != Some("crossfade") {
+                continue;
+            }
+            let (Some(from), Some(to)) = (
+                element.get("from").and_then(Value::as_str),
+                element.get("to").and_then(Value::as_str),
+            ) else {
+                continue;
+            };
+            let (Some(from_range), Some(to_range)) = (
+                stack.placement(from).and_then(|placement| placement.range),
+                stack.placement(to).and_then(|placement| placement.range),
+            ) else {
+                continue;
+            };
+
+            let start = from_range.start.max(to_range.start);
+            let end = from_range.end.min(to_range.end);
+            if end <= start || self.instant < start || self.instant >= end {
+                continue;
+            }
+            let progress = (self.instant - start) as f64 / (end - start) as f64;
+            self.fades.push((from.to_string(), 1.0 - progress));
+            self.fades.push((to.to_string(), progress));
+            self.crossfades.push(Crossfade {
+                element: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
+                from: from.to_string(),
+                to: to.to_string(),
+                start,
+                end,
+                progress,
             });
         }
+    }
+
+    /// What this element's `opacity` is multiplied by, from every crossfade it is bridged
+    /// by — `1.0` for an element no transition names.
+    fn fade(&self, element: &Value) -> f64 {
+        let Some(id) = element.get("id").and_then(Value::as_str) else {
+            return 1.0;
+        };
+        self.fades
+            .iter()
+            .filter(|(named, _)| named == id)
+            .map(|(_, factor)| factor)
+            .product()
     }
 
     fn defer(&mut self, name: &str, reason: impl Into<String>) {
@@ -725,7 +883,15 @@ impl<'a> Painter<'a> {
                 radius: element.get("radius").and_then(Value::as_i64).unwrap_or(0) as f64,
             },
         };
-        canvas.shape(shape, extent, &self.transform(element), &paint, None);
+        let effects = self.effects_of(name, element);
+        canvas.shape(
+            shape,
+            extent,
+            &self.transform(element),
+            &paint,
+            None,
+            &effects,
+        );
         self.painted.push(name.to_string());
     }
 
@@ -776,11 +942,13 @@ impl<'a> Painter<'a> {
             }
         };
         self.sources.push(path.display().to_string());
+        let effects = self.effects_of(name, element);
         canvas.raster(
             &raster,
             extent,
             &self.transform(element),
             self.clip(element),
+            &effects,
         );
         self.painted.push(name.to_string());
     }
@@ -929,7 +1097,7 @@ impl<'a> Painter<'a> {
             }
         };
 
-        let paints = paints_of(element, &runs);
+        let paints = paints_of(element, &runs, self.instant);
         let glyphs: Vec<Glyph> = placement
             .glyphs
             .iter()
@@ -954,6 +1122,7 @@ impl<'a> Painter<'a> {
             .map(|outline| outline.iter().copied().map(path_element).collect())
             .collect();
 
+        let effects = self.effects_of(name, element);
         canvas.text(
             &glyphs,
             &outlines,
@@ -963,19 +1132,13 @@ impl<'a> Painter<'a> {
             },
             &self.transform(element),
             None,
+            &effects,
         );
         self.painted.push(name.to_string());
 
-        // Drawn, and then said. A timed restyle is #214's, and a `dir` override reaches
-        // neither the measurement nor the layout yet — both change what the picture shows,
-        // so an agent comparing this frame against the document is owed the sentence.
-        if runs_with(element, "highlight") {
-            self.partially(
-                name,
-                "a run's `highlight` window is #214, and it is painted in its \
-                 unconditional style",
-            );
-        }
+        // Drawn, and then said. A `dir` override reaches neither the measurement nor the
+        // layout yet, which changes what the picture shows, so an agent comparing this
+        // frame against the document is owed the sentence.
         if runs_with(element, "dir") {
             self.partially(
                 name,
@@ -1014,7 +1177,12 @@ impl<'a> Painter<'a> {
                 (sx, sy)
             },
             rotation: geometry::number::<f64>(element, "rotation", self.instant, 0.0),
-            opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0),
+            // The declared opacity, times whatever crossfade this element is bridged by.
+            // Multiplied rather than replaced: a crossfade is a ramp *on* what the
+            // document says, so an element already keyframed to 0.5 fades from 0.5 rather
+            // than jumping to 1 to start.
+            opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0)
+                * self.fade(element),
         }
     }
 
@@ -1053,7 +1221,7 @@ const DEFAULT_INK: Rgba = Rgba::BLACK;
 /// is painted with, and ADR-0014 makes them one vocabulary. What differs between the two
 /// is which side of the outline the stroke falls on, and that is the rasterizer's rule
 /// rather than the paint's.
-fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>]) -> Vec<Fill> {
+fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>], instant: i64) -> Vec<Fill> {
     let base = Fill {
         fill: Some(element.get("color").and_then(rgba).unwrap_or(DEFAULT_INK)),
         stroke: element.get("stroke").and_then(rgba),
@@ -1065,20 +1233,57 @@ fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>]) -> Vec<Fill> {
     crate::verbs::measure::runs_array(element)
         .iter()
         .enumerate()
-        .map(|(i, run)| Fill {
-            // A delta that is absent is a delta that was not made (ADR-0007), so the base
-            // stands wherever the run is silent — and a `stroke_width` the run *does*
-            // state is the one the engine measured with, which is why it is read back out
-            // of the parsed run rather than off the JSON a second time.
-            fill: run.get("color").and_then(rgba).or(base.fill),
-            stroke: run.get("stroke").and_then(rgba).or(base.stroke),
-            stroke_width: runs
-                .get(i)
-                .and_then(|run| run.stroke_width)
-                .map(|width| width as f64)
-                .unwrap_or(base.stroke_width),
+        .map(|(i, run)| {
+            let unconditional = Fill {
+                // A delta that is absent is a delta that was not made (ADR-0007), so the
+                // base stands wherever the run is silent — and a `stroke_width` the run
+                // *does* state is the one the engine measured with, which is why it is
+                // read back out of the parsed run rather than off the JSON a second time.
+                fill: run.get("color").and_then(rgba).or(base.fill),
+                stroke: run.get("stroke").and_then(rgba).or(base.stroke),
+                stroke_width: runs
+                    .get(i)
+                    .and_then(|run| run.stroke_width)
+                    .map(|width| width as f64)
+                    .unwrap_or(base.stroke_width),
+            };
+            match highlight_at(run, instant) {
+                Some(window) => Fill {
+                    // The window's own deltas over the run's, on exactly the rule the
+                    // run's sit over the element's: absent is not a delta.
+                    fill: window.color.as_ref().and_then(ink).or(unconditional.fill),
+                    stroke: window
+                        .stroke
+                        .as_ref()
+                        .and_then(ink)
+                        .or(unconditional.stroke),
+                    stroke_width: window
+                        .stroke_width
+                        .map(|width| width as f64)
+                        .unwrap_or(unconditional.stroke_width),
+                },
+                None => unconditional,
+            }
         })
         .collect()
+}
+
+/// This run's `highlight` window, if the instant is inside it (ADR-0048).
+///
+/// **Half-open, like every other range in the format** — `[start, end)`, ADR-0005 — so the
+/// instant a word lights up is inside its window and the instant it goes out is not. A
+/// closed range would make two adjacent words both lit for one instant at every boundary,
+/// which is the one thing a karaoke line must never show.
+///
+/// **A window whose fields the format does not admit is not a window.** It is read through
+/// the model's own [`crate::model::Highlight`], whose `deny_unknown_fields` is what keeps
+/// the delta to the run-addressable paint fields ADR-0048 names — so a `size` or a `font`
+/// smuggled into a highlight cannot restyle a word mid-line into a layout `measure` never
+/// saw.
+fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {
+    let window: crate::model::Highlight =
+        serde_json::from_value(run.get("highlight")?.clone()).ok()?;
+    (instant >= window.start && instant < window.end).then_some(window)
 }
 
 /// Does any run carry this field?
@@ -1127,7 +1332,13 @@ fn path_element(element: montaget_text::PathEl) -> PathEl {
 /// second, more permissive answer to *"is this a colour"*, and the renderer would then draw
 /// things the document's own rules say are not there.
 fn rgba(value: &Value) -> Option<Rgba> {
-    let colour: Colour = serde_json::from_value(value.clone()).ok()?;
+    ink(&serde_json::from_value::<Colour>(value.clone()).ok()?)
+}
+
+/// The same conversion, from a colour that has already been through that deserializer —
+/// which is where an `effects` member's colour arrives, the whole list having been parsed
+/// as the model's own type.
+fn ink(colour: &Colour) -> Option<Rgba> {
     let body = colour.as_str().strip_prefix('#')?;
     let byte = |at: usize| u8::from_str_radix(body.get(at..at + 2)?, 16).ok();
     Some(Rgba([
@@ -1136,6 +1347,48 @@ fn rgba(value: &Value) -> Option<Rgba> {
         byte(4)?,
         if body.len() == 8 { byte(6)? } else { 0xFF },
     ]))
+}
+
+/// One `effects` member in the rasterizer's spelling, or `None` for a colour this
+/// document's own rules say is not a colour.
+///
+/// **The model's enum is the one authority on what an effect is.** The list is
+/// deserialized through [`crate::model::Effect`], whose `deny_unknown_fields` and
+/// lowercase `name` tag are the closed vocabulary ADR-0040 and ADR-0049 fixed — so the
+/// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
+/// format says does not exist. A second, looser reading here would be a second answer to
+/// *"what effects are there"*.
+fn effect(effect: &model::Effect) -> Option<Effect> {
+    Some(match effect {
+        model::Effect::Blur { radius } => Effect::Blur { radius: *radius },
+        model::Effect::Shadow {
+            dx,
+            dy,
+            radius,
+            color,
+            opacity,
+        } => Effect::Shadow {
+            dx: *dx,
+            dy: *dy,
+            radius: *radius,
+            colour: ink(color)?,
+            opacity: *opacity,
+        },
+        model::Effect::Mask { shape } => Effect::Mask {
+            shape: match shape {
+                model::MaskShape::Circle => MaskShape::Circle,
+                model::MaskShape::Rect => MaskShape::Rect,
+                model::MaskShape::Ellipse => MaskShape::Ellipse,
+            },
+        },
+        model::Effect::Tint { color, amount } => Effect::Tint {
+            colour: ink(color)?,
+            amount: *amount,
+        },
+        model::Effect::Saturation { amount } => Effect::Saturation { amount: *amount },
+        model::Effect::Brightness { amount } => Effect::Brightness { amount: *amount },
+        model::Effect::Contrast { amount } => Effect::Contrast { amount: *amount },
+    })
 }
 
 #[cfg(test)]
