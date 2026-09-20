@@ -10,6 +10,8 @@
 
 use std::path::PathBuf;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -129,6 +131,41 @@ pub struct QueryParams {
     #[serde(default)]
     pub census: Option<String>,
     /// Return the canonical JSON *instead of* the text answer, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+}
+
+/// `frame`'s arguments: one instant, and the three knobs ADR-0011 names.
+///
+/// There is deliberately **no argument that suppresses the caption**. ADR-0011: *"`frame`
+/// must print the `query --at` block alongside the image, unconditionally"* — an agent
+/// looking at a picture without knowing which elements produced it attributes the defect to
+/// the wrong element, so the block is the picture's caption rather than an alternative to
+/// it, and there is nothing to turn off.
+///
+/// There is also no `out`: the CLI writes a file because a terminal cannot show a picture,
+/// and this surface hands the image back in the result.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct FrameParams {
+    /// Path to the project file.
+    pub project: String,
+    /// The instant to draw, in absolute milliseconds on the project's one clock.
+    pub at: i64,
+    /// Return just this region, as `x,y,w,h` in whole frame-space pixels at true scale —
+    /// so you can look closely at one card without paying for the whole canvas.
+    #[serde(default)]
+    pub crop: Option<String>,
+    /// Return the frame at the project's true pixel dimensions instead of half of them.
+    /// A 1080x1920 frame costs 2691 visual tokens at full scale and 700 at half; this flag
+    /// is you choosing to spend the difference.
+    #[serde(default)]
+    pub full: bool,
+    /// Return PNG instead of JPEG. It costs the same tokens — they are a function of
+    /// decoded pixel dimensions, not of bytes — and buys lossless pixels for more latency.
+    #[serde(default)]
+    pub png: bool,
+    /// Return the canonical JSON *instead of* the text caption, never alongside it. The
+    /// image comes back either way.
     #[serde(default)]
     pub json: bool,
 }
@@ -300,6 +337,63 @@ impl Montaget {
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render_query(&answer, form),
         )]))
+    }
+
+    #[tool(
+        name = "frame",
+        description = "What does it look like right now? Rasterizes one instant at the \
+                       project's true pixel dimensions and hands back the picture — JPEG at \
+                       half the frame size by default, because an image costs \
+                       ceil(w/28) x ceil(h/28) visual tokens whatever it is encoded as, and \
+                       that is 2691 at 1080x1920 against 700 at 540x960. Ask for `full` when \
+                       you need true pixels and `png` when you need lossless ones. `crop` \
+                       returns one region of the frame, so you can look closely at a single \
+                       card. The resolved stack at that instant comes back alongside the \
+                       image, always: looking at a frame without knowing which elements \
+                       produced it is how a defect gets attributed to the wrong one. It \
+                       reaches no verdict and measures nothing — it is how you *believe* a \
+                       layout, never how you measure one, which is `measure`'s job.",
+        input_schema = advertised::<FrameParams>()
+    )]
+    fn frame(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: FrameParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("frame", &e)),
+        };
+
+        let answer = montaget_core::verbs::frame::frame(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::frame::Ask {
+                at: Some(params.at),
+                crop: params.crop,
+                full: params.full,
+                png: params.png,
+                // The CLI's flag, and not this surface's: a picture that came back as a
+                // path would be a picture an agent cannot see.
+                out: None,
+            },
+        );
+        // `verbose` is deliberately absent, as it is on `query` and `measure`.
+        let form = Wire::from_flags(params.json, false);
+
+        // The caption first and the image second, so a client that renders content blocks
+        // in order shows the picture under the list of what is in it — which is the reading
+        // order ADR-0011 argues for, the block being the picture's caption.
+        let mut content = vec![ContentBlock::text(montaget_core::wire::render_frame(
+            &answer, form,
+        ))];
+        if let Some(image) = answer.image() {
+            content.push(ContentBlock::image(
+                BASE64.encode(&image.bytes),
+                image.mime_type(),
+            ));
+        }
+        // A project that did not render is still an answer about the project — the report
+        // says what stopped it. Only a failure of Montaget itself would be an MCP error.
+        Ok(CallToolResult::success(content))
     }
 
     #[tool(

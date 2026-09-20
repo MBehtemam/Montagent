@@ -681,6 +681,65 @@ fn cli_validate_that_loses_its_ffprobe_keeps_what_it_had_already_learned() {
 }
 
 #[test]
+fn cli_frame_reaches_the_verb_and_writes_the_picture() {
+    // One test per subcommand, asserting argv reaches the right core call and the exit code
+    // is right (#168). Everything the picture *is* — the default encoding, the half scale,
+    // the crop — is asserted in the core, at seam 1.
+    let dir = scratch_dir("cli-frame");
+    let out_file = dir.join("look.jpg");
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "frame",
+        fixture.to_str().unwrap(),
+        "--at",
+        "11000",
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("FRAME  at 11000"), "{}", out.stdout);
+    // ADR-0011: the `query --at` block prints alongside the image, unconditionally.
+    assert!(
+        out.stdout.contains("QUERY  the resolved stack at 11000"),
+        "{}",
+        out.stdout
+    );
+    let written = std::fs::read(&out_file).expect("the picture was written");
+    assert_eq!(&written[..2], &[0xFF, 0xD8], "JPEG by default");
+}
+
+#[test]
+fn cli_frame_offers_no_flag_that_suppresses_the_caption() {
+    // ADR-0011 makes the block unconditional, so the assertion is about the *surface*: an
+    // agent that could ask for the picture alone would be able to attribute a defect to the
+    // wrong element, and the way to make that impossible is for there to be no such flag.
+    let out = montaget(&["frame", "--help"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    for absent in [
+        "--no-query",
+        "--quiet",
+        "--describe",
+        "--image-only",
+        "--verbose",
+    ] {
+        assert!(
+            !out.stdout.contains(absent),
+            "`frame` advertises `{absent}`: {}",
+            out.stdout
+        );
+    }
+    for present in ["--at", "--out", "--crop", "--full", "--png", "--json"] {
+        assert!(
+            out.stdout.contains(present),
+            "`frame` does not advertise `{present}`: {}",
+            out.stdout
+        );
+    }
+}
+
+#[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);
     assert_eq!(out.code, Some(0));
@@ -1035,6 +1094,94 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     // ADR-0007's own worked example, reaching the agent through the surface it calls.
     assert_eq!(answered["measure"]["block_top"], 1506.75);
     assert_eq!(answered["measure"]["block_bottom"], 1567.25);
+
+    let rejected = &session[&4];
+    let text = rejected["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered report, not a bare SDK error");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_frame_advertises_the_schema_it_enforces_and_hands_back_an_image() {
+    // ADR-0011 puts `frame` on both surfaces, and this one is where it matters: a picture
+    // that came back as a path would be a picture an agent cannot see.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let project = fixture.to_str().unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {"project": project, "at": 11000, "json": true}
+            }),
+        ),
+        // No instant — rejected rather than answered about an instant nobody named.
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({"name": "frame", "arguments": {"project": project}}),
+        ),
+    ]);
+
+    let schema = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "frame")
+        .expect("a `frame` tool")["inputSchema"]
+        .clone();
+    assert_eq!(schema["type"], "object");
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project", "at"]),
+        "{schema}"
+    );
+    for present in ["crop", "full", "png", "json"] {
+        assert!(
+            !schema["properties"][present].is_null(),
+            "the schema advertises no `{present}`: {schema}"
+        );
+    }
+    // There is no argument that suppresses the caption, and none that writes a file: the
+    // first is ADR-0011's "unconditionally", the second is the CLI's alone.
+    for absent in ["out", "verbose", "describe", "quiet"] {
+        assert!(
+            schema["properties"][absent].is_null(),
+            "the schema advertises `{absent}`: {schema}"
+        );
+    }
+
+    let content = session[&3]["result"]["content"]
+        .as_array()
+        .expect("content blocks");
+    let answered: serde_json::Value =
+        serde_json::from_str(content[0]["text"].as_str().expect("a rendered answer"))
+            .expect("`json: true` returns the canonical JSON");
+    assert_eq!(answered["frame"]["encoding"], "jpeg");
+    assert_eq!(
+        answered["query"]["mode"], "at",
+        "the caption travels with it"
+    );
+
+    let image = &content[1];
+    assert_eq!(image["type"], "image", "{image}");
+    assert_eq!(image["mimeType"], "image/jpeg");
+    let data = image["data"].as_str().expect("base64 bytes");
+    assert_eq!(
+        data.len(),
+        answered["frame"]["bytes"]
+            .as_u64()
+            .expect("a byte count")
+            .div_ceil(3) as usize
+            * 4,
+        "the block carries the whole picture, base64-encoded"
+    );
 
     let rejected = &session[&4];
     let text = rejected["result"]["content"][0]["text"]

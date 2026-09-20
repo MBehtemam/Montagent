@@ -124,7 +124,13 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`fit` is a claim about how you computed `width`/`height`, not a layout mode** (ADR-0015). Montaget
   checks your arithmetic against the source's real dimensions; it does not do the fitting
   for you. Where an aspect ratio makes `cover` and `contain` exactly equivalent, both
-  spellings stand and nothing will normalise one to the other.
+  spellings stand and nothing will normalise one to the other. **No renderer reads it**: the
+  declared rect is authoritative, so a source is resampled to exactly `width`×`height` and
+  `frame` draws the same picture whether `fit` says `cover`, says `contain`, or is absent.
+- **`radius` is a field on `rect` and not on `ellipse`** (ADR-0014). A single integer,
+  defaulting to 0 — one corner radius, not four. An ellipse inscribes its declared rect and
+  has no corners to round, so `radius` on one is an unknown key rather than a field that
+  quietly does nothing.
 - **`stroke` never enlarges the declared rect** (ADR-0014). On a shape it falls inside it; on text it
   falls outside the glyph contour and grows into the box rather than past it.
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a

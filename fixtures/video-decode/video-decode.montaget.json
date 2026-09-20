@@ -1,0 +1,31 @@
+{
+  "frame": {"width": 1080, "height": 1920},
+  "fps": 25,
+  "background": "#101820",
+  "duration": 12000,
+  "tracks": [
+    {
+      "name": "clips",
+      "layer": 10,
+      "elements": [
+        {"id":"whole-frame","type":"video","start":0,"end":4000,"source":"../en-halloween-decorating/reference/en-halloween-decorating.mp4","source_start":11000,"source_end":15000,"x":0,"y":0,"origin":"top-left","width":1080,"height":1920,"fit":"literal"},
+        {"id":"clipped-and-scaled","type":"video","start":4000,"end":8000,"source":"../en-halloween-decorating/reference/en-halloween-decorating.mp4","source_start":11000,"source_end":15000,"x":540,"y":960,"origin":"center","width":1080,"height":1920,"fit":"literal","clip":[140,460,800,1000],"scale":[{"t":4000,"v":[0.6,0.6]},{"t":8000,"v":[0.9,0.9],"ease":"linear"}]},
+        {"id":"slowed-and-held","type":"video","start":8000,"end":12000,"source":"../en-halloween-decorating/reference/en-halloween-decorating.mp4","source_start":11000,"source_end":12000,"x":540,"y":960,"origin":"center","width":540,"height":960,"fit":"literal","opacity":0.5,"speed":0.5,"overrun":"hold"}
+      ]
+    },
+    {
+      "name": "badge",
+      "layer": 20,
+      "elements": [
+        {"id":"corner-badge","type":"ellipse","start":0,"end":12000,"x":120,"y":120,"origin":"center","width":160,"height":160,"fill":"#FBF3E3","stroke":"#1E344C","stroke_width":8}
+      ]
+    },
+    {
+      "name": "panel",
+      "layer": 21,
+      "elements": [
+        {"id":"lower-panel","type":"rect","start":0,"end":12000,"x":48,"y":1600,"origin":"top-left","width":984,"height":240,"fill":"#1E344C","radius":24}
+      ]
+    }
+  ]
+}

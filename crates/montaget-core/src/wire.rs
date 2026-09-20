@@ -84,6 +84,16 @@ pub fn render_query(answer: &crate::verbs::query::Answer, form: Wire) -> String 
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `frame` answer in one wire form.
+///
+/// Through the same function and the same rule as everything else. The bytes of the picture
+/// are deliberately not in either form: what an agent gets back is the image itself — an
+/// MCP image content block, or a file the CLI wrote — and a base64 frame inlined in a report
+/// would be megabytes of a form whose whole purpose is to be read.
+pub fn render_frame(answer: &crate::verbs::frame::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// Render a `measure` answer in one wire form.
 ///
 /// Through the same function and the same rule as everything else: the answer is a block on

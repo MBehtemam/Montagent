@@ -117,7 +117,12 @@ pub fn drawn_rect(
 
 /// One property, resolved at `instant` with the renderer's own default where the element
 /// does not declare it — the reading [`drawn_rect`]'s doc argues for.
-fn number<T>(element: &Value, key: &str, instant: i64, default: T::Out) -> T::Out
+///
+/// `pub(crate)` because the renderer needs exactly this reading: `frame` paints *where the
+/// element actually is*, which is the same question this module answers in rectangles. A
+/// second copy in the render path would be a picture and a caption that could disagree
+/// about what an element's resolved `x` is.
+pub(crate) fn number<T>(element: &Value, key: &str, instant: i64, default: T::Out) -> T::Out
 where
     T: serde::de::DeserializeOwned + Interpolate,
     T::Out: Copy,
@@ -133,7 +138,11 @@ where
 
 /// `origin`'s two-way point, as `(horizontal, vertical)` fractions of the box — `0` at
 /// left/top, `0.5` at centre, `1` at right/bottom.
-fn origin_fraction(origin: Origin) -> (f64, f64) {
+///
+/// `pub(crate)` for the renderer's sake: the nine keywords are spelled once (ADR-0013), and
+/// the frame the agent looks at must be placed by the same nine numbers the `query --at`
+/// block beside it was computed from.
+pub(crate) fn origin_fraction(origin: Origin) -> (f64, f64) {
     let (h, v) = match origin {
         Origin::TopLeft => (0.0, 0.0),
         Origin::TopCenter => (0.5, 0.0),
@@ -284,8 +293,7 @@ pub fn not_covered(frame: (i64, i64), rects: &[Rect]) -> Vec<Rect> {
     let mut out: Vec<Rect> = Vec::new();
     'rows: for rect in row_rects {
         for existing in out.iter_mut() {
-            if existing.x == rect.x && existing.width == rect.width && existing.bottom() == rect.y
-            {
+            if existing.x == rect.x && existing.width == rect.width && existing.bottom() == rect.y {
                 existing.height += rect.height;
                 continue 'rows;
             }

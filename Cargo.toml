@@ -92,6 +92,13 @@ icu_segmenter = { version = "=2.3.0", default-features = false, features = [
 image = "=0.25.10"
 toml = "0.9"
 
+# The MCP surface hands `frame` back as an image content block, and the protocol spells an
+# image as base64 (ADR-0011's `frame` is a picture, not a path — an agent reading a tool
+# result has no filesystem to fetch one from). Pinned exactly like everything else whose
+# bytes a committed assertion depends on. `rmcp` depends on the same crate but does not
+# re-export it, so this is a declaration rather than a second copy of anything.
+base64 = "=0.23.1"
+
 # ADR-0057's attestation carries the vendored file's content hash, and `validate`'s
 # integrity check recomputes it on every run. Pinned exactly, like everything a committed
 # fixture's bytes depend on: a hash the fixture records must be the hash this binary

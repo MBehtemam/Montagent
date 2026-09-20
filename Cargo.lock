@@ -1218,8 +1218,10 @@ dependencies = [
 name = "montaget"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "clap",
  "montaget-core",
+ "montaget-render",
  "rmcp",
  "schemars",
  "serde",
@@ -1231,6 +1233,8 @@ dependencies = [
 name = "montaget-core"
 version = "0.1.0"
 dependencies = [
+ "image",
+ "montaget-render",
  "montaget-text",
  "schemars",
  "serde",

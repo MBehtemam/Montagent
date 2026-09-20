@@ -162,6 +162,51 @@ enum Command {
         json: bool,
     },
 
+    /// What does it look like right now?
+    ///
+    /// One instant, rasterized at the project's true pixel dimensions and answered as
+    /// **JPEG at half that size** — full scale and PNG are behind flags, because an image
+    /// costs an agent `⌈w/28⌉ × ⌈h/28⌉` visual tokens whatever it is encoded as: 2691 at
+    /// 1080×1920 against 700 at 540×960 (ADR-0011).
+    ///
+    /// The `query --at` block prints alongside the picture **unconditionally** — there is no
+    /// flag that suppresses it, because looking at a frame without knowing which elements
+    /// produced it is how a defect gets attributed to the wrong one.
+    ///
+    /// It offers no verbosity switch, for the same reason `query` offers none: the answer
+    /// itself is the output and is never collapsed.
+    Frame {
+        /// The project file.
+        project: PathBuf,
+        /// The instant to draw, in absolute milliseconds.
+        #[arg(long, value_name = "MS")]
+        at: Option<i64>,
+        /// Where to write the picture.
+        ///
+        /// Required, and deliberately not defaulted: no ADR names a filename for this, and
+        /// a verb that invented one would be writing a file into somebody's project
+        /// directory on a read. The MCP surface needs no such flag — there the image comes
+        /// back in the answer.
+        #[arg(long, value_name = "PATH")]
+        out: PathBuf,
+        /// Return just this region of the frame, as `x,y,w,h` in whole frame-space pixels
+        /// at true scale — so you can look closely at one card without paying for the
+        /// whole canvas.
+        #[arg(long, value_name = "X,Y,W,H")]
+        crop: Option<String>,
+        /// True pixel dimensions instead of half scale. You are asking for 2691 tokens
+        /// rather than 700, and that is the whole of what this flag does.
+        #[arg(long)]
+        full: bool,
+        /// PNG instead of JPEG. Costs the same tokens (they are a function of decoded
+        /// pixels), and buys lossless pixels for more bytes and more latency.
+        #[arg(long)]
+        png: bool,
+        /// Print the canonical JSON *instead of* the text answer, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// What does this text actually occupy, in the fonts the project declares?
     ///
     /// Takes the text element itself, as JSON — the same shape you are about to write
@@ -420,6 +465,43 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_query(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Frame {
+            project,
+            at,
+            out,
+            crop,
+            full,
+            png,
+            json,
+        } => {
+            // `--verbose` is deliberately absent, so `false` here is the only form there is
+            // rather than a flag the adapter decided for the caller.
+            let form = Wire::from_flags(json, false);
+            // Whether the flags ask for a frame at all — a missing `--at`, an unparseable
+            // `--crop` — is the verb's rule and not argv's: the MCP surface takes the same
+            // arguments with no `clap` to arrange them, and a `clap` requirement here would
+            // leave that surface uncovered (ADR-0011).
+            let ask = montaget_core::verbs::frame::Ask {
+                at,
+                crop,
+                full,
+                png,
+                out: Some(out),
+            };
+            match run_verb(|| montaget_core::verbs::frame::frame(&project, &ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_frame(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

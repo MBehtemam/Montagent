@@ -78,15 +78,23 @@ fn all_four_components_answer_on_the_committed_fixtures_own_elements() {
 
     let photo = element(&view, "photo-06");
     assert_eq!(photo["crop_unresolved"], Value::Null);
-    assert!(photo["crop"].is_object(), "photo-06 should carry a crop rectangle");
+    assert!(
+        photo["crop"].is_object(),
+        "photo-06 should carry a crop rectangle"
+    );
 
     let caption = element(&view, "word-06");
     assert_eq!(caption["ink_box_unresolved"], Value::Null);
-    assert!(caption["ink_box"].is_object(), "word-06 should carry an ink box");
+    assert!(
+        caption["ink_box"].is_object(),
+        "word-06 should carry an ink box"
+    );
 
     assert_eq!(view["not_covered_unresolved"], Value::Null);
     assert!(
-        view["not_covered"].as_array().is_some_and(|v| !v.is_empty()),
+        view["not_covered"]
+            .as_array()
+            .is_some_and(|v| !v.is_empty()),
         "the caption card does not fill the whole 1080x1920 frame"
     );
 }

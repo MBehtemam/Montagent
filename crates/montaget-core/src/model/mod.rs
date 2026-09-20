@@ -348,8 +348,8 @@ pub enum Body {
     Image(Image),
     Video(Video),
     Text(TextElement),
-    Rect(Shape),
-    Ellipse(Shape),
+    Rect(Rect),
+    Ellipse(Ellipse),
     Audio(Audio),
     Transition(Transition),
 }
@@ -503,14 +503,86 @@ pub struct TextElement {
     pub effects: Option<Vec<Effect>>,
 }
 
-/// `rect` and `ellipse` share one field set; an ellipse inscribes its declared rect, which
-/// is exactly what distinguishes it from the point-list shapes ADR-0014 rejected.
+/// A rounded or square rectangle.
 ///
-/// ADR-0041's measured order is `x, y, origin, width, height, fill`; `stroke` and
-/// `stroke_width` follow, from the ADR that introduced them.
+/// **`rect` and `ellipse` are two types rather than one with a `shape` discriminator
+/// inside it** (ADR-0014): ADR-0012 already made the field set a function of `type`, so a
+/// second narrowing mechanism would add a second, *omissible* one — and a malformed
+/// ellipse missing its discriminator would render as a rect, silently and plausibly, which
+/// is this format's named failure class.
+///
+/// They are also two *structs*, and the one field that differs is why: ADR-0014's heading
+/// is *"`radius` is a field on `rect`"*, so `radius` on an ellipse is an unknown key rather
+/// than a field that quietly does nothing. An ellipse inscribing its rect has no corners to
+/// round, and ADR-0007 has ruled twice that *"a field the renderer cannot honour is worse
+/// than no field."*
+///
+/// ADR-0041's measured order is `x, y, origin, width, height, fill`; the three fields
+/// ADR-0014 adds follow, in the order that ADR's own headings introduce them — `stroke`,
+/// `stroke_width`, then `radius`. ADR-0041 hands a new field's position to the ADR that
+/// introduces it and ADR-0014 did not take it explicitly, so that reading is this
+/// ticket's and is raised as [#274](https://github.com/MBehtemam/Montaget/issues/274)
+/// rather than left to be discovered from the struct.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct Shape {
+pub struct Rect {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    pub width: i64,
+    pub height: i64,
+    /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
+    /// is a schema error naming both, because an element that deliberately renders nothing
+    /// and an element that forgot its paint must not look alike.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Colour>,
+    /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
+    /// still occupies exactly 984×169 (ADR-0014).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Colour>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<i64>,
+    /// A single integer, defaulting to 0 — one corner radius, not four.
+    ///
+    /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
+    /// which under ADR-0003's asymmetry is **not** evidence against the field: a rounded
+    /// rectangle is unremarkable in the CapCut/Premiere reference class, and admitting it
+    /// now costs one clause where admitting it later is a schema change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+/// An ellipse inscribing its declared rect — which is exactly what distinguishes it from
+/// the point-list shapes ADR-0014 rejected: it needs no new placement rule.
+///
+/// [`Rect`]'s field set minus `radius`; see that type for why the two are separate.
+///
+/// **Contradicts a parenthetical in [ADR-0041], and says so rather than overriding it
+/// silently** (`docs/agents/domain.md`). That ADR writes *"`video` and `ellipse` have no
+/// committed instance to measure yet; per the rule above, whichever ADR first fixes their
+/// full property set (they inherit `image`'s and `rect`'s shape respectively) fixes their
+/// order too"* — and the shape an ellipse would inherit now carries `radius`. The same
+/// sentence is what resolves it: the ADR that fixes a type's full property set fixes it,
+/// and that ADR is ADR-0014, whose own heading is *"`radius` is a field on `rect`"*. So the
+/// inheritance holds for every field ADR-0041 measured and stops at the one ADR-0014 gave
+/// to `rect` alone. Raised as [#274](https://github.com/MBehtemam/Montaget/issues/274)
+/// rather than left as a discrepancy a reader has to reconcile.
+///
+/// [ADR-0041]: ../../../../docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Ellipse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

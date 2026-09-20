@@ -15,9 +15,14 @@
 //!   floors ADR-0067 separates: a 540p wall-clock give-up point and a 360p legibility
 //!   refusal.
 //!
-//! It refuses on `error` by running the identical checks `validate` runs (ADR-0006) —
-//! which is why it depends on the core library rather than reimplementing a check, and
-//! why a refuse-class finding's block is one it cannot lift (ADR-0043).
+//! **It knows nothing about the document, and that is the direction of the dependency.**
+//! Spec #168 puts *"the twelve verb entry points"* in `montaget-core` and makes seam 1 —
+//! the core verb API — the seam the rasterizer and the FFmpeg subprocess are exercised
+//! *through*. So `montaget-core` depends on this crate, not the other way round, and the
+//! rule that `render` *"refuses on `error` by running the identical checks `validate`
+//! runs"* (ADR-0006) is enforced in the verb, which is where the checks already are.
+//! Nothing is reimplemented on either side of that line: this crate takes numbers that are
+//! already resolved and paints them.
 //!
 //! It is tested at spec #168's **seam 2**: golden frames compared by SSIM against a
 //! stated threshold, never byte equality. Note which frames can falsify what — a golden
@@ -25,11 +30,16 @@
 //! only `fixtures/en-halloween-decorating/reference/frame-*.png`, extracted from the
 //! published video, can falsify the format.
 //!
-//! Two things in it are live from today rather than from a later ticket. The
-//! `skia-safe` dependency is **declared before anything calls it** (#189), because
-//! Cargo builds a declared dependency and the scheduled prebuilt canary is therefore
-//! real from the day the line lands rather than from the rasterizer ticket. And
-//! [`budget`] holds the performance budgets ADR-0021 states, so the verb tickets have
-//! somewhere to assert rather than each inventing a number.
+//! What is live today, and what is a later ticket:
+//!
+//! - [`canvas`] and [`decode`] are #212's — the rasterizer, the transform, `rect` and
+//!   `ellipse`, the image resample and the video seek.
+//! - Glyph painting is [#213](https://github.com/MBehtemam/Montaget/issues/213), and the
+//!   effect vocabulary, colour filters, transitions and highlight are
+//!   [#214](https://github.com/MBehtemam/Montaget/issues/214).
+//! - The encode path to a deliverable, the atomic rename and the proxy ladder are #215
+//!   and #218.
 
 pub mod budget;
+pub mod canvas;
+pub mod decode;
