@@ -262,9 +262,9 @@ impl View {
 }
 
 /// An element's own measurable style, read off the JSON permissively.
-struct Measurable {
-    asked: Asked,
-    vertical_origin: VerticalOrigin,
+pub(crate) struct Measurable {
+    pub(crate) asked: Asked,
+    pub(crate) vertical_origin: VerticalOrigin,
 }
 
 impl Measurable {
@@ -273,7 +273,7 @@ impl Measurable {
     /// Permissive about everything else, deliberately: an element mid-authorship is exactly
     /// the element this verb exists for (ADR-0024), and refusing it for a `width` it has
     /// not been given yet would refuse the case.
-    fn of(element: &Value) -> Result<Measurable, String> {
+    pub(crate) fn of(element: &Value) -> Result<Measurable, String> {
         let Some(object) = element.as_object() else {
             return Err("the element must be a JSON object".into());
         };
@@ -349,7 +349,7 @@ impl Measurable {
 
     /// Every distinct `font` key the runs override with — read off the array below rather
     /// than off a parsed copy, so there is one reading of it.
-    fn keys(element: &Value) -> Vec<String> {
+    pub(crate) fn keys(element: &Value) -> Vec<String> {
         let mut keys: Vec<String> = Vec::new();
         for run in runs_array(element) {
             if let Some(key) = run.get("font").and_then(Value::as_str)
@@ -362,7 +362,7 @@ impl Measurable {
     }
 }
 
-fn runs_array(element: &Value) -> &[Value] {
+pub(crate) fn runs_array(element: &Value) -> &[Value] {
     element
         .get("runs")
         .and_then(Value::as_array)
@@ -371,7 +371,7 @@ fn runs_array(element: &Value) -> &[Value] {
 }
 
 /// The runs, as much of each as measurement can see, borrowed from the element itself.
-fn runs_of(element: &Value) -> Vec<Run<'_>> {
+pub(crate) fn runs_of(element: &Value) -> Vec<Run<'_>> {
     runs_array(element)
         .iter()
         .map(|run| Run {
@@ -386,7 +386,7 @@ fn runs_of(element: &Value) -> Vec<Run<'_>> {
 }
 
 /// `origin`'s vertical component — the half that places the block (ADR-0013).
-fn vertical_origin_of(origin: Origin) -> VerticalOrigin {
+pub(crate) fn vertical_origin_of(origin: Origin) -> VerticalOrigin {
     match origin {
         Origin::TopLeft | Origin::TopCenter | Origin::TopRight => VerticalOrigin::Top,
         Origin::CenterLeft | Origin::Center | Origin::CenterRight => VerticalOrigin::Center,
@@ -398,7 +398,7 @@ fn vertical_origin_of(origin: Origin) -> VerticalOrigin {
 ///
 /// The paths resolve against the project file's own directory (ADR-0053), like every other
 /// relative path the format carries.
-fn register(
+pub(crate) fn register(
     document: &Loose,
     key: &str,
     fonts: &mut Fonts,
