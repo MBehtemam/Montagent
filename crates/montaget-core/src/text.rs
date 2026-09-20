@@ -950,13 +950,17 @@ fn frame_block(frame: &Value) -> String {
         frame["rasterized"]["height"].as_i64().unwrap_or_default(),
     );
 
-    if let Some(crop) = frame.get("crop").filter(|crop| !crop.is_null()) {
+    // `region`, not `crop`: the `query --at` block printed immediately below this one has
+    // a `crop` of its own, meaning which part of a *source file's* pixels survive onto the
+    // screen. One word for two quantities, two lines apart, is how a reader takes the wrong
+    // number away (`CONTEXT.md` lists *crop* under Clip's avoided words).
+    if let Some(region) = frame.get("region").filter(|region| !region.is_null()) {
         out.push_str(&row(format!(
-            "crop        {},{} {}x{}",
-            crop["x"].as_i64().unwrap_or_default(),
-            crop["y"].as_i64().unwrap_or_default(),
-            crop["width"].as_i64().unwrap_or_default(),
-            crop["height"].as_i64().unwrap_or_default(),
+            "region      {},{} {}x{}",
+            region["x"].as_i64().unwrap_or_default(),
+            region["y"].as_i64().unwrap_or_default(),
+            region["width"].as_i64().unwrap_or_default(),
+            region["height"].as_i64().unwrap_or_default(),
         )));
     }
     if let Some(path) = frame["path"].as_str() {

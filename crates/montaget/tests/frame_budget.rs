@@ -13,6 +13,12 @@
 //! through [`Budget::judge`], so a change to the number is one diff in one file rather
 //! than a hunt through the suite.
 //!
+//! **What the number does not yet cover.** The fixture is text-heavy — 22 of its 60
+//! elements carry runs — and this build paints no glyphs (#213). So the median below is
+//! the cost of the raster, the decode and the encode, and it will move when text lands.
+//! ADR-0021's ceiling is the same either way; what changes is how much of it is spent, and
+//! #213 is where this is measured again rather than assumed to have held.
+//!
 //! **What "cold" does and does not include.** Every judged run gets an **empty probe
 //! sidecar** (ADR-0069), so it pays for the `ffprobe` spawns `query --at`'s crop rectangle
 //! needs as well as for the raster — the strictest reading of the sentence, and the one

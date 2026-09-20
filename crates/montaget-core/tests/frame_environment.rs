@@ -64,6 +64,15 @@ fn no_font_outside_the_declared_chain_is_opened_even_with_a_decoy_installed() {
     // asserted with a decoy installed — so the decoy is a real font file, on disk, under a
     // family name the project's chain also uses, in a directory the process is pointed at
     // by every environment variable a font stack might consult.
+    //
+    // **What this does and does not prove, stated rather than left to be inferred.** It
+    // reads a list the registry keeps of every path it handed to the filesystem, so it
+    // covers the one font stack Montaget has: `parley`, compiled without `fontique`'s
+    // system-font discovery, which is why ADR-0007's rule is structural rather than a
+    // discipline. It says nothing about Skia's own font manager — which this build never
+    // reaches, because ADR-0010 puts the text stack *beside* the rasterizer rather than
+    // inside it and no Skia text API is called. When #213 paints glyphs, that is the claim
+    // to re-examine, not this one.
     let dir = tempdir(line!());
     let decoy_dir = dir.join("decoy-fonts");
     std::fs::create_dir_all(&decoy_dir).expect("a decoy font directory");

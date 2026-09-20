@@ -521,8 +521,8 @@ pub struct TextElement {
 /// ADR-0014 adds follow, in the order that ADR's own headings introduce them — `stroke`,
 /// `stroke_width`, then `radius`. ADR-0041 hands a new field's position to the ADR that
 /// introduces it and ADR-0014 did not take it explicitly, so that reading is this
-/// ticket's and is raised for ratification rather than left to be discovered from the
-/// struct (#212).
+/// ticket's and is raised as [#274](https://github.com/MBehtemam/Montaget/issues/274)
+/// rather than left to be discovered from the struct.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Rect {
@@ -567,6 +567,19 @@ pub struct Rect {
 /// the point-list shapes ADR-0014 rejected: it needs no new placement rule.
 ///
 /// [`Rect`]'s field set minus `radius`; see that type for why the two are separate.
+///
+/// **Contradicts a parenthetical in [ADR-0041], and says so rather than overriding it
+/// silently** (`docs/agents/domain.md`). That ADR writes *"`video` and `ellipse` have no
+/// committed instance to measure yet; per the rule above, whichever ADR first fixes their
+/// full property set (they inherit `image`'s and `rect`'s shape respectively) fixes their
+/// order too"* — and the shape an ellipse would inherit now carries `radius`. The same
+/// sentence is what resolves it: the ADR that fixes a type's full property set fixes it,
+/// and that ADR is ADR-0014, whose own heading is *"`radius` is a field on `rect`"*. So the
+/// inheritance holds for every field ADR-0041 measured and stops at the one ADR-0014 gave
+/// to `rect` alone. Raised as [#274](https://github.com/MBehtemam/Montaget/issues/274)
+/// rather than left as a discrepancy a reader has to reconcile.
+///
+/// [ADR-0041]: ../../../../docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Ellipse {

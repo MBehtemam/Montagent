@@ -388,7 +388,11 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
 
 /// The project's own `frame`, or `None` where it is missing or malformed — `validate`'s
 /// fact to report, not this view's to guess at.
-fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
+///
+/// `pub(crate)` because the renderer asks the identical question: `frame` needs the surface
+/// to be the size the caption was computed against, and a second reading of the same three
+/// keys is a second place a malformed `frame` could be interpreted differently.
+pub(crate) fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
     let frame = document.value().get("frame")?;
     Some((
         frame.get("width")?.as_i64()?,

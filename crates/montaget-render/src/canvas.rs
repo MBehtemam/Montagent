@@ -26,6 +26,14 @@
 //! - **A shape's stroke falls inside its declared rect** (ADR-0014). Skia centres a stroke
 //!   on the path, so the path is inset by half the width — `card-05` with `stroke_width:
 //!   8` still occupies exactly 984×169.
+//! - **Rotation is applied before scale**, so an element is scaled in its own axes and the
+//!   result is turned — the `translate → rotate → scale` order a CSS `transform` list
+//!   spells and the one CapCut and Premiere's Motion panel show. It is invisible while
+//!   `scale` is isotropic, which is every keyframe in the fixture, and visible the moment
+//!   `sx != sy` — which ADR-0012 makes the *only* spelling there is, by requiring the pair.
+//!   No ADR states the order; it is recorded here and raised as
+//!   [#274](https://github.com/MBehtemam/Montaget/issues/274) rather than left to be
+//!   discovered from a stretched, tilted card.
 //! - **`opacity` is one layer, not a per-paint alpha.** An element with a fill *and* an
 //!   inside stroke overlaps itself, and multiplying alpha into both paints would blend the
 //!   overlap twice and darken the stroke's inner edge. A `save_layer_alpha` composites the
@@ -54,8 +62,9 @@ impl Rgba {
     /// and is worse here for a reason specific to this verb: `frame`'s default encoding is
     /// JPEG, which carries no alpha, so a transparent default would reach the agent as
     /// black anyway — while making PNG and JPEG of the same instant disagree. Opaque black
-    /// makes the two forms the same picture. Raised as unratified surface rather than left
-    /// to be discovered from the code.
+    /// makes the two forms the same picture. Raised as
+    /// [#274](https://github.com/MBehtemam/Montaget/issues/274) rather than left to be
+    /// discovered from the code.
     pub const BLACK: Rgba = Rgba([0x00, 0x00, 0x00, 0xFF]);
 
     fn colour(self) -> Color {
@@ -72,26 +81,18 @@ pub struct Transform {
     /// `origin`'s two fractions of the element's own box, `(horizontal, vertical)` — `0` at
     /// left/top, `0.5` at centre, `1` at right/bottom. The nine keywords are the core's to
     /// spell; what reaches the canvas is the pair they mean.
+    ///
+    /// There is deliberately no `Default` for this type. ADR-0012 publishes a default for
+    /// every one of these properties, but two of them — `x` and `y`, at the frame's centre
+    /// — need the frame to state them, and this crate does not know the frame. A `Default`
+    /// that filled in four of six and quietly put the other two at the origin would be a
+    /// plausible wrong answer, which is the failure ADR-0012 chose centre over top-left to
+    /// avoid.
     pub origin: (f64, f64),
     pub scale: (f64, f64),
     /// Degrees clockwise, never normalised into `[0,360)` (ADR-0012).
     pub rotation: f64,
     pub opacity: f64,
-}
-
-impl Default for Transform {
-    /// ADR-0012's defaults, minus the two that need the frame to state them: `x` and `y`
-    /// default to the frame's centre, which this crate does not know.
-    fn default() -> Transform {
-        Transform {
-            x: 0.0,
-            y: 0.0,
-            origin: (0.5, 0.5),
-            scale: (1.0, 1.0),
-            rotation: 0.0,
-            opacity: 1.0,
-        }
-    }
 }
 
 /// The declared `width`×`height` box, before `scale`.
@@ -134,7 +135,7 @@ pub enum Shape {
 
 /// A shape's paint. `fill` may be absent when `stroke` is present, giving an outlined
 /// shape; a shape with neither is a schema error the core reports, and paints nothing here.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Fill {
     pub fill: Option<Rgba>,
     pub stroke: Option<Rgba>,
@@ -142,24 +143,41 @@ pub struct Fill {
 }
 
 /// A decoded raster source, ready to be resampled into an element's declared box.
+///
+/// It carries no dimensions of its own, and that is the point rather than an omission:
+/// ADR-0013 settled that a source is resampled to exactly the declared `width`x`height`, so
+/// nothing in the paint path asks how big the file was. What *does* ask — `fit`'s
+/// arithmetic — gets its answer from `probe`, which ADR-0011 makes the one authority on a
+/// media file's numbers. A second dimension pair on this type would be a second one.
 pub struct Raster {
     image: Image,
-    pub width: i32,
-    pub height: i32,
 }
 
 impl Raster {
-    /// Decode an encoded still — PNG, JPEG, whatever the linked codecs read.
+    /// Decode an encoded still — PNG, JPEG, whatever the linked codecs read — **with its
+    /// EXIF orientation already applied**.
     ///
     /// Skia's own codecs rather than a second decoding crate: the rasterizer already links
     /// them, and two decoders for one file is two answers to *"what are this file's
     /// pixels"* — the ambiguity ADR-0011 spent itself removing one field over.
+    ///
+    /// **The orientation is load-bearing and is not applied here**, which is worth a
+    /// sentence because the opposite reading is the obvious one. ADR-0015 defines source
+    /// dimensions as *"decoded, **orientation-applied** integer pixel dimensions"*, so
+    /// `validate`'s `fit` arithmetic is already done against the oriented frame; a renderer
+    /// painting the *stored* pixels would put the format in the state ADR-0023 names as the
+    /// thing to avoid — *"the format disagrees with itself"* — with `validate` green on a
+    /// frame that is visibly wrong.
+    ///
+    /// `Image::from_encoded` applies it. That was **measured, not assumed**: an explicit
+    /// second application was written here first, and
+    /// `a_stills_exif_orientation_is_applied_before_it_is_painted` caught it as a
+    /// *double* rotation, landing the stored bottom-right quadrant where the bottom-left
+    /// belonged. That test is what holds this — a codec change that stopped applying the
+    /// tag fails it, and so does a second application added back.
     pub fn decode(bytes: &[u8]) -> Option<Raster> {
-        let image = Image::from_encoded(Data::new_copy(bytes))?;
         Some(Raster {
-            width: image.width(),
-            height: image.height(),
-            image,
+            image: Image::from_encoded(Data::new_copy(bytes))?,
         })
     }
 
@@ -174,11 +192,8 @@ impl Raster {
             AlphaType::Unpremul,
             None,
         );
-        let image = images::raster_from_data(&info, Data::new_copy(rgba), width as usize * 4)?;
         Some(Raster {
-            width: image.width(),
-            height: image.height(),
-            image,
+            image: images::raster_from_data(&info, Data::new_copy(rgba), width as usize * 4)?,
         })
     }
 }
@@ -197,14 +212,6 @@ impl Encoding {
     pub fn name(self) -> &'static str {
         match self {
             Encoding::Jpeg => "jpeg",
-            Encoding::Png => "png",
-        }
-    }
-
-    /// The extension a written file takes.
-    pub fn extension(self) -> &'static str {
-        match self {
-            Encoding::Jpeg => "jpg",
             Encoding::Png => "png",
         }
     }
@@ -309,14 +316,6 @@ impl Canvas {
             width,
             height,
         })
-    }
-
-    pub fn width(&self) -> i64 {
-        self.width as i64
-    }
-
-    pub fn height(&self) -> i64 {
-        self.height as i64
     }
 
     /// Paint the whole frame one colour — the project's `background`.

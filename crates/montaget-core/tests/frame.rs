@@ -194,10 +194,13 @@ fn crop_returns_the_requested_region() {
         },
     );
 
-    assert_eq!(json["frame"]["crop"]["x"], 100);
-    assert_eq!(json["frame"]["crop"]["y"], 200);
-    assert_eq!(json["frame"]["crop"]["width"], 800);
-    assert_eq!(json["frame"]["crop"]["height"], 600);
+    // `region` rather than `crop`: the `query --at` block beside it already spends `crop`
+    // on which part of a *source file* survives the aperture, and one word for two
+    // quantities in one answer is how a reader takes the wrong number away.
+    assert_eq!(json["frame"]["region"]["x"], 100);
+    assert_eq!(json["frame"]["region"]["y"], 200);
+    assert_eq!(json["frame"]["region"]["width"], 800);
+    assert_eq!(json["frame"]["region"]["height"], 600);
     let picture = pixels(&bytes);
     assert_eq!((picture.width(), picture.height()), (400, 300));
 }
@@ -252,13 +255,18 @@ fn a_crop_that_reaches_past_the_frame_returns_the_part_that_is_inside_it() {
         },
     );
 
-    assert_eq!(json["frame"]["crop"]["width"], 180, "1080 - 900");
-    assert_eq!(json["frame"]["crop"]["height"], 120, "1920 - 1800");
+    assert_eq!(json["frame"]["region"]["width"], 180, "1080 - 900");
+    assert_eq!(json["frame"]["region"]["height"], 120, "1920 - 1800");
     assert_eq!(pixels(&bytes).dimensions(), (180, 120));
 }
 
 #[test]
-fn a_crop_that_misses_the_frame_entirely_is_not_a_picture() {
+fn a_crop_that_misses_the_frame_entirely_is_a_wrong_command_and_not_a_broken_montaget() {
+    // ADR-0011 keeps exit 3 — "the invocation was wrong, fix the command" — apart from
+    // exit 70, "Montaget could not run". A region outside the frame is the first of those:
+    // nothing is wrong with the project and nothing failed, the caller named a rectangle
+    // that is not part of the picture. It cannot be caught before the file is opened,
+    // because it is only wrong relative to the frame the document declares.
     let answer = frame(
         &fixture_project(),
         &Ask {
@@ -266,7 +274,26 @@ fn a_crop_that_misses_the_frame_entirely_is_not_a_picture() {
             ..at(11000)
         },
     );
-    assert_eq!(answer.report().exit_code(), ExitCode::Internal);
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    assert_eq!(answer.report().findings[0].code, "E-INVOCATION");
+    assert!(answer.image().is_none());
+}
+
+#[test]
+fn a_frame_that_is_not_a_frame_is_a_defect_in_the_document_and_not_in_montaget() {
+    // The project carries a `frame` key — ADR-0042's structural predicate is satisfied —
+    // holding something that is not a frame. That is exit 1: a defect in the document, and
+    // ADR-0011 reserves 70 for "Montaget could not run" precisely so the two do not blur.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &canonical(r##"{"frame":{"width":"wide","height":1920},"fps":25,"tracks":[]}"##),
+    );
+
+    let answer = frame(&project, &at(0));
+    assert_eq!(answer.report().exit_code(), ExitCode::Errors);
+    assert_eq!(answer.report().findings[0].code, "E-NOT-A-PROJECT");
     assert!(answer.image().is_none());
 }
 
@@ -543,6 +570,115 @@ fn a_source_is_resampled_to_exactly_the_declared_rect() {
         "one pixel past the right edge"
     );
     assert_eq!(rgb(&picture, 100, 326), BLACK, "one pixel past the bottom");
+}
+
+#[test]
+fn a_stills_exif_orientation_is_applied_before_it_is_painted() {
+    // ADR-0015 defines source dimensions as "decoded, **orientation-applied** integer pixel
+    // dimensions" and ADR-0023 generalises that to one pipeline, so `validate`'s `fit`
+    // arithmetic is already done against the oriented frame. A renderer that painted the
+    // stored pixels instead would put the format in the state ADR-0023 names as the thing
+    // to avoid — "the format disagrees with itself" — with `validate` green on a frame that
+    // is visibly wrong.
+    //
+    // The fixture is all-PNG and carries no orientation tag anywhere, which is exactly why
+    // this needs a written one: the committed project cannot exercise it (ADR-0003).
+    let dir = tempdir(line!());
+    let quadrants = quadrant_source();
+    std::fs::write(dir.join("upright.jpg"), &quadrants).expect("a source with no EXIF");
+    std::fs::write(dir.join("turned.jpg"), with_exif_orientation(&quadrants, 6))
+        .expect("the same pixels, tagged to be shown rotated 90 degrees clockwise");
+
+    // The same element twice, differing only in which file it names.
+    let corner = |file: &str| {
+        let project = write_project(
+            &dir,
+            &format!("{file}.montaget.json"),
+            &one_track(&format!(
+                r##"{{"id":"photo","type":"image","start":0,"end":1000,"source":"{file}.jpg",
+                    "x":0,"y":0,"origin":"top-left","width":200,"height":200,
+                    "fit":"literal"}}"##
+            )),
+        );
+        let (_, bytes) = drawn(
+            &project,
+            &Ask {
+                full: true,
+                png: true,
+                ..at(500)
+            },
+        );
+        rgb(&pixels(&bytes), 50, 50)
+    };
+
+    // Channel dominance rather than an exact colour: the source is JPEG, and what is being
+    // asserted is *which quadrant landed here*, not what the encoder did to it.
+    let upright = corner("upright");
+    assert!(
+        upright[0] > upright[2],
+        "untagged, the stored top-left quadrant is red: {upright:?}"
+    );
+
+    // EXIF orientation 6 means "rotate 90 degrees clockwise to display", so the stored
+    // bottom-left quadrant — the blue one — is what a viewer sees at the top left.
+    let turned = corner("turned");
+    assert!(
+        turned[2] > turned[0],
+        "tagged `Orientation: 6`, the stored bottom-left quadrant is: {turned:?}"
+    );
+}
+
+/// A 64x64 JPEG in four saturated quadrants: red, green, blue, white, clockwise from the
+/// top left.
+fn quadrant_source() -> Vec<u8> {
+    let mut source = image::RgbaImage::new(64, 64);
+    for (x, y, pixel) in source.enumerate_pixels_mut() {
+        *pixel = match (x < 32, y < 32) {
+            (true, true) => image::Rgba([0xFF, 0x00, 0x00, 0xFF]),
+            (false, true) => image::Rgba([0x00, 0xFF, 0x00, 0xFF]),
+            (true, false) => image::Rgba([0x00, 0x00, 0xFF, 0xFF]),
+            (false, false) => image::Rgba([0xFF, 0xFF, 0xFF, 0xFF]),
+        };
+    }
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(source)
+        .to_rgb8()
+        .write_to(&mut bytes, image::ImageFormat::Jpeg)
+        .expect("encode a JPEG");
+    bytes.into_inner()
+}
+
+/// The same JPEG with an EXIF `Orientation` tag spliced in after its start-of-image marker.
+///
+/// Written by hand rather than through a crate, because the tag is 26 bytes of TIFF and a
+/// dependency whose whole job was to write them would be a second thing to keep pinned. The
+/// layout: `FFE1`, the segment length, `Exif  `, then a little-endian TIFF header whose
+/// only IFD entry is tag `0x0112` (`Orientation`), type SHORT, one value.
+fn with_exif_orientation(jpeg: &[u8], orientation: u16) -> Vec<u8> {
+    assert_eq!(&jpeg[..2], &[0xFF, 0xD8], "a JPEG starts with SOI");
+
+    let mut tiff: Vec<u8> = Vec::new();
+    tiff.extend_from_slice(b"II"); // little-endian
+    tiff.extend_from_slice(&42u16.to_le_bytes()); // the TIFF magic
+    tiff.extend_from_slice(&8u32.to_le_bytes()); // offset of IFD0, from here
+    tiff.extend_from_slice(&1u16.to_le_bytes()); // one entry
+    tiff.extend_from_slice(&0x0112u16.to_le_bytes()); // Orientation
+    tiff.extend_from_slice(&3u16.to_le_bytes()); // SHORT
+    tiff.extend_from_slice(&1u32.to_le_bytes()); // one value
+    tiff.extend_from_slice(&orientation.to_le_bytes());
+    tiff.extend_from_slice(&[0, 0]); // the value field is four bytes wide
+    tiff.extend_from_slice(&0u32.to_le_bytes()); // no next IFD
+
+    let mut segment: Vec<u8> = b"Exif\0\0".to_vec();
+    segment.extend_from_slice(&tiff);
+    // The length field counts itself, which is the part that is easy to get wrong.
+    let length = (segment.len() + 2) as u16;
+
+    let mut out: Vec<u8> = vec![0xFF, 0xD8, 0xFF, 0xE1];
+    out.extend_from_slice(&length.to_be_bytes());
+    out.extend_from_slice(&segment);
+    out.extend_from_slice(&jpeg[2..]);
+    out
 }
 
 // ---------------------------------------------------------------------------

@@ -56,9 +56,10 @@
 //! ADR-0011 fixes the default encoding, the default scale, `--crop x,y,w,h` and the
 //! unconditional caption. It does not say where the CLI puts the bytes, what JPEG quality
 //! is, or what a project that declares no `background` is painted on. Those are this
-//! ticket's, recorded here and raised for ratification rather than left to be discovered
-//! from the code: the CLI takes a required `--out` rather than inventing a filename in
-//! somebody's project directory; quality is
+//! ticket's, recorded here and raised as
+//! [#274](https://github.com/MBehtemam/Montaget/issues/274) rather than left to be
+//! discovered from the code: the CLI takes a required `--out` rather than inventing a
+//! filename in somebody's project directory; quality is
 //! [`montaget_render::canvas::JPEG_QUALITY`]; and an absent `background` is opaque black
 //! (argued at [`montaget_render::canvas::Rgba::BLACK`]).
 
@@ -181,12 +182,19 @@ pub struct Picture {
     /// The project's true pixels, which is what was rasterized whatever the answer's scale
     /// is (ADR-0021: `frame` is never proxy-scaled).
     pub rasterized: Rasterized,
-    /// The requested region, clipped to the frame, or `null` for the whole frame.
+    /// The part of the frame this picture is, clipped to the frame — `null` for all of it.
     ///
-    /// The same [`Rect`] every other frame-space rectangle in the surface is written as —
-    /// `--crop` asks the same kind of question a crop rectangle and `NOT COVERED` answer,
-    /// and a second rectangle shape would be a second thing to parse.
-    pub crop: Option<Rect>,
+    /// **`region`, not `crop`, and the difference is the glossary's.** `CONTEXT.md` lists
+    /// *crop* under Clip's avoided words, and already spends *crop rectangle* on a
+    /// different quantity: which part of a **source file's** pixels survive onto the
+    /// screen, which is what the `query --at` block prints two lines below this one. One
+    /// word meaning two things, adjacent in one answer, is how a reader ends up looking at
+    /// the wrong number. The flag keeps the spelling ADR-0011 fixes for it; the field does
+    /// not.
+    ///
+    /// The same [`Rect`] every other frame-space rectangle in the surface is written as: a
+    /// second rectangle shape would be a second thing to parse.
+    pub region: Option<Rect>,
     /// Where the bytes were written, where the caller asked for that.
     pub path: Option<String>,
     pub bytes: usize,
@@ -220,6 +228,9 @@ pub struct Rasterized {
     pub width: i64,
     pub height: i64,
 }
+
+/// The one reason two element types give in the same words, so they give it in one place.
+const NO_EXTENT: &str = "it states no positive integer `width`/`height`";
 
 /// One present element the picture does not show, and the reason.
 #[derive(Debug, Clone, Serialize)]
@@ -293,10 +304,28 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         }
     };
 
-    let Some((frame_width, frame_height)) = frame_dimensions(&document) else {
-        report.fail_internally(
-            "the project states no legal `frame`, so there is no surface to draw on — \
-             `validate` names the field",
+    let Some((frame_width, frame_height)) = at::frame_dimensions(&document) else {
+        // Exit 1, not 70. `document.shape()` above has already confirmed a `frame` key is
+        // there (ADR-0042's shared predicate), so reaching here means the key is present
+        // and holds something that is not a frame — a defect in the *document*, and
+        // ADR-0011 reserves 70 for "Montaget could not run" precisely so it is not
+        // mistaken for one.
+        //
+        // ADR-0042's own code, with the same reading extended one level down: a file whose
+        // `frame` carries no integer `width`/`height` does not have the shape of a project
+        // any more than one carrying no `frame` at all. Which *way* it is malformed is
+        // `validate`'s schema check to name, and `frame` runs no checks (#212 raises this
+        // reading for ratification rather than leaving it to be found here).
+        report.push(
+            Finding::new("E-NOT-A-PROJECT")
+                .at_file(document.path())
+                .field(
+                    "missing",
+                    Value::String("integer `frame.width`/`frame.height`".to_string()),
+                )
+                .repair_value(serde_json::json!({
+                    "value": "give `frame` an integer `width` and `height`, then run validate"
+                })),
         );
         return Answer {
             picture: None,
@@ -304,6 +333,35 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             image: None,
             report,
         };
+    };
+
+    // The crop is settled here and nowhere else: `request` checked its *spelling* without
+    // the document, and this is the first point at which "does it reach the frame" can be
+    // asked at all. A region that misses entirely is a wrong command rather than a broken
+    // Montaget, so it is ADR-0011's exit 3 — the same exit an unspelled `--crop` gets, for
+    // the same reason.
+    let region = match crop {
+        Some(crop) => match clamp(crop, frame_width, frame_height) {
+            Some(region) => Some(region),
+            None => {
+                report = Report::rejected(
+                    TOOL,
+                    Some(document.path().to_string()),
+                    format!(
+                        "`--crop {},{},{},{}` does not overlap a {frame_width}x{frame_height} \
+                         frame; a crop is a region of the frame",
+                        crop.x, crop.y, crop.width, crop.height
+                    ),
+                );
+                return Answer {
+                    picture: None,
+                    view: Some(view),
+                    image: None,
+                    report,
+                };
+            }
+        },
+        None => None,
     };
 
     let Some(mut canvas) = Canvas::new(frame_width, frame_height) else {
@@ -327,14 +385,13 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         Encoding::Jpeg
     };
     let scale = if ask.full { Scale::Full } else { Scale::Half };
-    let Some(encoded) = canvas.encode(crop, scale, encoding) else {
-        report.fail_internally(match crop {
-            Some(crop) => format!(
-                "`--crop {},{},{},{}` does not overlap a {frame_width}x{frame_height} frame",
-                crop.x, crop.y, crop.width, crop.height
-            ),
-            None => format!("the frame could not be encoded as {}", encoding.name()),
-        });
+    let Some(encoded) = canvas.encode(region.map(region_of), scale, encoding) else {
+        // The region is already known to overlap the frame, so the only failure left is the
+        // encoder's — which is Montaget failing, and is exit 70.
+        report.fail_internally(format!(
+            "the frame could not be encoded as {}",
+            encoding.name()
+        ));
         return Answer {
             picture: None,
             view: Some(view),
@@ -364,7 +421,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             width: frame_width,
             height: frame_height,
         },
-        crop: crop.map(|crop| clamp(crop, frame_width, frame_height)),
+        region,
         path: written,
         bytes: encoded.bytes.len(),
         painted: painter.painted,
@@ -428,26 +485,39 @@ fn region(spelling: &str) -> Result<Region, String> {
     })
 }
 
-/// The requested region as the answer reports it: what was actually returned, which is the
-/// asked-for region intersected with the frame.
-fn clamp(crop: Region, frame_width: i64, frame_height: i64) -> Rect {
+/// The region a `--crop` actually names: the asked-for rectangle intersected with the
+/// frame, or `None` where it misses the frame entirely.
+///
+/// A region that reaches past an edge comes back as the part that is inside it, because
+/// that is a picture and the caller can see what they got. A region with no overlap at all
+/// is not a smaller picture, it is no picture, and the two are told apart here rather than
+/// by a zero-size rectangle that would read like a measurement.
+fn clamp(crop: Region, frame_width: i64, frame_height: i64) -> Option<Rect> {
     let x = crop.x.clamp(0, frame_width);
     let y = crop.y.clamp(0, frame_height);
-    Rect {
+    let width = (crop.x + crop.width).clamp(0, frame_width) - x;
+    let height = (crop.y + crop.height).clamp(0, frame_height) - y;
+    (width > 0 && height > 0).then_some(Rect {
         x,
         y,
-        width: (crop.x + crop.width).clamp(0, frame_width) - x,
-        height: (crop.y + crop.height).clamp(0, frame_height) - y,
-    }
+        width,
+        height,
+    })
 }
 
-/// The project's own `frame`, or `None` where it is missing or malformed.
-fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
-    let frame = document.value().get("frame")?;
-    Some((
-        frame.get("width")?.as_i64()?,
-        frame.get("height")?.as_i64()?,
-    ))
+/// The rasterizer's spelling of the same rectangle.
+///
+/// Two types for one concept, and the conversion is the seam rather than an oversight: the
+/// answer's rectangle is [`Rect`], which is what every other frame-space rectangle in the
+/// surface serialises as, and the rasterizer knows nothing of `serde` or of the format. A
+/// shared type would mean one of those two facts stopped being true.
+fn region_of(rect: Rect) -> Region {
+    Region {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+    }
 }
 
 /// One frame's painting pass, and the record of what it did.
@@ -564,8 +634,9 @@ impl<'a> Painter<'a> {
             }
             Some("transition") => self.defer(name, "transitions are #214"),
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
-            Some("image") => self.image(canvas, name, element),
-            Some("video") => self.video(canvas, name, element, source_offset),
+            Some("image") | Some("video") => {
+                self.raster(canvas, name, element, kind, source_offset)
+            }
             Some(other) => self.defer(name, format!("this build draws no `{other}` element")),
             None => self.defer(name, "the element states no `type`"),
         }
@@ -594,7 +665,7 @@ impl<'a> Painter<'a> {
     /// `rect` and `ellipse` — fill, inside stroke and `radius` (ADR-0014).
     fn shape(&mut self, canvas: &mut Canvas, name: &str, element: &Value, kind: Option<&str>) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, "it states no positive integer `width`/`height`");
+            self.defer(name, NO_EXTENT);
             return;
         };
         let paint = Fill {
@@ -626,27 +697,33 @@ impl<'a> Painter<'a> {
         self.painted.push(name.to_string());
     }
 
-    /// A still, resampled through the declared `width`/`height` and cropped by `clip`.
-    fn image(&mut self, canvas: &mut Canvas, name: &str, element: &Value) {
+    /// A raster element — `image` or `video` — resampled through the declared
+    /// `width`/`height` and cropped by `clip`.
+    ///
+    /// **One function for both**, because they are one drawing: ADR-0013 settled that a
+    /// source is resampled to exactly the declared rect, and from that point on a decoded
+    /// still and a decoded video frame are the same pixels placed the same way. The only
+    /// thing that differs is how the bytes are got, which is [`Painter::decoded`] — so the
+    /// transform, the aperture, the remote refusal and the record of what was opened are
+    /// each written once rather than twice with a chance to drift.
+    fn raster(
+        &mut self,
+        canvas: &mut Canvas,
+        name: &str,
+        element: &Value,
+        kind: Option<&str>,
+        source_offset: Option<i64>,
+    ) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, "it states no positive integer `width`/`height`");
+            self.defer(name, NO_EXTENT);
             return;
         };
         let Some(source) = element.get("source").and_then(Value::as_str) else {
             self.defer(name, "it states no `source`");
             return;
         };
-        let bytes = match Source::resolve(source, &self.project_dir) {
-            Source::Local(path) => match std::fs::read(&path) {
-                Ok(bytes) => {
-                    self.sources.push(path.display().to_string());
-                    bytes
-                }
-                Err(e) => {
-                    self.defer(name, format!("{} could not be read: {e}", path.display()));
-                    return;
-                }
-            },
+        let path = match Source::resolve(source, &self.project_dir) {
+            Source::Local(path) => path,
             // ADR-0056 keeps the remote half to `probe`'s session, which fetches ranges
             // rather than whole files. Drawing one would be the unsolicited network call
             // this surface promises not to make.
@@ -658,10 +735,15 @@ impl<'a> Painter<'a> {
                 return;
             }
         };
-        let Some(raster) = Raster::decode(&bytes) else {
-            self.defer(name, format!("`{source}` did not decode as an image"));
-            return;
+
+        let raster = match self.decoded(&path, kind, extent, source_offset) {
+            Ok(raster) => raster,
+            Err(reason) => {
+                self.defer(name, reason);
+                return;
+            }
         };
+        self.sources.push(path.display().to_string());
         canvas.raster(
             &raster,
             extent,
@@ -671,79 +753,44 @@ impl<'a> Painter<'a> {
         self.painted.push(name.to_string());
     }
 
-    /// One decoded video frame, at the offset the caption already resolved.
-    fn video(
+    /// The pixels, however this element's type gets them: a still off the disk, or one
+    /// frame out of the `ffmpeg` Montaget spawns.
+    fn decoded(
         &mut self,
-        canvas: &mut Canvas,
-        name: &str,
-        element: &Value,
+        path: &FilePath,
+        kind: Option<&str>,
+        extent: Extent,
         source_offset: Option<i64>,
-    ) {
-        let Some(extent) = self.extent(element) else {
-            self.defer(name, "it states no positive integer `width`/`height`");
-            return;
-        };
-        let Some(source) = element.get("source").and_then(Value::as_str) else {
-            self.defer(name, "it states no `source`");
-            return;
-        };
-        let Some(offset) = source_offset else {
-            // The caption already said why — `source_offset_unresolved` carries the
-            // sentence — so this one names the consequence rather than repeating it.
-            self.defer(
-                name,
-                "its offset into the source did not resolve; the caption says why",
-            );
-            return;
-        };
-        let path = match Source::resolve(source, &self.project_dir) {
-            Source::Local(path) => path,
-            Source::Remote(url) => {
-                self.defer(
-                    name,
-                    format!("`{url}` is remote; `frame` draws local sources"),
-                );
-                return;
-            }
-        };
-        let ffmpeg = match self.ffmpeg() {
-            Ok(ffmpeg) => ffmpeg,
-            Err(reason) => {
-                self.defer(name, reason);
-                return;
-            }
-        };
+    ) -> Result<Raster, String> {
+        if kind != Some("video") {
+            let bytes = std::fs::read(path)
+                .map_err(|e| format!("{} could not be read: {e}", path.display()))?;
+            return Raster::decode(&bytes)
+                .ok_or_else(|| format!("{} did not decode as an image", path.display()));
+        }
+
+        // The caption already said *why* an offset did not resolve —
+        // `source_offset_unresolved` carries that sentence — so this one names the
+        // consequence rather than repeating it.
+        let offset = source_offset
+            .ok_or("its offset into the source did not resolve; the caption says why")?;
+        let ffmpeg = self.ffmpeg()?;
         // Decoded straight to the declared box: ADR-0013 settled that a source is resampled
         // to exactly `width`x`height`, so asking `ffmpeg` for that size is the resample
         // rather than a second one on top of it.
-        let decoded = match montaget_render::decode::frame_at(
+        let decoded = montaget_render::decode::frame_at(
             &ffmpeg,
             &path.to_string_lossy(),
             offset,
             extent.width as u32,
             extent.height as u32,
-        ) {
-            Ok(decoded) => decoded,
-            Err(reason) => {
-                self.defer(name, reason);
-                return;
-            }
-        };
-        self.sources.push(path.display().to_string());
-        let Some(raster) = Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height) else {
-            self.defer(
-                name,
-                format!("`{source}`'s decoded frame was not the size asked for"),
-            );
-            return;
-        };
-        canvas.raster(
-            &raster,
-            extent,
-            &self.transform(element),
-            self.clip(element),
-        );
-        self.painted.push(name.to_string());
+        )?;
+        Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
+            format!(
+                "{}'s decoded frame was not the size asked for",
+                path.display()
+            )
+        })
     }
 
     /// `ffmpeg`, resolved once per run and only where a video element needs one.
@@ -907,12 +954,34 @@ mod tests {
         };
         assert_eq!(
             clamp(asked, 1080, 1920),
-            Rect {
+            Some(Rect {
                 x: 900,
                 y: 1800,
                 width: 180,
                 height: 120
-            }
+            })
         );
+    }
+
+    #[test]
+    fn a_crop_that_misses_the_frame_names_no_region_at_all() {
+        // Not a zero-size rectangle: "no picture" and "a very small picture" are two
+        // different answers, and one of them reads like a measurement.
+        for asked in [
+            Region {
+                x: 4000,
+                y: 4000,
+                width: 100,
+                height: 100,
+            },
+            Region {
+                x: -400,
+                y: 0,
+                width: 100,
+                height: 100,
+            },
+        ] {
+            assert_eq!(clamp(asked, 1080, 1920), None);
+        }
     }
 }

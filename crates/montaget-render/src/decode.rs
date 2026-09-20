@@ -14,15 +14,28 @@
 //! "is there an `ffmpeg` on this machine, and where". A second resolution in this crate
 //! would be the second authority ADR-0011 spent itself removing.
 //!
-//! **Two normalisations, and why only one of them is here.** Rotation is applied: the
-//! container's track-level display transform is what every mainstream player reads, and
-//! `ffmpeg` applies it by default, so a portrait phone clip arrives upright — which is the
-//! geometry ADR-0023 says the author was looking at. PAR is **not** applied, and its
-//! absence is not an oversight: ADR-0013 settled that a source is resampled to exactly the
-//! declared `width`×`height`, so the whole source maps onto the whole box whatever its
-//! pixel aspect ratio is. PAR changes the *nominal* aspect of source pixels, never which
-//! of them survive, so it is an input to `fit`'s arithmetic — which `validate` evaluates —
-//! and not to this blit.
+//! **Two normalisations, and only one of them is here — which is a decision no ADR has
+//! ratified.** Spec #168 says *"`frame` and `render` must decode video through ADR-0023's
+//! rotation-and-PAR pipeline"*, and this decode applies the rotation half and not the PAR
+//! half:
+//!
+//! - **Rotation is applied.** The container's track-level display transform is what every
+//!   mainstream player reads, `ffmpeg` applies it by default, and so a portrait phone clip
+//!   arrives upright — the geometry ADR-0023 says the author was looking at. It is
+//!   inherited from `ffmpeg`'s default rather than asked for, and **no fixture exercises
+//!   it**: ADR-0023 records the same gap for its own rule, which is *"argued and reasoned
+//!   about, not measured against real footage"*.
+//! - **PAR is not applied**, and the argument is that there is nothing for it to do here:
+//!   ADR-0013 settled that a source is resampled to exactly the declared `width`×`height`,
+//!   so the whole source maps onto the whole box whatever its pixel aspect ratio is. PAR
+//!   changes the *nominal* aspect of source pixels, never which of them survive, so it is
+//!   an input to `fit`'s arithmetic — which `validate` evaluates — and not to this blit.
+//!
+//! That argument may well be right, and it is still a spec sentence being read narrowly by
+//! a module comment. It is raised as
+//! [#274](https://github.com/MBehtemam/Montaget/issues/274), because a decision that a
+//! whole stage of a named pipeline is a no-op belongs in an ADR amendment rather than
+//! here.
 
 use std::path::Path;
 use std::process::{Command, Stdio};
