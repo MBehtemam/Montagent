@@ -94,15 +94,19 @@ pub struct CreateProjectParams {
     pub verbose: bool,
 }
 
-/// `query`'s arguments: the two modes ADR-0011 specifies that read the document alone.
+/// `query`'s arguments: ADR-0011's three modes, all of which read the document alone.
 ///
-/// One question per call. `from`/`to` ask for the cut list; `where` asks for the matched
-/// set, and `census` for its distribution. Which combinations are legal is the verb's rule
-/// and is enforced there — this adapter carries the arguments and decides nothing (ADR-0011).
+/// One question per call. `at` asks for the resolved stack at an instant; `from`/`to` ask
+/// for the cut list; `where` asks for the matched set, and `census` for its distribution.
+/// Which combinations are legal is the verb's rule and is enforced there — this adapter
+/// carries the arguments and decides nothing (ADR-0011).
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct QueryParams {
     /// Path to the project file.
     pub project: String,
+    /// The instant to resolve the stack at, in absolute milliseconds.
+    #[serde(default)]
+    pub at: Option<i64>,
     /// The start of the range, in absolute milliseconds. Asked for with `to`.
     #[serde(default)]
     pub from: Option<i64>,
@@ -253,14 +257,17 @@ impl Montaget {
     }
     #[tool(
         name = "query",
-        description = "What is true over a range, or across a predicate? `from`/`to` \
-                       returns the cut list — the intervals over which the set of elements \
-                       present is constant, with the boundary immediately outside the range \
-                       named on each side, so you never have to guess a window. `where` \
-                       returns the matched set, and `census` its distribution over one \
-                       field, so \"four of five siblings agree and one does not\" is one \
-                       call rather than a script. Both read the document alone: values are \
-                       matched as written, and no keyframe is resolved.",
+        description = "What is true at an instant, over a range, or across a predicate? \
+                       `at` returns the resolved stack at one instant — who is present, in \
+                       painter's order with anchors resolved, and every animated value \
+                       interpolated rather than echoed back as its keyframe records. \
+                       `from`/`to` returns the cut list — the intervals over which the set \
+                       of elements present is constant, with the boundary immediately \
+                       outside the range named on each side, so you never have to guess a \
+                       window. `where` returns the matched set, and `census` its \
+                       distribution over one field, so \"four of five siblings agree and one \
+                       does not\" is one call rather than a script. All three read the \
+                       document alone; only `at` resolves anything.",
         input_schema = advertised::<QueryParams>()
     )]
     fn query(
@@ -275,6 +282,7 @@ impl Montaget {
         let answer = montaget_core::verbs::query::query(
             &PathBuf::from(&params.project),
             &montaget_core::verbs::query::Ask {
+                at: params.at,
                 from: params.from,
                 to: params.to,
                 predicate: params.predicate,

@@ -51,15 +51,53 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
             .is_some_and(serde_json::Value::is_object);
 
         if keyed {
-            serde_json::from_value(value)
-                .map(Animatable::Keyed)
-                .map_err(D::Error::custom)
+            let records: Vec<Keyframe<T>> =
+                serde_json::from_value(value).map_err(D::Error::custom)?;
+            positional_ease(&records).map_err(D::Error::custom)?;
+            Ok(Animatable::Keyed(records))
         } else {
             serde_json::from_value(value)
                 .map(Animatable::Static)
                 .map_err(D::Error::custom)
         }
     }
+}
+
+/// ADR-0038's rule, which is a rule about **position** and so cannot be a rule about a
+/// field: *"`ease` is required on every keyframe record except the first, where it remains a
+/// schema error. Presence is a pure function of position in the list."*
+///
+/// It is enforced here, in the one place a keyframe list is read, rather than in a check —
+/// because it is a schema fact, and [`crate::checks::schema`] reports schema facts by
+/// parsing. Four agents hit the silence this ADR closed and resolved it three different
+/// ways; one of them wrote `"ease":"linear"` on ten hold segments *"purely because the rule
+/// was unstated"*, and one reclassified its own correct output as a violation. Both sides of
+/// the rule are stated out loud below for that reason: the message names the convention,
+/// which is the whole of what ADR-0012 asked the first-record error to do.
+fn positional_ease<T>(records: &[Keyframe<T>]) -> Result<(), String> {
+    for (index, record) in records.iter().enumerate() {
+        match (index, &record.ease) {
+            (0, Some(_)) => {
+                return Err(format!(
+                    "the first keyframe record (`t` {}) carries an `ease`: `ease` describes \
+                     the segment *arriving at* a record, and nothing arrives at the first \
+                     one — drop it",
+                    record.t
+                ));
+            }
+            (index, None) if index > 0 => {
+                return Err(format!(
+                    "keyframe record {} (`t` {}) carries no `ease`: it is required on every \
+                     record except the first, and there is no default — state the shape of \
+                     the travel from the previous record, `linear` where the value is held",
+                    index + 1,
+                    record.t
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// One `{"t","v","ease"}` record.

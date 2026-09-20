@@ -723,6 +723,11 @@
         },
         {
           "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframe"
+            }
+          ],
           "items": {
             "$ref": "#/$defs/Keyframe"
           },
@@ -730,6 +735,26 @@
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "FirstKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
     },
     "Keyframe": {
       "type": "object",
@@ -751,7 +776,8 @@
       },
       "required": [
         "t",
-        "v"
+        "v",
+        "ease"
       ],
       "description": "One `{\"t\",\"v\",\"ease\"}` record."
     },
@@ -857,6 +883,11 @@
         },
         {
           "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframe2"
+            }
+          ],
           "items": {
             "$ref": "#/$defs/Keyframe2"
           },
@@ -864,6 +895,31 @@
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "FirstKeyframe2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
     },
     "Keyframe2": {
       "type": "object",
@@ -890,7 +946,8 @@
       },
       "required": [
         "t",
-        "v"
+        "v",
+        "ease"
       ],
       "description": "One `{\"t\",\"v\",\"ease\"}` record."
     },
@@ -903,6 +960,11 @@
         },
         {
           "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframe3"
+            }
+          ],
           "items": {
             "$ref": "#/$defs/Keyframe3"
           },
@@ -910,6 +972,26 @@
         }
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "FirstKeyframe3": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
     },
     "Keyframe3": {
       "type": "object",
@@ -931,7 +1013,8 @@
       },
       "required": [
         "t",
-        "v"
+        "v",
+        "ease"
       ],
       "description": "One `{\"t\",\"v\",\"ease\"}` record."
     },

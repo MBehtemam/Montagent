@@ -114,8 +114,11 @@ _Avoid_: key, waypoint, stop, tween
 
 **Easing**:
 The shape of the interpolation **arriving at** a keyframe from the previous one — a name
-published in the schema as its cubic bezier, or the four control points directly. The
-first record of a list has nothing arriving at it and carrying an `ease` there is an error.
+published in the schema as its cubic bezier, or the four control points directly. Its
+presence is a pure function of position: the first record of a list has nothing arriving at
+it and carrying an `ease` there is an error, and every later record must carry one, with no
+default published anywhere
+([ADR-0038](docs/adr/0038-ease-is-required-on-every-non-first-keyframe-record.md)).
 _Avoid_: timing function, curve, interpolation (as the field name), tween
 
 **Clip**:
@@ -340,6 +343,23 @@ interval is as long as the presence set stays the same: two neighbours a reader
 could not tell apart are one interval.
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
 _Avoid_: edit list, shot list, segments, keyframes (spoken for), sampling
+
+**Resolved stack**:
+What `query --at` answers with: the presence set at one instant, in painter's order — back
+to front by resolved integer layer, an anchor having been resolved in exactly one hop — with
+every animated property the element declares carried as the value it *has* there rather than
+as its keyframe records. A resolved value is continuous and is never rounded: `x` is an
+integer in the document and a number in the answer, because interpolation passes through
+what lies between two integers and no rounding rule exists to hide it
+([ADR-0035](docs/adr/0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md)).
+It states only what the document declares — no default is synthesised, since presence is
+itself content
+([ADR-0030](docs/adr/0030-defaultable-field-presence-is-content.md)). The half that reaches
+outside the document — the offset into the source, the crop rectangle, the ink box and the
+`NOT COVERED` region — is not in it yet
+([#210](https://github.com/MBehtemam/Montaget/issues/210)).
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+_Avoid_: frame, render state, snapshot, sample
 
 **Predicate**:
 The expression `query --where` matches elements against: terms of the form

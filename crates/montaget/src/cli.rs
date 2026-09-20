@@ -116,19 +116,24 @@ enum Command {
         json: bool,
     },
 
-    /// What is true over a range, or across a predicate?
+    /// What is true at an instant, over a range, or across a predicate?
     ///
-    /// Two of ADR-0011's three modes. `--from --to` returns the cut list — the intervals
-    /// over which the presence set is constant, with the boundary immediately outside the
-    /// range named on each side. `--where` returns the matched set, and `--census` its
-    /// distribution over one field. Neither reads the disk, and neither resolves anything:
-    /// a value is matched as the document writes it.
+    /// ADR-0011's three modes. `--at` returns the resolved stack at one instant — who is
+    /// present, in painter's order, with every animated value resolved rather than echoed.
+    /// `--from --to` returns the cut list — the intervals over which the presence set is
+    /// constant, with the boundary immediately outside the range named on each side.
+    /// `--where` returns the matched set, and `--census` its distribution over one field.
+    /// None of them reads the disk, and only `--at` resolves anything: the other two match a
+    /// value as the document writes it.
     ///
     /// It offers no verbosity switch, because it has no informational findings to
     /// expand — the answer itself is the output, and it is never collapsed.
     Query {
         /// The project file.
         project: PathBuf,
+        /// The instant to resolve the stack at, in absolute milliseconds.
+        #[arg(long, value_name = "MS")]
+        at: Option<i64>,
         /// The start of the range, in absolute milliseconds. Asked for with `--to`.
         #[arg(long, value_name = "MS")]
         from: Option<i64>,
@@ -390,6 +395,7 @@ where
         }
         Command::Query {
             project,
+            at,
             from,
             to,
             predicate,
@@ -403,6 +409,7 @@ where
             // the MCP surface takes the same four arguments with no `clap` to arrange them,
             // and a `clap` argument group would leave that surface uncovered (ADR-0011).
             let ask = montaget_core::verbs::query::Ask {
+                at,
                 from,
                 to,
                 predicate,
