@@ -463,13 +463,9 @@ where
             command: FontsCommand::List { roots, json },
         } => {
             // `--verbose` is deliberately absent: the listing is the answer and is never
-            // collapsed. Which directories are the platform's is the core's to say.
+            // collapsed. No `--root` is passed through as no roots; which directories are
+            // the platform's is the core's to say.
             let form = Wire::from_flags(json, false);
-            let roots = if roots.is_empty() {
-                montaget_core::verbs::fonts::system_roots()
-            } else {
-                roots
-            };
             match run_verb(|| montaget_core::verbs::fonts::list(&roots)) {
                 Ok(answer) => {
                     println!(

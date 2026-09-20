@@ -40,7 +40,7 @@ pub mod predicate;
 use std::path::Path as FilePath;
 
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::finding::{CensusGroup, Finding};
 use crate::parse;
@@ -84,18 +84,13 @@ impl Answer {
     /// rule, for its reason: an absent key makes "there is no answer" indistinguishable from
     /// a version of Montaget that did not have this verb.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert(
-            "query".into(),
+        self.report.to_json_with(
+            "query",
             match &self.view {
                 Some(view) => serde_json::to_value(view).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        );
-        json
+        )
     }
 }
 
@@ -240,22 +235,11 @@ pub fn query(path: &FilePath, ask: &Ask) -> Answer {
         // `tracks` there is nothing to ask about, and the ADR's own finding was that such a
         // file deserves a sentence naming the likely mismatch rather than a raw schema
         // error.
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point query at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point query at the project file",
+        ));
         return Answer { view: None, report };
     }
 

@@ -17,12 +17,7 @@ use sha2::{Digest, Sha256};
 
 /// The lowercase hex SHA-256 of some bytes — the `sha256` a `fontVendor` entry records.
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for byte in digest {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 #[cfg(test)]

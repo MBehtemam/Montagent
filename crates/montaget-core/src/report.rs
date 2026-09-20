@@ -239,6 +239,17 @@ impl Report {
         }
     }
 
+    /// The canonical JSON plus one verb's own block under `key` — `probe`'s
+    /// `network_attempts`, `timeline`'s view, `measure`'s answer. One object per
+    /// invocation, and one place the shape "a report, plus this" is spelled.
+    pub fn to_json_with(&self, key: &str, block: Value) -> Value {
+        let mut json = self.to_json();
+        json.as_object_mut()
+            .expect("a report serialises as an object")
+            .insert(key.to_string(), block);
+        json
+    }
+
     /// The canonical JSON. Everything the text form prints is derivable from this and
     /// from the registry; nothing is assembled twice.
     pub fn to_json(&self) -> Value {

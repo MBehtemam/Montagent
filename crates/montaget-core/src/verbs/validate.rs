@@ -18,8 +18,6 @@
 
 use std::path::Path;
 
-use serde_json::{Value, json};
-
 use crate::finding::Finding;
 use crate::media::session::Session;
 use crate::media::tools::Missing;
@@ -69,22 +67,11 @@ fn run(path: &Path, session: Option<&mut Session>) -> Report {
         // `validate`'s answer: the three other verbs' answer, for the three other verbs'
         // reason. It does not narrow what is analysed on a *project*, which is what ADR-0006
         // forbids; it declines to analyse something that is not one.
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point validate at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point validate at the project file",
+        ));
         return report;
     }
 

@@ -263,6 +263,33 @@ impl Finding {
         }
     }
 
+    /// ADR-0042's refusal, for a verb that was pointed at something that is not a project.
+    ///
+    /// One spelling for every verb that holds the precondition — `fmt`, `timeline`,
+    /// `query`, `validate`, `fonts vendor` — so the field the template reads and the way
+    /// the missing keys are quoted cannot drift between them. What the verb advises is
+    /// the verb's own: `repair` is the sentence that names it.
+    pub fn not_a_project(
+        file: impl Into<String>,
+        not_a_project: &crate::permissive::NotAProject,
+        repair: &str,
+    ) -> Self {
+        Finding::new("E-NOT-A-PROJECT")
+            .at_file(file)
+            .field(
+                "missing",
+                Value::String(
+                    not_a_project
+                        .missing
+                        .iter()
+                        .map(|key| format!("`{key}`"))
+                        .collect::<Vec<_>>()
+                        .join("/"),
+                ),
+            )
+            .repair_value(serde_json::json!({"value": repair}))
+    }
+
     pub fn at_file(mut self, file: impl Into<String>) -> Self {
         self.location.file = file.into();
         self

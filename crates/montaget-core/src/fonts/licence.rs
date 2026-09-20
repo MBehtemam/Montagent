@@ -123,12 +123,13 @@ pub const BLOCKLIST: &[&str] = &[
     ".AppleSystemUIFont",
 ];
 
-/// The names on one face that the blocklist is checked against.
+/// The names on one face that the blocklist is checked against: ADR-0057's "family name
+/// and PostScript name" — both family names the table carries (IDs 1 and 16), and ID 6.
+/// The full name (ID 4) is deliberately not one of them.
 fn names_of(face: &FaceNames) -> impl Iterator<Item = &str> {
     [
         face.family.as_deref(),
         face.typographic_family.as_deref(),
-        face.full_name.as_deref(),
         face.postscript.as_deref(),
     ]
     .into_iter()

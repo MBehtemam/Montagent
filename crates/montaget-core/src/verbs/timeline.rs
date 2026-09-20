@@ -50,7 +50,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::finding::Finding;
 use crate::parse;
@@ -96,18 +96,13 @@ impl Answer {
     /// either way; an absent key additionally makes it indistinguishable from a version of
     /// Montaget that did not have this verb.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert(
-            "timeline".into(),
+        self.report.to_json_with(
+            "timeline",
             match &self.overview {
                 Some(overview) => serde_json::to_value(overview).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        );
-        json
+        )
     }
 }
 
@@ -217,22 +212,11 @@ pub fn timeline(path: &Path) -> Answer {
         // `tracks` there is nothing to lay out, and the ADR's own finding was that such a
         // file deserves a sentence naming the likely mismatch rather than a raw schema
         // error.
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point timeline at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point timeline at the project file",
+        ));
         return Answer {
             overview: None,
             report,

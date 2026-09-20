@@ -30,8 +30,6 @@
 
 use std::path::Path;
 
-use serde_json::{Value, json};
-
 use crate::checks;
 use crate::finding::Finding;
 use crate::parse;
@@ -79,22 +77,11 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
 
     if let Err(not_a_project) = document.shape() {
         // ADR-0042's precondition, and the whole of it: structural shape, never severity.
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point fmt at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point fmt at the project file",
+        ));
         return report;
     }
 

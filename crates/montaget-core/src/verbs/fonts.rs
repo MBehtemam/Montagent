@@ -127,15 +127,10 @@ impl Listing {
 
     /// The canonical JSON: the report's own object, plus the inventory under `fonts`.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert(
-            "fonts".into(),
+        self.report.to_json_with(
+            "fonts",
             serde_json::to_value(&self.inventory).unwrap_or(Value::Null),
-        );
-        json
+        )
     }
 }
 
@@ -171,8 +166,11 @@ pub fn system_roots() -> Vec<PathBuf> {
     roots
 }
 
-/// Enumerate every font file under `roots`, with each face's licence status.
+/// Enumerate every font file under `roots` — or, given none, under the platform's own font
+/// directories — with each face's licence status.
 ///
+/// That an empty list means "the system's" is decided here rather than in an adapter,
+/// because which directories those are is a rule (ADR-0011: an adapter contains none).
 /// Roots that do not exist are skipped rather than reported — `~/.fonts` is absent on most
 /// machines and that is not a finding about anything. The walk is sorted, so two runs on
 /// one machine answer in one order.
@@ -181,6 +179,13 @@ pub fn list(roots: &[PathBuf]) -> Listing {
         roots: Vec::new(),
         fonts: Vec::new(),
         unreadable: Vec::new(),
+    };
+    let system;
+    let roots = if roots.is_empty() {
+        system = system_roots();
+        &system
+    } else {
+        roots
     };
     for root in roots {
         if !root.is_dir() {
@@ -306,18 +311,13 @@ impl Vendored {
     /// The canonical JSON: the report's own object, plus what was written under `vendor` —
     /// present and `null` where nothing was, on `query`'s rule.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert(
-            "vendor".into(),
+        self.report.to_json_with(
+            "vendor",
             match &self.view {
                 Some(view) => serde_json::to_value(view).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        );
-        json
+        )
     }
 }
 
@@ -334,22 +334,11 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
     };
     if let Err(not_a_project) = document.shape() {
         let mut report = Report::new(VENDOR, project);
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point fonts vendor at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point fonts vendor at the project file",
+        ));
         return refused(report);
     }
 
