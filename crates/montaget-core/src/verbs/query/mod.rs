@@ -35,6 +35,7 @@
 
 pub mod at;
 pub mod cuts;
+mod geometry;
 pub mod predicate;
 
 use std::path::Path as FilePath;
@@ -205,8 +206,10 @@ pub struct Census {
 
 /// Answer one `query`.
 ///
-/// Reads the file once and touches nothing else — no probe, no session, no sidecar, no
-/// resolver.
+/// Reads the file once and touches nothing else beyond that — no sidecar, no resolver, no
+/// probe — in this function. `--at` is the one mode that may need a probe (#210's crop
+/// rectangle), and it opens its own session; see [`at::answer`] for why that lives there
+/// rather than here.
 pub fn query(path: &FilePath, ask: &Ask) -> Answer {
     let project = Some(path.display().to_string());
 
@@ -249,9 +252,17 @@ pub fn query(path: &FilePath, ask: &Ask) -> Answer {
         return Answer { view: None, report };
     }
 
-    Answer {
-        view: Some(question.answer(&document)),
-        report,
+    match question.answer(&document) {
+        Ok(view) => Answer {
+            view: Some(view),
+            report,
+        },
+        // No `ffmpeg`/`ffprobe`: `--at` alone can raise this, and only where the project
+        // references a raster source at all.
+        Err(reason) => {
+            report.fail_internally(reason);
+            Answer { view: None, report }
+        }
     }
 }
 
@@ -356,16 +367,16 @@ impl Question {
         Ok(Question::Cuts { from, to })
     }
 
-    fn answer(self, document: &Loose) -> View {
-        match self {
-            Question::At { instant } => View::At(at::at(document, instant)),
+    fn answer(self, document: &Loose) -> Result<View, String> {
+        Ok(match self {
+            Question::At { instant } => View::At(at::answer(document, instant)?),
             Question::Cuts { from, to } => View::Cuts(cuts::cuts(document, from, to)),
             Question::Matching {
                 spelling,
                 predicate,
                 census,
             } => View::Matches(matches(document, &spelling, &predicate, census.as_ref())),
-        }
+        })
     }
 }
 

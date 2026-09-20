@@ -21,15 +21,26 @@
 //! - **Resolved animated values** — from [`crate::resolve`], the keyframe resolver, which is
 //!   likewise the only implementation.
 //!
-//! ## What is deliberately not here
+//! ## The four components that reach outside the document
 //!
-//! ADR-0011 lists four more components: the offset into the source, the crop rectangle, the
-//! ink box, and `NOT COVERED`. Every one of them reaches outside the document — the probed
-//! source duration under `overrun`, the source's own dimensions under `fit`, a shaper — and
-//! ADR-0011 records them as *"blocked on #21 and on `measure`"* rather than merely expensive.
-//! They are [#210](https://github.com/MBehtemam/Montaget/issues/210), whose own acceptance
-//! criteria name all four. This mode is the half that reads the document alone, and it opens
-//! nothing.
+//! ADR-0011 names four more: the offset into the source, the crop rectangle, the ink box,
+//! and `NOT COVERED`. [#210](https://github.com/MBehtemam/Montaget/issues/210) is what
+//! builds them, each through the layer that already owns its arithmetic rather than a
+//! second implementation of one:
+//!
+//! - **Offset into source** ([`source_offset`]) reads `source_start`/`source_end`/`speed`/
+//!   `overrun` off the document and [`crate::exact`]'s ADR-0020 arithmetic — no probe,
+//!   argued at [`source_offset`] itself.
+//! - **The crop rectangle** ([`crop_for`], [`super::geometry::crop_rectangle`]) is the one
+//!   component that opens anything: a raster element's real source dimensions are not in
+//!   the document (ADR-0013's own worked example), so `at` now takes a probing
+//!   [`Session`], optionally — every other component answers in full without one.
+//! - **The ink box** ([`super::geometry::ink_box`]) calls the same
+//!   [`montaget_text::measure`] `measure` the verb calls (#205), never a second
+//!   implementation of glyph layout.
+//! - **`NOT COVERED`** ([`super::geometry::not_covered`]) unions every visible element's
+//!   own drawn rectangle and reports the complement, refusing outright rather than
+//!   approximating where an element is rotated.
 //!
 //! A fifth component appears in ADR-0011's verifier table — *"previous / next boundary"* —
 //! and is deliberately **not** here either, on the reading that the table is the hostile
@@ -60,12 +71,17 @@
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::exact::{self, Decimal};
+use crate::media::probe::Outcome;
+use crate::media::session::Session;
+use crate::media::Source;
 use crate::model::{Animatable, Scale};
 use crate::permissive::Loose;
 use crate::resolve::{self, Interpolate, Unresolvable};
 use crate::stack::{Stack, Unresolved};
 
 use super::Named;
+use super::geometry::{self, InkBox, NotAxisAligned, Rect};
 
 /// The resolved stack at one instant.
 #[derive(Debug, Clone, Serialize)]
@@ -86,6 +102,15 @@ pub struct At {
     /// 58 of 60 elements is a wrong answer that looks like a right one, and *which* way the
     /// range is malformed is `validate`'s question and not a view's.
     pub unplaced: Vec<String>,
+    /// The region of the frame no element in the presence set reaches — ADR-0011's
+    /// `NOT COVERED`, as a set of rectangles whose union is exactly that region. Never the
+    /// *fewest* rectangles that could say it (see [`geometry::not_covered`]).
+    pub not_covered: Vec<Rect>,
+    /// Why `not_covered` is empty when it should not be trusted as *"fully covered"` — a
+    /// rotated element in the presence set, whose footprint this module answers in
+    /// rectangles only (see [`geometry::NotAxisAligned`]). `null` where the computation
+    /// ran to completion, including when it legitimately found nothing uncovered.
+    pub not_covered_unresolved: Option<String>,
 }
 
 /// One element of the presence set, resolved.
@@ -103,6 +128,25 @@ pub struct Present {
     /// Every animated property the element **declares**, resolved at the instant — in the
     /// order the format declares them, never the order the file happens to write them in.
     pub values: Vec<Resolved>,
+    /// **Offset into source** — where in the source file this instant plays, for `audio`
+    /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
+    /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
+    /// type, for the same reason `layer` is `null` on an element with no anchor: nothing
+    /// declared it.
+    pub source_offset: Option<i64>,
+    pub source_offset_unresolved: Option<String>,
+    /// **The crop rectangle** — which part of the *source file's own pixels* survive onto
+    /// the screen, in source pixel space, for a raster element carrying `cover`/`contain`
+    /// and a `clip` (ADR-0013, ADR-0015). `null` where the element carries no raster
+    /// source, or names `literal`, which claims no derivation to compute against.
+    pub crop: Option<Rect>,
+    pub crop_unresolved: Option<String>,
+    /// **The ink box** — a `text` element's rendered extent, stroke included, in absolute
+    /// frame pixels: the tight rectangle ADR-0011 measured overstating by 1.25×–1.48× under
+    /// the nominal `size × line_height` reading. See [`geometry::ink_box`] for what this
+    /// refuses on.
+    pub ink_box: Option<InkBox>,
+    pub ink_box_unresolved: Option<String>,
 }
 
 /// One property's value at the instant.
@@ -160,11 +204,60 @@ const ANIMATED: [(&str, Shape); 6] = [
     ("volume", Shape::Ratio),
 ];
 
+/// Answer `--at`, opening a probing [`Session`] itself where the project needs one.
+///
+/// Kept in this file rather than in `query/mod.rs`: `neither_mode_reaches_for_a_resolver_
+/// the_stack_or_the_disk` (`tests/query.rs`) is the structural form of *"`cuts` and
+/// `predicate` never reach for anything beyond the document"*, checked by grepping the
+/// dispatcher's own source for `crate::media`. Opening the session in `mod.rs` instead
+/// would make that true only by discipline — this file is the one the ADR already
+/// excepts, being the mode `--at` alone resolves through.
+pub fn answer(document: &Loose, instant: i64) -> Result<At, String> {
+    // Narrower than `crate::verbs::validate`'s own precondition, deliberately: an
+    // audio-only project — or a raster element with no `clip` — has nothing the crop
+    // rectangle could ever ask a probe about (`crop_for` refuses before it reaches
+    // `Session::probe` either way), and answering those without `ffmpeg`/`ffprobe` on
+    // `PATH` is the whole of what this module's own doc claims: "every other component
+    // answers in full without one."
+    if !document.elements().any(|element| {
+        matches!(
+            element.get("type").and_then(Value::as_str),
+            Some("image" | "video")
+        ) && element.get("clip").is_some()
+    }) {
+        return Ok(at(document, instant, None));
+    }
+    match Session::open() {
+        Ok(mut session) => {
+            session.begin_run();
+            Ok(at(document, instant, Some(&mut session)))
+        }
+        // No `ffmpeg`/`ffprobe`: the same exit 70 `validate` gives the identical condition
+        // (ADR-0011), rather than a partial answer that silently drops the one component
+        // that needed a probe.
+        Err(missing) => Err(missing.reason()),
+    }
+}
+
 /// Build the resolved stack at `instant`.
-pub fn at(document: &Loose, instant: i64) -> At {
+///
+/// `session` opens the fourth `#210` component: a raster element's crop rectangle needs
+/// the source's real dimensions, which no document field carries (ADR-0013's own worked
+/// example). `None` is legal and answers every other component in full — it is what a
+/// caller with no `ffmpeg`/`ffprobe`, or a project with no raster source at all, passes —
+/// and every crop that would have needed it comes back `crop_unresolved` instead of
+/// silently absent.
+pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> At {
     let stack = Stack::of(document);
     let mut present: Vec<Present> = Vec::new();
     let mut unplaced: Vec<String> = Vec::new();
+    let frame = frame_dimensions(document);
+
+    // Every visual element's own drawn rectangle, `clip`-intersected where one applies —
+    // the input `NOT COVERED` unions over. Built in the same pass as `present` rather than
+    // a second traversal, since it needs exactly the same half-open presence test.
+    let mut covering: Vec<Rect> = Vec::new();
+    let mut not_covered_unresolved: Option<String> = None;
 
     for (index, (track, element)) in document.elements_in_tracks().enumerate() {
         let named = Named::of(element, track);
@@ -193,6 +286,53 @@ pub fn at(document: &Loose, instant: i64) -> At {
             },
         };
 
+        let kind = named.kind.as_deref();
+
+        // An invisible element (a resolved `opacity` of exactly `0`) contributes nothing
+        // to `NOT COVERED` either way, so its rotation — which would otherwise force the
+        // whole computation to refuse — is not this instant's concern. One call into
+        // `drawn_rect`, its result reused for both the refusal check and the rectangle
+        // itself, rather than computing the same footprint twice.
+        if covers_the_frame(kind)
+            && geometry_number_opacity(element, instant) != 0.0
+            && let Some(frame) = frame
+        {
+            match geometry::drawn_rect(element, instant, frame) {
+                Some(Err(NotAxisAligned::Rotated(degrees))) => {
+                    not_covered_unresolved.get_or_insert_with(|| {
+                        format!(
+                            "`{name}`'s resolved `rotation` is {degrees}°; `NOT COVERED` is \
+                             answered in rectangles only"
+                        )
+                    });
+                }
+                Some(Ok(rect)) => {
+                    let visible = match clip_rect(element) {
+                        Some(clip) => rect.intersect(clip),
+                        None => Some(rect),
+                    };
+                    if let Some(visible) = visible {
+                        covering.push(visible);
+                    }
+                }
+                None => {}
+            }
+        }
+
+        let (source_offset, source_offset_unresolved) = source_offset(element, kind, start, instant);
+        let (crop, crop_unresolved) = match frame {
+            Some(frame) => crop_for(document, element, kind, instant, frame, session.as_deref_mut()),
+            None => (None, Some("the project carries no legal `frame`".to_string())),
+        };
+        let (ink_box, ink_box_unresolved) = match (kind, frame) {
+            (Some("text"), Some(frame)) => match geometry::ink_box(document, element, instant, frame) {
+                Ok(ink_box) => (Some(ink_box), None),
+                Err(reason) => (None, Some(reason)),
+            },
+            (Some("text"), None) => (None, Some("the project carries no legal `frame`".to_string())),
+            _ => (None, None),
+        };
+
         present.push(Present {
             named,
             start,
@@ -200,6 +340,12 @@ pub fn at(document: &Loose, instant: i64) -> At {
             layer,
             layer_unresolved,
             values: values(element, instant),
+            source_offset,
+            source_offset_unresolved,
+            crop,
+            crop_unresolved,
+            ink_box,
+            ink_box_unresolved,
         });
     }
 
@@ -210,10 +356,245 @@ pub fn at(document: &Loose, instant: i64) -> At {
     // the invented order ADR-0060 refuses.
     present.sort_by_key(|element| (element.layer.is_none(), element.layer.unwrap_or_default()));
 
+    let not_covered = match (frame, &not_covered_unresolved) {
+        (Some(frame), None) => geometry::not_covered(frame, &covering),
+        _ => Vec::new(),
+    };
+
     At {
         at: instant,
         stack: present,
         unplaced,
+        not_covered,
+        not_covered_unresolved,
+    }
+}
+
+/// The project's own `frame`, or `None` where it is missing or malformed — `validate`'s
+/// fact to report, not this view's to guess at.
+fn frame_dimensions(document: &Loose) -> Option<(i64, i64)> {
+    let frame = document.value().get("frame")?;
+    Some((
+        frame.get("width")?.as_i64()?,
+        frame.get("height")?.as_i64()?,
+    ))
+}
+
+/// Whether this element type has a frame-space footprint at all — audio and `transition`
+/// do not, and are excluded from both `NOT COVERED`'s union and its refusal: a rotated
+/// `rect` blocks the computation, but an audio element playing underneath never could.
+fn covers_the_frame(kind: Option<&str>) -> bool {
+    matches!(
+        kind,
+        Some("image" | "video" | "text" | "rect" | "ellipse")
+    )
+}
+
+fn geometry_number_opacity(element: &Value, instant: i64) -> f64 {
+    let Some(written) = element.get("opacity") else {
+        return 1.0;
+    };
+    let Ok(animatable) = serde_json::from_value::<Animatable<f64>>(written.clone()) else {
+        return 1.0;
+    };
+    resolve::at(&animatable, instant).unwrap_or(1.0)
+}
+
+/// `clip`, as a [`Rect`] — only `image` and `video` carry the field.
+fn clip_rect(element: &Value) -> Option<Rect> {
+    let clip = element.get("clip")?.as_array()?;
+    if clip.len() != 4 {
+        return None;
+    }
+    Some(Rect {
+        x: clip[0].as_i64()?,
+        y: clip[1].as_i64()?,
+        width: clip[2].as_i64()?,
+        height: clip[3].as_i64()?,
+    })
+}
+
+/// **Offset into source** (ADR-0020) — computed from the document's own declared
+/// `source_start`/`source_end`/`speed`/`overrun` alone, never re-probed. `validate`
+/// already judges whether that declared range agrees with the file on disk
+/// (ADR-0006/ADR-0020's own invariant); recomputing that agreement here would be the
+/// second implementation of one judgment ADR-0006 forbids carrying twice. So a document
+/// whose declared range disagrees with the real file answers here exactly as it is
+/// written, and `validate`'s finding is where the disagreement is reported.
+fn source_offset(
+    element: &Value,
+    kind: Option<&str>,
+    start: i64,
+    instant: i64,
+) -> (Option<i64>, Option<String>) {
+    if !matches!(kind, Some("audio") | Some("video")) {
+        return (None, None);
+    }
+    let (Some(source_start), Some(source_end)) = (
+        element.get("source_start").and_then(Value::as_i64),
+        element.get("source_end").and_then(Value::as_i64),
+    ) else {
+        return (
+            None,
+            Some("the element carries no integer `source_start`/`source_end`".to_string()),
+        );
+    };
+    let source_span = source_end - source_start;
+    if source_span <= 0 {
+        return (
+            None,
+            Some("`source_end` does not exceed `source_start`".to_string()),
+        );
+    }
+
+    let speed = match element.get("speed") {
+        None | Some(Value::Null) => Decimal::of(&serde_json::Number::from(1)),
+        Some(value) => value.as_number().and_then(Decimal::of),
+    };
+    let Some(speed) = speed.filter(|d| d.is_positive()) else {
+        return (
+            None,
+            Some("`speed` is not a positive number, which is `validate`'s finding to make".to_string()),
+        );
+    };
+
+    let Some(played) = exact::played_ms(source_span, speed) else {
+        return (
+            None,
+            Some("the as-played duration could not be computed".to_string()),
+        );
+    };
+
+    let elapsed = instant - start;
+    if elapsed < played {
+        return match exact::source_advance(elapsed, speed) {
+            Some(advance) => (Some(source_start + advance), None),
+            None => (None, Some("the source position could not be computed".to_string())),
+        };
+    }
+
+    match element.get("overrun").and_then(Value::as_str) {
+        Some("hold") => (Some(source_end), None),
+        Some("loop") => {
+            let cycle = (elapsed - played) % played;
+            match exact::source_advance(cycle, speed) {
+                Some(advance) => (Some(source_start + advance), None),
+                None => (
+                    None,
+                    Some("the looped source position could not be computed".to_string()),
+                ),
+            }
+        }
+        _ => (
+            None,
+            Some(
+                "the timeline range outruns the as-played duration and the element declares \
+                 no `overrun`, which is `validate`'s speed-mismatch finding to report"
+                    .to_string(),
+            ),
+        ),
+    }
+}
+
+/// **The crop rectangle** (ADR-0013, ADR-0015) — `None`/`None` on every element that is
+/// not a raster source, `literal`, or missing a `clip`; a reason on every refusal, which is
+/// this function's whole job beside the one call into [`geometry::crop_rectangle`].
+fn crop_for(
+    document: &Loose,
+    element: &Value,
+    kind: Option<&str>,
+    instant: i64,
+    frame: (i64, i64),
+    session: Option<&mut Session>,
+) -> (Option<Rect>, Option<String>) {
+    if !matches!(kind, Some("image") | Some("video")) {
+        return (None, None);
+    }
+    let Some(source) = element.get("source").and_then(Value::as_str) else {
+        return (None, Some("the element carries no `source`".to_string()));
+    };
+    // `fit` itself is not read: ADR-0015's load-bearing sentence is that the declared
+    // rect is authoritative at render *regardless* of which rule it claims to derive
+    // from, so the crop rectangle is the same computation under `cover`, `contain` and
+    // `literal` alike. What every one of them still needs is a `clip` to crop against.
+    let Some(clip) = clip_rect(element) else {
+        return (
+            None,
+            Some("the element carries no `clip`, so there is no aperture to crop against".to_string()),
+        );
+    };
+    let (Some(width), Some(height)) = (
+        element.get("width").and_then(Value::as_i64),
+        element.get("height").and_then(Value::as_i64),
+    ) else {
+        return (
+            None,
+            Some("the element carries no integer `width`/`height`".to_string()),
+        );
+    };
+
+    let drawn = match geometry::drawn_rect(element, instant, frame) {
+        None => {
+            return (
+                None,
+                Some("the element's drawn rectangle could not be computed".to_string()),
+            );
+        }
+        Some(Err(NotAxisAligned::Rotated(degrees))) => {
+            return (
+                None,
+                Some(format!(
+                    "its resolved `rotation` is {degrees}°; the crop rectangle is not \
+                     derived for a rotated element"
+                )),
+            );
+        }
+        Some(Ok(rect)) => rect,
+    };
+
+    let Some(session) = session else {
+        return (
+            None,
+            Some("no probing session is open for this run".to_string()),
+        );
+    };
+    let base = crate::checks::project_dir(document);
+    let outcome = match session.probe(&Source::resolve(source, &base)) {
+        Ok(outcome) => outcome,
+        Err(_missing) => {
+            return (
+                None,
+                Some("ffmpeg/ffprobe is not on `PATH`".to_string()),
+            );
+        }
+    };
+    let Outcome::Probed(probe) = &outcome else {
+        return (
+            None,
+            Some(
+                "the source could not be probed, so its real dimensions are not known"
+                    .to_string(),
+            ),
+        );
+    };
+    let Some(dimensions) = probe.dimensions else {
+        return (
+            None,
+            Some("the probe established no dimensions for this source".to_string()),
+        );
+    };
+
+    match geometry::crop_rectangle(
+        (width, height),
+        drawn,
+        clip,
+        (i64::from(dimensions.width), i64::from(dimensions.height)),
+    ) {
+        Some(rect) => (Some(rect), None),
+        None => (
+            None,
+            Some("`clip` excludes the element entirely; none of the source reaches the screen".to_string()),
+        ),
     }
 }
 

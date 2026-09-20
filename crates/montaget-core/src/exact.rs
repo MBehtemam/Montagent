@@ -260,6 +260,23 @@ pub fn played_ms(source_span: i64, speed: Decimal) -> Option<i64> {
     i64::try_from(round_half_up(numerator, units)?).ok()
 }
 
+/// **[`played_ms`]'s inverse, at one instant**: how far into the source `elapsed_ms` of
+/// timeline playback has moved it, at `speed`.
+///
+/// `elapsed_ms × speed`, round-half-up, in the same exact rational arithmetic —
+/// `elapsed_ms × units / 10ˢᶜᵃˡᵉ`. This is the arithmetic `query --at`'s offset-into-source
+/// answer is built on (#210): `elapsed_ms` is `instant − start` for the element being
+/// asked about, and the result added to `source_start` is the position in the file that
+/// instant plays. `None` on the same conditions `played_ms` refuses on.
+pub fn source_advance(elapsed_ms: i64, speed: Decimal) -> Option<i64> {
+    if !speed.is_positive() {
+        return None;
+    }
+    let (units, decimal_scale) = speed.as_ratio()?;
+    let numerator = i128::from(elapsed_ms).checked_mul(units)?;
+    i64::try_from(round_half_up(numerator, decimal_scale)?).ok()
+}
+
 /// **The `speed` that would satisfy the invariant**, as a decimal an author can write.
 ///
 /// ADR-0020 designates `speed` as the free variable — *"`start`/`end` and
@@ -487,6 +504,29 @@ mod tests {
         // cannot answer rather than inventing one.
         assert_eq!(played_ms(2568, Decimal::parse("0").unwrap()), None);
         assert_eq!(played_ms(2568, Decimal::parse("-0.5").unwrap()), None);
+    }
+
+    #[test]
+    fn source_advance_is_played_mss_own_inverse_at_an_instant() {
+        // `vo-sentence-05-b`'s own numbers (ADR-0020's worked example): 2184ms of source
+        // plays over 3386ms of timeline at `speed:0.645`. Halfway through the timeline
+        // span, `source_advance` names where in the source that instant is.
+        let speed = Decimal::parse("0.645").unwrap();
+        assert_eq!(source_advance(1000, speed), Some(645));
+        assert_eq!(source_advance(3386, speed), Some(2184));
+        assert_eq!(source_advance(0, speed), Some(0));
+    }
+
+    #[test]
+    fn source_advance_of_a_speed_of_one_is_the_identity() {
+        let speed = Decimal::parse("1").unwrap();
+        assert_eq!(source_advance(1234, speed), Some(1234));
+    }
+
+    #[test]
+    fn source_advance_refuses_the_same_conditions_played_ms_does() {
+        assert_eq!(source_advance(1000, Decimal::parse("0").unwrap()), None);
+        assert_eq!(source_advance(1000, Decimal::parse("-0.5").unwrap()), None);
     }
 
     #[test]
