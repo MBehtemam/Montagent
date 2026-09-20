@@ -112,6 +112,17 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&measure_block(measure));
     }
 
+    // `fonts list`'s whole answer, on the same rule again.
+    if let Some(fonts) = report.get("fonts").filter(|view| !view.is_null()) {
+        out.push_str(&fonts_block(fonts));
+    }
+
+    // `fonts vendor`'s block: what was written, and the chain entry to write next. It
+    // prints above the findings because the findings are about the file it just changed.
+    if let Some(vendor) = report.get("vendor").filter(|view| !view.is_null()) {
+        out.push_str(&vendor_block(vendor));
+    }
+
     let findings = report["findings"]
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
@@ -1097,5 +1108,92 @@ fn census_block(census: &Value) -> String {
             names.join(", "),
         ));
     }
+    out
+}
+
+// ---- `fonts list` and `fonts vendor` --------------------------------------------------
+
+/// The inventory: one line per face, the licence status first because it is the verdict a
+/// vendor attempt would get and the reason the listing exists (ADR-0057).
+fn fonts_block(fonts: &Value) -> String {
+    let roots = fonts["roots"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let faces = fonts["fonts"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let unreadable = fonts["unreadable"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+
+    let mut out = format!(
+        "\nFONTS  {} under {}\n",
+        counted(&json!(faces.len()), "face"),
+        if roots.is_empty() {
+            "no directory that exists".to_string()
+        } else {
+            roots.iter().map(named).collect::<Vec<_>>().join(", ")
+        }
+    );
+    let status_width = width_of(faces.iter().map(|f| f["status"].as_str().unwrap_or("")));
+    for face in faces {
+        let status = face["status"].as_str().unwrap_or("?");
+        let matched = match face["matched"].as_str() {
+            Some(matched) => format!(" ({matched})"),
+            None => String::new(),
+        };
+        out.push_str(&format!(
+            "  {status:<status_width$}{matched:<14}  {}#{}  {}{}\n",
+            face["path"].as_str().unwrap_or("?"),
+            face["index"],
+            named(&face["family"]),
+            match face["postscript"].as_str() {
+                Some(postscript) => format!(" [{postscript}]"),
+                None => String::new(),
+            },
+        ));
+    }
+    if !unreadable.is_empty() {
+        out.push_str("  unreadable:\n");
+        for file in unreadable {
+            out.push_str(&format!(
+                "    {}: {}\n",
+                file["path"].as_str().unwrap_or("?"),
+                file["reason"].as_str().unwrap_or("?")
+            ));
+        }
+    }
+    out
+}
+
+/// What `fonts vendor` wrote: the attestation, and the chain entry to write next.
+fn vendor_block(vendor: &Value) -> String {
+    let attestation = &vendor["attestation"];
+    let mut out = format!(
+        "\nVENDORED  {}{}\n",
+        vendor["file"].as_str().unwrap_or("?"),
+        if vendor["already_present"].as_bool().unwrap_or(false) {
+            "  (already present with these exact bytes; attestation rewritten)"
+        } else {
+            ""
+        }
+    );
+    let mut field = |label: &str, value: String| {
+        out.push_str(&format!("    {label:<12}{value}\n"));
+    };
+    field(
+        "licence",
+        format!(
+            "{} ({})",
+            attestation["licence"].as_str().unwrap_or("?"),
+            vendor["licence_basis"].as_str().unwrap_or("?")
+        ),
+    );
+    field(
+        "source",
+        attestation["source"].as_str().unwrap_or("?").to_string(),
+    );
+    field(
+        "sha256",
+        attestation["sha256"].as_str().unwrap_or("?").to_string(),
+    );
+    field("chain entry", compact(&vendor["chain_entry"]));
     out
 }

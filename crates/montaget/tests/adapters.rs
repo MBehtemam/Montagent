@@ -330,6 +330,83 @@ fn cli_measure_takes_no_flag_that_collapses_the_answer() {
 }
 
 #[test]
+fn cli_fonts_list_reaches_the_verb_and_exits_0() {
+    let dir = scratch_dir("cli-fonts-list");
+    std::fs::copy(open_runde(), dir.join("OpenRunde-Bold.otf")).unwrap();
+    let out = montaget(&["fonts", "list", "--root", dir.to_str().unwrap()]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("FONTS  1 face under"), "{}", out.stdout);
+    assert!(out.stdout.contains("unknown"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_fonts_list_json_replaces_the_text_listing_and_never_accompanies_it() {
+    let dir = scratch_dir("cli-fonts-list-json");
+    std::fs::copy(open_runde(), dir.join("OpenRunde-Bold.otf")).unwrap();
+    let out = montaget(&["fonts", "list", "--root", dir.to_str().unwrap(), "--json"]);
+
+    assert_eq!(out.code, Some(0));
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["tool"], "fonts list");
+    assert_eq!(json["fonts"]["fonts"][0]["status"], "unknown");
+}
+
+#[test]
+fn cli_fonts_vendor_reaches_the_gate_and_the_copy() {
+    let project = scratch("cli-fonts-vendor", "p.montaget.json", HEADER_ONLY);
+    let font = open_runde();
+
+    // Bucket 3 without a declaration: exit 1, and nothing copied.
+    let out = montaget(&[
+        "fonts",
+        "vendor",
+        project.to_str().unwrap(),
+        font.to_str().unwrap(),
+    ]);
+    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stdout.contains("E-FONT-LICENCE-UNKNOWN"),
+        "{}",
+        out.stdout
+    );
+    assert!(!project.parent().unwrap().join("fonts").exists());
+
+    // With one: the copy lands, the attestation is written, and the report is the new
+    // state's — one orphan note, exit 0.
+    let out = montaget(&[
+        "fonts",
+        "vendor",
+        project.to_str().unwrap(),
+        font.to_str().unwrap(),
+        "--licence",
+        "OFL-1.1",
+        "--json",
+    ]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["tool"], "fonts vendor");
+    assert_eq!(json["vendor"]["file"], "fonts/OpenRunde-Bold.otf");
+    assert_eq!(json["findings"][0]["code"], "N-FONT-ATTESTATION-ORPHANED");
+    assert!(
+        project
+            .parent()
+            .unwrap()
+            .join("fonts/OpenRunde-Bold.otf")
+            .is_file()
+    );
+}
+
+fn open_runde() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf")
+        .canonicalize()
+        .expect("the vendored fixture font")
+}
+
+#[test]
 fn cli_a_bad_invocation_is_exit_3_on_stderr() {
     let out = montaget(&["validate", "--nope"]);
 

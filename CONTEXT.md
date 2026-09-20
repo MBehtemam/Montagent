@@ -143,6 +143,15 @@ is an entry in a table you cannot read, cannot commit, and that differs per mach
 The renderer opens nothing outside the chain.
 _Avoid_: typeface, family, font stack
 
+**Attestation**:
+What `fonts vendor` learned about one font file, recorded in the project's `fontVendor`
+table under the file's path: the licence identifier it recognised or the author declared,
+where the bytes came from, and their `sha256`. One path, one entry, however many font
+chains reference the file ([ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md)).
+Written only by `fonts vendor`; `validate` checks the hash against the file on disk and
+reports an entry no chain references, but never prunes one.
+_Avoid_: licence record, font metadata, provenance (unqualified)
+
 **Line height**:
 A text element's line-height multiplier, restricted to one decimal digit — `1.0`, `1.1`,
 `1.2`, … — always exactly representable as `n/10`. A line's height is the largest `size`

@@ -13,6 +13,10 @@
 //!   Montaget never places a line break itself. See [`breaks`].
 //! - **Each line's resolved `baseline_y`** (ADR-0029), and the **stroked** extent rather
 //!   than the typographic one (ADR-0014). See [`engine`].
+//! - **What a font file says about itself** — its family and PostScript names and its
+//!   licence strings, per face — for `fonts list` and the gate in `fonts vendor`
+//!   (ADR-0057). See [`names`]. Read, never judged: which names are blocklisted is a rule,
+//!   and rules live in the core.
 //! - **Block arithmetic in exact integer tenths, never IEEE double** (ADR-0028) — as far
 //!   as the tenths themselves: the `ceil` that turns them into the integer a `height`
 //!   field takes is `montaget_core::exact`'s, so the formula has one implementation
@@ -28,7 +32,9 @@ pub mod breaks;
 pub mod engine;
 pub mod fonts;
 pub mod lines;
+pub mod names;
 
 pub use breaks::{SEGMENTER, Segmenter};
 pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
 pub use fonts::{FontError, FontFile, Fonts};
+pub use names::FaceNames;

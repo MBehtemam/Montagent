@@ -106,18 +106,13 @@ impl Answer {
     /// rule, for its reason: an absent key makes *"there is no answer"* indistinguishable
     /// from a version of Montaget that did not have this verb.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert(
-            "measure".into(),
+        self.report.to_json_with(
+            "measure",
             match &self.view {
                 Some(view) => serde_json::to_value(view).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        );
-        json
+        )
     }
 }
 

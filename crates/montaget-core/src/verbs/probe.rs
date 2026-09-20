@@ -40,12 +40,8 @@ impl Answer {
     /// The canonical JSON: the report's own object, plus the two things only `probe`
     /// produces. One object per invocation, like every other verb.
     pub fn to_json(&self) -> Value {
-        let mut json = self.report.to_json();
-        let object = json
-            .as_object_mut()
-            .expect("a report serialises as an object");
-        object.insert("network_attempts".into(), json!(self.network_attempts));
-        json
+        self.report
+            .to_json_with("network_attempts", json!(self.network_attempts))
     }
 }
 

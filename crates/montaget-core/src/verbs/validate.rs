@@ -18,8 +18,6 @@
 
 use std::path::Path;
 
-use serde_json::{Value, json};
-
 use crate::finding::Finding;
 use crate::media::session::Session;
 use crate::media::tools::Missing;
@@ -69,22 +67,11 @@ fn run(path: &Path, session: Option<&mut Session>) -> Report {
         // `validate`'s answer: the three other verbs' answer, for the three other verbs'
         // reason. It does not narrow what is analysed on a *project*, which is what ADR-0006
         // forbids; it declines to analyse something that is not one.
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String(
-                        not_a_project
-                            .missing
-                            .iter()
-                            .map(|key| format!("`{key}`"))
-                            .collect::<Vec<_>>()
-                            .join("/"),
-                    ),
-                )
-                .repair_value(json!({"value": "point validate at the project file"})),
-        );
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point validate at the project file",
+        ));
         return report;
     }
 
@@ -155,6 +142,12 @@ fn run_checks(
     // nobody ever ran `fmt` over. Its findings are `LAYOUT`, which is not a severity: they
     // never gate a render, because the video is byte-identical either way.
     crate::checks::layout::check(document, report);
+    // ADR-0057's two attestation checks (#207): every `fonts`-table path resolves to a
+    // `fontVendor` entry whose hash matches the bytes on disk, and every entry is still
+    // referenced. Reads the disk — the font files — but needs no subprocess, so it sits
+    // here rather than behind the session below, and it runs whether or not the project
+    // references any media.
+    crate::checks::fonts::check(document, report);
 
     // The two checks that need a subprocess, and the only ones that can fail rather than
     // find. Whether one needs to be opened at all is decided once, here, rather than per
