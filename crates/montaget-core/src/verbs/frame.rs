@@ -44,10 +44,13 @@
 //! uses, and the files that were actually opened come back in the answer, so a decoy font
 //! installed on the machine is not merely unused but demonstrably unopened.
 //!
-//! **Glyphs are not painted yet** — that is
-//! [#213](https://github.com/MBehtemam/Montaget/issues/213), *"text drawing, and the first
-//! falsification"* — and neither are effects, colour filters, transitions or highlight
-//! ([#214](https://github.com/MBehtemam/Montaget/issues/214)). Every element this build
+//! **Glyphs are painted through the engine `measure` answers with** (#213). The line
+//! partition, the slot heights and every baseline come back from
+//! [`montaget_text::place`], which reads them off the same shaping pass
+//! [`montaget_text::measure`] uses — so what `measure` tells an author and what the
+//! picture shows are one derivation rather than two that agree. Effects, colour filters,
+//! transitions and highlight are still
+//! [#214](https://github.com/MBehtemam/Montaget/issues/214). Every element this build
 //! cannot paint is listed in the answer with the reason, because an agent that cannot tell
 //! "not there" from "not drawn yet" will chase the wrong defect.
 //!
@@ -62,6 +65,14 @@
 //! filename in somebody's project directory; quality is
 //! [`montaget_render::canvas::JPEG_QUALITY`]; and an absent `background` is opaque black
 //! (argued at [`montaget_render::canvas::Rgba::BLACK`]).
+//!
+//! #213 adds six more of the same kind, collected at
+//! [#277](https://github.com/MBehtemam/Montaget/issues/277) and argued at their sites: an
+//! absent `color` is opaque black ([`DEFAULT_INK`]), an absent `align` is `start`
+//! ([`align_of`]), and `align`'s box is the block the lines make rather than the
+//! element's declared `width` (argued in [`montaget_text::place`], from ADR-0007's *"how
+//! lines align to each other"* and ADR-0014's *"a container claim, not painted
+//! geometry"*).
 
 use std::path::{Path as FilePath, PathBuf};
 
@@ -69,7 +80,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use montaget_render::canvas::{
-    Canvas, Encoded, Encoding, Extent, Fill, Raster, Region, Rgba, Scale, Shape, Transform,
+    Canvas, Encoded, Encoding, Extent, Fill, Glyph, PathEl, Raster, Region, Rgba, Scale, Shape,
+    Transform,
 };
 
 use crate::finding::Finding;
@@ -544,6 +556,14 @@ struct Painter<'a> {
     painted_partially: Vec<NotPainted>,
     sources: Vec<String>,
     fonts: Vec<String>,
+    /// Every declared chain this frame has opened, **one registry for the whole frame**.
+    ///
+    /// Shared rather than per element for two reasons that are the same reason: the
+    /// fixture's four text elements all name `brand`, so a registry per element would read
+    /// and parse the same `.otf` four times against a 500 ms cold budget (ADR-0021) — and
+    /// the list of files actually opened, which is what makes #212's decoy test a test,
+    /// should be the frame's list rather than the last element's.
+    registry: montaget_text::Fonts,
     /// Resolved on demand, once: an all-image project must not need an `ffmpeg` on `PATH`
     /// to look at itself.
     ffmpeg: Option<Result<PathBuf, String>>,
@@ -565,6 +585,7 @@ impl<'a> Painter<'a> {
             painted_partially: Vec::new(),
             sources: Vec::new(),
             fonts: Vec::new(),
+            registry: montaget_text::Fonts::new(),
             ffmpeg: None,
         }
     }
@@ -633,14 +654,7 @@ impl<'a> Painter<'a> {
             // No frame-space footprint at all. Not listed as unpainted: an audio element
             // that draws nothing is not a thing the picture is missing.
             Some("audio") => {}
-            Some("text") => {
-                // The chain is registered even though no glyph is drawn yet, because this
-                // is where ADR-0007's "the renderer opens nothing outside the declared
-                // chain" is enforced (#212) — and #213 paints through the registry this
-                // call has already filled.
-                self.register_fonts(name, element);
-                self.defer(name, "text drawing is #213");
-            }
+            Some("text") => self.text(canvas, name, element),
             Some("transition") => self.defer(name, "transitions are #214"),
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
             Some("image") | Some("video") => {
@@ -666,6 +680,15 @@ impl<'a> Painter<'a> {
 
     fn defer(&mut self, name: &str, reason: impl Into<String>) {
         self.not_painted.push(NotPainted {
+            element: name.to_string(),
+            reason: reason.into(),
+        });
+    }
+
+    /// Drawn, but not in full — the other list, kept apart for the reason
+    /// [`Picture::painted_partially`] gives.
+    fn partially(&mut self, name: &str, reason: impl Into<String>) {
+        self.painted_partially.push(NotPainted {
             element: name.to_string(),
             reason: reason.into(),
         });
@@ -814,26 +837,151 @@ impl<'a> Painter<'a> {
         self.ffmpeg.clone().expect("just resolved")
     }
 
-    /// Register one text element's declared chains, and record every file that was opened.
-    fn register_fonts(&mut self, name: &str, element: &Value) {
-        let mut fonts = montaget_text::Fonts::new();
+    /// Register one text element's declared chains, and record every file that was
+    /// opened.
+    ///
+    /// `false` where a chain did not resolve — and the element is already on
+    /// [`Picture::not_painted`] with the reason by then. Every key the element names is
+    /// tried before answering, so a project with two broken chains reports both rather
+    /// than the first.
+    fn register_fonts(&mut self, name: &str, element: &Value) -> bool {
         let declared = element
             .get("font")
             .and_then(Value::as_str)
             .map(str::to_string);
+        let mut resolved = true;
         for key in declared
             .into_iter()
             .chain(crate::verbs::measure::Measurable::keys(element))
         {
-            if let Err(e) = crate::verbs::measure::register(self.document, &key, &mut fonts) {
+            if let Err(e) = crate::verbs::measure::register(self.document, &key, &mut self.registry)
+            {
                 self.defer(name, format!("its font chain did not resolve: {e}"));
+                resolved = false;
             }
         }
-        for path in fonts.opened() {
-            let path = path.display().to_string();
+        let opened: Vec<String> = self
+            .registry
+            .opened()
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect();
+        for path in opened {
             if !self.fonts.contains(&path) {
                 self.fonts.push(path);
             }
+        }
+        resolved
+    }
+
+    /// Paint one text element's glyphs (#213).
+    ///
+    /// **Everything about *where* the text goes comes from the same engine `measure`
+    /// answers with**, through [`montaget_text::place`], which reads the glyphs off the
+    /// very layouts the measurement was derived from. So there is one line partition
+    /// (ADR-0008), one slot rule (ADR-0007) and one baseline formula (ADR-0029) in
+    /// Montaget, and `measure`'s answer is a statement about the picture rather than a
+    /// parallel derivation that happens to agree.
+    ///
+    /// **`y` and `origin` are deliberately *not* handed to the engine.** The placement
+    /// comes back in the block's own coordinates and the canvas applies ADR-0012's
+    /// transform to it, exactly as it does for a rect or an image — so the pivot rule has
+    /// one implementation. Passing the element's `y` as well would place the block twice.
+    fn text(&mut self, canvas: &mut Canvas, name: &str, element: &Value) {
+        // The chain is registered first and unconditionally, because this is where
+        // ADR-0007's "the renderer opens nothing outside the declared chain" is enforced
+        // (#212) — an element that will not measure must still not be able to reach a
+        // font the document does not name.
+        if !self.register_fonts(name, element) {
+            return;
+        }
+        let style = match crate::verbs::measure::Measurable::of(element) {
+            Ok(style) => style,
+            Err(reason) => {
+                self.defer(name, reason);
+                return;
+            }
+        };
+
+        let runs = crate::verbs::measure::runs_of(element);
+        let placement = montaget_text::place(
+            &mut self.registry,
+            &montaget_text::Spec {
+                runs: &runs,
+                font: &style.asked.font,
+                size: style.asked.size,
+                line_height_tenths: style.asked.line_height_tenths,
+                stroke_width: style.asked.stroke_width,
+                // The block's own frame: the canvas places it.
+                y: 0,
+                vertical_origin: montaget_text::VerticalOrigin::Top,
+            },
+            align_of(element),
+        );
+        let placement = match placement {
+            Ok(placement) => placement,
+            // Unreachable while every key above registered, and reported rather than
+            // `expect`ed: "unreachable" is a claim about this function's control flow that
+            // a later edit can falsify in silence.
+            Err(e) => {
+                self.defer(name, format!("its text could not be laid out: {e}"));
+                return;
+            }
+        };
+
+        let paints = paints_of(element, &runs);
+        let glyphs: Vec<Glyph> = placement
+            .glyphs
+            .iter()
+            .map(|glyph| Glyph {
+                x: glyph.x,
+                y: glyph.y,
+                outline: glyph.outline,
+                // A glyph whose run index has no paint is unreachable — `paints_of` maps
+                // the same array `montaget_text::place` indexed into — and is painted in
+                // the default ink rather than skipped, so a future divergence shows up as
+                // a black letter rather than as a hole.
+                paint: paints.get(glyph.run).copied().unwrap_or(Fill {
+                    fill: Some(DEFAULT_INK),
+                    stroke: None,
+                    stroke_width: 0.0,
+                }),
+            })
+            .collect();
+        let outlines: Vec<Vec<PathEl>> = placement
+            .outlines
+            .iter()
+            .map(|outline| outline.iter().copied().map(path_element).collect())
+            .collect();
+
+        canvas.text(
+            &glyphs,
+            &outlines,
+            Extent {
+                width: placement.width,
+                height: placement.height,
+            },
+            &self.transform(element),
+            None,
+        );
+        self.painted.push(name.to_string());
+
+        // Drawn, and then said. A timed restyle is #214's, and a `dir` override reaches
+        // neither the measurement nor the layout yet — both change what the picture shows,
+        // so an agent comparing this frame against the document is owed the sentence.
+        if runs_with(element, "highlight") {
+            self.partially(
+                name,
+                "a run's `highlight` window is #214, and it is painted in its \
+                 unconditional style",
+            );
+        }
+        if runs_with(element, "dir") {
+            self.partially(
+                name,
+                "a run's `dir` override is not applied yet; the line's base direction is \
+                 the one the text itself implies",
+            );
         }
     }
 
@@ -882,6 +1030,92 @@ impl<'a> Painter<'a> {
             width: clip[2].as_i64()?,
             height: clip[3].as_i64()?,
         })
+    }
+}
+
+/// The ink an element that states no `color` is painted in.
+///
+/// **A recorded reading, not an ADR's.** `color` is optional on a text element, so an
+/// absent one is legal and ADR-0030 makes it *"give me whatever the default is"* — which
+/// means there is a default and this is it. Black, and not a colour picked to contrast
+/// with the background: it is what every rasterizer in the reference class paints with
+/// when nobody said, it is the same constant an absent `background` already resolves to
+/// ([`Rgba::BLACK`]), and a default that read the background would make one element's
+/// colour depend on another element's field. Raised at
+/// [#277](https://github.com/MBehtemam/Montaget/issues/277).
+const DEFAULT_INK: Rgba = Rgba::BLACK;
+
+/// Each run's resolved paint, in the order the runs are written — the element's base with
+/// the run's deltas over it (ADR-0007's base-plus-deltas model, ADR-0014's
+/// run-addressable stroke).
+///
+/// [`Fill`] rather than a type of this module's own: it is the same three fields a shape
+/// is painted with, and ADR-0014 makes them one vocabulary. What differs between the two
+/// is which side of the outline the stroke falls on, and that is the rasterizer's rule
+/// rather than the paint's.
+fn paints_of(element: &Value, runs: &[montaget_text::Run<'_>]) -> Vec<Fill> {
+    let base = Fill {
+        fill: Some(element.get("color").and_then(rgba).unwrap_or(DEFAULT_INK)),
+        stroke: element.get("stroke").and_then(rgba),
+        stroke_width: element
+            .get("stroke_width")
+            .and_then(Value::as_i64)
+            .unwrap_or(0) as f64,
+    };
+    crate::verbs::measure::runs_array(element)
+        .iter()
+        .enumerate()
+        .map(|(i, run)| Fill {
+            // A delta that is absent is a delta that was not made (ADR-0007), so the base
+            // stands wherever the run is silent — and a `stroke_width` the run *does*
+            // state is the one the engine measured with, which is why it is read back out
+            // of the parsed run rather than off the JSON a second time.
+            fill: run.get("color").and_then(rgba).or(base.fill),
+            stroke: run.get("stroke").and_then(rgba).or(base.stroke),
+            stroke_width: runs
+                .get(i)
+                .and_then(|run| run.stroke_width)
+                .map(|width| width as f64)
+                .unwrap_or(base.stroke_width),
+        })
+        .collect()
+}
+
+/// Does any run carry this field?
+fn runs_with(element: &Value, key: &str) -> bool {
+    crate::verbs::measure::runs_array(element)
+        .iter()
+        .any(|run| run.get(key).is_some_and(|value| !value.is_null()))
+}
+
+/// `align` — how the lines sit against each other (ADR-0007), never how the box is placed.
+///
+/// **An absent `align` is `start`.** No ADR states a default. `start` is the one that
+/// changes nothing for a single-line element — every text element in the fixture that
+/// omits it has one line — and it is the value that reads correctly in both directions,
+/// which is the reason ADR-0007 spells the vocabulary `start`/`end` in the first place.
+/// A string the schema does not admit is `validate`'s to name and is read as `start` here,
+/// on the same rule the renderer reads a malformed `origin` by.
+fn align_of(element: &Value) -> montaget_text::Align {
+    match element.get("align").and_then(Value::as_str) {
+        Some("center") => montaget_text::Align::Center,
+        Some("end") => montaget_text::Align::End,
+        _ => montaget_text::Align::Start,
+    }
+}
+
+/// The rasterizer's spelling of one outline segment.
+///
+/// The `Rect`/`Region` seam again, and for the same reason: ADR-0010 keeps the text stack
+/// *beside* the rasterizer, so `montaget-render` may not name a `montaget-text` type. This
+/// is the crate that depends on both, so the conversion belongs here.
+fn path_element(element: montaget_text::PathEl) -> PathEl {
+    match element {
+        montaget_text::PathEl::Move(x, y) => PathEl::Move(x, y),
+        montaget_text::PathEl::Line(x, y) => PathEl::Line(x, y),
+        montaget_text::PathEl::Quad(cx, cy, x, y) => PathEl::Quad(cx, cy, x, y),
+        montaget_text::PathEl::Cubic(ax, ay, bx, by, x, y) => PathEl::Cubic(ax, ay, bx, by, x, y),
+        montaget_text::PathEl::Close => PathEl::Close,
     }
 }
 

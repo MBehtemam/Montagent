@@ -13,11 +13,13 @@
 //! through [`Budget::judge`], so a change to the number is one diff in one file rather
 //! than a hunt through the suite.
 //!
-//! **What the number does not yet cover.** The fixture is text-heavy — 22 of its 60
-//! elements carry runs — and this build paints no glyphs (#213). So the median below is
-//! the cost of the raster, the decode and the encode, and it will move when text lands.
-//! ADR-0021's ceiling is the same either way; what changes is how much of it is spent, and
-//! #213 is where this is measured again rather than assumed to have held.
+//! **Text is in the number now.** #212 measured this with no glyph painted and said so,
+//! and named #213 as the place to measure it again *"rather than assume it has held"*.
+//! It has: the fixture is text-heavy — 22 of its 60 elements carry runs, four of them on
+//! screen at the instant below — and a cold `frame` that shapes them, scales their
+//! outlines and fills the paths comes back at a median of **242 ms** on the machine this
+//! was written on, against ADR-0021's 500 ms. So the shaping is not where the budget
+//! goes; the process launch and Skia's first touch still are.
 //!
 //! **What "cold" does and does not include.** Every judged run gets an **empty probe
 //! sidecar** (ADR-0069), so it pays for the `ffprobe` spawns `query --at`'s crop rectangle

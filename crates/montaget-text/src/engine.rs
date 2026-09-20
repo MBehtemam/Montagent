@@ -187,6 +187,21 @@ const UNIT: i128 = 20;
 /// itself has no failure mode, because it reaches no conclusion that could be wrong about
 /// the document.
 pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontError> {
+    Ok(measured(fonts, spec)?.0)
+}
+
+/// The same measurement, with the shaped layouts it was derived from kept.
+///
+/// [`crate::place`] needs both — the block arithmetic *and* the glyphs that arithmetic
+/// placed — and it must get them from the same pass. Re-shaping the text a second time to
+/// draw it would be a second line partition and a second set of baselines, which is
+/// exactly the thing #213 forbids: *"no second line-breaking implementation exists"*. So
+/// the two public entry points are wrappers over this, and `measure` is the one that
+/// throws the layouts away.
+pub(crate) fn measured(
+    fonts: &mut Fonts,
+    spec: &Spec<'_>,
+) -> Result<(Measurement, Vec<Layout<u32>>), FontError> {
     // Every chain the element names, resolved before anything is laid out: a run naming an
     // undeclared key is the same error whether it is the first run or the last, and
     // discovering it half-way through would leave a partial answer to throw away.
@@ -210,12 +225,13 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     }
 
     let lines = partition(&full);
-    let mut layout_context: LayoutContext<()> = LayoutContext::new();
+    let mut layout_context: LayoutContext<u32> = LayoutContext::new();
 
     // Pass one: each line's own metrics, in document order. The block's geometry needs
     // every slot height before any baseline can be placed, so the vertical coordinates are
     // a second pass rather than something accumulated here.
     let mut shaped = Vec::with_capacity(lines.len());
+    let mut layouts = Vec::with_capacity(lines.len());
     for line in &lines {
         // Overlap, strictly: a run contributing no character to this line is not on it, so
         // an empty run sets no slot height and a run that ends exactly where the line
@@ -243,8 +259,16 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
             if let Some(size) = spec.runs[i].size {
                 builder.push(StyleProperty::FontSize(size as f32), start..end);
             }
+            // The run's index, carried through the layout as parley's *brush*. Measurement
+            // has no use for it — a colour changes no number here — but drawing does, and
+            // the brush is the only channel that survives shaping: a glyph knows which
+            // cluster it came from, and the brush is how that cluster says which run's
+            // `color` and `stroke` it wears (ADR-0014's run-addressable paint). Pushed in
+            // the shared pass rather than in a second one, because a second pass is a
+            // second answer to "which run is this glyph".
+            builder.push(StyleProperty::Brush(i as u32), start..end);
         }
-        let mut layout: Layout<()> = builder.build(line.text);
+        let mut layout: Layout<u32> = builder.build(line.text);
         // `None` is "no wrap width": the renderer never chooses a line break (ADR-0007),
         // and the partition above has already placed every break there is.
         layout.break_all_lines(None);
@@ -303,6 +327,7 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
             size,
             stroke_width,
         });
+        layouts.push(layout);
     }
 
     // Pass two: the block, and every coordinate inside it.
@@ -352,22 +377,25 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
         .map(|line| line.stroke_width)
         .max()
         .unwrap_or(spec.stroke_width);
-    Ok(Measurement {
-        line_count: measured.len(),
-        advance_width: greatest(&measured, |line| line.advance_width),
-        ascent: greatest(&measured, |line| line.ascent),
-        descent: greatest(&measured, |line| line.descent),
-        block_height_tenths: slots.iter().sum(),
-        block_top: pixels(block_top),
-        block_bottom: pixels(block_top + block),
-        extent: Extent {
-            width: greatest(&measured, |line| line.extent_width),
-            height: pixels(block) + 2.0 * stroke_width as f64,
-            stroke_width,
+    Ok((
+        Measurement {
+            line_count: measured.len(),
+            advance_width: greatest(&measured, |line| line.advance_width),
+            ascent: greatest(&measured, |line| line.ascent),
+            descent: greatest(&measured, |line| line.descent),
+            block_height_tenths: slots.iter().sum(),
+            block_top: pixels(block_top),
+            block_bottom: pixels(block_top + block),
+            extent: Extent {
+                width: greatest(&measured, |line| line.extent_width),
+                height: pixels(block) + 2.0 * stroke_width as f64,
+                stroke_width,
+            },
+            lines: measured,
+            segmenter: SEGMENTER,
         },
-        lines: measured,
-        segmenter: SEGMENTER,
-    })
+        layouts,
+    ))
 }
 
 /// One line's own metrics, before it knows where in the block it sits.

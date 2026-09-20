@@ -39,14 +39,20 @@
 //!   overlap twice and darken the stroke's inner edge. A `save_layer_alpha` composites the
 //!   whole element once.
 //!
-//! What is **not** here, and is a later ticket rather than an omission: glyph painting
-//! ([#213](https://github.com/MBehtemam/Montaget/issues/213)) and the effect vocabulary,
-//! colour filters, transitions and highlight
+//! Glyph painting is [`Canvas::text`] and arrived with
+//! [#213](https://github.com/MBehtemam/Montaget/issues/213). It takes outlines rather than
+//! text, which is ADR-0010's split made structural: *"the text stack stands beside the
+//! rasterizer"*, so this crate does not depend on `montaget-text` and there is no string,
+//! no font and no font file anywhere in it.
+//!
+//! What is **not** here, and is a later ticket rather than an omission: the effect
+//! vocabulary, colour filters, transitions and highlight
 //! ([#214](https://github.com/MBehtemam/Montaget/issues/214)).
 
 use skia_safe::{
     AlphaType, Color, Color4f, ColorType, Data, EncodedImageFormat, ISize, Image, ImageInfo,
-    Paint as SkPaint, PaintStyle, Rect, SamplingOptions, Surface, images, surfaces,
+    Paint as SkPaint, PaintStyle, Path, PathBuilder, Rect, SamplingOptions, Surface, images,
+    surfaces,
 };
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
@@ -133,13 +139,55 @@ pub enum Shape {
     Ellipse,
 }
 
-/// A shape's paint. `fill` may be absent when `stroke` is present, giving an outlined
-/// shape; a shape with neither is a schema error the core reports, and paints nothing here.
+/// One thing's paint — a shape's, or one glyph's.
+///
+/// The same three fields for both, because ADR-0014 makes them one vocabulary: `stroke`
+/// is *"a second paint on the same outline, run-addressable, that never enlarges the
+/// declared rect"*. What differs between a shape and a glyph is **which side of the
+/// outline the stroke falls on**, and that is a rule about painting rather than about the
+/// paint — [`Canvas::shape`] insets, [`Canvas::text`] does not.
+///
+/// `fill` may be absent when `stroke` is present, giving an outlined shape or an outlined
+/// letter; a shape with neither is a schema error the core reports, and paints nothing
+/// here.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Fill {
     pub fill: Option<Rgba>,
     pub stroke: Option<Rgba>,
     pub stroke_width: f64,
+}
+
+/// One segment of a glyph's outline, at the glyph's own origin, y-down.
+///
+/// **The rasterizer's own spelling of the same shape `montaget-text` hands back**, and the
+/// duplication is the seam rather than an oversight — the pair `Rect`/[`Region`] already
+/// carries the same one. ADR-0010 puts the text stack *beside* this crate, so nothing here
+/// may name a `montaget-text` type; the conversion happens in `montaget-core`, which is
+/// the crate that depends on both.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PathEl {
+    Move(f32, f32),
+    Line(f32, f32),
+    Quad(f32, f32, f32, f32),
+    Cubic(f32, f32, f32, f32, f32, f32),
+    Close,
+}
+
+/// One glyph to paint: where it goes, which outline it is, and the paint it wears.
+///
+/// The paint is per glyph rather than per call because ADR-0014 makes `stroke` — and
+/// ADR-0007 makes `color` and `size` — **run-addressable**: *"outline one word"* is the
+/// case the ADR names, and a paint argument covering the whole element could not express
+/// it. It is [`Fill`] rather than three fields of its own, so a glyph and a shape carry
+/// one paint type between them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Glyph {
+    /// The glyph's origin, in the text block's own unscaled coordinates.
+    pub x: f64,
+    pub y: f64,
+    /// Which of the `outlines` slice to draw.
+    pub outline: usize,
+    pub paint: Fill,
 }
 
 /// A decoded raster source, ready to be resampled into an element's declared box.
@@ -423,6 +471,96 @@ impl Canvas {
         });
     }
 
+    /// Paint one text element's glyphs (ADR-0010: the rasterizer fills the paths).
+    ///
+    /// `extent` is the **typographic block** — the widest line's advance by the sum of the
+    /// slots — and every glyph's `x`/`y` is relative to that block's top-left, so text
+    /// goes through exactly the same transform, pivot and `clip` as every other element
+    /// type ([`Canvas::in_element_space`]). Nothing about text is placed here.
+    ///
+    /// **Two passes, strokes first.** ADR-0014 puts a text stroke *outside* the glyph
+    /// contour, which means a wide one reaches over its neighbours — the ASS `\bord`
+    /// model, where the whole border layer is drawn and the letterforms are laid on top.
+    /// One pass per glyph would let each glyph's border cut into the letter before it, so
+    /// the border of `ll` would show a seam that the same text in one paint does not.
+    ///
+    /// The stroke is drawn at **twice** the declared width, because Skia centres a stroke
+    /// on the path: half of `2 × stroke_width` outside the contour is the
+    /// `stroke_width` ADR-0014 asks for, and the inner half is covered by the fill that
+    /// follows. That is also what makes the ADR's other clause fall out rather than be
+    /// arranged — the stroke is in element space, so it scales with `scale`.
+    ///
+    /// A glyph with a stroke and **no** fill has nothing to cover that inner half, so
+    /// there the stroke is clipped to the outside of its own contour and the letterform
+    /// stays open. No document reaches that today — the core gives every run a colour,
+    /// defaulting to black — but this is a public surface and an outlined-and-hollow
+    /// letter is what `fill: None` reads as.
+    pub fn text(
+        &mut self,
+        glyphs: &[Glyph],
+        outlines: &[Vec<PathEl>],
+        extent: Extent,
+        transform: &Transform,
+        clip: Option<Region>,
+    ) {
+        if glyphs.is_empty() {
+            return;
+        }
+        // Built once per element and keyed by the same index `montaget-text` deduplicated
+        // on, so a repeated letter is one path however many times it appears.
+        let paths: Vec<Path> = outlines.iter().map(|outline| path_of(outline)).collect();
+
+        self.in_element_space(extent, transform, clip, |canvas| {
+            for pass in [Pass::Stroke, Pass::Fill] {
+                for glyph in glyphs {
+                    let Some(path) = paths.get(glyph.outline) else {
+                        continue;
+                    };
+                    let paint = match pass {
+                        Pass::Stroke => {
+                            let (Some(colour), true) =
+                                (glyph.paint.stroke, glyph.paint.stroke_width > 0.0)
+                            else {
+                                continue;
+                            };
+                            let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
+                            paint.set_anti_alias(true);
+                            paint.set_style(PaintStyle::Stroke);
+                            paint.set_stroke_width(glyph.paint.stroke_width as f32 * 2.0);
+                            // Round joins rather than mitres: a mitre on a sharp interior
+                            // angle spikes out to an arbitrary length, which on a serif or
+                            // a comma is a visible whisker rather than a border.
+                            paint.set_stroke_join(skia_safe::PaintJoin::Round);
+                            paint
+                        }
+                        Pass::Fill => {
+                            let Some(colour) = glyph.paint.fill else {
+                                continue;
+                            };
+                            let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
+                            paint.set_anti_alias(true);
+                            paint.set_style(PaintStyle::Fill);
+                            paint
+                        }
+                    };
+                    canvas.save();
+                    canvas.translate((glyph.x as f32, glyph.y as f32));
+                    // A stroke with no fill behind it has to be clipped to the outside of
+                    // the contour itself, or the inner half of the doubled width — the
+                    // half a fill would normally cover — paints over the letterform and
+                    // an outlined word comes out solid. Only in that case: with a fill
+                    // present the clip would put an antialiased seam along every contour,
+                    // and the fill already does the job.
+                    if matches!(pass, Pass::Stroke) && glyph.paint.fill.is_none() {
+                        canvas.clip_path(path, skia_safe::ClipOp::Difference, true);
+                    }
+                    canvas.draw_path(path, &paint);
+                    canvas.restore();
+                }
+            }
+        });
+    }
+
     /// Establish one element's own coordinate space and run `draw` inside it.
     ///
     /// The order is the whole of ADR-0012's placement rule: `clip` is frame-space and so
@@ -534,6 +672,37 @@ impl Canvas {
     }
 }
 
+/// Which of [`Canvas::text`]'s two passes is being painted.
+enum Pass {
+    Stroke,
+    Fill,
+}
+
+/// One outline as a Skia path, at the glyph's own origin.
+fn path_of(outline: &[PathEl]) -> Path {
+    let mut path = PathBuilder::new();
+    for element in outline {
+        match *element {
+            PathEl::Move(x, y) => {
+                path.move_to((x, y));
+            }
+            PathEl::Line(x, y) => {
+                path.line_to((x, y));
+            }
+            PathEl::Quad(cx, cy, x, y) => {
+                path.quad_to((cx, cy), (x, y));
+            }
+            PathEl::Cubic(ax, ay, bx, by, x, y) => {
+                path.cubic_to((ax, ay), (bx, by), (x, y));
+            }
+            PathEl::Close => {
+                path.close();
+            }
+        }
+    }
+    path.detach()
+}
+
 /// Bilinear, no mipmaps — the prototype's sampling, kept because the golden frames the
 /// oracle guards were measured with it (ADR-0010).
 fn sampling() -> SamplingOptions {
@@ -572,6 +741,113 @@ mod tests {
         assert_eq!(Scale::Half.apply(101), 51);
         assert_eq!(Scale::Half.apply(1), 1);
         assert_eq!(Scale::Full.apply(1), 1);
+    }
+
+    /// A 40x40 square at the glyph origin, as an outline — the simplest shape whose
+    /// interior and whose border are both easy to point at.
+    fn square() -> Vec<PathEl> {
+        vec![
+            PathEl::Move(0.0, 0.0),
+            PathEl::Line(40.0, 0.0),
+            PathEl::Line(40.0, 40.0),
+            PathEl::Line(0.0, 40.0),
+            PathEl::Close,
+        ]
+    }
+
+    fn one_glyph(paint: Fill) -> Vec<u8> {
+        let mut canvas = Canvas::new(100, 100).expect("a surface");
+        canvas.background(Rgba([0xFF, 0xFF, 0xFF, 0xFF]));
+        canvas.text(
+            &[Glyph {
+                x: 0.0,
+                y: 0.0,
+                outline: 0,
+                paint,
+            }],
+            &[square()],
+            Extent {
+                width: 40.0,
+                height: 40.0,
+            },
+            &Transform {
+                x: 30.0,
+                y: 30.0,
+                origin: (0.0, 0.0),
+                scale: (1.0, 1.0),
+                rotation: 0.0,
+                opacity: 1.0,
+            },
+            None,
+        );
+        canvas
+            .encode(None, Scale::Full, Encoding::Png)
+            .expect("an encoded frame")
+            .bytes
+    }
+
+    /// One pixel of a PNG this module just wrote, read back through Skia's own decoder.
+    ///
+    /// The independent-decoder rule `tests/frame.rs` follows does not apply here: this is
+    /// a unit test of one paint rule, not a claim that the bytes are a picture, and the
+    /// crate links no second codec.
+    fn pixel_at(png: &[u8], x: i32, y: i32) -> [u8; 4] {
+        let image = Image::from_encoded(Data::new_copy(png)).expect("it decodes");
+        let info = ImageInfo::new(
+            ISize::new(1, 1),
+            ColorType::RGBA8888,
+            AlphaType::Unpremul,
+            None,
+        );
+        let mut out = [0u8; 4];
+        assert!(
+            image.read_pixels(
+                &info,
+                &mut out,
+                4,
+                (x, y),
+                skia_safe::image::CachingHint::Allow
+            ),
+            "reading ({x}, {y})"
+        );
+        out
+    }
+
+    #[test]
+    fn a_glyph_stroke_with_no_fill_behind_it_leaves_the_letterform_open() {
+        // ADR-0014 puts a text stroke *outside* the contour. The stroke is painted at
+        // twice the declared width and normally relies on the fill to cover the inner
+        // half — so with no fill, an unclipped stroke would flood the interior and an
+        // outlined word would come out solid. The interior must stay the background.
+        let hollow = one_glyph(Fill {
+            fill: None,
+            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF])),
+            stroke_width: 6.0,
+        });
+        // The square spans (30, 30)..(70, 70); its middle is nowhere near either edge.
+        assert_eq!(
+            pixel_at(&hollow, 50, 50),
+            [0xFF, 0xFF, 0xFF, 0xFF],
+            "the interior was painted over"
+        );
+        // And the border is there, six pixels outside the contour and not inside it.
+        assert_eq!(pixel_at(&hollow, 27, 50), [0x00, 0x00, 0xFF, 0xFF]);
+        assert_eq!(
+            pixel_at(&hollow, 33, 50),
+            [0xFF, 0xFF, 0xFF, 0xFF],
+            "the stroke reached inside the contour"
+        );
+
+        // With a fill, the same call paints a solid square — the clip is not applied, so
+        // no antialiased seam is introduced along the contour of ordinary text.
+        let solid = one_glyph(Fill {
+            fill: Some(Rgba([0xFF, 0x00, 0x00, 0xFF])),
+            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF])),
+            stroke_width: 6.0,
+        });
+        assert_eq!(pixel_at(&solid, 50, 50), [0xFF, 0x00, 0x00, 0xFF]);
+        assert_eq!(pixel_at(&solid, 33, 50), [0xFF, 0x00, 0x00, 0xFF]);
+        assert_eq!(pixel_at(&solid, 27, 50), [0x00, 0x00, 0xFF, 0xFF]);
     }
 
     #[test]

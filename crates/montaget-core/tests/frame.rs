@@ -454,7 +454,21 @@ fn the_picture_is_painted_in_the_captions_own_order() {
 fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
     // An agent that cannot tell "the element is not there" from "this build does not draw
     // that yet" goes looking for a defect in the document.
-    let (json, _) = drawn(&fixture_project(), &at(11000));
+    //
+    // A `transition`, because #213 took text off this list and a `transition` is what is
+    // left of #214 on the element side. The fixture carries none — every element it has
+    // at 11 000 ms is now drawn — so the case needs its own project, which is the right
+    // shape for it anyway: the assertion is about the *list*, not about the fixture.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &one_track(
+            r##"{"id":"fade","type":"transition","start":0,"end":1000,
+                 "kind":"crossfade","from":"a","to":"b"}"##,
+        ),
+    );
+    let (json, _) = drawn(&project, &at(500));
 
     let deferred: Vec<&str> = json["frame"]["not_painted"]
         .as_array()
@@ -462,7 +476,7 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
         .iter()
         .filter_map(|entry| entry["element"].as_str())
         .collect();
-    assert!(deferred.contains(&"sentence-05"), "{deferred:?}");
+    assert!(deferred.contains(&"fade"), "{deferred:?}");
     assert!(
         json["frame"]["not_painted"]
             .as_array()
@@ -471,6 +485,10 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
             .all(|entry| entry["reason"].as_str().is_some_and(|r| !r.is_empty())),
         "every entry states why"
     );
+
+    // And the other half of the same rule, on the fixture: an element painted without
+    // something the document asks of it.
+    let (json, _) = drawn(&fixture_project(), &at(11000));
 
     // An element that *was* painted, but not in full, is a different report from one that
     // was not painted at all — `handle-logo` carries the fixture's `mask` effect (#214).
@@ -1352,4 +1370,463 @@ fn an_instant_with_nothing_on_it_is_the_background_and_an_empty_caption() {
         json["exit_code"], 0,
         "an empty instant is a fact, not a failure"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Text (#213)
+// ---------------------------------------------------------------------------
+
+/// The fixture's vendored font, as an absolute path.
+///
+/// Absolute, so a project written into a scratch directory still resolves it: ADR-0053
+/// resolves a relative path against the project file's own directory, and these projects
+/// do not live beside the font. The path itself is still the only way in — nothing is
+/// registered from a system font book, because the code that would do it is not compiled
+/// into this binary (ADR-0007).
+fn vendored_font() -> String {
+    common::with_forward_slashes(
+        &fixture_dir()
+            .join("fonts/OpenRunde-Bold.otf")
+            .display()
+            .to_string(),
+    )
+}
+
+/// A project whose only track holds `elements`, on a 600×400 white frame, with the
+/// fixture's font declared as `brand`.
+///
+/// White, not black: every assertion below is "where is the ink", and black ink on a white
+/// ground is the arrangement in which an absent `color` — which this build paints opaque
+/// black — is visible rather than invisible.
+fn text_project(elements: &str) -> String {
+    canonical(&format!(
+        r##"{{"frame":{{"width":600,"height":400}},"fps":25,"background":"#FFFFFF",
+            "fonts":{{"brand":[{{"file":"{font}"}}]}},
+            "tracks":[{{"name":"only","layer":0,"elements":[{elements}]}}]}}"##,
+        font = vendored_font()
+    ))
+}
+
+/// The frame a text project draws, at true pixels and lossless, with its answer.
+#[track_caller]
+fn typeset(line: u32, elements: &str) -> (Value, image::RgbaImage) {
+    let dir = tempdir(line);
+    let project = write_project(&dir, "p.montaget.json", &text_project(elements));
+    let (json, bytes) = drawn(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(500)
+        },
+    );
+    (json, pixels(&bytes))
+}
+
+/// The bounding box of everything that is not the background — `(left, top, right,
+/// bottom)`, right and bottom exclusive — or `None` for a frame with no ink at all.
+///
+/// A tolerance of 24 rather than exact inequality: the edge of an antialiased glyph is a
+/// pixel that is 2% ink, and counting those would make every box a measurement of the
+/// antialiaser's reach rather than of where the letters are.
+fn ink(picture: &image::RgbaImage, background: [u8; 3]) -> Option<(u32, u32, u32, u32)> {
+    let mut found: Option<(u32, u32, u32, u32)> = None;
+    for y in 0..picture.height() {
+        for x in 0..picture.width() {
+            let [r, g, b] = rgb(picture, x, y);
+            let delta = r.abs_diff(background[0]) as u32
+                + g.abs_diff(background[1]) as u32
+                + b.abs_diff(background[2]) as u32;
+            if delta < 24 {
+                continue;
+            }
+            found = Some(match found {
+                None => (x, y, x + 1, y + 1),
+                Some((l, t, r, b)) => (l.min(x), t.min(y), r.max(x + 1), b.max(y + 1)),
+            });
+        }
+    }
+    found
+}
+
+const WHITE: [u8; 3] = [0xFF, 0xFF, 0xFF];
+
+#[test]
+fn a_text_element_is_painted_and_names_the_font_file_it_opened() {
+    // #212 could only assert that the chain *resolved*; the glyphs were #213's. Both
+    // halves are one claim now: the element is on `painted`, and the only file the whole
+    // frame opened is the one the project declares (ADR-0007).
+    let (json, picture) = typeset(
+        line!(),
+        r##"{"id":"hello","type":"text","start":0,"end":1000,"x":300,"y":200,
+            "origin":"center","width":560,"height":80,"font":"brand","size":64,
+            "color":"#1E344C","align":"center","runs":[{"text":"Montaget"}]}"##,
+    );
+
+    assert_eq!(
+        json["frame"]["painted"]
+            .as_array()
+            .expect("a painted list")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>(),
+        ["hello"]
+    );
+    assert!(
+        json["frame"]["not_painted"]
+            .as_array()
+            .expect("a list")
+            .is_empty(),
+        "nothing was deferred: {}",
+        json["frame"]["not_painted"]
+    );
+    assert_eq!(
+        json["frame"]["fonts"]
+            .as_array()
+            .expect("a fonts list")
+            .iter()
+            .filter_map(Value::as_str)
+            .map(common::with_forward_slashes)
+            .collect::<Vec<_>>(),
+        [vendored_font()]
+    );
+    assert!(
+        ink(&picture, WHITE).is_some(),
+        "the glyphs reached the frame"
+    );
+}
+
+#[test]
+fn the_glyphs_sit_on_the_baselines_measure_reports() {
+    // The claim the whole ticket turns on: `measure` and the picture are one derivation,
+    // not two that agree. So the assertion is not "the text looks about right" but "the
+    // ink lies inside the block `measure` published, and its baseline is where `measure`
+    // put it" — with the expected numbers coming from the *verb*, not from repeating the
+    // engine's arithmetic here.
+    let element = serde_json::json!({
+        "id": "two-lines",
+        "type": "text",
+        "start": 0,
+        "end": 1000,
+        "x": 300,
+        "y": 200,
+        "origin": "center",
+        "width": 560,
+        "height": 192,
+        "font": "brand",
+        "size": 48,
+        // Two full slots between the baselines, so there is a band no glyph of this size
+        // can reach. At the 1.2 default the font's own ascent plus descent is *taller*
+        // than the slot it sits in — legal, and exactly the case ADR-0007's "a line's
+        // height is the largest size on it x line_height" admits — but it leaves no clear
+        // band, and an assertion with no band is an assertion about nothing.
+        "line_height": 2.0,
+        "color": "#000000",
+        "align": "center",
+        "runs": [{"text": "Hxg\nHxg"}],
+    });
+    let dir = tempdir(line!());
+    let project = write_project(&dir, "p.montaget.json", &text_project(&element.to_string()));
+
+    let measured = montaget_core::verbs::measure::measure(
+        &project,
+        &montaget_core::verbs::measure::Ask {
+            element: Some(element),
+        },
+    );
+    let measured = measured.to_json();
+    let block_top = measured["measure"]["block_top"].as_f64().expect("a block");
+    let block_bottom = measured["measure"]["block_bottom"]
+        .as_f64()
+        .expect("a block");
+    let lines = measured["measure"]["lines"].as_array().expect("two lines");
+    assert_eq!(lines.len(), 2, "the mandatory break made two lines");
+
+    let (_, bytes) = drawn(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(500)
+        },
+    );
+    let picture = pixels(&bytes);
+    let (_, top, _, bottom) = ink(&picture, WHITE).expect("the glyphs reached the frame");
+
+    // The block is the slot, and a slot is taller than the ink inside it: `line_height`
+    // 1.2 reserves 20% more than the type. So the ink must be *inside* the block, and the
+    // assertion is containment rather than equality — equality would be an assertion
+    // about this font's ascent, which is the font's business and not Montaget's.
+    assert!(
+        f64::from(top) >= block_top - 1.0,
+        "the first line's ink starts at {top}, above the block's own top {block_top}"
+    );
+    assert!(
+        f64::from(bottom) <= block_bottom + 1.0,
+        "the last line's ink ends at {bottom}, below the block's own bottom {block_bottom}"
+    );
+
+    // And the baselines themselves. Between the first line's deepest descender and the
+    // top of the second line's tallest ascender there is a band no glyph can reach, and
+    // every number bounding it — the two baselines, the descent, the ascent — is
+    // `measure`'s own. `Hxg` is chosen for the descender: without one the band would be
+    // wider than the type and the assertion would hold for a renderer that had put the
+    // second line anywhere in it.
+    let first = lines[0]["baseline_y"].as_f64().expect("a baseline");
+    let second = lines[1]["baseline_y"].as_f64().expect("a baseline");
+    let descent = lines[0]["descent"].as_f64().expect("a descent");
+    let ascent = lines[1]["ascent"].as_f64().expect("an ascent");
+    let gap = ((first + descent).ceil() as u32 + 1)..((second - ascent).floor() as u32);
+    assert!(
+        !gap.is_empty(),
+        "the two lines leave no clear band to assert about: baselines {first}/{second}, \
+         descent {descent}, ascent {ascent}"
+    );
+    assert!(
+        gap.clone()
+            .all(|y| (0..picture.width()).all(|x| rgb(&picture, x, y) == WHITE)),
+        "the band between the first line's descender and the second's ascender {gap:?} \
+         is not clear, so the lines are not where measure says they are"
+    );
+}
+
+#[test]
+fn align_lays_the_lines_out_against_each_other_and_origin_places_the_block() {
+    // ADR-0007 keeps the two apart — `origin` is "the nine-way point of the text box that
+    // `x`,`y` places" and `align` is "how lines align to each other". The box the lines
+    // align inside is the block they make, because ADR-0014 says a text element's
+    // `width`/`height` is "a container claim, not painted geometry".
+    //
+    // So: one long line and one short one. `align` decides where the short line sits
+    // relative to the long one; the long one's own edge is where `origin` put it, at every
+    // alignment.
+    let mut short_edges = Vec::new();
+    let mut block_edges = Vec::new();
+    for align in ["start", "center", "end"] {
+        let (_, picture) = typeset(
+            line!(),
+            &format!(
+                r##"{{"id":"a","type":"text","start":0,"end":1000,"x":40,"y":200,
+                    "origin":"center-left","width":520,"height":120,"font":"brand",
+                    "size":40,"color":"#000000","align":"{align}",
+                    "runs":[{{"text":"wwwwwwwwwwww\nii"}}]}}"##
+            ),
+        );
+        let (left, _, right, _) = ink(&picture, WHITE).expect("ink");
+        block_edges.push((left, right));
+
+        // The short line alone: everything below the first line's slot.
+        let lower = image::imageops::crop_imm(&picture, 0, 200, 600, 200).to_image();
+        short_edges.push(ink(&lower, WHITE).expect("the short line").0);
+    }
+
+    // `origin: center-left` at x 40 puts the block's left edge at 40, whatever `align`
+    // does inside it.
+    for (left, _) in &block_edges {
+        assert!(
+            (38..=44).contains(left),
+            "the block's left edge is at {left}, not the x of 40 `origin: center-left` \
+             names (block edges: {block_edges:?})"
+        );
+    }
+    let [start, centre, end] = short_edges[..] else {
+        unreachable!("three alignments")
+    };
+    assert!(
+        start < centre && centre < end,
+        "the short line did not move rightwards through start, center, end: \
+         {short_edges:?}"
+    );
+    assert!(
+        start <= 44,
+        "`align: start` puts the short line at the block's own left edge, not {start}"
+    );
+}
+
+#[test]
+fn a_text_stroke_falls_outside_the_glyph_contour_and_never_thins_it() {
+    // ADR-0014, the text half of its asymmetry: "on text the stroke falls outside the
+    // glyph contour ... because inside or centred erases letterforms by thinning the
+    // stems". Both halves are asserted — the stroked text covers strictly more, *and*
+    // every pixel the unstroked letterform filled is still the fill colour.
+    let plain = r##"{"id":"t","type":"text","start":0,"end":1000,"x":300,"y":200,
+        "origin":"center","width":560,"height":120,"font":"brand","size":72,
+        "color":"#FF0000","align":"center","runs":[{"text":"HHH"}]}"##;
+    let stroked = r##"{"id":"t","type":"text","start":0,"end":1000,"x":300,"y":200,
+        "origin":"center","width":560,"height":120,"font":"brand","size":72,
+        "color":"#FF0000","align":"center","stroke":"#0000FF","stroke_width":6,
+        "runs":[{"text":"HHH"}]}"##;
+
+    let (_, bare) = typeset(line!(), plain);
+    let (_, bordered) = typeset(line!(), stroked);
+
+    let (bl, bt, br, bb) = ink(&bare, WHITE).expect("ink");
+    let (sl, st, sr, sb) = ink(&bordered, WHITE).expect("ink");
+    assert!(
+        sl < bl && st < bt && sr > br && sb > bb,
+        "the stroke did not grow the drawn shape on all four sides: bare \
+         {:?} against stroked {:?}",
+        (bl, bt, br, bb),
+        (sl, st, sr, sb)
+    );
+    // Six pixels of stroke on each side, give or take the antialiased edge the `ink`
+    // tolerance already trims.
+    assert!(
+        (4..=8).contains(&(bl - sl)),
+        "the stroke reached {} px to the left of the contour, not the 6 declared",
+        bl - sl
+    );
+
+    // And the letterform is untouched: every pixel that was solidly red before is solidly
+    // red now. A centred or inside stroke would have eaten the stems from both edges.
+    let mut checked = 0;
+    for y in bt..bb {
+        for x in bl..br {
+            if rgb(&bare, x, y) != RED {
+                continue;
+            }
+            checked += 1;
+            assert_eq!(
+                rgb(&bordered, x, y),
+                RED,
+                "the stroke thinned the letterform at ({x}, {y})"
+            );
+        }
+    }
+    assert!(checked > 500, "only {checked} solid pixels were compared");
+}
+
+#[test]
+fn a_run_carries_its_own_colour_size_and_stroke_over_the_elements() {
+    // ADR-0007's base-plus-deltas model, and ADR-0014's run-addressable paint: "outline
+    // one word" is the case the ADR names, and it is not expressible if paint is a
+    // property of the element.
+    let (_, picture) = typeset(
+        line!(),
+        r##"{"id":"runs","type":"text","start":0,"end":1000,"x":300,"y":200,
+            "origin":"center","width":560,"height":120,"font":"brand","size":56,
+            "color":"#FF0000","align":"center",
+            "runs":[{"text":"AA"},{"text":"BB","color":"#0000FF"}]}"##,
+    );
+
+    let mut red = 0;
+    let mut blue = 0;
+    for y in 0..picture.height() {
+        for x in 0..picture.width() {
+            match rgb(&picture, x, y) {
+                RED => red += 1,
+                BLUE => blue += 1,
+                _ => {}
+            }
+        }
+    }
+    assert!(
+        red > 200 && blue > 200,
+        "both runs' colours must be on the frame: {red} red, {blue} blue"
+    );
+}
+
+#[test]
+fn an_element_that_states_no_colour_is_painted_opaque_black() {
+    // A recorded reading, not an ADR's: `color` is optional on a text element, so an
+    // absent one is legal and ADR-0030 makes it "give me whatever the default is". The
+    // default is argued at `DEFAULT_INK` (#277) and is asserted here so that changing it
+    // is a test failure rather than a silent restyle of every project that omits the
+    // field.
+    let (_, picture) = typeset(
+        line!(),
+        r##"{"id":"bare","type":"text","start":0,"end":1000,"x":300,"y":200,
+            "origin":"center","width":560,"height":120,"font":"brand","size":64,
+            "align":"center","runs":[{"text":"ink"}]}"##,
+    );
+    let (left, top, right, bottom) = ink(&picture, WHITE).expect("ink");
+    let black = (top..bottom)
+        .flat_map(|y| (left..right).map(move |x| (x, y)))
+        .filter(|&(x, y)| rgb(&picture, x, y) == BLACK)
+        .count();
+    assert!(black > 200, "only {black} pixels came out black");
+}
+
+#[test]
+fn a_text_element_whose_chain_does_not_resolve_is_named_rather_than_drawn_in_anything_else() {
+    // ADR-0007's structural rule, at the surface an agent reads: a font that cannot be
+    // opened must not quietly become some other font. There is no fallback to fall back
+    // to — `fontique`'s system-font discovery is not compiled in — so the only correct
+    // answer is to say so.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &canonical(
+            r##"{"frame":{"width":600,"height":400},"fps":25,"background":"#FFFFFF",
+                "tracks":[{"name":"only","layer":0,"elements":[
+                  {"id":"nope","type":"text","start":0,"end":1000,"x":300,"y":200,
+                   "origin":"center","width":560,"height":120,"font":"brand","size":64,
+                   "color":"#000000","runs":[{"text":"ink"}]}]}]}"##,
+        ),
+    );
+    let (json, bytes) = drawn(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(500)
+        },
+    );
+
+    let deferred = &json["frame"]["not_painted"][0];
+    assert_eq!(deferred["element"], "nope");
+    assert!(
+        deferred["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("font chain")),
+        "the reason must name the chain: {deferred}"
+    );
+    assert!(
+        json["frame"]["fonts"]
+            .as_array()
+            .expect("a list")
+            .is_empty(),
+        "nothing was opened"
+    );
+    assert!(
+        ink(&pixels(&bytes), WHITE).is_none(),
+        "an unresolvable chain draws nothing at all, rather than something in a \
+         substituted face"
+    );
+}
+
+#[test]
+fn a_runs_highlight_window_is_painted_in_its_unconditional_style_and_says_so() {
+    // ADR-0048's timed restyle is #214's. The element is still painted — an agent looking
+    // at a frame needs the words — and the half it is not getting is named beside the
+    // picture, which is the rule `painted_partially` exists for.
+    let (json, picture) = typeset(
+        line!(),
+        r##"{"id":"timed","type":"text","start":0,"end":1000,"x":300,"y":200,
+            "origin":"center","width":560,"height":120,"font":"brand","size":56,
+            "color":"#FF0000","align":"center",
+            "runs":[{"text":"now","highlight":{"start":0,"end":1000,"color":"#0000FF"}}]}"##,
+    );
+
+    assert!(
+        json["frame"]["painted"]
+            .as_array()
+            .expect("a list")
+            .iter()
+            .any(|id| id == "timed")
+    );
+    assert!(
+        json["frame"]["painted_partially"][0]["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("#214")),
+        "the window is named as deferred: {}",
+        json["frame"]["painted_partially"]
+    );
+    // And it really is the unconditional colour on the frame, not the window's.
+    let blue = (0..picture.height())
+        .flat_map(|y| (0..picture.width()).map(move |x| (x, y)))
+        .filter(|&(x, y)| rgb(&picture, x, y) == BLUE)
+        .count();
+    assert_eq!(blue, 0, "the highlight colour was painted after all");
 }

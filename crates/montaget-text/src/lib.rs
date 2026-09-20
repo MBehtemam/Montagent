@@ -13,6 +13,8 @@
 //!   Montaget never places a line break itself. See [`breaks`].
 //! - **Each line's resolved `baseline_y`** (ADR-0029), and the **stroked** extent rather
 //!   than the typographic one (ADR-0014). See [`engine`].
+//! - **Where every glyph goes**, as outlines in the block's own coordinates, off the same
+//!   shaping pass the measurement came from — never a second layout (#213). See [`place`].
 //! - **What a font file says about itself** — its family and PostScript names and its
 //!   licence strings, per face — for `fonts list` and the gate in `fonts vendor`
 //!   (ADR-0057). See [`names`]. Read, never judged: which names are blocklisted is a rule,
@@ -33,8 +35,10 @@ pub mod engine;
 pub mod fonts;
 pub mod lines;
 pub mod names;
+pub mod place;
 
 pub use breaks::{SEGMENTER, Segmenter};
 pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
 pub use fonts::{FontError, FontFile, Fonts};
 pub use names::FaceNames;
+pub use place::{Align, Glyph, PathEl, Placement, place};
