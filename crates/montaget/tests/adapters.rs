@@ -253,9 +253,10 @@ fn cli_query_takes_no_flag_that_collapses_the_answer() {
     assert!(out.stdout.contains("--json"), "{}", out.stdout);
     assert!(out.stdout.contains("--where"), "{}", out.stdout);
     assert!(!out.stdout.contains("--verbose"), "{}", out.stdout);
-    // `--at` is the third mode, and it is blocked on the crop rectangle and on `measure`
-    // (ADR-0011). Advertising it before it answers would be the worst of both.
-    assert!(!out.stdout.contains("--at"), "{}", out.stdout);
+    // All three of ADR-0011's modes reach the verb (#208). What `--at` does *not* yet carry
+    // is the half that reaches outside the document — the crop rectangle, the ink box, the
+    // offset into the source and `NOT COVERED` — which is #210.
+    assert!(out.stdout.contains("--at"), "{}", out.stdout);
 }
 
 #[test]
@@ -873,7 +874,7 @@ fn mcp_rejects_a_bad_call_with_a_finding_like_every_other_surface() {
 }
 
 #[test]
-fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
+fn mcp_query_advertises_the_schema_it_enforces_and_answers_all_three_modes() {
     // ADR-0011 puts `query` on both surfaces: it is what an agent calls in the loop, and
     // the cost argument that keeps `probe`, `fmt` and `timeline` off MCP does not apply to
     // a verb the agent needs on every edit.
@@ -905,6 +906,14 @@ fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
             "tools/call",
             serde_json::json!({"name": "query", "arguments": {"from": 0, "to": 1}}),
         ),
+        request(
+            6,
+            "tools/call",
+            serde_json::json!({
+                "name": "query",
+                "arguments": {"project": project, "at": 6205}
+            }),
+        ),
     ]);
 
     let query = session[&2]["result"]["tools"]
@@ -917,7 +926,7 @@ fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
     let schema = &query["inputSchema"];
     assert_eq!(schema["type"], "object");
     assert_eq!(schema["required"], serde_json::json!(["project"]));
-    for property in ["project", "from", "to", "where", "census", "json"] {
+    for property in ["project", "at", "from", "to", "where", "census", "json"] {
         assert!(
             !schema["properties"][property].is_null(),
             "the schema advertises `{property}`: {schema}"
@@ -926,8 +935,6 @@ fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
     // `verbose` would cost the agent context on every turn and change nothing: `query` has
     // no informational findings to expand.
     assert!(schema["properties"]["verbose"].is_null(), "{schema}");
-    // `--at` is the third mode and is blocked on the crop rectangle and on `measure`.
-    assert!(schema["properties"]["at"].is_null(), "{schema}");
 
     let cuts = session[&3]["result"]["content"][0]["text"]
         .as_str()
@@ -940,6 +947,19 @@ fn mcp_query_advertises_the_schema_it_enforces_and_answers_both_modes() {
         .as_str()
         .expect("a rendered answer");
     assert!(matches.contains("census y: 5 at 1537"), "{matches}");
+
+    let resolved = session[&6]["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered answer");
+    assert!(
+        resolved.contains("QUERY  the resolved stack at 6205"),
+        "{resolved}"
+    );
+    // ADR-0011's own worked number, through the surface an agent actually calls.
+    assert!(
+        resolved.contains("scale [1.016997, 1.016997]"),
+        "{resolved}"
+    );
 
     let rejected = &session[&5];
     let text = rejected["result"]["content"][0]["text"]

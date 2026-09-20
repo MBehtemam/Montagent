@@ -929,15 +929,153 @@ fn pixels(value: &Value) -> String {
 /// cut list read without knowing the range it was taken over is a column of numbers.
 fn query_block(query: &Value) -> String {
     match query["mode"].as_str() {
+        Some("at") => at_block(query),
         Some("cuts") => cuts_block(query),
         Some("matches") => matches_block(query),
-        // The two modes are an internally-tagged enum, so a third spelling means this
+        // The three modes are an internally-tagged enum, so a fourth spelling means this
         // renderer is older than the verb it is rendering. Say that, rather than print
         // nothing and let the answer look empty.
         other => format!(
             "\nQUERY\n  this build cannot render a `{}` answer\n",
             other.unwrap_or("(unnamed)")
         ),
+    }
+}
+
+/// The resolved stack at one instant: one row per present element, back to front.
+///
+/// Painter's order is the order the rows are already in, so the block reads the way the
+/// frame is painted — the row a reader scrolls to last is the one on top. The layer is
+/// printed all the same, because two adjacent rows at one layer is a fact about the
+/// document (ADR-0060 makes an overlapping one an `error`) and a bare ordering hides it.
+///
+/// **Numbers print to six decimal places**, which is ADR-0012's own precision for the three
+/// continuous properties — *"the first precision that is sub-0.01 px at 8K and short enough
+/// to stay greppable"*. It is a rendering choice and the canonical JSON carries the value in
+/// full; the heading says so rather than leaving a reader to discover it by comparing the
+/// two forms.
+fn at_block(at: &Value) -> String {
+    let stack = at["stack"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let mut out = format!(
+        "\nQUERY  the resolved stack at {} — {} (painter's order, back to front; numbers to \
+         6 dp)\n",
+        stated_number(&at["at"]),
+        plural(stack.len() as u64, "element"),
+    );
+
+    // One row per element, then the widths, then the print — `timeline`'s arrangement, for
+    // its reason: a column measured by walking four parallel vectors in step is a column
+    // that silently misaligns the day a fifth is added.
+    let rows: Vec<Resolution> = stack.iter().map(Resolution::of).collect();
+    let widest = |cell: fn(&Resolution) -> &String| width_of(rows.iter().map(cell));
+    let (layer, id, kind, range) = (
+        widest(|row| &row.layer),
+        widest(|row| &row.id),
+        widest(|row| &row.kind),
+        widest(|row| &row.range),
+    );
+
+    for resolution in &rows {
+        out.push_str(&row(format!(
+            "{:<layer$}  {:<id$}  {:<kind$}  {:<range$}  {}",
+            resolution.layer, resolution.id, resolution.kind, resolution.range, resolution.resolved,
+        )));
+    }
+
+    // Named rather than dropped, for the cut list's reason: a stack computed over fewer
+    // elements than the project has says so next to the answer.
+    if let Some(unplaced) = at["unplaced"].as_array().filter(|ids| !ids.is_empty()) {
+        let names: Vec<String> = unplaced.iter().map(named).collect();
+        out.push_str(&row(format!(
+            "{} state no integer range and are not in the stack: {}",
+            plural(names.len() as u64, "element"),
+            names.join(", "),
+        )));
+    }
+    out
+}
+
+/// One element of the resolved stack, as the five cells its row is printed from.
+struct Resolution {
+    layer: String,
+    id: String,
+    kind: String,
+    range: String,
+    resolved: String,
+}
+
+impl Resolution {
+    fn of(element: &Value) -> Resolution {
+        Resolution {
+            layer: layer_words(&element["layer"]),
+            id: named(&element["id"]),
+            kind: named(&element["type"]),
+            range: range_words(element),
+            resolved: resolved_cells(element),
+        }
+    }
+}
+
+/// What one element resolved to: why its layer did not, where it did not, then every
+/// animated property it declares.
+fn resolved_cells(element: &Value) -> String {
+    let mut cells: Vec<String> = Vec::new();
+    if let Some(unresolved) = element["layer_unresolved"].as_str() {
+        cells.push(format!("no layer: {unresolved}"));
+    }
+    for value in element["values"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+    {
+        let property = named(&value["property"]);
+        let animated = match value["animated"].as_bool().unwrap_or(false) {
+            true => " (animated)",
+            // Not a word of its own: the unmarked row is the still one, and marking both
+            // would double the width of the column that carries the answer.
+            false => "",
+        };
+        cells.push(match value["unresolved"].as_str() {
+            Some(reason) => format!("{property} unresolved: {reason}"),
+            None => format!("{property} {}{animated}", resolved_number(&value["value"])),
+        });
+    }
+    match cells.is_empty() {
+        // A fact, not a blank: an audio element with no `volume` declares nothing that
+        // changes over time, and a reader scanning the column would read an empty cell as a
+        // rendering slip.
+        true => "(declares no animated property)".to_string(),
+        false => cells.join(", "),
+    }
+}
+
+/// One resolved value, at the display precision, or the pair `scale` resolves to.
+fn resolved_number(value: &Value) -> String {
+    match value {
+        Value::Array(pair) => format!(
+            "[{}]",
+            pair.iter()
+                .map(resolved_number)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        Value::Number(n) => match n.as_f64() {
+            Some(n) => trimmed(format!("{n:.6}")),
+            None => n.to_string(),
+        },
+        other => stated_number(other),
+    }
+}
+
+/// A fixed-point number with its trailing zeros removed — `540.000000` is `540`, and
+/// `1.001867` keeps every digit it needs.
+fn trimmed(number: String) -> String {
+    match number.contains('.') {
+        true => number
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string(),
+        false => number,
     }
 }
 

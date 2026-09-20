@@ -1,39 +1,39 @@
 //! `query` — *"what is true at an instant, over a range, or across a predicate"* (ADR-0011).
 //!
-//! Two of the three modes are here. Both read the document and **resolve nothing**, which
-//! is what makes them buildable today: ADR-0011 records that `query`'s expensive half — the
-//! crop rectangle, the ink box, `NOT COVERED` — is *"blocked on [#21] and on `measure`"*,
-//! and that block is `--at`'s alone.
+//! All three modes are here.
 //!
+//! - **`--at <t>`** — the resolved stack at an instant. See [`at`].
 //! - **`--from <a> --to <b>`** — the cut list. See [`cuts`].
 //! - **`--where <predicate> [--census <field>]`** — the matched set and its distribution.
 //!   See [`predicate`].
 //!
-//! ## Why these two are not the `jq` half of the verb, quite
+//! ## Why the two reading modes are not the `jq` half of the verb, quite
 //!
 //! ADR-0011's verifier ran all eight components of the disputed `--at` output and found the
 //! shell reaches the presence list, the resolved keyframe value and the previous/next
 //! boundary — *"the rebuttal to the kill was itself half wrong"*. So the honest claim for
-//! these two modes is not that a shell cannot compute them. It is that the shell computes
-//! each one **per invocation, correctly only if the invoker got the half-open convention
-//! and the absent cases right**, and that getting them right is a property of one tested
-//! implementation rather than of the person typing the filter.
+//! [`cuts`] and [`predicate`] is not that a shell cannot compute them. It is that the shell
+//! computes each one **per invocation, correctly only if the invoker got the half-open
+//! convention and the absent cases right**, and that getting them right is a property of one
+//! tested implementation rather than of the person typing the filter.
 //!
-//! The one component ADR-0011 records the shell getting *wrong* — the painter's-order
-//! one-liner that *"silently invents an order at layer ties"* — is deliberately **not**
-//! answered here. Draw order is a resolved value: an element may state its layer as
-//! `{"below": "card"}`, and naming the integer would be exactly the resolution #196 keeps
-//! out of these two modes. It belongs to `--at`, with the rest of the resolved stack.
+//! ## Only `--at` resolves anything
 //!
-//! ## Neither mode resolves anything
+//! #196's acceptance criterion was *"asserted by it working with no resolver present"*, and
+//! the assertion is structural rather than a test's discipline: nothing in [`cuts`] or in
+//! [`predicate`] reads a `{t,v,ease}` record, consults [`crate::stack`], or opens anything.
+//! A range comes from `start` and `end`, and a predicate compares against what the document
+//! writes — ADR-0070 bounds *"resolved values, never echoed fields"* to `--at` for exactly
+//! that reason.
 //!
-//! #196's acceptance criterion is *"asserted by it working with no resolver present"*, and
-//! the assertion is structural rather than a test's discipline: nothing in this module, in
-//! [`cuts`] or in [`predicate`] reads a `{t,v,ease}` record, consults [`crate::stack`], or
-//! opens anything. A range comes from `start` and `end`, and a predicate compares against
-//! what the document writes. The one file a run does open is the project itself, through
-//! the same [`parse::read`] every verb reads it with.
+//! [`at`] is the other half, and it resolves through the two modules that own those rules
+//! rather than through any arithmetic of its own: [`crate::stack`] for painter's order and
+//! [`crate::resolve`] for an animated value. It still opens nothing — the four components
+//! that reach outside the document are
+//! [#210](https://github.com/MBehtemam/Montaget/issues/210). The one file any run opens is
+//! the project itself, through the same [`parse::read`] every verb reads it with.
 
+pub mod at;
 pub mod cuts;
 pub mod predicate;
 
@@ -47,6 +47,7 @@ use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
 
+use at::At;
 use cuts::Cuts;
 use predicate::{Path, Predicate};
 
@@ -61,6 +62,7 @@ const TOOL: &str = "query";
 /// its own copy.
 #[derive(Debug, Clone, Default)]
 pub struct Ask {
+    pub at: Option<i64>,
     pub from: Option<i64>,
     pub to: Option<i64>,
     pub predicate: Option<String>,
@@ -101,6 +103,8 @@ impl Answer {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "mode", rename_all = "lowercase")]
 pub enum View {
+    /// `--at`.
+    At(At),
     /// `--from --to`.
     Cuts(Cuts),
     /// `--where`, with or without `--census`.
@@ -117,16 +121,18 @@ pub struct Matches {
     pub census: Option<Census>,
 }
 
-/// Who an element is, as both modes name it.
+/// Who an element is, as all three modes name it.
 ///
 /// The identifying fields and no more. ADR-0011's organising rule for `query` is that it
-/// *"returns resolved values, never echoed fields"* — and these two modes resolve nothing,
-/// so echoing each element's whole object back would be the failure that rule names, at
-/// length. The caller has the document; what it did not have is which elements these are.
+/// *"returns resolved values, never echoed fields"* — so echoing each element's whole object
+/// back would be the failure that rule names, at length. The caller has the document; what
+/// it did not have is which elements these are, and — under `--at` — what its animated
+/// fields resolve to, which is carried beside this rather than inside it.
 ///
-/// One struct rather than one per mode, because it is one question — a cut list's member
-/// and a matched element are the same element, and two readings of the permissive tree
-/// would be two places the answer to *"what is this element called"* could drift.
+/// One struct rather than one per mode, because it is one question — a cut list's member, a
+/// matched element and a member of the resolved stack are the same element, and three
+/// readings of the permissive tree would be three places the answer to *"what is this
+/// element called"* could drift.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Named {
     pub id: Option<String>,
@@ -249,8 +255,11 @@ pub fn query(path: &FilePath, ask: &Ask) -> Answer {
     }
 }
 
-/// One of the two modes, with its arguments already checked.
+/// One of the three modes, with its arguments already checked.
 enum Question {
+    At {
+        instant: i64,
+    },
     Cuts {
         from: i64,
         to: i64,
@@ -265,66 +274,91 @@ enum Question {
 impl Question {
     /// Which question the flags ask, or the one sentence saying why they ask none.
     fn of(ask: &Ask) -> Result<Question, String> {
-        let range = ask.from.is_some() || ask.to.is_some();
-        let matching = ask.predicate.is_some();
+        // One question per invocation, and the three are named in the order ADR-0011 lists
+        // them. Counted rather than matched over a tuple of three booleans: the message a
+        // caller gets has to name *which* two they asked, and eight arms would each have to
+        // spell that out again.
+        let asked: Vec<&str> = [
+            (ask.at.is_some(), "`--at`"),
+            (ask.from.is_some() || ask.to.is_some(), "`--from`/`--to`"),
+            (ask.predicate.is_some(), "`--where`"),
+        ]
+        .into_iter()
+        .filter(|(asked, _)| *asked)
+        .map(|(_, flag)| flag)
+        .collect();
 
-        match (range, matching) {
-            (true, true) => Err(
-                "`--from`/`--to` and `--where` are different questions; ask one of them per \
-                 invocation"
-                    .into(),
-            ),
-            (false, false) => Err(
-                "`query` needs a question: `--from <a> --to <b>` for the cut list, or \
-                 `--where <predicate>` for the matched set"
-                    .into(),
-            ),
-            (true, false) => {
-                // Both halves, always. A range with one end open would have this verb choose
-                // the other — the document's first instant, its `duration`, zero — and the
-                // whole point of naming the boundary outside the range is that the caller
-                // never has to guess a window. A verb that guessed one for them would be
-                // doing the guessing instead.
-                let (Some(from), Some(to)) = (ask.from, ask.to) else {
-                    return Err("`--from` and `--to` are asked for together".into());
-                };
-                if from >= to {
-                    return Err(format!(
-                        "`--from {from} --to {to}` is empty: a range is half-open `[from, to)`, \
-                         so `--to` must be greater than `--from`"
-                    ));
-                }
-                if ask.census.is_some() {
-                    return Err(
-                        "`--census` is a distribution over a matched set, so it goes with \
-                         `--where` rather than with `--from`/`--to`"
-                            .into(),
-                    );
-                }
-                Ok(Question::Cuts { from, to })
+        match asked.len() {
+            0 => {
+                return Err(
+                    "`query` needs a question: `--at <t>` for the resolved stack, `--from \
+                     <a> --to <b>` for the cut list, or `--where <predicate>` for the \
+                     matched set"
+                        .into(),
+                );
             }
-            (false, true) => {
-                let spelling = ask.predicate.clone().unwrap_or_default();
-                let predicate = Predicate::parse(&spelling)
-                    .map_err(|reason| format!("`--where {spelling}`: {reason}"))?;
-                let census = match &ask.census {
-                    Some(field) => Some(
-                        Path::parse(field)
-                            .map_err(|reason| format!("`--census {field}`: {reason}"))?,
-                    ),
-                    None => None,
-                };
-                Ok(Question::Matching {
-                    spelling,
-                    predicate,
-                    census,
-                })
+            1 => {}
+            _ => {
+                return Err(format!(
+                    "{} are different questions; ask one of them per invocation",
+                    asked.join(" and ")
+                ));
             }
         }
+
+        // `--census` is a distribution over a matched set, so it belongs to exactly one of
+        // the three. Checked once here rather than in each of the other two arms.
+        if ask.census.is_some() && ask.predicate.is_none() {
+            return Err(
+                "`--census` is a distribution over a matched set, so it goes with `--where`".into(),
+            );
+        }
+
+        if let Some(instant) = ask.at {
+            // Every instant is a legal question, including one before the project starts and
+            // one after it ends: the answer there is an empty stack, which is a fact about
+            // the document rather than a malformed call. A negative instant is legal for the
+            // same reason — the clock is absolute integer milliseconds (ADR-0005) and
+            // nothing in the format says a project may not carry one.
+            return Ok(Question::At { instant });
+        }
+
+        if ask.predicate.is_some() {
+            let spelling = ask.predicate.clone().unwrap_or_default();
+            let predicate = Predicate::parse(&spelling)
+                .map_err(|reason| format!("`--where {spelling}`: {reason}"))?;
+            let census = match &ask.census {
+                Some(field) => Some(
+                    Path::parse(field).map_err(|reason| format!("`--census {field}`: {reason}"))?,
+                ),
+                None => None,
+            };
+            return Ok(Question::Matching {
+                spelling,
+                predicate,
+                census,
+            });
+        }
+
+        // Both halves, always. A range with one end open would have this verb choose the
+        // other — the document's first instant, its `duration`, zero — and the whole point of
+        // naming the boundary outside the range is that the caller never has to guess a
+        // window. A verb that guessed one for them would be doing the guessing instead.
+        let (Some(from), Some(to)) = (ask.from, ask.to) else {
+            return Err("`--from` and `--to` are asked for together".into());
+        };
+        if from >= to {
+            return Err(format!(
+                "`--from {from} --to {to}` is empty: a range is half-open `[from, to)`, so \
+                 `--to` must be greater than `--from`"
+            ));
+        }
+        Ok(Question::Cuts { from, to })
     }
 
     fn answer(self, document: &Loose) -> View {
         match self {
+            Question::At { instant } => View::At(at::at(document, instant)),
             Question::Cuts { from, to } => View::Cuts(cuts::cuts(document, from, to)),
             Question::Matching {
                 spelling,

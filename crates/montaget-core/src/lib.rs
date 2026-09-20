@@ -56,6 +56,7 @@ pub mod parse;
 pub mod permissive;
 pub mod registry;
 pub mod report;
+pub mod resolve;
 pub mod resources;
 pub mod schema;
 pub mod slack;

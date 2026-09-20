@@ -947,7 +947,7 @@ fn a_question_that_is_not_one_of_the_two_modes_is_exit_3_and_a_finding() {
             from: Some(0),
             to: Some(1),
             predicate: Some("type = text".into()),
-            census: None,
+            ..Ask::default()
         },
         Ask {
             from: Some(0),
