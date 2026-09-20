@@ -590,6 +590,27 @@ intersection of `{from}` and `{to}`, which is {derived_start}..{derived_end}.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0059's closed-form function — `max(start)..min(end)` — has no legitimate
+        // domain when `from` and `to` never coexist: the "intersection" collapses to an
+        // empty or inverted range, and `E-TRANSITION-RANGE`'s own repair ("set `start` to
+        // X and `end` to Y") would recommend that same inverted pair back, an advise-class
+        // finding claiming a fix is "fully determined" when it is not — the document does
+        // not say whether the transition should move, one of the bridged elements should
+        // move, or the transition should not exist at all. Its own code and refuse-class,
+        // on `E-TRACK-OVERLAP`'s reasoning, rather than a branch inside `E-TRANSITION-RANGE`
+        // that would have to state one class for two differently-determined outcomes.
+        // Surface the ADR series has not ratified, found reviewing #202's own merge.
+        code: "E-TRANSITION-NO-OVERLAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0059",
+        template: "{element}: the transition bridges `{from}` ({from_start}..{from_end}) and \
+`{to}` ({to_start}..{to_end}), which never overlap — there is no window for a crossfade \
+between them.",
+        status: Live,
+    },
+    CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],
         repair: None,
