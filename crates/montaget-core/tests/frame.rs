@@ -298,6 +298,39 @@ fn a_frame_that_is_not_a_frame_is_a_defect_in_the_document_and_not_in_montaget()
 }
 
 #[test]
+fn a_crop_edge_past_i64_max_is_exit_3_and_never_montaget_breaking() {
+    // These are the only numbers `frame` takes from the caller rather than from the
+    // document, so they are the only ones nothing upstream has bounded. Before the
+    // arithmetic saturated, `--crop <i64::MAX>,0,10,10` panicked in a debug build — which
+    // the CLI turns into ADR-0011's exit 70, "Montaget broke" — and wrapped to a negative
+    // edge in a release build, so one command had two behaviours and neither was the exit 3
+    // the caller had earned. Asserted through the verb rather than only over `clamp`,
+    // because the exit code is the half that was wrong.
+    let answer = frame(
+        &fixture_project(),
+        &Ask {
+            crop: Some(format!("{},0,10,10", i64::MAX)),
+            ..at(11000)
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    assert_eq!(answer.report().findings[0].code, "E-INVOCATION");
+
+    // And the other direction: a region wider than the world is the whole frame, not a
+    // wrapped one.
+    let (json, _) = drawn(
+        &fixture_project(),
+        &Ask {
+            crop: Some(format!("0,0,{},{}", i64::MAX, i64::MAX)),
+            full: true,
+            ..at(11000)
+        },
+    );
+    assert_eq!(json["frame"]["region"]["width"], 1080);
+    assert_eq!(json["frame"]["region"]["height"], 1920);
+}
+
+#[test]
 fn a_crop_that_is_not_four_whole_pixels_is_exit_3_and_never_a_verdict() {
     // ADR-0011 keeps exit 3 apart from exit 1 so that "fix the command" is never read as
     // "fix the project" — and the invocation is settled before the file is opened, so this

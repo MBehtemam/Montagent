@@ -541,11 +541,17 @@ fn sampling() -> SamplingOptions {
 }
 
 /// The overlap of two regions, or `None` where they do not overlap at all.
+///
+/// Saturating, like every other edge in this crate that a caller's arithmetic can reach: an
+/// edge past `i64::MAX` means past everything, which is what the caller wrote, rather than
+/// a panic in one build and a wrapped negative edge in the other.
 fn intersect(a: Region, b: Region) -> Option<Region> {
     let x = a.x.max(b.x);
     let y = a.y.max(b.y);
-    let right = (a.x + a.width).min(b.x + b.width);
-    let bottom = (a.y + a.height).min(b.y + b.height);
+    let right = a.x.saturating_add(a.width).min(b.x.saturating_add(b.width));
+    let bottom =
+        a.y.saturating_add(a.height)
+            .min(b.y.saturating_add(b.height));
     (right > x && bottom > y).then_some(Region {
         x,
         y,

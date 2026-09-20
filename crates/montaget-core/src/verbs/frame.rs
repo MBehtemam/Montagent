@@ -492,11 +492,20 @@ fn region(spelling: &str) -> Result<Region, String> {
 /// that is a picture and the caller can see what they got. A region with no overlap at all
 /// is not a smaller picture, it is no picture, and the two are told apart here rather than
 /// by a zero-size rectangle that would read like a measurement.
+///
+/// **`saturating_add`, and that is not defensiveness.** These are the only numbers in the
+/// verb that come from the *caller* rather than from the document, so they are the only
+/// ones nothing upstream has bounded: `--crop 9223372036854775807,0,10,10` overflows a
+/// plain `+`. That is worse than it looks, because the two builds disagree — a debug build
+/// panics, which [`crate::verbs`]' caller turns into ADR-0011's exit 70 ("Montaget broke"),
+/// while a release build wraps to a negative edge and answers. One command, two behaviours,
+/// neither of them the exit 3 the caller has earned. Saturating makes an edge past
+/// `i64::MAX` mean what the caller wrote: past the frame.
 fn clamp(crop: Region, frame_width: i64, frame_height: i64) -> Option<Rect> {
     let x = crop.x.clamp(0, frame_width);
     let y = crop.y.clamp(0, frame_height);
-    let width = (crop.x + crop.width).clamp(0, frame_width) - x;
-    let height = (crop.y + crop.height).clamp(0, frame_height) - y;
+    let width = crop.x.saturating_add(crop.width).clamp(0, frame_width) - x;
+    let height = crop.y.saturating_add(crop.height).clamp(0, frame_height) - y;
     (width > 0 && height > 0).then_some(Rect {
         x,
         y,
@@ -960,6 +969,59 @@ mod tests {
                 width: 180,
                 height: 120
             })
+        );
+    }
+
+    #[test]
+    fn an_edge_past_i64_max_means_past_the_frame_rather_than_a_panic() {
+        // The only numbers in the verb that come from the caller rather than the document,
+        // and so the only ones nothing upstream has bounded. A plain `+` here panics in a
+        // debug build and wraps in a release one — one command, two behaviours.
+        assert_eq!(
+            clamp(
+                Region {
+                    x: 0,
+                    y: 0,
+                    width: i64::MAX,
+                    height: i64::MAX,
+                },
+                1080,
+                1920
+            ),
+            Some(Rect {
+                x: 0,
+                y: 0,
+                width: 1080,
+                height: 1920
+            }),
+            "a region wider than the world is the whole frame"
+        );
+        assert_eq!(
+            clamp(
+                Region {
+                    x: i64::MAX,
+                    y: 0,
+                    width: 10,
+                    height: 10,
+                },
+                1080,
+                1920
+            ),
+            None,
+            "and one that starts past the world misses the frame"
+        );
+        assert_eq!(
+            clamp(
+                Region {
+                    x: i64::MIN,
+                    y: i64::MIN,
+                    width: 10,
+                    height: 10,
+                },
+                1080,
+                1920
+            ),
+            None,
         );
     }
 
