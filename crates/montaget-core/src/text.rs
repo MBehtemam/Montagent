@@ -1087,7 +1087,16 @@ fn render_block(video: &Value) -> String {
             .unwrap_or_default()
     };
     let mixed = names("mixed");
-    out.push_str(&row(if mixed.is_empty() {
+    let refused = video["not_mixed"].as_array().map(Vec::len).unwrap_or(0);
+    out.push_str(&row(if mixed.is_empty() && refused > 0 {
+        // Not "no audible element": there were some, and each is named below with the
+        // reason it is not in the file.
+        format!(
+            "audio       none mixed — {} not mixed, named below; the file carries no audio \
+             stream",
+            plural(refused as u64, "audible element")
+        )
+    } else if mixed.is_empty() {
         "audio       none — no audible element is in the range, so the file carries no audio \
          stream"
             .to_string()

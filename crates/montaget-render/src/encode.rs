@@ -318,7 +318,7 @@ impl Drop for Encoder {
         if let Some(script) = self.script.take() {
             let _ = std::fs::remove_file(script);
         }
-        self.deliverable.remove_temp();
+        // The temp file is `Deliverable`'s to remove, and its own `Drop` does so next.
     }
 }
 
@@ -499,13 +499,56 @@ mod tests {
     }
 
     #[test]
-    fn a_frame_the_wrong_size_is_refused_before_it_reaches_the_pipe() {
-        // Only where an `ffmpeg` exists to spawn; the check under test is the byte count.
-        let Some(ffmpeg) = std::env::var_os("PATH").and_then(|path| {
+    fn an_encoder_dropped_mid_stream_publishes_nothing_and_leaves_nothing() {
+        // ADR-0011: "a truncated MP4 at the deliverable path reads as finished". Frames
+        // are pushed, the process holding them is abandoned, and the declared path must
+        // not exist — not as a short file, not as an empty one.
+        let Some(ffmpeg) = find_ffmpeg() else {
+            eprintln!("skipping: no ffmpeg on PATH");
+            return;
+        };
+        let dir = scratch("dropped");
+        let target = dir.join("video.mp4");
+        let mut encoder = Encoder::start(
+            &ffmpeg,
+            &target,
+            &Spec {
+                width: 16,
+                height: 16,
+                fps: 25,
+                background: Rgba::BLACK,
+                audio: None,
+            },
+        )
+        .expect("spawned");
+        for _ in 0..10 {
+            encoder.push(&[0x80u8; 16 * 16 * 3]).expect("a frame");
+        }
+        assert!(
+            !target.exists(),
+            "nothing is published while frames are still arriving"
+        );
+        drop(encoder);
+        assert!(!target.exists(), "an abandoned encode publishes nothing");
+        assert_eq!(
+            entries(&dir),
+            Vec::<String>::new(),
+            "and leaves no temp file"
+        );
+    }
+
+    fn find_ffmpeg() -> Option<PathBuf> {
+        std::env::var_os("PATH").and_then(|path| {
             std::env::split_paths(&path)
                 .map(|dir| dir.join("ffmpeg"))
                 .find(|candidate| candidate.is_file())
-        }) else {
+        })
+    }
+
+    #[test]
+    fn a_frame_the_wrong_size_is_refused_before_it_reaches_the_pipe() {
+        // Only where an `ffmpeg` exists to spawn; the check under test is the byte count.
+        let Some(ffmpeg) = find_ffmpeg() else {
             eprintln!("skipping: no ffmpeg on PATH");
             return;
         };

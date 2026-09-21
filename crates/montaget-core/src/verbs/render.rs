@@ -371,7 +371,7 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
     });
     let mut reported_tenth = 0;
     for (done, n) in (first.frame..=last.frame).enumerate() {
-        let instant = ((n as i128 * 1000) / fps as i128) as i64;
+        let instant = instant_of(n, fps);
         let view = at::presence(&document, instant);
         painter.begin(instant);
         painter.paint(&mut canvas, &view);
@@ -560,23 +560,37 @@ fn destination(
 
 /// Do two spellings name one file?
 ///
-/// Neither need exist yet, so this is lexical: both are made absolute against the working
-/// directory and normalised component by component. A path that *does* exist is
-/// canonicalised first so a symlinked `out/` cannot smuggle a partial render onto the
-/// deliverable.
+/// Neither need exist yet — the first partial render happens before any deliverable does
+/// — so the deepest ancestor that *does* exist is canonicalised (which is what resolves a
+/// symlinked `out/` to the directory it really is) and the rest of the path is appended
+/// and normalised lexically. A path with no existing ancestor at all is made absolute
+/// against the working directory and normalised the same way.
 fn same_path(a: &FilePath, b: &FilePath) -> bool {
     fn normal(path: &FilePath) -> PathBuf {
-        let absolute = std::fs::canonicalize(path)
-            .or_else(|_| std::path::absolute(path))
-            .unwrap_or_else(|_| path.to_path_buf());
-        let mut out = PathBuf::new();
-        for component in absolute.components() {
-            match component {
-                std::path::Component::CurDir => {}
-                std::path::Component::ParentDir => {
+        let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        // Split at the deepest existing ancestor.
+        let mut existing = absolute.as_path();
+        let mut rest: Vec<std::ffi::OsString> = Vec::new();
+        while !existing.exists() {
+            // `components`, not `file_name`: a path ending in `..` has no file name, and
+            // that is exactly the spelling this function exists to see through.
+            let Some(last) = existing.components().next_back() else {
+                break;
+            };
+            rest.push(last.as_os_str().to_owned());
+            let Some(parent) = existing.parent() else {
+                break;
+            };
+            existing = parent;
+        }
+        let mut out = std::fs::canonicalize(existing).unwrap_or_else(|_| existing.to_path_buf());
+        for name in rest.into_iter().rev() {
+            match name.to_str() {
+                Some(".") => {}
+                Some("..") => {
                     out.pop();
                 }
-                other => out.push(other),
+                _ => out.push(name),
             }
         }
         out
@@ -669,7 +683,7 @@ impl Mix {
             graph.push_str(&format!("[a{k}]"));
         }
         // Summed, padded with silence, and cut to exactly the span the frames cover — the
-        // graph's own length is the audio track's length, since the encoder applies no
+        // graph's own length is the audio stream's length, since the encoder applies no
         // `-t` (it would drop the last video frame).
         if chains.len() > 1 {
             graph.push_str(&format!("amix=inputs={}:normalize=0,", chains.len()));
@@ -819,7 +833,7 @@ fn chain(
                     };
                     let mut n = first.frame;
                     loop {
-                        let instant = ((n as i128 * 1000) / fps as i128) as i64;
+                        let instant = instant_of(n, fps);
                         if instant >= end {
                             break;
                         }
@@ -854,6 +868,15 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
+}
+
+/// The whole millisecond frame `n` is painted at: `⌊n × 1000 / fps⌋`.
+///
+/// The one place the module doc's floor is spelled, for the frame loop and for the
+/// `volume` commands alike — the two must sample the same instants, or a fade would be
+/// heard on a different clock from the one it is seen on.
+fn instant_of(n: i64, fps: i64) -> i64 {
+    ((i128::from(n) * 1000) / i128::from(fps)) as i64
 }
 
 /// Milliseconds as `ffmpeg`'s decimal seconds — in the string, never through a float
@@ -942,6 +965,7 @@ mod tests {
     #[test]
     fn two_spellings_of_one_path_are_one_path() {
         let dir = std::env::temp_dir().join(format!("montaget-render-same-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::create_dir_all(dir.join("out"));
         assert!(same_path(
             &dir.join("out/./video.mp4"),
@@ -950,6 +974,27 @@ mod tests {
         assert!(!same_path(
             &dir.join("out/video.mp4"),
             &dir.join("out/video.0-1000.mp4")
+        ));
+        // Nothing under `nowhere` exists; the comparison is still one path.
+        assert!(same_path(
+            &dir.join("nowhere/a/../video.mp4"),
+            &dir.join("nowhere/video.mp4")
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_directory_cannot_smuggle_a_partial_render_onto_the_deliverable() {
+        // `alias/` is a symlink to `out/`, and no deliverable exists yet: the two
+        // spellings must still resolve to one file, before anything is written.
+        let dir =
+            std::env::temp_dir().join(format!("montaget-render-alias-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("out")).unwrap();
+        std::os::unix::fs::symlink(dir.join("out"), dir.join("alias")).unwrap();
+        assert!(same_path(
+            &dir.join("alias/video.mp4"),
+            &dir.join("out/video.mp4")
         ));
     }
 }

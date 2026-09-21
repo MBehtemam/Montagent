@@ -508,12 +508,16 @@ fn a_project_with_no_output_and_no_flag_is_exit_3_naming_the_field() {
 
     let (answer, _) = run(&path, &full());
     assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
-    let prose = montaget_core::wire::render(
-        answer.report(),
-        montaget_core::Wire::Text { verbose: false },
+    // By code and by the finding's own field — never by the rendered prose (spec #168).
+    let finding = &answer.to_json()["findings"][0];
+    assert_eq!(finding["code"], "E-INVOCATION");
+    let reason = finding["fields"]["reason"]
+        .as_str()
+        .expect("the reason field");
+    assert!(
+        reason.contains("`output`") && reason.contains("--output"),
+        "{reason}"
     );
-    assert!(prose.contains("`output`"), "{prose}");
-    assert!(prose.contains("--output"), "{prose}");
 }
 
 #[test]
@@ -595,11 +599,6 @@ fn the_output_is_the_declared_frame_never_the_proxy_target() {
     let stream = video_stream(&dir.join("out/big.mp4"));
     assert_eq!((stream.width, stream.height), (Some(1442), Some(2562)));
     assert_eq!(video["frames"], 2);
-
-    let (answer, _) = run(&path, &full());
-    let prose =
-        montaget_core::wire::render_video(&answer, montaget_core::Wire::Text { verbose: false });
-    assert!(prose.contains("padded to even"), "{prose}");
 }
 
 // ---------------------------------------------------------------------------
