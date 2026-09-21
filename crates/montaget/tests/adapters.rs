@@ -740,6 +740,97 @@ fn cli_frame_offers_no_flag_that_suppresses_the_caption() {
 }
 
 #[test]
+fn cli_render_puts_the_result_on_stdout_and_progress_on_stderr() {
+    // One test per subcommand, asserting argv reaches the right core call and the exit
+    // code is right (#168). Everything the render *is* — the refusal, the atomic write,
+    // the audio — is asserted in the core, at seam 1. What is the adapter's alone is
+    // ADR-0011's split: "the machine-readable result on stdout; progress on stderr".
+    if montaget_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-render");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 200},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": [\n    {\"name\": \
+         \"only\", \"layer\": 0, \"elements\": [\n      {\"id\": \"card\", \"type\": \
+         \"rect\", \"start\": 0, \"end\": 200, \"x\": 100, \"y\": 100, \"width\": 100, \
+         \"height\": 100, \"fill\": \"#FF0000\"}\n    ]}\n  ]\n}\n",
+    )
+    .unwrap();
+    let out = montaget(&["render", project.to_str().unwrap(), "--json"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not the JSON result alone ({e}):\n{}", out.stdout));
+    assert_eq!(json["render"]["frames"], 5);
+    assert_eq!(json["render"]["duration_ms"], 200);
+    assert!(json["render"]["realtime"].as_f64().is_some());
+    assert!(dir.join("out/p.mp4").is_file());
+    // Progress is stderr's, coarse, and never on stdout.
+    assert!(out.stderr.contains("render  0/5 frames"), "{}", out.stderr);
+    assert!(out.stderr.contains("render  5/5 frames"), "{}", out.stderr);
+    assert!(!out.stdout.contains("frames  "), "{}", out.stdout);
+
+    // The text form: the block, then the findings, then the footer.
+    let out = montaget(&["render", project.to_str().unwrap()]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("RENDER  "), "{}", out.stdout);
+    assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_render_on_a_project_with_an_error_is_exit_1_and_writes_nothing() {
+    let dir = scratch_dir("cli-render-refused");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 200},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"invented\": true,\n  \
+         \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let out = montaget(&["render", project.to_str().unwrap()]);
+
+    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.starts_with("1 error"), "{}", out.stdout);
+    assert!(!dir.join("out").exists());
+}
+
+#[test]
+fn cli_render_offers_no_flag_that_skips_the_checks_or_scales_the_output() {
+    // ADR-0006 makes the check engine the thing `render` runs before it draws anything,
+    // and ADR-0021 makes the deliverable the one output that is never downsampled. The
+    // assertion is about the *surface*: there is no such flag to pass.
+    let out = montaget(&["render", "--help"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    for absent in [
+        "--no-validate",
+        "--skip-checks",
+        "--force",
+        "--proxy",
+        "--scale",
+        "--quiet",
+    ] {
+        assert!(
+            !out.stdout.contains(absent),
+            "`render` advertises `{absent}`: {}",
+            out.stdout
+        );
+    }
+    for present in ["--from", "--to", "--output", "--json", "--verbose"] {
+        assert!(
+            out.stdout.contains(present),
+            "`render` does not advertise `{present}`: {}",
+            out.stdout
+        );
+    }
+}
+
+#[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);
     assert_eq!(out.code, Some(0));
@@ -1182,6 +1273,83 @@ fn mcp_frame_advertises_the_schema_it_enforces_and_hands_back_an_image() {
             * 4,
         "the block carries the whole picture, base64-encoded"
     );
+
+    let rejected = &session[&4];
+    let text = rejected["result"]["content"][0]["text"]
+        .as_str()
+        .expect("a rendered report, not a bare SDK error");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_render_advertises_the_schema_it_enforces_and_answers_with_the_findings() {
+    // ADR-0011 puts `render` on both surfaces. What this test asserts is the adapter's:
+    // the schema advertised is the one enforced, a refused render is an answer rather
+    // than a protocol error, and there is no argument that skips the checks.
+    let dir = scratch_dir("mcp-render");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 200},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"invented\": true,\n  \
+         \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "render",
+                "arguments": {"project": project.to_str().unwrap(), "json": true}
+            }),
+        ),
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({"name": "render", "arguments": {"from": 0}}),
+        ),
+    ]);
+
+    let schema = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "render")
+        .expect("a `render` tool")["inputSchema"]
+        .clone();
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project"]),
+        "{schema}"
+    );
+    for present in ["from", "to", "output", "json", "verbose"] {
+        assert!(
+            !schema["properties"][present].is_null(),
+            "no `{present}`: {schema}"
+        );
+    }
+    for absent in ["skip_checks", "force", "proxy", "scale"] {
+        assert!(
+            schema["properties"][absent].is_null(),
+            "advertises `{absent}`: {schema}"
+        );
+    }
+
+    // Refused on the schema error, as an answer: the findings are the result (ADR-0006).
+    let refused = &session[&3]["result"];
+    assert_ne!(refused["isError"], true, "{refused}");
+    let answered: serde_json::Value =
+        serde_json::from_str(refused["content"][0]["text"].as_str().expect("the result"))
+            .expect("`json: true` returns the canonical JSON");
+    assert_eq!(answered["tool"], "render");
+    assert_eq!(answered["exit_code"], 1);
+    assert!(answered["render"].is_null());
+    assert!(!dir.join("out").exists());
 
     let rejected = &session[&4];
     let text = rejected["result"]["content"][0]["text"]

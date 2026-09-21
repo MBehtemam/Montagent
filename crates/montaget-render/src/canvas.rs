@@ -461,6 +461,10 @@ impl Effect {
 /// nothing in the paint path asks how big the file was. What *does* ask — `fit`'s
 /// arithmetic — gets its answer from `probe`, which ADR-0011 makes the one authority on a
 /// media file's numbers. A second dimension pair on this type would be a second one.
+///
+/// `Clone` is a reference-count bump on the decoded image, not a copy of the pixels — which
+/// is what lets `render` decode a still once and paint it on every frame it is present in.
+#[derive(Clone)]
 pub struct Raster {
     image: Image,
 }
@@ -633,6 +637,43 @@ impl Canvas {
     /// Paint the whole frame one colour — the project's `background`.
     pub fn background(&mut self, colour: Rgba) {
         self.surface.canvas().clear(colour.colour());
+    }
+
+    /// The frame's pixels as packed RGB8, row-major, composited over opaque black.
+    ///
+    /// What `render` hands to the encoder, one frame at a time. Over black for the same
+    /// reason [`Canvas::encode`] clears its output to black first: the deliverable carries no
+    /// alpha, and a translucent `background` must encode to the same picture the `frame`
+    /// verb shows for it. The surface is premultiplied, and a premultiplied colour *is* the
+    /// colour over black — so dropping the alpha byte is the composite, not an
+    /// approximation of one.
+    ///
+    /// Three bytes rather than four because every one of them crosses a pipe to a
+    /// subprocess: at 1080x1920 that is 2 MB per frame saved, 1631 times on the committed
+    /// fixture.
+    pub fn rgb(&mut self) -> Option<Vec<u8>> {
+        let info = ImageInfo::new(
+            ISize::new(self.width, self.height),
+            ColorType::RGBA8888,
+            AlphaType::Premul,
+            None,
+        );
+        let row = self.width as usize * 4;
+        let mut rgba = vec![0u8; row * self.height as usize];
+        if !self.surface.image_snapshot().read_pixels(
+            &info,
+            &mut rgba,
+            row,
+            (0, 0),
+            skia_safe::image::CachingHint::Allow,
+        ) {
+            return None;
+        }
+        Some(
+            rgba.chunks_exact(4)
+                .flat_map(|px| [px[0], px[1], px[2]])
+                .collect(),
+        )
     }
 
     /// Draw one `rect` or `ellipse` (ADR-0014).

@@ -194,6 +194,36 @@ pub struct MeasureParams {
     pub json: bool,
 }
 
+/// `render`'s arguments: the whole project by default, or one half-open range of it.
+///
+/// There is no argument that skips the checks, narrows them, or renders at a proxy
+/// resolution: ADR-0006 makes the check engine the thing `render` runs before it draws
+/// anything, and ADR-0021 makes the deliverable the one output that is never downsampled.
+/// Progress goes to the server's stderr — this surface hands back the result.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct RenderParams {
+    /// Path to the project file.
+    pub project: String,
+    /// Render only from this instant, in absolute milliseconds. Asked for with `to`. A
+    /// partial render is written to `out/<name>.<from>-<to>.mp4`, never to the project's
+    /// `output`.
+    #[serde(default)]
+    pub from: Option<i64>,
+    /// The end of the partial range, exclusive: the range is half-open `[from, to)`.
+    #[serde(default)]
+    pub to: Option<i64>,
+    /// Write here instead of the project's `output`. Refused while a range is set if it
+    /// names the project's own `output`.
+    #[serde(default)]
+    pub output: Option<String>,
+    /// Return the canonical JSON *instead of* the text result, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+    /// Expand the informational classes that collapse to one counted line.
+    #[serde(default)]
+    pub verbose: bool,
+}
+
 /// The project's `frame` object, as the schema shapes it.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FrameParam {
@@ -394,6 +424,57 @@ impl Montaget {
         // A project that did not render is still an answer about the project — the report
         // says what stopped it. Only a failure of Montaget itself would be an MCP error.
         Ok(CallToolResult::success(content))
+    }
+
+    #[tool(
+        name = "render",
+        description = "Files in, video out. Runs the identical check engine `validate` \
+                       runs and refuses on any `error` — the check cannot be skipped by not \
+                       running it — then writes the project's declared `output` via a temp \
+                       path and an atomic rename, so a truncated MP4 never reads as \
+                       finished. Always at the declared frame size; never downsampled. \
+                       `from`/`to` render one half-open range to `out/<name>.<from>-<to>.mp4` \
+                       and can never land on the deliverable. The result carries the path, \
+                       duration, frame count, wall time and realtime factor, and beneath it \
+                       the `review` findings the render did not refuse on plus the NOT \
+                       CHECKED footer: exit 0 never means the video is right.",
+        input_schema = advertised::<RenderParams>()
+    )]
+    fn render(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: RenderParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("render", &e)),
+        };
+
+        // Progress to the server's own stderr, which is where an MCP host collects a
+        // server's log: the protocol has no stream for it, and the result is the answer.
+        let mut progress = |p: montaget_core::verbs::render::Progress| {
+            eprintln!(
+                "render  {}/{} frames  {:.1} s",
+                p.done,
+                p.of,
+                p.elapsed.as_secs_f64()
+            );
+        };
+        let answer = montaget_core::verbs::render::render(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::render::Ask {
+                from: params.from,
+                to: params.to,
+                output: params.output.map(PathBuf::from),
+            },
+            &mut progress,
+        );
+        let form = Wire::from_flags(params.json, params.verbose);
+
+        // A refused render is an answer about the project — the findings say why — and
+        // stays `success`; only a failure of Montaget itself would be an MCP error.
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render_video(&answer, form),
+        )]))
     }
 
     #[tool(

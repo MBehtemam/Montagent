@@ -229,6 +229,39 @@ enum Command {
         json: bool,
     },
 
+    /// Files in, video out — and the enforcement point for every check.
+    ///
+    /// Runs the identical check engine `validate` runs and refuses on any `error`
+    /// (ADR-0006): the check cannot be skipped by not running it. A `LAYOUT` finding never
+    /// gates it (ADR-0041). The video is written to the project's declared `output` via a
+    /// temp path and an atomic rename, so a truncated MP4 never reads as finished.
+    ///
+    /// After a successful render it prints the `review` findings it did not refuse on and
+    /// the `NOT CHECKED` footer — exit 0 never means "the video is right". The
+    /// machine-readable result goes to stdout; coarse progress goes to stderr.
+    Render {
+        /// The project file.
+        project: PathBuf,
+        /// Render only from this instant, in absolute milliseconds. Asked for with `--to`.
+        /// A partial render is written to `out/<name>.<from>-<to>.mp4`, never to the
+        /// project's `output`.
+        #[arg(long, value_name = "MS")]
+        from: Option<i64>,
+        /// The end of the partial range, exclusive: the range is half-open `[from, to)`.
+        #[arg(long, value_name = "MS")]
+        to: Option<i64>,
+        /// Write here instead of the project's `output`. Refused while a range is set if
+        /// it names the project's own `output`.
+        #[arg(long, value_name = "PATH")]
+        output: Option<PathBuf>,
+        /// Print the canonical JSON *instead of* the text result, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
     /// Find a font on this machine, or freeze one into the project (ADR-0057).
     ///
     /// CLI-only (ADR-0011): vendoring is a once-per-project act, not a step in the edit
@@ -539,6 +572,46 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_measure(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Render {
+            project,
+            from,
+            to,
+            output,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            // Which combinations of `--from`/`--to`/`--output` are legal is the verb's rule
+            // and not argv's: the MCP surface takes the same arguments with no `clap` to
+            // arrange them (ADR-0011).
+            let ask = montaget_core::verbs::render::Ask { from, to, output };
+            // ADR-0011's split, made here: the result is stdout's and progress is
+            // stderr's, coarse — a tenth at a time, with the wall clock beside it so the
+            // caller can budget the next call.
+            let mut progress = |p: montaget_core::verbs::render::Progress| {
+                eprintln!(
+                    "render  {}/{} frames  {:.1} s",
+                    p.done,
+                    p.of,
+                    p.elapsed.as_secs_f64()
+                );
+            };
+            match run_verb(std::panic::AssertUnwindSafe(|| {
+                montaget_core::verbs::render::render(&project, &ask, &mut progress)
+            })) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_video(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

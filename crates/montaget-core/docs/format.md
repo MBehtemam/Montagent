@@ -220,6 +220,11 @@ Two consequences worth holding onto:
 
 - **`render` runs the identical checks and refuses on any `error`** (ADR-0006). Validation is not an
   optional step you can skip; it is what the render does before it draws anything.
+  A `LAYOUT` finding never gates it. The video is written to the project's `output` via a temp
+  path and an atomic rename, always at the declared frame size, and after it succeeds the
+  `review` findings it did not refuse on print beneath the result together with the `NOT
+  CHECKED` footer — exit 0 never means the video is right. `render --from --to` writes one
+  half-open range to `out/<name>.<from>-<to>.mp4` and can never land on the deliverable.
 - **Every write tool returns the new state's findings, never `ok`** (ADR-0011). You do not run
   `validate` after a write — the write hands you `validate`'s answer.
 

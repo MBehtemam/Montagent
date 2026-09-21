@@ -114,6 +114,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&query_block(query));
     }
 
+    // `render`'s block: what was written, and what of the document reached it. Above the
+    // findings, because the findings are the ones the render did not refuse on and read
+    // as a caption to the file (ADR-0011).
+    if let Some(video) = report.get("render").filter(|view| !view.is_null()) {
+        out.push_str(&render_block(video));
+    }
+
     // `measure`'s whole answer, on the same rule again.
     if let Some(measure) = report.get("measure").filter(|view| !view.is_null()) {
         out.push_str(&measure_block(measure));
@@ -1022,6 +1029,100 @@ fn frame_block(frame: &Value) -> String {
             .as_array()
             .map(|paths| paths.iter().map(named).collect())
             .unwrap_or_default();
+        if files.is_empty() {
+            continue;
+        }
+        out.push_str(&row(format!("{label:<11} {}", files.join(", "))));
+    }
+    out
+}
+
+/// `render`'s block: the file, its numbers, and what of the document reached it.
+///
+/// **Nothing here is behind a verbosity switch**, for `frame`'s reason: an agent that
+/// cannot tell *"not there"* from *"not drawn"*, or *"silent"* from *"not mixed"*, chases
+/// the wrong defect. The range is stated half-open in so many words, because ADR-0011
+/// asks the tool to say so in its output.
+fn render_block(video: &Value) -> String {
+    let number = |key: &str| video[key].as_i64().unwrap_or_default();
+    let wall_ms = video["wall_ms"].as_u64().unwrap_or_default();
+    let mut out = format!(
+        "\nRENDER  {} — {} ms, {} at {} fps, {}x{}, in {:.1} s ({:.2}x realtime)\n",
+        named(&video["path"]),
+        number("duration_ms"),
+        plural(video["frames"].as_u64().unwrap_or_default(), "frame"),
+        number("fps"),
+        number("width"),
+        number("height"),
+        wall_ms as f64 / 1000.0,
+        video["realtime"].as_f64().unwrap_or_default(),
+    );
+    out.push_str(&row(format!(
+        "range       {}..{} ms, half-open: {} is not in it{}",
+        number("from"),
+        number("to"),
+        number("to"),
+        if video["partial"].as_bool().unwrap_or(false) {
+            " — a partial render, never the deliverable"
+        } else {
+            ""
+        }
+    )));
+    if let Some(encoded) = video.get("encoded").filter(|e| !e.is_null()) {
+        out.push_str(&row(format!(
+            "encoded     {}x{} — the declared frame padded to even, in the background colour",
+            encoded["width"].as_i64().unwrap_or_default(),
+            encoded["height"].as_i64().unwrap_or_default(),
+        )));
+    }
+    out.push_str(&row(format!(
+        "bytes       {}",
+        video["bytes"].as_u64().unwrap_or_default()
+    )));
+
+    let names = |key: &str| -> Vec<String> {
+        video[key]
+            .as_array()
+            .map(|ids| ids.iter().map(named).collect())
+            .unwrap_or_default()
+    };
+    let mixed = names("mixed");
+    out.push_str(&row(if mixed.is_empty() {
+        "audio       none — no audible element is in the range, so the file carries no audio \
+         stream"
+            .to_string()
+    } else {
+        format!(
+            "audio       {} mixed: {}",
+            plural(mixed.len() as u64, "element"),
+            mixed.join(", ")
+        )
+    }));
+    let painted = names("painted");
+    out.push_str(&row(if painted.is_empty() {
+        "painted     nothing — every frame is its background alone".to_string()
+    } else {
+        format!(
+            "painted     {}: {}",
+            plural(painted.len() as u64, "element"),
+            painted.join(", ")
+        )
+    }));
+    for (key, label) in [
+        ("not_mixed", "not mixed  "),
+        ("painted_partially", "in part    "),
+        ("not_painted", "not painted"),
+    ] {
+        for entry in video[key].as_array().into_iter().flatten() {
+            out.push_str(&row(format!(
+                "{label} {} — {}",
+                named(&entry["element"]),
+                entry["reason"].as_str().unwrap_or("(no reason given)"),
+            )));
+        }
+    }
+    for (key, label) in [("sources", "sources"), ("fonts", "fonts")] {
+        let files = names(key);
         if files.is_empty() {
             continue;
         }

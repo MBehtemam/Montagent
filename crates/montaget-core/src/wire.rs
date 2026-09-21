@@ -94,6 +94,17 @@ pub fn render_frame(answer: &crate::verbs::frame::Answer, form: Wire) -> String 
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `render` answer in one wire form.
+///
+/// Through the same function and the same rule as everything else. This is the stdout
+/// half of ADR-0011's split — *"the machine-readable result on stdout"* — and it carries
+/// the check engine's own findings beneath the block, because what prints after a
+/// successful render is *"the `review` findings it did not refuse on, and ADR-0006's
+/// `NOT CHECKED` footer"*: the report, rendered as every report is.
+pub fn render_video(answer: &crate::verbs::render::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// Render a `measure` answer in one wire form.
 ///
 /// Through the same function and the same rule as everything else: the answer is a block on

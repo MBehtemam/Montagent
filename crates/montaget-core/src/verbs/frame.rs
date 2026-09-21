@@ -590,7 +590,13 @@ fn region_of(rect: Rect) -> Region {
 }
 
 /// One frame's painting pass, and the record of what it did.
-struct Painter<'a> {
+///
+/// `pub(crate)` because `render` paints every frame through this same pass — ADR-0021's
+/// *"the picture `frame` shows is the picture `render` produces"* holds by construction
+/// only while there is one painter. A `Painter` outlives one frame: [`Painter::begin`]
+/// resets the per-frame record and keeps the font registry, the resolved `ffmpeg` and the
+/// decoded stills, none of which change between two instants of one document.
+pub(crate) struct Painter<'a> {
     document: &'a Loose,
     /// Every element in the document, with the identity the caption names it by — read
     /// once, because the picture walks the caption's list and would otherwise re-traverse
@@ -599,11 +605,11 @@ struct Painter<'a> {
     instant: i64,
     frame: (i64, i64),
     project_dir: PathBuf,
-    painted: Vec<String>,
-    not_painted: Vec<NotPainted>,
-    painted_partially: Vec<NotPainted>,
+    pub(crate) painted: Vec<String>,
+    pub(crate) not_painted: Vec<NotPainted>,
+    pub(crate) painted_partially: Vec<NotPainted>,
     /// Every crossfade running at this instant, in document order.
-    crossfades: Vec<Crossfade>,
+    pub(crate) crossfades: Vec<Crossfade>,
     /// Each bridged element's id and the factor its `opacity` is multiplied by — the one
     /// place a crossfade touches the picture.
     ///
@@ -614,8 +620,8 @@ struct Painter<'a> {
     /// fading in and out at once. Replacing would let whichever transition was read last
     /// win.
     fades: Vec<(String, f64)>,
-    sources: Vec<String>,
-    fonts: Vec<String>,
+    pub(crate) sources: Vec<String>,
+    pub(crate) fonts: Vec<String>,
     /// Every declared chain this frame has opened, **one registry for the whole frame**.
     ///
     /// Shared rather than per element for two reasons that are the same reason: the
@@ -627,10 +633,14 @@ struct Painter<'a> {
     /// Resolved on demand, once: an all-image project must not need an `ffmpeg` on `PATH`
     /// to look at itself.
     ffmpeg: Option<Result<PathBuf, String>>,
+    /// Every still decoded so far, by path. A `frame` decodes each once and gains nothing;
+    /// a `render` paints the fixture's 6 MB PNGs on 1631 consecutive frames and would
+    /// otherwise decode each of them 1631 times.
+    stills: std::collections::HashMap<PathBuf, Raster>,
 }
 
 impl<'a> Painter<'a> {
-    fn new(document: &'a Loose, instant: i64, frame: (i64, i64)) -> Painter<'a> {
+    pub(crate) fn new(document: &'a Loose, instant: i64, frame: (i64, i64)) -> Painter<'a> {
         Painter {
             document,
             elements: document
@@ -649,7 +659,23 @@ impl<'a> Painter<'a> {
             fonts: Vec::new(),
             registry: montaget_text::Fonts::new(),
             ffmpeg: None,
+            stills: std::collections::HashMap::new(),
         }
+    }
+
+    /// Start another frame at `instant`, forgetting what the last one painted and keeping
+    /// what it opened.
+    ///
+    /// `sources` and `fonts` are *not* cleared: they are the record of every file this
+    /// painter has opened, and a still decoded on frame 0 and painted on frame 400 was
+    /// opened once. A `render` reads them after its last frame as the whole run's list.
+    pub(crate) fn begin(&mut self, instant: i64) {
+        self.instant = instant;
+        self.painted.clear();
+        self.not_painted.clear();
+        self.painted_partially.clear();
+        self.crossfades.clear();
+        self.fades.clear();
     }
 
     /// Paint the frame, in the caption's own order.
@@ -660,7 +686,7 @@ impl<'a> Painter<'a> {
     /// picture is built by walking that same list. A second ordering here, however
     /// carefully written, would be a second place draw order could be decided, and the one
     /// failure the caption exists to prevent is a defect attributed to the wrong element.
-    fn paint(&mut self, canvas: &mut Canvas, view: &At) {
+    pub(crate) fn paint(&mut self, canvas: &mut Canvas, view: &At) {
         self.resolve_crossfades();
         canvas.background(self.background());
 
@@ -1011,7 +1037,10 @@ impl<'a> Painter<'a> {
                 return;
             }
         };
-        self.sources.push(path.display().to_string());
+        let opened = path.display().to_string();
+        if !self.sources.contains(&opened) {
+            self.sources.push(opened);
+        }
         let effects = self.effects_of(name, element);
         canvas.raster(
             &raster,
@@ -1033,10 +1062,15 @@ impl<'a> Painter<'a> {
         source_offset: Option<i64>,
     ) -> Result<Raster, String> {
         if kind != Some("video") {
+            if let Some(still) = self.stills.get(path) {
+                return Ok(still.clone());
+            }
             let bytes = std::fs::read(path)
                 .map_err(|e| format!("{} could not be read: {e}", path.display()))?;
-            return Raster::decode(&bytes)
-                .ok_or_else(|| format!("{} did not decode as an image", path.display()));
+            let still = Raster::decode(&bytes)
+                .ok_or_else(|| format!("{} did not decode as an image", path.display()))?;
+            self.stills.insert(path.to_path_buf(), still.clone());
+            return Ok(still);
         }
 
         // The caption already said *why* an offset did not resolve —
@@ -1439,7 +1473,7 @@ fn rgba(value: &Value) -> Option<Rgba> {
 /// The same conversion, from a colour that has already been through that deserializer —
 /// which is where an `effects` member's colour arrives, the whole list having been parsed
 /// as the model's own type.
-fn rgba_of(colour: &Colour) -> Option<Rgba> {
+pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
     let body = colour.as_str().strip_prefix('#')?;
     let byte = |at: usize| u8::from_str_radix(body.get(at..at + 2)?, 16).ok();
     Some(Rgba([
