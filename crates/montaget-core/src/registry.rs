@@ -23,6 +23,12 @@ pub enum RepairClass {
     Advise,
     /// The fix depends on knowing what the author meant. Non-bypassable.
     Refuse,
+    /// ADR-0073: the finding is not about a document — its subject is the invocation,
+    /// the raw bytes, or Montaget's own process, so ADR-0043's refuse/advise question
+    /// ("is the fix determined by the document?") does not apply. No `repair` field is
+    /// emitted at all; any remedy the condition names lives in the finding's own message
+    /// text instead.
+    NotAboutDocument,
 }
 
 /// ADR-0061: where the number that decides whether a finding fires comes from.
@@ -68,6 +74,9 @@ pub struct CheckSpec {
     /// is the dichotomy ADR-0006 opens by calling wrong.
     pub classes: &'static [Class],
     /// Required on `error`, forbidden elsewhere. Guarded by the completeness test.
+    /// `RepairClass::NotAboutDocument` (ADR-0073) satisfies the requirement while
+    /// emitting no `repair` field — reserved for the process-level codes whose subject
+    /// is not the document.
     pub repair: Option<RepairClass>,
     pub threshold: ThresholdProvenance,
     /// The ADR this check comes from.
@@ -79,7 +88,7 @@ pub struct CheckSpec {
 }
 
 use Class::{Drift, Error, Layout, Note, Review, Unchecked};
-use RepairClass::{Advise, Refuse};
+use RepairClass::{Advise, NotAboutDocument, Refuse};
 use Status::{Declared, Live};
 use ThresholdProvenance::{External, Internal};
 
@@ -88,10 +97,10 @@ const CHECKS: &[CheckSpec] = &[
     CheckSpec {
         code: "E-PARSE",
         classes: &[Error],
-        // The bytes could not be read as JSON, so there is no document to derive a fix
-        // from — the one condition under which "the fix is fully determined by the
-        // document" is not merely unmet but unmeetable.
-        repair: Some(Refuse),
+        // ADR-0073 (#224): not about a document — the bytes could not be read as JSON,
+        // so there is no document for either arm of ADR-0043's question to be asked of.
+        // The caret in the template below is the only repair there is to give.
+        repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0011",
         template: "{file} is not valid JSON: {reason}, at line {line}, column {column} (byte {byte_offset}).",
@@ -100,17 +109,13 @@ const CHECKS: &[CheckSpec] = &[
     CheckSpec {
         code: "E-READ",
         classes: &[Error],
-        // Advise, like `E-INVOCATION` and unlike `E-PARSE`. Neither of ADR-0043's two
-        // classes fits a file that was never opened — there is no document whose author
-        // could have meant anything — so the choice is which distortion is smaller.
-        // Refuse carries a guarantee that is vacuous here (no flag was ever going to
-        // lift a missing file) and tells the agent to stop and escalate to a human over
-        // what is usually a mistyped path; the OS states the condition and the next move
-        // follows from it.
-        repair: Some(Advise),
+        // ADR-0073 (#224): not about a document — the file was never opened, so there is
+        // no document whose author could have meant anything. The OS-derived move
+        // (`{advice}` below) is message text, not a structured repair.
+        repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0011",
-        template: "{file} could not be read: {reason}.",
+        template: "{file} could not be read: {reason} — {advice}.",
         status: Live,
     },
     CheckSpec {
@@ -121,9 +126,11 @@ const CHECKS: &[CheckSpec] = &[
         // than dumping a raw schema error, which is the message-quality gap the ADR found.
         code: "E-NOT-A-PROJECT",
         classes: &[Error],
-        // Advise, on `E-READ`'s reasoning: there is no document whose author could have
-        // meant anything, because the document is not a project. The next move — point the
-        // tool at the project file — follows from the condition itself.
+        // Advise: there is no document whose author could have meant anything, because
+        // the document is not a project. The next move — point the tool at the project
+        // file — follows from the condition itself. Shares ADR-0073's fault line with
+        // `E-READ`/`E-PARSE`/`E-INVOCATION`/`E-INTERNAL` but is not reclassified by it —
+        // out of that ADR's scope (#224), left for whoever next touches this code.
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0042",
@@ -141,9 +148,10 @@ const CHECKS: &[CheckSpec] = &[
         // Raised as #246 rather than left to be discovered from this table.
         code: "E-PROJECT-EXISTS",
         classes: &[Error],
-        // Advise, on `E-READ`'s reasoning: the document whose author could have meant
-        // something is not this call's, and the next move — write somewhere else, or edit
-        // the file that is already there — follows from the condition itself.
+        // Advise: the document whose author could have meant something is not this
+        // call's, and the next move — write somewhere else, or edit the file that is
+        // already there — follows from the condition itself. Same fault line as
+        // ADR-0073's four, not reclassified by it — see the note on `E-NOT-A-PROJECT`.
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0011",
@@ -154,9 +162,10 @@ scaffold somewhere else.",
     CheckSpec {
         code: "E-INVOCATION",
         classes: &[Error],
-        // Advise, not refuse: exit 3's next move is "fix the command" (ADR-0011), and
-        // the usage text states it. Nothing about the author's intent is in question.
-        repair: Some(Advise),
+        // ADR-0073 (#224): not about a document — exit 3's next move is "fix the
+        // command" (ADR-0011), a repair to the invocation, not to anything Montaget can
+        // write. The usage text already states it; no structured repair to add.
+        repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0011",
         template: "{reason}",
@@ -165,7 +174,10 @@ scaffold somewhere else.",
     CheckSpec {
         code: "E-INTERNAL",
         classes: &[Error],
-        repair: Some(Refuse),
+        // ADR-0073 (#224): not about a document — Montaget itself broke. Refuse's "no
+        // flag can lift it" doesn't fit a condition a retry might clear, and there is no
+        // document for a repair to be determined from either way.
+        repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0011",
         template: "Montaget failed internally: {reason}",
@@ -355,7 +367,7 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
     // the classes below, are surface the ADR series has not ratified — raised as #253.
     //
     // **Neither carries a sibling census, and ADR-0043 says a refuse-class finding does.**
-    // `E-PARSE` and `E-ANCHOR-CHAIN` are already refuse-class without one, so the practice
+    // `E-ANCHOR-CHAIN` is already refuse-class without one, so the practice
     // is that the census attaches where a sibling group exists; here it cannot honestly be
     // measured. `serde` stops at the first fault in an object, so a census counted over
     // what this check reported would group "elements whose *first* fault was this key" and
@@ -395,12 +407,12 @@ Here the format publishes {expected}.",
         // value is not one the format publishes* — and one repair: write a value it does.
         code: "E-SCHEMA",
         classes: &[Error],
-        // Refuse, on `E-PARSE`'s stated reasoning one level up. `E-PARSE` refuses because
-        // *"there is no document to derive a fix from"*; here there are bytes and a tree,
-        // but the part of the tree the finding is about is exactly the part the format
-        // cannot read — so the fix is whatever the author meant by it, which is the
-        // condition ADR-0043 reserves for refusal. The prose renderer already states the
-        // guarantee in words on every refuse-class finding, so the template does not.
+        // Refuse: there are bytes and a tree here (unlike `E-PARSE`, ADR-0073's — the
+        // document parsed), but the part of the tree the finding is about is exactly the
+        // part the format cannot read — so the fix is whatever the author meant by it,
+        // which is the condition ADR-0043 reserves for refusal. The prose renderer
+        // already states the guarantee in words on every refuse-class finding, so the
+        // template does not.
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0017",
@@ -965,7 +977,7 @@ every hand-placed break in them was taken against different metrics.",
         // differ.
         //
         // **No sibling census, and ADR-0043 says a refuse-class finding carries one.**
-        // `E-PARSE`, `E-ANCHOR-CHAIN` and the two schema codes are already refuse-class
+        // `E-ANCHOR-CHAIN` and the two schema codes are already refuse-class
         // without one, so the practice is that the census attaches where a sibling group
         // exists. Here none does: the fault is one boundary inside one element's own
         // string, and there is no observable other elements could be grouped by that would

@@ -12,6 +12,12 @@ status: accepted
 > property under [ADR-0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md)
 > and **not** a repair class, and the two are easy to conflate.
 
+> **Amended by [ADR-0073](0073-process-level-errors-carry-no-repair-field.md)**, which
+> narrows this ADR's binary to findings **about a document**. `E-PARSE`, `E-READ`,
+> `E-INVOCATION` and `E-INTERNAL` are not about a document and carry no `repair` field at
+> all — neither `"none"` nor a structured value — with any remedy stated as ordinary
+> message text instead. The refuse/advise binary below is otherwise unchanged.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montaget/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

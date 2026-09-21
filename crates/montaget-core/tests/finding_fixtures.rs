@@ -130,7 +130,8 @@ fn a_refuse_class_finding_says_none_in_json_and_says_so_in_words() {
     );
     // ADR-0043's instruction to the agent — stop, do not repair by ordinary file edit,
     // surface it — rides on this check's own template rather than on the shared
-    // refuse-class paragraph, which a malformed-JSON finding also prints. Wrapped for
+    // refuse-class paragraph, since ADR-0073 (#224) keeps that paragraph off findings
+    // that are not about a document — a malformed-JSON finding among them. Wrapped for
     // the terminal, so compare on collapsed whitespace.
     let flowed = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(

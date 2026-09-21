@@ -451,7 +451,9 @@ fn unresolvable(project: Option<String>, e: &montaget_text::FontError) -> Answer
             .at_file(&path)
             .field("file", json!(path))
             .field("reason", json!(e.reason))
-            .repair_value(json!({"value": "vendor the declared font file"})),
+            // ADR-0073: not about a document — message text in the template's
+            // `{advice}`, not a structured repair.
+            .field("advice", json!("vendor the declared font file")),
     );
     Answer { view: None, report }
 }

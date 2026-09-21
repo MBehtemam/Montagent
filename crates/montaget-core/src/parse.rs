@@ -27,10 +27,12 @@ pub fn read(path: &Path) -> Result<Loose, Box<Finding>> {
             Finding::new("E-READ")
                 .at_file(&display)
                 .field("reason", Value::String(e.to_string()))
-                // The OS already said what went wrong; the next move follows from it and
-                // differs per failure. A fixed "check the path and its permissions" is
-                // wrong counsel on a file that exists and is not UTF-8.
-                .repair_value(serde_json::json!({"value": advice_for(&e)})),
+                // ADR-0073: not about a document, so no structured repair — the OS
+                // already said what went wrong, and the next move (which differs per
+                // failure; a fixed "check the path and its permissions" is wrong counsel
+                // on a file that exists and is not UTF-8) is message text in the
+                // template's `{advice}`.
+                .field("advice", Value::String(advice_for(&e).to_string())),
         )
     })?;
 

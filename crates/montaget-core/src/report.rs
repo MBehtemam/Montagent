@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::finding::{Class, Finding};
 use crate::media::probe::Probe;
 use crate::media::session::CacheMiss;
+use crate::registry::{self, RepairClass};
 
 /// ADR-0006's `NOT CHECKED` block, verbatim.
 ///
@@ -120,9 +121,10 @@ impl Report {
             tool: "montaget".into(),
             project: None,
             findings: vec![
-                Finding::new("E-INVOCATION")
-                    .field("reason", Value::String(reason.into()))
-                    .repair_value(json!({"value": "fix the command"})),
+                // ADR-0073: not about a document — no structured repair. The usage text
+                // in `reason` already states the fix ("fix the command"); nothing here
+                // asks the registry's `NotAboutDocument` declaration for one.
+                Finding::new("E-INVOCATION").field("reason", Value::String(reason.into())),
             ],
             misses: Vec::new(),
             media: Vec::new(),
@@ -158,7 +160,8 @@ impl Report {
             tool: "montaget".into(),
             project: None,
             findings: vec![
-                // Refuse-class comes from the registry; nothing here asks for it.
+                // ADR-0073: `NotAboutDocument` comes from the registry; nothing here
+                // asks for a repair.
                 Finding::new("E-INTERNAL").field("reason", Value::String(reason.into())),
             ],
             misses: Vec::new(),
@@ -202,11 +205,19 @@ impl Report {
     /// the only way the field goes missing. This is the single place every finding
     /// passes through, so it is the place to catch it — and the CLI turns the panic into
     /// exit 70 rather than an abort.
+    ///
+    /// ADR-0073 narrows the requirement to findings *about a document*: a code the
+    /// registry declares `RepairClass::NotAboutDocument` is exempt, and only that
+    /// declaration exempts it — nothing at a call site can.
     #[track_caller]
     pub fn push(&mut self, finding: Finding) {
+        let exempt = matches!(
+            registry::spec(&finding.code).and_then(|spec| spec.repair),
+            Some(RepairClass::NotAboutDocument)
+        );
         assert!(
-            finding.class != Class::Error || finding.repair.is_some(),
-            "{} is `error`-class and carries no repair (ADR-0043)",
+            finding.class != Class::Error || finding.repair.is_some() || exempt,
+            "{} is `error`-class and carries no repair (ADR-0043/ADR-0073)",
             finding.code
         );
         self.findings.push(finding);
