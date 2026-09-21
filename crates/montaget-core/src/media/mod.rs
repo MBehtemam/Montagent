@@ -78,6 +78,29 @@ impl Source {
     }
 }
 
+/// A local path, spelled the way a person or an agent would type it.
+///
+/// [`Path::display`] is otherwise the right call at this boundary — `validate`'s `CACHE`
+/// and `MEDIA` blocks, and every finding naming a local source, print whatever the caller
+/// resolved. On Windows that can be `std::fs::canonicalize`'s own extended-length spelling —
+/// a real, correct path, and also a Win32 API detail nobody writes by hand. Stripping it
+/// here, at render rather than at resolution, keeps every canonicalisation upstream free to
+/// keep doing its job — the prefix is still exactly what a symlink or a long path resolves
+/// to, only never what gets printed.
+///
+/// Two spellings, not one: a drive path's is `\\?\C:\...`, where the four characters are
+/// simply cut. A UNC share's is `\\?\UNC\server\share\...`, where cutting the same four
+/// characters would leave `UNC\server\share\...` — not a path at all, since the leading
+/// `\\` a UNC path needs is gone. That case has its own rule: drop `\\?\UNC` and keep the
+/// slashes, so `\\?\UNC\server\share\...` becomes `\\server\share\...`.
+pub fn display_local(path: &Path) -> String {
+    let text = path.display().to_string();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    text.strip_prefix(r"\\?\").unwrap_or(&text).to_string()
+}
+
 /// The scheme of a URL, or `None` if the string is a path.
 ///
 /// Deliberately strict: a scheme is a letter followed by letters, digits, `+`, `-` or
@@ -209,6 +232,28 @@ mod tests {
         assert_eq!(
             Source::resolve("file:///clips/take3.mov", dir),
             Source::Local("/clips/take3.mov".into())
+        );
+    }
+
+    #[test]
+    fn a_windows_verbatim_prefix_is_stripped_from_the_displayed_path() {
+        // #239: `canonicalize()` on Windows returns `\\?\C:\...`, a correct path and also
+        // a Win32 API detail nobody types. It never appears in a report.
+        assert_eq!(
+            display_local(Path::new(r"\\?\C:\a\images\06.png")),
+            r"C:\a\images\06.png"
+        );
+        // Any other path — including one with no drive letter at all — is untouched.
+        assert_eq!(
+            display_local(Path::new("/p/images/06.png")),
+            "/p/images/06.png"
+        );
+        // The UNC form of the same prefix carries its own `UNC\` segment, which is not
+        // part of the share's own spelling: cutting only `\\?\` would leave `UNC\server\...`,
+        // a string with no leading `\\` and so not a path a person could open.
+        assert_eq!(
+            display_local(Path::new(r"\\?\UNC\fileserver\media\clip.mp4")),
+            r"\\fileserver\media\clip.mp4"
         );
     }
 

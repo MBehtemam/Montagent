@@ -212,7 +212,11 @@ pub fn probe_local(
     tools: &Tools,
     path: &Path,
 ) -> Result<Outcome, Box<Missing>> {
-    let display = path.display().to_string();
+    // What actually gets passed to `ffprobe` — the platform's own spelling, extended-length
+    // prefix and all, since that prefix is what lets Windows open a path past `MAX_PATH`.
+    let opened = path.display().to_string();
+    // What the *report* names: the same path, with that prefix stripped (`display_local`).
+    let display = super::display_local(path);
 
     match std::fs::metadata(path) {
         Ok(metadata) if metadata.is_dir() => {
@@ -243,7 +247,7 @@ pub fn probe_local(
     let mut args = base_args();
     args.push("-protocol_whitelist".to_string());
     args.push(LOCAL_PROTOCOLS.to_string());
-    args.push(display.clone());
+    args.push(opened);
 
     let execution = execute(runner, tools, &args)?;
     interpret(tools, &display, execution, false)

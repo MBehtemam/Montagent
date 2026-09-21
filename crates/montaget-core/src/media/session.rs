@@ -219,7 +219,7 @@ impl Session {
         }
 
         self.misses.push(CacheMiss {
-            source: path.display().to_string(),
+            source: super::display_local(path),
             kind: match self.seen.get(&key.path) {
                 Some(&(previous_size, previous_mtime_ns)) => MissKind::Changed {
                     previous_size,

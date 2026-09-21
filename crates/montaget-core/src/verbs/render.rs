@@ -104,7 +104,7 @@ use montaget_render::encode::{self, Encoder, Spec};
 
 use crate::exact::{self, Decimal};
 use crate::media::sidecar::Sidecar;
-use crate::media::{Source, tools};
+use crate::media::{Source, display_local, tools};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
@@ -741,7 +741,7 @@ fn chain(
     // video with no audio stream is an ordinary video, not a defect — but it is still not
     // in the mix, and the answer says so.
     let identity = std::fs::canonicalize(&path)
-        .map_err(|e| format!("{} could not be opened: {e}", path.display()))?;
+        .map_err(|e| format!("{} could not be opened: {e}", display_local(&path)))?;
     match probed.iter().find(|(known, _)| *known == identity) {
         Some((_, false)) => return Err("its source carries no audio stream".to_string()),
         Some((_, true)) => {}
