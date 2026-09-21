@@ -136,7 +136,10 @@ fn an_existing_file_is_never_overwritten() {
 
     let report = create_project(&path, &full());
 
-    assert_eq!(report.exit_code(), ExitCode::Errors);
+    // ADR-0080 replaces the exit-1 reading #194 shipped: nothing about a *document* needs
+    // fixing here — the file on disk is intact and the project being scaffolded does not
+    // exist — so the next move is a repair to the command, which is exit 3.
+    assert_eq!(report.exit_code(), ExitCode::BadInvocation);
     assert_eq!(
         report
             .findings
@@ -144,6 +147,13 @@ fn an_existing_file_is_never_overwritten() {
             .map(|f| f.code.as_str())
             .collect::<Vec<_>>(),
         vec!["E-PROJECT-EXISTS"]
+    );
+    // And it is `NotAboutDocument` (ADR-0073's shape, applied by ADR-0080 to the one code
+    // ADR-0073 named and left open): no `repair` field at all, the remedy in the message.
+    assert_eq!(report.findings[0].repair, None);
+    assert!(
+        !report.to_json().to_string().contains("\"repair\""),
+        "a NotAboutDocument code emits no repair key"
     );
     assert_eq!(
         std::fs::read_to_string(&path).expect("still there"),

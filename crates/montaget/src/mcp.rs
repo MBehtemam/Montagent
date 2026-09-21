@@ -67,7 +67,8 @@ pub struct ValidateParams {
 /// `background`, `duration` and `output` are optional, and their absence is not a
 /// convenience — ADR-0030 makes omission and explicit-at-default two spellings of different
 /// declarations, so a scaffold that filled them in would be authoring a claim the agent
-/// never made (#246). Pass them to have them written; omit them to leave them out.
+/// never made. Pass them to have them written; omit them to leave them out. ADR-0080
+/// settles this, and settles that `frame` stays the nested object above.
 ///
 /// `project`, `json` and `verbose` are the call's own, not the document's: where to write,
 /// and which wire form to answer in.
@@ -411,6 +412,12 @@ impl Montaget {
         // value *is* the findings, which is what converts an opt-in check into a structural
         // one. A scaffold that did not land is still an answer about the project and still
         // `success` here; only a failure of Montaget itself would be an MCP error.
+        //
+        // ADR-0080 put this in tension with `rejected`, which sets `isError` because "the
+        // call did not run at all" — which is now `E-PROJECT-EXISTS`'s own reading on the
+        // CLI, where it exits 3. Whether `isError` tracks the exit-code class or this
+        // invariant is #313; until it decides, the invariant holds and this stays
+        // `success`.
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render(&report, form),
         )]))

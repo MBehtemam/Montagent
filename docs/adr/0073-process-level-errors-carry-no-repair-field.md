@@ -5,6 +5,12 @@ amends: 0043 (narrows "every `error`-class finding" to findings about a document
 
 # Process-level errors carry no `repair` field: ADR-0043's binary is about the document
 
+> **Amended by [ADR-0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md).**
+> One of the three codes left open under *"Not settled here"* below is settled:
+> **`E-PROJECT-EXISTS` moves to `RepairClass::NotAboutDocument`** and to exit 3, its remedy
+> stated as message text. `E-NOT-A-PROJECT` and `E-SOURCE-MISSING` are untouched and keep
+> that section's open question. Nothing about the four codes this ADR decided changes.
+
 **Ticket:** [#224](https://github.com/MBehtemam/Montaget/issues/224), resolved by a
 three-model court (Opus, Haiku, Fable — reproduce with `/court`), unanimous.
 
