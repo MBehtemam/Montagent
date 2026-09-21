@@ -796,7 +796,34 @@ fn counted(count: &Value, noun: &str) -> String {
 /// Every number the canonical JSON carries prints here, and nothing else: ADR-0006 makes
 /// the prose a rendering *of* that JSON, so a sentence stating something the JSON does not
 /// is unreachable by construction.
+///
+/// `query_block`'s pattern: `measure`'s two modes share one dispatcher, each stating its
+/// own question underneath the heading.
 fn measure_block(measure: &Value) -> String {
+    match measure["mode"].as_str() {
+        Some("element") => element_block(measure),
+        Some("at") => instant_block(measure),
+        other => format!(
+            "\nMEASURE  this build cannot render a `{}` answer\n",
+            other.unwrap_or("(unnamed)")
+        ),
+    }
+}
+
+/// `--at`'s answer: the nearest sampled instant at-or-before a time, on the project's own
+/// frame grid (ADR-0035).
+fn instant_block(measure: &Value) -> String {
+    format!(
+        "\nMEASURE  the nearest sampled instant at-or-before {} ms, at {} fps\n    frame  \
+         {:<12}nearest      {} ms\n",
+        stated_number(&measure["at"]),
+        stated_number(&measure["fps"]),
+        stated_number(&measure["frame"]),
+        ms(&measure["nearest"]),
+    )
+}
+
+fn element_block(measure: &Value) -> String {
     let asked = &measure["asked"];
     let lines = measure["lines"]
         .as_array()
@@ -931,9 +958,23 @@ fn tenths(value: &Value) -> String {
 
 /// A pixel measurement, printed without a trailing `.0` on a whole number.
 fn pixels(value: &Value) -> String {
+    rounded(value)
+}
+
+/// A millisecond instant on ADR-0035's grid — `measure --at`'s `nearest`, which lands on a
+/// non-integer at an fps whose step is not (100/3 at 30fps) — printed the same way `pixels`
+/// prints a measurement, without a trailing `.0` on a whole one.
+fn ms(value: &Value) -> String {
+    rounded(value)
+}
+
+/// Three decimal places, without a trailing `.0` on a whole number — the one rounding rule
+/// [`pixels`] and [`ms`] share, so they cannot drift apart into two different roundings of
+/// the same kind of number.
+fn rounded(value: &Value) -> String {
     match value.as_f64() {
-        Some(px) => {
-            let rounded = (px * 1000.0).round() / 1000.0;
+        Some(n) => {
+            let rounded = (n * 1000.0).round() / 1000.0;
             let mut text = format!("{rounded}");
             if let Some(stripped) = text.strip_suffix(".0") {
                 text = stripped.to_string();

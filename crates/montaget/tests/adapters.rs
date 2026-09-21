@@ -331,6 +331,40 @@ fn cli_measure_takes_no_flag_that_collapses_the_answer() {
 }
 
 #[test]
+fn cli_measure_at_reaches_the_verb_and_exits_0() {
+    // ADR-0035: the second input mode, a time instead of an element. The fixture is 25fps,
+    // whose 40ms step makes 3041 resolve to frame 76 at 3040ms — the same numbers the core
+    // arithmetic is tested against directly.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&["measure", fixture.to_str().unwrap(), "--at", "3041"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("MEASURE"), "{}", out.stdout);
+    assert!(out.stdout.contains("76"), "{}", out.stdout);
+    assert!(out.stdout.contains("3040"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_measure_with_both_element_and_at_is_exit_3() {
+    // The two input modes answer different questions, so a call naming both is an
+    // invocation error rather than a silent pick of one.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        r#"{"font":"brand","size":58,"runs":[{"text":"x"}]}"#,
+        "--at",
+        "3041",
+    ]);
+
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    // Unlike `--element` that is not JSON (a CLI-only parsing failure the verb never
+    // sees), this is a verb-level rejection: it prints where every other answer does.
+    assert!(out.stdout.contains("E-INVOCATION"), "{}", out.stdout);
+}
+
+#[test]
 fn cli_fonts_list_reaches_the_verb_and_exits_0() {
     let dir = scratch_dir("cli-fonts-list");
     std::fs::copy(open_runde(), dir.join("OpenRunde-Bold.otf")).unwrap();
@@ -1236,6 +1270,15 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
             "tools/call",
             serde_json::json!({"name": "measure", "arguments": {"project": project}}),
         ),
+        // ADR-0035's second mode: a time instead of an element.
+        request(
+            5,
+            "tools/call",
+            serde_json::json!({
+                "name": "measure",
+                "arguments": {"project": project, "at": 3041, "json": true}
+            }),
+        ),
     ]);
 
     let schema = session[&2]["result"]["tools"]
@@ -1246,14 +1289,13 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
         .expect("a `measure` tool")["inputSchema"]
         .clone();
     assert_eq!(schema["type"], "object");
-    assert_eq!(
-        schema["required"],
-        serde_json::json!(["project", "element"]),
-        "{schema}"
-    );
+    // `element` and `at` are each optional — ADR-0035 makes `at` a second, mutually
+    // exclusive input mode, so neither can be the one required argument.
+    assert_eq!(schema["required"], serde_json::json!(["project"]), "{schema}");
     // The argument is the element itself, not a field name and not an id — ADR-0024
     // requires `measure` to work for an element being authored for the first time.
     assert!(!schema["properties"]["element"].is_null(), "{schema}");
+    assert!(!schema["properties"]["at"].is_null(), "{schema}");
     for absent in ["id", "text", "font", "size", "verbose"] {
         assert!(
             schema["properties"][absent].is_null(),
@@ -1271,12 +1313,27 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     assert_eq!(answered["measure"]["block_top"], 1506.75);
     assert_eq!(answered["measure"]["block_bottom"], 1567.25);
 
+    // Neither input mode named — a verb-level rejection, `query`'s missing-mode pattern:
+    // the call reached the verb and it answered with an error finding, so it is not a
+    // tool failure (`isError` stays `false`) even though the report is `E-INVOCATION`.
     let rejected = &session[&4];
     let text = rejected["result"]["content"][0]["text"]
         .as_str()
         .expect("a rendered report, not a bare SDK error");
     assert!(text.contains("E-INVOCATION"), "{text}");
-    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+    assert_eq!(rejected["result"]["isError"], false, "{rejected}");
+
+    // The fixture is 25fps: 3041ms's nearest sampled instant at-or-before it is frame 76,
+    // at 3040ms — the same numbers the core arithmetic and the CLI test both check.
+    let by_instant: serde_json::Value = serde_json::from_str(
+        session[&5]["result"]["content"][0]["text"]
+            .as_str()
+            .expect("a rendered answer"),
+    )
+    .expect("`json: true` returns the canonical JSON");
+    assert_eq!(by_instant["measure"]["mode"], "at");
+    assert_eq!(by_instant["measure"]["frame"], 76);
+    assert_eq!(by_instant["measure"]["nearest"], 3040.0);
 }
 
 #[test]

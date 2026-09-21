@@ -50,8 +50,11 @@
 //! ADR-0035 gives `measure` a third answer that has nothing to do with text — *"the nearest
 //! sampled instant at-or-before a given time, for the project's own `fps`"*, so an author
 //! targeting an exact rendered value never derives the grid arithmetic by hand. Its
-//! arithmetic is already exact and shared ([`crate::exact`]); like the fitted extent, what
-//! is missing is the input mode.
+//! arithmetic is already exact and shared ([`crate::exact::frame_at_or_before`]); it is a
+//! second input mode on the verb — `--at`, taking a time instead of an element — because
+//! ADR-0035 is explicit that the tool call and the published formula do not substitute for
+//! each other, and a mode of its own is what lets an answer state which question it is
+//! ([`View::At`]).
 //!
 //! All three are named here rather than left to be discovered, because a verb that answers
 //! one of its questions and is silent about the others reads as finished.
@@ -86,6 +89,9 @@ const DEFAULT_LINE_HEIGHT_TENTHS: i64 = 12;
 pub struct Ask {
     /// A complete schema-shaped text element.
     pub element: Option<Value>,
+    /// A time instead: the nearest sampled instant at-or-before it, for the project's own
+    /// `fps` (ADR-0035). Mutually exclusive with `element` — one call asks one question.
+    pub at: Option<i64>,
 }
 
 /// One `measure` invocation's answer: what the text occupies, and the report every verb
@@ -116,6 +122,19 @@ impl Answer {
     }
 }
 
+/// Which question was asked, and its answer.
+///
+/// Internally tagged, `query`'s pattern: a consumer reads `mode` and knows which other keys
+/// are there, rather than sniffing for the presence of `lines`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+pub enum View {
+    /// An element, as JSON.
+    Element(Text),
+    /// A time instead (ADR-0035).
+    At(Instant),
+}
+
 /// What the text occupies.
 ///
 /// The typographic numbers and the stroked extent both, named apart. ADR-0014 requires the
@@ -124,7 +143,7 @@ impl Answer {
 /// the advance beside it costs one field and keeps the derivation inspectable rather than
 /// mysterious, which is the same posture ADR-0024 takes for the driving axis.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct View {
+pub struct Text {
     /// The element measured, as the arguments named it — so the answer states its own
     /// question, and two calls in a transcript are told apart by reading them.
     pub asked: Asked,
@@ -174,7 +193,30 @@ pub struct Asked {
     pub origin: String,
 }
 
-/// Measure one text element against the fonts a project declares.
+/// **ADR-0035's grid arithmetic**, `measure`'s second answer: the nearest sampled instant
+/// at-or-before `at`, for the project's own `fps`.
+///
+/// So an author targeting an exact rendered value — retargeting a fade so it reaches
+/// exactly 0, say, past `R-KEYFRAME-UNREACHED`'s finding — never derives `floor(t × fps /
+/// 1000) × 1000 / fps` by hand.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Instant {
+    /// The time asked about, so the answer states its own question.
+    pub at: i64,
+    /// The project's own sampling rate, read off the document rather than echoed from the
+    /// call — the answer is meaningless without it, so it travels with the number it
+    /// produced.
+    pub fps: i64,
+    /// The frame index this instant is, counted from zero at the project's own `t = 0`.
+    pub frame: i64,
+    /// The instant in milliseconds — `frame × 1000 / fps`, as a float for prose. The one
+    /// division of the exact ratio in this verb, and it exists to be read; nothing here
+    /// derives further from it.
+    pub nearest: f64,
+}
+
+/// Measure one text element against the fonts a project declares, or resolve a time
+/// against the project's grid — `measure`'s two input modes (ADR-0035).
 pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
     let project = Some(path.display().to_string());
 
@@ -189,12 +231,19 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
         }
     };
 
-    let element = match &ask.element {
-        Some(element) => element,
-        None => {
+    let element = match (&ask.element, ask.at) {
+        (Some(_), Some(_)) => {
             return rejected(
                 project,
-                "`measure` needs an element: pass the text element as JSON, the same shape you are about to write into the file",
+                "`measure` takes an element or `--at`, never both: they are two different questions",
+            );
+        }
+        (None, Some(at)) => return by_instant(&document, project, at),
+        (Some(element), None) => element,
+        (None, None) => {
+            return rejected(
+                project,
+                "`measure` needs an element or `--at`: pass the text element as JSON, the same shape you are about to write into the file, or a time to resolve against the project's frame grid (ADR-0035)",
             );
         }
     };
@@ -235,14 +284,58 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
     };
 
     Answer {
-        view: Some(View::of(spec.asked, measured)),
+        view: Some(View::Element(Text::of(spec.asked, measured))),
         report: Report::new(TOOL, project),
     }
 }
 
-impl View {
-    fn of(asked: Asked, measured: Measurement) -> View {
-        View {
+/// The nearest-sampled-instant answer, resolved against the project's declared `fps`.
+///
+/// **Document-only**, `R-KEYFRAME-UNREACHED`'s budget: no I/O beyond the document already
+/// in hand, since the grid needs nothing else.
+fn by_instant(document: &Loose, project: Option<String>, at: i64) -> Answer {
+    if at < 0 {
+        // The format's times are absolute integer milliseconds and never negative
+        // (ADR-0005); a negative `at` names no instant on the clock at all, which is a
+        // different fact from a legal instant this project's grid simply doesn't sample.
+        return rejected(
+            project,
+            format!("`--at` is an absolute millisecond and cannot be negative, not {at}"),
+        );
+    }
+    let fps = match document.value().get("fps").and_then(Value::as_i64) {
+        Some(fps) if fps > 0 => fps,
+        Some(fps) => {
+            return rejected(
+                project,
+                format!("the project's `fps` must be positive, not {fps}"),
+            );
+        }
+        None => {
+            return rejected(
+                project,
+                "the project has no `fps`, and the grid ADR-0035 samples is undefined without it",
+            );
+        }
+    };
+    // `fps > 0` above is exactly `frame_at_or_before`'s only refusal condition, so this
+    // always succeeds.
+    let sampled = crate::exact::frame_at_or_before(at, fps).expect("fps checked positive above");
+
+    Answer {
+        view: Some(View::At(Instant {
+            at,
+            fps,
+            frame: sampled.frame,
+            nearest: sampled.ms(),
+        })),
+        report: Report::new(TOOL, project),
+    }
+}
+
+impl Text {
+    fn of(asked: Asked, measured: Measurement) -> Text {
+        Text {
             asked,
             line_count: measured.line_count,
             advance_width: measured.advance_width,
