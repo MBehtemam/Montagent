@@ -199,6 +199,37 @@ impl Scope {
     }
 }
 
+/// The mean per-pixel colour-channel difference between two pictures, out of 255.
+///
+/// Colour only — alpha is not a thing anyone looks at, and the frames this compares are
+/// opaque. Paired with [`ssim`] rather than used alone: SSIM is local and structural and
+/// barely notices a uniform shift in level, while a mean delta barely notices a small
+/// feature moving.
+///
+/// Shared rather than written twice. `golden_frames.rs` sets the thresholds a render may
+/// drift within, and `effects.rs` measures a known difference *against* those thresholds
+/// — two copies of the metric being compared across would be two places for it to drift.
+///
+/// Panics if the two pictures are different sizes, for [`ssim`]'s reason: the caller
+/// resizes, deliberately.
+pub fn mean_delta(a: &RgbaImage, b: &RgbaImage) -> f64 {
+    assert_eq!(
+        (a.width(), a.height()),
+        (b.width(), b.height()),
+        "a mean delta compares two pictures of the same size"
+    );
+    let total: u64 = a
+        .pixels()
+        .zip(b.pixels())
+        .map(|(a, b)| {
+            (0..3)
+                .map(|c| u64::from(a.0[c].abs_diff(b.0[c])))
+                .sum::<u64>()
+        })
+        .sum();
+    total as f64 / (a.pixels().len() * 3) as f64
+}
+
 /// The window: 11 taps of a Gaussian at σ = 1.5, normalised.
 const SIGMA: f64 = 1.5;
 

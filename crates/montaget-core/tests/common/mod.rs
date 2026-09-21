@@ -85,6 +85,41 @@ pub fn fixture_project() -> PathBuf {
     fixture_dir().join("en-halloween-decorating.montaget.json")
 }
 
+/// A project file written into the fixture's own directory and removed again, even when
+/// the assertion between the two panics.
+///
+/// The fixture's assets resolve against the project file's own directory (ADR-0053), so a
+/// variant of it — one element removed, one value broken — has to sit beside them rather
+/// than in a scratch directory of its own. Shared by `reference_frames.rs` and
+/// `effects.rs`: a bare write-then-remove leaves the copy behind whenever the assertion
+/// between them fails, which is exactly when someone is reading `git status`.
+pub struct Scratch(PathBuf);
+
+impl Scratch {
+    pub fn beside_the_fixture(name: &str, body: &str) -> Scratch {
+        // One fixed name **per caller**, rather than a unique one per write: a caller may
+        // write several in sequence inside a single test and can share one file — but the
+        // harness runs the *tests* on parallel threads, and two of them writing one path
+        // would race. Naming it at the call site is what keeps that visible. None of these
+        // is a project any other test reads and nothing globs this directory for
+        // `*.montaget.json`, so the only cost of a copy that a hard abort leaves behind is
+        // a line of `git status` — and the next run overwrites it.
+        let path = fixture_dir().join(format!("{name}.montaget.json"));
+        std::fs::write(&path, body).expect("write the scratch project beside the fixture");
+        Scratch(path)
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 /// A project file as plain JSON.
 ///
 /// Tests that assert *about the fixture* read it as data rather than restating it: a table

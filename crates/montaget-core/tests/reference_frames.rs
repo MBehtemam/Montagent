@@ -102,11 +102,11 @@
 //!
 //! Run with `--nocapture` to see every number this file measured.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 mod common;
 use common::compare::{Plane, RADIUS, Region, Scope, rendered, resized, ssim};
-use common::{fixture_dir, fixture_project};
+use common::{Scratch, fixture_dir, fixture_project};
 
 // ---------------------------------------------------------------------------
 // The two reference frames
@@ -935,34 +935,5 @@ fn a_deliberately_broken_render_fails_the_gated_comparison() {
              passes.",
             reference.file,
         );
-    }
-}
-
-/// A project file written into the fixture's own directory and removed again, even when
-/// the assertion between the two panics.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn beside_the_fixture(name: &str, body: &str) -> Scratch {
-        // One fixed name **per caller**, rather than a unique one per write: the breaks
-        // above run in sequence inside a single test, so they can share one file — but the
-        // harness runs the *tests* on parallel threads, and two of them writing one path
-        // would race. Naming it at the call site is what keeps that visible. None of these
-        // is a project any other test reads and nothing globs this directory for
-        // `*.montaget.json`, so the only cost of a copy that a hard abort leaves behind is
-        // a line of `git status` — and the next run overwrites it.
-        let path = fixture_dir().join(format!("{name}.montaget.json"));
-        std::fs::write(&path, body).expect("write the broken project beside the fixture");
-        Scratch(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
     }
 }
