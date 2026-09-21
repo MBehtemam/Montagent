@@ -88,8 +88,12 @@ fn a_malformed_file_is_e_parse_with_a_located_caret_and_exit_2() {
     // The byte offset is the one the line/column pair resolves to, counted from 0:
     // 2 bytes of line 1, 28 of line 2, then 9 columns into line 3.
     assert_eq!(f.location.byte_offset, Some(39));
+    // ADR-0073 (#224): not about a document — the caret is the only repair there is,
+    // and no `repair` field is emitted at all.
+    assert_eq!(f.repair, None);
 
-    let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+    let json = report.to_json();
+    let rendered = text::render(&json, text::Options::default()).unwrap();
     assert!(
         rendered.contains("\"fps\": ,"),
         "offending line verbatim:\n{rendered}"
@@ -97,6 +101,14 @@ fn a_malformed_file_is_e_parse_with_a_located_caret_and_exit_2() {
     assert!(rendered.contains('^'), "caret:\n{rendered}");
     assert!(rendered.contains("line 3"), "{rendered}");
     assert!(rendered.contains("byte 39"), "{rendered}");
+    assert!(
+        !rendered.contains("refuse-class") && !rendered.contains("advise-class"),
+        "ADR-0073: a finding not about a document states no repair class in words:\n{rendered}"
+    );
+    assert!(
+        json["findings"][0].get("repair").is_none(),
+        "the field is absent, not `null`: {json}"
+    );
 }
 
 #[test]
@@ -129,10 +141,17 @@ fn an_unreadable_file_is_e_read_and_exit_2() {
 
     assert_eq!(report.exit_code(), ExitCode::Unparseable);
     assert_eq!(report.findings[0].code, "E-READ");
+    // ADR-0073 (#224): not about a document — the OS-derived advice is message text,
+    // not a repair.
+    assert_eq!(report.findings[0].repair, None);
 
     let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
     assert!(rendered.contains("could not be read"), "{rendered}");
     assert!(rendered.contains("check the path"), "{rendered}");
+    assert!(
+        !rendered.contains("refuse-class") && !rendered.contains("advise-class"),
+        "{rendered}"
+    );
 }
 
 #[test]
@@ -162,6 +181,9 @@ fn a_bad_invocation_is_exit_3() {
 
     assert_eq!(report.exit_code(), ExitCode::BadInvocation);
     assert_eq!(report.findings[0].code, "E-INVOCATION");
+    // ADR-0073 (#224): not about a document — "fix the command" is a repair to the
+    // invocation, not to anything Montaget can write, so no `repair` field.
+    assert_eq!(report.findings[0].repair, None);
 }
 
 #[test]
@@ -184,6 +206,9 @@ fn an_internal_failure_is_exit_70() {
 
     assert_eq!(report.exit_code(), ExitCode::Internal);
     assert_eq!(report.findings[0].code, "E-INTERNAL");
+    // ADR-0073 (#224): not about a document — "no flag can lift it" doesn't fit a
+    // condition a retry might clear, so no `repair` field.
+    assert_eq!(report.findings[0].repair, None);
 }
 
 #[test]

@@ -157,10 +157,16 @@ fn a_findings_repair_class_comes_from_the_registry_not_from_the_call_site() {
         "a refuse-class check carries `none` without asking for it"
     );
 
-    let advised = Finding::new("E-INVOCATION");
+    let advised = Finding::new("E-KEYFRAME-EASE");
     assert_eq!(
         advised.repair, None,
         "an advise-class check supplies its value per instance"
+    );
+
+    let not_about_document = Finding::new("E-INVOCATION");
+    assert_eq!(
+        not_about_document.repair, None,
+        "ADR-0073: `NotAboutDocument` never carries a repair, supplied or not"
     );
 
     let non_error = Finding::new("N-QUANTIZATION").at_file("p.json");
@@ -184,7 +190,28 @@ fn a_refuse_class_check_may_not_talk_itself_into_a_repair() {
 #[should_panic(expected = "carries no repair")]
 fn an_error_finding_with_no_repair_cannot_reach_a_report() {
     // ADR-0043: "Every `error`-class finding carries a `repair` field." An advise-class
-    // check that forgets its value is the only way the field goes missing.
+    // check that forgets its value is the only way the field goes missing. `E-INVOCATION`
+    // no longer exercises this: ADR-0073 declares it `NotAboutDocument`, exempt from the
+    // requirement, so `E-KEYFRAME-EASE` (still plain advise-class) stands in.
     let mut report = montaget_core::report::Report::new("validate", Some("p.json".into()));
-    report.push(montaget_core::finding::Finding::new("E-INVOCATION"));
+    report.push(montaget_core::finding::Finding::new("E-KEYFRAME-EASE").at_file("p.json"));
+}
+
+#[test]
+fn a_not_about_document_finding_reaches_the_report_with_no_repair_at_all() {
+    // ADR-0073 (#224): the process-level codes #188 introduced are not about a document,
+    // so ADR-0043's binary does not apply to them, and `Report::push` must not demand a
+    // `repair` field on their behalf.
+    let mut report = montaget_core::report::Report::new("montaget", None);
+    report.push(montaget_core::finding::Finding::new("E-INVOCATION").field(
+        "reason",
+        serde_json::Value::String("--nope is not a flag".into()),
+    ));
+    assert_eq!(report.findings[0].repair, None);
+
+    let json = serde_json::to_value(&report.findings[0]).unwrap();
+    assert!(
+        json.get("repair").is_none(),
+        "the field is absent, not `null` and not `\"none\"`: {json}"
+    );
 }
