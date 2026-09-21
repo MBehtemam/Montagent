@@ -6,19 +6,26 @@
 //! *does it look right in motion* — and [#34] measured them not moving together
 //! (`frame` held flat at 4K while preview time regressed 4–6×).
 //!
-//! Three of the four arms are enforced and one is deliberately not. The
-//! unenforced one is the interesting decision: ADR-0021 states that for a
+//! **Two of the four arms are enforced and two are deliberately not**, and the
+//! unenforced pair is the interesting decision. ADR-0021 states that for a
 //! full-resolution preview *"the caller explicitly asked for true pixels and
 //! accepted the cost, so there is no promise for a target to encode"*, and that a
 //! measured reference example is a **better** regression baseline than a guessed
 //! ceiling — it flags a real 2× drift that a loose invented bound would pass, and
-//! it does not false-alarm on legitimately heavier input. So that arm reports
-//! drift against [`FULL_RESOLUTION_PREVIEW_REFERENCES`] and never fails.
+//! it does not false-alarm on legitimately heavier input. `render` is unenforced
+//! for a different reason, and one worth reading before adding a number back:
+//! see [`Budget::Render`].
 //!
-//! Nothing in this module measures anything yet, because no verb exists to
-//! measure. It exists now so that the verb tickets have somewhere to assert
-//! (#189) rather than each inventing a number, and so the numbers live in one
-//! place where a change to one is a visible diff.
+//! An unenforced arm reports drift against its own recorded measurements —
+//! [`FULL_RESOLUTION_PREVIEW_REFERENCES`] and [`RENDER_REFERENCES`] — and never
+//! fails. The lists are per-arm and [`nearest_reference`] will not cross between
+//! them: a 720p-capped proxy preview and a render at the declared frame answer
+//! different questions at different pixel counts, so one arm's number scoring the
+//! other's run would be drift against nothing.
+//!
+//! The numbers live in one place so that a change to one is a visible diff, and
+//! so the verb tickets have somewhere to assert (#189) rather than each inventing
+//! a number.
 //!
 //! [ADR-0021]: ../../../../docs/adr/0021-preview-budget-and-graceful-degradation.md
 //! [#34]: https://github.com/MBehtemam/Montaget/issues/34
@@ -44,21 +51,9 @@ pub const FRAME_LIMIT: Duration = Duration::from_millis(500);
 /// ticket's; this constant is only the number the ladder is measured against.
 pub const SCRUB_PREVIEW_LIMIT: Duration = Duration::from_secs(5);
 
-/// Wall clock allowed per second of rendered output.
+/// A measured example of what one arm's work actually cost.
 ///
-/// **This is the one budget stated here as a rate rather than as the pair it was
-/// written as, and that is an assumption worth seeing.** The original budget is
-/// *"a 60 s video renders in under two minutes"* — one point, not a curve.
-/// ADR-0021 amended the preview half of the map's informal budget and left this
-/// half alone, so nothing has re-derived it. Reading it linearly is what lets a
-/// 10 s test assert anything at all; it is recorded here rather than buried in
-/// whichever ticket first needed it, so that the moment a measurement disagrees
-/// there is a single line to change and an ADR to write.
-pub const RENDER_MS_PER_OUTPUT_SECOND: u64 = 2_000;
-
-/// A measured example of what a full-resolution preview actually cost.
-///
-/// Not a limit. ADR-0021 makes this arm observational: the spec *"states measured
+/// Not a limit. ADR-0021 makes the observational arms report the spec's *"measured
 /// reference examples rather than inventing a target"*.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Reference {
@@ -110,6 +105,64 @@ pub const FULL_RESOLUTION_PREVIEW_REFERENCES: &[Reference] = &[
     },
 ];
 
+/// Every `render` number this project has actually measured.
+///
+/// Appended to on the same terms as the preview list above, and read on the same
+/// terms: a record of what was once true on stated hardware, never a promise.
+/// `conditions` states the frame size and rate the number was taken at, because
+/// ADR-0003 put 4K in ordinary scope and a wall clock with no frame behind it is
+/// comparable to nothing (#217).
+///
+/// **The spread is why more than one reading is recorded.** #217 ran the harness
+/// three times on one machine, minutes apart, with nothing changed between them:
+/// 19.78 s, 18.64 s, 19.64 s. The two entries below are that range's ends — the
+/// middle reading says nothing the ends do not — and against the 17.3 s #215
+/// recorded the whole set is 1.14× wide. Any ceiling derived from one reading
+/// would be derived from that noise as much as from the code. [`nearest_reference`] baselines against the fastest, so ordinary
+/// run-to-run variation surfaces as drift above 1.0 rather than hiding beneath it.
+///
+/// **These are what a replacement ceiling would have to be derived from.** Until
+/// an ADR does that derivation, they are the whole of what this project knows
+/// about how long a render takes.
+pub const RENDER_REFERENCES: &[Reference] = &[
+    Reference {
+        rasterizer: "skia-safe",
+        conditions: FIXTURE_CONDITIONS,
+        output_ms: RENDER_REFERENCE_OUTPUT_MS,
+        elapsed_ms: 17_300,
+        source: "#215, the first whole-fixture render",
+    },
+    Reference {
+        rasterizer: "skia-safe",
+        conditions: FIXTURE_CONDITIONS,
+        output_ms: RENDER_REFERENCE_OUTPUT_MS,
+        elapsed_ms: 19_780,
+        source: "#217, the slowest of three readings minutes apart",
+    },
+    Reference {
+        rasterizer: "skia-safe",
+        conditions: FIXTURE_CONDITIONS,
+        output_ms: RENDER_REFERENCE_OUTPUT_MS,
+        elapsed_ms: 18_640,
+        source: "#217, the fastest of three readings minutes apart",
+    },
+];
+
+/// What both render references above were taken over.
+///
+/// One fixture, and that is worth seeing: it is a single frame size, so these
+/// numbers say nothing about the 4K [`Budget::Render`] names as the rest of the
+/// gap.
+pub const FIXTURE_CONDITIONS: &str = "1080x1920/25 fps, the committed \
+    `en-halloween-decorating` fixture (60 elements, 22 carrying text, 20 narration \
+    elements mixed), cold with an empty probe sidecar, release build, M1 Pro";
+
+/// The fixture's declared `duration`, and so the span every render reference
+/// above was taken over. Named here because `render_budget.rs` asserts the run it
+/// times produced exactly this much output — a number measured over a different
+/// span is not the number recorded.
+pub const RENDER_REFERENCE_OUTPUT_MS: i64 = 65_216;
+
 /// How far an observational measurement may drift from its reference before
 /// [`Verdict::is_notable`] says so.
 ///
@@ -156,6 +209,25 @@ pub enum Budget {
     /// `preview` with the explicit full-resolution escape hatch. Observational.
     FullResolutionPreview,
     /// `render` — the deliverable, always at full declared resolution.
+    /// **Observational, and deliberately without a ceiling.**
+    ///
+    /// The budget this arm inherited was *"a 60 s video renders in under two
+    /// minutes"*. ADR-0021 records that pair as *"written for 1080x1920/30 and
+    /// never re-derived"* after [ADR-0003] generalised the scope to a
+    /// CapCut/Premiere-class editor where 4K is ordinary — it amended the preview
+    /// half and left this half's replacement **deferred**. Read linearly as a rate
+    /// it would let a short test assert something, which is precisely why it was
+    /// tempting and precisely the unmeasured-claim-as-settled-fact pattern
+    /// ADR-0021 refuses elsewhere in its own text.
+    ///
+    /// **The gap, stated plainly: `render` has no performance target.** Nothing
+    /// regresses against a number here, and no measurement in
+    /// [`RENDER_REFERENCES`] is entitled to become one by sitting in this file. A
+    /// target needs its own ADR with a measurement behind it — across the frame
+    /// sizes ADR-0003 put in scope, not just the one the retired figure was
+    /// written for (#217).
+    ///
+    /// [ADR-0003]: ../../../../docs/adr/0003-general-video-editor-not-channel-tooling.md
     Render,
 }
 
@@ -172,10 +244,12 @@ impl Budget {
     ///
     /// # Panics
     ///
-    /// If the budget and the work disagree about whether there is a span. A
-    /// span budget given a still has an output length of zero, which would come
-    /// out as a 0 ms ceiling that every measurement misses — a mis-pairing
-    /// reported as a performance regression. It is a caller bug and says so.
+    /// If the budget and the work disagree about whether there is a span. A still
+    /// scored against a span arm has an output length of zero: on an enforced arm
+    /// that is a measurement judged against a ceiling written for video, and on an
+    /// observational one it is drift scored from a reference for a span it never
+    /// rendered. Either way the answer is a number about the wrong thing, which is
+    /// worse than no answer. It is a caller bug and says so.
     #[track_caller]
     pub fn limit(self, work: Work) -> Option<Duration> {
         assert_eq!(
@@ -192,19 +266,26 @@ impl Budget {
         match self {
             Budget::Frame => Some(FRAME_LIMIT),
             Budget::ScrubPreview => Some(SCRUB_PREVIEW_LIMIT),
-            Budget::FullResolutionPreview => None,
-            Budget::Render => {
-                let ms = (work.output_ms().max(0) as u64)
-                    .saturating_mul(RENDER_MS_PER_OUTPUT_SECOND)
-                    / 1_000;
-                Some(Duration::from_millis(ms))
-            }
+            Budget::FullResolutionPreview | Budget::Render => None,
         }
     }
 
-    /// Whether a miss is a failure. False only for the full-resolution preview.
+    /// Whether a miss is a failure. False for the two observational arms, each
+    /// for its own reason — see [`Budget::FullResolutionPreview`] and
+    /// [`Budget::Render`].
     pub fn is_enforced(self) -> bool {
-        !matches!(self, Budget::FullResolutionPreview)
+        !matches!(self, Budget::FullResolutionPreview | Budget::Render)
+    }
+
+    /// The measurements recorded for this arm, which is where its drift is scored
+    /// from. Empty for an enforced arm: it judges against its stated number, and a
+    /// reference it never consults would be a number with no reader.
+    pub fn references(self) -> &'static [Reference] {
+        match self {
+            Budget::Frame | Budget::ScrubPreview => &[],
+            Budget::FullResolutionPreview => FULL_RESOLUTION_PREVIEW_REFERENCES,
+            Budget::Render => RENDER_REFERENCES,
+        }
     }
 
     /// A short stable name, used in failure messages.
@@ -223,7 +304,7 @@ impl Budget {
             Some(limit) if elapsed <= limit => Verdict::Within { limit, elapsed },
             Some(limit) => Verdict::Exceeded { limit, elapsed },
             None => {
-                let reference = nearest_reference(work);
+                let reference = nearest_reference(self, work);
                 let drift = reference.map(|r| {
                     let scale = if r.output_ms > 0 && work.output_ms() > 0 {
                         work.output_ms() as f64 / r.output_ms as f64
@@ -266,21 +347,34 @@ impl Budget {
     }
 }
 
-/// The nearest recorded reference for a piece of work.
+/// The nearest recorded reference for a piece of work, from `budget`'s own arm.
+///
+/// Drawn only from [`Budget::references`], never from another arm's list: the two
+/// observational arms measure different pixel counts of different things, so a
+/// preview number scoring a render would be drift against nothing.
 ///
 /// Nearest by output length, since that is the axis the references vary along,
 /// and restricted to [`SHIPPED_RASTERIZER`] so a `tiny-skia` record can never
-/// become a `skia-safe` measurement's baseline. A remaining tie is broken on the
-/// slower entry rather than on array position, so appending a reference cannot
-/// silently re-baseline every existing assertion, and a tie-break that is wrong
-/// errs toward reporting less drift rather than inventing some.
+/// become a `skia-safe` measurement's baseline.
 ///
-/// The distance is `saturating_sub` rather than `-`: the enforced arms clamp a
-/// negative span with `.max(0)`, this one does not, and a caller's bad
-/// arithmetic should not be an overflow panic.
-pub fn nearest_reference(work: Work) -> Option<Reference> {
+/// A remaining tie is broken on the **fastest** entry rather than on array
+/// position. Two properties come out of that. Appending a reference cannot
+/// silently re-baseline an existing comparison unless the new run was faster than
+/// everything recorded — and a run that fast is the one worth baselining against,
+/// because it is the best this code has been observed to do. And the error it can
+/// make is to report more drift than a slower record would, never less: an arm
+/// that can only over-report is one whose silence means something.
+///
+/// (This paragraph said *slower* until #217, while the code and its test had
+/// always said faster. The contradiction was invisible while the only list with a
+/// baseline held one eligible entry; `render`'s two made it live.)
+///
+/// The distance is `saturating_sub` rather than `-`: nothing clamps a negative
+/// span here, and a caller's bad arithmetic should not be an overflow panic.
+pub fn nearest_reference(budget: Budget, work: Work) -> Option<Reference> {
     let target = work.output_ms();
-    FULL_RESOLUTION_PREVIEW_REFERENCES
+    budget
+        .references()
         .iter()
         .copied()
         .filter(|r| r.rasterizer == SHIPPED_RASTERIZER)
