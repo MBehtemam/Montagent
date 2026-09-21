@@ -5,7 +5,15 @@ amends: 0021 (states the deferred target resolution and ladder length; defers th
 
 # The proxy-preview target is a single 720p tier, long-edge capped
 
-> **Amended by two later ADRs.** Read them before relying on anything below.
+> **Amended by three later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
+>   — states two things the *"no proxy applies at all"* sentence below leaves open. **A
+>   project between the two caps still degrades**: its first rung is true pixels and its
+>   second is a real 960 px proxy, because the ladder is defined on caps rather than on
+>   sizes. And **a rung whose cap never engaged is disclosed as `native`** with a null
+>   `long_edge_cap` — the required tier field, and the attempt trace and refusal beside it,
+>   name the frame that was rasterized, never a tier that did nothing
 >
 > - [ADR-0050](0050-preview-hard-refuses-below-360p.md) — adopts a floor below the 720p
 >   target

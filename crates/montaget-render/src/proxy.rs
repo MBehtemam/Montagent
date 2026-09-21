@@ -52,13 +52,15 @@
 //! **The floor governs a proxy resolution, never the author's declared frame.** A project
 //! that declares a 320x180 frame is previewed at its own pixels: nothing downscaled it, so
 //! there is no proxy for the floor to judge, and `preview` is not the verb that gets to
-//! tell an author their project is too small. Recorded here because the reading is
-//! load-bearing and no ADR states it.
+//! tell an author their project is too small. [ADR-0078] ratifies this, bounding ADR-0050's
+//! *"any resolution request below 360x640-equivalent is a refusal"* to a **proxy**
+//! resolution.
 //!
 //! [ADR-0021]: ../../../../docs/adr/0021-preview-budget-and-graceful-degradation.md
 //! [ADR-0046]: ../../../../docs/adr/0046-proxy-preview-target-is-720p-long-edge-capped.md
 //! [ADR-0065]: ../../../../docs/adr/0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md
 //! [ADR-0067]: ../../../../docs/adr/0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md
+//! [ADR-0078]: ../../../../docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md
 //! [#87]: https://github.com/MBehtemam/Montaget/issues/87
 //! [#117]: https://github.com/MBehtemam/Montaget/issues/117
 

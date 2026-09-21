@@ -300,6 +300,107 @@ fn a_project_with_nothing_left_to_degrade_to_fails_rather_than_re_render_the_sam
     assert!(json["preview"].is_null());
 }
 
+#[test]
+fn a_project_between_the_two_caps_degrades_from_true_pixels_to_a_real_proxy() {
+    if !has_ffprobe() {
+        return;
+    }
+    // 1200 px long edge: inside the 720p cap of 1280 and outside the 540p cap of 960. The
+    // ladder is defined on *caps*, not on sizes, so the first rung is true pixels — ADR-0046:
+    // "for a 1280x720-native or smaller project, no proxy applies at all" — and the second is
+    // a real proxy. Ratified by ADR-0078 (#295, reading 10).
+    let dir = tempdir(line!());
+    let path = write_project(&dir, "project.json", &project(1200, 600));
+
+    // The first rung on its own: true pixels, and the disclosure says so rather than naming
+    // a tier whose cap never engaged (reading 11).
+    let native = previewed(&path, &Ask::default());
+    assert_eq!(native["preview"]["tier"]["name"], "native");
+    assert_eq!(native["preview"]["tier"]["proxied"], false);
+    assert!(native["preview"]["tier"]["long_edge_cap"].is_null());
+    assert_eq!(native["preview"]["width"], 1200);
+
+    // And on a miss it degrades anyway, even though nothing proxied it to begin with.
+    let json = previewed(
+        &path,
+        &Ask {
+            clock: Clock::Stated(vec![Duration::ZERO, Duration::from_secs(600)]),
+            ..Ask::default()
+        },
+    );
+    let preview = &json["preview"];
+    assert_eq!(preview["tier"]["name"], "540p");
+    assert_eq!(preview["tier"]["degraded"], true);
+    assert_eq!(preview["tier"]["proxied"], true);
+    assert_eq!(preview["tier"]["long_edge_cap"], 960);
+    assert_eq!(
+        (preview["width"].as_i64(), preview["height"].as_i64()),
+        (Some(960), Some(480))
+    );
+    assert_eq!(
+        encoded_frame(Path::new(preview["path"].as_str().unwrap())),
+        (960, 480)
+    );
+
+    // The rung it came down from is the one that rendered true pixels — and it is named for
+    // what it rendered, not for the cap that never engaged on it. One invocation may not
+    // name the same frame two ways: `native` in the disclosure and `720p` in the trace.
+    let attempts = preview["attempts"].as_array().expect("attempts");
+    assert_eq!(attempts.len(), 2);
+    assert_eq!(attempts[0]["width"], 1200);
+    assert_eq!(attempts[0]["missed"], true);
+    assert_eq!(attempts[0]["tier"], "native");
+
+    // And the degraded sentence says what actually ran, rather than asserting that a 720p
+    // proxy ran when true pixels did.
+    let said = preview["tier"]["disclosure"].as_str().unwrap_or_default();
+    assert!(said.contains("native (1200x600) ran to"), "{said}");
+}
+
+#[test]
+fn the_budget_is_judged_per_attempt_and_wall_ms_is_the_whole_invocation() {
+    if !has_ffprobe() {
+        return;
+    }
+    // Each rung gets its own clock, and the one disclosed is the rung that landed — not the
+    // whole invocation's, and not what the first rung left over. A whole-invocation clock
+    // would leave the second rung whatever the first miss did not spend, which is usually
+    // nothing, so ADR-0021's required degrade step could never land. Ratified by ADR-0078
+    // (#295, readings 4 and 5).
+    let dir = tempdir(line!());
+    let path = write_project(&dir, "project.json", &project(2000, 1000));
+    let json = previewed(
+        &path,
+        &Ask {
+            clock: Clock::Stated(vec![Duration::ZERO, Duration::from_secs(600)]),
+            ..Ask::default()
+        },
+    );
+    let preview = &json["preview"];
+
+    // The second rung's own number, not the first's and not their difference.
+    assert_eq!(preview["tier"]["budget_ms"], 600_000);
+
+    // The answer's `wall_ms` is the whole invocation, attempts included, because that is
+    // what the caller actually waited.
+    let attempts = preview["attempts"].as_array().expect("attempts");
+    let spent: u64 = attempts
+        .iter()
+        .map(|a| a["wall_ms"].as_u64().expect("wall_ms"))
+        .sum();
+    let whole = preview["wall_ms"].as_u64().expect("wall_ms");
+    assert!(whole >= spent, "{whole} ms covers every rung's {spent} ms");
+
+    // A rung past its deadline is abandoned where it stands rather than finished and then
+    // judged: it encodes fewer frames than the span has.
+    let span = preview["frames"].as_u64().expect("frames");
+    assert!(
+        attempts[0]["frames"].as_u64().expect("frames") < span,
+        "the missed rung ran to completion: {attempts:?}"
+    );
+    assert_eq!(attempts[1]["frames"].as_u64(), Some(span));
+}
+
 // ---------------------------------------------------------------------------
 // The floors (story 62a, ADR-0050 / ADR-0067)
 // ---------------------------------------------------------------------------

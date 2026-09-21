@@ -5,6 +5,14 @@ amends: 0021 (states the deferred floor), 0046 (adopts a floor below the 720p ta
 
 # `preview`'s hard-refuse floor is 360p, and the refusal names it
 
+> **Amended by [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)**,
+> which bounds the Consequences bullet reading *"any resolution request below
+> 360×640-equivalent (long-edge capped, aspect preserved) is a refusal"*: it governs a
+> **proxy** resolution, never the author's declared frame. A project declaring a 320×180
+> frame is previewed at its own pixels — nothing downscaled it, so there is no proxy for
+> this floor to judge, and `preview` is not the verb that tells an author their project is
+> too small. The measurement, the number and the refusal text are untouched.
+
 > **Amended by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md).**
 > The 360p threshold and the legibility pass behind it stand, and that pass is what retires
 > [ADR-0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md)'s

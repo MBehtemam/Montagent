@@ -5,7 +5,14 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 
 # The performance budget splits in two, proxy-resolution previews get a fixed
 
-> **Amended by five later ADRs.** Read them before relying on anything below.
+> **Amended by six later ADRs.** Read them before relying on anything below.
+>
+> - [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
+>   — states how the `<5 s` below is *judged*. **It bounds one attempt, not one
+>   invocation**, so a degraded preview may cost up to twice it; a span that runs past its
+>   deadline is abandoned where it stands rather than finished and then judged; and the
+>   full-resolution escape hatch, being the observational arm, carries no deadline and is
+>   never degraded. The mandatory tier disclosure and the ladder's shape are untouched
 >
 > - [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) — states the deferred
 >   target resolution and ladder length; defers the floor
