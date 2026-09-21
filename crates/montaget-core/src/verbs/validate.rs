@@ -63,14 +63,40 @@ pub fn validate_with(path: &Path, session: &mut Session) -> Report {
 }
 
 fn run(path: &Path, session: Option<&mut Session>, cache: Option<PathBuf>) -> Report {
+    match checked(TOOL, path, session, cache) {
+        Ok((_, report)) => report,
+        Err(report) => *report,
+    }
+}
+
+/// Read, confirm the shape, and run every registered check — for `validate`, and for the
+/// one other verb that must run the identical engine.
+///
+/// **This is where ADR-0006's structural defence is made structural.** *"`render` runs the
+/// identical check engine and refuses on any `error`"* is a claim about one implementation,
+/// and the only way to assert it is for there to be one: `validate` is this function with
+/// the document thrown away, and `render` is this function with the document kept for
+/// painting. A second parse-shape-check sequence in `render.rs`, however carefully copied,
+/// would be a second place a check could be left out.
+///
+/// `Ok` carries the document and the report the checks produced — which may still say
+/// exit 70, where the disk half could not run. `Err` is the report for a file that never
+/// reached the checks: unparseable, or not a project — boxed, as `cli::run_verb` boxes
+/// its error side, so the happy path does not carry a `Report`'s width twice.
+pub(crate) fn checked(
+    tool: &'static str,
+    path: &Path,
+    session: Option<&mut Session>,
+    cache: Option<PathBuf>,
+) -> Result<(Loose, Report), Box<Report>> {
     let project = Some(path.display().to_string());
 
     let document = match parse::read(path) {
         Ok(document) => document,
-        Err(finding) => return Report::unparseable(TOOL, project, *finding),
+        Err(finding) => return Err(Box::new(Report::unparseable(tool, project, *finding))),
     };
 
-    let mut report = Report::new(TOOL, project);
+    let mut report = Report::new(tool, project);
 
     if let Err(not_a_project) = document.shape() {
         // ADR-0042's precondition, which `fmt`, `timeline` and `query` already hold and
@@ -87,9 +113,9 @@ fn run(path: &Path, session: Option<&mut Session>, cache: Option<PathBuf>) -> Re
         report.push(Finding::not_a_project(
             document.path(),
             &not_a_project,
-            "point validate at the project file",
+            &format!("point {tool} at the project file"),
         ));
-        return report;
+        return Err(Box::new(report));
     }
 
     if let Err(missing) = run_checks(&document, &mut report, session, cache.as_deref()) {
@@ -103,7 +129,7 @@ fn run(path: &Path, session: Option<&mut Session>, cache: Option<PathBuf>) -> Re
         // then hear about the key it could have fixed in the same turn.
         report.fail_internally(missing.reason());
     }
-    report
+    Ok((document, report))
 }
 
 /// Every registered check, over the whole document.

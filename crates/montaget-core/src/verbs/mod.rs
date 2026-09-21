@@ -13,5 +13,6 @@ pub mod frame;
 pub mod measure;
 pub mod probe;
 pub mod query;
+pub mod render;
 pub mod timeline;
 pub mod validate;

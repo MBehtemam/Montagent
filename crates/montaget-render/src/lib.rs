@@ -45,9 +45,12 @@
 //!   `crossfade` and a run's `highlight` window landed with the same ticket but are
 //!   *resolutions* rather than paint rules, so they live in `montaget-core` and reach
 //!   this crate as an `opacity` and a paint like any other.
-//! - The encode path to a deliverable, the atomic rename and the proxy ladder are #215
-//!   and #218.
+//! - The encode path to a deliverable and the atomic rename are
+//!   [#215](https://github.com/MBehtemam/Montaget/issues/215)'s [`encode`]: raw frames
+//!   piped to a spawned `ffmpeg`, written to a sibling temp path and renamed into place.
+//!   The proxy ladder is #218's.
 
 pub mod budget;
 pub mod canvas;
 pub mod decode;
+pub mod encode;

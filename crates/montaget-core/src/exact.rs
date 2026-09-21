@@ -142,6 +142,16 @@ impl Decimal {
         self.units > 0
     }
 
+    /// The nearest `f64` — for an argument to a program that accepts nothing else.
+    ///
+    /// **Not for arithmetic that decides anything.** The one caller is `render`'s
+    /// `atempo` chain, where `ffmpeg` takes a float and the value settles no fact about
+    /// the document; every number the format itself derives from a decimal goes through
+    /// the exact functions above.
+    pub fn as_f64(self) -> f64 {
+        self.units as f64 / 10f64.powi(self.scale as i32)
+    }
+
     /// `numerator / denominator`, as the exact rational this decimal is.
     fn as_ratio(self) -> Option<(i128, i128)> {
         Some((self.units, pow10(self.scale)?))

@@ -247,7 +247,36 @@ pub fn answer(document: &Loose, instant: i64) -> Result<At, String> {
 /// caller with no `ffmpeg`/`ffprobe`, or a project with no raster source at all, passes —
 /// and every crop that would have needed it comes back `crop_unresolved` instead of
 /// silently absent.
-pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> At {
+pub fn at(document: &Loose, instant: i64, session: Option<&mut Session>) -> At {
+    build(document, instant, session, Detail::Full)
+}
+
+/// How much of the view one caller needs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Detail {
+    /// Every component: the stack, its geometry, and `NOT COVERED`.
+    Full,
+    /// The stack alone — who is present, in painter's order, with the offset into each
+    /// source — and none of the derived geometry.
+    Presence,
+}
+
+/// The presence set at `instant`, in painter's order, and nothing derived from it.
+///
+/// What `render` walks on every frame. It is [`at`] with the geometry left out rather than
+/// a second traversal of the tracks, because the one thing `frame`'s painter insists on is
+/// that draw order is decided in exactly one place — *"a second ordering here, however
+/// carefully written, would be a second place draw order could be decided"* — and a render
+/// that sorted its own stack would be that second place. What is left out is what a
+/// painter never reads: the crop rectangle (the canvas applies `clip` itself), the ink box
+/// (a text measurement, which re-registers every font of every text element on every
+/// call), and `NOT COVERED`. Their fields come back `unresolved` with a sentence saying so,
+/// never silently empty.
+pub(crate) fn presence(document: &Loose, instant: i64) -> At {
+    build(document, instant, None, Detail::Presence)
+}
+
+fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, detail: Detail) -> At {
     let stack = Stack::of(document);
     let mut present: Vec<Present> = Vec::new();
     let mut unplaced: Vec<String> = Vec::new();
@@ -293,7 +322,8 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
         // whole computation to refuse — is not this instant's concern. One call into
         // `drawn_rect`, its result reused for both the refusal check and the rectangle
         // itself, rather than computing the same footprint twice.
-        if covers_the_frame(kind)
+        if detail == Detail::Full
+            && covers_the_frame(kind)
             && geometry_number_opacity(element, instant) != 0.0
             && let Some(frame) = frame
         {
@@ -316,6 +346,7 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
         let (source_offset, source_offset_unresolved) =
             source_offset(element, kind, start, instant);
         let (crop, crop_unresolved) = match frame {
+            _ if detail == Detail::Presence => (None, Some(NOT_DERIVED.to_string())),
             Some(frame) => crop_for(
                 document,
                 element,
@@ -330,6 +361,9 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
             ),
         };
         let (ink_box, ink_box_unresolved) = match (kind, frame) {
+            (Some("text"), _) if detail == Detail::Presence => {
+                (None, Some(NOT_DERIVED.to_string()))
+            }
             (Some("text"), Some(frame)) => {
                 match geometry::ink_box(document, element, instant, frame) {
                     Ok(ink_box) => (Some(ink_box), None),
@@ -366,6 +400,9 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
     // the invented order ADR-0060 refuses.
     present.sort_by_key(|element| (element.layer.is_none(), element.layer.unwrap_or_default()));
 
+    if detail == Detail::Presence {
+        not_covered_unresolved = Some(NOT_DERIVED.to_string());
+    }
     let not_covered = match (frame, &not_covered_unresolved) {
         (Some(frame), None) => geometry::not_covered(frame, &covering),
         _ => Vec::new(),
@@ -379,6 +416,10 @@ pub fn at(document: &Loose, instant: i64, mut session: Option<&mut Session>) -> 
         not_covered_unresolved,
     }
 }
+
+/// The one sentence every geometry field carries in a presence-only view.
+const NOT_DERIVED: &str = "not derived: this view was built for painting, and a painter reads none of the \
+                           geometry";
 
 /// The project's own `frame`, or `None` where it is missing or malformed — `validate`'s
 /// fact to report, not this view's to guess at.
