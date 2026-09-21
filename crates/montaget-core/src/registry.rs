@@ -1010,6 +1010,85 @@ move it off the cluster.",
 bytes on disk, so an exact-string edit finds one of them and not the other.",
         status: Live,
     },
+    // ---- The motion and geometry checks (#211). ------------------------------------
+    CheckSpec {
+        // ADR-0033's same-source cut, and ADR-0062's wrap — one code, because the
+        // comparison at the wrap is byte-identical to the one at an interior cut and "a
+        // second code would encode information the location already carries". `{seam}` is
+        // that location: an interior instant, or the two boundary instants of the wrap.
+        //
+        // Keyed on same track + canonicalized source + adjacency and **never on `group`**:
+        // ADR-0012's group-keyframe-time check answers a different question, and the
+        // fixture proves it cannot stand in for this one — `photo-05-quiz` and
+        // `photo-05-loop` share no `group` and carry the larger of the two pops, at 64016.
+        code: "R-SOURCE-CUT-POP",
+        classes: &[Review],
+        repair: None,
+        // The per-property tolerance table is float and sub-pixel noise headroom, not a
+        // borrowed constant: every number in it is about this format's own resolved
+        // arithmetic, and ADR-0033 is explicit that "none of these ever carries the
+        // discrimination — every fixture pop clears its column by two or more orders of
+        // magnitude". ADR-0061's fenced exception is for a threshold from outside the
+        // document *and* the rendering semantics, which this is not.
+        threshold: Internal,
+        adr: "ADR-0033",
+        // One finding per cut rather than per property, with `{detail}` carrying each
+        // failing property's out-value, in-value and delta — ADR-0033's "per property that
+        // fails its tolerance" list, in the shape `N-QUANTIZATION` already uses for a
+        // finding whose substance is a list. Per-property findings would report one cut
+        // three times, and `origin` — whose mismatch is its own trigger and has no delta —
+        // has no honest row in a per-property field set.
+        template: "`{element}` \u{2192} `{other}` {seam}, both `{source}`: {detail}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0035: a keyframe's declared target value that no sampled frame inside the
+        // element's own range ever produces — "the rendered picture does not match what
+        // the file declares". Never off-grid `t` by itself, which is legal and which the
+        // fixture does 109 times.
+        code: "R-KEYFRAME-UNREACHED",
+        classes: &[Review],
+        repair: None,
+        // The grid is `1000/fps`, evaluated in exact rational arithmetic — the format's own
+        // sampling semantics and nothing borrowed.
+        threshold: Internal,
+        adr: "ADR-0035",
+        template: "`{element}`.{property}: the keyframe at t={declared_t} declares \
+{target}, and no frame sampled inside {start}..{end} ms reaches it \u{2014} the nearest is \
+frame {frame} at {sampled_t} ms, where it resolves to {sampled}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0044: a **standing** invariant, never conditioned on "a `frame` edit just
+        // happened", and whole-range rather than per-instant — a slide-in that starts at
+        // `x:-500` is ordinary animation vocabulary and fires nothing.
+        code: "R-OFF-CANVAS",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0044",
+        template: "`{element}`: its declared rect never meets the frame over {start}..{end} \
+ms \u{2014} the union of its resolved rect across that range is {width}\u{d7}{height} px at \
+({x}, {y}), and the frame is {frame_width}\u{d7}{frame_height}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0052, discharging ADR-0038's acknowledged cost: an `ease` required on a
+        // record whose `v` does not change describes motion that does not happen. Literal
+        // exact equality of author-written `v`, no tolerance — there is no resolution step
+        // between the two records for a tolerance to absorb.
+        code: "R-EASE-INERT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0052",
+        // One finding per run of consecutive holds, not one per pair: "three keyframe
+        // records all sharing one `v` produce two inert-ease segments back to back, and
+        // reporting them as two lines duplicates the same fact".
+        template: "`{element}`.{property}: {records} consecutive keyframes hold v={value} \
+from t={from} to t={to}; ease={ease} describes no motion.",
+        status: Live,
+    },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],

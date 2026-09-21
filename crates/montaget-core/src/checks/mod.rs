@@ -15,8 +15,11 @@
 
 pub mod anchor;
 pub mod box_slack;
+pub mod canvas;
 pub mod caption;
 pub mod coverage;
+pub mod cut;
+pub mod ease;
 pub mod fit;
 pub mod fonts;
 pub mod highlight;
@@ -30,6 +33,7 @@ pub mod speed;
 pub mod tie;
 pub mod track;
 pub mod transition;
+pub mod unreached;
 
 /// What a finding's prose calls the project itself, where the subject is not an element.
 pub(crate) const PROJECT: &str = "the project";
@@ -124,6 +128,105 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .collect(),
         })
         .collect()
+}
+
+/// **Every property a keyframe list may be written on** (ADR-0012).
+///
+/// One list, because two checks read it and each would otherwise carry its own copy:
+/// [`ease`] asks whether a record's `ease` describes any travel, and [`unreached`] whether
+/// a declared endpoint is ever sampled. `crate::verbs::timeline` keeps a third copy for a
+/// third question and is not folded in here — it asks *"is this element animated at all"*
+/// of a `Value` with no check machinery around it.
+pub(crate) const ANIMATABLE: [&str; 6] = ["x", "y", "scale", "rotation", "opacity", "volume"];
+
+/// One property's keyframe records, or `None` where the property is absent or static.
+///
+/// **ADR-0012's own shape test, as `Animatable` applies it on the way in**: a keyframe
+/// record is an object, so an array *of objects* is a keyframe list and every other array
+/// — `scale`'s own `[sx, sy]` — is a static value. Shared by [`ease`] and [`unreached`],
+/// which would otherwise each carry the rule and the sentence explaining it.
+pub(crate) fn keyframe_records<'a>(
+    element: &'a serde_json::Value,
+    property: &str,
+) -> Option<&'a Vec<serde_json::Value>> {
+    let records = element.get(property)?.as_array()?;
+    records
+        .first()
+        .is_some_and(serde_json::Value::is_object)
+        .then_some(records)
+}
+
+/// The properties whose keyframes move an element's box, and so whose record times are
+/// boundaries a geometric check must sample at.
+///
+/// ADR-0012's animatable set, narrowed: `crate::verbs::timeline`'s `ANIMATABLE` is the
+/// same list plus `opacity` and `volume`, and this one drops both because neither moves a
+/// rectangle. `opacity` in particular is deliberate — it changes what a collision *looks
+/// like* and not whether there is one (ADR-0060), and an element faded to nothing is still
+/// somewhere (ADR-0044). Narrower rather than shared, because a sample taken at an instant
+/// where only the fade changes is a sample that can find nothing.
+pub(crate) const MOVES_THE_BOX: [&str; 4] = ["x", "y", "scale", "rotation"];
+
+/// **ADR-0060's sample set**: every keyframe boundary inside `window`, its own two ends,
+/// and the midpoint of every consecutive pair — over every element in `elements`.
+///
+/// Shared by [`tie`] and [`canvas`], which ask two different questions of the same
+/// arithmetic: *do these two boxes ever meet* and *does this box ever meet the frame*.
+/// ADR-0060 wrote the set down and ADR-0044 names no set of its own, so a second copy
+/// would be a second answer to *"which instants is a rectangle worth looking at"* — the
+/// drift [`crate::stack`] and [`crate::track`] are each owned centrally to prevent.
+///
+/// The window's last *instant* is `end - 1` and not `end`: the range is half-open, so at
+/// `end` the element is already off screen (ADR-0005).
+///
+/// Between two boundaries each box travels monotonically along a single eased segment, so
+/// one interior sample is what catches a crossing that begins and ends elsewhere. It is a
+/// sample set and not a proof, which is the trade ADR-0060 made when it chose sampling
+/// over a static check.
+///
+/// Off-grid keyframe times need nothing here (ADR-0035): a `t` is an ordinary integer
+/// input to an ordinary sample set, and there is no branch below that could round one.
+pub(crate) fn box_samples(
+    elements: &[&serde_json::Value],
+    window: crate::stack::TimelineRange,
+) -> Vec<i64> {
+    use serde_json::Value;
+
+    let last = window.end - 1;
+    let mut boundaries = vec![window.start, last];
+    for element in elements {
+        for key in MOVES_THE_BOX {
+            let Some(records) = element.get(key).and_then(Value::as_array) else {
+                continue;
+            };
+            for t in records
+                .iter()
+                .filter_map(|record| record.get("t")?.as_i64())
+            {
+                // A keyframe outside the element's own range is legal and ordinary — it is
+                // how a trimmed move is spelled (`CONTEXT.md`) — and outside the window it
+                // is an instant at which the question being asked cannot matter.
+                if window.start < t && t <= last {
+                    boundaries.push(t);
+                }
+            }
+        }
+    }
+    boundaries.sort_unstable();
+    boundaries.dedup();
+
+    // The interval sample the ADR asks for, between each consecutive pair. Floored, so it
+    // is a real instant on the clock; where two boundaries are adjacent it lands on the
+    // earlier one and `dedup` drops it, which is correct — there is no instant between
+    // them to look at.
+    let mut out = Vec::with_capacity(boundaries.len() * 2);
+    for pair in boundaries.windows(2) {
+        out.push(pair[0]);
+        out.push(pair[0] + (pair[1] - pair[0]) / 2);
+    }
+    out.push(*boundaries.last().expect("the window has at least one end"));
+    out.dedup();
+    out
 }
 
 /// `1 element` / `3 elements` — a count and its noun, for a template that cannot inflect.

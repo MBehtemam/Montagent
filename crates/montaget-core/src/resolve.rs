@@ -144,14 +144,44 @@ pub enum Unresolvable {
 /// the shortest list: ADR-0012's clamping already makes a one-record list constant
 /// everywhere, and a caller must never have to ask which of the two shapes it holds.
 pub fn at<T: Interpolate>(property: &Animatable<T>, t: i64) -> Result<T::Out, Unresolvable> {
+    at_instant(property, i128::from(t), 1)
+}
+
+/// **The same, at an instant that need not be a whole millisecond** — `numerator /
+/// denominator`, in milliseconds.
+///
+/// A *sampled frame's* instant is `n × 1000/fps` ms, which ADR-0035 says is *"not
+/// necessarily integral"* and must be evaluated *"in exact rational arithmetic (integer
+/// numerator/denominator, never float)"*: at 30 fps the grid step is `100/3` ms and only
+/// multiples of 100 ms are frame-exact. [`crate::checks::unreached`] asks what a property
+/// resolves to at exactly such an instant, and rounding one to a whole millisecond first
+/// would be the rounding rule ADR-0035 says there is not.
+///
+/// It is this entry point rather than a second resolver for the reason the module doc
+/// gives: the rule has two callers already, and for *this* rule the drift has been
+/// observed twice. [`at`] is this function with a denominator of 1, so the whole-
+/// millisecond case cannot come to disagree with the sub-millisecond one.
+pub fn at_instant<T: Interpolate>(
+    property: &Animatable<T>,
+    numerator: i128,
+    denominator: i128,
+) -> Result<T::Out, Unresolvable> {
     match property {
         Animatable::Static(value) => Ok(T::held(value)),
-        Animatable::Keyed(records) => keyed(records, t),
+        Animatable::Keyed(records) => keyed(records, numerator, denominator),
     }
 }
 
-/// The resolved value of a keyframe list at `t`.
-fn keyed<T: Interpolate>(records: &[Keyframe<T>], t: i64) -> Result<T::Out, Unresolvable> {
+/// The resolved value of a keyframe list at `numerator / denominator` ms.
+///
+/// Every comparison against a record's own `t` is scaled by the denominator rather than
+/// the instant being divided down to it, so an instant between two whole milliseconds
+/// lands in the segment that actually contains it.
+fn keyed<T: Interpolate>(
+    records: &[Keyframe<T>],
+    numerator: i128,
+    denominator: i128,
+) -> Result<T::Out, Unresolvable> {
     // Sorted by `t` rather than read in array order. A keyframe's `t` is the whole of what
     // places it on the clock (ADR-0012), so array order determines nothing here — the same
     // reading ADR-0060 fixed for elements, where *"array order carries no meaning"*. Stable,
@@ -174,10 +204,11 @@ fn keyed<T: Interpolate>(records: &[Keyframe<T>], t: i64) -> Result<T::Out, Unre
     // Clamped at both ends (ADR-0012), inclusively: at exactly the first or last `t` the
     // value *is* that record's, and taking the branch here rather than through the segment
     // arithmetic keeps the endpoint exact rather than the result of a division.
-    if t <= first.t {
+    let scaled = |record: &Keyframe<T>| i128::from(record.t) * denominator;
+    if numerator <= scaled(first) {
         return Ok(T::held(&first.v));
     }
-    if t >= last.t {
+    if numerator >= scaled(last) {
         return Ok(T::held(&last.v));
     }
 
@@ -193,10 +224,10 @@ fn keyed<T: Interpolate>(records: &[Keyframe<T>], t: i64) -> Result<T::Out, Unre
     let (a, b) = order
         .windows(2)
         .map(|pair| (pair[0], pair[1]))
-        .find(|(a, b)| a.t <= t && t < b.t)
+        .find(|(a, b)| scaled(a) <= numerator && numerator < scaled(b))
         .ok_or(Unresolvable::Empty)?;
 
-    let fraction = (t - a.t) as f64 / (b.t - a.t) as f64;
+    let fraction = (numerator - scaled(a)) as f64 / (scaled(b) - scaled(a)) as f64;
     // `ease` on `b`, never on `a`: it describes the segment **entering** its record
     // (ADR-0012).
     match &b.ease {

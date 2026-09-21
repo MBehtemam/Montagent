@@ -22,13 +22,16 @@
 //! co-occupy space — *"both failure modes unacceptable once the check gates the render."*
 //!
 //! So the sample set is the ADR's own: **each keyframe boundary plus an interval between
-//! them**, across the pair's temporal intersection only. [`samples`] builds it from every
-//! keyframe either element carries on a property that moves its box — `x`, `y`, `scale`,
-//! `rotation` — clamped to the shared window, with the window's own first and last instants
-//! at the ends and the midpoint of every consecutive pair between them. Between two
-//! boundaries each box travels monotonically along a single eased segment, so one interior
-//! sample is what catches a crossing that begins and ends apart; it is a sample set and not
-//! a proof, which is the trade ADR-0060 made when it chose sampling over a static check.
+//! them**, across the pair's temporal intersection only. [`crate::checks::box_samples`]
+//! builds it from every keyframe either element carries on a property that moves its box —
+//! `x`, `y`, `scale`, `rotation` — clamped to the shared window, with the window's own
+//! first and last instants at the ends and the midpoint of every consecutive pair between
+//! them. Between two boundaries each box travels monotonically along a single eased
+//! segment, so one interior sample is what catches a crossing that begins and ends apart;
+//! it is a sample set and not a proof, which is the trade ADR-0060 made when it chose
+//! sampling over a static check. It is shared with [`crate::checks::canvas`], which asks
+//! the same arithmetic a different question — *does this box ever meet the frame* — and a
+//! second copy would be a second answer to which instants are worth looking at.
 //!
 //! **Scope stays narrow** (ADR-0060): only pairs that already share a resolved layer are
 //! sampled, and only across the instants they are both on screen — never a pairwise scan of
@@ -76,17 +79,6 @@ use crate::report::Report;
 use crate::stack::{Stack, TimelineRange};
 use crate::verbs::query::at::frame_dimensions;
 use crate::verbs::query::geometry::{self, NotAxisAligned, Rect};
-
-/// The properties whose keyframes move an element's box, and so whose record times are
-/// boundaries this check must sample at.
-///
-/// ADR-0012's animatable set, narrowed: `crate::verbs::timeline`'s `ANIMATABLE` is the
-/// same list plus `opacity` and `volume`, and this one drops both because neither moves a
-/// rectangle. `opacity` in particular is deliberate — it changes what the collision looks
-/// like and not whether there is one, and ADR-0060 is explicit that a fully transparent
-/// overlap is still an `error`. Narrower rather than shared, because a sample taken at an
-/// instant where only the fade changes is a sample that can find nothing.
-const MOVES_THE_BOX: [&str; 4] = ["x", "y", "scale", "rotation"];
 
 /// One element, as this check reads it.
 struct Tied<'a> {
@@ -213,7 +205,7 @@ fn collision(a: &Tied<'_>, b: &Tied<'_>, layer: i64, frame: (i64, i64)) -> Optio
     let window = shared(a.range, b.range)?;
     let mut refused: Option<Finding> = None;
 
-    for instant in samples(a.element, b.element, window) {
+    for instant in crate::checks::box_samples(&[a.element, b.element], window) {
         let (one, other) = (
             geometry::visible_rect(a.element, instant, frame),
             geometry::visible_rect(b.element, instant, frame),
@@ -252,53 +244,6 @@ fn shared(a: TimelineRange, b: TimelineRange) -> Option<TimelineRange> {
         start: a.start.max(b.start),
         end: a.end.min(b.end),
     })
-}
-
-/// ADR-0060's sample set: every keyframe boundary inside the shared window, its own two
-/// ends, and the midpoint of every consecutive pair.
-///
-/// The window's last *instant* is `end - 1` and not `end`: the range is half-open, so at
-/// `end` at least one of the two elements is already off screen and their stacking has
-/// stopped mattering (ADR-0005).
-///
-/// Off-grid keyframe times need nothing here (ADR-0035): a `t` is an ordinary integer
-/// input to an ordinary sample set, and there is no branch below that could round one.
-fn samples(a: &Value, b: &Value, window: TimelineRange) -> Vec<i64> {
-    let last = window.end - 1;
-    let mut boundaries = vec![window.start, last];
-    for element in [a, b] {
-        for key in MOVES_THE_BOX {
-            let Some(records) = element.get(key).and_then(Value::as_array) else {
-                continue;
-            };
-            for t in records
-                .iter()
-                .filter_map(|record| record.get("t")?.as_i64())
-            {
-                // A keyframe outside the element's own range is legal and ordinary — it is
-                // how a trimmed move is spelled (`CONTEXT.md`) — and outside the *shared*
-                // window it is an instant at which this pair's stacking cannot matter.
-                if window.start < t && t <= last {
-                    boundaries.push(t);
-                }
-            }
-        }
-    }
-    boundaries.sort_unstable();
-    boundaries.dedup();
-
-    // The interval sample the ADR asks for, between each consecutive pair. Floored, so it
-    // is a real instant on the clock; where two boundaries are adjacent it lands on the
-    // earlier one and `dedup` drops it, which is correct — there is no instant between
-    // them to look at.
-    let mut out = Vec::with_capacity(boundaries.len() * 2);
-    for pair in boundaries.windows(2) {
-        out.push(pair[0]);
-        out.push(pair[0] + (pair[1] - pair[0]) / 2);
-    }
-    out.push(*boundaries.last().expect("the window has at least one end"));
-    out.dedup();
-    out
 }
 
 /// `E-LAYER-TIE`: the two boxes overlap, and the document does not say which draws in

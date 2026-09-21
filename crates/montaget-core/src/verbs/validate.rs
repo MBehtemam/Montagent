@@ -162,6 +162,18 @@ fn run_checks(
     // string. All three read the concatenated `runs` text and nothing else — no font, no
     // disk — so like the checks above they can sit anywhere in this list.
     crate::checks::runs::check(document, report);
+    // The motion and geometry checks (#211), each needing resolved values rather than
+    // declared ones. `R-SOURCE-CUT-POP` compares an animated property across a same-source
+    // hard cut, and across the wrap when the project declares `loop` (ADR-0033, ADR-0062);
+    // `R-KEYFRAME-UNREACHED` asks whether a declared endpoint is ever on a sampled frame
+    // (ADR-0035); `R-OFF-CANVAS` is a standing whole-range rect-against-frame test
+    // (ADR-0044); `R-EASE-INERT` reads author-written `v` literally and touches no
+    // resolver at all (ADR-0052). All four read only the document, so — like the checks
+    // above — they can sit anywhere in this list.
+    crate::checks::cut::check(document, report);
+    crate::checks::unreached::check(document, report);
+    crate::checks::canvas::check(document, report);
+    crate::checks::ease::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);
