@@ -92,8 +92,8 @@ pub struct At {
     ///
     /// Audio included, like the cut list's — *"audio is an element like any other; nothing
     /// owns it"* (ADR-0001), and a caller wanting only the visual stack filters one field.
-    /// The departure from ADR-0011's word *"on-screen"* is the same one, argued in the same
-    /// place ([#250](https://github.com/MBehtemam/Montaget/issues/250)).
+    /// ADR-0074 settles that the presence set is every element in both modes, so the term
+    /// cannot mean one thing here and something narrower in the cut list.
     pub stack: Vec<Present>,
     /// Elements the document does not place on the clock — no `start`, no `end`, or one of
     /// them written as something other than whole milliseconds.

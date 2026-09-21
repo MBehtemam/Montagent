@@ -107,8 +107,9 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0031, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070 |
+| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0031, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070, 0074 |
 | [0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) | `query --where`'s predicate is **a conjunction of whole-value terms over what the document writes**: `and` only, no substring or regex, `exists`/`missing`, `*` and array indices, `track` reserved, nothing resolved. *"Resolved values, never echoed fields"* is `--at`'s rule | — |
+| [0074](0074-the-cut-lists-presence-set-is-every-element.md) | The cut list's presence set is **every element, audio included** — ADR-0011's *"on-screen"* is amended away. Members carry `type` so the visual list is one filter; the visual answer loses 28 of the fixture's 47 boundaries and cannot be filtered back. `unplaced` is specified surface | — |
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 
 ## `validate`

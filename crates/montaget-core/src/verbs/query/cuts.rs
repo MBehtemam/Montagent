@@ -1,29 +1,28 @@
 //! `--from --to` — the cut list.
 //!
-//! ADR-0011: *"the intervals over which the set of on-screen elements is constant. Not
-//! sampled instants. It **must always name the boundary immediately outside the range on
-//! each side**, which folds in the `boundaries` want without a fourth verb and without the
+//! ADR-0011: *"the intervals over which the [presence set] is constant. Not sampled
+//! instants. It **must always name the boundary immediately outside the range on each
+//! side**, which folds in the `boundaries` want without a fourth verb and without the
 //! caller guessing a window."*
 //!
-//! ## Where this departs from the ADR's wording, and why
+//! ## The presence set is every element, and `unplaced` is part of the answer
 //!
-//! The ADR says *on-screen*; this builds the presence set from **every element**, audio
-//! included, and states each member's `type` so a caller wanting only the visual cut list
-//! filters one field. Surfaced rather than done quietly, because it is a departure:
+//! ADR-0011 originally wrote *on-screen* there. ADR-0074 amends it to the defined term,
+//! and settles #250: the presence set is built from **every element**, audio included,
+//! each member stating its `type` so a caller wanting only the visual cut list filters one
+//! field.
 //!
 //! - ADR-0001 is explicit that *"audio is an element like any other; nothing owns it"*, and
 //!   a verb that silently dropped a third of the fixture's elements from *"the presence
 //!   set"* would be the one place in Montaget where the word means something narrower.
 //! - The information only travels one way. A caller given every element can compute the
 //!   visual cut list; a caller given the visual one cannot recover where the narration
-//!   started, and the drift ADR-0011's own consumer task hunts — *"an 800 ms drift on
-//!   disk"* — is a relationship between a narration boundary and a photo boundary.
+//!   started — 28 of the fixture's 47 boundaries are reachable only through audio
+//!   (`docs/adr/cut_presence_scan.py`) — and the drift ADR-0011's own consumer task hunts,
+//!   *"an 800 ms drift on disk"*, is a relationship between a narration boundary and a
+//!   photo boundary.
 //!
-//! Under #196's own rule — *"where this ticket and an ADR disagree, the ADR wins"* — that
-//! argument does not get to settle itself here, so it is raised as
-//! [#250](https://github.com/MBehtemam/Montaget/issues/250) rather than left to be
-//! discovered from this file. `unplaced`, below, is surface no ADR states either and is
-//! raised in the same place.
+//! `unplaced`, below, is specified by the same ADR.
 //!
 //! Nothing here judges the intervals. Whether a stretch with nothing in it is a defect is
 //! `validate`'s question (ADR-0006), and this verb reports that the stretch exists.

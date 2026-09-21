@@ -386,9 +386,10 @@ element like any other"*
 half-open range alone: an element ending at `t` is already out of the set at `t`.
 It is a statement about the *document*, never about the picture — what covers
 what, and what the frame actually looks like, is the stack's question and
-`frame`'s. Whether it holds every element or only the visual ones is open —
-ADR-0011 says *"on-screen"* and the implementation reads every element, which is
-argued at [#250](https://github.com/MBehtemam/Montaget/issues/250).
+`frame`'s. It is the same population in both `query` modes — ADR-0011's narrower
+*"on-screen"* wording for the cut list is amended away
+([ADR-0074](docs/adr/0074-the-cut-lists-presence-set-is-every-element.md)) — and
+a caller wanting only the visual ones filters the `type` each member carries.
 _Avoid_: active set, on-screen set (it includes audio), visible elements
 
 **Cut list**:
@@ -398,8 +399,11 @@ names the boundary immediately outside the range on each side, which is what
 saves the caller guessing a window, and its intervals partition the range asked
 for, so a stretch with nothing in it is one interval rather than a hole. An
 interval is as long as the presence set stays the same: two neighbours a reader
-could not tell apart are one interval.
-([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+could not tell apart are one interval
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)). Elements the
+document does not place on the clock cannot be in any interval and are **named**
+in the answer rather than dropped
+([ADR-0074](docs/adr/0074-the-cut-lists-presence-set-is-every-element.md))
 _Avoid_: edit list, shot list, segments, keyframes (spoken for), sampling
 
 **Resolved stack**:
