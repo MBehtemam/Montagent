@@ -37,7 +37,7 @@
 use std::path::{Path, PathBuf};
 
 mod common;
-use common::compare::{Plane, Scope, rendered, ssim};
+use common::compare::{Plane, Scope, mean_delta, rendered, ssim};
 use common::{canonical, fixture_dir, fixture_project, tempdir, write_project};
 
 /// How far a render may drift from its committed golden, as mean SSIM over the whole
@@ -104,19 +104,6 @@ fn against_golden(name: &str, ours: &image::RgbaImage) {
          the change is intended, look at both pictures, regenerate with UPDATE_GOLDEN=1, \
          and put the diff in the commit."
     );
-}
-
-fn mean_delta(a: &image::RgbaImage, b: &image::RgbaImage) -> f64 {
-    let total: u64 = a
-        .pixels()
-        .zip(b.pixels())
-        .map(|(a, b)| {
-            (0..3)
-                .map(|c| u64::from(a.0[c].abs_diff(b.0[c])))
-                .sum::<u64>()
-        })
-        .sum();
-    total as f64 / (a.pixels().len() * 3) as f64
 }
 
 #[test]

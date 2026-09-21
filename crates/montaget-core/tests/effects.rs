@@ -19,7 +19,8 @@ use montaget_core::verbs::frame::{Ask, frame};
 use serde_json::Value;
 
 mod common;
-use common::{canonical, tempdir, write_project};
+use common::compare::{Plane, Scope, mean_delta, rendered, ssim};
+use common::{Scratch, canonical, tempdir, write_project};
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -522,6 +523,31 @@ fn a_mask_cuts_what_the_effects_before_it_produced_and_not_what_comes_after() {
     );
 }
 
+/// The fixture badge's slot — `handle-logo`'s `clip`, which ADR-0068 records as equal to
+/// the element's own rect — as `[x, y, width, height]` in project pixels.
+///
+/// Read from the fixture rather than restated, because both tests below crop to it and a
+/// hand-copied rectangle is a second statement of the project: the copy is what drifts
+/// first, and it would drift into a stray-pixel list rather than into a legible failure.
+fn badge_slot() -> [i64; 4] {
+    let document = common::document(&common::fixture_project());
+    let badge = common::elements(&document)
+        .find(|element| element["id"] == "handle-logo")
+        .expect("the fixture's badge");
+    let clip: Vec<i64> = badge["clip"]
+        .as_array()
+        .expect("the badge's clip")
+        .iter()
+        .map(|n| n.as_i64().expect("whole pixels"))
+        .collect();
+    let slot: [i64; 4] = clip.try_into().expect("a clip is four numbers");
+    assert_eq!(
+        slot[2], slot[3],
+        "the badge's slot is square, which is what makes its inscribed circle the badge"
+    );
+    slot
+}
+
 #[test]
 fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
     // ADR-0068 landed the fixture's migration on this claim: "The change is pixel-inert.
@@ -544,8 +570,9 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
     // order as the cross-platform last bit `tests/golden_frames.rs` already budgets for,
     // and an improvement to look at, since the badge's edge stops being aliased. The two
     // fixture goldens are regenerated in the same change, and the pictures were compared
-    // side by side before they were. The ADR's own falsified sentence is
-    // [#279](https://github.com/MBehtemam/Montaget/issues/279).
+    // side by side before they were. ADR-0075 retires the ADR's falsified sentence
+    // ([#279](https://github.com/MBehtemam/Montaget/issues/279)), and the test below
+    // measures the whole frame the way this one measures the badge.
     let with_mask = std::fs::read_to_string(common::fixture_project()).expect("the fixture");
     let without_mask = with_mask.replace(r#","effects":[{"name":"mask","shape":"circle"}]"#, "");
     assert_ne!(
@@ -555,24 +582,28 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
 
     // The assets resolve against the project file's own directory (ADR-0053), so the
     // unmasked copy has to sit beside them rather than in a scratch directory of its own.
-    let beside = common::fixture_dir().join("no-mask-for-a-test.montaget.json");
-    std::fs::write(&beside, &without_mask).expect("a copy beside the fixture's assets");
+    let beside = Scratch::beside_the_fixture("no-mask-for-the-badge", &without_mask);
 
-    // `handle-logo` is a 68x68 slot at (478, 96), which is exactly the crop below — so
-    // the comparison is the badge and nothing else. Every other element in the frame
-    // would only dilute it.
+    // The crop is the badge's own slot, so the comparison is the badge and nothing else.
+    // Every other element in the frame would only dilute it.
+    let [x, y, side, _] = badge_slot();
     let ask = Ask {
         full: true,
         png: true,
-        crop: Some("478,96,68,68".into()),
+        crop: Some(format!("{x},{y},{side},{side}")),
         ..at(400)
     };
     let (_, masked) = drawn(&common::fixture_project(), &ask);
-    let (_, bare) = drawn(&beside, &ask);
-    let _ = std::fs::remove_file(&beside);
+    let (_, bare) = drawn(beside.path(), &ask);
     let (masked, bare) = (pixels(&masked), pixels(&bare));
+    assert_eq!(
+        masked.dimensions(),
+        bare.dimensions(),
+        "the two crops must be the same size to be compared pixel for pixel"
+    );
 
-    // The inscribed circle of the 68x68 slot: centre (34, 34), radius 34.
+    // The inscribed circle of the square slot: centre and radius are both half its side
+    // (ADR-0068's param-less `mask`).
     //
     // Two bands, because two different things happen in them. Inside the circle the only
     // difference a mask may make is the rounding of one extra premultiplied round trip —
@@ -592,9 +623,10 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
             if delta <= ROUNDING {
                 continue;
             }
-            let (dx, dy) = (f64::from(x) + 0.5 - 34.0, f64::from(y) + 0.5 - 34.0);
+            let half = side as f64 / 2.0;
+            let (dx, dy) = (f64::from(x) + 0.5 - half, f64::from(y) + 0.5 - half);
             let radius = (dx * dx + dy * dy).sqrt();
-            if (radius - 34.0).abs() > 1.0 {
+            if (radius - half).abs() > 1.0 {
                 eaten.push((x, y, radius, delta));
             }
         }
@@ -608,7 +640,13 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
     );
 
     // And the badge's interior — well clear of the edge in every direction — is identical
-    // bit for bit, which is the half of the ADR's claim that does hold exactly.
+    // bit for bit, which is the half of the ADR's claim that does hold exactly. These six
+    // are picked for a 68x68 slot, so a resized badge fails here rather than silently
+    // sampling somewhere else.
+    assert_eq!(
+        side, 68,
+        "the sample points below are chosen for a 68x68 slot"
+    );
     for (x, y) in [(34, 34), (34, 8), (8, 34), (60, 34), (34, 60), (16, 16)] {
         assert_eq!(
             masked.get_pixel(x, y),
@@ -616,6 +654,96 @@ fn the_fixtures_badge_keeps_every_pixel_the_mask_selects() {
             "({x}, {y}) is inside the circle and the mask changed it"
         );
     }
+}
+
+#[test]
+fn the_badges_mask_changes_only_the_antialiasing_of_its_own_rim() {
+    // The whole-frame half of the test above, and the re-executable evidence for the
+    // numbers ADR-0075 states in retiring ADR-0068's "the rendered frame is unchanged"
+    // ([#279](https://github.com/MBehtemam/Montaget/issues/279)). The test above asks
+    // *which* pixels the mask may touch; this one asks *how much of the picture an agent
+    // receives* they amount to, at the exact instant and scale the committed golden is
+    // taken at.
+    let with_mask = std::fs::read_to_string(common::fixture_project()).expect("the fixture");
+    let without_mask = with_mask.replace(r#","effects":[{"name":"mask","shape":"circle"}]"#, "");
+    assert_ne!(
+        with_mask, without_mask,
+        "the fixture no longer carries the badge's `mask` effect, so this asserts nothing"
+    );
+
+    // Beside the fixture, because assets resolve against the project file's own directory
+    // (ADR-0053), and under its own name, because the test above writes one too and the
+    // two run in parallel.
+    let beside = Scratch::beside_the_fixture("no-mask-for-the-whole-frame", &without_mask);
+
+    // Half scale — 540×960 — because that is what `golden_frames.rs` commits, on the
+    // ground that it is "the picture an agent actually receives".
+    let masked = rendered(&common::fixture_project(), 400, /* full */ false);
+    let bare = rendered(beside.path(), 400, /* full */ false);
+    assert_eq!(
+        masked.dimensions(),
+        bare.dimensions(),
+        "the two renders must be the same size to be compared pixel for pixel"
+    );
+
+    // The badge's slot, halved, because this frame is the half-scale answer. Every pixel
+    // the mask moves must be inside it: a mask on one element that changed a pixel
+    // elsewhere would be a compositing defect rather than an edge.
+    let [x, y, side, _] = badge_slot();
+    let (slot_x, slot_y, slot_side) = ((x / 2) as u32, (y / 2) as u32, (side / 2) as u32);
+    let mut changed = 0u32;
+    let mut strays = Vec::new();
+    for y in 0..masked.height() {
+        for x in 0..masked.width() {
+            let (a, b) = (masked.get_pixel(x, y).0, bare.get_pixel(x, y).0);
+            // All four channels, unlike the mean below: a defect that moved only alpha
+            // outside the badge is exactly what the stray check exists to catch, and a
+            // colour-only difference would not see it.
+            let delta: u64 = (0..4).map(|c| u64::from(a[c].abs_diff(b[c]))).sum();
+            if delta == 0 {
+                continue;
+            }
+            changed += 1;
+            let inside = (slot_x..slot_x + slot_side).contains(&x)
+                && (slot_y..slot_y + slot_side).contains(&y);
+            if !inside {
+                strays.push((x, y, delta));
+            }
+        }
+    }
+    let delta = mean_delta(&masked, &bare);
+    let score = ssim(&Plane::of(&masked), &Plane::of(&bare), &Scope::whole());
+    println!(
+        "MASK  {changed} of {} pixels changed, mean channel delta {delta:.4}, SSIM \
+         {score:.6}",
+        masked.pixels().len()
+    );
+
+    assert!(
+        strays.is_empty(),
+        "{} pixels outside the badge's own {slot_side}x{slot_side} slot changed: {:?}",
+        strays.len(),
+        &strays[..strays.len().min(8)]
+    );
+
+    // The bands are wide enough for the cross-platform last bit #34 measured at
+    // 0.003–0.004 and no wider: the claim ADR-0075 rests on is the *order* — a rim's
+    // worth of pixels, a mean delta two orders below the golden suite's own 0.5 ceiling —
+    // not a bit-exact count that would fail on a machine that rounds the other way.
+    assert!(
+        (60..=200).contains(&changed),
+        "the mask changed {changed} pixels; ADR-0075 measured 112, a rim's worth. A count \
+         far outside that band means the mask is no longer trimming only the badge's edge"
+    );
+    assert!(
+        delta <= 0.01,
+        "mean channel delta {delta:.4}; ADR-0075 measured 0.0041, and the golden \
+         suite's own ceiling for an unchanged picture is 0.5"
+    );
+    assert!(
+        score >= 0.9999,
+        "SSIM {score:.6}; ADR-0075 measured 0.999982, against a golden floor of 0.999"
+    );
 }
 
 // ---------------------------------------------------------------------------

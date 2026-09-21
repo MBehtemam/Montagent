@@ -129,14 +129,20 @@ def main():
         problems.append(f"{transparent_inside} transparent px inside the inscribed circle")
 
     if problems:
-        print("\nFAILED — ADR-0068's pixel-inertness claim no longer reproduces:")
+        print("\nFAILED — the stored badge is no longer the inscribed circle:")
         for p in problems:
             print(f"  - {p}")
         return 1
 
     print("\nOK — the asset is already the inscribed circle, so a circle mask over the\n"
-          "element's square rect selects every pixel it already shows. ADR-0068's\n"
-          "migration is pixel-inert.")
+          "element's square rect selects every pixel it already shows.\n"
+          "\n"
+          "This measures the *stored* 800x800 asset, and that is all it measures. The\n"
+          "renderer minifies it 11.8x into a 68x68 slot, which carries the badge a\n"
+          "little past the circle the stored one keeps to, and the mask trims that rim:\n"
+          "ADR-0075 retires ADR-0068's 'the rendered frame is unchanged' on the strength\n"
+          "of it. The frame-level measurement lives in the test suite, where a renderer\n"
+          "is available -- montaget-core, tests/effects.rs.")
     return 0
 
 

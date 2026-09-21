@@ -67,6 +67,14 @@ way — [`decode_logo_alpha.py`](decode_logo_alpha.py), re-executable. The key i
 both directions, so this was never a question about pixels; it is about the fixture's role as
 the copied example and about regression coverage of a v1 effect.
 
+> **On "pixel-inert" in the paragraph above**, left as written because this is a record:
+> it holds of the *stored* asset, which is what the script measures, and not of the
+> *rendered* frame. The renderer minifies the badge 11.8× into its slot, so the mask trims a
+> rim the stored asset does not have — 112 pixels of the half-scale frame.
+> [ADR-0075](../../../adr/0075-the-badges-mask-changes-its-own-rim-and-nothing-else.md)
+> ([#279](https://github.com/MBehtemam/Montaget/issues/279)) retires the claim; the court's
+> own finding, and every ballot below, is untouched.
+
 **The contradiction never survived a court, because it was never put to one.** The effect-model
 packet asked four questions — attachment, vocabulary, text effects, the absent-list — and none
 asked what happens to the fixture's key. The packet itself *told* the jurors the key was

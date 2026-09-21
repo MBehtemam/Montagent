@@ -5,6 +5,15 @@ amends: 0040 (retires its "no migration needed" Consequences bullet, and states 
 
 # The bare `mask` key retires: masks are `effects` members, and the param-less form is the inscribed shape
 
+> **Amended by [ADR-0075](0075-the-badges-mask-changes-its-own-rim-and-nothing-else.md)** —
+> three sentences below no longer hold: *"The change is pixel-inert"*, *"Nothing about the
+> rendered frame changes"* in the same paragraph, and the Consequences bullet *"The
+> rendered frame is unchanged"*. The renderer minifies the 800×800 badge into a 68×68 slot,
+> so the drawn badge reaches past the circle the stored one does not, and the mask trims
+> that rim: 112 pixels of 540×960 change, mean channel delta 0.0041. Everything else below
+> — the retirement, the param-less geometry, the key order, the advise-class
+> classification, the migration — stands.
+
 [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) contains two accepted
 sentences that cannot both be implemented. Found while breaking
 [#168](https://github.com/MBehtemam/Montaget/issues/168) into tickets, where the very
