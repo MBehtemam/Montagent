@@ -172,7 +172,13 @@ impl Scope {
         self
     }
 
-    fn admits(&self, x: usize, y: usize) -> bool {
+    /// Whether this mask admits one pixel.
+    ///
+    /// `pub` for the sake of a caller asking about *several* masks at once: two gated
+    /// regions that are meant to partition a frame can each have a believable coverage
+    /// and still leave a band in neither, and only a per-pixel question finds that.
+    /// `reference_frames.rs` asks it.
+    pub fn admits(&self, x: usize, y: usize) -> bool {
         self.layers
             .iter()
             .rev()

@@ -57,6 +57,34 @@ def cover(sw, sh, bw, bh):
         return bw, (sh * bw) // sw
     return (sw * bh) // sh, bh
 
+def pivot_centre(x, y, dw, dh):
+    """#276: the same drawn rect, declared about its own centre rather than its top-left.
+
+    `origin` is the point `x`/`y` places **and the point a transform pivots about**
+    (ADR-0013, the nine keywords). The pre-migration prototype carried no pivot at all --
+    only a `box` and a `scale` ramp -- so the migration had to choose one, and it chose
+    `top-left` while `README.md` D3 had already measured the published move from
+    `reference/kenburns/06.mp4` and found it a *centre*-pivot zoom ("centre beats top at
+    every sample; the joint fit returns `dy = 0`"). Nothing could catch the mismatch until
+    a renderer existed; #213's first render against the published video did, and
+    `ci/reference_frame_instants.py` re-derives it from `reference/frame-05-at-11s.png`.
+
+    At scale 1.0 the two spellings are the identical rectangle, which is why only the
+    *amplitude* of the divergence gives it away: 1 x 2 px at 400 ms and 32 x 56 px at
+    14 000 ms. So this is written here rather than by hand on the seven elements --
+    `verify.py`'s last section byte-diffs the committed file against this script's own
+    output, and a hand edit would decouple the two silently.
+
+    Only the elements that actually carry a `scale` ramp move. `handle-logo` has no
+    transform, so its pivot is unobservable and there is no measurement to write into it;
+    leaving it alone keeps the change to the seven elements the finding is about.
+    """
+    # Integer division, so an odd extent would put the declared centre half a pixel off
+    # its own rect and translate the element instead of only re-spelling it. Both of the
+    # fixture's photo extents are even; assert it rather than discover it later.
+    assert dw % 2 == 0 and dh % 2 == 0, f"odd drawn extent {dw}x{dh} has no integer centre"
+    return x + dw // 2, y + dh // 2, "center"
+
 # ADR-0012: text gains a literal box. Only 7 of 22 have a rect behind them to measure.
 CARD = (984, 169)                     # card-05..quiz: [48,1453,984,169]
 TEXT_BOX = {
@@ -100,6 +128,8 @@ def migrate(el, ease):
         if t == "image":
             sw, sh = SRC_DIMS[out["source"]]
             dw, dh = cover(sw, sh, w, h)          # the drawn rect, ADR-0012
+            if "scale" in e:
+                out["x"], out["y"], out["origin"] = pivot_centre(x, y, dw, dh)
             out["width"], out["height"] = dw, dh
             out["fit"] = e.pop("fit")
             e.pop("align", None)                  # ADR-0015: `gravity` is retired; the

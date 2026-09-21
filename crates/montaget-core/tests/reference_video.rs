@@ -43,17 +43,22 @@
 //!
 //! # The picture is not compared here at all, and that is the point
 //!
-//! Two known causes put a difference into every text-bearing frame of this fixture and
-//! neither is a defect in this build: the fixture is typeset in **Open Runde** and the
-//! published video in **SF Pro Rounded**
-//! ([#143](https://github.com/MBehtemam/Montaget/issues/143), ADR-0057 — *"no font claims
-//! formal metric compatibility"*, quantified by
-//! [#186](https://github.com/MBehtemam/Montaget/issues/186)); and the fixture's Ken Burns
-//! declares a `top-left` pivot where the published move is a centre one
-//! ([#276](https://github.com/MBehtemam/Montaget/issues/276)). A whole-frame threshold
+//! Known causes put a difference into the frames of this fixture and none of them is a
+//! defect in this build: the fixture is typeset in **Open Runde** and the published video
+//! in **SF Pro Rounded** ([#143](https://github.com/MBehtemam/Montaget/issues/143),
+//! ADR-0057 — *"no font claims formal metric compatibility"*, quantified by
+//! [#186](https://github.com/MBehtemam/Montaget/issues/186)); and the photograph carries an
+//! unexplained displacement that grows with the Ken Burns ramp, 8 × 4 px by 14 000 ms
+//! ([#299](https://github.com/MBehtemam/Montaget/issues/299)). A whole-frame threshold
 //! loose enough to absorb either would be loose enough to absorb anything, which is the
 //! *"completed, looked plausible, was wrong"* failure ADR-0010 records this project having
 //! had twice.
+//!
+//! The larger of the two causes this file was written against is gone:
+//! [#276](https://github.com/MBehtemam/Montaget/issues/276) corrected the fixture's Ken
+//! Burns pivot from `top-left` to the centre the published move actually uses, which was
+//! 32 × 56 px at that same instant. The argument is unchanged — it never rested on the
+//! size of any one divergence — and #299 is what is left of it.
 //!
 //! So the picture belongs to `reference_frames.rs`, which gates it where it can be
 //! believed — region-masked, at two instants, with the substitution measured beside the

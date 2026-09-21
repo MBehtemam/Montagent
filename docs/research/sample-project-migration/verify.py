@@ -43,6 +43,27 @@ for i,e in O.items():
         n=N[i]
         if (n["x"],n["y"],n["width"],n["height"],n["origin"])!=(x,y,w,h,"top-left"): rt.append(i)
 print("rect box round-trip failures:",len(rt))
+# 2b. #276: an image that zooms must pivot about its own centre, and must still occupy the
+#     rect the old `box` put it at when the zoom is at 1.0. Two clauses, because the pivot
+#     is only meaningful if it re-spells the same rectangle -- moving the element and
+#     calling it a pivot would satisfy either clause alone. Restated here rather than
+#     imported, so a `migrate.py` that got this wrong cannot verify itself.
+FRACTION={"top-left":(0.0,0.0),"top-center":(0.5,0.0),"top-right":(1.0,0.0),
+          "center-left":(0.0,0.5),"center":(0.5,0.5),"center-right":(1.0,0.5),
+          "bottom-left":(0.0,1.0),"bottom-center":(0.5,1.0),"bottom-right":(1.0,1.0)}
+piv=[]
+for i,e in O.items():
+    if e["type"]!="image": continue
+    n=N[i]; x,y,_,_=e["box"]
+    fx,fy=FRACTION[n["origin"]]
+    # Where the drawn rect's top-left lands at scale 1.0, through the declared origin.
+    at_rest=(n["x"]-fx*n["width"], n["y"]-fy*n["height"])
+    if at_rest!=(x,y): piv.append((i,"moved",at_rest,(x,y)))
+    elif ("scale" in n)!=(n["origin"]=="center"):
+        piv.append((i,"pivot",n["origin"],"scale" in n))
+print("image pivot failures:",len(piv))
+for p in piv: print("  ",p)
+assert not piv, "an image element's pivot or its resting rect disagrees with #276"
 # 3. no forbidden fields
 for i,e in N.items():
     if e["type"]=="audio":

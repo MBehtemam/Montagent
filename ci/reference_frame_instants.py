@@ -26,18 +26,34 @@ is what `docs/agents/domain.md` asks of a committed numeric claim.
      11 s from *item 05's* start at 3 018 ms, not from the beginning of the
      video: 14 000 - 3 018 = 10 982.
 
-2. **That the fixture's Ken Burns pivots about the wrong point.** Recover the
-   photograph's scale and offset at the later frame by searching (scale, dx, dy)
-   against a Montaget render taken at the ramp's origin, where the scale is
-   exactly 1.0. The recovered scale matches the fixture's declared ramp; the
-   recovered offset does not match the fixture's declared `origin: "top-left"`,
-   and is close to what a centre pivot predicts.
+2. **That the fixture's Ken Burns pivots about the point the file now names.**
+   Recover the photograph's scale and offset at the later frame by searching
+   (scale, dx, dy) against a Montaget render taken at the ramp's origin, where
+   the scale is exactly 1.0 -- so whatever comes back is the *published* move
+   rather than a difference between two moves. The recovered scale must match
+   the fixture's declared ramp, and the recovered offset must match what the
+   fixture's declared pivot predicts, better than it matches the alternative.
+
+   The pivot, the extents it multiplies and the ramp it is checked against are all
+   read out of the project file rather than written down here, so this stops
+   reproducing if any of them is changed and this script is not. The pivot is
+   checked against **all nine** of ADR-0013's keywords -- the declared one must be
+   the nearest of them -- so it fails for any wrong pivot, not only for the
+   `top-left` that #276 replaced.
 
    `docs/research/sample-project-migration/README.md` D3 measured the same thing
    from `reference/kenburns/06.mp4` -- *"the move is a centre-pivot zoom (centre
    beats top at every sample; the joint fit returns dy = 0)"* -- and the
-   migration then wrote `top-left` into the file anyway. This is that finding,
-   re-derived from the published frame rather than from the isolated move.
+   migration wrote `top-left` into the file anyway. #213's first render against
+   the published video found the mismatch and #276 corrected `migrate.py`; this
+   is the check that the correction is the one the picture supports.
+
+   It does **not** close to zero. The offset the search recovers is a couple of
+   reference pixels from the centre pivot's prediction, which is a residual
+   `crates/montaget-core/tests/reference_frames.rs` measures at 8 x 4 project px
+   at this instant and names as unexplained. The tolerance below is set to admit
+   it deliberately: the claim this script makes is that the centre pivot is the
+   right one of the two the fixture could spell, not that it is exact.
 
 ## Requirements
 
@@ -56,6 +72,7 @@ histograms, all of them C.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -90,15 +107,83 @@ EXPECTED = {
 # The photograph's aperture, which is `photo-05`'s own `clip`: [0, 0, 1080, 1300].
 CARD_HEIGHT = 1300
 
-# The ramp the fixture declares for `photo-05`: 1.0 at 3 018 ms, 1.08 fifteen
-# seconds later.
-RAMP_START_MS = 3018
-RAMP_SPAN_MS = 15000
-RAMP_TO = 1.08
+# The element the later reference frame is a picture of. Its ramp, its extents and
+# its pivot are all read out of the project by `declared()` below rather than
+# written down here -- this half of the script exists to check the file against the
+# picture, and a constant transcribed from the file cannot do that.
+ELEMENT = "photo-05"
 
-# The element's declared box, whose centre a centre pivot would zoom about.
-ELEMENT_WIDTH = 1080
-ELEMENT_HEIGHT = 1912
+# ADR-0013's nine origin keywords, as the (horizontal, vertical) fraction of the
+# element's own box that `x`/`y` place and a transform pivots about. The renderer
+# spells these in crates/montaget-core/src/verbs/query/geometry.rs; they are
+# restated here so this script can be run against a checkout without building it.
+ORIGIN_FRACTION = {
+    "top-left": (0.0, 0.0), "top-center": (0.5, 0.0), "top-right": (1.0, 0.0),
+    "center-left": (0.0, 0.5), "center": (0.5, 0.5), "center-right": (1.0, 0.5),
+    "bottom-left": (0.0, 1.0), "bottom-center": (0.5, 1.0), "bottom-right": (1.0, 1.0),
+}
+
+# The search steps one reference pixel per axis, which is four of the project's,
+# so a recovered offset carries up to 4 px of quantisation error on each of dx and
+# dy -- 8 px of Manhattan distance before anything about the picture is involved.
+SEARCH_STEP_PX = 1080 / 270
+OFFSET_TOLERANCE_PX = 2 * SEARCH_STEP_PX  # both axes at once
+
+# ...and on top of that, the unexplained residual #299 owns, which at this instant
+# is 8 x 4 project px. The tolerance has to admit it: this script's claim is that
+# the fixture names the right one of the nine keywords, not that the fit is exact.
+OFFSET_TOLERANCE_PX += 12
+
+
+def declared():
+    """What the project says about `ELEMENT`: its pivot, its extents and its ramp.
+
+    All of it read out of the file, so that changing any of them and leaving this
+    script alone is a failure rather than a silent disagreement. Returns the origin
+    keyword, the pivot point in project pixels, and a callable giving the declared
+    scale at an instant.
+    """
+    document = json.loads(PROJECT.read_text())
+    element = next(
+        e for track in document["tracks"] for e in track["elements"]
+        if e["id"] == ELEMENT
+    )
+    origin = element["origin"]
+    fx, fy = ORIGIN_FRACTION[origin]
+    width, height = element["width"], element["height"]
+
+    first, last = element["scale"][0], element["scale"][-1]
+    # `v` is always a pair (ADR-0012); this fixture zooms both axes together, and a
+    # frame's worth of arithmetic below assumes it.
+    assert first["v"][0] == first["v"][1] and last["v"][0] == last["v"][1], \
+        f"{ELEMENT} scales its axes independently; this script assumes it does not"
+
+    def scale_at(ms):
+        span = last["t"] - first["t"]
+        travelled = (ms - first["t"]) / span
+        return first["v"][0] + (last["v"][0] - first["v"][0]) * travelled
+
+    return origin, (fx * width, fy * height), scale_at, (width, height)
+
+
+def ramp_origin_ms():
+    """The instant `ELEMENT`'s ramp declares a scale of exactly 1.0.
+
+    Read from the file for the same reason as everything else here: it is where the
+    search's baseline render is taken, and a baseline taken at the wrong instant
+    would make every offset below a difference between two moves.
+    """
+    document = json.loads(PROJECT.read_text())
+    element = next(
+        e for track in document["tracks"] for e in track["elements"]
+        if e["id"] == ELEMENT
+    )
+    first = element["scale"][0]
+    assert first["v"] == [1.0, 1.0], (
+        f"{ELEMENT}'s ramp no longer starts at 1.0, so its first keyframe is not a "
+        "baseline the recovered offset can be measured against"
+    )
+    return first["t"]
 
 
 def luma(path: Path) -> Image.Image:
@@ -207,7 +292,8 @@ def pivot(scratch: Path, verbose: bool, binary: str | None) -> int:
     at = EXPECTED[name] * MS_PER_FRAME
     committed = luma(REFERENCE / name)
     width, height = committed.size
-    band = round(CARD_HEIGHT * width / ELEMENT_WIDTH)
+    _, _, _, (el_width, _) = declared()
+    band = round(CARD_HEIGHT * width / el_width)
     # A couple of rows in from the card's own edge, so the cream boundary below
     # the photograph is not itself a feature the search can align on.
     theirs = committed.crop((0, 0, width, band - 4))
@@ -215,7 +301,7 @@ def pivot(scratch: Path, verbose: bool, binary: str | None) -> int:
     # The render at the ramp's origin, where the declared scale is exactly 1.0 —
     # so whatever scale and offset the search recovers is the *published* move,
     # not a difference between two moves.
-    base = luma(rendered(RAMP_START_MS, scratch, binary)).resize(
+    base = luma(rendered(ramp_origin_ms(), scratch, binary)).resize(
         (width, height), Image.LANCZOS
     )
     ours = base.crop((0, 0, width, band))
@@ -237,33 +323,46 @@ def pivot(scratch: Path, verbose: bool, binary: str | None) -> int:
             print(f"    scale {scale:.3f} -> best so far MAD {best[0]:.3f}")
 
     score, scale, dx, dy = best
+    origin, (pivot_x, pivot_y), scale_at, (el_width, el_height) = declared()
     # Back into the project's own pixels.
-    full = ELEMENT_WIDTH / width
+    full = el_width / width
     dx_full, dy_full = dx * full, dy * full
 
-    declared = 1.0 + (RAMP_TO - 1.0) * (at - RAMP_START_MS) / RAMP_SPAN_MS
-    centre_dx = (scale - 1.0) * ELEMENT_WIDTH / 2
-    centre_dy = (scale - 1.0) * ELEMENT_HEIGHT / 2
+    declared_scale = scale_at(at)
+    # A pivot fraction f puts the content (f x extent x (scale - 1)) px along as
+    # the zoom grows, measured against the same element rendered at scale 1.0.
+    predicted = ((scale - 1.0) * pivot_x, (scale - 1.0) * pivot_y)
+
+    def distance(keyword):
+        fx, fy = ORIGIN_FRACTION[keyword]
+        return (abs(dx_full - (scale - 1.0) * fx * el_width)
+                + abs(dy_full - (scale - 1.0) * fy * el_height))
 
     print(f"  {name} at {at:.0f} ms — the published photograph is the fixture's still at")
-    print(f"    scale  {scale:.3f}   (the fixture declares {declared:.4f})")
+    print(f"    scale  {scale:.3f}   (the fixture declares {declared_scale:.4f})")
     print(f"    offset ({dx_full:.0f}, {dy_full:.0f}) px")
-    print(f"    a top-left pivot predicts (0, 0)")
-    print(f"    a centre   pivot predicts ({centre_dx:.0f}, {centre_dy:.0f})")
+    print(f"    the fixture's `{origin}` pivot predicts ({predicted[0]:.0f}, {predicted[1]:.0f})")
 
     # The scale must land on the declared ramp — that is what says the amplitude
-    # and the timing in the file are right and only the pivot is wrong.
-    scale_ok = abs(scale - declared) <= 0.01
-    # And the offset must be nearer the centre pivot's prediction than the
-    # declared top-left one. Nearer, not equal: the search steps a whole
-    # reference pixel, which is four of the project's.
-    to_centre = abs(dx_full - centre_dx) + abs(dy_full - centre_dy)
-    to_top_left = abs(dx_full) + abs(dy_full)
-    pivot_ok = to_centre < to_top_left
+    # and the timing in the file are right, and that the offset below is a
+    # statement about the pivot alone.
+    scale_ok = abs(scale - declared_scale) <= 0.01
+
+    # **Against all nine keywords, not against `top-left` alone.** Checking only
+    # the spelling #276 replaced would pass a fixture declaring any of the other
+    # seven: `center-left` at (0, 956) predicts (0, 57) against a recovered
+    # (24, 52), which clears the tolerance comfortably. What is asserted instead is
+    # that the keyword the file names is the *best* of the nine and within reach of
+    # the recovered offset -- so this fails for every wrong pivot, not just one.
+    ranked = sorted(ORIGIN_FRACTION, key=distance)
+    to_declared = distance(origin)
+    runner_up = ranked[1] if ranked[0] == origin else ranked[0]
+    pivot_ok = ranked[0] == origin and to_declared <= OFFSET_TOLERANCE_PX
 
     print(
-        f"    -> the recovered offset is {to_centre:.0f} px from the centre pivot and "
-        f"{to_top_left:.0f} px from the declared one"
+        f"    -> {to_declared:.0f} px from `{origin}` (tolerance "
+        f"{OFFSET_TOLERANCE_PX:.0f}); nearest of the other eight is `{runner_up}` at "
+        f"{distance(runner_up):.0f} px"
     )
     if not (scale_ok and pivot_ok):
         print(
