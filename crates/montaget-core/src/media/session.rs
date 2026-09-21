@@ -106,8 +106,17 @@ impl Session {
     /// the machine says a per-user cache belongs, the local cache is read from there and
     /// written back when the session ends.
     pub fn open() -> Result<Session, Missing> {
+        Session::open_at(Sidecar::default_path())
+    }
+
+    /// The same, over a named sidecar file — or none, for a run that must persist nothing.
+    ///
+    /// Taken as an argument rather than resolved here so that one `validate` has **one**
+    /// cache: its font half (#206) and its probe half write the same file, and a caller
+    /// that owns one owns both.
+    pub fn open_at(sidecar: Option<PathBuf>) -> Result<Session, Missing> {
         let mut session = Session::with(tools::resolve()?, Box::new(ProcessRunner));
-        if let Some(path) = Sidecar::default_path() {
+        if let Some(path) = sidecar {
             session.attach(Sidecar::load(path));
         }
         Ok(session)
@@ -162,6 +171,15 @@ impl Session {
             self.recency.insert(path.clone(), entry.last_used_ns);
         }
         self.sidecar = Some(sidecar);
+    }
+
+    /// The sidecar file this session persists to, where it has one.
+    ///
+    /// Read by `validate` so that a caller who owns a session owns the *whole* run's cache:
+    /// the font half (#206) writes the same file the probe half does, which is the invariant
+    /// [`Session::open_at`] exists for.
+    pub fn cache_path(&self) -> Option<&Path> {
+        self.sidecar.as_ref().map(|sidecar| sidecar.path())
     }
 
     /// Start one verb invocation.

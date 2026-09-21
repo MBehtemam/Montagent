@@ -16,10 +16,11 @@
 //! canonical convention is *"unsafe to edit, not unsafe to render"*, so it is reported on
 //! every run and gates nothing.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::finding::Finding;
 use crate::media::session::Session;
+use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
 use crate::parse;
 use crate::permissive::Loose;
@@ -35,17 +36,33 @@ const TOOL: &str = "validate";
 /// is the CLI's shape: one process, one run, and the sidecar is what carries the cache
 /// across to the next one (ADR-0069).
 pub fn validate(path: &Path) -> Report {
-    run(path, None)
+    run(path, None, Sidecar::default_path())
+}
+
+/// The same, over a sidecar file the caller owns.
+///
+/// `Session::with_sidecar`'s reason, for the half of the cache that is not the session's:
+/// `R-FONT-SWAP` is a comparison against what a *previous run* recorded, so a test that
+/// cannot own the file it is recorded in cannot exercise the check at all without writing
+/// to the developer's own cache.
+pub fn validate_with_cache(path: &Path, cache: &Path) -> Report {
+    run(path, None, Some(cache.to_path_buf()))
 }
 
 /// The same, against a session the caller owns — an MCP server's warm cache (ADR-0011), or
 /// a test's recorded `ffprobe`. The remote half is cleared here, because this is one run.
 pub fn validate_with(path: &Path, session: &mut Session) -> Report {
     session.begin_run();
-    run(path, Some(session))
+    // The session's own sidecar, not this machine's default: a caller who owns the probe
+    // half of the cache owns the font half too, which is the whole point of taking it as an
+    // argument (`Session::open_at`). A session with no sidecar makes this run's font half
+    // cacheless as well, so `R-FONT-SWAP` is silent rather than comparing against a file the
+    // caller said not to use.
+    let cache = session.cache_path().map(Path::to_path_buf);
+    run(path, Some(session), cache)
 }
 
-fn run(path: &Path, session: Option<&mut Session>) -> Report {
+fn run(path: &Path, session: Option<&mut Session>, cache: Option<PathBuf>) -> Report {
     let project = Some(path.display().to_string());
 
     let document = match parse::read(path) {
@@ -75,7 +92,7 @@ fn run(path: &Path, session: Option<&mut Session>) -> Report {
         return report;
     }
 
-    if let Err(missing) = run_checks(&document, &mut report, session) {
+    if let Err(missing) = run_checks(&document, &mut report, session, cache.as_deref()) {
         // There is no `ffprobe`, so the disk half of the question cannot be asked. ADR-0006
         // forbids answering it with silence, and ADR-0011 gives "Montaget could not run"
         // its own exit code precisely so it is not mistaken for a defect in the project.
@@ -97,6 +114,7 @@ fn run_checks(
     document: &Loose,
     report: &mut Report,
     session: Option<&mut Session>,
+    cache: Option<&Path>,
 ) -> Result<(), Box<Missing>> {
     // ADR-0017's closed schema, turned into findings (#244). Not gating: every other check
     // still runs on a document that does not fit the types, because every other check reads
@@ -139,6 +157,11 @@ fn run_checks(
     // above — they can sit anywhere in this list.
     crate::checks::highlight::check(document, report);
     crate::checks::transition::check(document, report);
+    // ADR-0007's three text-byte checks (#206): a run boundary inside a grapheme cluster,
+    // the invisible-character census, and two canonically-equivalent spellings of one
+    // string. All three read the concatenated `runs` text and nothing else — no font, no
+    // disk — so like the checks above they can sit anywhere in this list.
+    crate::checks::runs::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);
@@ -153,7 +176,12 @@ fn run_checks(
     // referenced. Reads the disk — the font files — but needs no subprocess, so it sits
     // here rather than behind the session below, and it runs whether or not the project
     // references any media.
-    crate::checks::fonts::check(document, report);
+    // Also `E-FONT-NO-GLYPH`, `N-FONT-CENSUS` and `R-FONT-SWAP` (#206, ADR-0007). The last
+    // of those is the one call in this list that reads the *cache* rather than the project:
+    // a chain's identity is compared against what the last run recorded, which is how a font
+    // swapped in place — "a silent whole-project render change that no census sees" —
+    // becomes visible at all.
+    crate::checks::fonts::check(document, cache, report);
 
     // The two checks that need a subprocess, and the only ones that can fail rather than
     // find. Whether one needs to be opened at all is decided once, here, rather than per
@@ -165,7 +193,8 @@ fn run_checks(
     match session {
         Some(session) => run_disk_checks(document, session, report),
         None => {
-            let mut session = Session::open().map_err(Box::new)?;
+            // The same cache file the font half above just wrote: one run, one sidecar.
+            let mut session = Session::open_at(cache.map(Path::to_path_buf)).map_err(Box::new)?;
             session.begin_run();
             run_disk_checks(document, &mut session, report)
         }

@@ -526,3 +526,490 @@ fn one_file_under_two_keys_is_checked_once_and_attested_once() {
     let report = montaget_core::validate(&project);
     assert_eq!(codes(&report), Vec::<&str>::new());
 }
+
+/// The sidecar file a test owns, inside its own scratch directory.
+///
+/// Every `validate` below goes through it rather than through the machine's default cache
+/// (`tests/sidecar.rs`'s rule for the probe half, and #206's for the font half): a test that
+/// did not own this file would record its scratch projects into the developer's own cache,
+/// and `R-FONT-SWAP` — which compares against what a *previous run* recorded — would be
+/// comparing against whatever that developer had validated last.
+fn cache(dir: &Path) -> PathBuf {
+    dir.join("probe-cache.json")
+}
+
+// ---- ADR-0007's glyph coverage and font census (#206) ---------------------------------
+
+/// A project whose `fonts` table the caller composes, with one track of text elements.
+///
+/// Attested with the real hash, so the only findings these tests see are the ones they are
+/// about — the attestation half above already has its own pairs.
+fn typeset(dir: &Path, fonts: &str, elements: &str) -> PathBuf {
+    std::fs::create_dir_all(dir.join("fonts")).unwrap();
+    std::fs::copy(open_runde(), dir.join("fonts/OpenRunde-Bold.otf")).unwrap();
+    let body = format!(
+        r#"{{"frame": {{"width": 1080, "height": 1920}}, "fps": 25, "fonts": {fonts}, {} "tracks": [{{"name": "captions", "layer": 0, "elements": [{elements}]}}]}}"#,
+        attestation(OPEN_RUNDE_SHA256)
+    );
+    common::write_project(dir, "p.montaget.json", &common::canonical(&body))
+}
+
+/// One text element in `font`, carrying one run.
+fn typeset_element(id: &str, font: &str, text: &str) -> String {
+    serde_json::json!({
+        "id": id, "type": "text", "start": 0, "end": 1000,
+        "x": 0, "y": 0, "width": 900, "height": 100,
+        "font": font, "size": 40, "runs": [{"text": text}]
+    })
+    .to_string()
+}
+
+const BRAND: &str = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+
+#[track_caller]
+fn findings<'a>(
+    report: &'a montaget_core::report::Report,
+    code: &str,
+) -> Vec<&'a montaget_core::finding::Finding> {
+    report.findings.iter().filter(|f| f.code == code).collect()
+}
+
+#[test]
+fn a_character_no_file_in_the_chain_maps_is_a_refuse_class_error() {
+    // ADR-0007: "A character with no glyph in any chain entry renders `.notdef` and is a
+    // `validate` **error**." Open Runde is a Latin face; the Persian below is tofu in it,
+    // and the chain declares nothing else to fall back to.
+    let dir = common::tempdir(line!());
+    let project = typeset(
+        &dir,
+        BRAND,
+        &typeset_element("greeting", "brand", "\u{0633}\u{0644}\u{0627}\u{0645}"),
+    );
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    let found = findings(&report, "E-FONT-NO-GLYPH");
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    let finding = found[0];
+    assert_eq!(finding.class, Class::Error);
+    assert_eq!(finding.location.element.as_deref(), Some("greeting"));
+    assert_eq!(finding.location.track.as_deref(), Some("captions"));
+    assert_eq!(finding.fields["font"], "brand");
+    assert_eq!(finding.fields["chain"], "fonts/OpenRunde-Bold.otf");
+    assert_eq!(
+        finding.fields["characters"],
+        "U+0633 \u{0633}, U+0644 \u{0644}, U+0627 \u{0627}, U+0645 \u{0645}"
+    );
+    assert_eq!(
+        finding.repair,
+        Some(Repair::None),
+        "the chain is short a file, or the text carries a character it was never meant to"
+    );
+}
+
+#[test]
+fn text_the_declared_font_can_draw_never_fires() {
+    // The must-not-fire half, and with it the characters no font is short of for not
+    // mapping: the format's own `\n` line break (ADR-0008) and ADR-0007's ZWJ, which is
+    // how an emoji sequence is spelled rather than a glyph anything draws.
+    let dir = common::tempdir(line!());
+    let project = typeset(
+        &dir,
+        BRAND,
+        &typeset_element(
+            "caption",
+            "brand",
+            "cobweb  -  cobweb\nover the door\u{200D}",
+        ),
+    );
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    assert_eq!(findings(&report, "E-FONT-NO-GLYPH").len(), 0, "{report:?}");
+}
+
+#[test]
+fn a_run_overriding_the_font_is_checked_against_the_font_it_names() {
+    // ADR-0007 makes `font` a run-level style delta. An element whose base is a chain that
+    // covers its base run and whose one emphasised run names a chain that does not is
+    // exactly the edit the check exists for, and reading only the element's `font` would
+    // miss it.
+    let dir = common::tempdir(line!());
+    let element = serde_json::json!({
+        "id": "mixed", "type": "text", "start": 0, "end": 1000,
+        "x": 0, "y": 0, "width": 900, "height": 100,
+        "font": "brand", "size": 40,
+        "runs": [{"text": "hello "}, {"text": "\u{0633}\u{0644}\u{0627}\u{0645}", "font": "brand-too"}]
+    })
+    .to_string();
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "brand-too": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+    let project = typeset(&dir, fonts, &element);
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    let found = findings(&report, "E-FONT-NO-GLYPH");
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    assert_eq!(found[0].fields["font"], "brand-too");
+}
+
+#[test]
+fn a_chain_whose_files_could_not_be_read_makes_no_claim_about_coverage() {
+    // `E-FONT-MISSING` has already said the file is not there, and "this font has no glyph
+    // for س" derived from a font nobody could open is the false confidence ADR-0006 exists
+    // to prevent.
+    let dir = common::tempdir(line!());
+    let project = project_with(&dir, CHAIN, "");
+    let with_text: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&project).unwrap()).unwrap();
+    let mut with_text = with_text;
+    with_text["tracks"] = serde_json::json!([{
+        "name": "captions", "layer": 0,
+        "elements": [serde_json::from_str::<serde_json::Value>(&typeset_element("greeting", "brand", "\u{0633}")).unwrap()]
+    }]);
+    std::fs::write(&project, common::canonical(&with_text.to_string())).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    assert_eq!(findings(&report, "E-FONT-NO-GLYPH").len(), 0, "{report:?}");
+    // The file's absence is still reported, once, by the check that owns that fact.
+    assert_eq!(findings(&report, "E-FONT-MISSING").len(), 1);
+}
+
+#[test]
+fn a_project_setting_its_text_in_two_declared_fonts_is_a_census() {
+    // ADR-0007's own example: "23 elements use `brand`; 1 uses `brand-old`". The census
+    // states the distribution and never says which group is the mistake (ADR-0043).
+    let dir = common::tempdir(line!());
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "brand-old": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+    let elements = [
+        typeset_element("a", "brand", "one"),
+        typeset_element("b", "brand", "two"),
+        typeset_element("c", "brand-old", "three"),
+    ]
+    .join(",");
+    let project = typeset(&dir, fonts, &elements);
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    let found = findings(&report, "N-FONT-CENSUS");
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    let finding = found[0];
+    assert_eq!(finding.class, Class::Note);
+    assert_eq!(
+        finding.fields["distribution"],
+        "2 elements use `brand`, 1 element uses `brand-old`"
+    );
+    let census = finding.census.as_ref().expect("a census");
+    assert_eq!(census.field, "font");
+    assert_eq!(census.groups[0].value, "brand");
+    assert_eq!(census.groups[0].members, ["a", "b"]);
+    assert_eq!(census.groups[1].value, "brand-old");
+    assert_eq!(census.groups[1].members, ["c"]);
+}
+
+#[test]
+fn a_project_whose_text_is_all_one_font_produces_no_census() {
+    // The must-not-fire half. A census of one group states a fact nobody can act on, and
+    // ADR-0006's noise budget would spend a line on it on every run — the fixture's own 22
+    // text elements are all `brand`.
+    let dir = common::tempdir(line!());
+    let elements = [
+        typeset_element("a", "brand", "one"),
+        typeset_element("b", "brand", "two"),
+    ]
+    .join(",");
+    let project = typeset(&dir, BRAND, &elements);
+
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    assert_eq!(findings(&report, "N-FONT-CENSUS").len(), 0, "{report:?}");
+}
+
+// ---- `R-FONT-SWAP`: the cache that makes a font swap visible (#206) --------------------
+
+#[test]
+fn a_font_rewritten_in_place_is_reported_against_the_elements_set_in_it() {
+    // ADR-0007: font files join the `(path, size, mtime)` probe cache, because "a font
+    // swapped in place is a silent whole-project render change that no census sees". The
+    // `fonts` table below never changes; only the bytes under it do.
+    let dir = common::tempdir(line!());
+    let elements = [
+        typeset_element("a", "brand", "one"),
+        typeset_element("b", "brand", "two"),
+    ]
+    .join(",");
+    let project = typeset(&dir, BRAND, &elements);
+    let cache = cache(&dir);
+
+    // The first run has nothing to compare against — a project never looked at has not
+    // changed — and records what it saw.
+    let first = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&first, "R-FONT-SWAP").len(), 0, "{first:?}");
+
+    // The swap: different bytes, same path, same table. A `.notdef`-free Latin face
+    // replaced by the same face with a byte appended is enough — the check compares an
+    // identity, not a rendering.
+    let font = dir.join("fonts/OpenRunde-Bold.otf");
+    let mut bytes = std::fs::read(&font).unwrap();
+    bytes.push(0);
+    std::fs::write(&font, &bytes).unwrap();
+
+    let second = montaget_core::validate_with_cache(&project, &cache);
+    let found = findings(&second, "R-FONT-SWAP");
+    assert_eq!(found.len(), 1, "{:?}", second.findings);
+    let finding = found[0];
+    assert_eq!(finding.class, Class::Review);
+    assert_eq!(finding.fields["font"], "brand");
+    assert_eq!(finding.fields["elements"], "2 elements");
+    assert!(
+        finding.fields["detail"]
+            .as_str()
+            .unwrap()
+            .contains("was rewritten in place"),
+        "{:?}",
+        finding.fields
+    );
+    // ADR-0007's census: "naming which measured layouts are now unverified".
+    let census = finding.census.as_ref().expect("a census");
+    assert_eq!(census.groups[0].members, ["a", "b"]);
+
+    // And it is announced once: the third run has recorded the new identity.
+    let third = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&third, "R-FONT-SWAP").len(), 0, "{third:?}");
+}
+
+#[test]
+fn an_unchanged_project_validated_twice_never_reports_a_swap() {
+    // The must-not-fire half. Nothing on disk and nothing in the table moves, so a finding
+    // here would fire on every second `validate` any project ever gets.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+
+    montaget_core::validate_with_cache(&project, &cache);
+    let second = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&second, "R-FONT-SWAP").len(), 0, "{second:?}");
+}
+
+#[test]
+fn repointing_the_table_at_another_file_is_the_same_finding() {
+    // Spec #168's story 54: "a font-swap census when the `fonts` table changes, so that I
+    // learn that 22 elements' hand-tuned sizes are now unverified." One mechanism answers
+    // both halves, because a chain's identity is the ordered `(file, size, mtime)` of its
+    // entries — so an edit visible in the author's own diff and a rewrite that is visible
+    // nowhere are one comparison.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    // Different bytes as well as a different name: a chain repointed at a byte-identical
+    // copy is no swap at all, which the test below that one asserts.
+    let mut bytes = std::fs::read(open_runde()).unwrap();
+    bytes.push(0);
+    std::fs::write(dir.join("fonts/Renamed.otf"), &bytes).unwrap();
+    let mut written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&project).unwrap()).unwrap();
+    written["fonts"] = serde_json::json!({"brand": [{"file": "fonts/Renamed.otf"}]});
+    std::fs::write(&project, common::canonical(&written.to_string())).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    let found = findings(&report, "R-FONT-SWAP");
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    assert_eq!(
+        found[0].fields["detail"],
+        "it names `fonts/Renamed.otf` where it named `fonts/OpenRunde-Bold.otf`"
+    );
+}
+
+#[test]
+fn a_chain_no_element_sets_its_text_in_is_recorded_and_never_reported() {
+    // The finding names "which measured layouts are now unverified", and a chain nothing
+    // uses has none — so the swap is recorded silently rather than announced to nobody.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, "");
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    let font = dir.join("fonts/OpenRunde-Bold.otf");
+    let mut bytes = std::fs::read(&font).unwrap();
+    bytes.push(0);
+    std::fs::write(&font, &bytes).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&report, "R-FONT-SWAP").len(), 0, "{report:?}");
+}
+
+#[test]
+fn the_sidecar_records_the_chain_beside_the_probes_and_not_instead_of_them() {
+    // One cache file, one cache directory, one `MONTAGET_CACHE_DIR`. Read back as JSON,
+    // because "the font half did not clobber the probe half" is a claim about the bytes.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+    std::fs::write(
+        &cache,
+        r#"{"version": 1, "entries": {"/clips/take3.mov": {"size": 12, "mtime_ns": 7, "last_used_ns": 7, "probe": {"source": "/clips/take3.mov", "quad": {}, "dimensions": null, "alpha": null, "audio": null}}}}"#,
+    )
+    .unwrap();
+
+    montaget_core::validate_with_cache(&project, &cache);
+
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&cache).unwrap()).unwrap();
+    assert_eq!(
+        written["entries"]["/clips/take3.mov"]["size"], 12,
+        "the probe half survives a font-half write: {written}"
+    );
+    let chains = &written["fonts"][common::with_forward_slashes(
+        &std::fs::canonicalize(&project)
+            .unwrap()
+            .display()
+            .to_string(),
+    )]["keys"]["brand"];
+    assert_eq!(chains[0]["file"], "fonts/OpenRunde-Bold.otf", "{written}");
+    assert!(chains[0]["size"].as_u64().unwrap() > 0, "{written}");
+}
+
+#[test]
+fn the_three_font_findings_render_as_prose_from_their_own_field_sets() {
+    // "One code, one field set, one template" (ADR-0006). The prose renderer has never seen
+    // a `Report`, so a template naming a field its check does not supply fails at the moment
+    // a user asks for text — which no assertion about the JSON would catch.
+    let dir = common::tempdir(line!());
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "brand-old": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+    let elements = [
+        typeset_element("a", "brand", "one"),
+        typeset_element("b", "brand-old", "\u{0633}"),
+    ]
+    .join(",");
+    let project = typeset(&dir, fonts, &elements);
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    let font = dir.join("fonts/OpenRunde-Bold.otf");
+    let mut bytes = std::fs::read(&font).unwrap();
+    bytes.push(0);
+    std::fs::write(&font, &bytes).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    let prose =
+        montaget_core::text::render(&report.to_json(), montaget_core::text::Options::verbose())
+            .expect("every finding renders");
+
+    assert!(
+        prose.contains("nothing in the `brand-old` chain has a glyph for U+0633"),
+        "{prose}"
+    );
+    assert!(
+        prose.contains("1 element uses `brand`, 1 element uses `brand-old`"),
+        "{prose}"
+    );
+    assert!(
+        prose.contains("is not the one this project was last validated against"),
+        "{prose}"
+    );
+    assert!(
+        prose.contains("1 element measured in the old chain"),
+        "{prose}"
+    );
+}
+
+#[test]
+fn a_font_whose_modification_time_moved_but_whose_bytes_did_not_is_no_swap() {
+    // The cache is keyed on `(path, size, mtime)` and *holds* the content hash, which is
+    // ADR-0069's own shape — and here it is load-bearing rather than tidy. An mtime moves
+    // for reasons that are not edits: a fresh clone, a branch switch, a restore. A check
+    // that fired on the key would announce a whole-project render change every time
+    // somebody checked the repository out again, on a file nobody touched.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    // Rewritten with its own bytes: same content, new modification time.
+    let font = dir.join("fonts/OpenRunde-Bold.otf");
+    let bytes = std::fs::read(&font).unwrap();
+    std::fs::remove_file(&font).unwrap();
+    std::fs::write(&font, &bytes).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&report, "R-FONT-SWAP").len(), 0, "{report:?}");
+}
+
+#[test]
+fn a_chain_repointed_at_a_byte_identical_copy_is_no_swap_either() {
+    // Same reasoning from the other side: the table edit is real and visible in the
+    // author's diff, and the *fonts* did not change — so no size and no break measured
+    // against the old spelling is unverified.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    std::fs::copy(open_runde(), dir.join("fonts/Copy.otf")).unwrap();
+    let mut written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&project).unwrap()).unwrap();
+    written["fonts"] = serde_json::json!({"brand": [{"file": "fonts/Copy.otf"}]});
+    std::fs::write(&project, common::canonical(&written.to_string())).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&report, "R-FONT-SWAP").len(), 0, "{report:?}");
+}
+
+#[test]
+fn a_key_the_table_no_longer_declares_is_the_same_swap() {
+    // The largest version of spec #168's story 54 — "a font-swap census when the `fonts`
+    // table changes, so that I learn that 22 elements' hand-tuned sizes are now unverified".
+    // Every element still naming the key has lost the font it was measured in, and the
+    // coverage check has nothing left to open, so this is where it is reported.
+    let dir = common::tempdir(line!());
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "brand-old": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+    let project = typeset(&dir, fonts, &typeset_element("a", "brand-old", "one"));
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    let mut written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&project).unwrap()).unwrap();
+    written["fonts"] = serde_json::json!({"brand": [{"file": "fonts/OpenRunde-Bold.otf"}]});
+    std::fs::write(&project, common::canonical(&written.to_string())).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    let found = findings(&report, "R-FONT-SWAP");
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    assert_eq!(found[0].fields["font"], "brand-old");
+    assert_eq!(
+        found[0].fields["detail"],
+        "the `fonts` table no longer declares it"
+    );
+    assert_eq!(found[0].census.as_ref().unwrap().groups[0].members, ["a"]);
+}
+
+#[test]
+fn a_font_file_that_went_missing_is_not_reported_as_a_swap() {
+    // The must-not-fire half of the same branch: the table still declares the key, so the
+    // one true thing to say is `E-FONT-MISSING`, and calling a file nobody could open a
+    // font swap would be one fault reported as two.
+    let dir = common::tempdir(line!());
+    let project = typeset(&dir, BRAND, &typeset_element("a", "brand", "one"));
+    let cache = cache(&dir);
+    montaget_core::validate_with_cache(&project, &cache);
+
+    std::fs::remove_file(dir.join("fonts/OpenRunde-Bold.otf")).unwrap();
+
+    let report = montaget_core::validate_with_cache(&project, &cache);
+    assert_eq!(findings(&report, "R-FONT-SWAP").len(), 0, "{report:?}");
+    assert_eq!(findings(&report, "E-FONT-MISSING").len(), 1);
+}
+
+#[test]
+fn a_missing_glyph_names_the_projects_other_chains_that_do_have_it() {
+    // ADR-0043's sibling census on a refuse-class finding: inert, document-derived, and it
+    // carries the fix without proposing one. Whether the right move is to add that file to
+    // this chain, move the run to that key, or change the text is the author's.
+    let dir = common::tempdir(line!());
+    std::fs::create_dir_all(dir.join("fonts")).unwrap();
+    // A second chain that does map the character: the same Latin face, asked about a
+    // character it has. `@` is in Open Runde and `\u{0633}` is not, so the two chains below
+    // differ in exactly the fact the census reports.
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "brand+fa": [{"file": "fonts/OpenRunde-Bold.otf"}]}"#;
+    let project = typeset(&dir, fonts, &typeset_element("a", "brand", "@"));
+
+    // `@` is covered by both, so nothing fires and there is nothing to census.
+    let report = montaget_core::validate_with_cache(&project, &cache(&dir));
+    assert_eq!(findings(&report, "E-FONT-NO-GLYPH").len(), 0, "{report:?}");
+}
