@@ -87,8 +87,10 @@
 //!   document alone and no element is mixed at a rate a probe had to supply.
 //! - **A `video` element is decoded through one `ffmpeg` seek per frame**, the same call
 //!   `frame` makes. It is correct and it is slow — a spawn per frame — and a streaming
-//!   decode is an optimisation this ticket does not take, because the fixture the budget
-//!   is stated for has no `video` element and the number would be invented.
+//!   decode is an optimisation this ticket does not take. The only render wall clock this
+//!   project has measured is over the committed fixture, which has no `video` element
+//!   (`montaget_render::budget::RENDER_REFERENCES`), so what a spawn per frame costs a
+//!   project that does is unmeasured and the saving would be invented.
 
 use std::collections::BTreeSet;
 use std::path::{Path as FilePath, PathBuf};

@@ -1,36 +1,63 @@
-//! `render`'s budget, measured the way it was stated: *"a 60 s video renders in under two
-//! minutes"* (ADR-0021's original, read linearly as
-//! [`montaget_render::budget::RENDER_MS_PER_OUTPUT_SECOND`]).
+//! `render`'s wall clock: **measured and recorded, judged against nothing** (#217).
 //!
-//! In the binary's crate and against the built executable, like `frame_budget.rs`, so the
-//! number includes process launch, the `ffmpeg` spawns for the encoder and the probes, and
-//! Skia's first touch. One cold run rather than three: the fixture is 65 s of 1080×1920,
-//! and the ceiling it is judged against is 130 s — a measurement that lands near it is
-//! worth a human's attention whichever side it falls on, and three of them would be a
-//! long wait to learn what one already says.
+//! ## Why there is no assertion about speed here
 //!
-//! **The number it came in at, on the machine this was written on: 17.3 s, 3.8× realtime**
-//! — every frame through the same painter `frame` uses, all 20 narration elements mixed.
-//! Recorded so a later reader can see how much headroom the ceiling had, and because
-//! ADR-0021 is explicit that a measured reference is a better baseline than a guessed one.
+//! The budget this verb inherited is *"a 60 s video renders in under two minutes"*.
+//! ADR-0021 records that pair as *"written for 1080×1920/30 and never re-derived"* after
+//! ADR-0003 generalised the scope to a CapCut/Premiere-class editor where 4K is ordinary,
+//! and it amended the preview half of the map's informal budget while leaving this half's
+//! replacement **deferred**. An earlier reading of that gap divided the pair into a rate
+//! and enforced it; #217 retires the reading along with the figure. A test that fails
+//! against a number nothing measured is not a regression gate — it is the retired claim
+//! wearing an assertion.
+//!
+//! **The gap, named:** `render` has no performance target, and this test does not invent
+//! one. What it does is take the measurement an ADR would need in order to write one, and
+//! record it in [`montaget_render::budget::RENDER_REFERENCES`] where a later reader can
+//! find every number this project has taken. A target also needs numbers at the frame
+//! sizes ADR-0003 put in scope, and the fixture is one frame size; that is the rest of the
+//! gap and it is a measurement ticket, not an assertion.
+//!
+//! What *is* asserted: that the render succeeded, that it produced exactly the span the
+//! recorded references were taken over, and that the harness consulted **no ceiling** —
+//! [`Verdict::Observed`] rather than a pass against a limit. That last one is the guard
+//! that keeps the retired figure from coming back as a constant.
+//!
+//! ## How the number is taken
+//!
+//! In the binary's crate and against the built executable, like `frame_budget.rs`, so it
+//! includes process launch, the `ffmpeg` spawns for the encoder and the probes, and Skia's
+//! first touch. One cold run per invocation: there is no threshold for a second run to
+//! disambiguate, and the fixture is 65 s of video. Repetition is not thrown away, though —
+//! each reading worth keeping is **appended** to the reference list rather than averaged
+//! into the last one, because the run-to-run spread is itself something an ADR deriving a
+//! target would need to see. Three #217 readings minutes apart spanned 18.64–19.78 s, and
+//! the two ends of that are what the list carries. A fourth, taken while the machine was
+//! compiling, came back at 22.10 s and is left out of the list and kept in the prose —
+//! `RENDER_REFERENCES` says why.
+//!
+//! Nothing here enforces "cold" beyond the sidecar: an idle machine is the reader's job to
+//! supply, and a number taken on a busy one is a number about the machine.
 //!
 //! **What "cold" includes.** An empty probe sidecar (ADR-0069), so the run pays for its
 //! `ffprobe` spawns as `validate` would on a first turn.
+//!
+//! Release only. A debug number is not comparable to the recorded ones and is not worth
+//! recording, so a debug run reports and returns.
 
 use std::path::PathBuf;
 use std::process::Command;
 
-use montaget_render::budget::{Budget, Work};
+use montaget_render::budget::{Budget, RENDER_REFERENCE_OUTPUT_MS, Verdict, Work};
 
 #[test]
-fn the_whole_fixture_renders_inside_the_stated_budget() {
-    // ADR-0021's numbers were measured on optimised builds, and CI runs the suite with
-    // `--release`. A debug run reports its number and judges nothing.
-    let optimised = cfg!(not(debug_assertions));
-    if !optimised {
+fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
+    // Every recorded reference is from an optimised build, and CI runs the suite with
+    // `--release`. A debug run would add a number that is comparable to none of them.
+    if cfg!(debug_assertions) {
         eprintln!(
-            "skipping: this is a debug build, and the render budget is stated for the \
-             binary that ships. CI runs the suite with --release."
+            "skipping: this is a debug build, and every recorded render measurement is \
+             from the binary that ships. CI runs the suite with --release."
         );
         return;
     }
@@ -42,22 +69,28 @@ fn the_whole_fixture_renders_inside_the_stated_budget() {
     let dir = scratch("render-budget");
     let output = dir.join("fixture.mp4");
     let project = fixture();
-    let started = std::time::Instant::now();
-    let out = Command::new(binary())
-        .args([
-            "render",
-            project.to_str().expect("a fixture path"),
-            "--output",
-            output.to_str().expect("a scratch path"),
-            "--json",
-        ])
-        .env(
-            montaget_core::media::sidecar::CACHE_DIR_VAR,
-            dir.join("cache"),
-        )
-        .output()
-        .expect("run montaget render");
-    let elapsed = started.elapsed();
+    // Through `Budget::measure`, which is the harness's own timing entry point (#189):
+    // it takes the clock, judges, and hands back a `Measured` that prints itself. The
+    // unit of work has to be named before the run rather than read off the answer, and
+    // it is the span every recorded reference was taken over — which the assertion below
+    // then confirms the render actually produced.
+    let work = Work::span(RENDER_REFERENCE_OUTPUT_MS);
+    let (out, measured) = Budget::Render.measure(work, || {
+        Command::new(binary())
+            .args([
+                "render",
+                project.to_str().expect("a fixture path"),
+                "--output",
+                output.to_str().expect("a scratch path"),
+                "--json",
+            ])
+            .env(
+                montaget_core::media::sidecar::CACHE_DIR_VAR,
+                dir.join("cache"),
+            )
+            .output()
+            .expect("run montaget render")
+    });
     assert!(
         out.status.success(),
         "render did not answer:\n{}{}",
@@ -68,14 +101,45 @@ fn the_whole_fixture_renders_inside_the_stated_budget() {
     let json: serde_json::Value =
         serde_json::from_slice(&out.stdout).expect("the machine-readable result on stdout");
     let duration_ms = json["render"]["duration_ms"].as_i64().expect("a span");
-    assert_eq!(duration_ms, 65216);
-
-    let verdict = Budget::Render.judge(Work::span(duration_ms), elapsed);
-    eprintln!(
-        "render: {elapsed:.2?} cold for {duration_ms} ms of output ({:.2}x realtime), {verdict:?}",
-        json["render"]["realtime"].as_f64().unwrap_or_default()
+    assert_eq!(
+        duration_ms, RENDER_REFERENCE_OUTPUT_MS,
+        "the recorded references were taken over the fixture's declared duration; a number \
+         over a different span is not comparable to them"
     );
-    assert!(!verdict.is_failure(), "{verdict:?}");
+
+    let Verdict::Observed {
+        reference, drift, ..
+    } = measured.verdict
+    else {
+        panic!(
+            "`render` was judged against a ceiling: {measured}. #217 retired the only \
+             number there was, and no measurement has replaced it."
+        );
+    };
+    let reference = reference.expect("a recorded render reference to compare against");
+
+    eprintln!(
+        "render: {:.2?} cold for {duration_ms} ms of output ({:.2}× realtime), at \
+         {conditions}",
+        measured.elapsed,
+        json["render"]["realtime"].as_f64().unwrap_or_default(),
+        conditions = reference.conditions
+    );
+    match drift {
+        Some(drift) => eprintln!(
+            "  {drift:.2}× the recorded {} ms [{}] — recorded, not judged: `render` has no \
+             target, and a target needs its own ADR with a measurement behind it",
+            reference.elapsed_ms, reference.source
+        ),
+        None => eprintln!("  no comparable recorded measurement"),
+    }
+    if measured.verdict.is_notable() {
+        eprintln!(
+            "  ^ past the {}× drift ADR-0021 names as worth a human's attention. Still not \
+             a failure: nothing here is entitled to say what \"too slow\" is.",
+            montaget_render::budget::OBSERVATIONAL_DRIFT_FACTOR
+        );
+    }
 }
 
 fn binary() -> PathBuf {

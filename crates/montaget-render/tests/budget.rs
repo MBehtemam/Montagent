@@ -1,15 +1,16 @@
 //! The budget harness, exercised against synthetic durations.
 //!
-//! No verb exists to time yet, so these tests are about the harness rather than
-//! about Montaget's speed: that an enforced miss fails, that the one deliberately
-//! unenforced arm cannot fail, that `render`'s ceiling scales with its output, and
-//! that the numbers are the ones the ADRs state. The verb tickets supply the real
-//! measurements through `Budget::measure`.
+//! These tests are about the harness rather than about Montaget's speed: that an
+//! enforced miss fails, that the two deliberately unenforced arms cannot fail
+//! whatever they measure, that a reference is only ever drawn from its own arm,
+//! and that the numbers are the ones the ADRs state. The verb tickets supply the
+//! real measurements through `Budget::measure` and record them here as
+//! references.
 
 use montaget_render::budget::{
     Budget, FRAME_LIMIT, FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
-    RENDER_MS_PER_OUTPUT_SECOND, SCRUB_PREVIEW_LIMIT, SHIPPED_RASTERIZER, Verdict, Work,
-    nearest_reference,
+    RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, SCRUB_PREVIEW_LIMIT, SHIPPED_RASTERIZER,
+    Verdict, Work, nearest_reference,
 };
 use std::time::Duration;
 
@@ -20,7 +21,6 @@ use std::time::Duration;
 fn the_stated_numbers_are_the_numbers() {
     assert_eq!(FRAME_LIMIT, Duration::from_millis(500));
     assert_eq!(SCRUB_PREVIEW_LIMIT, Duration::from_secs(5));
-    assert_eq!(RENDER_MS_PER_OUTPUT_SECOND, 2_000);
 }
 
 #[test]
@@ -54,32 +54,44 @@ fn the_scrub_preview_ceiling_is_flat_across_span_lengths() {
     }
 }
 
+/// The retired figure, and why `render` has no ceiling at all (#217).
+///
+/// *"A 60 s video in under two minutes"* was written for 1080x1920/30 and never
+/// re-derived after ADR-0003 generalised the scope to an editor where 4K is
+/// ordinary; ADR-0021 amended the preview half of that budget and left the
+/// replacement for this half **deferred**. Reading the retired pair linearly as a
+/// rate would encode a number no measurement stands behind, so there is no
+/// ceiling here to encode and a run of any length is an observation.
 #[test]
-fn render_scales_with_the_length_of_its_output() {
-    // The original budget, as one point: 60 s of video in under two minutes.
-    assert_eq!(
-        Budget::Render.limit(Work::span(60_000)),
-        Some(Duration::from_secs(120))
-    );
-    assert_eq!(
-        Budget::Render.limit(Work::span(10_000)),
-        Some(Duration::from_secs(20))
-    );
-    // A zero-length span has a zero budget rather than an infinite one.
-    assert_eq!(
-        Budget::Render.limit(Work::span(0)),
-        Some(Duration::from_secs(0))
-    );
+fn render_has_no_ceiling_because_its_replacement_is_deferred() {
+    assert_eq!(Budget::Render.limit(Work::span(60_000)), None);
+    assert_eq!(Budget::Render.limit(Work::span(10_000)), None);
+    assert!(!Budget::Render.is_enforced());
+
+    // Twenty minutes for 60 s of output is a number worth a human's attention and
+    // is still not a failure: nothing here is entitled to say what "too slow" is.
+    let verdict = Budget::Render.judge(Work::span(60_000), Duration::from_secs(1_200));
+    assert!(!verdict.is_failure(), "{verdict:?}");
+    assert!(matches!(verdict, Verdict::Observed { .. }));
 }
 
+/// Every arm that *is* enforced is flat rather than proportional, so no arm can
+/// quietly become a rate again the way `render`'s did.
 #[test]
-fn a_negative_span_does_not_wrap_into_an_enormous_budget() {
-    // Times are i64 milliseconds throughout (#168) and nothing here gets to
-    // assume a caller's arithmetic was right.
+fn no_enforced_ceiling_is_derived_from_the_length_of_the_output() {
+    // The scrub preview is the only span arm left with a ceiling, and the proxy cap
+    // rather than the span length is what bounds it.
     assert_eq!(
-        Budget::Render.limit(Work::span(-10_000)),
-        Some(Duration::from_secs(0))
+        Budget::ScrubPreview.limit(Work::span(1_000)),
+        Budget::ScrubPreview.limit(Work::span(600_000)),
+        "the scrub preview's ceiling moved with its span"
     );
+    assert_eq!(Budget::Frame.limit(Work::Still), Some(FRAME_LIMIT));
+
+    // And nothing else has one to move.
+    for budget in [Budget::Render, Budget::FullResolutionPreview] {
+        assert_eq!(budget.limit(Work::span(600_000)), None, "{}", budget.name());
+    }
 }
 
 /// The load-bearing asymmetry in ADR-0021: the caller who asked for true pixels
@@ -101,10 +113,18 @@ fn the_full_resolution_preview_is_observational_and_cannot_fail() {
     assert!(matches!(verdict, Verdict::Observed { .. }));
 }
 
+/// The two arms that state a number are the two ADR-0021 actually states.
 #[test]
-fn every_other_arm_is_enforced() {
-    for budget in [Budget::Frame, Budget::ScrubPreview, Budget::Render] {
+fn the_enforced_arms_are_the_two_with_a_stated_number() {
+    for budget in [Budget::Frame, Budget::ScrubPreview] {
         assert!(budget.is_enforced(), "{} should be enforced", budget.name());
+    }
+    for budget in [Budget::Render, Budget::FullResolutionPreview] {
+        assert!(
+            !budget.is_enforced(),
+            "{} has no measured number behind a ceiling",
+            budget.name()
+        );
     }
 }
 
@@ -177,25 +197,43 @@ fn only_the_shipped_rasterizer_can_be_a_baseline() {
         "the exit arm's number is worth keeping (ADR-0010 names `tiny-skia` as the exit)"
     );
 
-    let chosen = nearest_reference(Work::span(10_000)).expect("a baseline exists for 10 s");
+    let chosen = nearest_reference(Budget::FullResolutionPreview, Work::span(10_000))
+        .expect("a baseline exists for 10 s");
     assert_eq!(chosen.rasterizer, SHIPPED_RASTERIZER);
     assert_eq!(chosen.elapsed_ms, skia_reference().elapsed_ms);
 }
 
 /// The doc comment tells a later ticket to append to the reference list. That
 /// instruction has to be safe: selection must not depend on array position.
+///
+/// `render`'s list is where this actually bites — two runs of the same fixture,
+/// same span, 1.14x apart — so the tie must come out at the faster of them
+/// whichever order they are written in.
 #[test]
 fn a_reference_is_chosen_by_its_values_rather_than_its_position() {
-    let chosen = nearest_reference(Work::span(10_000)).expect("a baseline exists");
-    let same_distance: Vec<_> = FULL_RESOLUTION_PREVIEW_REFERENCES
-        .iter()
-        .filter(|r| r.rasterizer == SHIPPED_RASTERIZER && r.output_ms == chosen.output_ms)
-        .collect();
-    assert!(
-        same_distance
+    for (budget, span) in [
+        (Budget::FullResolutionPreview, 10_000),
+        (Budget::Render, RENDER_REFERENCE_OUTPUT_MS),
+    ] {
+        let chosen = nearest_reference(budget, Work::span(span)).expect("a baseline exists");
+        let same_distance: Vec<_> = budget
+            .references()
             .iter()
-            .all(|r| r.elapsed_ms >= chosen.elapsed_ms),
-        "a tie was broken on position: {same_distance:?} does not put {chosen:?} first"
+            .filter(|r| r.rasterizer == SHIPPED_RASTERIZER && r.output_ms == chosen.output_ms)
+            .collect();
+        assert!(
+            same_distance
+                .iter()
+                .all(|r| r.elapsed_ms >= chosen.elapsed_ms),
+            "{}: a tie was broken on position — {same_distance:?} does not put {chosen:?} first",
+            budget.name()
+        );
+    }
+
+    // Not a vacuous pass: `render` has more than one number at that span.
+    assert!(
+        RENDER_REFERENCES.len() > 1,
+        "the tie-break is only exercised while two runs share a span"
     );
 }
 
@@ -203,8 +241,10 @@ fn a_reference_is_chosen_by_its_values_rather_than_its_position() {
 fn a_wildly_negative_span_does_not_overflow_the_search_for_a_baseline() {
     // The enforced arms clamp with `.max(0)`; this one does not, and the
     // subtraction used to find the nearest reference must survive it.
-    let verdict = Budget::FullResolutionPreview.judge(Work::span(i64::MIN), Duration::from_secs(1));
-    assert!(!verdict.is_failure());
+    for budget in [Budget::FullResolutionPreview, Budget::Render] {
+        let verdict = budget.judge(Work::span(i64::MIN), Duration::from_secs(1));
+        assert!(!verdict.is_failure(), "{}", budget.name());
+    }
 }
 
 /// A span budget handed a still would otherwise get a 0 ms ceiling and report
@@ -235,17 +275,71 @@ fn pairing_a_span_budget_with_a_still_is_a_loud_caller_bug() {
 
 #[test]
 fn the_recorded_references_are_measurements_rather_than_targets() {
-    assert!(
-        !FULL_RESOLUTION_PREVIEW_REFERENCES.is_empty(),
-        "an observational arm with no reference cannot catch drift"
-    );
-    for r in FULL_RESOLUTION_PREVIEW_REFERENCES {
-        assert!(r.output_ms > 0, "{}: a reference needs a span", r.source);
-        assert!(r.elapsed_ms > 0, "{}: a reference needs a number", r.source);
+    for budget in [Budget::FullResolutionPreview, Budget::Render] {
+        let references = budget.references();
         assert!(
-            !r.conditions.is_empty() && !r.source.is_empty() && !r.rasterizer.is_empty(),
-            "a number with no stated rasterizer, conditions or provenance is not evidence"
+            !references.is_empty(),
+            "{}: an observational arm with no reference cannot catch drift",
+            budget.name()
         );
+        for r in references {
+            assert!(r.output_ms > 0, "{}: a reference needs a span", r.source);
+            assert!(r.elapsed_ms > 0, "{}: a reference needs a number", r.source);
+            assert!(
+                !r.conditions.is_empty() && !r.source.is_empty() && !r.rasterizer.is_empty(),
+                "a number with no stated rasterizer, conditions or provenance is not evidence"
+            );
+        }
+    }
+}
+
+/// Every recorded render reference names the resolution and frame rate it was
+/// taken at (#217: *"measured and recorded at a stated resolution"*). A wall clock
+/// with no frame size behind it is not comparable to anything.
+#[test]
+fn every_render_reference_states_the_frame_it_was_measured_at() {
+    for r in RENDER_REFERENCES {
+        assert!(
+            r.conditions.contains('x') && r.conditions.contains("fps"),
+            "{}: conditions `{}` do not state a frame size and rate",
+            r.source,
+            r.conditions
+        );
+    }
+}
+
+/// The two observational arms answer different questions at different resolutions
+/// — a 720p-capped proxy versus the declared frame — so one arm's number must
+/// never become the other's baseline. Mixing them is the same mistake
+/// [`SHIPPED_RASTERIZER`] exists to prevent, one axis over.
+#[test]
+fn an_arm_is_never_baselined_against_the_other_arms_numbers() {
+    let render = nearest_reference(Budget::Render, Work::span(RENDER_REFERENCE_OUTPUT_MS))
+        .expect("a render baseline");
+    assert!(
+        RENDER_REFERENCES.contains(&render),
+        "{render:?} did not come from `render`'s own list"
+    );
+
+    let preview = nearest_reference(
+        Budget::FullResolutionPreview,
+        Work::span(RENDER_REFERENCE_OUTPUT_MS),
+    )
+    .expect("a preview baseline");
+    assert!(
+        FULL_RESOLUTION_PREVIEW_REFERENCES.contains(&preview),
+        "{preview:?} did not come from the preview's own list"
+    );
+    assert_ne!(render, preview);
+}
+
+/// An enforced arm has no reference list: it judges against its stated number,
+/// and a reference it never consults would be a number with no reader.
+#[test]
+fn an_enforced_arm_carries_no_references() {
+    for budget in [Budget::Frame, Budget::ScrubPreview] {
+        assert!(budget.references().is_empty(), "{}", budget.name());
+        assert_eq!(nearest_reference(budget, Work::span(10_000)), None);
     }
 }
 
@@ -294,4 +388,51 @@ fn an_observation_reports_its_reference_rather_than_a_ceiling() {
     assert!(rendered.contains("1.00x"), "{rendered}");
     assert!(rendered.contains("2160x3840"), "{rendered}");
     measured.assert_within_budget();
+}
+
+/// The numbers [`RENDER_REFERENCES`]' prose states, re-derived from the entries.
+///
+/// `docs/agents/domain.md` wants a numeric claim to come with something that
+/// "exits non-zero the moment it stops reproducing". These particular numbers
+/// cannot be re-measured from a unit test — they are records of runs on stated
+/// hardware — but the arithmetic the doc comment does over them can, and that is
+/// the half that rots when someone appends a reading and leaves the prose alone.
+#[test]
+fn the_recorded_spread_is_the_one_the_prose_states() {
+    let ms = |source_prefix: &str| -> Vec<u64> {
+        RENDER_REFERENCES
+            .iter()
+            .filter(|r| r.source.starts_with(source_prefix))
+            .map(|r| r.elapsed_ms)
+            .collect()
+    };
+
+    // "Its two entries below are that range's ends": 19.78 s and 18.64 s.
+    let mut own = ms("#217");
+    own.sort_unstable();
+    assert_eq!(own, vec![18_640, 19_780], "#217's recorded ends moved");
+    assert_eq!(ms("#215"), vec![17_300], "#215's reading moved");
+
+    // "the list spans 1.14x end to end".
+    let slowest = RENDER_REFERENCES
+        .iter()
+        .map(|r| r.elapsed_ms)
+        .max()
+        .unwrap();
+    let fastest = RENDER_REFERENCES
+        .iter()
+        .map(|r| r.elapsed_ms)
+        .min()
+        .unwrap();
+    let spread = slowest as f64 / fastest as f64;
+    assert!(
+        (spread - 1.14).abs() < 0.005,
+        "the prose says 1.14x end to end; the entries say {spread:.3}x"
+    );
+
+    // "baselines against the fastest" — the claim the paragraph makes about which
+    // of these a measurement is actually scored against.
+    let chosen = nearest_reference(Budget::Render, Work::span(RENDER_REFERENCE_OUTPUT_MS))
+        .expect("a render baseline");
+    assert_eq!(chosen.elapsed_ms, fastest);
 }
