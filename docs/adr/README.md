@@ -64,9 +64,9 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0012](0012-flat-transform-keyframes-carried-by-their-element.md) | One flat transform per visual element (`x`, `y`, `origin`, `scale`, `rotation`, `opacity`) in absolute integer pixels. Keyframes are `{t,v,ease}` on absolute times, **carried by their element**. Skew out; `box` retired; `clip` is the aperture | 0013, 0015, 0022, 0025, 0030, 0036, 0037, 0038, 0039, 0040, 0048, 0055 |
+| [0012](0012-flat-transform-keyframes-carried-by-their-element.md) | One flat transform per visual element (`x`, `y`, `origin`, `scale`, `rotation`, `opacity`) in absolute integer pixels. Keyframes are `{t,v,ease}` on absolute times, **carried by their element**. Skew out; `box` retired; `clip` is the aperture | 0013, 0015, 0022, 0025, 0030, 0036, 0037, 0038, 0039, 0040, 0048, 0055, 0082 |
 | [0013](0013-fitted-extents-floor-and-the-nine-origin-keywords.md) | Fitted extents **floor**, in exact integer arithmetic; the nine `origin` keywords are spelled, and `center-center` is an error naming `center` | 0014, 0015 |
-| [0038](0038-ease-is-required-on-every-non-first-keyframe-record.md) | `ease` is required on every non-first keyframe record and a schema error on the first. Presence is a pure function of position | 0052 |
+| [0038](0038-ease-is-required-on-every-non-first-keyframe-record.md) | `ease` is required on every non-first keyframe record and a schema error on the first. Presence is a pure function of position | 0052, 0082 |
 | [0022](0022-easing-example-is-hypothetical-not-measured.md) | ADR-0012's `photo-06` easing example is **hypothetical, not measured** — relabelled rather than replaced. No decision changes | — |
 | [0025](0025-clip-stays-static.md) | `clip` stays static and is not keyframable. Wipes and reveals belong to the effect model | — |
 
@@ -115,6 +115,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 | [0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md) | **`preview` is the ninth MCP verb and 0011's table gains a row** (nine MCP tools, twelve CLI commands). Ratifies the eleven readings #218 had to pick around the ladder — the check-engine refusal, the never-the-deliverable rule, the per-attempt clock, the abandoned span, the undegradable escape hatch, exit 3, the floor's proxy-only scope, the between-caps degrade, and `native` disclosure — correcting one: a rung is named for the frame it rasterized **everywhere** it is named. No rung, cap or floor moves | — |
 | [0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md) | The five-code exit ladder stays five: `LAYOUT` never gates `fmt --check`'s (or `validate`'s) exit code — a caller that wants a hard gate reads `--json`'s counted `summary.layout`. Ratifies `L-LAYOUT` as a second, whole-file `LAYOUT` finding alongside the element-scoped `L-KEY-ORDER`; ratifies the header's and each track's key order as schema property-declaration order; a `LAYOUT` finding names only the keys a structure carries, never the ones it omits | — |
+| [0082](0082-a-keyframe-list-must-be-written-in-ascending-t.md) | A keyframe list must be written in **strictly ascending `t`** — new schema law. Makes ADR-0038's positional `ease` rule and the resolver's clock-based read the same statement by construction, closing the divergence a reverse-order list could produce | — |
 
 ## `validate`
 
