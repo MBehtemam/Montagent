@@ -142,11 +142,13 @@ fn the_committed_fixture_agrees_with_the_media_beside_it() {
         report.findings.iter().all(|f| f.code == "N-TRACK-GAP"
             || f.code == "R-VISUAL-GAP"
             || f.code == "R-BOX-SLACK"
+            || f.code == "R-SOURCE-CUT-POP"
             || f.code.starts_with("R-CAPTION-")),
         "and the only facts it states are its 27 gaps, the 21 group-paired silences \
          ADR-0018 reports (`R-VISUAL-GAP`, always `note` on this fixture — see \
-         `tests/fixture.rs`), the seven `R-BOX-SLACK` findings ADR-0058 enumerates, and \
-         the ten caption findings ADR-0034 and ADR-0054 were written from: {:?}",
+         `tests/fixture.rs`), the seven `R-BOX-SLACK` findings ADR-0058 enumerates, the \
+         ten caption findings ADR-0034 and ADR-0054 were written from, and the two \
+         same-source cuts ADR-0033 measured on this very file: {:?}",
         report.findings
     );
     assert_eq!(report.exit_code(), ExitCode::Ok);

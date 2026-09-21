@@ -331,6 +331,83 @@ pub fn holds_a_sampled_frame(from: i64, to: i64, fps: i64) -> Option<bool> {
     Some(first.checked_mul(1000)? < i128::from(to).checked_mul(i128::from(fps))?)
 }
 
+/// **One sampled frame** — its index, and the instant it samples.
+///
+/// A type rather than a bare `(i64, i64)` because the instant is the one quantity ADR-0035
+/// insists must *"never"* become a float: it is `frame × 1000/fps` ms, *"not necessarily
+/// integral"*, and at 30 fps it is `100/3`. Holding the frame index and the rate together
+/// keeps [`Sampled::ratio`] exact for the resolver and puts the single division that
+/// produces a printable millisecond in [`Sampled::ms`], where a reader can see it, rather
+/// than in each caller's own arithmetic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sampled {
+    /// Frame *n*, counted from zero at the project's own `t = 0`.
+    pub frame: i64,
+    fps: i64,
+}
+
+impl Sampled {
+    /// The instant this frame samples, as the exact ratio of milliseconds ADR-0035's
+    /// formula produces — `frame × 1000 / fps`, undivided.
+    ///
+    /// Handed to [`crate::resolve::at_instant`] as-is.
+    pub fn ratio(self) -> (i128, i128) {
+        (i128::from(self.frame) * 1000, i128::from(self.fps))
+    }
+
+    /// Does this frame sample at or before `t`? — `n × 1000 <= t × fps`, on integers.
+    pub fn is_at_or_before(self, t: i64) -> bool {
+        i128::from(self.frame) * 1000 <= i128::from(t) * i128::from(self.fps)
+    }
+
+    /// The instant in milliseconds, as a float.
+    ///
+    /// **The only division of the ratio in this crate**, and it exists for prose: a
+    /// finding states the instant so a human can find the frame. Nothing derives from the
+    /// result — ADR-0035's *"never float"* is about the arithmetic that decides something,
+    /// and by here everything has been decided.
+    pub fn ms(self) -> f64 {
+        let (numerator, denominator) = self.ratio();
+        numerator as f64 / denominator as f64
+    }
+}
+
+/// **The first sampled frame at or after `t`** — `ceil(t × fps / 1000)`.
+///
+/// A negative `t` is clamped to zero, for [`holds_a_sampled_frame`]'s reason: there is no
+/// frame *-1* to be the first one at or after it.
+pub fn frame_at_or_after(t: i64, fps: i64) -> Option<Sampled> {
+    if fps <= 0 {
+        return None;
+    }
+    let frame = i64::try_from(ceil_div(
+        i128::from(t.max(0)).checked_mul(i128::from(fps))?,
+        1000,
+    ))
+    .ok()?;
+    Some(Sampled { frame, fps })
+}
+
+/// **The last sampled frame strictly before `t`** — the frame a half-open range ending at
+/// `t` finishes on.
+///
+/// `None` where `t` is at or before the first frame: a range that ends at or before zero
+/// has no frame behind it, and reporting frame `-1` would be naming an instant the render
+/// never samples.
+pub fn frame_before(t: i64, fps: i64) -> Option<Sampled> {
+    if fps <= 0 || t <= 0 {
+        return None;
+    }
+    let last = ceil_div(i128::from(t).checked_mul(i128::from(fps))?, 1000) - 1;
+    if last < 0 {
+        return None;
+    }
+    Some(Sampled {
+        frame: i64::try_from(last).ok()?,
+        fps,
+    })
+}
+
 fn ceil_div(numerator: i128, denominator: i128) -> i128 {
     -floor_div(-numerator, denominator)
 }
@@ -585,6 +662,45 @@ mod tests {
         assert_eq!(holds_a_sampled_frame(0, 40, 25), Some(true));
         assert_eq!(holds_a_sampled_frame(41, 79, 25), Some(false));
         assert_eq!(holds_a_sampled_frame(41, 81, 25), Some(true));
+    }
+
+    #[test]
+    fn a_frame_index_is_the_exact_form_and_the_instant_is_a_ratio() {
+        // ADR-0035's formula, read in both directions. At 25 fps the step is 40 ms, so
+        // the first frame at or after 3018 is 76 (3040 ms) and the last one strictly
+        // before 10000 is 249 (9960 ms) — the instant an author retargets a fade onto.
+        assert_eq!(frame_at_or_after(3018, 25).unwrap().frame, 76);
+        assert_eq!(frame_before(10000, 25).unwrap().frame, 249);
+        assert_eq!(frame_before(10000, 25).unwrap().ratio(), (249_000, 25));
+        assert_eq!(frame_before(10000, 25).unwrap().ms(), 9960.0);
+        // And at 30 fps, where the step is 100/3 and the instant is not a whole
+        // millisecond: frame 29 samples at 2900/3 ≈ 966.67 ms, which is why the ratio is
+        // never divided here.
+        assert_eq!(frame_before(1000, 30).unwrap().frame, 29);
+        assert_eq!(frame_before(1000, 30).unwrap().ratio(), (29_000, 30));
+    }
+
+    #[test]
+    fn a_frame_at_or_before_an_instant_is_compared_on_integers() {
+        // `n × 1000 <= t × fps`, never `n × 1000/fps <= t` — the division ADR-0035
+        // keeps out of the comparison. Frame 76 samples at exactly 3040 ms at 25 fps.
+        let at_25 = frame_before(3041, 25).unwrap();
+        assert_eq!(at_25.frame, 76);
+        assert!(at_25.is_at_or_before(3040));
+        assert!(!at_25.is_at_or_before(3039));
+        // At 30 fps frame 29 is at 2900/3, which is before 967 ms and after 966.
+        let at_30 = frame_before(1000, 30).unwrap();
+        assert!(at_30.is_at_or_before(967));
+        assert!(!at_30.is_at_or_before(966));
+    }
+
+    #[test]
+    fn there_is_no_frame_behind_the_start_of_the_clock() {
+        // Frame -1 is an instant the render never samples, so it is never named.
+        assert_eq!(frame_before(0, 25), None);
+        assert_eq!(frame_before(-40, 25), None);
+        assert_eq!(frame_at_or_after(-40, 25).unwrap().frame, 0);
+        assert_eq!(frame_at_or_after(0, 0), None);
     }
 
     #[test]

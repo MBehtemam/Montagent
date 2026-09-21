@@ -38,15 +38,16 @@ fn the_fixture_parses_and_carries_only_the_findings_two_adrs_asked_for() {
         report.findings
     );
 
-    // **Ten `review` findings, and the fixture is still correct.** Spec #168 makes the
+    // **Twelve `review` findings, and the fixture is still correct.** Spec #168 makes the
     // fixture the regression guard — "a check that fires on it is wrong *unless an ADR
-    // says otherwise*" — and here two ADRs say otherwise about this exact file. ADR-0034
+    // says otherwise*" — and here three ADRs say otherwise about this exact file. ADR-0034
     // was written *from* `hook-loop`: 1200 ms for a line its own first showing gives 2298,
     // "at exactly the seam a looping short is supposed to make invisible". ADR-0054 was
-    // written from the same element's silence. Every one of the ten is a caption finding
-    // (`caption_findings` below names them one by one), none of them is an `error`, and
-    // none of them gates the render.
-    assert_eq!(summary.review, 10, "{:?}", report.findings);
+    // written from the same element's silence. And ADR-0033's whole measured table is this
+    // file's `photo` track: of its six cuts, the two same-source ones pop, at 3018 and at
+    // 64016. Ten caption findings and two cut pops; none is an `error`, and none gates the
+    // render.
+    assert_eq!(summary.review, 12, "{:?}", report.findings);
     assert_eq!(report.exit_code(), ExitCode::Ok);
 }
 
@@ -132,11 +133,12 @@ fn the_fixture_s_notes_are_its_own_gaps_and_they_collapse_to_one_line() {
                 !f.code.starts_with("R-CAPTION-")
                     && f.code != "R-VISUAL-GAP"
                     && f.code != "R-BOX-SLACK"
+                    && f.code != "R-SOURCE-CUT-POP"
             })
             .count(),
         "nothing but the gaps, the group-paired silences and the seven `R-BOX-SLACK` \
-         findings (asserted separately, below) and the ten caption findings two ADRs asked \
-         for: {:?}",
+         findings (asserted separately, below), the ten caption findings two ADRs asked \
+         for, and the two same-source cut pops ADR-0033 measured here: {:?}",
         report.findings
     );
     assert_eq!(gaps.len(), 27, "27 gaps across three tracks");
@@ -310,5 +312,56 @@ fn the_raw_value_stays_beside_the_typed_view() {
     assert_eq!(
         document.value()["fonts"]["brand"][0]["file"],
         "fonts/OpenRunde-Bold.otf"
+    );
+}
+
+#[test]
+fn the_fixtures_two_same_source_cuts_are_the_ones_adr_0033_measured() {
+    // ADR-0033's own table, asserted against the file it was measured on: six cuts on the
+    // `photo` track, two of them same-source, `scale` resetting across both. The four
+    // different-source resets are correct — a new image starting its own Ken Burns move —
+    // and the discrimination is exactly one field wide.
+    //
+    // **64016, not 64816.** The ADR corrects ADR-0006's transposed digit, and this is the
+    // assertion that keeps the correction from drifting back.
+    if !common::has_ffprobe() {
+        return;
+    }
+    let report = validate(&fixture());
+
+    let mut pops: Vec<(i64, String, String)> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-SOURCE-CUT-POP")
+        .map(|f| {
+            (
+                f.fields["instant"].as_i64().unwrap(),
+                f.fields["element"].as_str().unwrap().to_string(),
+                f.fields["detail"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    pops.sort();
+
+    assert_eq!(pops.len(), 2, "{:?}", report.findings);
+    assert_eq!(pops[0].0, 3018);
+    assert_eq!(pops[0].1, "photo-05-intro");
+    assert!(pops[0].2.contains("1.01610"), "{}", pops[0].2);
+    assert_eq!(pops[1].0, 64016);
+    assert_eq!(pops[1].1, "photo-05-quiz");
+    assert!(pops[1].2.contains("1.05419"), "{}", pops[1].2);
+
+    // Nothing else the motion-and-geometry ticket added fires here: every keyframe list is
+    // a trimmed move whose target sits past its element (ADR-0012), every element is on
+    // canvas, and every `ease` in the file describes real travel.
+    assert!(
+        report
+            .findings
+            .iter()
+            .all(|f| f.code != "R-KEYFRAME-UNREACHED"
+                && f.code != "R-OFF-CANVAS"
+                && f.code != "R-EASE-INERT"),
+        "{:?}",
+        report.findings
     );
 }
