@@ -207,23 +207,33 @@ enum Command {
         json: bool,
     },
 
-    /// What does this text actually occupy, in the fonts the project declares?
+    /// What does this text actually occupy, in the fonts the project declares? Or, given
+    /// `--at` instead, the nearest sampled instant at-or-before a time, on the project's
+    /// own frame grid (ADR-0035).
     ///
-    /// Takes the text element itself, as JSON — the same shape you are about to write
-    /// into the file, and the shape `montaget://schema.json` publishes. It needs no `id`
-    /// and need not exist in the file yet (ADR-0024).
+    /// `--element` takes the text element itself, as JSON — the same shape you are about
+    /// to write into the file, and the shape `montaget://schema.json` publishes. It needs
+    /// no `id` and need not exist in the file yet (ADR-0024). `--at` takes a time instead,
+    /// and answers a different question; the two are never given together.
     ///
     /// It offers no verbosity switch, because it has no informational findings to expand —
     /// the answer itself is the output, and it is never collapsed.
     Measure {
-        /// The project file. Its `fonts` table is what the element's `font` is a key into.
+        /// The project file. Its `fonts` table is what the element's `font` is a key
+        /// into; its `fps` is what `--at` resolves against.
         project: PathBuf,
         /// The text element, as JSON: `runs`, `font`, `size`, and optionally
         /// `line_height`, `y`, `origin` and `stroke_width`. Any other field is ignored —
         /// `width` and `height` included, because `measure` derives and never judges
-        /// (ADR-0024).
+        /// (ADR-0024). Exclusive with `--at`.
         #[arg(long, value_name = "JSON")]
-        element: String,
+        element: Option<String>,
+        /// A time, in absolute milliseconds, to resolve against the project's frame grid
+        /// instead of measuring an element: the nearest sampled instant at-or-before it
+        /// (ADR-0035), so a fade can be retargeted to land on it exactly. Exclusive with
+        /// `--element`.
+        #[arg(long, value_name = "MS")]
+        at: Option<i64>,
         /// Print the canonical JSON *instead of* the text answer, never alongside it.
         #[arg(long)]
         json: bool,
@@ -638,6 +648,7 @@ where
         Command::Measure {
             project,
             element,
+            at,
             json,
         } => {
             // `--verbose` is deliberately absent, so `false` here is the only form there is
@@ -646,18 +657,21 @@ where
             // The one thing argv must do that the MCP surface does not: an element arrives
             // there as an object and here as a string. Parsing it is transport, not a rule
             // — and a string that is not JSON is an invocation error, which is the same
-            // finding with the same code either way (ADR-0011).
-            let ask = match serde_json::from_str(&element) {
-                Ok(element) => montaget_core::verbs::measure::Ask {
-                    element: Some(element),
+            // finding with the same code either way (ADR-0011). `--at` needs no such step.
+            let element = match element {
+                Some(element) => match serde_json::from_str(&element) {
+                    Ok(element) => Some(element),
+                    Err(e) => {
+                        let report = Report::bad_invocation(format!(
+                            "`--element` is not valid JSON: {e}"
+                        ));
+                        eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                        return exit_code(&report);
+                    }
                 },
-                Err(e) => {
-                    let report =
-                        Report::bad_invocation(format!("`--element` is not valid JSON: {e}"));
-                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
-                    return exit_code(&report);
-                }
+                None => None,
             };
+            let ask = montaget_core::verbs::measure::Ask { element, at };
             match run_verb(|| montaget_core::verbs::measure::measure(&project, &ask)) {
                 Ok(answer) => {
                     println!(

@@ -398,6 +398,25 @@ pub fn frame_at_or_after(t: i64, fps: i64) -> Option<Sampled> {
     Some(Sampled { frame, fps })
 }
 
+/// **The nearest sampled frame at-or-before `t`** — ADR-0035's `measure` output:
+/// `floor(t × fps / 1000)`, so [`Sampled::ms`] on the result is *"the nearest sampled
+/// instant at-or-before a given time, for the project's own `fps`"*, in exact rational
+/// arithmetic throughout.
+///
+/// A negative `t` is clamped to zero, [`frame_at_or_after`]'s reason: frame zero is the
+/// first sampled instant and there is none behind it to name.
+pub fn frame_at_or_before(t: i64, fps: i64) -> Option<Sampled> {
+    if fps <= 0 {
+        return None;
+    }
+    let frame = i64::try_from(floor_div(
+        i128::from(t.max(0)).checked_mul(i128::from(fps))?,
+        1000,
+    ))
+    .ok()?;
+    Some(Sampled { frame, fps })
+}
+
 /// **The last sampled frame strictly before `t`** — the frame a half-open range ending at
 /// `t` finishes on.
 ///
@@ -711,6 +730,29 @@ mod tests {
         assert_eq!(frame_before(-40, 25), None);
         assert_eq!(frame_at_or_after(-40, 25).unwrap().frame, 0);
         assert_eq!(frame_at_or_after(0, 0), None);
+    }
+
+    #[test]
+    fn the_nearest_sampled_instant_at_or_before_a_time_is_measures_grid_output() {
+        // At 25 fps the step is exactly 40 ms, so the nearest instant at or before 3041
+        // is frame 76 at 3040 ms — the same frame `frame_before(3041, 25)` names, since
+        // 3041 falls strictly after it.
+        assert_eq!(frame_at_or_before(3041, 25).unwrap().frame, 76);
+        assert_eq!(frame_at_or_before(3040, 25).unwrap().ms(), 3040.0);
+        // Unlike `frame_before`, landing exactly on a sampled instant names that frame
+        // itself rather than the one before it.
+        assert_eq!(frame_at_or_before(3040, 25).unwrap().frame, 76);
+        // At 30 fps the step is 100/3 ms and only multiples of 100 ms are frame-exact
+        // (ADR-0035): 1000 ms is frame 30 exactly, at 3000/3 = 1000 ms.
+        assert_eq!(frame_at_or_before(1000, 30).unwrap().frame, 30);
+        assert_eq!(frame_at_or_before(1000, 30).unwrap().ms(), 1000.0);
+        // 999 ms falls one step short of that frame: the nearest instant at or before it
+        // is frame 29, at 2900/3 ≈ 966.67 ms.
+        assert_eq!(frame_at_or_before(999, 30).unwrap().frame, 29);
+        assert_eq!(frame_at_or_before(999, 30).unwrap().ratio(), (29_000, 30));
+        // A negative time is clamped to zero rather than naming a frame behind the clock.
+        assert_eq!(frame_at_or_before(-40, 25).unwrap().frame, 0);
+        assert_eq!(frame_at_or_before(0, 0), None);
     }
 
     #[test]

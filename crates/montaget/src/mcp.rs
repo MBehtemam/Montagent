@@ -170,25 +170,35 @@ pub struct FrameParams {
     pub json: bool,
 }
 
-/// `measure`'s arguments: **a whole text element, in the shape the schema gives it.**
+/// `measure`'s arguments: **a whole text element**, in the shape the schema gives it, or
+/// **a time** instead (ADR-0035) — never both.
 ///
-/// The same shape ADR-0011 fixes for the write side, and the right shape here for a reason
-/// of this verb's own: ADR-0024 requires `measure` to *"work identically for an element
-/// being authored for the first time"*, and such an element has no `id` to name. So the
-/// argument is the element you are about to write, not a handle on one already in the file.
+/// The element shape is ADR-0011's write-tool one, and the right shape here for a reason of
+/// this verb's own: ADR-0024 requires `measure` to *"work identically for an element being
+/// authored for the first time"*, and such an element has no `id` to name. So the argument
+/// is the element you are about to write, not a handle on one already in the file.
 ///
 /// `width` and `height` are never read, even when the element carries them — ADR-0024 gives
 /// `measure` the derivation and `validate` the verdict, and there is no declared value
 /// anywhere in the verb to compare against.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct MeasureParams {
-    /// Path to the project file. Its `fonts` table is what `font` is a key into, and its
-    /// directory is what the declared font files resolve against.
+    /// Path to the project file. Its `fonts` table is what `font` is a key into and its
+    /// directory is what the declared font files resolve against; its `fps` is what `at`
+    /// resolves against.
     pub project: String,
     /// The text element, as `montaget://schema.json` shapes one: `runs`, `font`, `size`,
     /// and optionally `line_height`, `y`, `origin` and `stroke_width`. Any other field is
     /// ignored, so an element still being authored measures as readily as a finished one.
-    pub element: serde_json::Value,
+    /// Exclusive with `at`.
+    #[serde(default)]
+    pub element: Option<serde_json::Value>,
+    /// A time, in absolute milliseconds, to resolve against the project's frame grid
+    /// instead of measuring an element: the nearest sampled instant at-or-before it
+    /// (ADR-0035), so a fade can be retargeted to land on it exactly. Exclusive with
+    /// `element`.
+    #[serde(default)]
+    pub at: Option<i64>,
     /// Return the canonical JSON *instead of* the text answer, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -632,7 +642,10 @@ impl Montaget {
                        places one for you, and never wraps. Pass the element you are about \
                        to write; it needs no `id` and need not exist in the file yet. It \
                        reaches no verdict — it will not tell you whether the text fits its \
-                       box, which is `validate`'s alone to say.",
+                       box, which is `validate`'s alone to say. Pass `at` instead of \
+                       `element` to ask a different question: the nearest sampled instant \
+                       at-or-before that time, on the project's own frame grid, so a fade \
+                       can be retargeted to land on exactly 0 instead of a residual value.",
         input_schema = advertised::<MeasureParams>()
     )]
     fn measure(
@@ -647,7 +660,8 @@ impl Montaget {
         let answer = montaget_core::verbs::measure::measure(
             &PathBuf::from(&params.project),
             &montaget_core::verbs::measure::Ask {
-                element: Some(params.element),
+                element: params.element,
+                at: params.at,
             },
         );
         // `verbose` is deliberately absent, as it is on `query`: the answer *is* the
