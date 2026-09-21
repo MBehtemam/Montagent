@@ -262,6 +262,38 @@ enum Command {
         verbose: bool,
     },
 
+    /// Move every time at or after an instant.
+    ///
+    /// The one edit that is arithmetic rather than authorship (ADR-0005, ADR-0012). Refuses
+    /// a straddling time-based element, and refuses any edit that would change an existing
+    /// slack's size unless `--release` names it (ADR-0032, ADR-0047). Prints what it will do
+    /// to every record sitting exactly at `--at`, unconditionally (ADR-0036). Returns the new
+    /// state's findings, never `ok` (ADR-0011).
+    Shift {
+        /// The project file.
+        project: PathBuf,
+        /// The instant to shift at or after, in absolute milliseconds.
+        #[arg(long, value_name = "MS")]
+        at: i64,
+        /// The offset, in milliseconds. Must be positive.
+        #[arg(long, value_name = "MS")]
+        delta: i64,
+        /// Narrow the edit to one track. Defaults to the whole project.
+        #[arg(long, value_name = "TRACK")]
+        scope: Option<String>,
+        /// A slack this edit would otherwise change, named as `FROM,TO` — its full
+        /// boundary-instant pair, exactly as a refusal reports it. Repeatable; there is no
+        /// bulk form.
+        #[arg(long = "release", value_name = "FROM,TO")]
+        release: Vec<String>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
     /// Find a font on this machine, or freeze one into the project (ADR-0057).
     ///
     /// CLI-only (ADR-0011): vendoring is a once-per-project act, not a step in the edit
@@ -621,6 +653,44 @@ where
                 }
             }
         }
+        Command::Shift {
+            project,
+            at,
+            delta,
+            scope,
+            release,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            let release = match parse_release(&release) {
+                Ok(release) => release,
+                Err(reason) => {
+                    let report = Report::bad_invocation(reason);
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+            let ask = montaget_core::verbs::shift::Ask {
+                at,
+                delta,
+                scope,
+                release,
+            };
+            match run_verb(|| montaget_core::verbs::shift::shift(&project, &ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_shift(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
         Command::Fonts {
             command: FontsCommand::List { roots, json },
         } => {
@@ -684,6 +754,26 @@ where
             }
         },
     }
+}
+
+/// `--release FROM,TO` repeated, parsed into `shift`'s own argument shape.
+fn parse_release(raw: &[String]) -> Result<Vec<(i64, i64)>, String> {
+    raw.iter()
+        .map(|pair| {
+            let (from, to) = pair.split_once(',').ok_or_else(|| {
+                format!("`--release {pair}` is not `FROM,TO`: two milliseconds joined by a comma")
+            })?;
+            let from: i64 = from
+                .trim()
+                .parse()
+                .map_err(|_| format!("`--release {pair}`: `{from}` is not an integer"))?;
+            let to: i64 = to
+                .trim()
+                .parse()
+                .map_err(|_| format!("`--release {pair}`: `{to}` is not an integer"))?;
+            Ok((from, to))
+        })
+        .collect()
 }
 
 /// Run one verb, turning a panic into ADR-0011's exit 70 rather than an abort.

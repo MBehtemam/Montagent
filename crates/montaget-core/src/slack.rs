@@ -89,7 +89,7 @@ pub struct Edge<'a> {
 }
 
 /// Which boundary of an element an [`Edge`] is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Side {
     Start,
     End,

@@ -296,7 +296,11 @@ fn slope(c1: f64, c2: f64, s: f64) -> f64 {
 }
 
 /// The parameter `s` at which the curve's `x` coordinate is `x`.
-fn solve(x1: f64, x2: f64, x: f64) -> f64 {
+///
+/// `pub(crate)` rather than private: `crate::verbs::shift`'s SPLIT rule (ADR-0012) needs
+/// the same curve parameter this module solves for, to subdivide a bezier at the instant
+/// it cuts — not to re-evaluate `y` at it, which [`at`] already does.
+pub(crate) fn solve(x1: f64, x2: f64, x: f64) -> f64 {
     const EPSILON: f64 = 1e-14;
 
     let mut s = x;
