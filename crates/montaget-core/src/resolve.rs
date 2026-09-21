@@ -125,10 +125,10 @@ pub enum Unresolvable {
     /// fails there.
     Empty,
     /// The segment arriving at the record at this `t` states no `ease`, so how the value
-    /// travels along it is not in the document. Reachable only where a list is written out
-    /// of clock order — the array-order-versus-clock-order gap of
-    /// [#270](https://github.com/MBehtemam/Montaget/issues/270) — because ADR-0038's rule is
-    /// enforced on array position and this module reads the clock.
+    /// travels along it is not in the document. ADR-0082 makes this unreachable for a
+    /// keyframe list that has passed the schema check — array order and clock order are the
+    /// same order by construction — so this variant now only guards a caller that hands
+    /// [`at`]/[`at_instant`] an `Animatable` built without going through that check.
     ///
     /// **No default is supplied**, here or anywhere: ADR-0038 weighed publishing `linear`
     /// and rejected it, because *"a default is still a fact every reader must independently
@@ -182,25 +182,21 @@ fn keyed<T: Interpolate>(
     numerator: i128,
     denominator: i128,
 ) -> Result<T::Out, Unresolvable> {
-    // Sorted by `t` rather than read in array order. A keyframe's `t` is the whole of what
-    // places it on the clock (ADR-0012), so array order determines nothing here — the same
-    // reading ADR-0060 fixed for elements, where *"array order carries no meaning"*. Stable,
-    // so two records written at one instant keep the order the file has: SPLIT's rule is
-    // *"never two records at one `t`"*, and a file that breaks it is not one this resolver
-    // gets to silently reorder.
-    //
-    // **This is the one place the clock and the schema rule can disagree**, and the
-    // disagreement is real rather than theoretical: ADR-0038 makes `ease` *"a pure function
-    // of position in the list"* and `Animatable`'s deserializer counts **array** position, so
-    // a list written out of clock order can satisfy the schema and still put an `ease` on the
-    // record that is earliest here — leaving the one after it with none. Which reading is
-    // right is open and is [#270](https://github.com/MBehtemam/Montaget/issues/270); what
-    // this module does about it is `Unresolvable::NoEase`, which refuses rather than guesses.
-    let mut order: Vec<&Keyframe<T>> = records.iter().collect();
-    order.sort_by_key(|record| record.t);
+    // Read in array order rather than sorted by `t`. ADR-0082 guarantees the two agree for
+    // any list that has passed the schema check — array order *is* clock order, by
+    // construction, closing the gap [#270](https://github.com/MBehtemam/Montaget/issues/270)
+    // found — so a per-call sort would only ever reproduce the order already here, paid on
+    // every sampled frame the rasterizer resolves. The `debug_assert` below is the defensive
+    // check ADR-0082 leaves to the implementer's discretion, for an `Animatable` this module
+    // is ever handed without having gone through that check.
+    debug_assert!(
+        records.windows(2).all(|pair| pair[0].t < pair[1].t),
+        "keyed() was handed a keyframe list not in ascending `t` order; the schema check \
+         (ADR-0082) should have refused it before it reached the resolver"
+    );
 
-    let first = *order.first().ok_or(Unresolvable::Empty)?;
-    let last = *order.last().ok_or(Unresolvable::Empty)?;
+    let first = records.first().ok_or(Unresolvable::Empty)?;
+    let last = records.last().ok_or(Unresolvable::Empty)?;
     // Clamped at both ends (ADR-0012), inclusively: at exactly the first or last `t` the
     // value *is* that record's, and taking the branch here rather than through the segment
     // arithmetic keeps the endpoint exact rather than the result of a division.
@@ -221,9 +217,9 @@ fn keyed<T: Interpolate>(
     // Sorted, and `t` lies strictly between the first and last records, so some window
     // contains it. `Empty` is the honest answer if that ever stops being true, rather than a
     // panic in a view.
-    let (a, b) = order
+    let (a, b) = records
         .windows(2)
-        .map(|pair| (pair[0], pair[1]))
+        .map(|pair| (&pair[0], &pair[1]))
         .find(|(a, b)| scaled(a) <= numerator && numerator < scaled(b))
         .ok_or(Unresolvable::Empty)?;
 

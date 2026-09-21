@@ -496,11 +496,12 @@ fn the_published_schema_states_the_positional_rule_too() {
 }
 
 #[test]
-fn a_list_written_out_of_clock_order_resolves_on_the_clock_and_guesses_no_ease() {
-    // The one place the clock and ADR-0038's positional rule can disagree, pinned rather
-    // than left to be met in the field: the schema counts array position, the resolver reads
-    // `t`, and a list written backwards satisfies the first while putting the `ease` on the
-    // record the second sees first. Which reading is right is #270.
+fn a_list_written_out_of_clock_order_is_rejected_by_the_schema() {
+    // The #270 divergence case, directly: `validate` used to accept this (index 0 carries no
+    // `ease`, index 1 does — the positional rule was satisfied) while the resolver read it on
+    // the clock and reached a segment with no stated easing. ADR-0082 closes the gap at the
+    // schema instead: this list is not merely handled correctly at resolution time, it is
+    // rejected outright, because its `t` values are not strictly ascending.
     let path = project(
         line!(),
         spread(vec![rect(
@@ -514,28 +515,43 @@ fn a_list_written_out_of_clock_order_resolves_on_the_clock_and_guesses_no_ease()
         )]),
     );
 
-    // The schema is satisfied — index 0 carries no `ease` and index 1 does.
+    let report = montaget_core::validate(&path);
+    let schema: Vec<&montaget_core::finding::Finding> = report
+        .findings
+        .iter()
+        .filter(|finding| finding.code == "E-SCHEMA")
+        .collect();
+    assert_eq!(schema.len(), 1, "{:?}", report.findings);
+    assert_eq!(schema[0].location.element.as_deref(), Some("backwards"));
+    let reason = schema[0].fields["reason"].as_str().expect("a reason");
+    assert!(reason.contains('0') && reason.contains("800"), "{reason}");
+}
+
+#[test]
+fn two_records_sharing_one_t_is_also_a_schema_error() {
+    // ADR-0082: "not strictly increasing" also covers two records at one `t` — an inversion
+    // under the same rule, and the same code.
+    let path = project(
+        line!(),
+        spread(vec![rect(
+            "tied",
+            0,
+            1000,
+            json!({"opacity": [
+                {"t": 0, "v": 0.0},
+                {"t": 0, "v": 1.0, "ease": "linear"},
+            ]}),
+        )]),
+    );
+
+    let report = montaget_core::validate(&path);
     assert!(
-        !montaget_core::validate(&path)
+        report
             .findings
             .iter()
             .any(|finding| finding.code == "E-SCHEMA"),
-    );
-    // And the segment with no stated easing resolves to nothing at all — not to a held
-    // value, which would be ADR-0038's rejected `linear` default wearing a hold's clothes and
-    // would reach the caller indistinguishable from a hold the author wrote.
-    let midway = at(&path, 400);
-    let mid = value(&midway, "backwards", "opacity");
-    assert_eq!(mid["value"], Value::Null);
-    assert!(!mid["unresolved"].is_null(), "{mid}");
-    // The endpoints are still answerable: clamping needs no easing.
-    assert_eq!(
-        value(&at(&path, 800), "backwards", "opacity")["value"],
-        json!(1.0),
-    );
-    assert_eq!(
-        value(&at(&path, 0), "backwards", "opacity")["value"],
-        json!(0.0),
+        "{:?}",
+        report.findings,
     );
 }
 
