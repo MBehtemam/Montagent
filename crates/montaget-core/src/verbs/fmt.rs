@@ -55,14 +55,12 @@ pub enum Mode {
 /// The report's findings are the same `LAYOUT` findings `validate` produces, from the same
 /// predicate — `fmt --check` is a second place to *ask*, never a second rule.
 ///
-/// **A non-canonical file is exit 0**, in both modes. ADR-0011 states it flatly — *"Exit
-/// non-zero only on `error`"* — and ADR-0041 is equally flat that `LAYOUT` is not one: the
-/// video renders identically either way, and refusal stays keyed to `error` alone. That
-/// sits awkwardly against story 5's *"verify before I commit"*, which wants a `--check`
-/// something can gate on, and #193 does not ask for an exit code at all. The awkwardness is
-/// left standing rather than settled here: a caller that wants a gate today reads the
-/// `layout` count out of `--json`, which is exact, and whether the ladder should grow a
-/// sixth code is an ADR's decision, not this verb's. Raised as #241.
+/// **A non-canonical file is exit 0**, in both modes — ratified by ADR-0079. ADR-0011
+/// states it flatly — *"Exit non-zero only on `error`"* — and ADR-0041 is equally flat that
+/// `LAYOUT` is not one: the video renders identically either way, and refusal stays keyed
+/// to `error` alone. Story 5's *"verify before I commit"* is satisfied without a sixth
+/// code: a caller that wants a hard gate reads the `layout` count out of `--json`, which is
+/// exact, the same shape ADR-0013 already gives `UNCHECKED`.
 pub fn fmt(path: &Path, mode: Mode) -> Report {
     let project = Some(path.display().to_string());
 

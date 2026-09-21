@@ -13,6 +13,13 @@ amends: 0005 (its writing-convention sentence stops being folklore and becomes a
 > their type's core fields" — that key no longer exists; it is now an `effects` member in
 > the same position.
 
+> **Amended by [ADR-0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md)**, which
+> ratifies `L-LAYOUT` as a second, whole-file `LAYOUT` finding shape alongside the
+> element-scoped `L-KEY-ORDER` this ADR specifies; ratifies that the header's and each
+> track's own key order are schema property-declaration order, the same rule stated here
+> for an element; and clarifies that a `LAYOUT` finding names only the keys a structure
+> actually carries, never the ones it omits.
+
 [Ticket #73](https://github.com/MBehtemam/Montaget/issues/73), from [#12](https://github.com/MBehtemam/Montaget/issues/12)
 and sharpened by [#8](https://github.com/MBehtemam/Montaget/issues/8) and
 [#16](https://github.com/MBehtemam/Montaget/issues/16). [ADR-0005](./0005-absolute-integer-milliseconds.md)
