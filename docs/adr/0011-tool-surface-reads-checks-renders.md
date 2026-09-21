@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by sixteen later ADRs.** Read them before relying on anything below.
+> **Amended by seventeen later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -39,6 +39,10 @@ status: accepted
 > - [ADR-0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) —
 >   specifies the `--where` predicate grammar left undefined here, and bounds *"returns
 >   resolved values, never echoed fields"* to `--at`
+> - [ADR-0074](0074-the-cut-lists-presence-set-is-every-element.md) — **the cut list's
+>   presence set is every element, audio included.** The word *"on-screen"* in the
+>   `query --from --to` line below is amended to *"the presence set"*; `unplaced` is
+>   specified
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

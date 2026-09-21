@@ -92,9 +92,10 @@ fn spaced_project() -> String {
 
 #[test]
 fn the_intervals_are_cut_at_element_boundaries_and_nowhere_else() {
-    // ADR-0011: "the intervals over which the set of on-screen elements is constant. Not
-    // sampled instants." The test of "not sampled" is that every interior cut is an instant
-    // some element actually starts or ends at — a sampler would produce a regular grid.
+    // ADR-0011, as ADR-0074 amends it: "the intervals over which the presence set is
+    // constant. Not sampled instants." The test of "not sampled" is that every interior cut
+    // is an instant some element actually starts or ends at — a sampler would produce a
+    // regular grid.
     let dir = common::tempdir(line!());
     let path = common::write_project(&dir, "spaced.montaget.json", &spaced_project());
 
@@ -227,7 +228,7 @@ fn a_stretch_with_nothing_in_it_is_one_interval_and_not_an_empty_answer() {
 
 #[test]
 fn an_audio_element_is_in_the_presence_set_and_carries_its_type() {
-    // The documented departure from ADR-0011's "on-screen": ADR-0001's "audio is an element
+    // ADR-0074, which amends ADR-0011's "on-screen" away: ADR-0001's "audio is an element
     // like any other", and a caller wanting only the visual cut list filters `type`.
     let dir = common::tempdir(line!());
     let path = common::write_project(&dir, "spaced.montaget.json", &spaced_project());
@@ -245,6 +246,8 @@ fn an_audio_element_is_in_the_presence_set_and_carries_its_type() {
 
 #[test]
 fn an_element_the_document_does_not_place_on_the_clock_is_named_rather_than_dropped() {
+    // ADR-0074 specifies `unplaced`: it may not be dropped, and it may not grow a verdict —
+    // *which* way the element is malformed is `validate`'s finding (ADR-0006).
     let dir = common::tempdir(line!());
     let path = common::write_project(
         &dir,

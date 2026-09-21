@@ -186,6 +186,9 @@ jobs:
       - name: ADR-0071's caption numbers still come off the fixture
         run: python3 docs/adr/caption_check_scan.py
 
+      - name: ADR-0074's presence-set numbers still come off the fixture
+        run: python3 docs/adr/cut_presence_scan.py
+
       - name: The prebuilt canary's assertion still tells good logs from bad
         run: python3 ci/assert_prebuilt_key.py --self-test
 
