@@ -170,3 +170,118 @@ fn a_time_is_integer_milliseconds() {
     );
     assert!(message.contains("integer milliseconds"), "{message}");
 }
+
+/// One `audio` element, with whatever the test is about appended to its core set.
+fn audio(extra: &str) -> String {
+    format!(
+        r##"{{"id":"a","type":"audio","start":0,"end":1000,"source":"a.mp3","source_start":0,"source_end":1000{extra}}}"##
+    )
+}
+
+/// One `video` element, the other half of ADR-0055's *"flat on audio and video elements"*.
+fn video(extra: &str) -> String {
+    format!(
+        r##"{{"id":"a","type":"video","start":0,"end":1000,"source":"a.mp4","source_start":0,"source_end":1000,"width":10,"height":10,"fit":"literal"{extra}}}"##
+    )
+}
+
+fn accepted(element: &str) -> Project {
+    serde_json::from_str::<Project>(&project_with(element))
+        .unwrap_or_else(|e| panic!("this should have been accepted:\n{element}\n{e}"))
+}
+
+#[test]
+fn a_negative_volume_is_a_schema_error_wherever_volume_is_published() {
+    // ADR-0055: `0` is silent, `1` is the source's own level, `>1` amplifies, and negative
+    // *"is a schema error, same class as `speed`'s"*. A negative multiplier is not a
+    // quieter sound — it is the waveform inverted at full level, which no author has ever
+    // meant by writing it, and which `validate` would otherwise pass to the renderer.
+    for shape in [
+        r##","volume":-0.5"##,
+        r##","volume":[{"t":0,"v":1.0},{"t":1000,"v":-0.5,"ease":"linear"}]"##,
+    ] {
+        for element in [audio(shape), video(shape)] {
+            let message = rejection(&element);
+            assert!(
+                message.contains("volume") && message.contains("-0.5"),
+                "{element}\n{message}"
+            );
+        }
+    }
+
+    // And the keyframed one says *which* record, the way ADR-0038's positional `ease`
+    // error already does: the bound lives on the value type, which cannot know where in a
+    // list it was written, so a message carrying the sentence alone would read as though
+    // the element's flat `volume` were negative.
+    let message = rejection(&audio(
+        r##","volume":[{"t":0,"v":1.0},{"t":1000,"v":-0.5,"ease":"linear"}]"##,
+    ));
+    assert!(message.contains("keyframe record 2"), "{message}");
+    assert!(message.contains("`t` 1000"), "{message}");
+}
+
+#[test]
+fn zero_and_amplification_are_ordinary_volumes() {
+    // The two ends the ADR keeps open: `0` must be legal, because silence is *"what makes
+    // the mute decision below work with no second field"*, and `>1` is *"permitted rather
+    // than capped"* — clipping past it is the renderer's documented behaviour, not a
+    // schema-enforced ceiling.
+    for shape in [
+        r##","volume":0"##,
+        r##","volume":4.0"##,
+        r##","volume":[{"t":0,"v":0.0},{"t":500,"v":2.5,"ease":"linear"}]"##,
+    ] {
+        accepted(&audio(shape));
+        accepted(&video(shape));
+    }
+}
+
+#[test]
+fn a_volume_is_omitted_rather_than_pinned_to_its_default() {
+    // ADR-0030 again: `volume` defaults to `1` when omitted, and an omission must not
+    // materialise as `"volume":1.0` on the way back out.
+    let project = accepted(&audio(""));
+    let written = serde_json::to_string(&project).unwrap();
+    assert!(!written.contains("volume"), "{written}");
+}
+
+#[test]
+fn there_is_no_mute_field_and_the_error_names_what_there_is() {
+    // ADR-0055 declined `mute` outright: a boolean beside a level (or beside a keyframed
+    // fade) needs a precedence rule to read, and `volume: 0` already says silent, including
+    // at one instant. The unknown-key error publishes the type's real field set, so the
+    // agent that reached for `mute` is told the name to reach for instead.
+    for element in [audio(r##","mute":true"##), video(r##","mute":true"##)] {
+        let message = rejection(&element);
+        assert!(message.contains("mute"), "{message}");
+        assert!(message.contains("volume"), "{message}");
+    }
+}
+
+#[test]
+fn overrun_hold_is_a_schema_error_on_audio_and_ordinary_on_video() {
+    // ADR-0020, and CONTEXT.md's Overrun entry: there is no non-arbitrary meaning for
+    // holding the last *sample*, and "then silence" is already free as a shorter element
+    // and a gap. On video the same value freezes the last frame and is the whole reason
+    // the value exists.
+    let message = rejection(&audio(r##","overrun":"hold""##));
+    assert!(message.contains("hold"), "{message}");
+    accepted(&audio(r##","overrun":"loop""##));
+    accepted(&video(r##","overrun":"hold""##));
+    accepted(&video(r##","overrun":"loop""##));
+}
+
+#[test]
+fn a_speed_is_strictly_greater_than_zero() {
+    // ADR-0020, stated in CONTEXT.md's Speed entry as *"`0` and negative values are schema
+    // errors"*: `0` plays nothing for any length of time, and reverse is deferred to its
+    // own explicit field rather than overloaded onto this one as a sign bit.
+    for speed in ["0", "0.0", "-1", "-0.645"] {
+        let shape = format!(r##","speed":{speed}"##);
+        for element in [audio(&shape), video(&shape)] {
+            let message = rejection(&element);
+            assert!(message.contains("speed"), "{element}\n{message}");
+        }
+    }
+    accepted(&audio(r##","speed":0.645"##));
+}

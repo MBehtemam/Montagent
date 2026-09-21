@@ -655,15 +655,21 @@ fn a_speed_the_document_does_not_carry_is_never_supplied_for_it() {
             .unwrap_or_else(|| panic!("speed: {spelling} — no overrun in {:?}", report.findings));
         assert_eq!(finding.fields["over_by"], 100, "speed: {spelling}");
 
+        // A fabricated span is nobody's to print, so that half stays a claim about the
+        // whole report. The `speed` half narrows to this finding's own fields: since the
+        // bound became a schema error too (#216), `E-SCHEMA` names the field out loud and
+        // is entitled to — what must not happen is *this* check supplying a speed it was
+        // never given.
         let rendered =
             montaget_core::wire::render(&report, montaget_core::Wire::Text { verbose: false });
         assert!(
             !rendered.contains("9223372036854775807"),
             "speed: {spelling} — {rendered}"
         );
+        let supplied = serde_json::to_string(&finding.fields).unwrap();
         assert!(
-            !rendered.contains("speed"),
-            "speed: {spelling} — {rendered}"
+            !supplied.contains("speed"),
+            "speed: {spelling} — {supplied}"
         );
     }
 }

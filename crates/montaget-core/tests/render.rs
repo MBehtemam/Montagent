@@ -643,6 +643,53 @@ fn audio_elements_are_mixed_into_the_output_at_their_place_on_the_clock() {
 }
 
 #[test]
+fn the_projects_loop_flag_changes_nothing_about_the_encode() {
+    if !has_ffprobe() {
+        return;
+    }
+    // ADR-0062 is explicit that `loop` is *"purely `validate`-facing … `render` and every
+    // other tool are unaffected"*: it is the author's assertion that `duration` connects
+    // back to `0`, which one check reads and nothing else does. Montaget writes no
+    // container-level loop metadata, does not repeat the timeline, and does not wrap the
+    // mix — so the two files must be identical **byte for byte**, not merely similar. A
+    // weaker assertion would pass a render that quietly wrapped the last 40 ms of audio.
+    let dir = tempdir(line!());
+    let elements = format!(
+        r##"{{"id":"vo","type":"audio","start":0,"end":1500,"source":"{}","source_start":0,"source_end":1500}}"##,
+        narration()
+    );
+    let plain = write_project(
+        &dir,
+        "plain.montaget.json",
+        &project(r##""duration":2000,"output":"out/plain.mp4","##, &elements),
+    );
+    let looping = write_project(
+        &dir,
+        "looping.montaget.json",
+        &project(
+            r##""duration":2000,"loop":true,"output":"out/looping.mp4","##,
+            &elements,
+        ),
+    );
+
+    let plain_answer = rendered(&plain, &full());
+    let looping_answer = rendered(&looping, &full());
+    assert_eq!(
+        looping_answer["render"]["frames"], plain_answer["render"]["frames"],
+        "the flag is not a duration"
+    );
+    assert_eq!(
+        looping_answer["render"]["mixed"], plain_answer["render"]["mixed"],
+        "nor a claim about what is audible"
+    );
+    assert_eq!(
+        std::fs::read(dir.join("out/looping.mp4")).expect("the looping render"),
+        std::fs::read(dir.join("out/plain.mp4")).expect("the plain render"),
+        "`loop` reached the encode"
+    );
+}
+
+#[test]
 fn volume_speed_and_loop_go_through_the_mix() {
     if !has_ffprobe() {
         return;
@@ -723,6 +770,69 @@ fn volume_speed_and_loop_go_through_the_mix() {
     );
     // Muted: silent for its whole range.
     assert!(peak_db(&written, 8.1, 9.4) < -60.0, "volume 0 is silence");
+}
+
+#[test]
+fn a_video_elements_embedded_audio_is_the_same_volume_field() {
+    if !has_ffprobe() {
+        return;
+    }
+    // ADR-0055 declined `mute` on the ground that there is nothing else to mute: *"a
+    // `video` element is one element with intrinsic audio"*, and `volume: 0` already says
+    // silent. That is a claim about the encode, not about the schema — asserted here on
+    // the committed reference render, one second of it where the narration is sounding
+    // (`vo-sentence-05-a` runs 10468..12652 ms), played once at its own level and once at
+    // `volume: 0`.
+    let source = fixture_dir()
+        .join("reference/en-halloween-decorating.mp4")
+        .display()
+        .to_string()
+        .replace('\\', "/");
+    let clip = |volume: &str| {
+        format!(
+            r##"{{"id":"clip","type":"video","start":0,"end":1000,"source":"{source}",
+                "source_start":11000,"source_end":12000,"x":0,"y":0,"origin":"top-left",
+                "width":200,"height":200,"fit":"literal"{volume}}}"##
+        )
+    };
+
+    let dir = tempdir(line!());
+    let audible = write_project(
+        &dir,
+        "audible.montaget.json",
+        &project(
+            r##""duration":1000,"output":"out/audible.mp4","##,
+            &clip(""),
+        ),
+    );
+    let silent = write_project(
+        &dir,
+        "silent.montaget.json",
+        &project(
+            r##""duration":1000,"output":"out/silent.mp4","##,
+            &clip(r##","volume":0"##),
+        ),
+    );
+
+    for (path, name) in [(&audible, "audible"), (&silent, "silent")] {
+        let json = rendered(path, &full());
+        assert_eq!(
+            json["render"]["mixed"],
+            serde_json::json!(["clip"]),
+            "the video's own audio is what is mixed ({name})"
+        );
+    }
+    let heard = peak_db(&dir.join("out/audible.mp4"), 0.1, 0.9);
+    let muted = peak_db(&dir.join("out/silent.mp4"), 0.1, 0.9);
+    assert!(
+        heard > -30.0,
+        "the clip carries its own narration: {heard} dB"
+    );
+    assert!(
+        muted < -60.0,
+        "`volume: 0` silences a video's embedded audio, with no `mute` field to reach for: \
+         {muted} dB"
+    );
 }
 
 #[test]
@@ -821,8 +931,116 @@ fn the_whole_fixture_renders_to_its_declared_duration_with_every_narration_mixed
         (audio.duration_ms.unwrap() - 65216).abs() <= 100,
         "{audio:?}"
     );
-    // The first narration line starts at 0 ms, and the last audible element ends before
-    // the countdown at 56116.
-    assert!(peak_db(&output, 0.3, 2.0) > -30.0);
-    assert!(peak_db(&output, 57.0, 60.0) < -60.0);
+    narration_lands_at_the_instants_the_document_states(&output);
+    the_four_stretched_sentences_play_for_as_long_as_their_speed_says(&output);
+}
+
+/// #216's first acceptance criterion, read literally: *"the rendered fixture carries its
+/// narration at the right instants"*.
+///
+/// The windows are read off the document rather than written down here — a table of 20
+/// hand-copied instants is a second statement of the fixture, and the first one to drift
+/// would be this one. Each element's range must carry sound and every gap between two of
+/// them must not, which is the pair of claims that pins placement: a mix that summed
+/// everything at `0` would pass the first half alone, and one that mixed nothing would
+/// pass the second.
+fn narration_lands_at_the_instants_the_document_states(output: &Path) {
+    let mut windows = audible_windows();
+    windows.sort_by_key(|(_, start, _)| *start);
+
+    let mut previous_end: Option<i64> = None;
+    for (id, start, end) in &windows {
+        // Inset by 50 ms at each edge: `volumedetect` reads whole packets, so a window
+        // flush against a boundary would sample the neighbouring silence too.
+        assert!(
+            peak_db(output, ms(*start) + 0.05, ms(*end) - 0.05) > -30.0,
+            "`{id}` is silent over its own {start}..{end} ms"
+        );
+        if let Some(previous_end) = previous_end
+            && *start - previous_end > 200
+        {
+            assert!(
+                peak_db(output, ms(previous_end) + 0.05, ms(*start) - 0.05) < -60.0,
+                "the gap {previous_end}..{start} ms before `{id}` carries sound"
+            );
+        }
+        previous_end = Some(*end);
+    }
+    let tail = previous_end.expect("the fixture has narration");
+    assert!(
+        peak_db(output, ms(tail) + 0.1, ms(tail) + 1.9) < -60.0,
+        "the video runs on past the last narration line, in silence"
+    );
+}
+
+/// #216: *"`speed: 0.645` reproduces through `atempo` on all four fixture narration
+/// elements"* — ADR-0020's convention, and the only place in the committed project where
+/// a rate other than 1 is exercised at all.
+///
+/// Falsified by the sound itself rather than by the graph: at `speed` 1 each of these four
+/// sources would run out `source span` after its `start` and the rest of the element would
+/// be silence, so the assertion is that there is still speech playing *past* the instant an
+/// unstretched source would have ended. The silence in the gap after it — asserted above —
+/// is the other side: stretched, but not past its declared `end`.
+fn the_four_stretched_sentences_play_for_as_long_as_their_speed_says(output: &Path) {
+    let document = document(&fixture_project());
+    let stretched: Vec<&Value> = elements(&document)
+        .filter(|e| e["speed"].as_f64().is_some_and(|speed| speed != 1.0))
+        .collect();
+    assert_eq!(stretched.len(), 4, "the fixture's four 0.645 sentences");
+
+    for element in stretched {
+        let id = element["id"].as_str().expect("an id");
+        let (start, end) = (
+            element["start"].as_i64().unwrap(),
+            element["end"].as_i64().unwrap(),
+        );
+        let span =
+            element["source_end"].as_i64().unwrap() - element["source_start"].as_i64().unwrap();
+        assert_eq!(element["speed"].as_f64(), Some(0.645), "`{id}`");
+        // Where the source would have run dry unstretched, and where `atempo` carries it to.
+        let unstretched_end = start + span;
+        assert!(
+            unstretched_end + 400 < end,
+            "`{id}` at 1x would end at {unstretched_end}, inside {start}..{end} — the \
+             window this test reads is only a window if it is"
+        );
+        assert!(
+            peak_db(output, ms(unstretched_end) + 0.1, ms(unstretched_end) + 0.4) > -30.0,
+            "`{id}` is silent at {unstretched_end} ms, where an unstretched source ends — \
+             `speed` 0.645 did not reach `atempo`"
+        );
+    }
+}
+
+/// Every `audio` element's `id` and timeline range, read off the committed fixture.
+fn audible_windows() -> Vec<(String, i64, i64)> {
+    let document = document(&fixture_project());
+    elements(&document)
+        .filter(|e| e["type"] == "audio")
+        .map(|e| {
+            (
+                e["id"].as_str().expect("an id").to_string(),
+                e["start"].as_i64().expect("a start"),
+                e["end"].as_i64().expect("an end"),
+            )
+        })
+        .collect()
+}
+
+fn document(path: &Path) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(path).expect("the project")).expect("json")
+}
+
+fn elements(document: &Value) -> impl Iterator<Item = &Value> {
+    document["tracks"]
+        .as_array()
+        .expect("tracks")
+        .iter()
+        .flat_map(|track| track["elements"].as_array().expect("elements"))
+}
+
+/// Milliseconds as the seconds [`peak_db`] takes.
+fn ms(t: i64) -> f64 {
+    t as f64 / 1000.0
 }

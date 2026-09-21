@@ -308,16 +308,14 @@
               "$ref": "#/$defs/Animatable3"
             },
             "speed": {
-              "type": "number",
-              "format": "double",
-              "description": "A rate multiplier, strictly greater than zero: `0.645` plays the source slower.\nNegative is a schema error — reverse is a real need, deferred to its own explicit\nfield rather than overloaded onto this one as a sign bit (ADR-0020)."
+              "$ref": "#/$defs/Speed"
             },
             "overrun": {
               "$ref": "#/$defs/Overrun"
             },
             "volume": {
               "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatable4"
             },
             "effects": {
               "type": "array",
@@ -647,15 +645,13 @@
               "format": "int64"
             },
             "speed": {
-              "type": "number",
-              "format": "double"
+              "$ref": "#/$defs/Speed"
             },
             "overrun": {
-              "description": "`hold` is a schema error on audio: there is no non-arbitrary meaning for holding the\nlast sample, and \"then silence\" is already free as a shorter element plus a gap.",
-              "$ref": "#/$defs/Overrun"
+              "$ref": "#/$defs/AudioOverrun"
             },
             "volume": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatable4"
             }
           },
           "required": [
@@ -1220,6 +1216,12 @@
         "ellipse"
       ]
     },
+    "Speed": {
+      "type": "number",
+      "format": "double",
+      "description": "A playback-rate multiplier, strictly greater than zero: `0.645` plays the source slower. `0` and negative values are schema errors — reverse is a real need, deferred to its own explicit field rather than overloaded onto this one as a sign bit (ADR-0020).",
+      "exclusiveMinimum": 0.0
+    },
     "Overrun": {
       "oneOf": [
         {
@@ -1234,6 +1236,77 @@
         }
       ],
       "description": "What a time-based element does past the end of its (possibly speed-adjusted) source.\n\nThere is no third value and no `\"none\"`: the field's presence alone signals the\ncondition, so an explicit \"no overrun\" would be indistinguishable from omission\n(ADR-0020)."
+    },
+    "Animatable4": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Volume",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframe4"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/Keyframe4"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "Volume": {
+      "type": "number",
+      "format": "double",
+      "description": "A linear level multiplier: `0` is silent, `1` (the default) is the source's own level, and values above `1` amplify — clipping past that is the renderer's documented behaviour rather than a ceiling. Negative is a schema error (ADR-0055).",
+      "minimum": 0.0
+    },
+    "FirstKeyframe4": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "$ref": "#/$defs/Volume"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
+    },
+    "Keyframe4": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "v": {
+          "$ref": "#/$defs/Volume"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"v\",\"ease\"}` record."
     },
     "Align": {
       "type": "string",
@@ -1321,6 +1394,16 @@
         "end"
       ],
       "description": "A start/end window inside the element's own range, plus the style that applies during\nit. Outside the window the run falls back to its unconditional style."
+    },
+    "AudioOverrun": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "loop",
+          "description": "The source restarts from `source_start` with a hard cut — no crossfade, which would\nneed an unstated duration and curve."
+        }
+      ],
+      "description": "What an `audio` element does past the end of its (possibly speed-adjusted) source.\n\nA `video` element's `overrun` minus `hold`. ADR-0020: there is no non-arbitrary\nmeaning for holding the last *sample* — a frame held is the picture that was already\nthere, and a sample held is a DC offset or a click — and \"then silence\" is already\nfree, and already legible on the timeline, as a shorter element and a gap.\n\nIts own type rather than a check on the shared one because it is a different field:\nan `audio` element publishes one legal value here and the schema says so, which is what\nan agent reading the schema for the answer gets to read."
     },
     "TransitionKind": {
       "type": "string",
