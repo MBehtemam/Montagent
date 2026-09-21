@@ -109,10 +109,34 @@ pub fn compare(ref_path: &Path, current_path: &Path) -> Report {
 
     let current_file = current_doc.path().to_string();
 
-    slack_drift(&ref_doc, &current_doc, &ref_project, &current_file, &mut report);
-    keyframe_instant_drift(&ref_doc, &current_doc, &ref_project, &current_file, &mut report);
-    boundary_cluster_drift(&ref_doc, &current_doc, &ref_project, &current_file, &mut report);
-    highlight_text_drift(&ref_doc, &current_doc, &ref_project, &current_file, &mut report);
+    slack_drift(
+        &ref_doc,
+        &current_doc,
+        &ref_project,
+        &current_file,
+        &mut report,
+    );
+    keyframe_instant_drift(
+        &ref_doc,
+        &current_doc,
+        &ref_project,
+        &current_file,
+        &mut report,
+    );
+    boundary_cluster_drift(
+        &ref_doc,
+        &current_doc,
+        &ref_project,
+        &current_file,
+        &mut report,
+    );
+    highlight_text_drift(
+        &ref_doc,
+        &current_doc,
+        &ref_project,
+        &current_file,
+        &mut report,
+    );
 
     report
 }
@@ -202,6 +226,12 @@ fn slack_drift(
             // ADR-0066's exception: the two boundaries are now coincident, which is
             // `D-BOUNDARY-CLUSTER-DRIFT`'s fact (a cluster forming) and never this
             // code's — reporting both would double-count one edit.
+            continue;
+        }
+        if current_size < 0 {
+            // The two boundaries inverted order: this is an overlap, not a slack —
+            // a structurally different condition `E-TRACK-OVERLAP` names, and "is -100
+            // ms" is not a distance this predicate's own wording can state honestly.
             continue;
         }
         report.push(
@@ -423,8 +453,12 @@ fn boundary_map(document: &Loose) -> BTreeMap<i64, Vec<(String, Side)>> {
         ) else {
             continue;
         };
-        map.entry(start).or_default().push((id.to_string(), Side::Start));
-        map.entry(end).or_default().push((id.to_string(), Side::End));
+        map.entry(start)
+            .or_default()
+            .push((id.to_string(), Side::Start));
+        map.entry(end)
+            .or_default()
+            .push((id.to_string(), Side::End));
     }
     map
 }
@@ -481,7 +515,10 @@ fn cluster_direction(
     current_file: &str,
     report: &mut Report,
 ) {
-    for (at, members) in boundary_map(anchor_doc).iter().filter(|(_, m)| m.len() >= 2) {
+    for (at, members) in boundary_map(anchor_doc)
+        .iter()
+        .filter(|(_, m)| m.len() >= 2)
+    {
         let mut groups: BTreeMap<Option<i64>, Vec<String>> = BTreeMap::new();
         for (id, side) in members {
             let other_at = boundary_of(other_doc, id, *side);

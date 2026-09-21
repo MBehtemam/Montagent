@@ -17,7 +17,11 @@ fn findings_of<'a>(report: &'a Report, code: &str) -> Vec<&'a Finding> {
     report.findings.iter().filter(|f| f.code == code).collect()
 }
 
-fn write_pair(dir: &std::path::Path, ref_body: &str, current_body: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+fn write_pair(
+    dir: &std::path::Path,
+    ref_body: &str,
+    current_body: &str,
+) -> (std::path::PathBuf, std::path::PathBuf) {
     let ref_path = write_project(dir, "ref.montaget.json", &canonical(ref_body));
     let current_path = write_project(dir, "current.montaget.json", &canonical(current_body));
     (ref_path, current_path)
@@ -47,7 +51,11 @@ fn every_compare_finding_is_drift_class_and_never_gates_the_exit_code() {
     assert!(
         report.findings.iter().all(|f| f.class == Class::Drift),
         "every compare finding should be Drift-class, got {:?}",
-        report.findings.iter().map(|f| (&f.code, f.class)).collect::<Vec<_>>()
+        report
+            .findings
+            .iter()
+            .map(|f| (&f.code, f.class))
+            .collect::<Vec<_>>()
     );
     assert_eq!(
         report.exit_code(),
@@ -445,9 +453,7 @@ fn an_unparseable_current_file_is_reported_as_unparseable() {
     let ref_path = write_project(
         &dir,
         "ref.montaget.json",
-        &canonical(
-            r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##,
-        ),
+        &canonical(r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##),
     );
     let current_path = write_project(&dir, "current.montaget.json", "{ not json");
 
@@ -466,9 +472,7 @@ fn a_current_file_that_is_not_a_project_is_reported_as_not_a_project() {
     let ref_path = write_project(
         &dir,
         "ref.montaget.json",
-        &canonical(
-            r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##,
-        ),
+        &canonical(r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[]}"##),
     );
     let current_path = write_project(&dir, "current.montaget.json", r##"{"hello":"world"}"##);
 

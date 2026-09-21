@@ -1199,7 +1199,7 @@ that reported them.",
         threshold: Internal,
         adr: "ADR-0032",
         template: "the slack {from}\u{2013}{to} ({from_edges} \u{2192} {to_edges}) was \
-{ref_size} ms in the reference version and is {current_size} ms in the current one.",
+{ref_size} ms in {ref_project} and is {current_size} ms in the current one.",
         status: Live,
     },
     CheckSpec {
@@ -1215,8 +1215,8 @@ that reported them.",
         repair: None,
         threshold: Internal,
         adr: "ADR-0063",
-        template: "{left} and {right} both sat at {ref_at} in the reference version \
-(case {kind}); in the current one they no longer coincide ({current_left} vs \
+        template: "{left} and {right} both sat at {ref_at} in {ref_project} (case \
+{kind}); in the current one they no longer coincide ({current_left} vs \
 {current_right}).",
         status: Live,
     },
@@ -1234,8 +1234,8 @@ that reported them.",
         repair: None,
         threshold: Internal,
         adr: "ADR-0066",
-        template: "boundaries {members} were coincident at {at} in the reference version; \
-in the current one {moved} moved; {stayed} still coincide.",
+        template: "boundaries {members} are coincident at {at} in the {which} version; \
+in the {other} version, {moved}; {stayed}. ({ref_project} is the reference version.)",
         status: Live,
     },
     CheckSpec {
@@ -1250,8 +1250,8 @@ in the current one {moved} moved; {stayed} still coincide.",
         repair: None,
         threshold: Internal,
         adr: "ADR-0051",
-        template: "{element}: run {run_index}'s text changed from \"{ref_text}\" to \
-\"{current_text}\" while its highlight window did not.",
+        template: "{element}: run {run_index}'s text changed from \"{ref_text}\" (in \
+{ref_project}) to \"{current_text}\" while its highlight window did not.",
         status: Live,
     },
 ];
