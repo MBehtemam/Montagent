@@ -23,8 +23,13 @@
 //!   crash — it is success"*). The report the answer carries *is* the check engine's
 //!   report, rendered through the same [`crate::text`] every other verb uses, with the
 //!   render's own block above it — so exit 0 never reads as *"the video is right"*.
-//! - **Proxy degradation is never applied** (ADR-0021). The surface is the declared frame
-//!   at true pixels, and there is no code path in this module that could scale it.
+//! - **Proxy degradation is never applied** (ADR-0021, ADR-0067: *"nothing about `render`
+//!   changes; proxy degradation has never applied to it"*). [`render`] builds
+//!   [`Surface::declared`] and there is no other surface it can be given: the scale is a
+//!   parameter of [`encode_span`] — which `preview` shares, so that a proxy frame is this
+//!   verb's picture on a smaller device rather than a second renderer — and this verb
+//!   states it once, at one call site, as the declared frame at true pixels. It passes no
+//!   [`Span::deadline`] either: a deliverable is never abandoned part-written on a clock.
 //!
 //! ## The deliverable
 //!
@@ -190,7 +195,9 @@ pub struct Video {
     pub duration_ms: i64,
     pub frames: u64,
     pub fps: i64,
-    /// The declared frame, which is what was rasterized. Never proxy-scaled (ADR-0021).
+    /// The frame that was rasterized. For `render` this is always the project's declared
+    /// frame at true pixels (ADR-0021); for `preview` it is the tier's, which that verb's
+    /// block discloses beside this one.
     pub width: i64,
     pub height: i64,
     /// The frame the file actually carries, where padding to even made it differ.
@@ -335,46 +342,237 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
         .and_then(crate::verbs::frame::rgba_of)
         .unwrap_or(Rgba::BLACK);
 
-    let mix = Mix::of(&document, &project_dir, &report, fps, from, to);
+    // The declared frame, and nothing else: `render` has no surface of its own to choose
+    // (ADR-0021). The one call site that passes anything smaller is `preview`.
+    let span = Span {
+        document: &document,
+        report: &report,
+        project_dir: &project_dir,
+        ffmpeg: &ffmpeg,
+        background,
+        declared: (width, height),
+        surface: Surface::declared(width, height),
+        fps,
+        from,
+        to,
+        first: first.frame,
+        last: last.frame,
+        frames,
+        output: &output,
+        deadline: None,
+    };
+    let painted = match encode_span(&span, started, progress) {
+        Ok(painted) => painted,
+        Err(Stop::Internal(reason)) => {
+            report.fail_internally(reason);
+            return refused(report);
+        }
+        // `render` passes no deadline, so there is no clock for a span of its to run past.
+        Err(Stop::Missed { .. }) => {
+            report.fail_internally(
+                "`render` was stopped on a wall clock, and it has none: the deliverable is \
+                 never degraded and never abandoned on time (ADR-0021)"
+                    .to_string(),
+            );
+            return refused(report);
+        }
+    };
+    let wall_ms = started.elapsed().as_millis() as u64;
+
+    Answer {
+        video: Some(painted.into_video(&span, partial, wall_ms)),
+        report,
+    }
+}
+
+/// One span of frames to paint and encode, once the invocation and the document are
+/// settled — everything [`encode_span`] needs and nothing about which verb is asking.
+///
+/// It exists so that `preview` is `render`'s picture at a smaller surface rather than a
+/// second renderer that has to be kept in agreement with the first. Two fields carry the
+/// whole of the difference between the verbs, and both are stated at the call site rather
+/// than derived in here: [`Span::surface`] and [`Span::deadline`].
+pub(crate) struct Span<'a> {
+    pub document: &'a Loose,
+    /// The check engine's report, read for what it established about each media file —
+    /// never written to. A stop is returned as a value and the caller records it.
+    pub report: &'a Report,
+    pub project_dir: &'a FilePath,
+    pub ffmpeg: &'a FilePath,
+    pub background: Rgba,
+    /// The project's declared frame. What is painted is always in these coordinates.
+    pub declared: (i64, i64),
+    /// The device the painting lands on.
+    pub surface: Surface,
+    pub fps: i64,
+    pub from: i64,
+    pub to: i64,
+    /// The first and last frame numbers on ADR-0035's grid, inclusive.
+    pub first: i64,
+    pub last: i64,
+    pub frames: u64,
+    pub output: &'a FilePath,
+    /// The wall clock this span must land inside, checked between frames.
+    ///
+    /// `None` for `render`, which has no ceiling to encode (ADR-0072) and must never
+    /// abandon a deliverable part-written on time. `Some` for `preview`, where the budget
+    /// is the whole mechanism: a span that runs past it is stopped where it stands so the
+    /// next rung down starts with the budget in hand, rather than the ladder costing the
+    /// sum of every attempt run to completion.
+    pub deadline: Option<Duration>,
+}
+
+/// The device a span lands on: its pixel dimensions, and the scale from the project's
+/// coordinates to them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Surface {
+    pub width: i64,
+    pub height: i64,
+    pub scale: (f64, f64),
+}
+
+impl Surface {
+    /// The project's own frame, at true pixels and no scale — `render`'s only surface.
+    pub fn declared(width: i64, height: i64) -> Surface {
+        Surface {
+            width,
+            height,
+            scale: (1.0, 1.0),
+        }
+    }
+
+    fn canvas(self) -> Option<Canvas> {
+        if self.scale == (1.0, 1.0) {
+            Canvas::new(self.width, self.height)
+        } else {
+            Canvas::scaled(self.width, self.height, self.scale)
+        }
+    }
+}
+
+/// Why a span stopped before it had a file.
+pub(crate) enum Stop {
+    /// Montaget's own failure, as the sentence the report fails internally with.
+    Internal(String),
+    /// The span ran past [`Span::deadline`] and was abandoned where it stood. The temp
+    /// file goes with the dropped encoder; nothing was written.
+    Missed {
+        elapsed: Duration,
+        /// How far it got, so a refusal can say how much of the span the clock bought.
+        done: u64,
+    },
+}
+
+/// What one span produced: the file, and the record of what of the document reached it.
+pub(crate) struct Painted {
+    finished: encode::Finished,
+    mixed: Vec<String>,
+    not_mixed: Vec<NotPainted>,
+    painted: Vec<String>,
+    not_painted: Vec<NotPainted>,
+    painted_partially: Vec<NotPainted>,
+    sources: Vec<String>,
+    fonts: Vec<String>,
+}
+
+impl Painted {
+    /// The machine-readable block, which is the same shape for both verbs: `preview`
+    /// adds its tier beside this rather than a second spelling of it.
+    pub(crate) fn into_video(self, span: &Span<'_>, partial: bool, wall_ms: u64) -> Video {
+        let duration_ms = span.to - span.from;
+        Video {
+            path: self.finished.path.display().to_string(),
+            from: span.from,
+            to: span.to,
+            partial,
+            duration_ms,
+            frames: self.finished.frames,
+            fps: span.fps,
+            width: span.surface.width,
+            height: span.surface.height,
+            encoded: self.finished.encoded.map(|e| Encoded {
+                width: i64::from(e.width),
+                height: i64::from(e.height),
+            }),
+            bytes: self.finished.bytes,
+            wall_ms,
+            realtime: if wall_ms == 0 {
+                f64::INFINITY
+            } else {
+                duration_ms as f64 / wall_ms as f64
+            },
+            mixed: self.mixed,
+            not_mixed: self.not_mixed,
+            painted: self.painted,
+            not_painted: self.not_painted,
+            painted_partially: self.painted_partially,
+            sources: self.sources,
+            fonts: self.fonts,
+        }
+    }
+}
+
+/// Paint every frame of `span` through [`Painter`] and push it to the encoder.
+///
+/// **One painter, one pass, one order, for every verb that paints a span.** ADR-0021's
+/// reason for keeping `frame` at true pixels is that the picture an agent checks is the
+/// picture the deliverable carries; the same argument is why `preview` and `render` cannot
+/// be two loops. What differs between them is the device and the clock, and both arrive as
+/// fields on the span.
+pub(crate) fn encode_span(
+    span: &Span<'_>,
+    started: Instant,
+    progress: &mut dyn FnMut(Progress),
+) -> Result<Painted, Stop> {
+    let (width, height) = span.declared;
+    let mix = Mix::of(
+        span.document,
+        span.project_dir,
+        span.report,
+        span.fps,
+        span.from,
+        span.to,
+    );
 
     let mut encoder = match Encoder::start(
-        &ffmpeg,
-        &output,
+        span.ffmpeg,
+        span.output,
         &Spec {
-            width: width as u32,
-            height: height as u32,
-            fps,
-            background,
+            width: span.surface.width as u32,
+            height: span.surface.height as u32,
+            fps: span.fps,
+            background: span.background,
             audio: mix.audio,
         },
     ) {
         Ok(encoder) => encoder,
         Err(reason) => {
-            report.fail_internally(format!("the encoder could not start: {reason}"));
-            return refused(report);
+            return Err(Stop::Internal(format!(
+                "the encoder could not start: {reason}"
+            )));
         }
     };
 
-    let Some(mut canvas) = Canvas::new(width, height) else {
-        report.fail_internally(format!(
-            "no raster surface could be made at {width}x{height}"
-        ));
-        return refused(report);
+    let Some(mut canvas) = span.surface.canvas() else {
+        return Err(Stop::Internal(format!(
+            "no raster surface could be made at {}x{}",
+            span.surface.width, span.surface.height
+        )));
     };
-    let mut painter = Painter::new(&document, from, (width, height));
+    let mut painter = Painter::new(span.document, span.from, (width, height));
     let mut painted: Vec<String> = Vec::new();
     let mut not_painted: BTreeSet<(String, String)> = BTreeSet::new();
     let mut painted_partially: BTreeSet<(String, String)> = BTreeSet::new();
 
     progress(Progress {
         done: 0,
-        of: frames,
+        of: span.frames,
         elapsed: started.elapsed(),
     });
     let mut reported_tenth = 0;
-    for (done, n) in (first.frame..=last.frame).enumerate() {
-        let instant = instant_of(n, fps);
-        let view = at::presence(&document, instant);
+    for (done, n) in (span.first..=span.last).enumerate() {
+        let instant = instant_of(n, span.fps);
+        let view = at::presence(span.document, instant);
         painter.begin(instant);
         painter.paint(&mut canvas, &view);
         for name in &painter.painted {
@@ -390,76 +588,73 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
         }
 
         let Some(rgb) = canvas.rgb() else {
-            report.fail_internally(format!("frame {n} could not be read back off the canvas"));
-            return refused(report);
+            return Err(Stop::Internal(format!(
+                "frame {n} could not be read back off the canvas"
+            )));
         };
         if let Err(reason) = encoder.push(&rgb) {
             // The encoder is dropped on the way out, and the temp file with it: the
             // declared path is untouched.
-            report.fail_internally(format!("frame {n}: {reason}"));
-            return refused(report);
+            return Err(Stop::Internal(format!("frame {n}: {reason}")));
         }
 
         let done = done as u64 + 1;
-        let tenth = done * 10 / frames;
+        let tenth = done * 10 / span.frames;
         if tenth > reported_tenth {
             reported_tenth = tenth;
             progress(Progress {
                 done,
-                of: frames,
+                of: span.frames,
                 elapsed: started.elapsed(),
             });
+        }
+        // Checked after the frame rather than before it, so a span always encodes at least
+        // one frame and a miss is a measurement rather than a refusal to start.
+        if let Some(deadline) = span.deadline {
+            let elapsed = started.elapsed();
+            if elapsed > deadline && done < span.frames {
+                return Err(Stop::Missed { elapsed, done });
+            }
         }
     }
 
     let finished = match encoder.finish() {
         Ok(finished) => finished,
         Err(reason) => {
-            report.fail_internally(format!("the encoder did not finish: {reason}"));
-            return refused(report);
+            return Err(Stop::Internal(format!(
+                "the encoder did not finish: {reason}"
+            )));
         }
     };
-    let wall = started.elapsed();
-    let wall_ms = wall.as_millis() as u64;
+    // The whole span is in the file, so the clock only decides whether the file is worth
+    // keeping — which is `preview`'s call, at the rung it is standing on, not this
+    // function's.
+    if let Some(deadline) = span.deadline {
+        let elapsed = started.elapsed();
+        if elapsed > deadline {
+            let _ = std::fs::remove_file(&finished.path);
+            return Err(Stop::Missed {
+                elapsed,
+                done: finished.frames,
+            });
+        }
+    }
 
     let entries = |set: BTreeSet<(String, String)>| -> Vec<NotPainted> {
         set.into_iter()
             .map(|(element, reason)| NotPainted { element, reason })
             .collect()
     };
-
-    Answer {
-        video: Some(Video {
-            path: finished.path.display().to_string(),
-            from,
-            to,
-            partial,
-            duration_ms: to - from,
-            frames: finished.frames,
-            fps,
-            width,
-            height,
-            encoded: finished.encoded.map(|e| Encoded {
-                width: i64::from(e.width),
-                height: i64::from(e.height),
-            }),
-            bytes: finished.bytes,
-            wall_ms,
-            realtime: if wall_ms == 0 {
-                f64::INFINITY
-            } else {
-                (to - from) as f64 / wall_ms as f64
-            },
-            mixed: mix.mixed,
-            not_mixed: mix.not_mixed,
-            painted,
-            not_painted: entries(not_painted),
-            painted_partially: entries(painted_partially),
-            sources: painter.sources,
-            fonts: painter.fonts,
-        }),
-        report,
-    }
+    Ok(Painted {
+        finished,
+        mixed: mix.mixed,
+        not_mixed: mix.not_mixed,
+        painted,
+        not_painted: entries(not_painted),
+        painted_partially: entries(painted_partially),
+        sources: painter.sources,
+        fonts: painter.fonts,
+    })
 }
 
 /// An answer with no video: the report says why.
@@ -472,7 +667,7 @@ fn refused(report: Report) -> Answer {
 
 /// The range asked for, or `None` for the whole project — or the one sentence saying why
 /// the flags ask for no render.
-fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
+pub(crate) fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
     match (ask.from, ask.to) {
         (None, None) => Ok(None),
         (Some(from), Some(to)) => {
@@ -496,7 +691,7 @@ fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
 
 /// The instant the whole render ends at: the declared `duration`, or the last boundary
 /// any element states — the same derived `duration` [`crate::slack`] uses.
-fn extent(document: &Loose) -> Option<i64> {
+pub(crate) fn extent(document: &Loose) -> Option<i64> {
     document
         .value()
         .get("duration")
@@ -567,7 +762,7 @@ fn destination(
 /// symlinked `out/` to the directory it really is) and the rest of the path is appended
 /// and normalised lexically. A path with no existing ancestor at all is made absolute
 /// against the working directory and normalised the same way.
-fn same_path(a: &FilePath, b: &FilePath) -> bool {
+pub(crate) fn same_path(a: &FilePath, b: &FilePath) -> bool {
     fn normal(path: &FilePath) -> PathBuf {
         let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
         // Split at the deepest existing ancestor.
@@ -893,7 +1088,7 @@ fn chain(
 /// The one place the module doc's floor is spelled, for the frame loop and for the
 /// `volume` commands alike — the two must sample the same instants, or a fade would be
 /// heard on a different clock from the one it is seen on.
-fn instant_of(n: i64, fps: i64) -> i64 {
+pub(crate) fn instant_of(n: i64, fps: i64) -> i64 {
     ((i128::from(n) * 1000) / i128::from(fps)) as i64
 }
 

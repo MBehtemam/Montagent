@@ -118,7 +118,15 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
     // findings, because the findings are the ones the render did not refuse on and read
     // as a caption to the file (ADR-0011).
     if let Some(video) = report.get("render").filter(|view| !view.is_null()) {
-        out.push_str(&render_block(video));
+        out.push_str(&video_block("RENDER", video, &[]));
+    }
+
+    // `preview`'s block: the same block, above the same findings, with the tier disclosure
+    // first. ADR-0021 makes that disclosure mandatory on every preview, degraded or not —
+    // it is how a caller knows what it is looking at — so it prints before the file's own
+    // numbers rather than after them, and at every verbosity.
+    if let Some(preview) = report.get("preview").filter(|view| !view.is_null()) {
+        out.push_str(&preview_block(preview));
     }
 
     // `measure`'s whole answer, on the same rule again.
@@ -1039,17 +1047,24 @@ fn frame_block(frame: &Value) -> String {
     out
 }
 
-/// `render`'s block: the file, its numbers, and what of the document reached it.
+/// The block `render` and `preview` both answer with: the file, its numbers, and what of
+/// the document reached it.
+///
+/// One function rather than two, on the same argument that makes the two verbs share one
+/// painter: a preview is the render's picture at a smaller surface, and a reader who has
+/// learned to read one of these blocks has learned to read the other. `first` is what the
+/// calling verb has to say before the file's own numbers — `preview`'s tier disclosure,
+/// and nothing today for `render`.
 ///
 /// **Nothing here is behind a verbosity switch**, for `frame`'s reason: an agent that
 /// cannot tell *"not there"* from *"not drawn"*, or *"silent"* from *"not mixed"*, chases
 /// the wrong defect. The range is stated half-open in so many words, because ADR-0011
 /// asks the tool to say so in its output.
-fn render_block(video: &Value) -> String {
+fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
     let number = |key: &str| video[key].as_i64().unwrap_or_default();
     let wall_ms = video["wall_ms"].as_u64().unwrap_or_default();
     let mut out = format!(
-        "\nRENDER  {} — {} ms, {} at {} fps, {}x{}, in {:.1} s ({:.2}x realtime)\n",
+        "\n{heading}  {} — {} ms, {} at {} fps, {}x{}, in {:.1} s ({:.2}x realtime)\n",
         named(&video["path"]),
         number("duration_ms"),
         plural(video["frames"].as_u64().unwrap_or_default(), "frame"),
@@ -1059,6 +1074,9 @@ fn render_block(video: &Value) -> String {
         wall_ms as f64 / 1000.0,
         video["realtime"].as_f64().unwrap_or_default(),
     );
+    for line in first {
+        out.push_str(&row(line.clone()));
+    }
     out.push_str(&row(format!(
         "range       {}..{} ms, half-open: {} is not in it{}",
         number("from"),
@@ -1140,6 +1158,60 @@ fn render_block(video: &Value) -> String {
         out.push_str(&row(format!("{label:<11} {}", files.join(", "))));
     }
     out
+}
+
+/// `preview`'s block: the tier disclosure, then the same block `render` answers with.
+///
+/// The disclosure is unconditional — a preview at the default 720p target says so as
+/// plainly as one that degraded, because ADR-0021 makes the tier *"how a caller knows what
+/// it is looking at"* rather than an exception report. Where the ladder degraded, every
+/// rung it tried prints too: an agent that is told only the tier it ended on cannot tell a
+/// project that missed by 0.1 s from one that missed by four seconds, and those two want
+/// different next moves.
+fn preview_block(preview: &Value) -> String {
+    let tier = &preview["tier"];
+    let name = tier["name"].as_str().unwrap_or("?");
+    let mut first = vec![format!(
+        "tier        {name} — {}",
+        tier["disclosure"].as_str().unwrap_or("(no disclosure)"),
+    )];
+    if let Some(budget) = tier["budget_ms"].as_u64() {
+        first.push(format!(
+            "budget      {:.1} s per tier, the scrub-preview budget (ADR-0021)",
+            budget as f64 / 1000.0
+        ));
+    } else {
+        first.push(
+            "budget      none — the full-resolution arm is observational, not enforced \
+             (ADR-0021)"
+                .to_string(),
+        );
+    }
+    let attempts = preview["attempts"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    // The common path — one rung — is already the tier line above, and a second line
+    // repeating it would be noise on every call. Every rung prints as soon as there was
+    // more than one, which is exactly when what each cost is worth knowing.
+    for attempt in attempts.iter().filter(|_| attempts.len() > 1) {
+        let missed = attempt["missed"].as_bool().unwrap_or(false);
+        first.push(format!(
+            "tried       {} ({}x{}) — {:.1} s, {}",
+            attempt["tier"].as_str().unwrap_or("?"),
+            attempt["width"].as_i64().unwrap_or_default(),
+            attempt["height"].as_i64().unwrap_or_default(),
+            attempt["wall_ms"].as_u64().unwrap_or_default() as f64 / 1000.0,
+            match missed {
+                true => format!(
+                    "missed the budget after {}, and was abandoned there",
+                    plural(attempt["frames"].as_u64().unwrap_or_default(), "frame")
+                ),
+                false => "within budget".to_string(),
+            }
+        ));
+    }
+    video_block("PREVIEW", preview, &first)
 }
 
 /// The answer, generated from the `query` block of the canonical JSON.

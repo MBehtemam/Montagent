@@ -105,6 +105,15 @@ pub fn render_video(answer: &crate::verbs::render::Answer, form: Wire) -> String
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `preview` answer in one wire form.
+///
+/// The same function and the same rule as `render`'s, which is the point: a preview's
+/// block is the render's block plus the tier that produced it (ADR-0021's mandatory
+/// disclosure), not a second shape a caller has to learn.
+pub fn render_preview(answer: &crate::verbs::preview::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// Render a `measure` answer in one wire form.
 ///
 /// Through the same function and the same rule as everything else: the answer is a block on

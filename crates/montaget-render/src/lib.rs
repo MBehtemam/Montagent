@@ -48,9 +48,12 @@
 //! - The encode path to a deliverable and the atomic rename are
 //!   [#215](https://github.com/MBehtemam/Montaget/issues/215)'s [`encode`]: raw frames
 //!   piped to a spawned `ffmpeg`, written to a sibling temp path and renamed into place.
-//!   The proxy ladder is #218's.
+//! - The proxy ladder and its two floors are
+//!   [#218](https://github.com/MBehtemam/Montaget/issues/218)'s [`proxy`]: the arithmetic of
+//!   a rung and the refusal text, with `montaget-core`'s `preview` verb walking it.
 
 pub mod budget;
 pub mod canvas;
 pub mod decode;
 pub mod encode;
+pub mod proxy;

@@ -600,12 +600,16 @@ impl Encoded {
     }
 }
 
-/// The surface one frame is painted on, always at the project's **true** pixel dimensions.
+/// The surface one frame is painted on — at the project's **true** pixel dimensions
+/// through [`Canvas::new`], and at a proxy tier's through [`Canvas::scaled`], which is
+/// `preview`'s alone.
 ///
 /// ADR-0021 is explicit that `frame` is never proxy-scaled: the half-scale default is a
 /// property of the *answer*, applied once at encode time, not of the raster. Painting at
 /// half and reporting a frame would make the picture a different picture from the one
 /// `render` produces, which is the whole thing this verb exists to let an agent believe.
+/// `preview` is the one caller entitled to a smaller surface, and it discloses the tier
+/// every time (ADR-0021); `render` is entitled to none at all (ADR-0067).
 pub struct Canvas {
     surface: Surface,
     width: i32,
@@ -632,6 +636,33 @@ impl Canvas {
             width,
             height,
         })
+    }
+
+    /// A surface smaller than the project's frame, painted in the project's own
+    /// coordinates — `preview`'s proxy tier ([`crate::proxy`]), and nothing else.
+    ///
+    /// The scale is a base matrix set once, before any draw, and every element's own
+    /// `save`/`restore` nests inside it: so **nothing above this line knows it is painting
+    /// a proxy**. The painter resolves the same numbers on the same document and paints
+    /// the same pass in the same order; only the device it lands on is smaller. That is
+    /// what makes a proxy frame the render's picture rather than a second picture that has
+    /// to be kept in agreement with it — and it is also why the saving is real, since the
+    /// resample that dominates a frame's cost is done once into the small surface rather
+    /// than at full size and thrown away (ADR-0021).
+    ///
+    /// `frame` and `render` never call this: ADR-0021 keeps `frame` at true pixels so the
+    /// agent has one tool it can trust for pixel-accurate checks, and forbids the
+    /// deliverable being quietly downsampled.
+    pub fn scaled(width: i64, height: i64, scale: (f64, f64)) -> Option<Canvas> {
+        if !(scale.0.is_finite() && scale.1.is_finite()) || scale.0 <= 0.0 || scale.1 <= 0.0 {
+            return None;
+        }
+        let mut canvas = Canvas::new(width, height)?;
+        canvas
+            .surface
+            .canvas()
+            .scale((scale.0 as f32, scale.1 as f32));
+        Some(canvas)
     }
 
     /// Paint the whole frame one colour — the project's `background`.

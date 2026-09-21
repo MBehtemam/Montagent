@@ -831,6 +831,91 @@ fn cli_render_offers_no_flag_that_skips_the_checks_or_scales_the_output() {
 }
 
 #[test]
+fn cli_preview_discloses_its_tier_and_keeps_adr_0011s_split() {
+    // The adapter's half, as `render`'s test above: argv reaches the right core call, the
+    // result is stdout's and progress is stderr's. What the ladder *does* is asserted in
+    // the core, at seam 1 (`montaget-core/tests/preview.rs`).
+    if montaget_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-preview");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 2000, \"height\": 1000},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": [\n    {\"name\": \
+         \"only\", \"layer\": 0, \"elements\": [\n      {\"id\": \"card\", \"type\": \
+         \"rect\", \"start\": 0, \"end\": 200, \"x\": 1000, \"y\": 500, \"width\": 100, \
+         \"height\": 100, \"fill\": \"#FF0000\"}\n    ]}\n  ]\n}\n",
+    )
+    .unwrap();
+    let out = montaget(&["preview", project.to_str().unwrap(), "--json"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not the JSON result alone ({e}):\n{}", out.stdout));
+    // The 720p target, long edge capped at 1280 (ADR-0046), and the disclosure with it.
+    assert_eq!(json["preview"]["width"], 1280);
+    assert_eq!(json["preview"]["height"], 640);
+    assert_eq!(json["preview"]["tier"]["name"], "720p");
+    assert_eq!(json["preview"]["tier"]["degraded"], false);
+    // The deliverable is untouched: a preview is never it.
+    assert!(!dir.join("out/p.mp4").exists());
+    assert!(dir.join("out/p.preview.0-200.mp4").is_file());
+
+    assert!(out.stderr.contains("preview  0/5 frames"), "{}", out.stderr);
+    assert!(!out.stdout.contains("frames  "), "{}", out.stdout);
+
+    // The text form states the tier above the file's own numbers.
+    let out = montaget(&["preview", project.to_str().unwrap()]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("PREVIEW  "), "{}", out.stdout);
+    assert!(out.stdout.contains("tier        720p"), "{}", out.stdout);
+    assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+#[test]
+fn cli_preview_offers_the_escape_hatch_and_no_flag_that_names_a_tier() {
+    // The target, the ladder and the budget are the ADRs' numbers. What the caller gets to
+    // say is whether it wants the proxy at all (`--full`, ADR-0021's escape hatch); a flag
+    // naming a resolution would be a caller-specified proxy resolution, which ADR-0067
+    // records as *not* admitted today.
+    let out = montaget(&["preview", "--help"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    for absent in [
+        "--tier",
+        "--resolution",
+        "--proxy",
+        "--scale",
+        "--height",
+        "--budget",
+        "--degrade",
+    ] {
+        assert!(
+            !out.stdout.contains(absent),
+            "`preview` advertises `{absent}`: {}",
+            out.stdout
+        );
+    }
+    for present in [
+        "--from",
+        "--to",
+        "--output",
+        "--full",
+        "--json",
+        "--verbose",
+    ] {
+        assert!(
+            out.stdout.contains(present),
+            "`preview` does not advertise `{present}`: {}",
+            out.stdout
+        );
+    }
+}
+
+#[test]
 fn cli_help_is_not_a_failure() {
     let out = montaget(&["--help"]);
     assert_eq!(out.code, Some(0));
@@ -1280,6 +1365,75 @@ fn mcp_frame_advertises_the_schema_it_enforces_and_hands_back_an_image() {
         .expect("a rendered report, not a bare SDK error");
     assert!(text.contains("E-INVOCATION"), "{text}");
     assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_preview_advertises_the_escape_hatch_and_no_tier_argument() {
+    if montaget_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("mcp-preview");
+    let project = dir.join("p.montaget.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 2000, \"height\": 1000},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": [\n    {\"name\": \
+         \"only\", \"layer\": 0, \"elements\": [\n      {\"id\": \"card\", \"type\": \
+         \"rect\", \"start\": 0, \"end\": 200, \"x\": 1000, \"y\": 500, \"width\": 100, \
+         \"height\": 100, \"fill\": \"#FF0000\"}\n    ]}\n  ]\n}\n",
+    )
+    .unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "preview",
+                "arguments": {"project": project.to_str().unwrap(), "json": true}
+            }),
+        ),
+    ]);
+
+    let schema = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "preview")
+        .expect("a `preview` tool")["inputSchema"]
+        .clone();
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project"]),
+        "{schema}"
+    );
+    for present in ["from", "to", "output", "full", "json", "verbose"] {
+        assert!(
+            !schema["properties"][present].is_null(),
+            "no `{present}`: {schema}"
+        );
+    }
+    // The target, the ladder and the budget are the ADRs' numbers, not the caller's.
+    for absent in ["tier", "resolution", "proxy", "scale", "budget", "degrade"] {
+        assert!(
+            schema["properties"][absent].is_null(),
+            "advertises `{absent}`: {schema}"
+        );
+    }
+
+    // And the answer carries the disclosure ADR-0021 makes mandatory.
+    let result = &session[&3]["result"];
+    assert_ne!(result["isError"], true, "{result}");
+    let answered: serde_json::Value =
+        serde_json::from_str(result["content"][0]["text"].as_str().expect("the result"))
+            .expect("`json: true` returns the canonical JSON");
+    assert_eq!(answered["tool"], "preview");
+    assert_eq!(answered["preview"]["tier"]["name"], "720p");
+    assert_eq!(answered["preview"]["width"], 1280);
+    assert!(!dir.join("out/p.mp4").exists(), "never the deliverable");
 }
 
 #[test]
