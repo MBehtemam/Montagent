@@ -1138,6 +1138,48 @@ written, {canonical_lines} in canonical form, first difference at line {line}. R
 fmt`.",
         status: Live,
     },
+    // ---- `shift` (#220). ------------------------------------------------------------
+    CheckSpec {
+        // ADR-0005's straddler refusal: a time-based element (audio, video) whose source
+        // range cannot be stretched or relocated without either violating the timeline/
+        // source invariant or moving speech that has already begun.
+        code: "E-SHIFT-STRADDLE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0005",
+        template: "`{element}` in track `{track}` is time-based and straddles the shift \
+point {at}: it runs {start}..{end} ms, so stretching or moving it whole would misalign its \
+source. The nearest legal boundaries are {start} and {end}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0032/ADR-0047: every slack is invariant by default. `shift` refuses an edit
+        // that would change one's size unless the caller names it, in full, in `release`.
+        code: "E-SHIFT-SLACK",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0032",
+        template: "the slack {from}\u{2013}{to} is {size} ms ({from_edges} \u{2192} \
+{to_edges}) and this edit would change it to {new_size} ms. Release it explicitly with \
+`release: [[{from}, {to}]]` if that is intended.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0047: a `release` entry naming a pair that does not currently bound a real,
+        // protected slack this edit would change is itself a refusal — `release` cannot be
+        // populated speculatively or reused stale across calls.
+        code: "E-SHIFT-RELEASE-INVALID",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0047",
+        template: "`release` names {from}\u{2013}{to}, which is not a slack this edit would \
+change \u{2014} release only pairs this call's own refusal reports, and only for the call \
+that reported them.",
+        status: Live,
+    },
 ];
 
 impl CheckSpec {

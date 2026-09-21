@@ -194,6 +194,36 @@ pub struct MeasureParams {
     pub json: bool,
 }
 
+/// `shift`'s arguments: the one edit that is arithmetic rather than authorship.
+///
+/// `at`, `delta` and `scope` are ADR-0005's, taking a timestamp and an offset — never a
+/// field name, never an element id — so the call satisfies the standing write-tool
+/// invariant. `release` is ADR-0047's: every slack this edit would otherwise change,
+/// named as its own full boundary-instant pair, individually — there is no bulk form.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct ShiftParams {
+    /// Path to the project file.
+    pub project: String,
+    /// The instant to shift at or after, in absolute milliseconds.
+    pub at: i64,
+    /// The offset, in milliseconds. Must be positive.
+    pub delta: i64,
+    /// Narrow the edit to one track's elements. Omit for the whole project.
+    #[serde(default)]
+    pub scope: Option<String>,
+    /// Every slack this edit would otherwise change, as `[from, to]` — its full
+    /// boundary-instant pair, exactly as a refusal reports it. Naming one that does not
+    /// currently bound a real, protected slack this edit would change is itself refused.
+    #[serde(default)]
+    pub release: Vec<[i64; 2]>,
+    /// Return the canonical JSON *instead of* the text report, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+    /// Expand the informational classes that collapse to one counted line.
+    #[serde(default)]
+    pub verbose: bool,
+}
+
 /// `render`'s arguments: the whole project by default, or one half-open range of it.
 ///
 /// There is no argument that skips the checks, narrows them, or renders at a proxy
@@ -515,6 +545,50 @@ impl Montaget {
 
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render_measure(&answer, form),
+        )]))
+    }
+
+    #[tool(
+        name = "shift",
+        description = "Move every time at or after an instant, project-scoped by default. \
+                       Refuses a straddling time-based element (audio, video) rather than \
+                       stretching or relocating it, naming the nearest legal boundaries. A \
+                       time-invariant straddler's transform keyframes are carried with it \
+                       and split rather than dragged by the raw at-or-after rule, so a shot \
+                       that finished before the edit point does not move. Prints what it \
+                       will do to every record sitting exactly at `at`, unconditionally. \
+                       Every slack in the file is invariant by default: an edit that would \
+                       change one is refused, listing each threatened pair; pass `release` \
+                       with exactly those pairs to consume them. Returns the new state's \
+                       findings, never `ok` — read them the way you read `validate`'s.",
+        input_schema = advertised::<ShiftParams>()
+    )]
+    fn shift(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: ShiftParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("shift", &e)),
+        };
+
+        let answer = montaget_core::verbs::shift::shift(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::shift::Ask {
+                at: params.at,
+                delta: params.delta,
+                scope: params.scope,
+                release: params
+                    .release
+                    .into_iter()
+                    .map(|[from, to]| (from, to))
+                    .collect(),
+            },
+        );
+        let form = Wire::from_flags(params.json, params.verbose);
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render_shift(&answer, form),
         )]))
     }
 }

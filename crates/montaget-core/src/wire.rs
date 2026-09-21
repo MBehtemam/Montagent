@@ -113,6 +113,14 @@ pub fn render_measure(answer: &crate::verbs::measure::Answer, form: Wire) -> Str
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `shift` answer in one wire form.
+///
+/// A write tool's answer is the new state's findings (ADR-0011), plus the coincident
+/// preamble (ADR-0036); both go through the one rule.
+pub fn render_shift(answer: &crate::verbs::shift::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// Render a `fonts list` answer in one wire form.
 ///
 /// The inventory is a block on the canonical JSON, and the prose is that block generated
