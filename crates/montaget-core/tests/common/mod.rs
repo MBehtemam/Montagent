@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 pub mod compare;
+pub mod media;
 
 use std::path::{Path, PathBuf};
 
@@ -82,4 +83,23 @@ pub fn fixture_dir() -> PathBuf {
 /// The fixture's project file.
 pub fn fixture_project() -> PathBuf {
     fixture_dir().join("en-halloween-decorating.montaget.json")
+}
+
+/// A project file as plain JSON.
+///
+/// Tests that assert *about the fixture* read it as data rather than restating it: a table
+/// of hand-copied instants is a second statement of the project, and the first one to
+/// drift would be the copy. Shared, because three test binaries want the same two lines.
+pub fn document(path: &Path) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(path).expect("the project")).expect("json")
+}
+
+/// Every element of a project, across all of its tracks — a track supplies stacking, never
+/// timing, so for a question about the clock the partition into tracks carries nothing.
+pub fn elements(document: &serde_json::Value) -> impl Iterator<Item = &serde_json::Value> {
+    document["tracks"]
+        .as_array()
+        .expect("tracks")
+        .iter()
+        .flat_map(|track| track["elements"].as_array().expect("elements"))
 }

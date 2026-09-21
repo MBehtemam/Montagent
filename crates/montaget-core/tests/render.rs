@@ -13,14 +13,17 @@
 //! also where the budget lives.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use montaget_core::report::ExitCode;
 use montaget_core::verbs::render::{Answer, Ask, Progress, render};
 use serde_json::Value;
 
 mod common;
-use common::{canonical, fixture_dir, fixture_project, has_ffprobe, tempdir, write_project};
+use common::media::{audio_stream, peak_db, video_stream};
+use common::{
+    canonical, document, elements, fixture_dir, fixture_project, has_ffprobe, tempdir,
+    write_project,
+};
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -100,89 +103,6 @@ fn codes(report: &Value) -> Vec<String> {
         .collect();
     codes.sort();
     codes
-}
-
-/// One stream of the written file, as `ffprobe` reports it.
-#[derive(Debug)]
-struct Stream {
-    kind: String,
-    width: Option<i64>,
-    height: Option<i64>,
-    frames: Option<i64>,
-    duration_ms: Option<i64>,
-    sample_rate: Option<i64>,
-}
-
-fn streams(path: &Path) -> Vec<Stream> {
-    let tools = montaget_core::media::tools::resolve().expect("ffprobe");
-    let out = Command::new(tools.ffprobe)
-        .args(["-v", "error", "-show_streams", "-of", "json"])
-        .arg(path)
-        .output()
-        .expect("run ffprobe");
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let json: Value = serde_json::from_slice(&out.stdout).expect("ffprobe json");
-    json["streams"]
-        .as_array()
-        .expect("streams")
-        .iter()
-        .map(|s| Stream {
-            kind: s["codec_type"].as_str().unwrap_or("?").to_string(),
-            width: s["width"].as_i64(),
-            height: s["height"].as_i64(),
-            frames: s["nb_frames"].as_str().and_then(|n| n.parse().ok()),
-            duration_ms: s["duration"]
-                .as_str()
-                .and_then(|d| d.parse::<f64>().ok())
-                .map(|d| (d * 1000.0).round() as i64),
-            sample_rate: s["sample_rate"].as_str().and_then(|n| n.parse().ok()),
-        })
-        .collect()
-}
-
-fn video_stream(path: &Path) -> Stream {
-    streams(path)
-        .into_iter()
-        .find(|s| s.kind == "video")
-        .expect("a video stream")
-}
-
-fn audio_stream(path: &Path) -> Option<Stream> {
-    streams(path).into_iter().find(|s| s.kind == "audio")
-}
-
-/// The peak level of `[from, to)` seconds of the file's audio, in dBFS — `-inf` for
-/// digital silence.
-fn peak_db(path: &Path, from: f64, to: f64) -> f64 {
-    let tools = montaget_core::media::tools::resolve().expect("ffmpeg");
-    let out = Command::new(tools.ffmpeg)
-        .args([
-            "-v",
-            "info",
-            "-ss",
-            &from.to_string(),
-            "-t",
-            &(to - from).to_string(),
-            "-i",
-        ])
-        .arg(path)
-        .args(["-vn", "-af", "volumedetect", "-f", "null", "-"])
-        .output()
-        .expect("run ffmpeg");
-    let said = String::from_utf8_lossy(&out.stderr);
-    let line = said
-        .lines()
-        .find(|l| l.contains("max_volume"))
-        .unwrap_or_else(|| panic!("no volumedetect line in:\n{said}"));
-    let value = line.split("max_volume:").nth(1).unwrap().trim();
-    value
-        .trim_end_matches(" dB")
-        .parse()
-        .unwrap_or(f64::NEG_INFINITY)
 }
 
 fn entries(dir: &Path) -> Vec<String> {
@@ -1026,18 +946,6 @@ fn audible_windows() -> Vec<(String, i64, i64)> {
             )
         })
         .collect()
-}
-
-fn document(path: &Path) -> Value {
-    serde_json::from_str(&std::fs::read_to_string(path).expect("the project")).expect("json")
-}
-
-fn elements(document: &Value) -> impl Iterator<Item = &Value> {
-    document["tracks"]
-        .as_array()
-        .expect("tracks")
-        .iter()
-        .flat_map(|track| track["elements"].as_array().expect("elements"))
 }
 
 /// Milliseconds as the seconds [`peak_db`] takes.
