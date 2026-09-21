@@ -5,7 +5,7 @@
 //! never that one is unneeded — so it is the right thing to pin and the wrong thing to
 //! treat as the whole format.
 
-use montaget_core::model::{Body, Project};
+use montaget_core::model::{Body, Project, Speed};
 use montaget_core::write;
 
 const FIXTURE: &str =
@@ -82,7 +82,7 @@ fn the_fixture_is_read_as_the_types_it_is_written_in() {
         .find(|e| e.id == "vo-sentence-05-b")
         .unwrap();
     match &slowed.body {
-        Body::Audio(audio) => assert_eq!(audio.speed, Some(0.645)),
+        Body::Audio(audio) => assert_eq!(audio.speed, Some(Speed(0.645))),
         other => panic!("vo-sentence-05-b is audio, not {}", other.type_name()),
     }
 }

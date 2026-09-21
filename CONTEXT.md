@@ -337,11 +337,13 @@ _Avoid_: fill (spent — see Fill), extend, pad
 **Volume**:
 An `audio` or `video` element's playback level, as a linear multiplier:
 `0` is silent, `1` (the default) is the source's own level, and values
-above `1` amplify. Flat on the element like `speed`, and keyframable with
-the same `{t,v,ease}` records every animatable property carries, so a fade
-is two records rather than a dedicated field. There is no `mute` — a
-`video` element's embedded audio is the same audio a `volume` of `0`
-already silences. Automatic ducking (one element's level reacting to
+above `1` amplify. Negative is a schema error, the same class as `speed`'s;
+the ceiling is deliberately open, and clipping past it is the renderer's
+documented behaviour rather than a refusal. Flat on the element like `speed`,
+and keyframable with the same `{t,v,ease}` records every animatable property
+carries, so a fade is two records rather than a dedicated field. There is no
+`mute` — a `video` element's embedded audio is the same audio a `volume` of
+`0` already silences. Automatic ducking (one element's level reacting to
 another's presence) is out of scope; the same outcome is hand-authored as
 ordinary keyframes.
 ([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md))

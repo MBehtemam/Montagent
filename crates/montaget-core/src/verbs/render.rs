@@ -815,6 +815,11 @@ fn chain(
                 .map_err(|_| "its `volume` is not a number or a keyframe list".to_string())?;
             match volume {
                 Animatable::Static(v) => {
+                    // A negative level is a schema error the check engine has already
+                    // refused the render for (ADR-0055), the same way `overrun: "hold"` on
+                    // audio is above. Named here for the same reason: a document that
+                    // reaches this point malformed says why it was not mixed, rather than
+                    // inverting the waveform at full level and calling it a render.
                     if v < 0.0 {
                         return Err("its `volume` is negative".to_string());
                     }

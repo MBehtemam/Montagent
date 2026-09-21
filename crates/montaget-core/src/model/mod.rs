@@ -28,6 +28,7 @@
 pub mod effects;
 mod element;
 pub mod keyframe;
+pub mod playback;
 pub mod text;
 
 use std::collections::BTreeMap;
@@ -38,6 +39,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, MaskShape};
 pub use keyframe::{Animatable, Ease, EaseName, Keyframe};
+pub use playback::{AudioOverrun, Speed, Volume};
 pub use text::{Align, Dir, Highlight, Run};
 
 /// `[sx, sy]`, never a bare number.
@@ -435,18 +437,15 @@ pub struct Video {
     pub rotation: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
-    /// A rate multiplier, strictly greater than zero: `0.645` plays the source slower.
-    /// Negative is a schema error — reverse is a real need, deferred to its own explicit
-    /// field rather than overloaded onto this one as a sign bit (ADR-0020).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub speed: Option<f64>,
+    pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overrun: Option<Overrun>,
     /// A video element is one element with intrinsic audio, so its embedded audio reuses
     /// this same field and there is no `mute` — `volume: 0` already says silent, including
     /// at one instant via a keyframe (ADR-0055).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub volume: Option<Animatable<f64>>,
+    pub volume: Option<Animatable<Volume>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -625,13 +624,13 @@ pub struct Audio {
     pub source_start: i64,
     pub source_end: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub speed: Option<f64>,
+    pub speed: Option<Speed>,
     /// `hold` is a schema error on audio: there is no non-arbitrary meaning for holding the
     /// last sample, and "then silence" is already free as a shorter element plus a gap.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub overrun: Option<Overrun>,
+    pub overrun: Option<AudioOverrun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub volume: Option<Animatable<f64>>,
+    pub volume: Option<Animatable<Volume>>,
 }
 
 /// A transition is its own element type, with its own time range and two id references —

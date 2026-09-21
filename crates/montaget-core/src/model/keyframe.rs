@@ -51,8 +51,7 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
             .is_some_and(serde_json::Value::is_object);
 
         if keyed {
-            let records: Vec<Keyframe<T>> =
-                serde_json::from_value(value).map_err(D::Error::custom)?;
+            let records = read_records(value).map_err(D::Error::custom)?;
             positional_ease(&records).map_err(D::Error::custom)?;
             Ok(Animatable::Keyed(records))
         } else {
@@ -61,6 +60,36 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
                 .map_err(D::Error::custom)
         }
     }
+}
+
+/// One record at a time, so a fault inside one says which one.
+///
+/// `serde_json::from_value::<Vec<Keyframe<T>>>` would answer a negative `v` in the third
+/// record with the bound's own sentence and nothing else — *"`volume` is -0.5"*, reading
+/// as though the element's flat field were negative. The value bounds live on the value
+/// types ([`crate::model::playback::Volume`] and its siblings), which by construction
+/// cannot know where in a list they were written; the list is what knows, so the list says
+/// it — in the same words [`positional_ease`] already uses for the other fault a record can
+/// carry.
+fn read_records<T: serde::de::DeserializeOwned>(
+    value: serde_json::Value,
+) -> Result<Vec<Keyframe<T>>, String> {
+    let serde_json::Value::Array(items) = value else {
+        return Err("a keyframe list is an array of `{\"t\",\"v\",\"ease\"}` records".to_string());
+    };
+    items
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| {
+            // The record's own `t` before it is parsed, so the one field that locates it on
+            // the clock survives the failure that is about some other field.
+            let t = item.get("t").and_then(serde_json::Value::as_i64);
+            serde_json::from_value(item).map_err(|e| match t {
+                Some(t) => format!("keyframe record {} (`t` {t}): {e}", index + 1),
+                None => format!("keyframe record {}: {e}", index + 1),
+            })
+        })
+        .collect()
 }
 
 /// ADR-0038's rule, which is a rule about **position** and so cannot be a rule about a
