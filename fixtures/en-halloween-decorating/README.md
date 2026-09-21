@@ -155,8 +155,10 @@ Two frames are included — `reference/frame-intro.png` and `reference/frame-05-
 > migration then wrote `top-left` anyway. Nothing could catch it until a renderer existed;
 > #213's first render against the published video did.
 >
-> It was invisible at the start of a ramp and grew with it. At 400 ms the two pivots are a
-> pixel apart; at 14 000 ms, with the ramp at 1.0586, the recovered offset is (24, 52) px
+> It was invisible at the start of a ramp and grew with it. At 400 ms the two pivots are
+> 1 × 2 px apart — smaller than the residual noted below, which is why that frame scores the
+> *rejected* spelling higher and is given no vote on the question; at 14 000 ms, with the
+> ramp at 1.0586, the recovered offset is (24, 52) px
 > against the (32, 57) a centre pivot predicts and the (0, 0) the file used to declare —
 > and the photograph plainly did not match. The recovered **scale**, 1.060, lands on the
 > declared ramp, so the amplitude and the timing in the file were right and only the pivot
@@ -176,7 +178,8 @@ Two frames are included — `reference/frame-intro.png` and `reference/frame-05-
 > 8 × 4 px at 14 000 ms — a quarter of the horizontal error the old pivot carried and a
 > fourteenth of the vertical one. D3 flagged the same thing from the other side (*"the pure
 > zoom model's fit quality falls with `t`"*). It is measured and reported on every run by
-> `reference_frames.rs`, and nothing owns it yet.
+> `reference_frames.rs`, and owned by
+> [#299](https://github.com/MBehtemam/Montaget/issues/299).
 
 The 1080 × 1920 frame is split. The **image occupies the top ~1300 px** (`card_h: 1300`
 in `beats.json`), cropped to the frame's width; below it is a flat **cream card**

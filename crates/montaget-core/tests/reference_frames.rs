@@ -29,10 +29,13 @@
 //! move is a **centre** pivot, which `docs/research/sample-project-migration/README.md` D3
 //! had already measured — *"the move is a centre-pivot zoom (centre beats top at every
 //! sample)"* — and which the migration then did not write into the file. At 400 ms the two
-//! spellings are a pixel apart and nothing can tell them apart; at 14.0 s, with the ramp at
-//! 1.0586, they are 32 px apart horizontally and 56 px vertically, and the photograph
-//! plainly did not match. `ci/reference_frame_instants.py` re-derives the scale and offset
-//! from the pictures and shows the centre pivot fitting where the declared one did not.
+//! spellings are 1 × 2 px apart, which is smaller than the residual below and so tells you
+//! nothing — the intro frame actually scores the *rejected* spelling higher, for the reason
+//! [`the_corrected_pivot_beats_the_one_the_migration_first_wrote`] sets out. At 14.0 s, with
+//! the ramp at 1.0586, they are 32 px apart horizontally and 56 px vertically, and the
+//! photograph plainly did not match. `ci/reference_frame_instants.py` re-derives the scale
+//! and offset from the pictures and shows the centre pivot fitting where the declared one
+//! did not.
 //!
 //! That was a defect in the **fixture**, not in this build: the renderer paints the pivot
 //! the document names, and #212's tests fix that reading against all nine keywords. So the
@@ -53,7 +56,8 @@
 //! assumed away.** With the centre pivot and the declared ramp both in place, the
 //! photograph still sits about 2 px from the published one at 400 ms and 8 px at 14 000 ms.
 //! [`what_the_corrected_pivot_does_not_explain_is_measured_and_reported`] carries the
-//! numbers and what is known about them; nothing owns it yet.
+//! numbers and what is known about them, and
+//! [#299](https://github.com/MBehtemam/Montaget/issues/299) owns it.
 //!
 //! [#276]: https://github.com/MBehtemam/Montaget/issues/276
 //!
@@ -78,8 +82,12 @@
 //! - **[`Half::Photograph`]** — the photograph, and with it the Ken Burns move, less those
 //!   same two panels.
 //!
+//! Between them they are the whole frame, less the text —
+//! [`the_two_halves_leave_no_pixel_ungated`] asserts it per pixel, after an earlier draft
+//! left a band around the photograph's own boundary in neither half.
+//!
 //! **One gate would be one number over two pictures that diverge for different reasons.**
-//! The photograph is 53% of the frame, arrives through H.264 at 1.28 Mb/s, and matches
+//! The photograph is 60% of the frame, arrives through H.264 at 1.28 Mb/s, and matches
 //! worst; the drawn geometry is flat brand colour and matches at 0.9874. A single
 //! threshold would have to clear the worse of them, and at that height a navy card 40 px
 //! out of place — 0.034 on a combined number — would pass. Split, the same break costs
@@ -209,7 +217,8 @@ const REFERENCES: [Reference; 2] = [
             gate: 0.975,
             least_coverage: 0.2,
         },
-        // **Measured, not chosen: 0.8578**, and the lowest gate in this file by a distance.
+        // **Measured, not chosen: 0.8618.** Low for a gate in this file, though not the
+        // lowest — the same frame's later sibling sits at 0.59.
         // The photograph is the one thing in the frame that arrives through H.264 at
         // 1.28 Mb/s, and cobweb at that bitrate is where a codec spends its errors. The
         // residual `what_the_corrected_pivot_does_not_explain_is_measured_and_reported`
@@ -255,13 +264,13 @@ const REFERENCES: [Reference; 2] = [
             gate: 0.953,
             least_coverage: 0.2,
         },
-        // **Measured, not chosen: 0.6045**, and this is the number #276 exists to produce.
+        // **Measured, not chosen: 0.6142**, and this is the number #276 exists to produce.
         // The photograph was masked out of this frame entirely until the fixture's pivot
         // was corrected; with the centre pivot in the file it can be compared, and the ramp
         // here is at 1.0586 — far enough up it that the Ken Burns move is finally gated
         // somewhere, which is the one thing #213 asked for and could not have.
         //
-        // Low, and every part of the distance from the intro frame's 0.8578 is accounted
+        // Low, and every part of the distance from the intro frame's 0.8618 is accounted
         // for: the ramp has magnified the photograph by 5.9%, so the render and the
         // reference disagree about every high-frequency pixel in it, and the residual
         // displacement measured below is 8 × 4 px here against 2 × 2 px there. What it is
@@ -359,17 +368,25 @@ impl Reference {
     /// that decides.** The panels have to come back after the photograph goes out: they are
     /// Montaget's own rectangles, painted *on* the photograph, and losing them with it
     /// would take the frame's two cleanest pieces of geometry out of the gate.
+    ///
+    /// **The two halves partition the frame, and
+    /// [`the_two_halves_leave_no_pixel_ungated`] holds them to it.** Both use the *same*
+    /// [`photograph`] rectangle — one subtracting it, the other admitting it — so there is
+    /// no band that belongs to neither. Growing one and shrinking the other by [`MARGIN`],
+    /// which is right when a region is *excluded* for a known divergence, would leave the
+    /// photograph's own boundary gated by nothing at all: the seam between the photograph
+    /// and the cream card below it, which is the edge a `clip`-height defect moves.
     fn scope(&self, half: Half) -> Scope {
+        // Text comes out of both halves, so the typeface substitution (#186) cannot reach
+        // either number. It is the one thing this file measures and never gates.
         match half {
             Half::Drawn => Scope::whole()
-                .less(vec![PHOTOGRAPH.scaled(
-                    FRAME_WIDTH,
-                    REFERENCE_WIDTH,
-                    MARGIN,
-                )])
+                .less(vec![photograph()])
                 .plus(scaled(&PANELS))
                 .less(scaled(self.text)),
-            Half::Photograph => photograph_only(),
+            Half::Photograph => Scope::inside(vec![photograph()])
+                .less(scaled(&PANELS))
+                .less(scaled(self.text)),
         }
     }
 
@@ -439,7 +456,7 @@ fn the_render_matches_the_published_video_over_each_frames_gated_region() {
     // covers was drawn by Montaget from the document and by the old pipeline from its own
     // inputs — nothing in the comparison came from the thing under test.
     //
-    // Two halves per frame, each with its own number: see [`Reference::photograph_gate`]
+    // Two halves per frame, each with its own number: see [`Reference::photograph`]
     // for why the photograph is not folded into one.
     for reference in &REFERENCES {
         let (theirs, ours) = planes(reference, &fixture_project());
@@ -538,40 +555,82 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
     }
 }
 
-/// The photograph alone, less the two panels drawn over it — the region a statement about
-/// the Ken Burns move has to be made over.
+/// The photograph's rectangle at the comparison's size — **the one boundary both halves
+/// use**, so that what [`Half::Drawn`] subtracts is exactly what [`Half::Photograph`]
+/// admits and no band belongs to neither.
+fn photograph() -> Region {
+    PHOTOGRAPH.scaled(FRAME_WIDTH, REFERENCE_WIDTH, MARGIN)
+}
+
+/// The photograph's *interior* — its rectangle shrunk by [`MARGIN`], less the panels and
+/// the text — for the two tests that **measure the photograph's content** rather than gate
+/// the frame.
 ///
-/// **No text is subtracted here, and that is a claim, not an omission.** Every text element
-/// in either reference either sits below the photograph entirely or sits inside one of the
-/// two panels that are subtracted — so the typeface substitution (#186) cannot reach this
-/// number. Asserted rather than commented, for the reason `Region::scaled` gives about its
-/// own margin: this is the sort of thing that silently stops being true when somebody moves
-/// an element, and a photograph gate quietly measuring Open Runde against SF Pro Rounded
-/// would be a gate measuring the wrong thing.
-fn photograph_only() -> Scope {
-    for reference in &REFERENCES {
-        for (name, text) in reference.text {
-            let below = text.y >= PHOTOGRAPH.y + PHOTOGRAPH.height;
-            let inside_a_panel = PANELS.iter().any(|(_, panel)| {
-                text.x >= panel.x
-                    && text.y >= panel.y
-                    && text.x + text.width <= panel.x + panel.width
-                    && text.y + text.height <= panel.y + panel.height
-            });
-            assert!(
-                below || inside_a_panel,
-                "`{name}` is inside the photograph's region and inside neither header \
-                 panel, so the photograph's gate is measuring the typeface as well as the \
-                 Ken Burns move. Subtract it here, or say why it is admissible."
-            );
-        }
-    }
+/// **Deliberately not [`photograph`], and the difference is the point.** A gate must cover
+/// the photograph's boundary, because the seam where it meets the cream card is real
+/// geometry a defect can move. A measurement of *where the photograph sits* must exclude
+/// that boundary: the seam is drawn at the aperture and stays put however the picture
+/// behind it slides, so a search for the picture's displacement that could see the seam
+/// would be pulled toward reporting no displacement at all.
+fn photograph_interior() -> Scope {
     Scope::inside(vec![PHOTOGRAPH.scaled(
         FRAME_WIDTH,
         REFERENCE_WIDTH,
         -MARGIN,
     )])
     .less(scaled(&PANELS))
+}
+
+#[test]
+fn the_two_halves_leave_no_pixel_ungated() {
+    // The property that makes "two gates" honest rather than two gates with a hole between
+    // them. Every pixel of every reference is in exactly one of three places: the drawn
+    // half, the photograph half, or the text that is measured and never gated.
+    //
+    // **This is a regression test for a real hole.** When the photograph was first split
+    // out, `Drawn` subtracted it grown by `MARGIN` while `Photograph` admitted it *shrunk*
+    // by `MARGIN` — the two conventions that are each correct on their own, for excluding
+    // and for measuring. Together they left a 16-pixel band around the photograph's
+    // boundary in neither gate, including the seam where the photograph meets the cream
+    // card, which is precisely the edge a `clip`-height defect moves. The gates both
+    // passed and 8.5% of the frame was checked by nothing.
+    for reference in &REFERENCES {
+        let theirs = published(reference.file);
+        let (width, height) = (theirs.width() as usize, theirs.height() as usize);
+        let drawn = reference.scope(Half::Drawn);
+        let photo = reference.scope(Half::Photograph);
+        let text = reference.text_only();
+
+        let total = drawn.coverage(width, height)
+            + photo.coverage(width, height)
+            + text.coverage(width, height);
+        println!(
+            "COVERAGE  {} — drawn {:.1}% + photograph {:.1}% + text {:.1}% = {:.1}%",
+            reference.file,
+            drawn.coverage(width, height) * 100.0,
+            photo.coverage(width, height) * 100.0,
+            text.coverage(width, height) * 100.0,
+            total * 100.0,
+        );
+
+        // Per pixel rather than on the sum alone: three coverages can add to 1.0 with a
+        // pixel double-counted in one place and missing in another.
+        for y in 0..height {
+            for x in 0..width {
+                let places = [&drawn, &photo, &text]
+                    .iter()
+                    .filter(|scope| scope.admits(x, y))
+                    .count();
+                assert_eq!(
+                    places, 1,
+                    "{}: pixel ({x}, {y}) is in {places} of the three regions, not 1. \
+                     The halves have stopped partitioning the frame — a pixel in none is \
+                     gated by nothing, and one in two is gated twice under two thresholds.",
+                    reference.file
+                );
+            }
+        }
+    }
 }
 
 /// The pivot the migration first wrote, as an exact-string edit of the committed fixture.
@@ -614,7 +673,7 @@ fn the_corrected_pivot_beats_the_one_the_migration_first_wrote() {
         "the rewrite to the old pivot did not take: {first_written}"
     );
 
-    let photograph = photograph_only();
+    let photograph = photograph_interior();
     for reference in &REFERENCES {
         let theirs = published(reference.file);
         let plane = |project: &Path| {
@@ -641,9 +700,17 @@ fn the_corrected_pivot_beats_the_one_the_migration_first_wrote() {
             (ramp - 1.0) * 540.0,
         );
         // Only at the later frame. At 400 ms the ramp is 1.0021 and the two spellings put
-        // the photograph one pixel apart, which is under this comparison's resolution and
-        // below the residual measured beside it — so the intro frame has no opinion, and
-        // asserting one here would be reading noise as evidence.
+        // **Only at the later frame, and the intro frame's own number says why rather than
+        // hiding it.** At 400 ms the intro frame scores the *rejected* spelling higher —
+        // 0.9188 about the top-left against 0.8578 about the centre — and that is not
+        // evidence for `top-left`. At a ramp of 1.0021 the two spellings put the photograph
+        // about 1 px apart horizontally and 2 px vertically, while the unexplained residual
+        // `what_the_corrected_pivot_does_not_explain_is_measured_and_reported` measures is
+        // (+2, +2) px in almost exactly the direction `top-left` displaces. So at this
+        // instant the comparison is reading the residual (#299) and not the pivot at all,
+        // and an assertion either way would be reading that residual as evidence about
+        // something else. At 14 000 ms the two spellings are 32 × 56 px apart — an order of
+        // magnitude above the residual — and the frame can speak.
         if reference.at == 14000 {
             assert!(
                 centre > top,
@@ -675,24 +742,85 @@ fn what_the_corrected_pivot_does_not_explain_is_measured_and_reported() {
     // 0.40 of the box horizontally, which is not one of ADR-0013's nine keywords and so is
     // not a thing this format can spell. Whatever it is, it is not a pivot.
     //
-    // Reported without a threshold, for the same reason as the typeface: a number here
-    // would freeze a residual that a later ticket may explain and remove.
-    let photograph = photograph_only();
+    // **The displacement is searched here, not quoted here.** An earlier draft of this test
+    // printed those numbers as string literals and asserted nothing, which is a test that
+    // cannot stop agreeing with itself: the residual could move to 20 px and the line would
+    // still read "2 px". The search below re-derives it every run, and what is asserted is
+    // the *shape* — that it grows with the ramp — because that is the part which says this
+    // is a systematic divergence rather than noise. The magnitude stays un-thresholded, for
+    // the same reason as the typeface: freezing it would make explaining it a test failure.
+    let mut best = Vec::new();
     for reference in &REFERENCES {
-        let (theirs, ours) = planes(reference, &fixture_project());
-        let score = ssim(&theirs, &ours, &photograph);
-        println!(
-            "NON-GATING  {} at {} ms — photograph SSIM {score:.4} over {:.1}% of the \
-             frame; this region is gated as [`Half::Photograph`], the residual below is \
-             not.\n\
-             \x20           The centre pivot #276 wrote leaves a displacement of 2 px at \
-             400 ms and 8 px at 14 000 ms, growing with the ramp; it is named in this test \
-             and owned by nothing yet.",
-            reference.file,
-            reference.at,
-            photograph.coverage(theirs.width, theirs.height) * 100.0,
+        let photograph = photograph_interior();
+        let theirs = published(reference.file);
+        let ours = resized(
+            &rendered(&fixture_project(), reference.at, /* full */ true),
+            theirs.width(),
+            theirs.height(),
         );
+        let theirs = Plane::of(&theirs);
+
+        // Whole reference pixels — four of the project's — because that is the finest
+        // shift this comparison can actually resolve. The offsets recorded in #299 were
+        // measured in project pixels by a separate sweep; these are the same quantity at
+        // this suite's own resolution.
+        let (shift, score) = (0..=RESIDUAL_REACH)
+            .flat_map(|dy| (0..=RESIDUAL_REACH).map(move |dx| (dx, dy)))
+            .map(|(dx, dy)| {
+                let shifted = Plane::of(&translated(&ours, dx, dy));
+                ((dx, dy), ssim(&theirs, &shifted, &photograph))
+            })
+            .max_by(|a, b| a.1.partial_cmp(&b.1).expect("SSIM is never NaN"))
+            .expect("the sweep is not empty");
+
+        let at_rest = ssim(&theirs, &Plane::of(&ours), &photograph);
+        println!(
+            "NON-GATING  {} at {} ms — photograph SSIM {at_rest:.4} as written; the best \
+             match is {:+}, {:+} reference px away at {score:.4}.\n\
+             \x20           That displacement is what the centre pivot #276 wrote does not \
+             explain. It is owned by #299.",
+            reference.file, reference.at, shift.0, shift.1,
+        );
+        best.push((reference.at, shift));
     }
+
+    let (early_at, early) = best[0];
+    let (late_at, late) = best[1];
+    let magnitude = |(dx, dy): (i64, i64)| dx.abs() + dy.abs();
+    assert!(
+        magnitude(late) > magnitude(early),
+        "the residual displacement at {late_at} ms ({late:?}) is not larger than at \
+         {early_at} ms ({early:?}). It growing with the ramp is what makes it a systematic \
+         divergence rather than noise, and it is the one thing this test asserts — see \
+         #299, which is written on the assumption."
+    );
+}
+
+/// How far the residual sweep reaches, in reference pixels.
+///
+/// Four, which is 16 of the project's — twice the largest displacement #299 records, so
+/// the minimum it finds is an interior one rather than the edge of the search. One
+/// direction only: every measurement so far puts the published photograph down and to the
+/// right of where the fixture puts it, and a sweep that admitted the other sign would
+/// spend four times the renders confirming it.
+const RESIDUAL_REACH: i64 = 4;
+
+/// The same picture, moved by whole pixels, with the vacated edge left black.
+///
+/// The comparison that uses this is scoped to the photograph's interior, so the vacated
+/// edge never enters a window that is scored.
+fn translated(image: &image::RgbaImage, dx: i64, dy: i64) -> image::RgbaImage {
+    let (width, height) = (image.width(), image.height());
+    let mut out = image::RgbaImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let (from_x, from_y) = (x as i64 - dx, y as i64 - dy);
+            if from_x >= 0 && from_y >= 0 && (from_x as u32) < width && (from_y as u32) < height {
+                out.put_pixel(x, y, *image.get_pixel(from_x as u32, from_y as u32));
+            }
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -745,14 +873,27 @@ fn a_deliberately_broken_render_fails_the_gated_comparison() {
 
     // The unbroken score for each reference *and half*, so the cost of a break is a
     // measured difference rather than a distance from a constant.
-    let unbroken = |reference: &Reference, half: Half| {
-        let (theirs, ours) = planes(reference, &fixture_project());
-        ssim(&theirs, &ours, &reference.scope(half))
-    };
+    //
+    // Computed once per reference and reused, rather than per break: the two are the same
+    // number, and each costs a full 1080×1920 render of the fixture in the slowest test in
+    // this file.
+    let unbroken: Vec<[f64; 2]> = REFERENCES
+        .iter()
+        .map(|reference| {
+            let (theirs, ours) = planes(reference, &fixture_project());
+            [
+                ssim(&theirs, &ours, &reference.scope(Half::Drawn)),
+                ssim(&theirs, &ours, &reference.scope(Half::Photograph)),
+            ]
+        })
+        .collect();
 
     for (which, half, what, from, to) in breaks {
         let reference = &REFERENCES[which];
-        let before = unbroken(reference, half);
+        let before = unbroken[which][match half {
+            Half::Drawn => 0,
+            Half::Photograph => 1,
+        }];
         assert!(
             original.contains(from),
             "the break `{what}` no longer matches the fixture: {from}"

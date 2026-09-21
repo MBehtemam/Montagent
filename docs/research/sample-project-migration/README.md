@@ -134,7 +134,8 @@ from the prototype, and the first-half fit is consistent with it.
 > (2 × 2 px at 400 ms). The displacement implied by that pair puts the pivot at roughly
 > 0.40 of the box horizontally, which is not one of ADR-0013's nine keywords — so whatever
 > is left, it is not a pivot this format could spell. It is reported without a threshold by
-> `crates/montaget-core/tests/reference_frames.rs` and owned by nothing.
+> `crates/montaget-core/tests/reference_frames.rs` and owned by
+> [#299](https://github.com/MBehtemam/Montaget/issues/299).
 
 ### D4 — `clip` on `handle-logo` is a no-op
 
