@@ -1139,9 +1139,8 @@ from t={from} to t={to}; ease={ease} describes no motion.",
         // `--check` carrying only `L-KEY-ORDER` would have reported nothing on the very
         // file ADR-0041 was written about.
         //
-        // ADR-0041 specifies one finding shape and it is the element-scoped one, so this
-        // code is surface the ADR series has not ratified. Raised as #241 rather than left
-        // to be discovered from the table.
+        // Ratified by ADR-0079 as a second, whole-file `LAYOUT` finding shape alongside
+        // the element-scoped `L-KEY-ORDER` ADR-0041 specifies.
         code: "L-LAYOUT",
         classes: &[Layout],
         repair: None,

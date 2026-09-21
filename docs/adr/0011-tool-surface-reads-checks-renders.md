@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by nineteen later ADRs.** Read them before relying on anything below.
+> **Amended by twenty later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -57,6 +57,10 @@ status: accepted
 >   below, which `CONTEXT.md` calls authoritative. *"Eight MCP tools, eleven CLI commands"*
 >   no longer holds. The exit-code table's row 3 is also what a `preview` budget hard-fail
 >   returns — the document is legal and the invocation is what could not be satisfied
+> - [ADR-0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md) — the five-code ladder
+>   stays five: `LAYOUT` never gates `fmt --check`'s exit code, the identical rule ADR-0041
+>   already states for `validate` and `render`. A caller that wants a hard gate on canonical
+>   form reads `--json`'s counted `summary.layout` field
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

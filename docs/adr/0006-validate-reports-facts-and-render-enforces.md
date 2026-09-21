@@ -19,6 +19,11 @@ status: accepted
 > showing an illegal project. Nothing about `validate`'s side moves — it still reports and
 > never enforces.
 
+> **Amended by [ADR-0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md)**, which
+> settles that `validate`'s exit code stays untouched by `LAYOUT` findings, the same
+> `error`-only rule this ADR and ADR-0011 already state, on a file that is legal but not in
+> canonical convention — the identical question `fmt --check` raises.
+
 > **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)**,
 > which designs the *"the probe cache is a gitignored sidecar"* consequence
 > this ADR stated and left undesigned, and **places it outside every
