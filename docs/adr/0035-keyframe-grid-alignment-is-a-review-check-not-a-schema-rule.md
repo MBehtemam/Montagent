@@ -5,6 +5,12 @@ amends: 0005 (publishes the sampling rule the frame-alignment paragraph promised
 
 # Off-grid keyframe times stay legal; `validate` gains an unreached-target check, and `measure` gains the grid arithmetic
 
+> **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which states which whole
+> millisecond of the grid below a frame is actually painted at: `⌊n × 1000 / fps⌋`, since
+> `n × 1000/fps` is not a whole millisecond at every rate. Presence is unaffected; an
+> interpolated value can differ by under a millisecond of travel where the grid is not
+> millisecond-exact.
+
 [Ticket #67](https://github.com/MBehtemam/Montaget/issues/67), graduated from the map's
 *"Frame alignment and the rounding rule"* fog entry by [#12](https://github.com/MBehtemam/Montaget/issues/12).
 Two measured facts started it: fading `opacity` 1 → 0 over `[end-300, end]`, with `end`

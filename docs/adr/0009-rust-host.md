@@ -4,6 +4,12 @@ status: accepted
 
 # Montaget is a Rust MCP server
 
+> **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which ratifies the encoder
+> settings the spawned `ffmpeg` is given — `libx264`, `yuv420p`, CRF 20, preset `medium`,
+> `+faststart`, AAC at 160 kb/s — and confirms the `libopenh264` escape route named below
+> is still not taken: an `ffmpeg` without `libx264` surfaces as exit 70 carrying its own
+> sentence, never a silent fallback.
+
 Montaget is hosted in **Rust**, built on the first-party **`rmcp`** SDK.
 
 This ADR records the **host** only — the language, the MCP SDK, the packaging

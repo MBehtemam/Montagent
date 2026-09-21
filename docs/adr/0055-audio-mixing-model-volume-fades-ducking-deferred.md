@@ -5,6 +5,13 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 
 # `volume` is a keyframable 0..1..>1 multiplier, flat on audio and video elements; ducking is deferred, hand-authored as keyframes
 
+> **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which states how the mix
+> carries this ADR's decisions: the bus is **48 kHz stereo** so every `aloop` sample count
+> is exact from the document alone, `amix` runs with **`normalize=0`** so two lines at
+> `1.0` are each still at `1.0`, and a **keyframed `volume` is applied as the value
+> `resolve` computes on every sampled frame**, as timed commands, rather than re-expressed
+> in `ffmpeg`'s expression language.
+
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) already
 named the trap — an agent will write `opacity` on an audio element meaning
 volume, and it fades nothing, forever — but deferred naming the real

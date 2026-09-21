@@ -2,9 +2,9 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**Most of this series amends itself — 60 of 75 ADRs declare an amendment: 57 in an `amends:` header, three ([0008](0008-time-is-integer-milliseconds.md), [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+**Most of this series amends itself — 62 of 77 ADRs declare an amendment: 59 in an `amends:` header, three ([0008](0008-time-is-integer-milliseconds.md), [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
-**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (16 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
+**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0011 (19 amendments) and ADR-0006/ADR-0012 (18 and 12), which is expected: they are the tool surface, the validate report and the transform model, and nearly every later decision lands on one of them.
 
 ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
@@ -20,10 +20,10 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0009](0009-rust-host.md) | The host is Rust, on the stdio MCP binding — one subprocess per session, startup paid once | — |
+| [0009](0009-rust-host.md) | The host is Rust, on the stdio MCP binding — one subprocess per session, startup paid once | 0077 |
 | [0010](0010-skia-safe-rasterizer-text-beside-it.md) | `skia-safe` rasterizes; text lays out beside it; FFmpeg stays a subprocess the user supplies. `tiny-skia` is the named exit, never a second backend | 0040 |
 | [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md) | `cargo install` + GitHub Release binaries, all six desktop tier-1 targets, no Homebrew, passive updates, no phone-home ever | — |
-| [0021](0021-preview-budget-and-graceful-degradation.md) | The budget splits in two: `frame` under 500 ms cold is primary; render/preview is secondary. Proxy-resolution preview adopted, its numbers deferred | 0046, 0050, 0065, 0072 |
+| [0021](0021-preview-budget-and-graceful-degradation.md) | The budget splits in two: `frame` under 500 ms cold is primary; render/preview is secondary. Proxy-resolution preview adopted, its numbers deferred | 0046, 0050, 0065, 0072, 0077 |
 | [0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) | The proxy target is a single 720p tier, long edge capped at 1280 px | 0050, 0067 |
 | [0050](0050-preview-hard-refuses-below-360p.md) | `preview` refuses below **360p** — from a rendered legibility pass on the real fixture | 0067 |
 | [0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md) | The ladder is `720p → 540p → hard fail`, **no 360p tier**. Its "legibility is unmeasured" clause is retired by 0067 | 0067 |
@@ -57,7 +57,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0032](0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md) | Every slack is invariant by default. `shift` refuses rather than silently absorbing; `compare` is the backstop for raw edits | 0039, 0047, 0051, 0063, 0066 |
 | [0047](0047-shift-releases-slack-by-boundary-instant-pairs.md) | `shift --release` takes a list of **boundary-instant pairs**, enumerated individually. No bulk release | — |
 | [0036](0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md) | `shift` unconditionally prints what its rules will do at a coincident `at`. No flag. `validate` gets no coincidence census | 0039, 0063 |
-| [0035](0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md) | Off-grid keyframe `t` stays legal; `validate` gains `R-KEYFRAME-UNREACHED`; the renderer needs no keyframe rounding rule | — |
+| [0035](0035-keyframe-grid-alignment-is-a-review-check-not-a-schema-rule.md) | Off-grid keyframe `t` stays legal; `validate` gains `R-KEYFRAME-UNREACHED`; the renderer needs no keyframe rounding rule | 0077 |
 | [0037](0037-derived-time-signature-is-a-provenance-gap-not-a-tool.md) | A derived time carries no signature — and that is a provenance gap, not a tool gap. **No authoring tool ships** | — |
 
 ## Transform and animation
@@ -102,13 +102,14 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0075](0075-the-badges-mask-changes-its-own-rim-and-nothing-else.md) | ADR-0068's *"the rendered frame is unchanged"* **retires**: the renderer minifies the badge 11.8×, so the mask trims a rim the stored asset does not have. Measured — 112 pixels of 540×960, mean channel delta 0.0041, SSIM 0.999982. Everything else in ADR-0068 stands | — |
 | [0049](0049-v1-colour-filter-vocabulary-four-scalar-members.md) | Four flat scalar colour effects — `tint`, `saturation`, `brightness`, `contrast` — no `mode` discriminator, plus a mechanical stopping rule that excludes curves and LUTs | — |
 | [0059](0059-transitions-element-type-crossfade-only-exact-window.md) | A transition is **its own element type**, id-targeting two elements over an exact window. v1 `kind` is `crossfade` only | — |
-| [0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) | `volume` is a keyframable `0..1..>1` linear multiplier, flat on `audio`/`video`. No `mute`. Automatic ducking deferred — hand-authored as ordinary keyframes | — |
+| [0055](0055-audio-mixing-model-volume-fades-ducking-deferred.md) | `volume` is a keyframable `0..1..>1` linear multiplier, flat on `audio`/`video`. No `mute`. Automatic ducking deferred — hand-authored as ordinary keyframes | 0077 |
 
 ## The tool surface
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0031, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070, 0074 |
+| [0011](0011-tool-surface-reads-checks-renders.md) | Nine MCP verbs + three CLI-only, split deliberately unequally. **One binary, one core library; the MCP server wraps the library, never the CLI.** The schema and format docs are resources. Every write tool returns findings, never `ok` | 0012, 0016, 0019, 0024, 0026, 0029, 0030, 0031, 0035, 0036, 0037, 0039, 0041, 0042, 0051, 0060, 0070, 0074, 0077 |
+| [0077](0077-the-nine-render-readings-are-ratified.md) | Ratifies the nine `render` readings `#215` shipped with no ADR behind them: the floored frame instant `⌊n × 1000 / fps⌋`, the derived extent, the two exit-3 refusals, `--to` past the end, the derived partial name, even-padding disclosed, the encoder settings, the 48 kHz `normalize=0` mix bus, and a keyframed `volume` as timed commands. The per-frame `video` seek is recorded as an unmeasured cost, not ratified | — |
 | [0070](0070-the-where-predicate-is-a-conjunction-of-whole-value-terms.md) | `query --where`'s predicate is **a conjunction of whole-value terms over what the document writes**: `and` only, no substring or regex, `exists`/`missing`, `*` and array indices, `track` reserved, nothing resolved. *"Resolved values, never echoed fields"* is `--at`'s rule | — |
 | [0074](0074-the-cut-lists-presence-set-is-every-element.md) | The cut list's presence set is **every element, audio included** — ADR-0011's *"on-screen"* is amended away. Members carry `type` so the visual list is one filter; the visual answer loses 28 of the fixture's 47 boundaries and cannot be filtered back. `unplaced` is specified surface | — |
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
@@ -145,7 +146,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 ## Reading order for a newcomer
 
-The series is 70 ADRs and mostly not worth reading front to back. To get the model:
+The series is 77 ADRs and mostly not worth reading front to back. To get the model:
 
 1. **[0003](0003-general-video-editor-not-channel-tooling.md)** — what this is and what the fixture is for. Read the anti-drift rule and take it seriously.
 2. **[0004](0004-tracks-as-constrained-lanes.md)** + **[0005](0005-absolute-integer-milliseconds.md)** — the shape of the document and its clock.
