@@ -445,8 +445,11 @@ nothing Montaget does can change it — which is what makes it the only thing in
 repository capable of **falsifying** the format rather than merely catching a change to
 it. Compared against by SSIM over a stated region at a stated threshold, never by byte
 equality, with the regions that differ for a known reason — the typeface substitution
-([#186](https://github.com/MBehtemam/Montaget/issues/186)) and the fixture's Ken Burns
-pivot — masked out of the gate and measured beside it.
+([#186](https://github.com/MBehtemam/Montaget/issues/186)) — masked out of the gate and
+measured beside it. A divergence is masked only while its cause is unfixed: the fixture's
+Ken Burns pivot was masked out of the later frame until
+[#276](https://github.com/MBehtemam/Montaget/issues/276) corrected the fixture, and that
+frame now gates the photograph as a region of its own.
 `crates/montaget-core/tests/reference_frames.rs`.
 (spec [#168](https://github.com/MBehtemam/Montaget/issues/168),
 [ADR-0010](docs/adr/0010-skia-safe-rasterizer-text-beside-it.md))

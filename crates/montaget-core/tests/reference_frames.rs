@@ -24,24 +24,38 @@
 //! defect.
 //! Both instants are re-derived by `ci/reference_frame_instants.py`.
 //!
-//! **The fixture's Ken Burns pivots about the wrong point.** The photo elements declare
-//! `origin: "top-left"` at `(0, 0)`; the published move is a **centre** pivot, which
-//! `docs/research/sample-project-migration/README.md` D3 had already measured — *"the move
-//! is a centre-pivot zoom (centre beats top at every sample)"* — and which the migration
-//! then did not write into the file. At 400 ms the two differ by a fifth of a pixel and
-//! nothing can tell them apart; at 14.0 s, with the ramp at 1.0588, they differ by 32 px
-//! horizontally and 56 px vertically, and the photograph plainly does not match.
-//! `ci/reference_frame_instants.py` re-derives the scale and offset from the pictures and
-//! shows the centre pivot fitting where the declared one does not.
+//! **The fixture's Ken Burns pivoted about the wrong point** — [#276], now fixed in the
+//! fixture. The photo elements declared `origin: "top-left"` at `(0, 0)`; the published
+//! move is a **centre** pivot, which `docs/research/sample-project-migration/README.md` D3
+//! had already measured — *"the move is a centre-pivot zoom (centre beats top at every
+//! sample)"* — and which the migration then did not write into the file. At 400 ms the two
+//! spellings are a pixel apart and nothing can tell them apart; at 14.0 s, with the ramp at
+//! 1.0586, they are 32 px apart horizontally and 56 px vertically, and the photograph
+//! plainly did not match. `ci/reference_frame_instants.py` re-derives the scale and offset
+//! from the pictures and shows the centre pivot fitting where the declared one did not.
 //!
-//! That is a defect in the **fixture**, not in this build: the renderer paints the pivot
-//! the document names, and #212's tests fix that reading against all nine keywords. It is
-//! quantified, masked out of the gate at the frame where it bites, reported as a number on
-//! every run, and raised as [#276](https://github.com/MBehtemam/Montaget/issues/276) —
-//! the same treatment #186 already prescribes for the typeface. What it is not is absorbed into a looser threshold: a gate slack
-//! enough to pass a 56 px displacement is slack enough to pass anything, which is the
-//! *"completed, looked plausible, was wrong"* failure ADR-0010 records this project having
-//! had twice.
+//! That was a defect in the **fixture**, not in this build: the renderer paints the pivot
+//! the document names, and #212's tests fix that reading against all nine keywords. So the
+//! repair is in `migrate.py`, which regenerates the committed file, and it is checked from
+//! this side by [`the_corrected_pivot_beats_the_one_the_migration_first_wrote`] — which
+//! renders both spellings against the published frame rather than trusting either.
+//!
+//! **What it was not, at any point, is absorbed into a looser threshold.** While it stood
+//! it was quantified, masked out of the gate at the frame where it bit, and reported as a
+//! number on every run — the same treatment #186 still prescribes for the typeface — and
+//! the fix did not loosen anything either: the photograph became its own gated half rather
+//! than being folded into one whole-frame number that a 40 px displacement could pass. A
+//! gate slack enough to admit a 56 px displacement is slack enough to admit anything, which
+//! is the *"completed, looked plausible, was wrong"* failure ADR-0010 records this project
+//! having had twice.
+//!
+//! **The correction did not close the divergence, and the remainder is measured rather than
+//! assumed away.** With the centre pivot and the declared ramp both in place, the
+//! photograph still sits about 2 px from the published one at 400 ms and 8 px at 14 000 ms.
+//! [`what_the_corrected_pivot_does_not_explain_is_measured_and_reported`] carries the
+//! numbers and what is known about them; nothing owns it yet.
+//!
+//! [#276]: https://github.com/MBehtemam/Montaget/issues/276
 //!
 //! # The typeface is not the same either
 //!
@@ -53,30 +67,30 @@
 //! defect, and [#186](https://github.com/MBehtemam/Montaget/issues/186) — still open — is
 //! where that gets quantified. Text is masked out of every gate and measured beside it.
 //!
-//! # So each reference states its own gated region
+//! # Every frame is gated over two regions, never one
 //!
-//! Between the two frames the whole picture is gated, and each half is gated where it can
-//! be believed:
+//! Each reference is compared twice, against its own threshold each time ([`Half`]):
 //!
-//! - **`frame-intro.png`, 400 ms** — the photograph and its Ken Burns at the start of the
-//!   ramp, the cream ground, the header panels, the drawn flag and the circular badge:
-//!   everything but the text.
-//! - **`frame-05-at-11s.png`, 14 000 ms** — the navy sentence card, the cream ground, both
-//!   header panels, the flag and the badge, with the photograph behind them masked for the
-//!   pivot divergence above. The panels are cut back *in* over the photograph they are
-//!   drawn on, which is why [`Scope`] is layered.
+//! - **[`Half::Drawn`]** — everything Montaget draws from the document's own geometry: the
+//!   cream ground, the navy sentence card, the flag's three rectangles, the circular badge
+//!   and both header panels, less the text. The panels are cut back *in* over the
+//!   photograph they are painted on, which is why [`Scope`] is layered.
+//! - **[`Half::Photograph`]** — the photograph, and with it the Ken Burns move, less those
+//!   same two panels.
 //!
-//! **One thing #213 asked to be gated is not, and saying so is the point of this
-//! paragraph.** The ticket's masked-in list names *"the Ken Burns move"*. The move is
-//! gated only at 400 ms, where the ramp is 1.0021 and the displacement it would catch is
-//! a single pixel — so in practice the *move* is gated nowhere, and only the
-//! photograph's framing and content are. That is a direct consequence of #276: the
-//! fixture's pivot is wrong, so the one frame far enough up the ramp to test the move is
-//! the one frame where the photograph cannot be compared at all. #276's "done when"
-//! carries the obligation to unmask it. Until then
-//! [`the_fixtures_ken_burns_pivot_divergence_is_measured_and_reported`] measures the
-//! photograph at both instants and asserts the divergence grows with the ramp, which
-//! identifies the defect but does not gate the move.
+//! **One gate would be one number over two pictures that diverge for different reasons.**
+//! The photograph is 53% of the frame, arrives through H.264 at 1.28 Mb/s, and matches
+//! worst; the drawn geometry is flat brand colour and matches at 0.9874. A single
+//! threshold would have to clear the worse of them, and at that height a navy card 40 px
+//! out of place — 0.034 on a combined number — would pass. Split, the same break costs
+//! 0.131 against a gate 0.012 below the unbroken score, and every gate in this file is set
+//! one notch under a measurement printed on every run.
+//!
+//! **This is what #213 asked for and could not have.** Its masked-in list names *"the Ken
+//! Burns move"*, and until #276 the move was gated nowhere: at 400 ms the ramp is 1.0021
+//! and there is nothing to catch, and at 14 000 ms the photograph had to be masked out
+//! entirely because the fixture's pivot put it 32 × 56 px away. With the pivot corrected,
+//! the 14 000 ms frame gates the photograph at a ramp of 1.0586.
 //!
 //! Run with `--nocapture` to see every number this file measured.
 
@@ -132,14 +146,27 @@ struct Reference {
     /// construction, so the block is tight and the navy card's own top and bottom bands
     /// stay gated.
     text: &'static [(&'static str, Region)],
-    /// Regions excluded for a reason of this frame's own, each carrying the reason.
-    excluded: &'static [(&'static str, Region)],
-    /// Regions put back in over an exclusion — the header panels, which are drawn *on* the
-    /// photograph and are Montaget's own geometry rather than the photograph's.
-    readmitted: &'static [(&'static str, Region)],
-    /// What the gated comparison must clear.
+    /// [`Half::Drawn`]: everything Montaget draws from the document's own geometry.
+    drawn: Gated,
+    /// [`Half::Photograph`]: the photograph, and so the Ken Burns move that carries it.
+    ///
+    /// **Its own number, and that is the point.** Until #276 the photograph was masked out
+    /// of the later frame entirely, because the fixture's pivot put it 32 × 56 px from
+    /// where the published move puts it, and a single gate loose enough to admit that was
+    /// loose enough to admit anything. Folding it back into one whole-frame number instead
+    /// would have had the same effect by a quieter route: the photograph is 53% of the
+    /// frame and matches worst, so one combined gate would have to sit near 0.69 — and a
+    /// navy card 40 px out of place, which moves that number by 0.034, would sail through
+    /// it. Two regions, two numbers, each set where its own picture can be believed.
+    photograph: Gated,
+}
+
+/// One gated region's two numbers.
+struct Gated {
+    /// What the comparison over that region must clear.
     gate: f64,
-    /// The least of the frame the gate may cover before it stops being a gate.
+    /// The least of the frame it may cover before it stops being a gate. A threshold over
+    /// a region the masks have eaten passes for the wrong reason, so both are asserted.
     least_coverage: f64,
 }
 
@@ -163,20 +190,34 @@ const REFERENCES: [Reference; 2] = [
             CHIP_TEXT,
             HANDLE_TEXT,
         ],
-        excluded: &[],
-        readmitted: &[],
-        // **Measured, not chosen: 0.9362.** The gate sits one notch under it. 1.0 is not
+        // **Measured, not chosen: 0.9874.** The gate sits one notch under it. 1.0 is not
         // reachable and a gate near it would be measuring the codec rather than the
         // render — the reference side is a whole H.264 frame of cobweb at 1.28 Mb/s,
         // resampled with a different filter from the one that encoded it.
         //
-        // The headroom is 0.011, which is thin only if the render varies across targets.
+        // The headroom is 0.012, which is thin only if the render varies across targets.
         // It does not meaningfully: #34's oracle measured `skia-safe` differing by at
         // most 2/255 on a handful of pixels between the six tier-1 targets, and the
         // resample and the SSIM here are both pure deterministic Rust. Every run prints
         // its score, so tightening this is a matter of reading a log.
-        gate: 0.925,
-        least_coverage: 0.8,
+        //
+        // It was 0.9362 over 85.8% before #276 split the photograph out into its own
+        // half. The number rose because what is left is flat brand geometry rather than a
+        // recompressed photograph — the same render, measured over a region where a
+        // difference means something.
+        drawn: Gated {
+            gate: 0.975,
+            least_coverage: 0.2,
+        },
+        // **Measured, not chosen: 0.8578**, and the lowest gate in this file by a distance.
+        // The photograph is the one thing in the frame that arrives through H.264 at
+        // 1.28 Mb/s, and cobweb at that bitrate is where a codec spends its errors. The
+        // residual `what_the_corrected_pivot_does_not_explain_is_measured_and_reported`
+        // measures is in here too.
+        photograph: Gated {
+            gate: 0.845,
+            least_coverage: 0.5,
+        },
     },
     Reference {
         file: "frame-05-at-11s.png",
@@ -207,48 +248,65 @@ const REFERENCES: [Reference; 2] = [
             CHIP_TEXT,
             HANDLE_TEXT,
         ],
-        excluded: &[(
-            // The photograph, which is `photo-05`'s own `clip`: [0, 0, 1080, 1300].
-            // Excluded for the Ken Burns pivot divergence this file's header documents —
-            // at 14 000 ms the ramp is at 1.0586, and a top-left pivot puts the photograph
-            // 32 px right and 56 px down of where the published move puts it.
-            "the photograph (the fixture's Ken Burns pivot — #276, measured below)",
-            Region {
-                x: 0,
-                y: 0,
-                width: 1080,
-                height: 1300,
-            },
-        )],
-        readmitted: &[
-            // Both header panels are Montaget's own rectangles drawn *over* the
-            // photograph, so excluding the photograph must not take them with it. Their
-            // own text goes back out afterwards, which is what the layering is for.
-            (
-                "chip-panel",
-                Region {
-                    x: 48,
-                    y: 88,
-                    width: 372,
-                    height: 84,
-                },
-            ),
-            (
-                "handle-panel",
-                Region {
-                    x: 438,
-                    y: 88,
-                    width: 594,
-                    height: 84,
-                },
-            ),
-        ],
-        // **Measured at 0.9515.** The region is the flag's three rectangles, the badge,
-        // two cream panels, the navy card's own top and bottom bands and the cream
-        // ground, with the photograph's detail masked away.
-        gate: 0.94,
-        least_coverage: 0.18,
+        // **Measured, not chosen: 0.9646.** The region is the flag's three rectangles, the
+        // badge, two cream panels, the navy card's own top and bottom bands and the cream
+        // ground. Unchanged by #276 — this half never contained the photograph.
+        drawn: Gated {
+            gate: 0.953,
+            least_coverage: 0.2,
+        },
+        // **Measured, not chosen: 0.6045**, and this is the number #276 exists to produce.
+        // The photograph was masked out of this frame entirely until the fixture's pivot
+        // was corrected; with the centre pivot in the file it can be compared, and the ramp
+        // here is at 1.0586 — far enough up it that the Ken Burns move is finally gated
+        // somewhere, which is the one thing #213 asked for and could not have.
+        //
+        // Low, and every part of the distance from the intro frame's 0.8578 is accounted
+        // for: the ramp has magnified the photograph by 5.9%, so the render and the
+        // reference disagree about every high-frequency pixel in it, and the residual
+        // displacement measured below is 8 × 4 px here against 2 × 2 px there. What it is
+        // not is slack: `a_deliberately_broken_render_fails_the_gated_comparison` puts two
+        // photograph breaks under it at the intro frame, and the top-left spelling this
+        // ticket replaced scores 0.3919 here.
+        photograph: Gated {
+            gate: 0.59,
+            least_coverage: 0.5,
+        },
     },
+];
+
+/// The photograph, which is every photo element's own `clip`: `[0, 0, 1080, 1300]`.
+const PHOTOGRAPH: Region = Region {
+    x: 0,
+    y: 0,
+    width: 1080,
+    height: 1300,
+};
+
+/// The two header panels — Montaget's own rectangles, drawn *over* the photograph.
+///
+/// They are not part of the photograph, so the measurement below subtracts them: a number
+/// about the Ken Burns move must not be diluted by two flat cream rectangles that match
+/// whatever the move does.
+const PANELS: [(&str, Region); 2] = [
+    (
+        "chip-panel",
+        Region {
+            x: 48,
+            y: 88,
+            width: 372,
+            height: 84,
+        },
+    ),
+    (
+        "handle-panel",
+        Region {
+            x: 438,
+            y: 88,
+            width: 594,
+            height: 84,
+        },
+    ),
 ];
 
 /// `chip-text`: x 182, y 130, origin center-left, width 238; 1 line × 52 × 1.1 = 57.2.
@@ -283,15 +341,44 @@ const HANDLE_TEXT: (&str, Region) = (
 /// gate.
 const MIN_DROP: f64 = 0.02;
 
+/// One of the two regions a frame is gated over. Each is gated; neither is the whole.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Half {
+    /// Everything Montaget draws from the document's own geometry: the cream ground, the
+    /// navy card, the flag's three rectangles, the badge and both header panels.
+    Drawn,
+    /// The photograph, and therefore the Ken Burns move that carries it.
+    Photograph,
+}
+
 impl Reference {
-    /// The gated region: everything, less the photograph where this frame excludes it,
-    /// plus the panels drawn over it, less the text — **in that order**, because the last
-    /// layer to name a pixel is the one that decides.
-    fn gated(&self) -> Scope {
-        Scope::whole()
-            .less(scaled(self.excluded))
-            .plus(scaled(self.readmitted))
-            .less(scaled(self.text))
+    /// The region for one half.
+    ///
+    /// **[`Half::Drawn`] is the whole frame less the photograph, plus the panels drawn over
+    /// it, less the text — in that order, because the last layer to name a pixel is the one
+    /// that decides.** The panels have to come back after the photograph goes out: they are
+    /// Montaget's own rectangles, painted *on* the photograph, and losing them with it
+    /// would take the frame's two cleanest pieces of geometry out of the gate.
+    fn scope(&self, half: Half) -> Scope {
+        match half {
+            Half::Drawn => Scope::whole()
+                .less(vec![PHOTOGRAPH.scaled(
+                    FRAME_WIDTH,
+                    REFERENCE_WIDTH,
+                    MARGIN,
+                )])
+                .plus(scaled(&PANELS))
+                .less(scaled(self.text)),
+            Half::Photograph => photograph_only(),
+        }
+    }
+
+    /// What that half must clear, and how much of the frame it must still cover.
+    fn gated(&self, half: Half) -> &Gated {
+        match half {
+            Half::Drawn => &self.drawn,
+            Half::Photograph => &self.photograph,
+        }
     }
 
     /// The text regions alone — measured, never gated.
@@ -351,48 +438,61 @@ fn the_render_matches_the_published_video_over_each_frames_gated_region() {
     // The one test in this repository that can say the format is wrong. Everything it
     // covers was drawn by Montaget from the document and by the old pipeline from its own
     // inputs — nothing in the comparison came from the thing under test.
+    //
+    // Two halves per frame, each with its own number: see [`Reference::photograph_gate`]
+    // for why the photograph is not folded into one.
     for reference in &REFERENCES {
         let (theirs, ours) = planes(reference, &fixture_project());
-        let mask = reference.gated();
-        let coverage = mask.coverage(theirs.width, theirs.height);
-        let score = ssim(&theirs, &ours, &mask);
+        for half in [Half::Drawn, Half::Photograph] {
+            let mask = reference.scope(half);
+            let Gated {
+                gate,
+                least_coverage,
+            } = *reference.gated(half);
+            let coverage = mask.coverage(theirs.width, theirs.height);
+            let score = ssim(&theirs, &ours, &mask);
 
-        println!(
-            "GATING  {} at {} ms — SSIM {score:.4} over {:.1}% of the frame (gate {}).\n\
-             \x20        instant: {}\n\
-             \x20        masked out: text [{}]{}",
-            reference.file,
-            reference.at,
-            coverage * 100.0,
-            reference.gate,
-            reference.provenance,
-            named(reference.text),
-            if reference.excluded.is_empty() {
-                String::new()
-            } else {
-                format!(
-                    "; {}; with [{}] cut back in",
-                    named(reference.excluded),
-                    named(reference.readmitted)
-                )
-            },
-        );
-        assert!(
-            coverage >= reference.least_coverage,
-            "{}: a gate over {:.1}% of the frame is not the gate this reference claims to \
-             be — the masks have swallowed the picture",
-            reference.file,
-            coverage * 100.0
-        );
-        assert!(
-            score >= reference.gate,
-            "{} at {} ms: SSIM {score:.4} is below the gate {}. This is the comparison \
-             that can falsify the format — look at the two pictures before touching the \
-             number.",
-            reference.file,
-            reference.at,
-            reference.gate
-        );
+            println!(
+                "GATING  {} at {} ms, {half:?} — SSIM {score:.4} over {:.1}% of the frame \
+                 (gate {gate}).\n\
+                 \x20        instant: {}\n\
+                 \x20        {}",
+                reference.file,
+                reference.at,
+                coverage * 100.0,
+                reference.provenance,
+                match half {
+                    // Each half names what it actually subtracted, rather than one line
+                    // that is true of the other one: the text is masked out of the drawn
+                    // geometry it is painted on, and the panels out of the photograph they
+                    // are painted on. The text needs no second subtraction here — both
+                    // text elements over the photograph sit inside those panels.
+                    Half::Drawn => format!(
+                        "the photograph is out; the panels drawn on it are back in [{}]; \
+                         text is out [{}]",
+                        named(&PANELS),
+                        named(reference.text)
+                    ),
+                    Half::Photograph =>
+                        format!("the panels drawn over it are out [{}]", named(&PANELS)),
+                },
+            );
+            assert!(
+                coverage >= least_coverage,
+                "{} {half:?}: a gate over {:.1}% of the frame is not the gate this \
+                 reference claims to be — the masks have swallowed the picture",
+                reference.file,
+                coverage * 100.0
+            );
+            assert!(
+                score >= gate,
+                "{} at {} ms, {half:?}: SSIM {score:.4} is below the gate {gate}. This is \
+                 the comparison that can falsify the format — look at the two pictures \
+                 before touching the number.",
+                reference.file,
+                reference.at,
+            );
+        }
     }
 }
 
@@ -405,17 +505,20 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
     // and asserting on one would freeze the substitution into the suite.
     //
     // What *is* asserted is that the measurement was taken, and that it is worse than the
-    // gated region's: if the text ever matched as well as the rest of the frame, the mask
-    // would be unnecessary and this file would be overstating its case.
+    // drawn region's: if the text ever matched as well as the geometry it sits on, the mask
+    // would be unnecessary and this file would be overstating its case. Against the drawn
+    // half rather than against both, because the text is drawn *on* that geometry — the
+    // photograph is a different picture with a different reason for diverging (#276), and
+    // measuring the typeface against it would mix the two.
     for reference in &REFERENCES {
         let (theirs, ours) = planes(reference, &fixture_project());
         let text = reference.text_only();
         let in_text = ssim(&theirs, &ours, &text);
-        let gated = ssim(&theirs, &ours, &reference.gated());
+        let gated = ssim(&theirs, &ours, &reference.scope(Half::Drawn));
 
         println!(
             "NON-GATING  {} at {} ms — text SSIM {in_text:.4} over {:.1}% of the frame, \
-             against {gated:.4} in the gated region.\n\
+             against {gated:.4} in the drawn region.\n\
              \x20           The published video is typeset in SF Pro Rounded; this render \
              is in Open Runde — #143 re-vendored it because SF Pro Rounded is not \
              redistributable (ADR-0057). #186 owns the divergence.\n\
@@ -427,7 +530,7 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
         );
         assert!(
             in_text < gated,
-            "{}: the text scored {in_text:.4} against {gated:.4} in the gated region. If \
+            "{}: the text scored {in_text:.4} against {gated:.4} in the drawn region. If \
              the typeface substitution has stopped costing anything, #186 can close and \
              this mask should go.",
             reference.file
@@ -435,33 +538,95 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
     }
 }
 
-#[test]
-fn the_fixtures_ken_burns_pivot_divergence_is_measured_and_reported() {
-    // The other non-gating measurement, and the one this suite found rather than
-    // inherited. The photo elements declare `origin: "top-left"`; the published move is a
-    // centre pivot, which `docs/research/sample-project-migration/README.md` D3 measured
-    // and the migration did not write into the file.
-    //
-    // Reported rather than held to a threshold, for the same reason as the typeface: the
-    // number measures a defect in the fixture, and freezing it would make *fixing* the
-    // fixture a test failure. What is asserted is the finding's shape — that the
-    // divergence grows with the ramp — because that is what identifies it as a pivot
-    // rather than as a renderer that cannot place an image at all.
-    let photograph = Scope::inside(vec![
-        Region {
-            x: 0,
-            y: 0,
-            width: 1080,
-            height: 1300,
-        }
-        .scaled(FRAME_WIDTH, REFERENCE_WIDTH, -MARGIN),
-    ])
-    .less(scaled(REFERENCES[1].readmitted));
-
-    let mut scores = Vec::new();
+/// The photograph alone, less the two panels drawn over it — the region a statement about
+/// the Ken Burns move has to be made over.
+///
+/// **No text is subtracted here, and that is a claim, not an omission.** Every text element
+/// in either reference either sits below the photograph entirely or sits inside one of the
+/// two panels that are subtracted — so the typeface substitution (#186) cannot reach this
+/// number. Asserted rather than commented, for the reason `Region::scaled` gives about its
+/// own margin: this is the sort of thing that silently stops being true when somebody moves
+/// an element, and a photograph gate quietly measuring Open Runde against SF Pro Rounded
+/// would be a gate measuring the wrong thing.
+fn photograph_only() -> Scope {
     for reference in &REFERENCES {
-        let (theirs, ours) = planes(reference, &fixture_project());
-        let score = ssim(&theirs, &ours, &photograph);
+        for (name, text) in reference.text {
+            let below = text.y >= PHOTOGRAPH.y + PHOTOGRAPH.height;
+            let inside_a_panel = PANELS.iter().any(|(_, panel)| {
+                text.x >= panel.x
+                    && text.y >= panel.y
+                    && text.x + text.width <= panel.x + panel.width
+                    && text.y + text.height <= panel.y + panel.height
+            });
+            assert!(
+                below || inside_a_panel,
+                "`{name}` is inside the photograph's region and inside neither header \
+                 panel, so the photograph's gate is measuring the typeface as well as the \
+                 Ken Burns move. Subtract it here, or say why it is admissible."
+            );
+        }
+    }
+    Scope::inside(vec![PHOTOGRAPH.scaled(
+        FRAME_WIDTH,
+        REFERENCE_WIDTH,
+        -MARGIN,
+    )])
+    .less(scaled(&PANELS))
+}
+
+/// The pivot the migration first wrote, as an exact-string edit of the committed fixture.
+///
+/// Both halves of the rewrite are checked against the file by the test that uses them, so
+/// this cannot rot into a no-op that silently proves nothing.
+const AS_THE_MIGRATION_FIRST_WROTE_IT: (&str, &str) = (
+    r#""x":540,"y":956,"origin":"center""#,
+    r#""x":0,"y":0,"origin":"top-left""#,
+);
+
+#[test]
+fn the_corrected_pivot_beats_the_one_the_migration_first_wrote() {
+    // #276, from the other end. The committed fixture now declares `origin: "center"` at
+    // (540, 956); until #276 it declared `origin: "top-left"` at (0, 0), which is the same
+    // rectangle at scale 1.0 and a different one at every other scale. The two spellings
+    // are therefore indistinguishable at the intro frame and 32 × 56 px apart at 14 000 ms,
+    // and only the published video can say which is right.
+    //
+    // This renders both against the reference and asserts the committed one wins, which is
+    // the assertion that would catch the correction being reverted — including by a
+    // re-run of `migrate.py` from a copy that never got the fix. It is deliberately not a
+    // frozen number: what is claimed is an ordering between two renders, and an ordering
+    // survives a `skia-safe` bump that a threshold would not.
+    let original = std::fs::read_to_string(fixture_project()).expect("the fixture");
+    let (committed, first_written) = AS_THE_MIGRATION_FIRST_WROTE_IT;
+    assert!(
+        original.contains(committed),
+        "the committed fixture no longer declares the centre pivot #276 corrected it to: \
+         {committed}"
+    );
+    let top_left = Scratch::beside_the_fixture(
+        "pivot-under-test",
+        &original.replace(committed, first_written),
+    );
+    assert!(
+        std::fs::read_to_string(top_left.path())
+            .expect("the rewritten project")
+            .contains(first_written),
+        "the rewrite to the old pivot did not take: {first_written}"
+    );
+
+    let photograph = photograph_only();
+    for reference in &REFERENCES {
+        let theirs = published(reference.file);
+        let plane = |project: &Path| {
+            Plane::of(&resized(
+                &rendered(project, reference.at, /* full */ true),
+                theirs.width(),
+                theirs.height(),
+            ))
+        };
+        let theirs = Plane::of(&theirs);
+        let centre = ssim(&theirs, &plane(&fixture_project()), &photograph);
+        let top = ssim(&theirs, &plane(top_left.path()), &photograph);
         // The ramp each element declares: 1.0 at its first keyframe, 1.08 fifteen seconds
         // later. `photo-05-intro` starts at 0; `photo-05` restarts at 3 018.
         let ramp = match reference.at {
@@ -469,30 +634,65 @@ fn the_fixtures_ken_burns_pivot_divergence_is_measured_and_reported() {
             at => 1.0 + 0.08 * (at as f64 - 3018.0) / 15000.0,
         };
         println!(
-            "NON-GATING  {} at {} ms — photograph SSIM {score:.4}, Ken Burns ramp at \
-             {ramp:.4}.\n\
-             \x20           The fixture declares `origin: \"top-left\"` at (0, 0); the \
-             published move pivots about the centre, so the two part company as the ramp \
-             grows — {:.0} px horizontally here.",
+            "PIVOT   {} at {} ms — photograph SSIM {centre:.4} about the centre, \
+             {top:.4} about the top-left, ramp at {ramp:.4} ({:.0} px apart).",
             reference.file,
             reference.at,
             (ramp - 1.0) * 540.0,
         );
-        scores.push((reference.at, ramp, score));
+        // Only at the later frame. At 400 ms the ramp is 1.0021 and the two spellings put
+        // the photograph one pixel apart, which is under this comparison's resolution and
+        // below the residual measured beside it — so the intro frame has no opinion, and
+        // asserting one here would be reading noise as evidence.
+        if reference.at == 14000 {
+            assert!(
+                centre > top,
+                "{} at {} ms: the photograph matched the published video better about the \
+                 *top-left* ({top:.4}) than about the centre ({centre:.4}). #276's \
+                 correction rests on the opposite, and this is the measurement it rests on.",
+                reference.file,
+                reference.at,
+            );
+        }
     }
+}
 
-    let (_, early_ramp, early) = scores[0];
-    let (_, late_ramp, late) = scores[1];
-    assert!(
-        early_ramp < late_ramp,
-        "the two instants order by their ramp"
-    );
-    assert!(
-        early > late,
-        "the photograph matched better at the *larger* zoom ({late:.4} at ramp \
-         {late_ramp:.4}) than at the smaller ({early:.4} at ramp {early_ramp:.4}). That is \
-         not a pivot divergence, and the reading recorded in this file is wrong."
-    );
+#[test]
+fn what_the_corrected_pivot_does_not_explain_is_measured_and_reported() {
+    // #276 asked for this explicitly: *"there may be a second, smaller residual underneath
+    // this one — measure it rather than assuming this fix closes it."* There is one.
+    //
+    // Searching the photograph's displacement against the reference, with the centre pivot
+    // and the declared ramp both in place, the best match is **2 px right and 2 px down**
+    // at 400 ms and **8 px right and 4 px down** at 14 000 ms (mean absolute difference
+    // 6.27 → 5.10 and 11.24 → 3.63, over a ±24 px sweep in 4 px steps). So a small
+    // displacement is left, and it is a quarter of the horizontal error the pivot defect
+    // carried and a fourteenth of the vertical one.
+    //
+    // `docs/research/sample-project-migration/README.md` D3 flagged the same thing from the
+    // other side — *"the pure-zoom model's fit quality falls with `t`"* — and it is
+    // recorded rather than chased: the displacement implied by it puts the pivot at about
+    // 0.40 of the box horizontally, which is not one of ADR-0013's nine keywords and so is
+    // not a thing this format can spell. Whatever it is, it is not a pivot.
+    //
+    // Reported without a threshold, for the same reason as the typeface: a number here
+    // would freeze a residual that a later ticket may explain and remove.
+    let photograph = photograph_only();
+    for reference in &REFERENCES {
+        let (theirs, ours) = planes(reference, &fixture_project());
+        let score = ssim(&theirs, &ours, &photograph);
+        println!(
+            "NON-GATING  {} at {} ms — photograph SSIM {score:.4} over {:.1}% of the \
+             frame; this region is gated as [`Half::Photograph`], the residual below is \
+             not.\n\
+             \x20           The centre pivot #276 wrote leaves a displacement of 2 px at \
+             400 ms and 8 px at 14 000 ms, growing with the ramp; it is named in this test \
+             and owned by nothing yet.",
+            reference.file,
+            reference.at,
+            photograph.coverage(theirs.width, theirs.height) * 100.0,
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -502,50 +702,57 @@ fn the_fixtures_ken_burns_pivot_divergence_is_measured_and_reported() {
 #[test]
 fn a_deliberately_broken_render_fails_the_gated_comparison() {
     // The claim a passing threshold cannot make on its own. Each break is inside the
-    // gated region of the reference it is checked against, and each is the size of defect
-    // this project has actually shipped: a card in the wrong place, a panel the wrong
-    // colour, the wrong photograph, an image off its mark.
+    // region of the reference *and the half* it is checked against, and each is the size of
+    // defect this project has actually shipped: a card in the wrong place, a panel the
+    // wrong colour, the wrong photograph, an image off its mark.
+    //
+    // Naming the half is not bookkeeping. Two of these four break the photograph and two
+    // break the geometry drawn over it, and since #276 split the gate in two, a break
+    // checked against the other half would be a break checked against pixels it does not
+    // touch — which is a test that passes for the wrong reason.
     let original = std::fs::read_to_string(fixture_project()).expect("the fixture");
 
-    let breaks: [(usize, &str, &str, &str); 4] = [
+    let breaks: [(usize, Half, &str, &str, &str); 4] = [
         (
             1,
+            Half::Drawn,
             "the navy sentence card sits 40 px high",
             r#""id":"card-05","type":"rect","group":"item-05","start":10468,"end":17472,"x":48,"y":1453"#,
             r#""id":"card-05","type":"rect","group":"item-05","start":10468,"end":17472,"x":48,"y":1413"#,
         ),
         (
             1,
+            Half::Drawn,
             "the cream chip panel turns navy",
             r##""id":"chip-panel","type":"rect","group":"header","start":0,"end":65216,"x":48,"y":88,"origin":"top-left","width":372,"height":84,"fill":"#FBF3E3""##,
             r##""id":"chip-panel","type":"rect","group":"header","start":0,"end":65216,"x":48,"y":88,"origin":"top-left","width":372,"height":84,"fill":"#1E344C""##,
         ),
         (
             0,
+            Half::Photograph,
             "the intro runs over the wrong photograph",
             r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png""#,
             r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/06.png""#,
         ),
         (
             0,
+            Half::Photograph,
             "the photograph sits 40 px down",
-            r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":0,"y":0"#,
-            r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":0,"y":40"#,
+            r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":540,"y":956"#,
+            r#""id":"photo-05-intro","type":"image","group":"item-05","start":0,"end":3018,"source":"images/05.png","x":540,"y":996"#,
         ),
     ];
 
-    // The unbroken score for each reference, so the cost of a break is a measured
-    // difference rather than a distance from a constant.
-    let unbroken: Vec<f64> = REFERENCES
-        .iter()
-        .map(|reference| {
-            let (theirs, ours) = planes(reference, &fixture_project());
-            ssim(&theirs, &ours, &reference.gated())
-        })
-        .collect();
+    // The unbroken score for each reference *and half*, so the cost of a break is a
+    // measured difference rather than a distance from a constant.
+    let unbroken = |reference: &Reference, half: Half| {
+        let (theirs, ours) = planes(reference, &fixture_project());
+        ssim(&theirs, &ours, &reference.scope(half))
+    };
 
-    for (which, what, from, to) in breaks {
+    for (which, half, what, from, to) in breaks {
         let reference = &REFERENCES[which];
+        let before = unbroken(reference, half);
         assert!(
             original.contains(from),
             "the break `{what}` no longer matches the fixture: {from}"
@@ -554,7 +761,7 @@ fn a_deliberately_broken_render_fails_the_gated_comparison() {
         // against its own directory (ADR-0053): moving it to a scratch directory would
         // change the photograph, the badge and the font too, and the comparison would then
         // be measuring the move rather than the break.
-        let broken = Scratch::beside_the_fixture(&original.replace(from, to));
+        let broken = Scratch::beside_the_fixture("broken-under-test", &original.replace(from, to));
 
         let theirs = published(reference.file);
         let ours = resized(
@@ -562,24 +769,30 @@ fn a_deliberately_broken_render_fails_the_gated_comparison() {
             theirs.width(),
             theirs.height(),
         );
-        let score = ssim(&Plane::of(&theirs), &Plane::of(&ours), &reference.gated());
-        let drop = unbroken[which] - score;
+        let score = ssim(
+            &Plane::of(&theirs),
+            &Plane::of(&ours),
+            &reference.scope(half),
+        );
+        let drop = before - score;
+        let gate = reference.gated(half).gate;
         println!(
-            "BREAK   {what} — SSIM {score:.4} against {}, down {drop:.4} from {:.4} \
-             (gate {})",
-            reference.file, unbroken[which], reference.gate
+            "BREAK   {what} — SSIM {score:.4} against {} {half:?}, down {drop:.4} from \
+             {before:.4} (gate {gate})",
+            reference.file,
         );
         assert!(
             drop >= MIN_DROP,
-            "`{what}` cost only {drop:.4} ({:.4} to {score:.4}). A comparison a break \
-             does not move is a comparison that tests nothing (ADR-0010).",
-            unbroken[which]
+            "`{what}` cost only {drop:.4} ({before:.4} to {score:.4}) over {} {half:?}. A \
+             comparison a break does not move is a comparison that tests nothing \
+             (ADR-0010).",
+            reference.file,
         );
         assert!(
-            score < reference.gate,
-            "`{what}` scored {score:.4} against {}, which its gate {} still passes.",
+            score < gate,
+            "`{what}` scored {score:.4} against {} {half:?}, which its gate {gate} still \
+             passes.",
             reference.file,
-            reference.gate
         );
     }
 }
@@ -589,14 +802,15 @@ fn a_deliberately_broken_render_fails_the_gated_comparison() {
 struct Scratch(PathBuf);
 
 impl Scratch {
-    fn beside_the_fixture(body: &str) -> Scratch {
-        // One fixed name rather than a unique one: the breaks above run in sequence inside
-        // a single test, and a second test writing here at the same time would be a second
-        // test that also has to know the fixture directory is shared state. The name is
-        // not a project any other test reads and nothing globs this directory for
-        // `*.montaget.json`, so the only cost of the copy that a hard abort leaves behind
-        // is a line of `git status` — and the next run overwrites it.
-        let path = fixture_dir().join("broken-under-test.montaget.json");
+    fn beside_the_fixture(name: &str, body: &str) -> Scratch {
+        // One fixed name **per caller**, rather than a unique one per write: the breaks
+        // above run in sequence inside a single test, so they can share one file — but the
+        // harness runs the *tests* on parallel threads, and two of them writing one path
+        // would race. Naming it at the call site is what keeps that visible. None of these
+        // is a project any other test reads and nothing globs this directory for
+        // `*.montaget.json`, so the only cost of a copy that a hard abort leaves behind is
+        // a line of `git status` — and the next run overwrites it.
+        let path = fixture_dir().join(format!("{name}.montaget.json"));
         std::fs::write(&path, body).expect("write the broken project beside the fixture");
         Scratch(path)
     }

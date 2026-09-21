@@ -17,6 +17,7 @@ against ADR-0006.
 | | ADR | change |
 | --- | --- | --- |
 | 12 rects, 8 images | 0012 | `box:[x,y,w,h]` → `x`, `y`, `origin:"top-left"`, `width`, `height` |
+| 7 photos | 0013, #276 | the same rect re-spelled about its own centre — `origin:"center"` at `(540, 956)` — because `origin` is also the point a transform pivots about, and D3 below had already measured the published move as a centre pivot. See `migrate.py`'s `pivot_centre`. |
 | 8 images | 0012 | `align` → `gravity`; gained the aperture `clip`, which the old `box` was doing silently |
 | 7 Ken Burns lists | 0012 | positional `[[t,v],…]` → `{"t","v","ease"}` records, `v` always `[sx,sy]`, no `ease` on the first record |
 | 22 text elements | 0007 | `"text"` → `runs`; `font`/`weight` → the `brand` key of a declared `fonts` table |
@@ -120,6 +121,20 @@ Caveat, stated rather than buried: the pure-zoom model's fit quality falls with 
 (SSIM 0.91 → 0.72), so something in the move is unmodelled after the midpoint and the
 **amplitude** at the tail is not independently confirmed. The `1.08` endpoint is inherited
 from the prototype, and the first-half fit is consistent with it.
+
+> **The centre pivot measured here was not written into the file, and #276 fixed that.**
+> The migration emitted `origin: "top-left"` for all seven photos — the pivot nothing could
+> check until a renderer existed. #213's render against the published video found it, and
+> the correction is `pivot_centre` in `migrate.py`, so the committed file is regenerated
+> rather than hand-edited.
+>
+> The unmodelled remainder this caveat names is still there, and is now measured from the
+> other end too: against `reference/frame-05-at-11s.png`, with the centre pivot and the
+> declared ramp both in place, the photograph sits about 8 × 4 px from the published one
+> (2 × 2 px at 400 ms). The displacement implied by that pair puts the pivot at roughly
+> 0.40 of the box horizontally, which is not one of ADR-0013's nine keywords — so whatever
+> is left, it is not a pivot this format could spell. It is reported without a threshold by
+> `crates/montaget-core/tests/reference_frames.rs` and owned by nothing.
 
 ### D4 — `clip` on `handle-logo` is a no-op
 
