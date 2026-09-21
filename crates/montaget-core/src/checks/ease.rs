@@ -49,9 +49,10 @@
 //! Records are read in the order the file writes them. ADR-0052 asks about *"adjacent
 //! keyframe records"* of an author-written list and ADR-0038 makes `ease` *"a pure function
 //! of position in the list"* — both are statements about the array, and a check that sorted
-//! by `t` first would pair records the author never wrote next to each other. Where the two
-//! readings disagree is the open question [`crate::resolve`] records as
-//! [#270](https://github.com/MBehtemam/Montaget/issues/270); this module takes the array
+//! by `t` first would pair records the author never wrote next to each other. ADR-0082 now
+//! guarantees array order and clock order are the same order for any list that reaches this
+//! check, closing the gap [`crate::resolve`] used to record as
+//! [#270](https://github.com/MBehtemam/Montaget/issues/270); this module keeps the array
 //! reading because that is the one the `ease` rule it is auditing is written against.
 
 use serde_json::{Value, json};

@@ -732,7 +732,7 @@
           "items": {
             "$ref": "#/$defs/Keyframe"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
         }
       ],
@@ -919,7 +919,7 @@
           "items": {
             "$ref": "#/$defs/Keyframe2"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
         }
       ],
@@ -997,7 +997,7 @@
           "items": {
             "$ref": "#/$defs/Keyframe3"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
         }
       ],
@@ -1253,7 +1253,7 @@
           "items": {
             "$ref": "#/$defs/Keyframe4"
           },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.",
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
         }
       ],
