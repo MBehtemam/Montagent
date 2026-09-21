@@ -78,7 +78,7 @@ pub struct CheckSpec {
     pub status: Status,
 }
 
-use Class::{Error, Layout, Note, Review, Unchecked};
+use Class::{Drift, Error, Layout, Note, Review, Unchecked};
 use RepairClass::{Advise, Refuse};
 use Status::{Declared, Live};
 use ThresholdProvenance::{External, Internal};
@@ -1178,6 +1178,80 @@ source. The nearest legal boundaries are {start} and {end}.",
         template: "`release` names {from}\u{2013}{to}, which is not a slack this edit would \
 change \u{2014} release only pairs this call's own refusal reports, and only for the call \
 that reported them.",
+        status: Live,
+    },
+    // ---- `compare` (#221). -----------------------------------------------------------
+    //
+    // Four codes, one per predicate the ADR series names, and every one is `Drift`-class:
+    // ADR-0063/ADR-0066 are explicit that these are "facts with no severity... it
+    // describes what changed, it does not judge it" — `render` never consults a `compare`
+    // finding, which is what a fifth report category rather than a fourth severity buys.
+    // `D-` for "drift", on this table's own `E-`/`R-`/`N-`/`U-`/`L-` prefix convention.
+    CheckSpec {
+        // ADR-0032: a slack that exists at a nonzero distance in the reference document
+        // and changed size in the current one (including appearing or disappearing).
+        // ADR-0066's exception lives in the check, not here: a slack that was at *zero*
+        // distance in the reference is suppressed from this code and belongs to
+        // `D-BOUNDARY-CLUSTER-DRIFT` alone, so the same edit is never reported twice.
+        code: "D-SLACK-DRIFT",
+        classes: &[Drift],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0032",
+        template: "the slack {from}\u{2013}{to} ({from_edges} \u{2192} {to_edges}) was \
+{ref_size} ms in the reference version and is {current_size} ms in the current one.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0063: two instants numerically equal in the reference document that are no
+        // longer equal in the current one. Exact equality only, never a preserved offset
+        // — the whole reason this predicate needs no keyframe resolver. `{kind}` names
+        // which of the three candidate populations produced the line: `a` (an element's
+        // own keyframe against its own boundary), `b` (a keyframe against a *different*
+        // element's boundary) or `c` (two different elements' same-property keyframe
+        // times, keyed per-property — ADR-0039's retraction is why never per-`group`).
+        code: "D-KEYFRAME-INSTANT-DRIFT",
+        classes: &[Drift],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0063",
+        template: "{left} and {right} both sat at {ref_at} in the reference version \
+(case {kind}); in the current one they no longer coincide ({current_left} vs \
+{current_right}).",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0066: a sibling predicate to the one above, not an extension of it — this
+        // one requires no keyframe on either side. Scoped to all N\u{2265}2 boundary
+        // coincidences, reporting one fact per destroyed cluster as a moved-set versus a
+        // stayed-set, never pairwise: pairwise would give up to 55\u{00d7} the facts on the
+        // real fixture for no more information. This is also the code that absorbs
+        // `D-SLACK-DRIFT`'s zero-distance exception — a slack whose both ends coincide
+        // with nothing else is a cluster of exactly two, and a cluster of one boundary
+        // moving alone still gets a census with an empty stayed-set.
+        code: "D-BOUNDARY-CLUSTER-DRIFT",
+        classes: &[Drift],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0066",
+        template: "boundaries {members} were coincident at {at} in the reference version; \
+in the current one {moved} moved; {stayed} still coincide.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0051: karaoke drift gets an owner. A run whose `text` changed between the
+        // two documents while its `highlight` object stayed byte/value-identical — the
+        // one hardcoded fact this predicate looks for, not a generic text-diff mechanism.
+        // Runs are correlated by index within an element matched by `id`; an element
+        // whose run count differs between the two documents has no run identity to diff
+        // against and is skipped for this check (see `compare::highlight_text_drift`).
+        code: "D-HIGHLIGHT-TEXT-DRIFT",
+        classes: &[Drift],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0051",
+        template: "{element}: run {run_index}'s text changed from \"{ref_text}\" to \
+\"{current_text}\" while its highlight window did not.",
         status: Live,
     },
 ];

@@ -20,11 +20,14 @@ use crate::registry::{self, RepairClass};
 /// What kind of thing a finding is.
 ///
 /// Three of these are ADR-0006's severities, named for what the reader does. The other
-/// two are report categories that are not severities at all and never gate a render:
+/// three are report categories that are not severities at all and never gate a render:
 /// `Unchecked` (ADR-0013 — the disk-agreement half of the question was *unanswerable*,
-/// not *failed*) and `Layout` (ADR-0041 — a key-order violation renders identically).
-/// `NOT CHECKED`, the report's own printed boundary, is not a finding at all; it lives
-/// on the report (see [`crate::report::NOT_CHECKED`]).
+/// not *failed*), `Layout` (ADR-0041 — a key-order violation renders identically), and
+/// `Drift` (ADR-0063/ADR-0066 — `compare`'s facts about what changed between two
+/// documents, which carry no severity because `compare` "describes what changed, it
+/// does not judge it": `render` never consults them). `NOT CHECKED`, the report's own
+/// printed boundary, is not a finding at all; it lives on the report (see
+/// [`crate::report::NOT_CHECKED`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Class {
@@ -38,6 +41,8 @@ pub enum Class {
     Unchecked,
     /// The file is unsafe to edit, not unsafe to render. `validate`-only.
     Layout,
+    /// What changed between two documents, as a fact with no severity. `compare`-only.
+    Drift,
 }
 
 impl Class {
@@ -49,8 +54,13 @@ impl Class {
     /// Whether findings of this class print in full rather than collapsing to one
     /// counted line. ADR-0006: *"errors and near-errors print in full; informational
     /// classes collapse to one counted line carrying their code."*
+    ///
+    /// `Drift` joins `Error`/`Review` here rather than collapsing: a `compare` fact is
+    /// the entire point of the call, the same way `timeline`'s view has nothing left to
+    /// say if it is filtered out — collapsing "3 D-SLACK-DRIFT — expand with --verbose"
+    /// would hide the one thing the caller ran the verb to see.
     pub fn prints_in_full(self) -> bool {
-        matches!(self, Class::Error | Class::Review)
+        matches!(self, Class::Error | Class::Review | Class::Drift)
     }
 
     pub fn as_str(self) -> &'static str {
@@ -60,6 +70,7 @@ impl Class {
             Class::Note => "note",
             Class::Unchecked => "unchecked",
             Class::Layout => "layout",
+            Class::Drift => "drift",
         }
     }
 }
