@@ -915,6 +915,10 @@ fn cli_preview_offers_the_escape_hatch_and_no_flag_that_names_a_tier() {
     // say is whether it wants the proxy at all (`--full`, ADR-0021's escape hatch); a flag
     // naming a resolution would be a caller-specified proxy resolution, which ADR-0067
     // records as *not* admitted today.
+    //
+    // `--clock` is in the list for the same reason: `Clock::Stated` is a core-library test
+    // seam and not adapter surface, both adapters pass `Clock::Scrub`, and admitting a
+    // caller-chosen budget is a decision ADR-0078 explicitly does not take.
     let out = montaget(&["preview", "--help"]);
 
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
@@ -925,6 +929,7 @@ fn cli_preview_offers_the_escape_hatch_and_no_flag_that_names_a_tier() {
         "--scale",
         "--height",
         "--budget",
+        "--clock",
         "--degrade",
     ] {
         assert!(
@@ -1003,6 +1008,43 @@ fn mcp_does_not_advertise_probe() {
 
     assert!(tools.iter().any(|name| name == "validate"), "{tools:?}");
     assert!(!tools.iter().any(|name| name == "probe"), "{tools:?}");
+}
+
+#[test]
+fn the_mcp_surface_is_exactly_nine_tools_and_preview_is_the_ninth() {
+    // ADR-0011's table listed eight and spec #168's title says nine; ADR-0078 (#295) settles
+    // it by giving the table a `preview` row. The count is asserted against the router
+    // rather than restated in prose, because ADR-0011's own opening sentence ("nine verbs
+    // and two resources", against a table of eleven) is what a prose count is worth.
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+    ]);
+
+    let mut tools = session.get(&2).expect("a result for tools/list")["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap_or("?").to_string())
+        .collect::<Vec<_>>();
+    tools.sort();
+
+    assert_eq!(
+        tools,
+        vec![
+            "compare",
+            "create_project",
+            "frame",
+            "measure",
+            "preview",
+            "query",
+            "render",
+            "shift",
+            "validate",
+        ],
+        "the MCP surface changed without an ADR"
+    );
 }
 
 #[test]
@@ -1473,8 +1515,18 @@ fn mcp_preview_advertises_the_escape_hatch_and_no_tier_argument() {
             "no `{present}`: {schema}"
         );
     }
-    // The target, the ladder and the budget are the ADRs' numbers, not the caller's.
-    for absent in ["tier", "resolution", "proxy", "scale", "budget", "degrade"] {
+    // The target, the ladder and the budget are the ADRs' numbers, not the caller's —
+    // `clock` included: `Clock::Stated` is a core-library test seam, never adapter surface,
+    // and this schema is where that would leak first (ADR-0078).
+    for absent in [
+        "tier",
+        "resolution",
+        "proxy",
+        "scale",
+        "budget",
+        "clock",
+        "degrade",
+    ] {
         assert!(
             schema["properties"][absent].is_null(),
             "advertises `{absent}`: {schema}"

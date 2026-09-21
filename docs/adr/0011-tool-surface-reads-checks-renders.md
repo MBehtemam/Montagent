@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by eighteen later ADRs.** Read them before relying on anything below.
+> **Amended by nineteen later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -49,6 +49,14 @@ status: accepted
 >   legal (`--from` before 0 is not), and `<name>` in the derived partial name is the
 >   declared `output`'s stem — or the project file's own stem where it declares none, so a
 >   partial render still has a name on a project a *full* render would be refused for
+> - [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
+>   — **the verb table below gains a `preview` row, and its counts become nine MCP tools,
+>   twelve CLI commands, two resources.** `preview` is spec
+>   [#168](https://github.com/MBehtemam/Montaget/issues/168)'s ninth MCP verb, built by
+>   [#218](https://github.com/MBehtemam/Montaget/issues/218) and missing from the table
+>   below, which `CONTEXT.md` calls authoritative. *"Eight MCP tools, eleven CLI commands"*
+>   no longer holds. The exit-code table's row 3 is also what a `preview` budget hard-fail
+>   returns — the document is legal and the invocation is what could not be satisfied
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

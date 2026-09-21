@@ -46,8 +46,15 @@
 //! asking whether what it's looking at is a lie"*. `preview` answers the other question —
 //! does it look right in motion — and pays resolution for it.
 //!
-//! ## Readings no ADR states, recorded here and raised for ratification (#295)
+//! ## What the ladder's ADRs do not state, ratified by ADR-0078 (#295)
 //!
+//! Everything below was a reading this verb had to pick and no ADR stated. **ADR-0078
+//! ratifies each one**, and corrects the one place two of them met and the code named a
+//! frame two ways — see [`rung_name`]. They are kept here because this is where they are
+//! acted on; the ADR is what governs.
+//!
+//! - **`preview` is the ninth MCP verb**, and ADR-0011's table — eight MCP tools, eleven
+//!   CLI commands — gains a row for it rather than the code losing one.
 //! - **`preview` runs the identical check engine and refuses on any `error`**, as `render`
 //!   does (ADR-0006). Stated for `render` and not for this verb, but a document the checks
 //!   refuse is one no painter can be handed, and a preview that rendered what `render`
@@ -85,6 +92,11 @@
 //!   engaged for it.** Its first rung is true pixels — ADR-0046: *"no proxy applies at
 //!   all"* — and its second is a real proxy. That follows from the ladder being defined on
 //!   caps rather than on sizes, and neither ADR states it.
+//! - **A rung whose cap never engaged is named `native`, not the rung's name** — in the
+//!   tier disclosure, the attempt trace and a refusal alike ([`rung_name`]). ADR-0046 makes
+//!   the field report *"native, the 720p proxy tier, or — once #117 resolves — a
+//!   floor-refuse"*, and naming a frame for a cap that did nothing to it puts a number in
+//!   front of the caller that was never rasterized.
 //! - **A hard fail is exit 3**, not exit 1 and not exit 70: the document is legal and
 //!   Montaget did not fail — what cannot be satisfied is the invocation, and the caller's
 //!   levers are the ones exit 3 means, a shorter range or the escape hatch.
@@ -242,6 +254,18 @@ pub struct Attempt {
     pub missed: bool,
     /// Frames encoded before it was abandoned, where it was.
     pub frames: u64,
+}
+
+impl Attempt {
+    /// This rung as a caller reads it: what it was called, and the frame it actually
+    /// rasterized beside it.
+    ///
+    /// One spelling, because the degraded disclosure and the hard-fail refusal both name
+    /// rungs and must not name the same one two ways — the failure this and [`rung_name`]
+    /// were written together to close (ADR-0078).
+    fn named(&self) -> String {
+        format!("{} ({}x{})", self.tier, self.width, self.height)
+    }
 }
 
 /// Preview the project at `path`.
@@ -411,7 +435,7 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
         match render::encode_span(&span, attempt, progress) {
             Ok(painted) => {
                 attempts.push(Attempt {
-                    tier: tier.name(),
+                    tier: rung_name(tier, frame),
                     width: frame.width,
                     height: frame.height,
                     wall_ms: attempt.elapsed().as_millis() as u64,
@@ -438,7 +462,7 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
             }
             Err(Stop::Missed { elapsed, done }) => {
                 attempts.push(Attempt {
-                    tier: tier.name(),
+                    tier: rung_name(tier, frame),
                     width: frame.width,
                     height: frame.height,
                     wall_ms: elapsed.as_millis() as u64,
@@ -476,6 +500,23 @@ fn refused(report: Report) -> Answer {
     }
 }
 
+/// What a rung is disclosed as: the tier's own name where its cap engaged, and `native`
+/// where it did not.
+///
+/// One rule, used by the tier disclosure, the attempt trace and the refusal alike, so a
+/// single invocation never names one frame two ways. ADR-0046 makes the disclosed field
+/// report *"native, the 720p proxy tier, or — once #117 resolves — a floor-refuse"*, and a
+/// project between the two caps degrades from true pixels to a real proxy (ADR-0078): its
+/// first rung is the 720p *rung* and is not a 720p *frame*, so calling it one in the trace
+/// would put a number in front of the caller that is not what was rasterized — the one
+/// thing these fields exist to prevent.
+fn rung_name(tier: Tier, frame: proxy::Frame) -> &'static str {
+    match frame.proxied {
+        true => tier.name(),
+        false => Tier::Native.name(),
+    }
+}
+
 impl Disclosure {
     fn of(
         tier: Tier,
@@ -487,10 +528,18 @@ impl Disclosure {
         let (declared_width, declared_height) = declared;
         let sentence = match (tier, frame.proxied) {
             (Tier::Degraded, _) => {
-                let missed = attempts.first().map(|a| a.wall_ms).unwrap_or_default();
+                // The rung above, named for what it actually rasterized. A project between
+                // the two caps degrades from *true pixels* to a real proxy (ADR-0078), and
+                // a sentence that said "720p ran to 3.0 s" there would be describing a
+                // frame that was never drawn.
+                let above = attempts.first();
+                let ran = above
+                    .map(Attempt::named)
+                    .unwrap_or_else(|| "the rung above".to_string());
+                let missed = above.map(|a| a.wall_ms).unwrap_or_default();
                 format!(
-                    "degraded: rendered at 540p ({}x{}), one tier below the 720p target, \
-                     because 720p ran to {:.1} s against the {:.1} s budget. This is \
+                    "degraded: rendered at 540p ({}x{}), one rung below the 720p target, \
+                     because {ran} ran to {:.1} s against the {:.1} s budget. This is \
                      the last rung — a 540p miss is a refusal, not a third tier (ADR-0065). \
                      The project's own frame is {declared_width}x{declared_height}; ask for \
                      true pixels with the full-resolution escape hatch.",
@@ -522,14 +571,7 @@ impl Disclosure {
             ),
         };
         Disclosure {
-            // ADR-0046 makes the field report *"native, the 720p proxy tier, or — once #117
-            // resolves — a floor-refuse"*, so a rung whose cap never engaged reports what it
-            // actually is. Naming it `720p` at 200x200 would be the one thing this field
-            // exists to prevent: a number that is not the frame in front of the caller.
-            name: match frame.proxied {
-                true => tier.name(),
-                false => Tier::Native.name(),
-            },
+            name: rung_name(tier, frame),
             width: frame.width,
             height: frame.height,
             declared_width,
@@ -561,15 +603,7 @@ fn gave_up(
     let budget = budget.unwrap_or(SCRUB_PREVIEW_LIMIT);
     let tried = attempts
         .iter()
-        .map(|a| {
-            format!(
-                "{} ({}x{}) ran to {:.1} s",
-                a.tier,
-                a.width,
-                a.height,
-                a.wall_ms as f64 / 1000.0
-            )
-        })
+        .map(|a| format!("{} ran to {:.1} s", a.named(), a.wall_ms as f64 / 1000.0))
         .collect::<Vec<_>>()
         .join(", then ");
     format!(

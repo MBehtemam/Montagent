@@ -481,9 +481,15 @@ scrub budget degrades exactly one tier, to 540p (long edge ≤ 960 px), and refu
 than degrade again. Every result **discloses** the tier it used, degraded or not: it is how
 a caller knows whether the softness it is looking at is the project's or the proxy's. Never
 applied to `render`, and never to `frame`, both of which are true pixels always.
+The ladder is defined on **caps**, not on sizes, with two consequences worth stating: a
+project between the two caps still degrades — from true pixels to a real 960 px proxy — and
+a rung whose cap never engaged is named `native` wherever it is named, in the disclosure,
+the attempt trace and a refusal alike. A tier name is always the frame that was
+rasterized.
 ([ADR-0021](docs/adr/0021-preview-budget-and-graceful-degradation.md),
 [ADR-0046](docs/adr/0046-proxy-preview-target-is-720p-long-edge-capped.md),
-[ADR-0065](docs/adr/0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md))
+[ADR-0065](docs/adr/0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md),
+[ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md))
 _Avoid_: scale factor, downsample ratio, quality setting; and **do not call the 540p rung
 "the floor" unqualified** — see below.
 
@@ -664,15 +670,18 @@ rendering cheap, not to provide editing verbs: the agent edits the file with the
 tools it is already strongest with. Nine are MCP tools and twelve are CLI
 commands, and the asymmetry is deliberate — an MCP schema costs context on every
 turn, a CLI subcommand costs nothing until invoked. Every write verb returns the
-new state's findings, never an `ok`. (ADR-0011's prose opens with *"nine verbs
-and two resources"* while its own table lists eleven and its own count says
-*"eight MCP tools, eleven CLI commands"*. `preview` is the twelfth and is in
-none of the three: it is spec [#168](https://github.com/MBehtemam/Montaget/issues/168)'s
-— *"nine MCP verbs, three CLI verbs"*, whose stories 61–63 are what it implements
-— and the gap between that count and ADR-0011's table is
-[#295](https://github.com/MBehtemam/Montaget/issues/295). No count here should be
-quoted as settled.)
-([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+new state's findings, never an `ok`. (`preview` was missing from ADR-0011's
+table, which this entry calls authoritative;
+[ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
+gives it a row and settles the counts, resolving
+[#295](https://github.com/MBehtemam/Montaget/issues/295). ADR-0011's own prose
+still opens with *"nine verbs and two resources"* above a table of eleven, and
+its *"eight MCP tools, eleven CLI commands"* line no longer holds — an ADR is
+amended, never rewritten, so read its banner. The nine is asserted rather than
+restated — `crates/montaget/tests/adapters.rs` reads `tools/list` off the running
+server and names all nine.)
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
+[ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md))
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 
