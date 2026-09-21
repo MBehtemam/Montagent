@@ -2,9 +2,9 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**Most of this series amends itself — 60 of 75 ADRs declare an amendment: 57 in an `amends:` header, three ([0008](0008-time-is-integer-milliseconds.md), [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+**Most of this series amends itself — 62 of 77 ADRs declare an amendment: 59 in an `amends:` header, three ([0008](0008-time-is-integer-milliseconds.md), [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
-**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0006 (16 amendments) and ADR-0011/ADR-0012 (16 and 12), which is expected: they are the validate report, the tool surface and the transform model, and nearly every later decision lands on one of them.
+**ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0011 (19 amendments) and ADR-0006/ADR-0012 (18 and 12), which is expected: they are the tool surface, the validate report and the transform model, and nearly every later decision lands on one of them.
 
 ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
@@ -146,7 +146,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 ## Reading order for a newcomer
 
-The series is 70 ADRs and mostly not worth reading front to back. To get the model:
+The series is 77 ADRs and mostly not worth reading front to back. To get the model:
 
 1. **[0003](0003-general-video-editor-not-channel-tooling.md)** — what this is and what the fixture is for. Read the anti-drift rule and take it seriously.
 2. **[0004](0004-tracks-as-constrained-lanes.md)** + **[0005](0005-absolute-integer-milliseconds.md)** — the shape of the document and its clock.

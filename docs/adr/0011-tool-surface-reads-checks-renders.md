@@ -47,7 +47,8 @@ status: accepted
 >   command-surface readings: a project with no `duration` renders to its last boundary, a
 >   project with no `output` and no `--output` is exit 3, `--to` past the project's end is
 >   legal (`--from` before 0 is not), and `<name>` in the derived partial name is the
->   declared `output`'s stem
+>   declared `output`'s stem — or the project file's own stem where it declares none, so a
+>   partial render still has a name on a project a *full* render would be refused for
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

@@ -50,7 +50,8 @@ than #215 and buys under a millisecond of a continuous property. It is not taken
 The claim is re-executable:
 `verbs::render::tests::the_painted_instant_is_the_grid_instant_floored_and_presence_is_unaffected`
 asserts the floor at 30 fps, exactness at all six rates named above, inexactness at 24, 30
-and 60, and both presence equivalences by scan, in integer arithmetic.
+and 60, and the presence equivalence by scan, in integer arithmetic. One scan settles both
+halves: `⌊t⌋ < end ⇔ t < end` is the negation of `⌊t⌋ ≥ end ⇔ t ≥ end`.
 
 ### 2. A project with no `duration` renders to its last boundary
 
@@ -205,15 +206,25 @@ ADR does not conclude the ceiling was quietly kept.
 - The *"raised for ratification"* passages in `crates/montaget-core/src/verbs/render.rs`
   and `crates/montaget-render/src/encode.rs` are replaced with citations to this ADR. **No
   behaviour changes** — this ADR ratifies what #215 shipped.
-- Two readings that shipped with no test of their own now have one, so that a later change
-  to either is a failing suite rather than a silent contradiction of this ADR:
+- Four readings, or halves of readings, that shipped with no test of their own now have
+  one, so that a later change to any of them is a failing suite rather than a silent
+  contradiction of this ADR:
   - reading 1, by the unit test named above;
-  - reading 4, by
-    `tests/render.rs::a_to_past_the_projects_end_is_legal_and_the_frames_past_it_are_background`,
-    which renders `[0, 2000)` of a project that ends at 1000 and reads 50 frames and 2000 ms
-    back out of the file through `ffprobe`.
-- The other seven were already asserted: readings 2, 3 and 5 by their own named tests in
-  `tests/render.rs`, reading 6 by `the_output_is_the_declared_frame_never_the_proxy_target`
+  - reading 2's second half — nothing to render at all — by
+    `a_project_with_no_duration_and_no_boundary_is_exit_3_with_nothing_to_render`;
+  - reading 4's `--to` half, by
+    `a_to_past_the_projects_end_is_legal_and_renders_the_whole_range`, which renders
+    `[0, 2000)` of a project that ends at 1000 and reads 50 frames and 2000 ms back out of
+    the file through `ffprobe`. Its `--from` half was already asserted, with the other
+    invocation refusals, by `a_range_is_both_flags_or_neither_and_is_half_open` and its
+    unit-test counterpart;
+  - reading 5's fallback — the project file's own stem — by
+    `a_partial_render_of_a_project_with_no_output_is_named_from_the_project_file`. The
+    declared-`output` branch was already asserted by
+    `a_partial_render_derives_its_name_and_can_never_land_on_the_deliverable`.
+- The rest were already asserted: reading 2's derived extent by
+  `a_project_with_no_duration_renders_to_its_last_boundary` and reading 3 by
+  `a_project_with_no_output_and_no_flag_is_exit_3_naming_the_field`, reading 6 by `the_output_is_the_declared_frame_never_the_proxy_target`
   (a frame odd on both axes), reading 8 by the mixed stream's `sample_rate` of 48000, and
   reading 9 by `volume_speed_and_loop_go_through_the_mix`, which reads the keyframed fade's
   level back out of the written file at two instants.

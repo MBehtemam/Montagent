@@ -1207,7 +1207,8 @@ mod tests {
         }
 
         // Presence is unaffected, since every `start` and `end` is an integer:
-        // `⌊t⌋ ≥ start ⇔ t ≥ start` and `⌊t⌋ < end ⇔ t < end`. Scanned over a second of
+        // `⌊t⌋ ≥ start ⇔ t ≥ start`, and the `end` half — `⌊t⌋ < end ⇔ t < end` — is the
+        // negation of the same equivalence, so one scan settles both. Over a second of
         // frames at the awkward rates, against every whole-millisecond boundary in range.
         for fps in [24, 30, 60] {
             for n in 0..fps {
@@ -1217,11 +1218,6 @@ mod tests {
                     assert_eq!(
                         floored >= boundary,
                         exact >= boundary * i128::from(fps),
-                        "{fps} fps, frame {n}, boundary {boundary}"
-                    );
-                    assert_eq!(
-                        floored < boundary,
-                        exact < boundary * i128::from(fps),
                         "{fps} fps, frame {n}, boundary {boundary}"
                     );
                 }

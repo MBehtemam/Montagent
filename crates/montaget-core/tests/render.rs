@@ -421,14 +421,17 @@ fn a_range_is_both_flags_or_neither_and_is_half_open() {
 }
 
 #[test]
-fn a_to_past_the_projects_end_is_legal_and_the_frames_past_it_are_background() {
+fn a_to_past_the_projects_end_is_legal_and_renders_the_whole_range() {
     if !has_ffprobe() {
         return;
     }
-    // ADR-0077, reading 4: `--from` before 0 is refused because the clock begins at 0,
-    // and `--to` past the end is not, because ADR-0011 makes every instant a legal
-    // question. The frames past the last boundary are the background, and they are in
-    // the file: 50 frames and 2000 ms of video out of a project that ends at 1000.
+    // ADR-0077, reading 4: `--from` before 0 is refused because the clock begins at 0
+    // (asserted with the other invocation refusals above), and `--to` past the end is not,
+    // because ADR-0011 makes every instant a legal question. What this asserts is that the
+    // frames past the last boundary are *in the file* — 50 frames and 2000 ms out of a
+    // project that ends at 1000. That they are the background is the painter's ordinary
+    // rule for an instant nothing is present at, pinned by
+    // `what_render_paints_is_what_frame_paints`, not re-derived here.
     let dir = tempdir(line!());
     let body = project(
         r##""duration":1000,"output":"out/x.mp4","##,
@@ -492,6 +495,48 @@ fn a_project_with_no_duration_renders_to_its_last_boundary() {
         video_stream(&dir.join("out/derived.mp4")).duration_ms,
         Some(800)
     );
+}
+
+#[test]
+fn a_partial_render_of_a_project_with_no_output_is_named_from_the_project_file() {
+    if !has_ffprobe() {
+        return;
+    }
+    // ADR-0077, reading 5: `<name>` is the stem of the declared `output`, or the project
+    // file's own where it declares none. A full render of such a project is refused
+    // (reading 3) because the deliverable's name would have to be invented; a partial
+    // render is not, because ADR-0011 already fixes the shape of its name.
+    let dir = tempdir(line!());
+    let body = project(r##""duration":1000,"##, &rect("card", 0, 1000));
+    let path = write_project(&dir, "p.montaget.json", &body);
+
+    let json = rendered(&path, &range(0, 1000));
+    assert_eq!(
+        json["render"]["path"].as_str().map(PathBuf::from),
+        Some(dir.join("out/p.0-1000.mp4")),
+        "both suffixes come off the project file's name, leaving `p`"
+    );
+}
+
+#[test]
+fn a_project_with_no_duration_and_no_boundary_is_exit_3_with_nothing_to_render() {
+    // ADR-0077, reading 2's other half: the derived extent is the greatest `end` any
+    // element states, and a project that states none has nothing to render at all.
+    let dir = tempdir(line!());
+    let body = project(r##""output":"out/empty.mp4","##, "");
+    let path = write_project(&dir, "p.montaget.json", &body);
+
+    let (answer, _) = run(&path, &full());
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    let finding = &answer.to_json()["findings"][0];
+    let reason = finding["fields"]["reason"]
+        .as_str()
+        .expect("the reason field");
+    assert!(
+        reason.contains("nothing to render") && reason.contains("`duration`"),
+        "{reason}"
+    );
+    assert!(!dir.join("out").exists());
 }
 
 #[test]
