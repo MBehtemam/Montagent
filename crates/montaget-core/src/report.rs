@@ -57,6 +57,7 @@ pub struct Summary {
     pub note: usize,
     pub unchecked: usize,
     pub layout: usize,
+    pub drift: usize,
 }
 
 /// One verb's answer.
@@ -220,6 +221,7 @@ impl Report {
                 Class::Note => &mut summary.note,
                 Class::Unchecked => &mut summary.unchecked,
                 Class::Layout => &mut summary.layout,
+                Class::Drift => &mut summary.drift,
             };
             *slot += 1;
         }
@@ -263,6 +265,7 @@ impl Report {
                 "note": summary.note,
                 "unchecked": summary.unchecked,
                 "layout": summary.layout,
+                "drift": summary.drift,
             },
             "exit_code": self.exit_code().as_u8(),
             "findings": self.findings,

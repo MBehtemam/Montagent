@@ -147,6 +147,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         Class::Note,
         Class::Unchecked,
         Class::Layout,
+        Class::Drift,
     ] {
         let of_class: Vec<&Value> = findings
             .iter()
@@ -294,12 +295,13 @@ fn summary_line(report: &Value) -> Result<String, RenderError> {
     let summary = &report["summary"];
     let count = |key: &str| summary[key].as_u64().unwrap_or(0);
     let mut line = format!(
-        "{}, {}, {}, {} unchecked, {} layout",
+        "{}, {}, {}, {} unchecked, {} layout, {} drift",
         plural(count("error"), "error"),
         plural(count("review"), "review"),
         plural(count("note"), "note"),
         count("unchecked"),
         count("layout"),
+        count("drift"),
     );
     if let Some(project) = report["project"].as_str() {
         line.push_str(" — ");

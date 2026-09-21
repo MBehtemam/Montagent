@@ -294,6 +294,26 @@ enum Command {
         verbose: bool,
     },
 
+    /// What changed between two versions of the timeline?
+    ///
+    /// Reports drift — slack, keyframe-instant relationships, boundary-coincidence
+    /// clusters, highlight text — as facts with no severity (#221): it describes what
+    /// changed, it never judges it, and `render` never consults its output.
+    Compare {
+        /// The prior version of the project file.
+        #[arg(value_name = "REF")]
+        reference: PathBuf,
+        /// The current version of the project file.
+        #[arg(value_name = "CURRENT")]
+        current: PathBuf,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
     /// Find a font on this machine, or freeze one into the project (ADR-0057).
     ///
     /// CLI-only (ADR-0011): vendoring is a once-per-project act, not a step in the edit
@@ -684,6 +704,24 @@ where
                         montaget_core::wire::render_shift(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Compare {
+            reference,
+            current,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            match run_verb(|| montaget_core::verbs::compare::compare(&reference, &current)) {
+                Ok(report) => {
+                    println!("{}", montaget_core::wire::render(&report, form).trim_end());
+                    exit_code(&report)
                 }
                 Err(report) => {
                     eprint!("{}", montaget_core::wire::render(&report, PLAIN));

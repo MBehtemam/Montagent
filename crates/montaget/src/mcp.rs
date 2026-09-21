@@ -224,6 +224,25 @@ pub struct ShiftParams {
     pub verbose: bool,
 }
 
+/// `compare`'s arguments: what changed between two versions of one timeline.
+///
+/// Two project paths, never a bare id or field name — reads only, so the write-tool
+/// invariant does not apply, and the two files travel as ordinary path arguments the
+/// way `validate`'s does.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct CompareParams {
+    /// Path to the prior version of the project file.
+    pub reference: String,
+    /// Path to the current version of the project file.
+    pub current: String,
+    /// Return the canonical JSON *instead of* the text report, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+    /// Expand the informational classes that collapse to one counted line.
+    #[serde(default)]
+    pub verbose: bool,
+}
+
 /// `render`'s arguments: the whole project by default, or one half-open range of it.
 ///
 /// There is no argument that skips the checks, narrows them, or renders at a proxy
@@ -589,6 +608,38 @@ impl Montaget {
 
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render_shift(&answer, form),
+        )]))
+    }
+
+    #[tool(
+        name = "compare",
+        description = "What changed between two versions of the timeline, including \
+                       drift no single document can see? Reports slack drift, \
+                       keyframe-instant relationships that held by exact equality and \
+                       stopped, destroyed boundary-coincidence clusters (moved-set \
+                       versus stayed-set, never pairwise), and highlight text-drift — \
+                       every one a fact with no severity. It describes what changed and \
+                       judges none of it: `render` never consults this output, and \
+                       running it needs no keyframe resolver.",
+        input_schema = advertised::<CompareParams>()
+    )]
+    fn compare(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: CompareParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("compare", &e)),
+        };
+
+        let report = montaget_core::verbs::compare::compare(
+            &PathBuf::from(&params.reference),
+            &PathBuf::from(&params.current),
+        );
+        let form = Wire::from_flags(params.json, params.verbose);
+
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render(&report, form),
         )]))
     }
 }
