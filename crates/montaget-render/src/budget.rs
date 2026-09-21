@@ -115,11 +115,24 @@ pub const FULL_RESOLUTION_PREVIEW_REFERENCES: &[Reference] = &[
 ///
 /// **The spread is why more than one reading is recorded.** #217 ran the harness
 /// three times on one machine, minutes apart, with nothing changed between them:
-/// 19.78 s, 18.64 s, 19.64 s. The two entries below are that range's ends — the
-/// middle reading says nothing the ends do not — and against the 17.3 s #215
-/// recorded the whole set is 1.14× wide. Any ceiling derived from one reading
-/// would be derived from that noise as much as from the code. [`nearest_reference`] baselines against the fastest, so ordinary
-/// run-to-run variation surfaces as drift above 1.0 rather than hiding beneath it.
+/// 19.78 s, 18.64 s, 19.64 s. Its two entries below are that range's ends — the
+/// middle reading says nothing the ends do not — and taken with the 17.3 s #215
+/// recorded, the list spans 1.14× end to end. Any ceiling derived from one
+/// reading would be derived from that noise as much as from the code.
+///
+/// A fourth reading, on the same machine while it was compiling something else,
+/// came back at 22.10 s. It is deliberately **not** an entry: [`FIXTURE_CONDITIONS`]
+/// says "cold", and a run competing for cores is not the thing the other three
+/// measured. It is recorded in this sentence instead, because a 1.28× swing from
+/// machine load alone is the sharpest argument available for why none of these
+/// numbers is a ceiling.
+///
+/// [`nearest_reference`] baselines against the fastest, so ordinary run-to-run
+/// variation surfaces as drift above 1.0 rather than hiding beneath it.
+///
+/// `budget.rs`'s `the_recorded_spread_is_the_one_the_prose_states` re-derives
+/// every number in the paragraph above from the entries themselves, so the prose
+/// cannot drift away from the list it describes.
 ///
 /// **These are what a replacement ceiling would have to be derived from.** Until
 /// an ADR does that derivation, they are the whole of what this project knows
@@ -137,18 +150,18 @@ pub const RENDER_REFERENCES: &[Reference] = &[
         conditions: FIXTURE_CONDITIONS,
         output_ms: RENDER_REFERENCE_OUTPUT_MS,
         elapsed_ms: 19_780,
-        source: "#217, the slowest of three readings minutes apart",
+        source: "#217, the slowest of its three readings minutes apart",
     },
     Reference {
         rasterizer: "skia-safe",
         conditions: FIXTURE_CONDITIONS,
         output_ms: RENDER_REFERENCE_OUTPUT_MS,
         elapsed_ms: 18_640,
-        source: "#217, the fastest of three readings minutes apart",
+        source: "#217, the fastest of its three readings minutes apart",
     },
 ];
 
-/// What both render references above were taken over.
+/// What every render reference above was taken over.
 ///
 /// One fixture, and that is worth seeing: it is a single frame size, so these
 /// numbers say nothing about the 4K [`Budget::Render`] names as the rest of the

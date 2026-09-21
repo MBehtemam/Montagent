@@ -32,7 +32,12 @@
 //! each reading worth keeping is **appended** to the reference list rather than averaged
 //! into the last one, because the run-to-run spread is itself something an ADR deriving a
 //! target would need to see. Three #217 readings minutes apart spanned 18.64–19.78 s, and
-//! the two ends of that are what the list carries.
+//! the two ends of that are what the list carries. A fourth, taken while the machine was
+//! compiling, came back at 22.10 s and is left out of the list and kept in the prose —
+//! `RENDER_REFERENCES` says why.
+//!
+//! Nothing here enforces "cold" beyond the sidecar: an idle machine is the reader's job to
+//! supply, and a number taken on a busy one is a number about the machine.
 //!
 //! **What "cold" includes.** An empty probe sidecar (ADR-0069), so the run pays for its
 //! `ffprobe` spawns as `validate` would on a first turn.
@@ -64,22 +69,28 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
     let dir = scratch("render-budget");
     let output = dir.join("fixture.mp4");
     let project = fixture();
-    let started = std::time::Instant::now();
-    let out = Command::new(binary())
-        .args([
-            "render",
-            project.to_str().expect("a fixture path"),
-            "--output",
-            output.to_str().expect("a scratch path"),
-            "--json",
-        ])
-        .env(
-            montaget_core::media::sidecar::CACHE_DIR_VAR,
-            dir.join("cache"),
-        )
-        .output()
-        .expect("run montaget render");
-    let elapsed = started.elapsed();
+    // Through `Budget::measure`, which is the harness's own timing entry point (#189):
+    // it takes the clock, judges, and hands back a `Measured` that prints itself. The
+    // unit of work has to be named before the run rather than read off the answer, and
+    // it is the span every recorded reference was taken over — which the assertion below
+    // then confirms the render actually produced.
+    let work = Work::span(RENDER_REFERENCE_OUTPUT_MS);
+    let (out, measured) = Budget::Render.measure(work, || {
+        Command::new(binary())
+            .args([
+                "render",
+                project.to_str().expect("a fixture path"),
+                "--output",
+                output.to_str().expect("a scratch path"),
+                "--json",
+            ])
+            .env(
+                montaget_core::media::sidecar::CACHE_DIR_VAR,
+                dir.join("cache"),
+            )
+            .output()
+            .expect("run montaget render")
+    });
     assert!(
         out.status.success(),
         "render did not answer:\n{}{}",
@@ -96,21 +107,21 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
          over a different span is not comparable to them"
     );
 
-    let verdict = Budget::Render.judge(Work::span(duration_ms), elapsed);
     let Verdict::Observed {
         reference, drift, ..
-    } = verdict
+    } = measured.verdict
     else {
         panic!(
-            "`render` was judged against a ceiling: {verdict:?}. #217 retired the only \
+            "`render` was judged against a ceiling: {measured}. #217 retired the only \
              number there was, and no measurement has replaced it."
         );
     };
     let reference = reference.expect("a recorded render reference to compare against");
 
     eprintln!(
-        "render: {elapsed:.2?} cold for {duration_ms} ms of output ({:.2}× realtime), at \
+        "render: {:.2?} cold for {duration_ms} ms of output ({:.2}× realtime), at \
          {conditions}",
+        measured.elapsed,
         json["render"]["realtime"].as_f64().unwrap_or_default(),
         conditions = reference.conditions
     );
@@ -122,7 +133,7 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
         ),
         None => eprintln!("  no comparable recorded measurement"),
     }
-    if verdict.is_notable() {
+    if measured.verdict.is_notable() {
         eprintln!(
             "  ^ past the {}× drift ADR-0021 names as worth a human's attention. Still not \
              a failure: nothing here is entitled to say what \"too slow\" is.",

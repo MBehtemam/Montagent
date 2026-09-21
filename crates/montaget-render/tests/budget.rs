@@ -389,3 +389,50 @@ fn an_observation_reports_its_reference_rather_than_a_ceiling() {
     assert!(rendered.contains("2160x3840"), "{rendered}");
     measured.assert_within_budget();
 }
+
+/// The numbers [`RENDER_REFERENCES`]' prose states, re-derived from the entries.
+///
+/// `docs/agents/domain.md` wants a numeric claim to come with something that
+/// "exits non-zero the moment it stops reproducing". These particular numbers
+/// cannot be re-measured from a unit test — they are records of runs on stated
+/// hardware — but the arithmetic the doc comment does over them can, and that is
+/// the half that rots when someone appends a reading and leaves the prose alone.
+#[test]
+fn the_recorded_spread_is_the_one_the_prose_states() {
+    let ms = |source_prefix: &str| -> Vec<u64> {
+        RENDER_REFERENCES
+            .iter()
+            .filter(|r| r.source.starts_with(source_prefix))
+            .map(|r| r.elapsed_ms)
+            .collect()
+    };
+
+    // "Its two entries below are that range's ends": 19.78 s and 18.64 s.
+    let mut own = ms("#217");
+    own.sort_unstable();
+    assert_eq!(own, vec![18_640, 19_780], "#217's recorded ends moved");
+    assert_eq!(ms("#215"), vec![17_300], "#215's reading moved");
+
+    // "the list spans 1.14x end to end".
+    let slowest = RENDER_REFERENCES
+        .iter()
+        .map(|r| r.elapsed_ms)
+        .max()
+        .unwrap();
+    let fastest = RENDER_REFERENCES
+        .iter()
+        .map(|r| r.elapsed_ms)
+        .min()
+        .unwrap();
+    let spread = slowest as f64 / fastest as f64;
+    assert!(
+        (spread - 1.14).abs() < 0.005,
+        "the prose says 1.14x end to end; the entries say {spread:.3}x"
+    );
+
+    // "baselines against the fastest" — the claim the paragraph makes about which
+    // of these a measurement is actually scored against.
+    let chosen = nearest_reference(Budget::Render, Work::span(RENDER_REFERENCE_OUTPUT_MS))
+        .expect("a render baseline");
+    assert_eq!(chosen.elapsed_ms, fastest);
+}
