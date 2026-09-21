@@ -152,6 +152,35 @@ fn both_resources_are_listed_and_every_listed_one_is_readable() {
 }
 
 #[test]
+fn the_published_surface_is_the_one_adr_0080_names() {
+    // ADR-0011 publishes "the schema" and "the format docs" and names neither. ADR-0080
+    // names both, and the point of naming them is that they are quotable: an agent that
+    // has been told to read `montaget://schema.json` must still find it there a release
+    // later. Nothing else in the suite pins these six strings, so before this test a
+    // rename was a silent break in a published surface — which is exactly the failure the
+    // ADR exists to prevent.
+    let listed = resources::all();
+    let surface: Vec<(&str, &str, &str)> = listed
+        .iter()
+        .map(|r| (r.uri, r.name, r.mime_type))
+        .collect();
+
+    assert_eq!(
+        surface,
+        vec![
+            (
+                "montaget://schema.json",
+                "montaget-schema",
+                "application/schema+json"
+            ),
+            ("montaget://format.md", "montaget-format", "text/markdown"),
+        ],
+        "the two resource URIs, names and media types are ratified by ADR-0080 and do not \
+         move; the order is shape first, then the rules over it"
+    );
+}
+
+#[test]
 fn an_unpublished_uri_serves_nothing() {
     assert_eq!(resources::read("montaget://everything.json"), None);
     assert_eq!(resources::read("file:///etc/passwd"), None);

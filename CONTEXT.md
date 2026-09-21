@@ -656,9 +656,10 @@ the agent know how to edit `project.json`"* answerable the same way
 committed copy served back, so the published schema and the enforced one stay one
 artifact. Strictly the protocol's word, not the document's: an element's `source`
 is never a resource — that noun is on **Source**'s avoid-list and stays there.
-([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md), and the URIs
-themselves rest on [#246](https://github.com/MBehtemam/Montaget/issues/246)
-rather than on a decision)
+([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md); the URIs, names
+and media types are named by
+[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)
+and do not move)
 _Avoid_: asset, document, endpoint, attachment; and never for an element's
 `source`
 
@@ -679,9 +680,14 @@ still opens with *"nine verbs and two resources"* above a table of eleven, and
 its *"eight MCP tools, eleven CLI commands"* line no longer holds — an ADR is
 amended, never rewritten, so read its banner. The nine is asserted rather than
 restated — `crates/montaget/tests/adapters.rs` reads `tools/list` off the running
-server and names all nine.)
+server and names all nine. `create_project` is the one verb whose two surfaces
+spell it differently: the MCP tool is `create_project`, the CLI command is
+`create-project` with the underscore kept as a permanent alias, because
+ADR-0011's write-tool invariant binds the MCP surface and not argv
+([ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)).)
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
-[ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md))
+[ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md),
+[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md))
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 

@@ -114,7 +114,51 @@ fn cli_create_project_reaches_the_verb_and_writes_the_scaffold() {
 }
 
 #[test]
-fn cli_create_project_onto_an_existing_file_is_exit_1_and_changes_nothing() {
+fn cli_create_project_is_spelled_with_a_hyphen_and_answers_to_the_verbs_own_name() {
+    // ADR-0080: `create_project` is the only verb whose ADR name is not a single word, so
+    // it is the only place the CLI's one-word-per-subcommand habit and ADR-0011's snake
+    // case meet. The hyphen is the CLI's spelling and the underscore is a permanent alias,
+    // so a session that read the verb's name from an ADR or from the MCP surface and typed
+    // it at a shell is not answered with a usage error. Both spellings are asserted, and a
+    // bare `montaget create_project --help` is what an agent actually reaches for.
+    for spelling in ["create-project", "create_project"] {
+        let dir = scratch_dir(&format!("cli-create-project-{spelling}"));
+        let project = dir.join("new.montaget.json");
+        let out = montaget(&[
+            spelling,
+            project.to_str().unwrap(),
+            "--width",
+            "1080",
+            "--height",
+            "1920",
+            "--fps",
+            "25",
+        ]);
+
+        assert_eq!(
+            out.code,
+            Some(0),
+            "{spelling}: {}{}",
+            out.stdout,
+            out.stderr
+        );
+        assert!(project.is_file(), "{spelling} wrote no file");
+    }
+
+    // The hyphen is what `--help` advertises: an alias that showed up in the listing would
+    // be two names for one verb in the surface an agent reads, which is what ADR-0011's
+    // one-thing-to-parse rule refuses.
+    let help = montaget(&["--help"]);
+    assert!(help.stdout.contains("create-project"), "{}", help.stdout);
+    assert!(
+        !help.stdout.contains("create_project"),
+        "the underscore is an alias, not a second advertised verb: {}",
+        help.stdout
+    );
+}
+
+#[test]
+fn cli_create_project_onto_an_existing_file_is_exit_3_and_changes_nothing() {
     let mine = "{\"an afternoon\": \"of work\"}\n";
     let project = scratch("cli-create-project-exists", "mine.montaget.json", mine);
     let out = montaget(&[
@@ -128,8 +172,22 @@ fn cli_create_project_onto_an_existing_file_is_exit_1_and_changes_nothing() {
         "25",
     ]);
 
-    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+    // ADR-0080: exit 3, not 1 — the file that is there is intact, so there is no project
+    // to fix; the path argument is what needs changing.
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
     assert!(out.stdout.contains("E-PROJECT-EXISTS"), "{}", out.stdout);
+    // ADR-0073's shape, reached via ADR-0080: the remedy is message text, so no `repair`
+    // block is printed for it.
+    assert!(
+        !out.stdout.to_lowercase().contains("repair"),
+        "a NotAboutDocument code prints no repair block: {}",
+        out.stdout
+    );
+    assert!(
+        out.stdout.contains("never overwrites"),
+        "the remedy lives in the message: {}",
+        out.stdout
+    );
     assert_eq!(std::fs::read_to_string(&project).unwrap(), mine);
 }
 
