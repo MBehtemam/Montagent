@@ -74,14 +74,33 @@ held for the viewer to repeat — the gaps are load-bearing content, not padding
 | | |
 | --- | --- |
 | Container | MP4, 10,980,788 bytes |
-| Duration | **65.259 s** |
-| Video | H.264 High, **1080 × 1920**, 1629 frames → **≈24.98 fps**, 1.28 Mb/s |
+| Duration | **65.216 s** on the video stream; **65.259 s** on the container |
+| Video | H.264 High, **1080 × 1920**, 1629 frames → **≈24.98 fps**, 1.28 Mb/s, first PTS 42 ms |
 | Audio | AAC LC, 24 kHz, **mono**, 62 kb/s |
 | Overall bitrate | 1.35 Mb/s |
 
+**The two durations are 42 ms apart and only one of them is the project's.** The
+document declares `duration: 65216`, which is the **video stream** to the millisecond
+and the container to nothing — more than one frame at 25 fps away. This is the
+distinction [ADR-0011](../../docs/adr/0011-tool-surface-reads-checks-renders.md)'s probe
+quad exists for, and `crates/montaget-core/tests/reference_video.rs` asserts that reading
+the other number would move the answer before it compares anything against it.
+
 The frame rate is the awkward number `1390080/55651`, not a clean 25 — an artifact of
 the old pipeline concatenating separately-encoded segments. Montaget should produce a
-clean constant rate; treat ≈25 fps as the intent.
+clean constant rate; treat ≈25 fps as the intent. A render on the project's grid
+therefore carries **1631** frames against this file's 1629, and its stream runs 65.240 s
+because the last of those 1631 is held for its own 1/25 s. Both divergences are reported
+as that arithmetic rather than absorbed by a tolerance.
+
+> **The published narration sits 42 ms later than the document says, and that is this
+> file's own first presentation timestamp.** Matched boundary by boundary with
+> `silencedetect`, the reference's 39 speech/silence transitions run a median of 43.0 ms
+> behind a Montaget render of the same project; the video stream's `start_time` is
+> 42.031 ms. Take it off and every boundary agrees to inside one frame. It is a property
+> of the published encode rather than a disagreement about placement — which is why the
+> comparison removes it explicitly and asserts that the raw offset exceeds a frame, so the
+> correction can never become unfalsifiable padding.
 
 ### Ken Burns reference — `reference/kenburns/`
 
