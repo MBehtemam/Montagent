@@ -4,6 +4,13 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,
+> which ratifies the four structural-time codes — `E-TRACK-OVERLAP`, `N-TRACK-GAP`,
+> `E-SPEED-MISMATCH`, `E-OVERRUN-UNNEEDED` — that ADR-0004 and ADR-0020 name the
+> condition for but not the code, class or repair class of; and ratifies `N-TRACK-GAP` as
+> `note`-class, the `review` belonging instead to `R-VISUAL-GAP` (ADR-0018), which alone
+> sees the whole frame.
+
 > **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)**,
 > which designs the *"the probe cache is a gitignored sidecar"* consequence
 > this ADR stated and left undesigned, and **places it outside every

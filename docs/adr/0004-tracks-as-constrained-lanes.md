@@ -5,6 +5,12 @@ supersedes: partially supersedes 0001
 
 # Elements live in tracks: constrained lanes with absolute times
 
+> **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,
+> which names the two findings this ADR's *"must distinguish overlap from gap"*
+> consequence requires — `E-TRACK-OVERLAP` (`error`, refuse-class) and `N-TRACK-GAP`
+> (`note`) — and specifies that a gap is bounded by its own track's elements, never by
+> the project's ends: a track holding one element inside a longer project reports no gap.
+
 > **Amended by [ADR-0031](./0031-timeline-overview-is-not-required-to-be-spatial.md)**:
 > the "`montaget timeline` output must make absolute times unmissable" duty below is
 > satisfied by a flat listing exactly as well as a spatial axis — measurement found no

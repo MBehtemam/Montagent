@@ -482,9 +482,11 @@ do not repair it by ordinary file edit.",
     // them: `crate::checks::speed` splits at the question, and each half then answers
     // uniformly for every instance it matches.
     //
-    // No ADR names any of these four spellings — ADR-0004, ADR-0006 and ADR-0020 each
-    // state the condition and none states a code. That is surface the ADR series has not
-    // ratified, raised as #255 rather than left to be discovered from this table.
+    // All four spellings, their class and their repair class are ratified by ADR-0076
+    // (#255) — ADR-0004, ADR-0006 and ADR-0020 each state the condition, and ADR-0076 is
+    // where the code, the class and the two settled questions (`N-TRACK-GAP` stays `note`;
+    // a gap is bounded by its own track's elements, never the project's ends) became spec
+    // rather than only this table's argument.
     CheckSpec {
         code: "E-TRACK-OVERLAP",
         classes: &[Error],

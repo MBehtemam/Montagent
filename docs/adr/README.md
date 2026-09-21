@@ -35,7 +35,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0001](0001-flat-element-list.md) | A project is one flat list of uniform elements on one absolute clock. No scene, no per-kind collections, no clip-owned audio. **Its track rejection is superseded by 0004**; the rest stands | 0004 (partially) |
-| [0004](0004-tracks-as-constrained-lanes.md) | Elements live in **tracks**: named containers with an integer `layer`, supplying stacking and never timing. Children keep absolute times, array order means nothing, and children of one track may not overlap | 0019, 0031, 0059, 0060 |
+| [0004](0004-tracks-as-constrained-lanes.md) | Elements live in **tracks**: named containers with an integer `layer`, supplying stacking and never timing. Children keep absolute times, array order means nothing, and children of one track may not overlap | 0019, 0031, 0059, 0060, 0076 |
 | [0002](0002-inline-source-no-asset-table.md) | An element names its file inline. There is no asset table — the one carve-out is the `fonts` table | 0007, 0053 |
 | [0053](0053-asset-path-resolution-no-assetroot.md) | Paths resolve against the project file's own directory. No `assetRoot`; absolute paths permitted; a missing source is a plain error | 0056 |
 | [0056](0056-remote-source-probe-session-scoped-no-persistent-cache.md) | A URL source is probed once per session, deduplicated by URL, with no persistent cache. A network failure is `UNCHECKED`, never a confirmed defect | — |
@@ -51,7 +51,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0005](0005-absolute-integer-milliseconds.md) | Absolute integer milliseconds, half-open `[start, end)`, `start`+`end` and no stored `duration`. Structural edits belong to a tool | 0012, 0020, 0035, 0036, 0041 |
-| [0020](0020-speed-overrun-hold-loop.md) | `speed` is a strictly-positive rate multiplier; `fill` is renamed `overrun` (`"hold"`/`"loop"`); the two compose rather than exclude | 0045, 0055 |
+| [0020](0020-speed-overrun-hold-loop.md) | `speed` is a strictly-positive rate multiplier; `fill` is renamed `overrun` (`"hold"`/`"loop"`); the two compose rather than exclude | 0045, 0055, 0076 |
 | [0045](0045-speed-invariant-is-evaluated-in-exact-arithmetic.md) | `speed`'s rounding invariant is evaluated in **exact arithmetic**, never IEEE double. No schema change | — |
 | [0062](0062-loop-declares-a-boolean-wrap-r-source-cut-pop-extends-mechanically.md) | `loop` is a project-level boolean, purely `validate`-facing; the wrap seam reuses `R-SOURCE-CUT-POP` unchanged | — |
 | [0032](0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md) | Every slack is invariant by default. `shift` refuses rather than silently absorbing; `compare` is the backstop for raw edits | 0039, 0047, 0051, 0063, 0066 |
@@ -117,7 +117,8 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061, 0069 |
+| [0006](0006-validate-reports-facts-and-render-enforces.md) | `validate` answers *"is this legal and does it agree with the disk"* and **never** *"does it say what you meant."* It prints its own boundary (`NOT CHECKED`); findings state facts, never repairs; the noise budget is a safety property; `render` runs the identical checks and is what enforces them | 0007, 0012, 0013, 0014, 0019, 0035, 0036, 0039, 0041, 0043, 0044, 0051, 0052, 0058, 0060, 0061, 0069, 0076 |
+| [0076](0076-the-four-structural-time-finding-codes-are-ratified.md) | Ratifies the four structural-time codes `#197` invented: `E-TRACK-OVERLAP` (`error`, refuse-class), `N-TRACK-GAP` (`note`), `E-SPEED-MISMATCH` (`error`, advise-class), `E-OVERRUN-UNNEEDED` (`error`, refuse-class). `N-TRACK-GAP` stays `note` — the `review` belongs to `R-VISUAL-GAP` alone — and a gap is bounded by its own track's elements, never the project's ends | — |
 | [0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md) | **Threshold provenance decides admission, not severity.** A check is fact-only if every number deciding whether it fires is derivable from the document. `R-CAPTION-PACE` is kept via a fenced exception with binding citation | 0071 |
 | [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md) | Error-class findings whose repair needs intent the document lacks are **refuse-class**: a `repair` field, decided once per check, uniform across instances, non-bypassable | 0068, 0073 |
 | [0073](0073-process-level-errors-carry-no-repair-field.md) | ADR-0043's binary is about **the document**. `E-PARSE`/`E-READ`/`E-INVOCATION`/`E-INTERNAL` are process-level, carry **no `repair` field at all**, and state any remedy as message text — decided by a unanimous three-model court | — |
