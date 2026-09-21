@@ -5,7 +5,7 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 
 # The performance budget splits in two, proxy-resolution previews get a fixed
 
-> **Amended by four later ADRs.** Read them before relying on anything below.
+> **Amended by five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) — states the deferred
 >   target resolution and ladder length; defers the floor
@@ -16,6 +16,10 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 >   observational, has no target, and the measurements taken in its place are recorded
 >   rather than enforced. The 60 s-under-2-minutes figure named at the top of this ADR is
 >   retired as a ceiling anywhere in the code, and may not be read linearly as a rate
+> - [ADR-0077](0077-the-nine-render-readings-are-ratified.md) — states what `render` does with an
+>   **odd frame dimension**, which this ADR's *"never silently"* rule forbids one answer to
+>   without choosing among the rest: padded to even, right and bottom, in the project's
+>   background colour, and disclosed beside the declared frame
 # target with a deferred number, and `preview` degrades gracefully
 
 The original budget — a 60 s render under 2 minutes, a 10 s preview under 5

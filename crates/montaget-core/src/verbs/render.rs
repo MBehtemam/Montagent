@@ -60,8 +60,8 @@
 //! `end` is an integer: `⌊t⌋ ≥ start ⇔ t ≥ start` and `⌊t⌋ < end ⇔ t < end`. What can
 //! differ is an interpolated value, by less than one millisecond of travel, at rates where
 //! the grid is not millisecond-exact. At 25, 50, 100, 200, 500 and 1000 fps it is exact.
-//! Recorded here rather than left to be found by diffing `validate`'s
-//! `R-KEYFRAME-UNREACHED` against a frame, and raised for ratification.
+//! Ratified by ADR-0077 (#287), which amends ADR-0035 with it; the unit test below is the
+//! re-executable check behind both halves of that sentence.
 //!
 //! ## Audio (spec #168, stories 93–99)
 //!
@@ -77,19 +77,34 @@
 //! rather than a ceiling (ADR-0055). An element that cannot be mixed is listed in the
 //! answer with the reason, on the same rule the picture lists what it did not paint.
 //!
-//! ## Readings no ADR states, recorded here and raised for ratification
+//! ## The readings ADR-0077 ratifies (#287)
 //!
-//! - The floored frame instant above.
+//! Each of these was decided here to ship #215, argued at its site, and had no ADR behind
+//! it. ADR-0077 is where they became spec — it amends ADR-0035, ADR-0011, ADR-0021,
+//! ADR-0009 and ADR-0055 rather than restating them, and it changed no behaviour.
+//!
+//! - The floored frame instant above (ADR-0035).
 //! - **A project with no `duration` renders to its last boundary**, which is the same
-//!   derived `duration` [`crate::slack`] uses — one derivation, not two.
+//!   derived `duration` [`crate::slack`] uses — one derivation, not two (ADR-0011).
 //! - **A project with no `output` and no `--output` is refused with exit 3**, naming the
-//!   field: there is nowhere to put the video, and the command is what says where.
+//!   field: there is nowhere to put the video, and the command is what says where
+//!   (ADR-0011).
 //! - **`--to` past the project's end is legal** — the frames past it are background — for
-//!   ADR-0011's reason that *"every instant is a legal question"*.
-//! - An odd frame dimension is padded to even and disclosed, argued at
-//!   [`montaget_render::encode`]; so are the encoder settings.
-//! - **The mix bus is 48 kHz stereo**, so every `aloop` sample count is exact from the
-//!   document alone and no element is mixed at a rate a probe had to supply.
+//!   ADR-0011's reason that *"every instant is a legal question"*. `--from` before 0 is
+//!   not: the clock begins at 0.
+//! - **The derived partial name's `<name>` is the declared `output`'s stem**, or the
+//!   project file's own where it declares none (ADR-0011 fixes the shape, not `<name>`).
+//! - An odd frame dimension is padded to even and disclosed (ADR-0021), argued at
+//!   [`montaget_render::encode`]; so are the encoder settings (ADR-0009).
+//! - **The mix bus is 48 kHz stereo and `amix` runs with `normalize=0`**, so every `aloop`
+//!   sample count is exact from the document alone, no element is mixed at a rate a probe
+//!   had to supply, and two narration lines at `1.0` are each still at `1.0` (ADR-0055).
+//! - **A keyframed `volume` is the value `resolve` computes on every sampled frame**, sent
+//!   as timed commands rather than re-expressed in `ffmpeg`'s expression language
+//!   (ADR-0055).
+//!
+//! **Not a reading, and deliberately unratified** — ADR-0077 records it as a cost:
+//!
 //! - **A `video` element is decoded through one `ffmpeg` seek per frame**, the same call
 //!   `frame` makes. It is correct and it is slow — a spawn per frame — and a streaming
 //!   decode is an optimisation this ticket does not take. The only render wall clock this
@@ -1156,6 +1171,61 @@ mod tests {
                 .is_err(),
                 "{from:?}..{to:?}"
             );
+        }
+    }
+
+    /// ADR-0077, reading 1: the re-executable check behind *"at 25, 50, 100, 200, 500 and
+    /// 1000 fps it is exact"* and behind the claim that flooring never moves an element in
+    /// or out of a frame.
+    #[test]
+    fn the_painted_instant_is_the_grid_instant_floored_and_presence_is_unaffected() {
+        // 30 fps: the grid is n × 100/3 ms, and the painter takes the whole millisecond
+        // below it.
+        assert_eq!(
+            (0..7).map(|n| instant_of(n, 30)).collect::<Vec<_>>(),
+            vec![0, 33, 66, 100, 133, 166, 200]
+        );
+
+        // Exact at the six rates that divide 1000, and only at those: one second of
+        // frames at each rate, floor against the exact product.
+        for fps in [25, 50, 100, 200, 500, 1000] {
+            for n in 0..fps {
+                assert_eq!(
+                    i128::from(instant_of(n, fps)) * i128::from(fps),
+                    i128::from(n) * 1000,
+                    "{fps} fps is millisecond-exact, so the floor takes nothing at frame {n}"
+                );
+            }
+        }
+        for fps in [24, 30, 60] {
+            assert!(
+                (0..fps)
+                    .any(|n| i128::from(instant_of(n, fps)) * i128::from(fps)
+                        != i128::from(n) * 1000),
+                "{fps} fps has a grid instant the floor moves"
+            );
+        }
+
+        // Presence is unaffected, since every `start` and `end` is an integer:
+        // `⌊t⌋ ≥ start ⇔ t ≥ start` and `⌊t⌋ < end ⇔ t < end`. Scanned over a second of
+        // frames at the awkward rates, against every whole-millisecond boundary in range.
+        for fps in [24, 30, 60] {
+            for n in 0..fps {
+                let floored = i128::from(instant_of(n, fps));
+                let exact = i128::from(n) * 1000; // t × fps, to stay in integers
+                for boundary in 0..1000i128 {
+                    assert_eq!(
+                        floored >= boundary,
+                        exact >= boundary * i128::from(fps),
+                        "{fps} fps, frame {n}, boundary {boundary}"
+                    );
+                    assert_eq!(
+                        floored < boundary,
+                        exact < boundary * i128::from(fps),
+                        "{fps} fps, frame {n}, boundary {boundary}"
+                    );
+                }
+            }
         }
     }
 

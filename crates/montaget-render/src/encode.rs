@@ -20,7 +20,11 @@
 //! `atempo` chain — every one of those is a rule about the format and lives in
 //! `montaget-core` (spec #168's crate split).
 //!
-//! ## Three encoder choices no ADR states, recorded here
+//! ## Three encoder choices, ratified by ADR-0077 (#287)
+//!
+//! Each shipped with #215 and no ADR behind it. ADR-0077 ratifies all three as they are —
+//! the settings amending ADR-0009, the padding amending ADR-0021 — and notes that CRF 20
+//! at preset `medium` is a default rather than a measured optimum.
 //!
 //! - **`libx264`, `yuv420p`, CRF 20, `medium`.** H.264 in an MP4 with `+faststart` is what
 //!   every player and every upload form reads. An `ffmpeg` built without `--enable-gpl` has

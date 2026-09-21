@@ -421,6 +421,39 @@ fn a_range_is_both_flags_or_neither_and_is_half_open() {
 }
 
 #[test]
+fn a_to_past_the_projects_end_is_legal_and_the_frames_past_it_are_background() {
+    if !has_ffprobe() {
+        return;
+    }
+    // ADR-0077, reading 4: `--from` before 0 is refused because the clock begins at 0,
+    // and `--to` past the end is not, because ADR-0011 makes every instant a legal
+    // question. The frames past the last boundary are the background, and they are in
+    // the file: 50 frames and 2000 ms of video out of a project that ends at 1000.
+    let dir = tempdir(line!());
+    let body = project(
+        r##""duration":1000,"output":"out/x.mp4","##,
+        &rect("card", 0, 1000),
+    );
+    let path = write_project(&dir, "p.montaget.json", &body);
+
+    let json = rendered(&path, &range(0, 2000));
+    let video = &json["render"];
+    assert_eq!(video["partial"], true);
+    assert_eq!(video["to"], 2000);
+    assert_eq!(video["duration_ms"], 2000);
+    assert_eq!(video["frames"], 50);
+
+    let written = dir.join("out/x.0-2000.mp4");
+    assert_eq!(
+        video["path"].as_str().map(PathBuf::from),
+        Some(written.clone())
+    );
+    let stream = video_stream(&written);
+    assert_eq!(stream.frames, Some(50));
+    assert_eq!(stream.duration_ms, Some(2000));
+}
+
+#[test]
 fn a_project_with_no_output_and_no_flag_is_exit_3_naming_the_field() {
     let dir = tempdir(line!());
     let body = project(r##""duration":1000,"##, &rect("card", 0, 1000));

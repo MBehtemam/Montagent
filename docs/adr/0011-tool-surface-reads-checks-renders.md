@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by seventeen later ADRs.** Read them before relying on anything below.
+> **Amended by eighteen later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -43,6 +43,11 @@ status: accepted
 >   presence set is every element, audio included.** The word *"on-screen"* in the
 >   `query --from --to` line below is amended to *"the presence set"*; `unplaced` is
 >   specified
+> - [ADR-0077](0077-the-nine-render-readings-are-ratified.md) — ratifies `render`'s four
+>   command-surface readings: a project with no `duration` renders to its last boundary, a
+>   project with no `output` and no `--output` is exit 3, `--to` past the project's end is
+>   legal (`--from` before 0 is not), and `<name>` in the derived partial name is the
+>   declared `output`'s stem
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
