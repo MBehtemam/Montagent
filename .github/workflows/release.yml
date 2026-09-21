@@ -1,0 +1,185 @@
+# Cuts a GitHub Release for a `v*` tag: one `montaget` binary per desktop tier-1 target
+# (ADR-0064), a `SHA256SUMS` file over all of them, and — when a crates.io token is
+# configured — `cargo publish` of the four workspace crates in dependency order.
+#
+# Native runners only, same six legs as `ci.yml`'s matrix and for the same reason: a
+# cross-compiled job resolves `skia-safe`'s prebuilt for the target but cannot run
+# anything on it, and this workflow's whole job is producing a binary someone else runs.
+#
+# Deliberately absent: any step that checks for a newer release, calls home, or updates
+# anything after the fact. ADR-0064's update policy is "whatever channel was used is the
+# entire update story" — this workflow is that channel's producing side, once, per tag.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re-)release, e.g. v0.1.0"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ADR-0064's six. Kept in lockstep with `ci.yml`'s matrix by hand — both read
+          # `[workspace.metadata.skia] targets` in the root `Cargo.toml`, but a workflow
+          # matrix cannot be generated from that file without a separate job to read it
+          # first, which is more moving parts than six lines justify.
+          - target: aarch64-apple-darwin
+            os: macos-15
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            archive: tar.gz
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-24.04
+            archive: tar.gz
+          - target: aarch64-pc-windows-msvc
+            os: windows-11-arm
+            archive: zip
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install the pinned toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      # Skia's Linux link line ends in `-lstdc++ -lfreetype -lfontconfig` (see
+      # `ci.yml`'s matching comment) — system libraries the prebuilt links against, not
+      # FFmpeg, and not bundled into the archive below.
+      - name: Install Skia's Linux link dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+
+      # Only the shipping binary — not the workspace's test-only crates (the golden-frame
+      # harness in `docs/research/prototypes/rust-rasterizer` needs nothing released).
+      - name: Build montaget
+        run: cargo build --release --locked --target ${{ matrix.target }} -p montaget
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.tag || github.ref_name }}"
+          name="montaget-${version}-${{ matrix.target }}"
+          stage="$(mktemp -d)/${name}"
+          mkdir -p "$stage"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "target/${{ matrix.target }}/release/montaget.exe" "$stage/"
+          else
+            cp "target/${{ matrix.target }}/release/montaget" "$stage/"
+          fi
+          pushd "$(dirname "$stage")" >/dev/null
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            archive="${name}.zip"
+            7z a -tzip "$archive" "$name" >/dev/null
+          else
+            archive="${name}.tar.gz"
+            tar czf "$archive" "$name"
+          fi
+          popd >/dev/null
+          mv "$(dirname "$stage")/${archive}" .
+          echo "path=${archive}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error
+
+  release:
+    name: publish the GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          # No auto-generated "what's changed" prose: the tag is the release, and its
+          # message (from an annotated tag) is the changelog, not a GitHub-guessed diff.
+          files: |
+            dist/*
+          fail_on_unmatched_files: true
+
+  # `cargo publish` of the four workspace crates, in the only order their path
+  # dependencies allow: the two leaves first, then the crate that depends on both, then
+  # the binary. Skipped entirely — not failed — when no token is configured, so a fork or
+  # an early tag can still cut a GitHub Release without crates.io in the loop.
+  publish-crates:
+    name: cargo publish
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Has a crates.io token been configured?
+        id: gate
+        run: echo "configured=${{ secrets.CARGO_REGISTRY_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.gate.outputs.configured == 'true'
+        with:
+          toolchain: "1.90"
+
+      - name: Skia's Linux link dependencies (montaget-render needs to build to publish)
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+
+      - name: Publish in dependency order
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in montaget-text montaget-render montaget-core montaget; do
+            echo "publishing ${crate}"
+            cargo publish -p "${crate}" --locked
+            # crates.io needs a moment before the next crate's path dependency resolves
+            # against it as a registry dependency.
+            sleep 30
+          done

@@ -187,6 +187,9 @@ jobs:
       - name: The prebuilt canary's assertion still tells good logs from bad
         run: python3 ci/assert_prebuilt_key.py --self-test
 
+      - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
+        run: python3 ci/assert_passive_packaging.py
+
       # Which frame of the published MP4 each committed reference PNG is —
       # numbers `tests/reference_frames.rs` and the fixture README both state,
       # so `docs/agents/domain.md` wants them re-derivable rather than
