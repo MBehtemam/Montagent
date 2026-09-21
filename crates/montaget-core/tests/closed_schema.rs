@@ -222,9 +222,10 @@ fn a_negative_volume_is_a_schema_error_wherever_volume_is_published() {
 
 #[test]
 fn zero_and_amplification_are_ordinary_volumes() {
-    // The two ends the ADR keeps open: `0` must be legal, because silence *"is what makes
-    // the mute decision work with no second field", and `>1` is permitted rather than
-    // capped — clipping past it is the renderer's documented behaviour, not a ceiling.
+    // The two ends the ADR keeps open: `0` must be legal, because silence is *"what makes
+    // the mute decision below work with no second field"*, and `>1` is *"permitted rather
+    // than capped"* — clipping past it is the renderer's documented behaviour, not a
+    // schema-enforced ceiling.
     for shape in [
         r##","volume":0"##,
         r##","volume":4.0"##,

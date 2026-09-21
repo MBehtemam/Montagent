@@ -105,7 +105,7 @@ use montaget_render::encode::{self, Encoder, Spec};
 use crate::exact::{self, Decimal};
 use crate::media::sidecar::Sidecar;
 use crate::media::{Source, tools};
-use crate::model::Animatable;
+use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
 use crate::resolve;
@@ -811,18 +811,29 @@ fn chain(
     match element.get("volume") {
         None | Some(Value::Null) => {}
         Some(written) => {
-            let volume: Animatable<f64> = serde_json::from_value(written.clone())
-                .map_err(|_| "its `volume` is not a number or a keyframe list".to_string())?;
+            // Read as [`Volume`], not as a bare `f64`: ADR-0055's *"negative is a schema
+            // error"* is one bound, stated once, on the type — and reading the raw value
+            // through it is what makes that true of the keyframed spelling too, which a
+            // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
+            // waveform at full level. The check engine has already refused the render for
+            // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
+            let volume: Animatable<Volume> = serde_json::from_value(written.clone())
+                .map_err(|e| format!("its `volume` does not fit the schema: {e}"))?;
+            let volume = match volume {
+                Animatable::Static(Volume(v)) => Animatable::Static(v),
+                Animatable::Keyed(records) => Animatable::Keyed(
+                    records
+                        .into_iter()
+                        .map(|record| Keyframe {
+                            t: record.t,
+                            v: record.v.0,
+                            ease: record.ease,
+                        })
+                        .collect(),
+                ),
+            };
             match volume {
                 Animatable::Static(v) => {
-                    // A negative level is a schema error the check engine has already
-                    // refused the render for (ADR-0055), the same way `overrun: "hold"` on
-                    // audio is above. Named here for the same reason: a document that
-                    // reaches this point malformed says why it was not mixed, rather than
-                    // inverting the waveform at full level and calling it a render.
-                    if v < 0.0 {
-                        return Err("its `volume` is negative".to_string());
-                    }
                     if v != 1.0 {
                         filter.push_str(&format!(",volume={}", ratio(v)));
                     }

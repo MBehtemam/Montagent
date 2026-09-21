@@ -648,7 +648,6 @@
               "$ref": "#/$defs/Speed"
             },
             "overrun": {
-              "description": "`hold` is a schema error on audio: there is no non-arbitrary meaning for holding the\nlast sample, and \"then silence\" is already free as a shorter element plus a gap.",
               "$ref": "#/$defs/AudioOverrun"
             },
             "volume": {
@@ -1404,7 +1403,7 @@
           "description": "The source restarts from `source_start` with a hard cut — no crossfade, which would\nneed an unstated duration and curve."
         }
       ],
-      "description": "What an `audio` element does past the end of its (possibly speed-adjusted) source.\n\n[`super::Overrun`] minus `hold`. ADR-0020: there is no non-arbitrary meaning for\nholding the last *sample* — a frame held is the picture that was already there, and a\nsample held is a DC offset or a click — and *\"then silence\"* is already free, and\nalready legible on the timeline, as a shorter element and a gap.\n\nA separate type rather than a check on [`super::Overrun`] because it is a different\nfield: an `audio` element publishes one legal value here and the schema says so, which\nis what an agent reading the schema for the answer gets to read."
+      "description": "What an `audio` element does past the end of its (possibly speed-adjusted) source.\n\nA `video` element's `overrun` minus `hold`. ADR-0020: there is no non-arbitrary\nmeaning for holding the last *sample* — a frame held is the picture that was already\nthere, and a sample held is a DC offset or a click — and \"then silence\" is already\nfree, and already legible on the timeline, as a shorter element and a gap.\n\nIts own type rather than a check on the shared one because it is a different field:\nan `audio` element publishes one legal value here and the schema says so, which is what\nan agent reading the schema for the answer gets to read."
     },
     "TransitionKind": {
       "type": "string",

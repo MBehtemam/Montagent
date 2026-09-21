@@ -625,8 +625,9 @@ pub struct Audio {
     pub source_end: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
-    /// `hold` is a schema error on audio: there is no non-arbitrary meaning for holding the
-    /// last sample, and "then silence" is already free as a shorter element plus a gap.
+    // No field doc: [`AudioOverrun`] carries the whole of why `hold` is absent here, and
+    // `schemars` publishes a field's doc *and* its type's, so a second copy would put the
+    // same sentence twice on one property.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overrun: Option<AudioOverrun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

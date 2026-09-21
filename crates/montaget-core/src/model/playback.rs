@@ -23,11 +23,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// entry avoids *rate*, *stretch factor* and *tempo* as names for this concept, and the
 /// type is published into the schema as a `$def` an agent reads.
 ///
-/// `0` is refused rather than read as a freeze: a freeze is `overrun: "hold"` on a
-/// zero-length source range, and a speed of zero makes the ADR's own invariant — `end -
-/// start` equals `source range / speed` — undefined. Negative is refused because reverse
-/// playback *"is not `speed`'s job and is undecided, not ruled out"*: a sign bit smuggled
-/// onto a magnitude would decide it silently, and decide it badly.
+/// `0` is refused because it leaves ADR-0020's own invariant — `end - start` equals
+/// `source range / speed` — undefined, and because no length of timeline can hold a source
+/// that advances by nothing. Negative is refused because reverse playback *"is not
+/// `speed`'s job and is undecided, not ruled out"*: a sign bit smuggled onto a magnitude
+/// would decide it silently, and decide it badly.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct Speed(pub f64);
@@ -122,14 +122,19 @@ fn number_schema(description: &str, bound: &str) -> Schema {
 
 /// What an `audio` element does past the end of its (possibly speed-adjusted) source.
 ///
-/// [`super::Overrun`] minus `hold`. ADR-0020: there is no non-arbitrary meaning for
-/// holding the last *sample* — a frame held is the picture that was already there, and a
-/// sample held is a DC offset or a click — and *"then silence"* is already free, and
-/// already legible on the timeline, as a shorter element and a gap.
+/// A `video` element's `overrun` minus `hold`. ADR-0020: there is no non-arbitrary
+/// meaning for holding the last *sample* — a frame held is the picture that was already
+/// there, and a sample held is a DC offset or a click — and "then silence" is already
+/// free, and already legible on the timeline, as a shorter element and a gap.
 ///
-/// A separate type rather than a check on [`super::Overrun`] because it is a different
-/// field: an `audio` element publishes one legal value here and the schema says so, which
-/// is what an agent reading the schema for the answer gets to read.
+/// Its own type rather than a check on the shared one because it is a different field:
+/// an `audio` element publishes one legal value here and the schema says so, which is what
+/// an agent reading the schema for the answer gets to read.
+// The shared one is `super::Overrun`, named here rather than in the doc comment above:
+// this type's doc comment is what `schemars` publishes as its schema `description`, and a
+// Rust path is not something a reader of the schema can follow. (`Speed` and `Volume`
+// escape the same trap differently — their descriptions are written out in
+// `number_schema`, because a hand-written `JsonSchema` impl publishes no doc comment.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum AudioOverrun {
