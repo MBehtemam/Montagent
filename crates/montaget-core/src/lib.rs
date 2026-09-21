@@ -67,5 +67,5 @@ pub mod verbs;
 pub mod wire;
 pub mod write;
 
-pub use verbs::validate::validate;
+pub use verbs::validate::{validate, validate_with_cache};
 pub use wire::Wire;

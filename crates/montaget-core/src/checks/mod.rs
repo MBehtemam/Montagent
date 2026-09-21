@@ -23,6 +23,7 @@ pub mod highlight;
 pub mod layout;
 pub mod quantization;
 pub mod retired;
+pub mod runs;
 pub mod schema;
 pub mod source;
 pub mod speed;
@@ -52,4 +53,83 @@ pub(crate) fn project_dir(document: &crate::permissive::Loose) -> std::path::Pat
         .parent()
         .unwrap_or(std::path::Path::new("."))
         .to_path_buf()
+}
+
+/// One run of a `text` element: its own text, and the `font` delta it states over the
+/// element's base style (ADR-0007).
+pub(crate) struct StyledRun {
+    pub(crate) font: Option<String>,
+    pub(crate) text: String,
+}
+
+/// One `text` element, as every check that reads its `runs` sees it.
+///
+/// Shared rather than walked twice: ADR-0007's font census and its three text-byte checks
+/// (`crate::checks::fonts`, `crate::checks::runs`) all want the same four facts off the same
+/// traversal, and two copies of "which element, which track, which font, which runs" is two
+/// places for the permissive reading of a half-written element to drift.
+///
+/// **[`caption`]'s own `TextElement` is deliberately not this**, and its module doc says
+/// why: those checks group by time and need `start`/`end`, and they are scoped *not* to read
+/// the style fields this carries.
+pub(crate) struct StyledText {
+    pub(crate) subject: String,
+    pub(crate) track: Option<String>,
+    /// The element's base `font`, where it states one readably. A run with no delta of its
+    /// own is set in this.
+    pub(crate) font: Option<String>,
+    pub(crate) runs: Vec<StyledRun>,
+}
+
+impl StyledText {
+    /// Every run's text, end to end — the element's content as one string, which is what a
+    /// question about *characters* rather than about styles is asked of.
+    pub(crate) fn joined(&self) -> String {
+        self.runs.iter().map(|run| run.text.as_str()).collect()
+    }
+}
+
+/// Every `text` element, in document order.
+///
+/// Read permissively throughout: a run that is not an object, or a `text`/`font` that is not
+/// a string, is the schema check's to report and is simply not read here. A missing `text` is
+/// an empty run rather than a dropped one, so that the *boundaries* between runs stay where
+/// the document puts them.
+pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText> {
+    use serde_json::Value;
+    document
+        .elements_in_tracks()
+        .filter(|(_, element)| element.get("type").and_then(Value::as_str) == Some("text"))
+        .map(|(track, element)| StyledText {
+            subject: subject_of(element.get("id").and_then(Value::as_str)),
+            track: track.map(str::to_string),
+            font: element
+                .get("font")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            runs: element
+                .get("runs")
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .map(|run| StyledRun {
+                    font: run.get("font").and_then(Value::as_str).map(str::to_string),
+                    text: run
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// `1 element` / `3 elements` — a count and its noun, for a template that cannot inflect.
+pub(crate) fn pluralised(count: usize, noun: &str) -> String {
+    match count {
+        1 => format!("1 {noun}"),
+        count => format!("{count} {noun}s"),
+    }
 }

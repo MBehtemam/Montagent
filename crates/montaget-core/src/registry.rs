@@ -891,6 +891,125 @@ it at {resolved}.",
 kept, never pruned: remove it yourself if the file is gone for good.",
         status: Live,
     },
+    // ---- ADR-0007's own five text checks, and the font-swap census (#206). -----------
+    //
+    // ADR-0007's consequence list names the conditions and none of the codes; every
+    // spelling below is surface the ADR series has not ratified, on the same footing as
+    // ADR-0057's six above.
+    CheckSpec {
+        // ADR-0007: "A character with no glyph in any chain entry renders `.notdef` and is
+        // a `validate` **error** — under ADR-0006's definition it is *guaranteed wrong*,
+        // and unlike a gap there is no intent it could express."
+        code: "E-FONT-NO-GLYPH",
+        classes: &[Error],
+        // Refuse. Two documents repair this and the disagreement between them is exactly
+        // what ADR-0043 fences off: the chain is short a file, or the text carries a
+        // character it was never meant to. Nothing in the document says which, and a check
+        // that advised one would be guessing at the author's meaning — the per-instance
+        // triage that ADR forbids.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "{element}: nothing in the `{font}` chain has a glyph for {characters}, \
+so it renders as .notdef. The chain is {chain}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0007's font census — *"23 elements use `brand`; 1 uses `brand-old`"* — and
+        // spec #168's story 102: "a fact I can see rather than a query I have to write".
+        //
+        // A `note`: nothing on any frame is wrong, and two declared fonts in one project
+        // is ordinary (ADR-0007's own worked table declares `brand` and `brand+fa`). What
+        // the census is for is the *outlier*, and ADR-0043 forbids saying which group that
+        // is — so the finding states the distribution and stops.
+        code: "N-FONT-CENSUS",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "The project's text is set in more than one declared font: {distribution}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0007: a "**font-swap** finding naming which measured layouts are now
+        // unverified", and "font files join ADR-0006's `(path, size, mtime)` probe cache —
+        // a font swapped in place is a silent whole-project render change that no census
+        // sees". Spec #168 asks for both halves under one story (54) and one mechanism
+        // answers both: a chain's identity is the ordered `(file, size, mtime)` of its
+        // entries, so a table edit and a file rewritten in place are one comparison.
+        //
+        // `review`, which is ADR-0006's definition read literally: it is legal, it renders,
+        // and the sizes and breaks ADR-0007 requires the author to have measured by hand
+        // were measured in the other font — so you must look at a frame to know whether it
+        // was meant.
+        code: "R-FONT-SWAP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "The `{font}` chain is not the one this project was last validated \
+against: {detail}. {elements} measured in the old chain are unverified — every size and \
+every hand-placed break in them was taken against different metrics.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0007's grapheme-cluster check: "no run boundary splits a base from its
+        // combining mark". A run boundary is a *style* boundary and each run shapes on its
+        // own, so a mark that starts a run has no base to attach to and renders on a dotted
+        // circle — guaranteed wrong, which is ADR-0006's `error`.
+        code: "E-RUN-SPLIT-CLUSTER",
+        classes: &[Error],
+        // Refuse, on `E-FONT-NO-GLYPH`'s reasoning: the cluster belongs whole to one run
+        // or the other, and which of the two styles the author meant it to wear is the one
+        // fact the document does not carry — the boundary is there *because* the styles
+        // differ.
+        //
+        // **No sibling census, and ADR-0043 says a refuse-class finding carries one.**
+        // `E-PARSE`, `E-ANCHOR-CHAIN` and the two schema codes are already refuse-class
+        // without one, so the practice is that the census attaches where a sibling group
+        // exists. Here none does: the fault is one boundary inside one element's own
+        // string, and there is no observable other elements could be grouped by that would
+        // narrow it. `E-FONT-NO-GLYPH` is the contrast — its group, the project's other
+        // chains that do map the characters, is real and it carries one.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "{element}: the boundary before run {run} falls inside {cluster} \
+({codepoints}), so the mark shapes with no base. A run boundary is style only (ADR-0007) — \
+move it off the cluster.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0007's invisible-character census, spec #168 story 104: "a character I cannot
+        // see is one I am told about". Never an error — ZWJ is how an emoji sequence is
+        // spelled and RLM is how ADR-0007's own bidi story is told without a `dir` override
+        // — so the finding counts and locates them and judges none of them.
+        code: "N-TEXT-INVISIBLE",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0007",
+        // The verb agrees with the count, so it travels in the field rather than in the
+        // template: "1 character … occupies", "3 characters … occupy".
+        template: "{occurrences}, and no diff will show you where: {summary}.",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0007's mixed-normalization finding, spec #168 story 105: "two strings that
+        // look identical and compare unequal are named". The harm is editing, not
+        // rendering — canonical equivalence is a rendering-neutrality guarantee by design,
+        // and ADR-0007 forbids any writer from normalising the difference away ("no tidying
+        // pass, ever") — so it is a `note` and never a `LAYOUT` finding, whose prose would
+        // send the reader to `fmt` for a change `fmt` must refuse to make.
+        code: "N-TEXT-MIXED-NORMALIZATION",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0007",
+        template: "{spellings} of {text} are the same string under Unicode and different \
+bytes on disk, so an exact-string edit finds one of them and not the other.",
+        status: Live,
+    },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],
