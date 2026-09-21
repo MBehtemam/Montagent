@@ -262,6 +262,45 @@ enum Command {
         verbose: bool,
     },
 
+    /// Does it look right in motion? A scrub preview at a proxy resolution.
+    ///
+    /// Renders at the 720p proxy target — the long edge capped at 1280 px, aspect
+    /// preserved, rounded to even (ADR-0046) — so a scrub stays under five seconds. A span
+    /// that runs past that budget degrades exactly once, to 540p, and hard-fails rather
+    /// than degrade again (ADR-0065). **The tier is disclosed every time**, degraded or
+    /// not: it is how you know what you are looking at (ADR-0021).
+    ///
+    /// Never the deliverable — the preview is written to
+    /// `out/<name>.preview.<from>-<to>.mp4`, and `--output` naming the project's own
+    /// `output` is refused. `render` is never degraded (ADR-0067); use `frame` when you
+    /// need true pixels of one instant.
+    Preview {
+        /// The project file.
+        project: PathBuf,
+        /// Preview only from this instant, in absolute milliseconds. Asked for with
+        /// `--to`.
+        #[arg(long, value_name = "MS")]
+        from: Option<i64>,
+        /// The end of the scrub, exclusive: the range is half-open `[from, to)`.
+        #[arg(long, value_name = "MS")]
+        to: Option<i64>,
+        /// Write here instead of `out/<name>.preview.<from>-<to>.mp4`. Refused where it
+        /// names the project's own `output`.
+        #[arg(long, value_name = "PATH")]
+        output: Option<PathBuf>,
+        /// True pixels instead of the proxy target, for a check that is precision-
+        /// sensitive. This arm of the budget is observational: it is neither enforced nor
+        /// degraded, and you are paying for what you asked for (ADR-0021).
+        #[arg(long)]
+        full: bool,
+        /// Print the canonical JSON *instead of* the text result, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
     /// Move every time at or after an instant.
     ///
     /// The one edit that is arithmetic rather than authorship (ADR-0005, ADR-0012). Refuses
@@ -664,6 +703,53 @@ where
                     println!(
                         "{}",
                         montaget_core::wire::render_video(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Preview {
+            project,
+            from,
+            to,
+            output,
+            full,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            // `clock` is deliberately absent: ADR-0021's `<5 s` is the budget, and an
+            // adapter that let argv restate it would be argv holding a number the ADR
+            // holds.
+            let ask = montaget_core::verbs::preview::Ask {
+                from,
+                to,
+                output,
+                full,
+                clock: montaget_core::verbs::preview::Clock::Scrub,
+            };
+            // ADR-0011's split again, and the tier named on every line: a rung that is
+            // abandoned on the budget has already printed progress, and a reader who saw
+            // "preview 3/5" twice needs to know the second pass is a smaller frame.
+            let mut progress = |p: montaget_core::verbs::render::Progress| {
+                eprintln!(
+                    "preview  {}/{} frames  {:.1} s",
+                    p.done,
+                    p.of,
+                    p.elapsed.as_secs_f64()
+                );
+            };
+            match run_verb(std::panic::AssertUnwindSafe(|| {
+                montaget_core::verbs::preview::preview(&project, &ask, &mut progress)
+            })) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montaget_core::wire::render_preview(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

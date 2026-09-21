@@ -273,6 +273,40 @@ pub struct RenderParams {
     pub verbose: bool,
 }
 
+/// `preview`'s arguments: the whole project by default, or one half-open range of it, at
+/// the proxy target.
+///
+/// There is no argument that names a resolution or a tier. The target is ADR-0046's and the
+/// ladder is ADR-0065's; what the caller gets to say is whether it wants the proxy at all
+/// (`full`), which is ADR-0021's escape hatch and the one arm of the budget that is
+/// observational. There is no argument for the budget either — the `<5 s` is the ADR's
+/// number, not a knob.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct PreviewParams {
+    /// Path to the project file.
+    pub project: String,
+    /// Preview only from this instant, in absolute milliseconds. Asked for with `to`.
+    #[serde(default)]
+    pub from: Option<i64>,
+    /// The end of the scrub, exclusive: the range is half-open `[from, to)`.
+    #[serde(default)]
+    pub to: Option<i64>,
+    /// Write here instead of `out/<name>.preview.<from>-<to>.mp4`. Refused where it names
+    /// the project's own `output`: a preview never lands on the deliverable.
+    #[serde(default)]
+    pub output: Option<String>,
+    /// True pixels instead of the 720p proxy target, for a check that is
+    /// precision-sensitive. Neither enforced nor degraded — you asked for the cost.
+    #[serde(default)]
+    pub full: bool,
+    /// Return the canonical JSON *instead of* the text result, never alongside it.
+    #[serde(default)]
+    pub json: bool,
+    /// Expand the informational classes that collapse to one counted line.
+    #[serde(default)]
+    pub verbose: bool,
+}
+
 /// The project's `frame` object, as the schema shapes it.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FrameParam {
@@ -523,6 +557,65 @@ impl Montaget {
         // stays `success`; only a failure of Montaget itself would be an MCP error.
         Ok(CallToolResult::success(vec![ContentBlock::text(
             montaget_core::wire::render_video(&answer, form),
+        )]))
+    }
+
+    #[tool(
+        name = "preview",
+        description = "Does it look right in motion? Renders a span to an MP4 at a proxy \
+                       resolution: the 720p target, long edge capped at 1280 px, aspect \
+                       preserved — so a scrub comes back in under five seconds instead of \
+                       the 19 s a 4K project takes at true pixels. A span that runs past \
+                       the budget degrades exactly once, to 540p, and refuses rather than \
+                       degrade again; a refusal says which floor it hit and what you can \
+                       do about it. **The result always discloses the tier it rendered \
+                       at**, degraded or not — read it before you judge softness or a thin \
+                       stroke, because at the proxy target you are not looking at the \
+                       project's own pixels. Set `full` for true pixels when a check is \
+                       precision-sensitive; that arm is unbudgeted. The preview is written \
+                       beside the deliverable and can never be it. Use `frame` for one \
+                       instant at true pixels, and `render` for the deliverable, which is \
+                       never downsampled.",
+        input_schema = advertised::<PreviewParams>()
+    )]
+    fn preview(
+        &self,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: PreviewParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("preview", &e)),
+        };
+
+        // Progress to the server's own stderr, as `render` does: the protocol has no
+        // stream for it, and the result is the answer.
+        let mut progress = |p: montaget_core::verbs::render::Progress| {
+            eprintln!(
+                "preview  {}/{} frames  {:.1} s",
+                p.done,
+                p.of,
+                p.elapsed.as_secs_f64()
+            );
+        };
+        let answer = montaget_core::verbs::preview::preview(
+            &PathBuf::from(&params.project),
+            &montaget_core::verbs::preview::Ask {
+                from: params.from,
+                to: params.to,
+                output: params.output.map(PathBuf::from),
+                full: params.full,
+                // ADR-0021's budget, which is not this surface's to restate.
+                clock: montaget_core::verbs::preview::Clock::Scrub,
+            },
+            &mut progress,
+        );
+        let form = Wire::from_flags(params.json, params.verbose);
+
+        // A refused or hard-failed preview is an answer about the project — the findings
+        // say why — and stays `success`; only a failure of Montaget itself would be an MCP
+        // error.
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            montaget_core::wire::render_preview(&answer, form),
         )]))
     }
 

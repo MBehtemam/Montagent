@@ -465,6 +465,35 @@ the same kind, so they never share a file or a name.
 guard is *"not optional"*)
 _Avoid_: reference frame, snapshot, approved output
 
+**Proxy tier**:
+The resolution `preview` actually rasterizes at, which is not the project's. The target is
+720p — the project's **longer** edge scaled to at most 1280 px, aspect preserved, both
+dimensions rounded to even — applied only where the project is larger; a cap, never a
+fraction of the project, since half of 16K is still 8K. A preview that runs past the `<5 s`
+scrub budget degrades exactly one tier, to 540p (long edge ≤ 960 px), and refuses rather
+than degrade again. Every result **discloses** the tier it used, degraded or not: it is how
+a caller knows whether the softness it is looking at is the project's or the proxy's. Never
+applied to `render`, and never to `frame`, both of which are true pixels always.
+([ADR-0021](docs/adr/0021-preview-budget-and-graceful-degradation.md),
+[ADR-0046](docs/adr/0046-proxy-preview-target-is-720p-long-edge-capped.md),
+[ADR-0065](docs/adr/0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md))
+_Avoid_: scale factor, downsample ratio, quality setting; and **do not call the 540p rung
+"the floor" unqualified** — see below.
+
+**Wall-clock give-up point** / **legibility floor**:
+Two different limits that one word used to name, and they are never one number
+([ADR-0067](docs/adr/0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md),
+resolving [#178](https://github.com/MBehtemam/Montaget/issues/178)). The **wall-clock
+give-up point** is 540p: where the *ladder* stops, because one degrade step buys only
+~0.71 s at 8K and a miss larger than that cannot be rescued by another rung. The
+**legibility floor** is 360p: where a *frame* stops being readable, measured on the real
+fixture with the break point between 360p and 240p. One refusal is about time, the other
+about pixels; each says which it is in its own words. Because the ladder stops at 540p the
+legibility floor is unreachable by degradation today — it is kept as a guard on any future
+rung and on any caller-specified proxy resolution, and the fact that it does not currently
+fire is stated rather than tidied away.
+_Avoid_: *the* floor (there are two), minimum resolution, cutoff
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montaget has
@@ -622,16 +651,20 @@ _Avoid_: asset, document, endpoint, attachment; and never for an element's
 
 **Verb**:
 One operation on the surface — `validate`, `query`, `frame`, `measure`,
-`compare`, `render`, `shift`, `create_project`, `probe`, `fmt`, `timeline`. The
-surface's job is to make reading, checking, comparing and rendering cheap, not
-to provide editing verbs: the agent edits the file with the tools it is already
-strongest with. Eight are MCP tools and eleven are CLI commands, and the
-asymmetry is deliberate — an MCP schema costs context on every turn, a CLI
-subcommand costs nothing until invoked. Every write verb returns the new state's
-findings, never an `ok`. (ADR-0011's prose opens with *"nine verbs and two
-resources"* while its own table lists eleven and its own count says *"eight MCP
-tools, eleven CLI commands"*. The eleven above are the table's; the word "nine"
-is unreconciled and should not be quoted as a count.)
+`compare`, `render`, `preview`, `shift`, `create_project`, `probe`, `fmt`,
+`timeline`. The surface's job is to make reading, checking, comparing and
+rendering cheap, not to provide editing verbs: the agent edits the file with the
+tools it is already strongest with. Nine are MCP tools and twelve are CLI
+commands, and the asymmetry is deliberate — an MCP schema costs context on every
+turn, a CLI subcommand costs nothing until invoked. Every write verb returns the
+new state's findings, never an `ok`. (ADR-0011's prose opens with *"nine verbs
+and two resources"* while its own table lists eleven and its own count says
+*"eight MCP tools, eleven CLI commands"*. `preview` is the twelfth and is in
+none of the three: it is spec [#168](https://github.com/MBehtemam/Montaget/issues/168)'s
+— *"nine MCP verbs, three CLI verbs"*, whose stories 61–63 are what it implements
+— and the gap between that count and ADR-0011's table is
+[#295](https://github.com/MBehtemam/Montaget/issues/295). No count here should be
+quoted as settled.)
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
