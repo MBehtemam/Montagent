@@ -52,7 +52,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | --- | --- | --- |
 | [0005](0005-absolute-integer-milliseconds.md) | Absolute integer milliseconds, half-open `[start, end)`, `start`+`end` and no stored `duration`. Structural edits belong to a tool | 0012, 0020, 0035, 0036, 0041 |
 | [0020](0020-speed-overrun-hold-loop.md) | `speed` is a strictly-positive rate multiplier; `fill` is renamed `overrun` (`"hold"`/`"loop"`); the two compose rather than exclude | 0045, 0055, 0076 |
-| [0045](0045-speed-invariant-is-evaluated-in-exact-arithmetic.md) | `speed`'s rounding invariant is evaluated in **exact arithmetic**, never IEEE double. No schema change | — |
+| [0045](0045-speed-invariant-is-evaluated-in-exact-arithmetic.md) | `speed`'s rounding invariant is evaluated in **exact arithmetic**, never IEEE double. No schema change | 0081 |
 | [0062](0062-loop-declares-a-boolean-wrap-r-source-cut-pop-extends-mechanically.md) | `loop` is a project-level boolean, purely `validate`-facing; the wrap seam reuses `R-SOURCE-CUT-POP` unchanged | — |
 | [0032](0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md) | Every slack is invariant by default. `shift` refuses rather than silently absorbing; `compare` is the backstop for raw edits | 0039, 0047, 0051, 0063, 0066 |
 | [0047](0047-shift-releases-slack-by-boundary-instant-pairs.md) | `shift --release` takes a list of **boundary-instant pairs**, enumerated individually. No bulk release | — |
@@ -115,6 +115,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 | [0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md) | **`preview` is the ninth MCP verb and 0011's table gains a row** (nine MCP tools, twelve CLI commands). Ratifies the eleven readings #218 had to pick around the ladder — the check-engine refusal, the never-the-deliverable rule, the per-attempt clock, the abandoned span, the undegradable escape hatch, exit 3, the floor's proxy-only scope, the between-caps degrade, and `native` disclosure — correcting one: a rung is named for the frame it rasterized **everywhere** it is named. No rung, cap or floor moves | — |
 | [0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md) | The five-code exit ladder stays five: `LAYOUT` never gates `fmt --check`'s (or `validate`'s) exit code — a caller that wants a hard gate reads `--json`'s counted `summary.layout`. Ratifies `L-LAYOUT` as a second, whole-file `LAYOUT` finding alongside the element-scoped `L-KEY-ORDER`; ratifies the header's and each track's key order as schema property-declaration order; a `LAYOUT` finding names only the keys a structure carries, never the ones it omits | — |
+| [0081](0081-speed-literal-obligation-is-about-the-division-not-the-parser.md) | ADR-0045's string-carriage sentence binds **the division**, not `serde_json`'s own parse: a `speed` literal with more digits than `f64` distinguishes is a theoretical gap with zero observed instances, not worth a string-preserving read path or dropping `untagged` from the keyframe model | — |
 
 ## `validate`
 
