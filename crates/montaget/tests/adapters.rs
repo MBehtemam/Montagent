@@ -1183,10 +1183,13 @@ fn mcp_validate_advertises_the_schema_it_enforces() {
 }
 
 #[test]
-fn a_validate_that_ran_and_found_errors_is_not_a_tool_failure() {
-    // ADR-0006: the findings *are* the result. An `error` finding means the project is
-    // wrong, not that the call failed, and a client that retries on `isError` must not
-    // be told to retry a correct answer.
+fn a_validate_that_could_not_parse_the_file_is_an_mcp_tool_failure() {
+    // ADR-0083: `E-PARSE` is `NotAboutDocument` (ADR-0073) — the bytes never became a
+    // document for `validate` to have an opinion about — so `isError` is set here, the
+    // same way it is for a malformed call. This is different from a validate that *did*
+    // run and found document-level `error` findings (see the `render` MCP test's exit-1
+    // case), which stays `success` because the findings are still an answer about the
+    // project.
     let project = scratch("mcp-errors", "broken.montaget.json", "{\n  \"fps\": ,\n}\n");
     let session = mcp_session(&[
         handshake(1),
@@ -1202,7 +1205,7 @@ fn a_validate_that_ran_and_found_errors_is_not_a_tool_failure() {
     ]);
 
     let call = &session[&2];
-    assert_eq!(call["result"]["isError"], false, "{call}");
+    assert_eq!(call["result"]["isError"], true, "{call}");
     assert!(
         call["result"]["content"][0]["text"]
             .as_str()
@@ -1418,14 +1421,16 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     assert_eq!(answered["measure"]["block_bottom"], 1567.25);
 
     // Neither input mode named — a verb-level rejection, `query`'s missing-mode pattern:
-    // the call reached the verb and it answered with an error finding, so it is not a
-    // tool failure (`isError` stays `false`) even though the report is `E-INVOCATION`.
+    // the call reached the verb, which answered `E-INVOCATION`. ADR-0083: `isError`
+    // tracks `NotAboutDocument` regardless of which layer produced the finding, and
+    // `E-INVOCATION` is `NotAboutDocument` (ADR-0073) whether it came from a malformed
+    // call or, as here, a verb that ran and found its own arguments incoherent.
     let rejected = &session[&4];
     let text = rejected["result"]["content"][0]["text"]
         .as_str()
         .expect("a rendered report, not a bare SDK error");
     assert!(text.contains("E-INVOCATION"), "{text}");
-    assert_eq!(rejected["result"]["isError"], false, "{rejected}");
+    assert_eq!(rejected["result"]["isError"], true, "{rejected}");
 
     // The fixture is 25fps: 3041ms's nearest sampled instant at-or-before it is frame 76,
     // at 3040ms — the same numbers the core arithmetic and the CLI test both check.
@@ -1848,6 +1853,49 @@ fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_stat
     assert!(
         !dir.join("other.montaget.json").exists(),
         "and must write nothing"
+    );
+}
+
+#[test]
+fn mcp_create_project_onto_an_existing_file_sets_is_error_and_changes_nothing() {
+    // #313, resolved by ADR-0083: `E-PROJECT-EXISTS` is `NotAboutDocument` (ADR-0073,
+    // ADR-0080) — the project being scaffolded does not exist, so there is no document
+    // to have an opinion about — and `isError` now tracks that classification on every
+    // MCP tool, not just a bad-invocation deserialisation failure.
+    let dir = scratch_dir("mcp-create-project-exists");
+    let project = dir.join("mine.montaget.json");
+    let mine = "{\"an afternoon\": \"of work\"}\n";
+    std::fs::write(&project, mine).unwrap();
+
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({
+                "name": "create_project",
+                "arguments": {
+                    "project": project.to_str().unwrap(),
+                    "frame": {"width": 1080, "height": 1920},
+                    "fps": 25
+                }
+            }),
+        ),
+    ]);
+
+    let call = &session[&2];
+    assert_eq!(call["result"]["isError"], true, "{call}");
+    let text = call["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("E-PROJECT-EXISTS"), "{text}");
+    assert!(
+        !text.to_lowercase().contains("repair"),
+        "a NotAboutDocument code prints no repair block: {text}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&project).unwrap(),
+        mine,
+        "the file is untouched, to the byte"
     );
 }
 

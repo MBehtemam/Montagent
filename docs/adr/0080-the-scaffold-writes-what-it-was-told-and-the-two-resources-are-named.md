@@ -12,6 +12,11 @@ amends: 0011 (names the two resource URIs, names and media types it publishes wi
 
 # The scaffold writes what it was told, and the two resources are named
 
+> **Amended by [ADR-0083](0083-mcp-iserror-tracks-notaboutdocument.md).** Resolves the
+> question §2 leaves open: `isError` over MCP tracks `RepairClass::NotAboutDocument`, so
+> `create_project`'s MCP handler now sets `isError` for `E-PROJECT-EXISTS`, matching the
+> CLI's exit-3 reading this ADR gives it.
+
 **Ticket:** [#246](https://github.com/MBehtemam/Montaget/issues/246), from
 [#194](https://github.com/MBehtemam/Montaget/issues/194).
 

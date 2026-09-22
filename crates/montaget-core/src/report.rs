@@ -294,6 +294,18 @@ impl Report {
         }
     }
 
+    /// ADR-0083: whether this run reached a condition whose subject is not the document
+    /// at all — the invocation, the raw bytes, or Montaget's own process
+    /// (`RepairClass::NotAboutDocument`, ADR-0073) — rather than a fact about the
+    /// project. Exactly the runs that reach exit 2, 3 or 70; `Ok` and `Errors` (exit 0/1)
+    /// are about the document and answer `false` here, which is the write-tool
+    /// invariant's own scope (ADR-0006/ADR-0011): a document-shaped answer is still
+    /// `success` over MCP, and only a run with nothing to say about the document at all
+    /// sets `isError`.
+    pub fn is_not_about_document(&self) -> bool {
+        self.terminal.is_some()
+    }
+
     /// The canonical JSON plus one verb's own block under `key` — `probe`'s
     /// `network_attempts`, `timeline`'s view, `measure`'s answer. One object per
     /// invocation, and one place the shape "a report, plus this" is spelled.
