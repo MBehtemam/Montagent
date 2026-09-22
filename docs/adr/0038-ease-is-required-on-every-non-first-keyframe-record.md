@@ -5,6 +5,11 @@ amends: 0012 (settles what it left silent: presence of `ease` on non-first recor
 
 # `ease` is required on every non-first keyframe record; absent only on the first
 
+> **Amended by [ADR-0082](./0082-a-keyframe-list-must-be-written-in-ascending-t.md)**:
+> ascending `t` becomes a schema rule, making this ADR's positional presence rule and
+> clock order the same statement by construction — closing the divergence
+> [#270](https://github.com/MBehtemam/Montaget/issues/270) found.
+
 > **Amended by [ADR-0052](./0052-review-check-for-inert-ease-on-held-keyframes.md)**,
 > which designs the `review`-level lint this ADR named as the acknowledged cost but
 > did not design: `R-EASE-INERT`, firing when consecutive keyframe records hold an

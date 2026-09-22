@@ -5,6 +5,10 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0082](./0082-a-keyframe-list-must-be-written-in-ascending-t.md)**:
+> a keyframe list must be written with strictly ascending `t` — new schema law closing
+> [#270](https://github.com/MBehtemam/Montaget/issues/270).
+
 > **Amended by [ADR-0022](./0022-easing-example-is-hypothetical-not-measured.md)**: the
 > worked example below carried `"ease":"ease-in-out"` on its `scale` keyframe, under the id
 > `photo-06`. That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montaget/issues/42)
