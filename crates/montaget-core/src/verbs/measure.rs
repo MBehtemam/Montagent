@@ -58,6 +58,30 @@
 //!
 //! All three are named here rather than left to be discovered, because a verb that answers
 //! one of its questions and is silent about the others reads as finished.
+//!
+//! # Batch mode: `--elements` and `--all` (#317)
+//!
+//! An authoring agent measuring dozens of elements should not pay one subprocess round-trip
+//! per element. Two additive entry points feed the same engine, so there is one code path
+//! and no duplicated logic between them:
+//!
+//! - `elements` — the primitive. An array of specs, each in the same permissive shape a
+//!   single `element` already accepts, including a mid-authorship element with no `id`
+//!   (ADR-0024 again — this is the same rule, applied per slot rather than to the one
+//!   argument).
+//! - `all` — convenience. Sourced from every element [`crate::permissive::Loose::elements`]
+//!   already walks for `query`, filtered to the ones the document itself declares
+//!   `"type": "text"`, then fed through the identical batch engine `elements` uses.
+//!
+//! **Partial failure, not whole-call rejection.** ADR-0011's *"nothing may partially process
+//! a malformed file"* is about the project file reaching disk half-written; it says nothing
+//! about a read-only batch over independent elements, and ADR-0024 already requires this verb
+//! to tolerate an element mid-authorship. So one bad slot — an undeclared font key, a
+//! non-positive `size` — does not cost the batch its N-1 good answers: each slot carries its
+//! own [`Text`] or its own [`SlotError`], keyed by position and, where the element names one,
+//! by `id`. A malformed *request* — `elements` that is not a JSON array at all — is still a
+//! whole-call refusal, the same as every other invocation error (ADR-0011's exit 3): that is
+//! a defect in the call, not in one element within it.
 
 use std::path::Path as FilePath;
 
@@ -92,6 +116,14 @@ pub struct Ask {
     /// A time instead: the nearest sampled instant at-or-before it, for the project's own
     /// `fps` (ADR-0035). Mutually exclusive with `element` — one call asks one question.
     pub at: Option<i64>,
+    /// An explicit batch: an array of element specs, each in `element`'s own permissive
+    /// shape (#317). Mutually exclusive with `element`, `at` and `all` — one call asks one
+    /// question, batch or not.
+    pub elements: Option<Vec<Value>>,
+    /// The convenience batch: every element the project already declares `"type": "text"`
+    /// on, fed through the same engine `elements` uses (#317). Mutually exclusive with
+    /// `element`, `at` and `elements`.
+    pub all: bool,
 }
 
 /// One `measure` invocation's answer: what the text occupies, and the report every verb
@@ -133,6 +165,51 @@ pub enum View {
     Element(Text),
     /// A time instead (ADR-0035).
     At(Instant),
+    /// A batch — `elements` or `all` (#317).
+    Batch(Batch),
+}
+
+/// The ordered answer to a batch call: one slot per input element, in input order.
+///
+/// Ordered rather than keyed solely by `id`, because a batch element need not have one
+/// (ADR-0024) and two id-less elements are still two distinct slots — `query`'s
+/// [`crate::verbs::query::Named::called`] names the same problem for the same reason.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Batch {
+    pub results: Vec<Slot>,
+}
+
+/// One element's outcome within a batch: a measured block, or a reason it could not be
+/// measured — never neither, and never both.
+///
+/// `ok`/`error` rather than a `Result`-shaped tag, so a consumer reading the canonical JSON
+/// sees the same "present and possibly null" shape [`Answer::to_json`] already uses for the
+/// single-element case, rather than learning a second convention for the batch one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Slot {
+    /// Position in the input array — the one name every slot has, `id` or not.
+    pub index: usize,
+    /// The element's own `id`, where it names one. `null` for a mid-authorship element,
+    /// same as [`Asked::id`] — the same fact, read the same way, one level up.
+    pub id: Option<String>,
+    pub ok: Option<Text>,
+    pub error: Option<SlotError>,
+}
+
+/// Why one slot in a batch could not be measured.
+///
+/// `code` reuses the single-element path's own codes rather than inventing batch-specific
+/// ones: `E-INVOCATION` for a malformed or unresolvable-by-name element (a bad shape, a
+/// non-positive `size`, a font key the project does not declare), `E-READ` for a declared
+/// font whose file will not open — [`unresolvable`]'s own split, applied per slot instead of
+/// to the one call. Not a [`crate::finding::Finding`]: a batch's own findings would need to
+/// name their slot to mean anything, which is exactly what this struct already does more
+/// simply, and `measure` reaches no verdict for `push`'s repair invariant to apply to in the
+/// first place (ADR-0024).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SlotError {
+    pub code: &'static str,
+    pub reason: String,
 }
 
 /// What the text occupies.
@@ -231,40 +308,93 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
         }
     };
 
+    // Which one question this call is asking — batch or not, `element` or not, `at` or not.
+    // Mutually exclusive with each other, `element`/`at`'s own existing rule extended to the
+    // two new modes rather than replaced (#317).
+    let named = usize::from(ask.element.is_some())
+        + usize::from(ask.at.is_some())
+        + usize::from(ask.elements.is_some())
+        + usize::from(ask.all);
+    if named > 1 {
+        return rejected(
+            project,
+            "`measure` takes exactly one of an element, `--at`, `--elements` or `--all`: \
+             they are different questions and a call naming more than one does not say \
+             which it is asking",
+        );
+    }
+
+    if let Some(elements) = &ask.elements {
+        return batch(&document, project, elements.iter().cloned());
+    }
+    if ask.all {
+        // #317: sourced from the same walk `query` already uses over every element in the
+        // document, filtered to the ones the project itself declares text — not the
+        // permissive "absent `type` measures as text" rule `Measurable::of` applies to a
+        // single mid-authorship element, because these elements are already written and
+        // already carry the field the schema requires.
+        let elements: Vec<Value> = document
+            .elements()
+            .filter(|element| element.get("type").and_then(Value::as_str) == Some("text"))
+            .cloned()
+            .collect();
+        return batch(&document, project, elements);
+    }
+
     let element = match (&ask.element, ask.at) {
-        (Some(_), Some(_)) => {
-            return rejected(
-                project,
-                "`measure` takes an element or `--at`, never both: they are two different questions",
-            );
-        }
+        (Some(_), Some(_)) => unreachable!("named > 1 above already refused this"),
         (None, Some(at)) => return by_instant(&document, project, at),
         (Some(element), None) => element,
         (None, None) => {
             return rejected(
                 project,
-                "`measure` needs an element or `--at`: pass the text element as JSON, the same shape you are about to write into the file, or a time to resolve against the project's frame grid (ADR-0035)",
+                "`measure` needs an element, `--at`, `--elements` or `--all`: pass the text \
+                 element as JSON, the same shape you are about to write into the file, an \
+                 array of them, a time to resolve against the project's frame grid \
+                 (ADR-0035), or ask for every text element the project already has",
             );
         }
     };
 
-    let spec = match Measurable::of(element) {
-        Ok(spec) => spec,
-        Err(reason) => return rejected(project, reason),
-    };
+    match try_measure_element(&document, element) {
+        Ok(text) => Answer {
+            view: Some(View::Element(text)),
+            report: Report::new(TOOL, project),
+        },
+        Err(ElementError::Invocation(reason)) => rejected(project, reason),
+        Err(ElementError::Font(e)) => unresolvable(project, &e),
+    }
+}
+
+/// One element's failure to measure, on its way to becoming either a whole-call refusal (the
+/// single-element path) or one [`SlotError`] (the batch path) — the same two causes
+/// [`unresolvable`] already distinguishes, held here so both callers read them once.
+enum ElementError {
+    /// The element itself is malformed, or names a font key the project does not declare —
+    /// [`Measurable::of`]'s and [`register`]'s own invocation-shaped refusals.
+    Invocation(String),
+    /// A declared font whose file will not open — a fact about the project and its disk.
+    Font(montaget_text::FontError),
+}
+
+/// The shared core of every measurement, batch or not: resolve the element's style, register
+/// every font key it and its runs name, and lay it out. One path, so `elements`/`all` cannot
+/// drift from what a single `element` call already does (#317).
+fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
+    let spec = Measurable::of(element).map_err(ElementError::Invocation)?;
 
     // Every key the element names, the base and each run's override (ADR-0007), resolved
     // before anything is laid out: a key that resolved for the element but not for a run
     // would fail half-way through the layout, leaving a partial answer to throw away.
     let mut fonts = Fonts::new();
     for key in std::iter::once(spec.asked.font.clone()).chain(Measurable::keys(element)) {
-        if let Err(e) = register(&document, &key, &mut fonts) {
-            return unresolvable(project, &e);
+        if let Err(e) = register(document, &key, &mut fonts) {
+            return Err(ElementError::Font(e));
         }
     }
 
     let runs = runs_of(element);
-    let measured = match montaget_text::measure(
+    let measured = montaget_text::measure(
         &mut fonts,
         &Spec {
             runs: &runs,
@@ -275,17 +405,71 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
             y: spec.asked.y,
             vertical_origin: spec.vertical_origin,
         },
-    ) {
-        Ok(measured) => measured,
-        // Unreachable while every key above registered, and reported rather than
-        // `expect`ed because "unreachable" is a claim about this function's own control
-        // flow that a later edit can falsify silently.
-        Err(e) => return unresolvable(project, &e),
-    };
+    )
+    // Unreachable while every key above registered, and reported rather than `expect`ed
+    // because "unreachable" is a claim about this function's own control flow that a later
+    // edit can falsify silently.
+    .map_err(ElementError::Font)?;
+
+    Ok(Text::of(spec.asked, measured))
+}
+
+/// Measure every element in `elements`, in order, never rejecting the call for one bad slot
+/// (#317's partial-failure rule).
+fn batch(
+    document: &Loose,
+    project: Option<String>,
+    elements: impl IntoIterator<Item = Value>,
+) -> Answer {
+    let results = elements
+        .into_iter()
+        .enumerate()
+        .map(|(index, element)| {
+            let id = element
+                .get("id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            match try_measure_element(document, &element) {
+                Ok(text) => Slot {
+                    index,
+                    id,
+                    ok: Some(text),
+                    error: None,
+                },
+                Err(e) => Slot {
+                    index,
+                    id,
+                    ok: None,
+                    error: Some(slot_error(e)),
+                },
+            }
+        })
+        .collect();
 
     Answer {
-        view: Some(View::Element(Text::of(spec.asked, measured))),
+        view: Some(View::Batch(Batch { results })),
         report: Report::new(TOOL, project),
+    }
+}
+
+/// [`ElementError`] as the [`SlotError`] a batch slot carries — [`unresolvable`]'s own E-READ
+/// / E-INVOCATION split, restated for a slot that does not get to fail the whole call.
+fn slot_error(e: ElementError) -> SlotError {
+    match e {
+        ElementError::Invocation(reason) => SlotError {
+            code: "E-INVOCATION",
+            reason,
+        },
+        ElementError::Font(e) => match &e.path {
+            Some(path) => SlotError {
+                code: "E-READ",
+                reason: format!("{}: {}", path.display(), e.reason),
+            },
+            None => SlotError {
+                code: "E-INVOCATION",
+                reason: e.reason,
+            },
+        },
     }
 }
 

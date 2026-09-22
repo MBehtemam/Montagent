@@ -423,6 +423,115 @@ fn cli_measure_with_both_element_and_at_is_exit_3() {
 }
 
 #[test]
+fn cli_measure_elements_returns_n_measured_blocks_in_one_call() {
+    // #317's primitive: none of these need exist in the project file.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--elements",
+        r#"[{"font":"brand","size":20,"runs":[{"text":"one"}]},
+            {"font":"brand","size":30,"runs":[{"text":"two"}]}]"#,
+        "--json",
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout)
+        .unwrap_or_else(|e| panic!("stdout is not JSON alone ({e}):\n{}", out.stdout));
+    let results = json["measure"]["results"].as_array().expect("a batch");
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0]["ok"]["asked"]["size"], 20);
+    assert_eq!(results[1]["ok"]["asked"]["size"], 30);
+}
+
+#[test]
+fn cli_measure_elements_with_one_bad_slot_still_answers_the_rest() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--elements",
+        r#"[{"font":"brand","size":20,"runs":[{"text":"ok"}]},
+            {"font":"not-a-declared-key","size":20,"runs":[{"text":"bad"}]}]"#,
+        "--json",
+    ]);
+
+    // The call is not refused — a batch with one bad slot is still an answer (#317).
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    let results = json["measure"]["results"].as_array().expect("a batch");
+    assert!(results[0]["error"].is_null());
+    assert_eq!(results[1]["error"]["code"], "E-INVOCATION");
+    assert!(results[1]["ok"].is_null());
+}
+
+#[test]
+fn cli_measure_elements_that_is_not_a_json_array_is_exit_3_not_a_per_slot_error() {
+    // The same split as `--element` that is not JSON: a CLI-only parsing failure the verb
+    // never sees, so the refusal prints on stderr like every other invocation error the
+    // argv layer itself catches.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--elements",
+        "{not an array}",
+    ]);
+
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(out.stderr.contains("E-INVOCATION"), "{}", out.stderr);
+}
+
+#[test]
+fn cli_measure_all_returns_one_block_per_text_element_already_in_the_project() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let out = montaget(&["measure", fixture.to_str().unwrap(), "--all", "--json"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    let results = json["measure"]["results"].as_array().expect("a batch");
+    assert!(
+        !results.is_empty(),
+        "the fixture has text elements: {results:?}"
+    );
+    assert!(results.iter().all(|slot| slot["error"].is_null()));
+}
+
+#[test]
+fn cli_measure_all_on_a_project_with_no_elements_is_an_empty_batch_not_an_error() {
+    let project = scratch("cli-measure-all-empty", "clean.montaget.json", HEADER_ONLY);
+    let out = montaget(&["measure", project.to_str().unwrap(), "--all", "--json"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    assert_eq!(json["measure"]["results"], serde_json::json!([]));
+}
+
+#[test]
+fn cli_measure_elements_and_all_are_mutually_exclusive_with_each_other_and_element_and_at() {
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--elements",
+        r#"[{"font":"brand","size":20,"runs":[{"text":"x"}]}]"#,
+        "--all",
+    ]);
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("E-INVOCATION"), "{}", out.stdout);
+
+    let out = montaget(&[
+        "measure",
+        fixture.to_str().unwrap(),
+        "--element",
+        r#"{"font":"brand","size":20,"runs":[{"text":"x"}]}"#,
+        "--all",
+    ]);
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+}
+
+#[test]
 fn cli_fonts_list_reaches_the_verb_and_exits_0() {
     let dir = scratch_dir("cli-fonts-list");
     std::fs::copy(open_runde(), dir.join("OpenRunde-Bold.otf")).unwrap();
@@ -1443,6 +1552,87 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     assert_eq!(by_instant["measure"]["mode"], "at");
     assert_eq!(by_instant["measure"]["frame"], 76);
     assert_eq!(by_instant["measure"]["nearest"], 3040.0);
+}
+
+#[test]
+fn mcp_measure_batch_advertises_and_answers_the_same_way_the_cli_does() {
+    // #317: the same batch capability, the same semantics, on both adapters — exercised
+    // here against the identical fixture the CLI batch tests use, so the two surfaces are
+    // checked against one shared ground truth rather than two independently plausible ones.
+    let fixture = fixture_dir().join("en-halloween-decorating.montaget.json");
+    let project = fixture.to_str().unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "measure",
+                "arguments": {
+                    "project": project,
+                    "elements": [
+                        {"font": "brand", "size": 20, "runs": [{"text": "ok"}]},
+                        {"font": "not-a-declared-key", "size": 20, "runs": [{"text": "bad"}]}
+                    ],
+                    "json": true
+                }
+            }),
+        ),
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({
+                "name": "measure",
+                "arguments": {"project": project, "all": true, "json": true}
+            }),
+        ),
+    ]);
+
+    let schema = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "measure")
+        .expect("a `measure` tool")["inputSchema"]
+        .clone();
+    assert!(!schema["properties"]["elements"].is_null(), "{schema}");
+    assert!(!schema["properties"]["all"].is_null(), "{schema}");
+
+    // A batch with one bad slot answers `success`, not `isError` — the whole call is not a
+    // refusal (ADR-0083's rule extended to a batch's own slots).
+    let batch = &session[&3];
+    assert_ne!(
+        batch["result"]["isError"],
+        serde_json::json!(true),
+        "{batch}"
+    );
+    let answered: serde_json::Value = serde_json::from_str(
+        batch["result"]["content"][0]["text"]
+            .as_str()
+            .expect("a rendered answer"),
+    )
+    .expect("`json: true` returns the canonical JSON");
+    let results = answered["measure"]["results"].as_array().expect("a batch");
+    assert_eq!(results.len(), 2);
+    assert!(results[0]["error"].is_null());
+    assert_eq!(results[1]["error"]["code"], "E-INVOCATION");
+
+    let all = &session[&4];
+    let answered_all: serde_json::Value = serde_json::from_str(
+        all["result"]["content"][0]["text"]
+            .as_str()
+            .expect("a rendered answer"),
+    )
+    .expect("`json: true` returns the canonical JSON");
+    let all_results = answered_all["measure"]["results"]
+        .as_array()
+        .expect("a batch");
+    assert!(
+        !all_results.is_empty(),
+        "the fixture has text elements: {all_results:?}"
+    );
 }
 
 #[test]

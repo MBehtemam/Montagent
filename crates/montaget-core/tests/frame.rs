@@ -1553,6 +1553,8 @@ fn the_glyphs_sit_on_the_baselines_measure_reports() {
         &montaget_core::verbs::measure::Ask {
             element: Some(element),
             at: None,
+            elements: None,
+            all: false,
         },
     );
     let measured = measured.to_json();

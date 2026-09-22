@@ -214,7 +214,10 @@ enum Command {
     /// `--element` takes the text element itself, as JSON — the same shape you are about
     /// to write into the file, and the shape `montaget://schema.json` publishes. It needs
     /// no `id` and need not exist in the file yet (ADR-0024). `--at` takes a time instead,
-    /// and answers a different question; the two are never given together.
+    /// and answers a different question. `--elements` takes an array of specs in the same
+    /// shape, and `--all` asks about every text element the project already has — the
+    /// batch mode (#317); one bad element in a batch reports its own error rather than
+    /// failing the other slots. Exactly one of the four may be given.
     ///
     /// It offers no verbosity switch, because it has no informational findings to expand —
     /// the answer itself is the output, and it is never collapsed.
@@ -225,15 +228,28 @@ enum Command {
         /// The text element, as JSON: `runs`, `font`, `size`, and optionally
         /// `line_height`, `y`, `origin` and `stroke_width`. Any other field is ignored —
         /// `width` and `height` included, because `measure` derives and never judges
-        /// (ADR-0024). Exclusive with `--at`.
+        /// (ADR-0024). Exclusive with `--at`, `--elements` and `--all`.
         #[arg(long, value_name = "JSON")]
         element: Option<String>,
         /// A time, in absolute milliseconds, to resolve against the project's frame grid
         /// instead of measuring an element: the nearest sampled instant at-or-before it
         /// (ADR-0035), so a fade can be retargeted to land on it exactly. Exclusive with
-        /// `--element`.
+        /// `--element`, `--elements` and `--all`.
         #[arg(long, value_name = "MS")]
         at: Option<i64>,
+        /// A JSON array of element specs, each in `--element`'s own shape — the batch
+        /// primitive (#317). None need exist in the project file. A malformed array is
+        /// refused outright; one unmeasurable element inside a well-formed array reports
+        /// its own error and the rest of the batch still answers. Exclusive with
+        /// `--element`, `--at` and `--all`.
+        #[arg(long, value_name = "JSON")]
+        elements: Option<String>,
+        /// Every text element the project already has, fed through the same batch engine
+        /// `--elements` uses (#317) — no id-listing required. An empty project answers
+        /// with an empty batch, not an error. Exclusive with `--element`, `--at` and
+        /// `--elements`.
+        #[arg(long)]
+        all: bool,
         /// Print the canonical JSON *instead of* the text answer, never alongside it.
         #[arg(long)]
         json: bool,
@@ -649,6 +665,8 @@ where
             project,
             element,
             at,
+            elements,
+            all,
             json,
         } => {
             // `--verbose` is deliberately absent, so `false` here is the only form there is
@@ -670,7 +688,28 @@ where
                 },
                 None => None,
             };
-            let ask = montaget_core::verbs::measure::Ask { element, at };
+            // `--elements` is transport the same way: a JSON *array* of specs, and a string
+            // that does not parse as one is a whole-call refusal (ADR-0011's exit 3), not a
+            // per-slot error — #317 draws that line at the request, not at one element in it.
+            let elements = match elements {
+                Some(elements) => match serde_json::from_str::<Vec<serde_json::Value>>(&elements) {
+                    Ok(elements) => Some(elements),
+                    Err(e) => {
+                        let report = Report::bad_invocation(format!(
+                            "`--elements` is not a valid JSON array: {e}"
+                        ));
+                        eprint!("{}", montaget_core::wire::render(&report, PLAIN));
+                        return exit_code(&report);
+                    }
+                },
+                None => None,
+            };
+            let ask = montaget_core::verbs::measure::Ask {
+                element,
+                at,
+                elements,
+                all,
+            };
             match run_verb(|| montaget_core::verbs::measure::measure(&project, &ask)) {
                 Ok(answer) => {
                     println!(

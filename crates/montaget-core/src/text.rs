@@ -803,11 +803,52 @@ fn measure_block(measure: &Value) -> String {
     match measure["mode"].as_str() {
         Some("element") => element_block(measure),
         Some("at") => instant_block(measure),
+        Some("batch") => batch_block(measure),
         other => format!(
             "\nMEASURE  this build cannot render a `{}` answer\n",
             other.unwrap_or("(unnamed)")
         ),
     }
+}
+
+/// `elements`/`all`'s answer (#317): one row per slot, in input order, each stating the
+/// numbers a solo `element` call would have and nothing more — the per-line detail
+/// [`element_block`] prints is the point of measuring one element at a time, and a batch of
+/// dozens printing all of it would defeat the reason a batch exists.
+fn batch_block(measure: &Value) -> String {
+    let results = measure["results"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+
+    let mut out = format!(
+        "\nMEASURE  {} element{} requested\n",
+        results.len(),
+        if results.len() == 1 { "" } else { "s" }
+    );
+    for slot in results {
+        let index = stated_number(&slot["index"]);
+        let name = match slot["id"].as_str() {
+            Some(id) => format!("`{id}`"),
+            None => "no id".to_string(),
+        };
+        if slot["error"].is_null() {
+            let ok = &slot["ok"];
+            out.push_str(&row(format!(
+                "  {index:>3}  {name:<24}  extent {} x {} px  block_height {}",
+                pixels(&ok["extent"]["width"]),
+                pixels(&ok["extent"]["height"]),
+                stated_number(&ok["block_height"]),
+            )));
+        } else {
+            out.push_str(&row(format!(
+                "  {index:>3}  {name:<24}  {}  {}",
+                named(&slot["error"]["code"]),
+                slot["error"]["reason"].as_str().unwrap_or_default(),
+            )));
+        }
+    }
+    out
 }
 
 /// `--at`'s answer: the nearest sampled instant at-or-before a time, on the project's own
