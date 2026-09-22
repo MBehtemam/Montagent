@@ -7,6 +7,13 @@ amends: 0011 (`fmt` gains an explicit exception for defaultable-field presence),
 
 # A defaultable field's presence is content: `fmt` leaves it alone, both spellings stand
 
+> **Amended by [ADR-0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md).**
+> The question left open under *"Not settled here"* below — whether `create_project`'s
+> scaffold should prefer one spelling — is **closed**: the scaffold writes `background`,
+> `duration` and `output` only when it is asked for them, on this ADR's own reasoning that
+> an unasked value would be a declaration nobody made. Everything else here stands, and
+> the separate question of what *authoring documentation* should recommend stays open.
+
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) defaults six things
 when omitted — `x`/`y` to the frame centre, `origin` to `center`, `scale` to `[1,1]`,
 `rotation` to `0`, `opacity` to `1` — and [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md)

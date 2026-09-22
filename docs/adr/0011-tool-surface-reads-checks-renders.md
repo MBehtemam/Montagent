@@ -61,6 +61,15 @@ status: accepted
 >   stays five: `LAYOUT` never gates `fmt --check`'s exit code, the identical rule ADR-0041
 >   already states for `validate` and `render`. A caller that wants a hard gate on canonical
 >   form reads `--json`'s counted `summary.layout` field
+> - [ADR-0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)
+>   — **names the two resources this ADR publishes without naming**: `montaget://schema.json`
+>   (`montaget-schema`, `application/schema+json`) and `montaget://format.md`
+>   (`montaget-format`, `text/markdown`), in that order, and places the format docs inside
+>   `montaget-core` rather than under `docs/`. It also **replaces `E-PROJECT-EXISTS`'s exit
+>   code**: `create_project` onto an existing path is exit 3, not exit 1 — the project is
+>   not what needs fixing, the path argument is — and settles that the CLI spells the verb
+>   `create-project` while the MCP tool takes `frame` as the nested object, reading the
+>   write-tool invariant below as binding the MCP surface and not argv
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

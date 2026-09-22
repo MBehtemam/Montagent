@@ -198,6 +198,23 @@ fn an_error_finding_with_no_repair_cannot_reach_a_report() {
 }
 
 #[test]
+#[should_panic(expected = "not declared `NotAboutDocument`")]
+fn an_advise_class_code_cannot_reach_exit_3_carrying_its_repair() {
+    // ADR-0080's "a second inhabitant cannot be added without making the same decision"
+    // rests on this. `Report::push` alone does not carry it: its assert is satisfied by
+    // *either* an exempt declaration or a repair value, so an advise-class code that
+    // states its repair passes `push` and would arrive at exit 3 with the `repair` field
+    // ADR-0073 forbids there. `Report::refused_invocation` checks the declaration itself.
+    montaget_core::report::Report::refused_invocation(
+        "create_project",
+        Some("p.json".into()),
+        montaget_core::finding::Finding::new("E-KEYFRAME-EASE")
+            .at_file("p.json")
+            .repair_value(serde_json::json!({"value": "linear"})),
+    );
+}
+
+#[test]
 fn a_not_about_document_finding_reaches_the_report_with_no_repair_at_all() {
     // ADR-0073 (#224): the process-level codes #188 introduced are not about a document,
     // so ADR-0043's binary does not apply to them, and `Report::push` must not demand a
