@@ -662,9 +662,8 @@ where
                 Some(element) => match serde_json::from_str(&element) {
                     Ok(element) => Some(element),
                     Err(e) => {
-                        let report = Report::bad_invocation(format!(
-                            "`--element` is not valid JSON: {e}"
-                        ));
+                        let report =
+                            Report::bad_invocation(format!("`--element` is not valid JSON: {e}"));
                         eprint!("{}", montaget_core::wire::render(&report, PLAIN));
                         return exit_code(&report);
                     }

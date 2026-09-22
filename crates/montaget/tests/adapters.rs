@@ -1394,7 +1394,11 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     assert_eq!(schema["type"], "object");
     // `element` and `at` are each optional — ADR-0035 makes `at` a second, mutually
     // exclusive input mode, so neither can be the one required argument.
-    assert_eq!(schema["required"], serde_json::json!(["project"]), "{schema}");
+    assert_eq!(
+        schema["required"],
+        serde_json::json!(["project"]),
+        "{schema}"
+    );
     // The argument is the element itself, not a field name and not an id — ADR-0024
     // requires `measure` to work for an element being authored for the first time.
     assert!(!schema["properties"]["element"].is_null(), "{schema}");
