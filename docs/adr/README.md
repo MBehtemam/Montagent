@@ -64,9 +64,9 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0012](0012-flat-transform-keyframes-carried-by-their-element.md) | One flat transform per visual element (`x`, `y`, `origin`, `scale`, `rotation`, `opacity`) in absolute integer pixels. Keyframes are `{t,v,ease}` on absolute times, **carried by their element**. Skew out; `box` retired; `clip` is the aperture | 0013, 0015, 0022, 0025, 0030, 0036, 0037, 0038, 0039, 0040, 0048, 0055 |
+| [0012](0012-flat-transform-keyframes-carried-by-their-element.md) | One flat transform per visual element (`x`, `y`, `origin`, `scale`, `rotation`, `opacity`) in absolute integer pixels. Keyframes are `{t,v,ease}` on absolute times, **carried by their element**. Skew out; `box` retired; `clip` is the aperture | 0013, 0015, 0022, 0025, 0030, 0036, 0037, 0038, 0039, 0040, 0048, 0055, 0082 |
 | [0013](0013-fitted-extents-floor-and-the-nine-origin-keywords.md) | Fitted extents **floor**, in exact integer arithmetic; the nine `origin` keywords are spelled, and `center-center` is an error naming `center` | 0014, 0015 |
-| [0038](0038-ease-is-required-on-every-non-first-keyframe-record.md) | `ease` is required on every non-first keyframe record and a schema error on the first. Presence is a pure function of position | 0052 |
+| [0038](0038-ease-is-required-on-every-non-first-keyframe-record.md) | `ease` is required on every non-first keyframe record and a schema error on the first. Presence is a pure function of position | 0052, 0082 |
 | [0022](0022-easing-example-is-hypothetical-not-measured.md) | ADR-0012's `photo-06` easing example is **hypothetical, not measured** — relabelled rather than replaced. No decision changes | — |
 | [0025](0025-clip-stays-static.md) | `clip` stays static and is not keyframable. Wipes and reveals belong to the effect model | — |
 
@@ -117,6 +117,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md) | The five-code exit ladder stays five: `LAYOUT` never gates `fmt --check`'s (or `validate`'s) exit code — a caller that wants a hard gate reads `--json`'s counted `summary.layout`. Ratifies `L-LAYOUT` as a second, whole-file `LAYOUT` finding alongside the element-scoped `L-KEY-ORDER`; ratifies the header's and each track's key order as schema property-declaration order; a `LAYOUT` finding names only the keys a structure carries, never the ones it omits | — |
 | [0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md) | Closes #246's five gaps in `create_project` and the two resources. **The scaffold writes `background`/`duration`/`output` only when asked** — ADR-0030's open question, closed on its own reasoning, overruling #194's five-key sentence on the merits. **`E-PROJECT-EXISTS` moves to exit 3 and `NotAboutDocument`**: the project is intact, so the repair is to the command. The two resource URIs, names and media types are **named and pinned by test**; the format docs live inside `montaget-core` (ADR-0064); the CLI is `create-project` while MCP takes nested `frame`, reading 0011's write-tool invariant as binding MCP and not argv | — |
 | [0081](0081-speed-literal-obligation-is-about-the-division-not-the-parser.md) | ADR-0045's string-carriage sentence binds **the division**, not `serde_json`'s own parse: a `speed` literal with more digits than `f64` distinguishes is a theoretical gap with zero observed instances, not worth a string-preserving read path or dropping `untagged` from the keyframe model | — |
+| [0082](0082-a-keyframe-list-must-be-written-in-ascending-t.md) | A keyframe list must be written in **strictly ascending `t`** — new schema law. Makes ADR-0038's positional `ease` rule and the resolver's clock-based read the same statement by construction, closing the divergence a reverse-order list could produce | — |
 
 ## `validate`
 
