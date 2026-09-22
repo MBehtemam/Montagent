@@ -367,7 +367,7 @@ impl Montaget {
         let form = Wire::from_flags(params.json, params.verbose);
 
         // An `error` finding is an answer, not a protocol failure — ADR-0006's whole
-        // point is that the findings *are* the result, and `respond` (ADR-0081) sets
+        // point is that the findings *are* the result, and `respond` (ADR-0083) sets
         // `isError` only where the report has nothing to say about the document at all.
         let body = montaget_core::wire::render(&report, form);
 
@@ -411,7 +411,7 @@ impl Montaget {
         // scaffold that did not land because the header disagrees with itself is still
         // an answer about the project, and stays `success`. `E-PROJECT-EXISTS` is
         // different in kind — the project being scaffolded does not exist, so there is
-        // no document to have an opinion about — and `respond` (ADR-0081) sets
+        // no document to have an opinion about — and `respond` (ADR-0083) sets
         // `isError` for it, resolving #313.
         Ok(respond(
             &report,
@@ -461,7 +461,7 @@ impl Montaget {
 
         // An answer about a project that does not validate is still an answer, not a
         // protocol failure — ADR-0006's findings **are** the result. `respond`
-        // (ADR-0081) sets `isError` only where the report has nothing to say about the
+        // (ADR-0083) sets `isError` only where the report has nothing to say about the
         // document at all (the file could not be read or parsed, or the query itself
         // was malformed).
         Ok(respond(
@@ -525,7 +525,7 @@ impl Montaget {
             ));
         }
         // A project that did not render is still an answer about the project — the report
-        // says what stopped it — and `respond` (ADR-0081) sets `isError` only where it
+        // says what stopped it — and `respond` (ADR-0083) sets `isError` only where it
         // does not (the file could not be read/parsed, or the call was malformed).
         Ok(respond(answer.report(), content))
     }
@@ -575,7 +575,7 @@ impl Montaget {
         let form = Wire::from_flags(params.json, params.verbose);
 
         // A refused render is an answer about the project — the findings say why — and
-        // `respond` (ADR-0081) keeps it `success`; only a run with nothing to say about
+        // `respond` (ADR-0083) keeps it `success`; only a run with nothing to say about
         // the document (unreadable file, bad invocation, an internal failure) sets
         // `isError`.
         Ok(respond(
@@ -638,7 +638,7 @@ impl Montaget {
         let form = Wire::from_flags(params.json, params.verbose);
 
         // A refused or hard-failed preview is an answer about the project — the findings
-        // say why — and `respond` (ADR-0081) keeps it `success`; a run with nothing to
+        // say why — and `respond` (ADR-0083) keeps it `success`; a run with nothing to
         // say about the document sets `isError`.
         Ok(respond(
             answer.report(),
@@ -780,7 +780,7 @@ impl Montaget {
 }
 
 /// The MCP result for a report: `isError` set exactly when the report is
-/// `NotAboutDocument`-classed (ADR-0081), `success` otherwise.
+/// `NotAboutDocument`-classed (ADR-0083), `success` otherwise.
 ///
 /// One place this is decided rather than nine, so a tool that gains a new
 /// `NotAboutDocument` exit later inherits the rule instead of a call site having to
@@ -802,7 +802,7 @@ fn respond(report: &Report, content: Vec<ContentBlock>) -> CallToolResult {
 /// the SDK reject it would honour that on the CLI and break it on the surface an agent
 /// actually uses.
 ///
-/// This is now one instance of [`respond`]'s general rule (ADR-0081) rather than a
+/// This is now one instance of [`respond`]'s general rule (ADR-0083) rather than a
 /// special case: `Report::bad_invocation` is `E-INVOCATION`, which is
 /// `NotAboutDocument`-classed, so `isError` follows from the same predicate every other
 /// tool uses. It is spelled out here rather than routed through `respond` because there

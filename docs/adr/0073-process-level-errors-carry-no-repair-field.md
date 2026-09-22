@@ -11,7 +11,7 @@ amends: 0043 (narrows "every `error`-class finding" to findings about a document
 > stated as message text. `E-NOT-A-PROJECT` and `E-SOURCE-MISSING` are untouched and keep
 > that section's open question. Nothing about the four codes this ADR decided changes.
 >
-> **Amended by [ADR-0081](0081-mcp-iserror-tracks-notaboutdocument.md).** The
+> **Amended by [ADR-0083](0083-mcp-iserror-tracks-notaboutdocument.md).** The
 > `NotAboutDocument` classification this ADR introduces for the wire's `repair` field is
 > extended to the MCP transport's `isError` flag: every code declared `NotAboutDocument`
 > here now sets `isError` over MCP, not just an argument that failed to deserialise.

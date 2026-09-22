@@ -1184,7 +1184,7 @@ fn mcp_validate_advertises_the_schema_it_enforces() {
 
 #[test]
 fn a_validate_that_could_not_parse_the_file_is_an_mcp_tool_failure() {
-    // ADR-0081: `E-PARSE` is `NotAboutDocument` (ADR-0073) — the bytes never became a
+    // ADR-0083: `E-PARSE` is `NotAboutDocument` (ADR-0073) — the bytes never became a
     // document for `validate` to have an opinion about — so `isError` is set here, the
     // same way it is for a malformed call. This is different from a validate that *did*
     // run and found document-level `error` findings (see the `render` MCP test's exit-1
@@ -1417,7 +1417,7 @@ fn mcp_measure_advertises_the_schema_it_enforces_and_answers() {
     assert_eq!(answered["measure"]["block_bottom"], 1567.25);
 
     // Neither input mode named — a verb-level rejection, `query`'s missing-mode pattern:
-    // the call reached the verb, which answered `E-INVOCATION`. ADR-0081: `isError`
+    // the call reached the verb, which answered `E-INVOCATION`. ADR-0083: `isError`
     // tracks `NotAboutDocument` regardless of which layer produced the finding, and
     // `E-INVOCATION` is `NotAboutDocument` (ADR-0073) whether it came from a malformed
     // call or, as here, a verb that ran and found its own arguments incoherent.
@@ -1854,7 +1854,7 @@ fn mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_stat
 
 #[test]
 fn mcp_create_project_onto_an_existing_file_sets_is_error_and_changes_nothing() {
-    // #313, resolved by ADR-0081: `E-PROJECT-EXISTS` is `NotAboutDocument` (ADR-0073,
+    // #313, resolved by ADR-0083: `E-PROJECT-EXISTS` is `NotAboutDocument` (ADR-0073,
     // ADR-0080) — the project being scaffolded does not exist, so there is no document
     // to have an opinion about — and `isError` now tracks that classification on every
     // MCP tool, not just a bad-invocation deserialisation failure.

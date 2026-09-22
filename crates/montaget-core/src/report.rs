@@ -294,7 +294,7 @@ impl Report {
         }
     }
 
-    /// ADR-0081: whether this run reached a condition whose subject is not the document
+    /// ADR-0083: whether this run reached a condition whose subject is not the document
     /// at all — the invocation, the raw bytes, or Montaget's own process
     /// (`RepairClass::NotAboutDocument`, ADR-0073) — rather than a fact about the
     /// project. Exactly the runs that reach exit 2, 3 or 70; `Ok` and `Errors` (exit 0/1)

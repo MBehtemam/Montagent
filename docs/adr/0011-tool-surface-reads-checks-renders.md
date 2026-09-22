@@ -70,7 +70,7 @@ status: accepted
 >   not what needs fixing, the path argument is — and settles that the CLI spells the verb
 >   `create-project` while the MCP tool takes `frame` as the nested object, reading the
 >   write-tool invariant below as binding the MCP surface and not argv
-> - [ADR-0081](0081-mcp-iserror-tracks-notaboutdocument.md) — **restates the write-tool
+> - [ADR-0083](0083-mcp-iserror-tracks-notaboutdocument.md) — **restates the write-tool
 >   invariant's scope**: "the return value is the findings" was reasoned about findings
 >   about the document. MCP's `isError` now sets exactly on `RepairClass::NotAboutDocument`
 >   (exit 2/3/70), leaving `success` where this ADR's exit 0/1 already do
