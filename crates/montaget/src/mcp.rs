@@ -200,6 +200,18 @@ pub struct MeasureParams {
     /// `element`.
     #[serde(default)]
     pub at: Option<i64>,
+    /// An array of element specs, each in `element`'s own shape — the batch primitive
+    /// (#317). None need exist in the project file. One unmeasurable element inside the
+    /// array reports its own error; the rest of the batch still answers. A value that is
+    /// not an array is refused as a whole-call invocation error, not a per-slot one.
+    /// Exclusive with `element`, `at` and `all`.
+    #[serde(default)]
+    pub elements: Option<Vec<serde_json::Value>>,
+    /// Every text element the project already has, fed through the same batch engine
+    /// `elements` uses (#317) — no id-listing required. An empty project answers with an
+    /// empty batch, not an error. Exclusive with `element`, `at` and `elements`.
+    #[serde(default)]
+    pub all: bool,
     /// Return the canonical JSON *instead of* the text answer, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -664,7 +676,12 @@ impl Montaget {
                        box, which is `validate`'s alone to say. Pass `at` instead of \
                        `element` to ask a different question: the nearest sampled instant \
                        at-or-before that time, on the project's own frame grid, so a fade \
-                       can be retargeted to land on exactly 0 instead of a residual value.",
+                       can be retargeted to land on exactly 0 instead of a residual value. \
+                       Pass `elements` — an array of specs in `element`'s own shape — to \
+                       measure many in one call, or `all` to measure every text element the \
+                       project already has; one unmeasurable element in a batch reports its \
+                       own error and the rest of the batch still answers. Exactly one of \
+                       `element`, `at`, `elements` and `all` may be given.",
         input_schema = advertised::<MeasureParams>()
     )]
     fn measure(
@@ -681,6 +698,8 @@ impl Montaget {
             &montaget_core::verbs::measure::Ask {
                 element: params.element,
                 at: params.at,
+                elements: params.elements,
+                all: params.all,
             },
         );
         // `verbose` is deliberately absent, as it is on `query`: the answer *is* the

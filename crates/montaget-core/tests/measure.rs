@@ -73,6 +73,34 @@ fn measure(project: &Path, element: Value) -> Answer {
         &Ask {
             element: Some(element),
             at: None,
+            elements: None,
+            all: false,
+        },
+    )
+}
+
+#[track_caller]
+fn measure_elements(project: &Path, elements: Vec<Value>) -> Answer {
+    montaget_core::verbs::measure::measure(
+        project,
+        &Ask {
+            element: None,
+            at: None,
+            elements: Some(elements),
+            all: false,
+        },
+    )
+}
+
+#[track_caller]
+fn measure_all(project: &Path) -> Answer {
+    montaget_core::verbs::measure::measure(
+        project,
+        &Ask {
+            element: None,
+            at: None,
+            elements: None,
+            all: true,
         },
     )
 }
@@ -1096,6 +1124,191 @@ fn an_element_with_no_runs_at_all_measures_as_one_empty_line() {
     assert_eq!(px(&view["advance_width"]), 0.0);
     assert_eq!(view["block_height"], 60);
 }
+
+// ---------------------------------------------------------------------------
+// Batch mode: `elements` and `all` (#317).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn elements_returns_n_measured_blocks_in_input_order_for_elements_absent_from_the_project() {
+    let project = project(line!());
+
+    let answer = measure_elements(
+        &project,
+        vec![
+            text(20, one_run("one")),
+            text(30, one_run("two")),
+            text(40, one_run("three")),
+        ],
+    );
+
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let results = answer.to_json()["measure"]["results"]
+        .as_array()
+        .expect("a batch carries its results")
+        .clone();
+    assert_eq!(results.len(), 3);
+    for (i, size) in [20, 30, 40].into_iter().enumerate() {
+        assert_eq!(results[i]["index"], i);
+        assert_eq!(results[i]["error"], Value::Null);
+        assert_eq!(results[i]["ok"]["asked"]["size"], size);
+    }
+}
+
+#[test]
+fn one_bad_slot_in_elements_still_returns_the_others_with_its_own_error() {
+    let project = project(line!());
+
+    let mut good_first = text(20, one_run("ok"));
+    good_first["id"] = json!("first");
+    let mut bad = text(20, one_run("bad font"));
+    bad["id"] = json!("second");
+    bad["font"] = json!("not-declared");
+    let mut good_last = text(20, one_run("also ok"));
+    good_last["id"] = json!("third");
+
+    let answer = measure_elements(&project, vec![good_first, bad, good_last]);
+
+    // The call itself is not a refusal — a batch with one bad slot is still an answer.
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let results = answer.to_json()["measure"]["results"].clone();
+
+    assert_eq!(results[0]["id"], "first");
+    assert!(results[0]["error"].is_null());
+    assert!(!results[0]["ok"].is_null());
+
+    assert_eq!(results[1]["id"], "second");
+    assert!(
+        results[1]["ok"].is_null(),
+        "the bad slot carries no measurement"
+    );
+    assert_eq!(results[1]["error"]["code"], "E-INVOCATION");
+    assert!(
+        results[1]["error"]["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not-declared"),
+        "{}",
+        results[1]["error"]
+    );
+
+    assert_eq!(results[2]["id"], "third");
+    assert!(
+        !results[2]["ok"].is_null(),
+        "the slot after the bad one is unaffected"
+    );
+}
+
+#[test]
+fn all_returns_one_measured_block_per_text_element_already_in_the_project() {
+    let dir = common::tempdir(line!());
+    std::fs::create_dir_all(dir.join("fonts")).expect("a writable temporary directory");
+    std::fs::copy(font_file(), dir.join("fonts/Brand.otf")).expect("the vendored font");
+    let project = write_project(
+        &dir,
+        "p.montaget.json",
+        &canonical(
+            r#"{"frame":{"width":1080,"height":1920},"fps":25,
+                "fonts":{"brand":[{"file":"fonts/Brand.otf"}]},
+                "tracks":[{"name":"captions","elements":[
+                    {"id":"a","type":"text","font":"brand","size":20,
+                     "runs":[{"text":"one"}]},
+                    {"id":"b","type":"text","font":"brand","size":30,
+                     "runs":[{"text":"two"}]},
+                    {"id":"c","type":"image","source":"a.png","width":10,"height":10}
+                ]}]}"#,
+        ),
+    );
+
+    let answer = measure_all(&project);
+
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let results = answer.to_json()["measure"]["results"]
+        .as_array()
+        .expect("a batch carries its results")
+        .clone();
+    // Only the two text elements — the image is not `--all`'s business.
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0]["id"], "a");
+    assert_eq!(results[1]["id"], "b");
+    assert!(results[0]["error"].is_null());
+    assert!(results[1]["error"].is_null());
+}
+
+#[test]
+fn all_on_a_project_with_zero_text_elements_is_an_empty_batch_not_an_error() {
+    let project = project(line!());
+
+    let answer = measure_all(&project);
+
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    assert_eq!(
+        answer.to_json()["measure"]["results"],
+        json!([]),
+        "no text elements is an empty answer, not a refusal"
+    );
+}
+
+#[test]
+fn elements_and_all_and_element_and_at_are_pairwise_mutually_exclusive() {
+    let project = project(line!());
+    let one = vec![text(20, one_run("x"))];
+
+    let combos = [
+        Ask {
+            element: Some(text(20, one_run("x"))),
+            at: Some(0),
+            elements: None,
+            all: false,
+        },
+        Ask {
+            element: Some(text(20, one_run("x"))),
+            at: None,
+            elements: Some(one.clone()),
+            all: false,
+        },
+        Ask {
+            element: Some(text(20, one_run("x"))),
+            at: None,
+            elements: None,
+            all: true,
+        },
+        Ask {
+            element: None,
+            at: Some(0),
+            elements: Some(one.clone()),
+            all: false,
+        },
+        Ask {
+            element: None,
+            at: Some(0),
+            elements: None,
+            all: true,
+        },
+        Ask {
+            element: None,
+            at: None,
+            elements: Some(one),
+            all: true,
+        },
+    ];
+
+    for ask in combos {
+        let answer = montaget_core::verbs::measure::measure(&project, &ask);
+        assert_eq!(
+            answer.report().exit_code(),
+            ExitCode::BadInvocation,
+            "{ask:?}"
+        );
+        assert_eq!(answer.to_json()["measure"], Value::Null);
+    }
+}
+
+// A malformed JSON array is not a shape the verb ever sees at all: `Ask::elements` is
+// already a `Vec<Value>`, so parsing `--elements`'s string is the CLI adapter's own
+// transport step, exercised in `montaget/tests/adapters.rs`
+// (`cli_measure_elements_that_is_not_a_json_array_is_exit_3_not_a_per_slot_error`) — the
+// same split `--element`'s own not-JSON case already draws.
 
 // ---------------------------------------------------------------------------
 // The wire (ADR-0006).
