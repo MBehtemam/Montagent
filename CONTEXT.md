@@ -230,16 +230,29 @@ An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) tha
 keeps an element's rendered pixels where the shape is and erases the rest.
 Shape-only in v1 — a soft or alpha mask sourced from an image is deferred, since
 it introduces a second asset reference and unresolved fitting/colour-space
-questions. **The param-less form is the only spelling there is**: a bare
-`{"name": "mask", "shape": "circle"}` means the largest circle inscribed in the
-element's own rect, and `rect`/`ellipse` take the rect itself. An explicit
-geometry vocabulary — centre, radius, corner radii, two axes — is its own future
-ticket, and a bare `mask` key outside `effects` is a retired spelling.
+questions. **Its parameters are one rect, shared by all three shapes**:
+`x`, `y`, `width`, `height` name the rect the shape is inscribed in, and `shape`
+selects which figure is drawn in it — never which fields exist, because a
+per-shape field set would be the two-level lookup ADR-0049 refused. The four are
+**all-or-none**, element-local integers measured from the element rect's top-left
+whatever the `origin` keyword is, and their identity value is the element's own
+rect — so a bare `{"name": "mask", "shape": "circle"}` is still the largest circle
+inscribed in that rect, reached by the same arithmetic rather than by a second
+rule. `radius` rounds the corners of a `rect` mask, identity `0`; on `circle` or
+`ellipse` it is an unknown key, exactly as it is on a drawn ellipse (ADR-0014).
+There is no ellipse rotation term — the element's own `rotation` turns the mask.
+**The mask rides the transform**: it is declared inside the element's box in
+unscaled units, so `scale` grows it and `rotation` turns it, the same rule that
+makes a `blur` radius and a `stroke_width` scale. That is not keyframing an effect
+parameter — the fields stay literal integers on every frame. A bare `mask` key
+outside `effects` is a retired spelling.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
-[ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md))
+[ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md),
+[ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
-different concept that happens to sound alike)
+different concept that happens to sound alike; a mask is carried by the transform,
+a `clip` is not, and a *shaped* static porthole is not expressible in v1)
 
 **Transition**:
 Its own element type — `type: "transition"` — with its own `id`, `start`/`end`,

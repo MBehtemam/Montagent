@@ -8,6 +8,12 @@ amends: 0068 (retires its "the rendered frame is unchanged" Consequences bullet 
 
 # The badge's `mask` changes the antialiasing of its own rim — "the rendered frame is unchanged" retires
 
+> **Amended by [ADR-0084](0084-the-mask-rect-is-one-shape-independent-parameter-set.md)** —
+> which extends this ADR's lesson rather than altering its measurement. The two renderer
+> readings it left unratified — the mask's coordinate space, and its behaviour under `scale`
+> and `rotation` — are ratified there, and the goldens this ADR's reasoning implies are
+> commissioned as tests rather than asserted as prose. Every number below stands.
+
 **Ticket:** [#279](https://github.com/MBehtemam/Montaget/issues/279). Evidence:
 `crates/montaget-core/tests/effects.rs::the_badges_mask_changes_only_the_antialiasing_of_its_own_rim`,
 which re-derives every number below by rendering the committed fixture twice — with the

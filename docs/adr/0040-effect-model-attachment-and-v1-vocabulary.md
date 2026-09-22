@@ -5,7 +5,7 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
-> **Amended by five later ADRs.** Read them before relying on anything below.
+> **Amended by six later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
 >   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
@@ -21,6 +21,11 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > - [ADR-0059](0059-transitions-element-type-crossfade-only-exact-window.md) — confirms the
 >   "own shape — likely id-targeting" prediction; the effect vocabulary's element-locality
 >   is not stretched to cover transitions
+> - [ADR-0084](0084-the-mask-rect-is-one-shape-independent-parameter-set.md) — **writes the
+>   `...shape params` ellipsis this ADR left unwritten**: the `mask` member's parameters are
+>   one shape-independent rect, and per-shape field sets are refused as ADR-0049's two-level
+>   lookup. Also states the coordinate space and transform behaviour this ADR's effect model
+>   implied but never said
 
 [#22](https://github.com/MBehtemam/Montaget/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a

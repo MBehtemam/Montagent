@@ -14,6 +14,13 @@ amends: 0040 (retires its "no migration needed" Consequences bullet, and states 
 > — the retirement, the param-less geometry, the key order, the advise-class
 > classification, the migration — stands.
 
+> **Also amended by [ADR-0084](0084-the-mask-rect-is-one-shape-independent-parameter-set.md)** —
+> which **discharges the full-parameter-surface ticket this ADR graduated**. Everything below
+> stands unchanged, including the param-less form: ADR-0084 makes it the *identity value* of
+> the explicit set (`x`/`y`/`width`/`height` absent means the element's own rect), reached by
+> the same arithmetic, so the sentence below is preserved rather than replaced and the fixture
+> does not migrate again.
+
 [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) contains two accepted
 sentences that cannot both be implemented. Found while breaking
 [#168](https://github.com/MBehtemam/Montaget/issues/168) into tickets, where the very
