@@ -47,7 +47,8 @@
 //! defect in this build: the fixture is typeset in **Open Runde** and the published video
 //! in **SF Pro Rounded** ([#143](https://github.com/MBehtemam/Montaget/issues/143),
 //! ADR-0057 — *"no font claims formal metric compatibility"*, quantified by
-//! [#186](https://github.com/MBehtemam/Montaget/issues/186)); and the photograph carries an
+//! [#186](https://github.com/MBehtemam/Montaget/issues/186), settled by ADR-0085 as a
+//! permanent divergence); and the photograph carries an
 //! unexplained displacement that grows with the Ken Burns ramp, 8 × 4 px by 14 000 ms
 //! ([#299](https://github.com/MBehtemam/Montaget/issues/299)). A whole-frame threshold
 //! loose enough to absorb either would be loose enough to absorb anything, which is the

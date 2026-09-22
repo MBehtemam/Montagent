@@ -45,7 +45,7 @@
 //!
 //! **What it was not, at any point, is absorbed into a looser threshold.** While it stood
 //! it was quantified, masked out of the gate at the frame where it bit, and reported as a
-//! number on every run — the same treatment #186 still prescribes for the typeface — and
+//! number on every run — the same treatment ADR-0085 makes permanent for the typeface — and
 //! the fix did not loosen anything either: the photograph became its own gated half rather
 //! than being folded into one whole-frame number that a 40 px displacement could pass. A
 //! gate slack enough to admit a 56 px displacement is slack enough to admit anything, which
@@ -68,8 +68,11 @@
 //! **Open Runde** because SF Pro Rounded was never in the repository and cannot legally be
 //! redistributed (ADR-0057, which also records that *"no font claims formal metric
 //! compatibility"*). So every text-bearing region differs for a reason that is not a
-//! defect, and [#186](https://github.com/MBehtemam/Montaget/issues/186) — still open — is
-//! where that gets quantified. Text is masked out of every gate and measured beside it.
+//! defect. [#186](https://github.com/MBehtemam/Montaget/issues/186) measured it and
+//! [ADR-0085](../../../docs/adr/0085-the-font-swap-census-holds-and-the-text-mask-is-permanent.md)
+//! settled it: the fixture's declared layouts all still hold, and the text mask is
+//! nevertheless **permanent**, because its cause is a licence rather than a bug. Text is
+//! masked out of every gate and measured beside it — and stays that way.
 //!
 //! # Every frame is gated over two regions, never one
 //!
@@ -515,7 +518,7 @@ fn the_render_matches_the_published_video_over_each_frames_gated_region() {
 
 #[test]
 fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
-    // #186, quantified at the two instants the suite has references for. There is
+    // ADR-0085's quantification, at the two instants the suite has references for. There is
     // deliberately **no threshold**: the fixture renders in Open Runde and the published
     // video was typeset in SF Pro Rounded (#143, under ADR-0057 — "no font claims formal
     // metric compatibility"), so a number here would be a measurement of the substitution
@@ -538,7 +541,7 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
              against {gated:.4} in the drawn region.\n\
              \x20           The published video is typeset in SF Pro Rounded; this render \
              is in Open Runde — #143 re-vendored it because SF Pro Rounded is not \
-             redistributable (ADR-0057). #186 owns the divergence.\n\
+             redistributable (ADR-0057). ADR-0085 settles it as permanent.\n\
              \x20           Elements: {}",
             reference.file,
             reference.at,
@@ -547,9 +550,11 @@ fn the_text_regions_are_measured_and_reported_and_gate_nothing() {
         );
         assert!(
             in_text < gated,
-            "{}: the text scored {in_text:.4} against {gated:.4} in the drawn region. If \
-             the typeface substitution has stopped costing anything, #186 can close and \
-             this mask should go.",
+            "{}: the text scored {in_text:.4} against {gated:.4} in the drawn region. \
+             ADR-0085 holds that the substitution costs something at every instant, \
+             because SF Pro Rounded cannot be vendored and Open Runde's advances run \
+             2.0-9.4% wider. If that has stopped being true, the mask is overstating its \
+             case and ADR-0085 is what needs revisiting.",
             reference.file
         );
     }

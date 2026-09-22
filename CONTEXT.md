@@ -466,7 +466,13 @@ equality, with the regions that differ for a known reason — the typeface subst
 measured beside it. A divergence is masked only while its cause is unfixed: the fixture's
 Ken Burns pivot was masked out of the later frame until
 [#276](https://github.com/MBehtemam/Montaget/issues/276) corrected the fixture, and that
-frame now gates the photograph as a region of its own.
+frame now gates the photograph as a region of its own. **The typeface mask is the one
+exception, and is permanent**: its cause is ADR-0057's licence gate, not a bug, so no work
+discharges it short of re-rendering the reference — which would replace the falsifier with
+a golden. The fixture's own declared layouts were measured under both faces and all 22 hold
+([ADR-0085](docs/adr/0085-the-font-swap-census-holds-and-the-text-mask-is-permanent.md));
+that they hold is a *layout* fact and does not make the *pixels* comparable, which is the
+conflation #186 was written around.
 `crates/montaget-core/tests/reference_frames.rs`.
 (spec [#168](https://github.com/MBehtemam/Montaget/issues/168),
 [ADR-0010](docs/adr/0010-skia-safe-rasterizer-text-beside-it.md))

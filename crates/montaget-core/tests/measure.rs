@@ -6,12 +6,14 @@
 //!
 //! **The fixture is not the oracle for an extent, and deliberately is not used as one.**
 //! Spec #168 records the reason: the fixture *"is no longer typeset in the font its
-//! reference MP4 was rendered in"*, 22 of its elements carry sizes measured against the old
-//! metrics, and [#186](https://github.com/MBehtemam/Montaget/issues/186) — still open — is
-//! what settles whether they hold. A test asserting that `measure` agrees with a declared
-//! `width` would be asserting #186's outcome in advance. The font *file* is used, because
-//! it is the real vendored font and the one this build actually shapes in; what the
-//! fixture declares about it is not.
+//! reference MP4 was rendered in"*, and 22 of its elements carry sizes measured against the
+//! old metrics. [#186](https://github.com/MBehtemam/Montaget/issues/186) has since measured
+//! them — they all hold, under both faces — but that changes nothing here. The census is
+//! `tests/font_swap_census.rs`'s job, and it asserts the declared widths *as its subject*;
+//! a test about the engine's arithmetic borrowing them as an oracle would still be reading
+//! a conclusion out of the wrong document. The font *file* is used, because it is the real
+//! vendored font and the one this build actually shapes in; what the fixture declares about
+//! it is not.
 //!
 //! Where an expected number is not a bare consequence of an ADR's own arithmetic, it comes
 //! from `skrifa` reading the font file directly — a different path to the same fact than
