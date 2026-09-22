@@ -11,17 +11,18 @@
 //!
 //! - **It never overwrites.** A scaffold that clobbers is a scaffold that deletes a
 //!   project, and the file it would land on is the one the agent is mid-edit on and the one
-//!   git is tracking. An existing path is `E-PROJECT-EXISTS` and nothing is written.
+//!   git is tracking. An existing path is `E-PROJECT-EXISTS` and nothing is written, at
+//!   **exit 3**: the project is not what needs fixing, the path argument is (ADR-0080).
 //! - **It never invents a value the agent did not state.** ADR-0030: omission and
 //!   explicit-at-default are two spellings of *different declarations*, so Montaget writing
 //!   `"background": "#000000"` on the agent's behalf would be authoring a declaration
 //!   nobody made. `background`, `duration` and `output` are offered as arguments — which is
 //!   what story 1 of spec #168 is asking for, a file whose shape the agent does not have to
-//!   invent — and appear in the file exactly when they were asked for. This is a **declared
-//!   departure from #194**, which enumerates five keys: ADR-0030 leaves the question open in
-//!   as many words rather than deciding it, so there is no ADR to invoke against the ticket,
-//!   only the reason above. Raised as #246 rather than left to be discovered from the
-//!   struct.
+//!   invent — and appear in the file exactly when they were asked for. This departs from
+//!   #194's enumeration of five keys, and ADR-0080 is what settles it: the question
+//!   ADR-0030 left open is closed in favour of the three keys staying optional, and the
+//!   ticket's five-key sentence is read as naming the header's shape rather than the
+//!   scaffold's output.
 //! - **It decides nothing about canonical form.** The bytes come from
 //!   [`crate::write::canonical`], and their key order comes from serialising
 //!   [`crate::model::Project`], whose field order *is* canonical key order (ADR-0041).
@@ -71,18 +72,22 @@ pub fn create_project(path: &Path, scaffold: &Scaffold) -> Report {
     // Checked before the header is even assembled: the one thing worth knowing about a
     // path that already exists is that nothing should happen to it.
     //
+    // Exit 3 and not 1 (ADR-0080): the file that is there is intact and the project being
+    // scaffolded does not exist, so there is no document to fix — what needs changing is
+    // the path this call was given, which is exit 3's *"fix the command"* exactly. The
+    // remedy is the registry template's own sentence rather than a `repair` field, because
+    // the code is `NotAboutDocument`.
+    //
     // A window stays open between here and the rename below, which replaces
     // unconditionally. Closing it would mean reserving the destination first, which trades
     // the race for a worse failure — an empty file left in place when the write then fails.
-    // Recorded in #246 rather than papered over.
+    // Ratified as the narrower risk by ADR-0080.
     if path.exists() {
-        let mut report = Report::new(TOOL, project);
-        report.push(
-            Finding::new("E-PROJECT-EXISTS")
-                .at_file(path.display().to_string())
-                .repair_value(json!({"value": "scaffold at a path that does not exist yet"})),
+        return Report::refused_invocation(
+            TOOL,
+            project,
+            Finding::new("E-PROJECT-EXISTS").at_file(path.display().to_string()),
         );
-        return report;
     }
 
     let header = match header(scaffold) {

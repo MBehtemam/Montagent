@@ -130,7 +130,8 @@ const CHECKS: &[CheckSpec] = &[
         // the document is not a project. The next move — point the tool at the project
         // file — follows from the condition itself. Shares ADR-0073's fault line with
         // `E-READ`/`E-PARSE`/`E-INVOCATION`/`E-INTERNAL` but is not reclassified by it —
-        // out of that ADR's scope (#224), left for whoever next touches this code.
+        // out of that ADR's scope (#224), and out of ADR-0080's, which moved only
+        // `E-PROJECT-EXISTS`. Left for whoever next touches this code.
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0042",
@@ -144,17 +145,18 @@ const CHECKS: &[CheckSpec] = &[
         // file is intact, and the agent has learned that the thing it was about to create
         // already exists — which, mid-session, is usually the answer it wanted.
         //
-        // No ADR says `create_project` refuses to overwrite, or what it says when it does.
-        // Raised as #246 rather than left to be discovered from this table.
+        // ADR-0080 ratifies the refusal and replaces the reading it shipped with: this
+        // is a bad invocation, not a defective project, so it exits 3 and not 1.
         code: "E-PROJECT-EXISTS",
         classes: &[Error],
-        // Advise: the document whose author could have meant something is not this
-        // call's, and the next move — write somewhere else, or edit the file that is
-        // already there — follows from the condition itself. Same fault line as
-        // ADR-0073's four, not reclassified by it — see the note on `E-NOT-A-PROJECT`.
-        repair: Some(Advise),
+        // `NotAboutDocument` (ADR-0080, on the fault line ADR-0073 left open for it): the
+        // subject is the path this call was given, not any document — the file that is
+        // there is intact and the project being scaffolded does not exist. The next move
+        // — write somewhere else, or edit the file that is already there — is a repair to
+        // the command, so it lives in the template text rather than in a `repair` field.
+        repair: Some(NotAboutDocument),
         threshold: Internal,
-        adr: "ADR-0011",
+        adr: "ADR-0080",
         template: "{file} already exists; `create_project` never overwrites. Edit it, or \
 scaffold somewhere else.",
         status: Live,

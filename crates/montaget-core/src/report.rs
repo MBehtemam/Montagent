@@ -154,6 +154,48 @@ impl Report {
         report
     }
 
+    /// The invocation was wrong, and the verb has a registered code of its own for why.
+    ///
+    /// [`Report::rejected`] is the general case and its finding is always `E-INVOCATION`:
+    /// the verb got an argument wrong, and the usage text is the whole of the answer. This
+    /// is the narrower one — a condition the verb names with its own code, carrying the
+    /// fields that code's template reads. The two share exit 3 because they share a next
+    /// move: *"fix the command"* (ADR-0011). `E-PROJECT-EXISTS` is its only inhabitant
+    /// (ADR-0080).
+    ///
+    /// Named `refused_invocation` rather than `refused` because `verbs::render` and
+    /// `verbs::preview` each already have a free `refused(Report) -> Answer`, which wraps a
+    /// report rather than building one. Two different meanings under one word, one `use`
+    /// away from each other, is a name that has to be read twice.
+    ///
+    /// A code reaching exit 3 this way must be declared `NotAboutDocument` in the
+    /// registry, and that is asserted here rather than left to [`Report::push`].
+    /// `push` holds every finding to ADR-0043's repair invariant as narrowed by
+    /// ADR-0073, but it is satisfied by *either* an exempt declaration or a repair
+    /// value — so an `Advise` code that states its repair would pass it and still
+    /// arrive at exit 3 carrying a `repair` field, which is what ADR-0073 forbids
+    /// there. The declaration is the thing this constructor depends on, so the
+    /// declaration is what it checks.
+    #[track_caller]
+    pub fn refused_invocation(
+        tool: impl Into<String>,
+        project: Option<String>,
+        finding: Finding,
+    ) -> Self {
+        assert!(
+            matches!(
+                registry::spec(&finding.code).and_then(|spec| spec.repair),
+                Some(RepairClass::NotAboutDocument)
+            ),
+            "{} reaches exit 3 but is not declared `NotAboutDocument` (ADR-0073/ADR-0080)",
+            finding.code
+        );
+        let mut report = Report::new(tool, project);
+        report.terminal = Some(Terminal::BadInvocation);
+        report.push(finding);
+        report
+    }
+
     /// Montaget itself failed — ffmpeg died, the font stack failed.
     pub fn internal_failure(reason: impl Into<String>) -> Self {
         Report {

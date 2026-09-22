@@ -20,13 +20,16 @@
 //! The format docs are `include_str!`d from within this crate rather than read from
 //! `docs/` at the repository root, because a released binary has no repository beside it
 //! (ADR-0064 ships `cargo install` and six target binaries) and a resource that resolved to
-//! a missing file would be a resource that works only in a checkout.
+//! a missing file would be a resource that works only in a checkout. Ratified by ADR-0080,
+//! which also names the guard against the cost it admits — the repo's prose living in two
+//! places: `every_adr_the_format_docs_cite_exists_and_is_still_accepted`.
 
 /// One published resource.
 ///
 /// ADR-0011 names *"the schema"* and *"the format docs"* and settles neither their URIs nor
-/// their names. The two below are a published surface an agent will cite and should not
-/// move; that they rest on this module rather than on a decision is raised as #246.
+/// their names. **ADR-0080 does**: the two URIs, names and media types below are ratified
+/// as a published surface an agent may cite, and they do not move. `tests/resources.rs`
+/// pins all six strings, so a rename is a failing test rather than a silent break.
 // No `PartialEq`: the derive would compare `body`, and comparing function pointers is
 // unpredictable. Resources are identified by `uri`, which is what `find` compares.
 #[derive(Debug, Clone, Copy)]

@@ -23,6 +23,8 @@ pub enum Animatable<T> {
     Static(T),
     /// Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the
     /// first value, after the last it is the last, so *"and then it holds"* costs no syntax.
+    /// Records must be written with strictly increasing `t` (ADR-0082) — array order is
+    /// clock order.
     Keyed(Vec<Keyframe<T>>),
 }
 
@@ -53,6 +55,7 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
         if keyed {
             let records = read_records(value).map_err(D::Error::custom)?;
             positional_ease(&records).map_err(D::Error::custom)?;
+            ascending_t(&records).map_err(D::Error::custom)?;
             Ok(Animatable::Keyed(records))
         } else {
             serde_json::from_value(value)
@@ -105,10 +108,10 @@ fn read_records<T: serde::de::DeserializeOwned>(
 /// which is the whole of what ADR-0012 asked the first-record error to do.
 ///
 /// **Position here is position in the array**, which is what both ADRs say and what the
-/// published schema's `prefixItems` can express. Whether it should instead be position on
-/// the clock — the two coincide on every list anyone writes, and come apart on one written
-/// backwards — is open, and is
-/// [#270](https://github.com/MBehtemam/Montaget/issues/270).
+/// published schema's `prefixItems` can express. That reading and the clock's coincide by
+/// construction now that [`ascending_t`] is enforced alongside it (ADR-0082, closing
+/// [#270](https://github.com/MBehtemam/Montaget/issues/270)) — array position and clock
+/// position are the same order for any record this function is ever called with.
 fn positional_ease<T>(records: &[Keyframe<T>]) -> Result<(), String> {
     for (index, record) in records.iter().enumerate() {
         match (index, &record.ease) {
@@ -130,6 +133,36 @@ fn positional_ease<T>(records: &[Keyframe<T>]) -> Result<(), String> {
                 ));
             }
             _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// ADR-0082: a keyframe list's records must be written with strictly increasing `t`. Enforced
+/// here rather than in a check, for the same reason [`positional_ease`] is: it is a schema
+/// fact, this is the one place a keyframe list is read, and `#E-SCHEMA` reports schema facts
+/// by catching what parsing refuses.
+///
+/// Two records sharing one `t` are also an inversion under this rule — `t` is not *strictly*
+/// increasing — and fire the same error. ADR-0012 and ADR-0038 are silent on same-`t` records
+/// and this function does not additionally resolve that question.
+///
+/// This is what makes [`positional_ease`]'s array-position reading of ADR-0038 and
+/// [`crate::resolve::at`]'s clock-position reading the same statement rather than two that
+/// can be fed a list where they disagree — the divergence [#270](https://github.com/MBehtemam/Montaget/issues/270)
+/// found and ADR-0082 closes.
+fn ascending_t<T>(records: &[Keyframe<T>]) -> Result<(), String> {
+    for (index, pair) in records.windows(2).enumerate() {
+        let (previous, record) = (&pair[0], &pair[1]);
+        if record.t <= previous.t {
+            return Err(format!(
+                "keyframe record {} (`t` {}) is not strictly after keyframe record {} (`t` \
+                 {}): a keyframe list must be written with strictly increasing `t`",
+                index + 2,
+                record.t,
+                index + 1,
+                previous.t
+            ));
         }
     }
     Ok(())
