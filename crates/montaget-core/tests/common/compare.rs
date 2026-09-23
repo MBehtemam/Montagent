@@ -23,7 +23,8 @@
 //! # Scopeing, and what it costs
 //!
 //! [`ssim`] takes a [`Scope`] and averages only the windows whose centre it admits. The
-//! reason it exists is [#186](https://github.com/MBehtemam/Montaget/issues/186): the
+//! reason it exists is [#186](https://github.com/MBehtemam/Montaget/issues/186), and
+//! ADR-0085 is why it is permanent rather than temporary scaffolding: the
 //! fixture renders in Open Runde and the published video was typeset in SF Pro Rounded, so
 //! **every text-bearing region differs for a reason that is not a defect**. A whole-frame
 //! threshold loose enough to absorb a typeface change is loose enough to absorb a moved
