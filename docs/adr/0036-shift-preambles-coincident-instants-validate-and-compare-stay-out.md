@@ -5,6 +5,13 @@ amends: 0005 (delivers the nearest-boundary message this ADR commissioned, for t
 
 # `shift` prints what it will do to every record at a coincident `at`; `validate` gets no coincidence census
 
+> **Also amended by [ADR-0086](0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md)**, which designs the **"inert provenance"**
+> declaration this ADR raised and left open, and discharges its **half-binding** objection
+> from data: on the real fixture the ramps are same-rate 7 of 7 (every one overruns its
+> element's `end`; none lands on it), so the document *can* distinguish same-rate from
+> same-endpoint. The live time-anchor reference stays rejected — ADR-0086 permits only a
+> **renderer-ignored** reference, and grants that permission to no axis.
+
 > **Amended by two later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0039](0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)
