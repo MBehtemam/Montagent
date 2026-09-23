@@ -93,11 +93,11 @@ fn an_explicit_non_square_rect_is_reported_too() {
     assert_eq!(found[0].fields["width"], json!(300));
     assert_eq!(found[0].fields["discarded"], json!(200));
     assert!(
-        found[0].fields["source"]
+        found[0].fields["rect_source"]
             .as_str()
             .is_some_and(|s| s.contains("mask's own")),
         "the finding must say which rect it measured: {:?}",
-        found[0].fields["source"]
+        found[0].fields["rect_source"]
     );
 }
 

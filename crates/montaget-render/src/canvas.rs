@@ -334,11 +334,11 @@ impl MaskShape {
                 );
             }
             MaskShape::Rect => {
-                // One integer radius, both axes, exactly as a drawn `rect`'s is
-                // (ADR-0014) — and a negative one is no rounding rather than an inverted
-                // corner.
-                let radius = radius.max(0.0) as f32;
+                // One integer radius, both axes — and the `radius > 0` guard is the drawn
+                // `rect`'s own, a few hundred lines below, rather than a second rule about
+                // radii written here (ADR-0014).
                 if radius > 0.0 {
+                    let radius = radius as f32;
                     path.add_rrect(RRect::new_rect_xy(rect.rect(), radius, radius), None, None);
                 } else {
                     path.add_rect(rect.rect(), None, None);

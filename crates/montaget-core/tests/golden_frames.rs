@@ -278,61 +278,62 @@ fn the_paint_vocabulary_the_fixture_does_not_use_renders_the_same_way_too() {
 // The mask rect under a transform (ADR-0084, #322)
 // ---------------------------------------------------------------------------
 
-/// The two frames ADR-0084's Evidence section commissions, and the identity assertion that
-/// goes with them, over one project.
+/// One masked `image` on a 640×640 frame, carrying whatever element body is handed to it.
 ///
-/// **Commissioned, not asserted.** Two of the three jurors independently warned that
+/// **Commissioned, not asserted.** Two of ADR-0084's three jurors independently warned that
 /// agreeing with the shipped renderer is weak corroboration given ADR-0075, and asked for
 /// measurement instead — ADR-0075 exists because ADR-0068 asserted a rendering fact that
-/// measurement later refuted. The committed fixture cannot produce any of these frames: its
-/// one mask sits on an unrotated, unscaled, `top-left` 68×68 badge and carries no geometry.
+/// measurement later refuted. The committed fixture can produce none of the frames below:
+/// its one mask sits on an unrotated, unscaled, `top-left` 68×68 badge and carries no
+/// geometry at all.
 ///
-/// A golden is regression-only (see this file's own opening), so what these can do is hold
-/// the readings fixed: the day somebody moves the mask into frame space, or centres a
-/// `circle` on the element instead of on its rect, or stops the rect riding the transform,
-/// all three fail at once and in a picture a reader can look at.
-fn masked_under_transform(dir: &Path) -> PathBuf {
-    let logo = common::with_forward_slashes(
+/// A golden is regression-only (see this file's own opening), so what these do is hold the
+/// readings fixed: the day somebody moves the mask into frame space, or centres a `circle`
+/// on the element instead of on its rect, or stops the rect riding the transform, the
+/// picture changes and a reader can look at it.
+fn masked(dir: &Path, name: &str, element: &str) -> PathBuf {
+    write_project(
+        dir,
+        &format!("{name}.montaget.json"),
+        &canonical(&format!(
+            r##"{{"frame":{{"width":640,"height":640}},"fps":25,"background":"#1E344C",
+                "tracks":[{{"name":"masked","layer":0,"elements":[{element}]}}]}}"##
+        )),
+    )
+}
+
+/// The `brand/logo-en.png` the fixture already carries, as a `source` a temp project
+/// resolves.
+fn logo() -> String {
+    common::with_forward_slashes(
         &fixture_dir()
             .join("brand/logo-en.png")
             .display()
             .to_string(),
-    );
-    write_project(
-        dir,
-        "mask-under-transform.montaget.json",
-        &canonical(&format!(
-            r##"{{"frame":{{"width":640,"height":640}},"fps":25,"background":"#1E344C",
-                "tracks":[{{"name":"masked","layer":0,"elements":[
-                  {{"id":"turned","type":"image","start":0,"end":2000,"x":420,"y":330,
-                    "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
-                    "rotation":32,"source":"{logo}","fit":"cover",
-                    "effects":[{{"name":"mask","shape":"rect","x":20,"y":20,"width":120,
-                                "height":80,"radius":16}}]}},
-                  {{"id":"off-centre","type":"image","start":0,"end":2000,"x":60,"y":420,
-                    "origin":"top-left","width":260,"height":160,
-                    "source":"{logo}","fit":"cover",
-                    "effects":[{{"name":"mask","shape":"circle","x":140,"y":20,
-                                "width":100,"height":100}}]}}
-                ]}}]}}"##
-        )),
     )
 }
 
 #[test]
 fn a_rotated_scaled_off_anchor_mask_rides_the_transform() {
-    // Golden 1 of ADR-0084's three. `turned` is rotated 32°, scaled 1.6× and anchored
-    // `bottom-right` — every one of the coordinate-space and transform questions gives a
-    // *different picture* on this element, which is exactly why no committed fixture can
-    // stand in for it. A `rect` mask here paints a **rotated** rectangle; a frame-space
-    // mask would paint an upright one, and an `origin`-relative one would put it somewhere
-    // else entirely.
-    //
-    // Golden 2 is in the same frame: `off-centre`'s `circle` sits in a 100×100 rect at the
-    // *right-hand* end of a 260×160 element, so it is nowhere near the circle the bare form
-    // would have inscribed in the element's own rect.
+    // The first frame ADR-0084 commissions, and the one that "distinguishes every candidate
+    // answer to the coordinate-space and transform questions": rotated 32°, scaled 1.6×,
+    // anchored `bottom-right`. A `rect` mask here paints a **rotated** rounded rectangle; a
+    // frame-space mask would paint an upright one, an `origin`-relative one would put it
+    // somewhere else entirely, and a mask that refused the transform would paint it at the
+    // unscaled size.
     let dir = tempdir(line!());
-    let project = masked_under_transform(&dir);
+    let project = masked(
+        &dir,
+        "mask-under-transform",
+        &format!(
+            r##"{{"id":"turned","type":"image","start":0,"end":2000,"x":420,"y":400,
+                "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
+                "rotation":32,"source":"{logo}","fit":"cover",
+                "effects":[{{"name":"mask","shape":"rect","x":20,"y":20,"width":120,
+                            "height":80,"radius":16}}]}}"##,
+            logo = logo()
+        ),
+    );
     against_golden(
         "mask-under-transform",
         &rendered(&project, 500, /* full */ false),
@@ -340,7 +341,36 @@ fn a_rotated_scaled_off_anchor_mask_rides_the_transform() {
 }
 
 #[test]
-fn the_bare_form_and_the_element_s_own_rect_written_out_are_the_same_frame() {
+fn an_explicit_mask_rect_that_is_not_the_elements_own_is_its_own_frame() {
+    // The second frame ADR-0084 commissions — "an explicit mask rect that differs from its
+    // element's rect" — with its own golden rather than a second element in the frame
+    // above, so a change to one reading cannot be read off a picture the other also moves.
+    //
+    // The `circle` sits in a 100×100 rect at the *right-hand* end of a 260×160 element, so
+    // it is nowhere near the 160 px circle the bare form would have inscribed in the
+    // element's own rect — which is the whole of what "the rect the shape is inscribed in"
+    // buys over ADR-0068's form.
+    let dir = tempdir(line!());
+    let project = masked(
+        &dir,
+        "mask-explicit-rect",
+        &format!(
+            r##"{{"id":"off-centre","type":"image","start":0,"end":2000,"x":190,"y":240,
+                "origin":"top-left","width":260,"height":160,
+                "source":"{logo}","fit":"cover",
+                "effects":[{{"name":"mask","shape":"circle","x":140,"y":20,
+                            "width":100,"height":100}}]}}"##,
+            logo = logo()
+        ),
+    );
+    against_golden(
+        "mask-explicit-rect",
+        &rendered(&project, 500, /* full */ false),
+    );
+}
+
+#[test]
+fn the_bare_form_and_the_elements_own_rect_written_out_are_the_same_frame() {
     // Golden 3, which is an executable assertion rather than a picture: ADR-0084's central
     // backward-compatibility claim is that the bare form is the *identity value* of the new
     // parameter set — "reached by the same arithmetic" — and not a legacy form beside it.
@@ -355,25 +385,17 @@ fn the_bare_form_and_the_element_s_own_rect_written_out_are_the_same_frame() {
     // difference for a threshold to absorb, and anything short of identical would mean the
     // identity value is a second code path.
     let dir = tempdir(line!());
-    let logo = common::with_forward_slashes(
-        &fixture_dir()
-            .join("brand/logo-en.png")
-            .display()
-            .to_string(),
-    );
     let render = |name: &str, mask: &str| {
-        let project = write_project(
+        let project = masked(
             &dir,
-            &format!("{name}.montaget.json"),
-            &canonical(&format!(
-                r##"{{"frame":{{"width":640,"height":640}},"fps":25,"background":"#1E344C",
-                    "tracks":[{{"name":"masked","layer":0,"elements":[
-                      {{"id":"turned","type":"image","start":0,"end":2000,"x":400,"y":360,
-                        "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
-                        "rotation":32,"source":"{logo}","fit":"cover",
-                        "effects":[{mask}]}}
-                    ]}}]}}"##
-            )),
+            name,
+            &format!(
+                r##"{{"id":"turned","type":"image","start":0,"end":2000,"x":420,"y":400,
+                    "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
+                    "rotation":32,"source":"{logo}","fit":"cover",
+                    "effects":[{mask}]}}"##,
+                logo = logo()
+            ),
         );
         rendered(&project, 500, /* full */ false)
     };

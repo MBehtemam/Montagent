@@ -72,13 +72,15 @@ fn candidate(element: &Value, effect: &Value, index: usize, subject: &str) -> Op
     // written, and the element's own rect where none is. A partial tuple is a schema error
     // the model refuses and this check has no reading of — it asks nothing of a rect that
     // does not exist.
-    let written: Vec<i64> = MASK_RECT
-        .iter()
-        .filter_map(|field| effect.get(*field).and_then(Value::as_i64))
-        .collect();
-    let (source, width, height) = match written.as_slice() {
-        [_, _, width, height] => ("the mask's own rect", *width, *height),
-        [] => (
+    //
+    // Read by name into four `Option`s rather than collected, so the two sides that matter
+    // — which field is which, and how many were readable — are separate facts. The same
+    // shape `crate::verbs::frame` matches on when it resolves the rect for the rasterizer.
+    let [x, y, written_width, written_height] =
+        MASK_RECT.map(|field| effect.get(field).and_then(Value::as_i64));
+    let (rect_source, width, height) = match (x, y, written_width, written_height) {
+        (Some(_), Some(_), Some(width), Some(height)) => ("the mask's own rect", width, height),
+        (None, None, None, None) => (
             "the element's own rect, which the bare form inherits",
             element.get("width").and_then(Value::as_i64)?,
             element.get("height").and_then(Value::as_i64)?,
@@ -99,7 +101,10 @@ fn candidate(element: &Value, effect: &Value, index: usize, subject: &str) -> Op
         Finding::new("R-MASK-CIRCLE-NON-SQUARE")
             .field("element", json!(subject))
             .field("index", json!(index))
-            .field("source", json!(source))
+            // `rect_source` and not `source`: `CONTEXT.md` fixes **Source** as "the file an
+            // element draws on", and every other check's `source` field means that. This
+            // one says which rect was measured.
+            .field("rect_source", json!(rect_source))
             .field("width", json!(width))
             .field("height", json!(height))
             .field("diameter", json!(diameter))

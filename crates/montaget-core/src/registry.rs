@@ -1123,7 +1123,7 @@ from t={from} to t={to}; ease={ease} describes no motion.",
         // they exist only because ADR-0084 admits explicit geometry. Under a
         // param-less-only vocabulary the single available move would have been "resize the
         // element" — moving the picture to satisfy a checker.
-        template: "{element}: `effects[{index}]` is a `circle` mask on {source}, \
+        template: "{element}: `effects[{index}]` is a `circle` mask on {rect_source}, \
 {width}×{height}, so its diameter is {diameter} and {discarded} px of the long axis fall \
 outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
         status: Live,

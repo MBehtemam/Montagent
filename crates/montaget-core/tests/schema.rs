@@ -184,8 +184,8 @@ fn a_type_the_schema_does_not_publish_has_no_key_order() {
     assert_eq!(canonical_order(Published::Element("scene")), None);
 }
 
-/// The applicator keywords whose subschema constrains an instance some *enclosing* schema
-/// has already given a shape to, rather than declaring a shape of its own.
+/// The one applicator keyword whose subschema constrains an instance some *enclosing*
+/// schema has already given a shape to, rather than declaring a shape of its own.
 ///
 /// ADR-0017 closes every object shape the schema defines. An `if` is not one: ADR-0084's
 /// `radius` conditional tests `{"shape": {"const": "rect"}}` against the whole mask member,
@@ -193,7 +193,21 @@ fn a_type_the_schema_does_not_publish_has_no_key_order() {
 /// schema, it would stop the condition ever matching and quietly withdraw the rule. The
 /// shape those instances are held to is the branch's own `additionalProperties: false`,
 /// which this walk still requires.
-const APPLICATORS: [&str; 4] = ["if", "then", "else", "not"];
+///
+/// `then`, `else` and `not` are deliberately **not** here. The same argument would extend
+/// to them, and nothing in this schema needs it yet — an exemption written before a schema
+/// needs it is a place a future open object hides. The walk below also keeps descending
+/// through an `if`, so a definition nested under one is still held to the rule; only the
+/// condition object itself is excused.
+const CONDITION: &str = "if";
+
+/// Is this pointer the `if` *keyword*, rather than a field that happens to be called one?
+///
+/// The walk spells a field's path `…/properties/<name>`, so the two are distinguishable and
+/// a format that one day publishes an `if` key does not silently lose its closure check.
+fn is_condition(path: &str) -> bool {
+    path.ends_with(&format!("/{CONDITION}")) && !path.ends_with(&format!("/properties/{CONDITION}"))
+}
 
 /// Every object schema that does not forbid unknown keys, by JSON pointer.
 fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<String>) {
@@ -201,7 +215,11 @@ fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<St
         // A schema with `properties` is describing an object shape, and that is exactly the
         // kind of schema that must be closed. A branch of a discriminated union counts:
         // ADR-0017 closes "every object shape the schema defines … per discriminated type".
+        //
+        // A condition is the exception, and only the condition object itself: see
+        // `CONDITION` above. The walk still descends through it.
         if body.contains_key("properties")
+            && !is_condition(&path)
             && body.get("additionalProperties") != Some(&serde_json::Value::Bool(false))
             && body.get("unevaluatedProperties") != Some(&serde_json::Value::Bool(false))
         {
@@ -211,9 +229,6 @@ fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<St
             // `properties` holds field schemas keyed by field name; their own nested shapes
             // are reached through `$defs`, so walking into them would report the same open
             // shape under several names.
-            if APPLICATORS.contains(&key.as_str()) {
-                continue;
-            }
             if key != "properties" {
                 find_open_objects(value, format!("{path}/{key}"), open);
             } else if let Some(fields) = value.as_object() {

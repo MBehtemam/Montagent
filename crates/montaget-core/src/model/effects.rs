@@ -148,11 +148,27 @@ impl Effect {
 
         // `radius` is a field of `shape: "rect"` only. On the other two it is an unknown
         // key that says why, rather than one silently ignored (ADR-0084, ADR-0014).
+        //
+        // **Phrased in serde's own unknown-field form, deliberately.** ADR-0084 does not
+        // merely call it an error: it says the key "is an **unknown key** … following
+        // ADR-0014's rule for the same word on the drawn `shape` element", and CONTEXT.md
+        // promises it behaves "exactly as it is on a drawn ellipse". A drawn ellipse's
+        // `radius` is refused by the derive, so it reads `unknown field \`radius\`,
+        // expected one of …` and `crate::checks::schema` classifies it as
+        // `E-SCHEMA-UNKNOWN-KEY` — which is what carries ADR-0016's guarantee text ("it may
+        // belong to a newer format revision … do not delete the key to make the file
+        // validate"). A message of this check's own devising would have been `E-SCHEMA`
+        // instead, and the two words would have named two different reports.
+        //
+        // The reason sits between the two markers that check reads, so it is in front of
+        // anyone holding the raw parse error while the finding stays the shared one.
         if radius.is_some() && *shape != MaskShape::Rect {
             return Err(format!(
-                "`radius` is not a key of a `{shape}` mask: an inscribed {shape} has no \
-                 corners to round. It is legal only on `shape: \"rect\"` (ADR-0084)",
+                "unknown field `radius` on a `{shape}` mask: an inscribed {shape} has no \
+                 corners to round, so `radius` is a field of `shape: \"rect\"` only \
+                 (ADR-0084, ADR-0014) — expected one of `name`, `shape`, {rect}",
                 shape = shape.as_str(),
+                rect = quoted(&MASK_RECT),
             ));
         }
 

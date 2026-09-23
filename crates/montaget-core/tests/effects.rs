@@ -510,33 +510,11 @@ fn oblong_masked(mask: &str) -> String {
     )
 }
 
-#[test]
-fn the_bare_mask_and_the_explicit_one_spelling_the_elements_rect_are_one_declaration() {
-    // ADR-0084's central backward-compatibility claim, as an executable assertion rather
-    // than a sentence: "ADR-0068's form is not merely left legal; it is this ADR's identity
-    // value, reached by the same arithmetic." Byte equality, not a similarity score —
-    // both pictures come off the same rasterizer in the same process, so there is no
-    // platform difference for a threshold to absorb, and anything short of identical would
-    // mean the identity value is a second code path.
-    for shape in ["circle", "rect", "ellipse"] {
-        let bare = painted(
-            line!(),
-            &oblong_masked(&format!(r##"{{"name":"mask","shape":"{shape}"}}"##)),
-        );
-        let explicit = painted(
-            line!(),
-            &oblong_masked(&format!(
-                r##"{{"name":"mask","shape":"{shape}","x":0,"y":0,"width":200,"height":100}}"##
-            )),
-        );
-        assert_eq!(
-            differing(&bare, &explicit),
-            0,
-            "a bare `{shape}` mask and one spelling the element's own rect are the same \
-             declaration and must render the same pixels"
-        );
-    }
-}
+// ADR-0084's identity claim — that a bare `mask` and one spelling the element's own rect
+// are **one declaration** rather than two — is asserted in `tests/golden_frames.rs`, on an
+// element carrying a rotation and a scale. It lives there rather than here because the two
+// arities could agree at rest and disagree once a rotation is in the matrix, and because
+// ADR-0084's Evidence commissions that frame specifically.
 
 #[test]
 fn an_explicit_mask_rect_is_element_local_and_is_not_the_elements_own_rect() {
@@ -708,6 +686,65 @@ fn radius_is_a_field_of_rect_only_and_says_why_on_the_other_two() {
         r##"{"name":"mask","shape":"rect","radius":8}"##,
     )
     .expect("`radius` is a field of a `rect` mask");
+}
+
+#[test]
+fn the_word_a_mask_shape_is_named_by_is_the_word_the_document_spells() {
+    // `MaskShape::as_str` is the one place the three shape words are written by hand rather
+    // than derived by `rename_all = "lowercase"`, because the `radius` message has to name
+    // the shape and a serde round trip is not a thing to do inside a deserializer. That
+    // makes it a second listing, so it is tied to the first one here rather than trusted.
+    use montaget_core::model::MaskShape;
+    for shape in [MaskShape::Circle, MaskShape::Rect, MaskShape::Ellipse] {
+        assert_eq!(
+            serde_json::to_value(shape).expect("a shape serialises"),
+            serde_json::json!(shape.as_str())
+        );
+    }
+}
+
+#[test]
+fn a_mask_radius_on_the_wrong_shape_is_the_same_report_as_one_on_a_drawn_ellipse() {
+    // ADR-0084 does not merely call it an error — "on `circle`/`ellipse` it is an **unknown
+    // key** … following ADR-0014's rule for the same word on the drawn `shape` element" —
+    // and `CONTEXT.md` promises it behaves "exactly as it is on a drawn ellipse". That is a
+    // claim about the *report*, not only about the refusal: `E-SCHEMA-UNKNOWN-KEY` is what
+    // carries ADR-0016's guarantee text ("it may belong to a newer format revision … do not
+    // delete the key to make the file validate"), and `E-SCHEMA` carries none of it.
+    //
+    // Measured side by side, because the two travel through different code — the drawn
+    // ellipse's `radius` is refused by the derive, the mask's by a hand-written check — and
+    // agreeing today is the only way to know they agree.
+    let codes = |element: &str| {
+        let dir = tempdir(line!());
+        let path = write_project(&dir, "p.montaget.json", &one_track(element));
+        let document = montaget_core::parse::read(&path).expect("a Loose document");
+        let mut report =
+            montaget_core::report::Report::new("validate", Some(document.path().to_string()));
+        montaget_core::checks::schema::check(&document, &mut report);
+        report
+            .findings
+            .iter()
+            .map(|f| f.code.clone())
+            .collect::<Vec<_>>()
+    };
+
+    let drawn = codes(
+        r##"{"id":"oval","type":"ellipse","start":0,"end":1000,"x":200,"y":200,
+            "origin":"center","width":100,"height":100,"fill":"#FFFFFF","radius":8}"##,
+    );
+    assert_eq!(drawn, ["E-SCHEMA-UNKNOWN-KEY"], "ADR-0014's own case");
+
+    let masked = codes(
+        r##"{"id":"square","type":"rect","start":0,"end":1000,"x":200,"y":200,
+            "origin":"center","width":100,"height":100,"fill":"#FFFFFF",
+            "effects":[{"name":"mask","shape":"ellipse","radius":8}]}"##,
+    );
+    assert_eq!(
+        masked, drawn,
+        "a mask's `radius` on an inscribed ellipse must report as the same kind of fact as \
+         a drawn ellipse's does (ADR-0084, CONTEXT.md's Mask entry)"
+    );
 }
 
 #[test]
