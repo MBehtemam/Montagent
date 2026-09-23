@@ -24,7 +24,81 @@ pub fn generate() -> Value {
     deny_null(&mut schema);
     publish_positional_ease(&mut schema);
     publish_bezier_bounds(&mut schema);
+    publish_mask_rect(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0084's two relational rules about `mask` in the schema, where the types can only
+/// say them in their deserializer.
+///
+/// The same arrangement as [`publish_positional_ease`] above, for the same reason: a Rust
+/// enum variant can hold five `Option` fields but cannot say that four of them are
+/// all-or-none, nor that the fifth is an *unknown key* under two of three `shape` values.
+/// `crate::model::effects` enforces both on the way in; a published schema that left them
+/// unsaid would admit files this binary refuses, which is the two-artifact divergence
+/// ADR-0041 and #168 name, arriving through under-statement.
+///
+/// **All-or-none is `dependentRequired`, not a conditional.** Each of the four requires the
+/// other three, so every arity but 0 and 4 fails on the field that is present — and the
+/// failure names the siblings, which is what the deserializer's own message does.
+///
+/// **`radius` is one conditional.** `else` rather than `then`, because the rule is a
+/// prohibition: where `shape` is not `rect` the key may not be there at all. The top-level
+/// `additionalProperties: false` cannot express it — `radius` *is* a declared property of
+/// the member — so the `not`/`required` pair is what withdraws it.
+fn publish_mask_rect(schema: &mut Value) {
+    let Some(branches) = schema
+        .pointer_mut("/$defs/Effect/oneOf")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    let Some(Value::Object(mask)) = branches.iter_mut().find(|branch| {
+        branch.pointer("/properties/name/const") == Some(&Value::String("mask".into()))
+    }) else {
+        return;
+    };
+
+    let all_or_none: serde_json::Map<String, Value> = crate::model::effects::MASK_RECT
+        .iter()
+        .map(|field| {
+            let siblings: Vec<&str> = crate::model::effects::MASK_RECT
+                .iter()
+                .copied()
+                .filter(|other| other != field)
+                .collect();
+            ((*field).to_string(), json!(siblings))
+        })
+        .collect();
+
+    // Rebuilt rather than inserted, so the constraints read after the `required` they
+    // qualify and before the member's own prose — and so that the property order ADR-0041
+    // ties canonical key order to is left exactly where the generator put it.
+    let mut ordered = serde_json::Map::new();
+    for (key, value) in std::mem::take(mask) {
+        ordered.insert(key.clone(), value);
+        if key == "required" {
+            ordered.insert(
+                "dependentRequired".into(),
+                Value::Object(all_or_none.clone()),
+            );
+            ordered.insert(
+                "if".into(),
+                json!({"properties": {"shape": {"const": "rect"}}, "required": ["shape"]}),
+            );
+            ordered.insert(
+                "else".into(),
+                json!({
+                    "not": {"required": ["radius"]},
+                    "description": "`radius` is a field of `shape: \"rect\"` only: an \
+                                    inscribed circle or ellipse has no corners to round, \
+                                    and a field the renderer cannot honour is worse than \
+                                    no field (ADR-0084, ADR-0014, ADR-0007).",
+                }),
+            );
+        }
+    }
+    *mask = ordered;
 }
 
 /// Say ADR-0038's positional `ease` rule in the schema, where the types can only say it in

@@ -24,6 +24,7 @@ pub mod fit;
 pub mod fonts;
 pub mod highlight;
 pub mod layout;
+pub mod mask;
 pub mod quantization;
 pub mod retired;
 pub mod runs;

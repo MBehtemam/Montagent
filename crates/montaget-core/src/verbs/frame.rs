@@ -97,8 +97,8 @@ use serde::Serialize;
 use serde_json::Value;
 
 use montaget_render::canvas::{
-    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskShape, PathEl, Raster, Region,
-    Rgba, Scale, Shape, Transform,
+    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskRect, MaskShape, PathEl, Raster,
+    Region, Rgba, Scale, Shape, Transform,
 };
 
 use crate::finding::Finding;
@@ -1509,12 +1509,33 @@ fn effect_of(declared: &model::Effect) -> Option<Effect> {
             colour: rgba_of(color)?,
             opacity: *opacity,
         },
-        model::Effect::Mask { shape } => Effect::Mask {
+        model::Effect::Mask {
+            shape,
+            x,
+            y,
+            width,
+            height,
+            radius,
+        } => Effect::Mask {
             shape: match shape {
                 model::MaskShape::Circle => MaskShape::Circle,
                 model::MaskShape::Rect => MaskShape::Rect,
                 model::MaskShape::Ellipse => MaskShape::Ellipse,
             },
+            // ADR-0084's all-or-none rect. The model refuses a partial tuple on the way
+            // in, so the only two shapes that reach here are all four and none — and
+            // `None` is the identity value the rasterizer resolves to the element's own
+            // rect, not a missing answer it has to guess at.
+            rect: match (x, y, width, height) {
+                (Some(x), Some(y), Some(width), Some(height)) => Some(MaskRect {
+                    x: *x as f64,
+                    y: *y as f64,
+                    width: *width as f64,
+                    height: *height as f64,
+                }),
+                _ => None,
+            },
+            radius: radius.unwrap_or(0) as f64,
         },
         model::Effect::Tint { color, amount } => Effect::Tint {
             colour: rgba_of(color)?,

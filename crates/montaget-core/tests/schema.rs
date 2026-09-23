@@ -115,10 +115,85 @@ fn canonical_key_order_is_the_schemas_property_order() {
     );
 }
 
+/// The `mask` branch of the published `Effect` union.
+fn mask_member() -> serde_json::Value {
+    schema::generate()["$defs"]["Effect"]["oneOf"]
+        .as_array()
+        .expect("the effect vocabulary is a union")
+        .iter()
+        .find(|branch| branch.pointer("/properties/name/const") == Some(&serde_json::json!("mask")))
+        .expect("`mask` is a member of it")
+        .clone()
+}
+
+#[test]
+fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
+    // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0084
+    // takes it explicitly rather than leaving it to be read off a struct: `name, shape, x,
+    // y, width, height, radius`. The rect fields follow `shape` in the order ADR-0012 fixed
+    // for every other rect in the format, and `radius` trails them exactly as it trails the
+    // drawn `shape` element's own fields under ADR-0014.
+    //
+    // `name` is the union's own tag and the generator appends it, as it does for all seven
+    // members — so the order asserted here is the branch's declared fields, and `name`
+    // leads the member on the wire because serde writes the tag first.
+    let mask = mask_member();
+    let declared: Vec<&str> = mask["properties"]
+        .as_object()
+        .expect("an object shape")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        declared,
+        ["shape", "x", "y", "width", "height", "radius", "name"]
+    );
+}
+
+#[test]
+fn the_schema_states_the_two_mask_rules_the_types_can_only_enforce() {
+    // #168's two-artifact rule: the published schema must not admit files the binary
+    // refuses. Both of ADR-0084's relational rules are enforced in
+    // `crate::model::effects`, and both are said again here — the all-or-none rect as
+    // `dependentRequired`, and `radius`-on-`rect`-only as the one conditional.
+    let mask = mask_member();
+
+    for field in ["x", "y", "width", "height"] {
+        let siblings = mask["dependentRequired"][field]
+            .as_array()
+            .unwrap_or_else(|| panic!("`{field}` requires its siblings"));
+        assert_eq!(siblings.len(), 3, "`{field}` names the other three");
+        assert!(!siblings.contains(&serde_json::json!(field)));
+    }
+
+    assert_eq!(mask["if"]["properties"]["shape"]["const"], "rect");
+    assert_eq!(
+        mask["else"]["not"]["required"],
+        serde_json::json!(["radius"])
+    );
+    assert!(
+        mask["else"]["description"]
+            .as_str()
+            .is_some_and(|said| said.contains("corners to round")),
+        "the prohibition names its reason, as the deserializer's own message does"
+    );
+}
+
 #[test]
 fn a_type_the_schema_does_not_publish_has_no_key_order() {
     assert_eq!(canonical_order(Published::Element("scene")), None);
 }
+
+/// The applicator keywords whose subschema constrains an instance some *enclosing* schema
+/// has already given a shape to, rather than declaring a shape of its own.
+///
+/// ADR-0017 closes every object shape the schema defines. An `if` is not one: ADR-0084's
+/// `radius` conditional tests `{"shape": {"const": "rect"}}` against the whole mask member,
+/// which also carries `name` and the rect fields — so closing it would not tighten the
+/// schema, it would stop the condition ever matching and quietly withdraw the rule. The
+/// shape those instances are held to is the branch's own `additionalProperties: false`,
+/// which this walk still requires.
+const APPLICATORS: [&str; 4] = ["if", "then", "else", "not"];
 
 /// Every object schema that does not forbid unknown keys, by JSON pointer.
 fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<String>) {
@@ -136,6 +211,9 @@ fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<St
             // `properties` holds field schemas keyed by field name; their own nested shapes
             // are reached through `$defs`, so walking into them would report the same open
             // shape under several names.
+            if APPLICATORS.contains(&key.as_str()) {
+                continue;
+            }
             if key != "properties" {
                 find_open_objects(value, format!("{path}/{key}"), open);
             } else if let Some(fields) = value.as_object() {

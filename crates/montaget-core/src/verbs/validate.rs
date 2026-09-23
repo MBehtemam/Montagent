@@ -200,6 +200,9 @@ fn run_checks(
     crate::checks::unreached::check(document, report);
     crate::checks::canvas::check(document, report);
     crate::checks::ease::check(document, report);
+    // ADR-0084's non-square circle mask: also document-only, and also derived arithmetic
+    // rather than written numbers — the rect it measures is usually the one nobody wrote.
+    crate::checks::mask::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);

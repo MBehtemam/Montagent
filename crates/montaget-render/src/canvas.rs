@@ -57,8 +57,9 @@
 
 use skia_safe::{
     AlphaType, BlendMode, Color, Color4f, ColorType, Data, EncodedImageFormat, ISize, Image,
-    ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType, Rect,
-    SamplingOptions, Surface, canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
+    ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType, RRect,
+    Rect, SamplingOptions, Surface, canvas::SaveLayerRec, color_filters, image_filters, images,
+    surfaces,
 };
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
@@ -218,8 +219,17 @@ pub enum Effect {
         colour: Rgba,
         opacity: f64,
     },
-    /// Keep only what falls inside a shape, param-less (ADR-0068).
-    Mask { shape: MaskShape },
+    /// Keep only what falls inside a shape cut in the mask rect (ADR-0084).
+    ///
+    /// `rect` is `None` for the identity value — the element's own rect — which is what
+    /// ADR-0068's param-less form resolves to rather than a second case beside it.
+    /// `radius` rounds the corners of a `MaskShape::Rect` and is `0` elsewhere; the model
+    /// refuses it on the other two shapes before it can reach here.
+    Mask {
+        shape: MaskShape,
+        rect: Option<MaskRect>,
+        radius: f64,
+    },
     /// Push pixel colour toward `colour` by `amount` (ADR-0049).
     Tint { colour: Rgba, amount: f64 },
     /// `0` is grayscale, `1` unchanged, `>1` oversaturated (ADR-0049).
@@ -230,25 +240,70 @@ pub enum Effect {
     Contrast { amount: f64 },
 }
 
-/// The param-less mask shapes, each derived from the element's own rect (ADR-0068).
+/// The figure a mask cuts in its rect (ADR-0084).
 ///
-/// Distinct from [`Shape`], which is a *drawn* element with a paint and a `radius`. A mask
-/// has neither: ADR-0068 fixed the param-less form as the only spelling there is until the
-/// explicit geometry vocabulary lands, so there is nothing here to carry.
+/// Distinct from [`Shape`], which is a *drawn* element with a paint. The `radius` a mask
+/// rect can carry travels beside this on [`Effect::Mask`] rather than inside it, because
+/// ADR-0084 gives all three shapes one field set and lets `shape` say only which figure is
+/// drawn in it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaskShape {
-    /// The largest circle inscribed in the element's rect — diameter `min(width, height)`,
-    /// centred on it.
+    /// The largest circle inscribed in the mask rect — diameter `min(width, height)`,
+    /// centred on that rect.
     Circle,
-    /// The element's rect itself.
+    /// The mask rect itself, its corners rounded by the mask's `radius`.
     Rect,
-    /// The ellipse inscribed in the element's rect.
+    /// The ellipse inscribed in the mask rect.
     Ellipse,
 }
 
+/// The rect a mask shape is inscribed in — **element-local, in unscaled element units**,
+/// with `(0, 0)` at the element rect's top-left whatever the element's `origin` keyword is
+/// (ADR-0084).
+///
+/// Held as `f64` rather than the document's integers because this crate names no type of
+/// the crate that reads the document, and everything that reaches the rasterizer is
+/// numbers.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MaskRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl MaskRect {
+    /// The identity value: the element's own rect, `(0, 0, width, height)`.
+    ///
+    /// ADR-0084 makes this an *arithmetic* default rather than a second case — a
+    /// param-less `mask` and one spelling the element's rect out are the same declaration
+    /// here, which is what the identity golden asserts on the frame.
+    fn of(extent: Extent) -> Self {
+        MaskRect {
+            x: 0.0,
+            y: 0.0,
+            width: extent.width,
+            height: extent.height,
+        }
+    }
+
+    fn rect(self) -> Rect {
+        Rect::from_xywh(
+            self.x as f32,
+            self.y as f32,
+            self.width as f32,
+            self.height as f32,
+        )
+    }
+}
+
 impl MaskShape {
-    /// Everything an element box of `extent` holds **except** the shape — an
-    /// inverse-filled path, at `(0, 0)` in element space.
+    /// Everything an element box of `extent` holds **except** the shape cut in `rect` — an
+    /// inverse-filled path, in element space.
+    ///
+    /// `rect` is the mask rect, defaulting to the element's own; `radius` rounds a
+    /// `MaskShape::Rect`'s corners and is ignored by the other two, which the model has
+    /// already refused it on.
     ///
     /// Inverse rather than the shape itself, because a mask has to erase what it does not
     /// select and a draw call only ever reaches the pixels its own geometry covers.
@@ -256,16 +311,21 @@ impl MaskShape {
     /// inside the shape it multiplies by an alpha of 1, and outside it there is no draw.
     /// The complement, painted in `Clear`, is the operation — and antialiased, so the
     /// mask's edge is a coverage ramp rather than a staircase.
-    fn outside(self, extent: Extent) -> Path {
-        let (width, height) = (extent.width as f32, extent.height as f32);
+    ///
+    /// The path is built in **element space**, which is what makes the mask ride the
+    /// transform (ADR-0084): [`Canvas::in_element_space`] has already translated, rotated
+    /// and scaled the canvas by the time this is drawn, so a `rect` mask on a rotated
+    /// element paints a rotated rectangle.
+    fn outside(self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
+        let rect = rect.unwrap_or_else(|| MaskRect::of(extent));
         let mut path = PathBuilder::new();
         match self {
             MaskShape::Circle => {
-                let diameter = width.min(height);
+                let diameter = rect.width.min(rect.height) as f32;
                 path.add_oval(
                     Rect::from_xywh(
-                        (width - diameter) / 2.0,
-                        (height - diameter) / 2.0,
+                        rect.x as f32 + (rect.width as f32 - diameter) / 2.0,
+                        rect.y as f32 + (rect.height as f32 - diameter) / 2.0,
                         diameter,
                         diameter,
                     ),
@@ -274,10 +334,18 @@ impl MaskShape {
                 );
             }
             MaskShape::Rect => {
-                path.add_rect(Rect::from_xywh(0.0, 0.0, width, height), None, None);
+                // One integer radius, both axes, exactly as a drawn `rect`'s is
+                // (ADR-0014) — and a negative one is no rounding rather than an inverted
+                // corner.
+                let radius = radius.max(0.0) as f32;
+                if radius > 0.0 {
+                    path.add_rrect(RRect::new_rect_xy(rect.rect(), radius, radius), None, None);
+                } else {
+                    path.add_rect(rect.rect(), None, None);
+                }
             }
             MaskShape::Ellipse => {
-                path.add_oval(Rect::from_xywh(0.0, 0.0, width, height), None, None);
+                path.add_oval(rect.rect(), None, None);
             }
         }
         let mut path = path.detach();
@@ -998,11 +1066,16 @@ impl Canvas {
         }
         draw(canvas);
         for effect in effects {
-            if let Effect::Mask { shape } = effect {
+            if let Effect::Mask {
+                shape,
+                rect,
+                radius,
+            } = effect
+            {
                 let mut paint = SkPaint::default();
                 paint.set_anti_alias(true);
                 paint.set_blend_mode(BlendMode::Clear);
-                canvas.draw_path(&shape.outside(extent), &paint);
+                canvas.draw_path(&shape.outside(extent, *rect, *radius), &paint);
             }
             canvas.restore();
         }

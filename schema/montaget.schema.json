@@ -1114,6 +1114,26 @@
             "shape": {
               "$ref": "#/$defs/MaskShape"
             },
+            "x": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "y": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "width": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "height": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "radius": {
+              "type": "integer",
+              "format": "int64"
+            },
             "name": {
               "type": "string",
               "const": "mask"
@@ -1123,7 +1143,47 @@
             "name",
             "shape"
           ],
-          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\nADR-0068 states the param-less form's geometry, which ADR-0040 left as an ellipsis:\n`{\"name\": \"mask\", \"shape\": \"circle\"}` with no geometry parameters means the largest\ncircle inscribed in the element's own rect, and `rect`/`ellipse` take the element's\nrect itself. The full parameter surface — explicit centre and radius, corner radii,\ntwo axes, and what any of them mean under a keyframed `scale` — is graduated to its\nown ticket, so this carries the shape and nothing else."
+          "dependentRequired": {
+            "x": [
+              "y",
+              "width",
+              "height"
+            ],
+            "y": [
+              "x",
+              "width",
+              "height"
+            ],
+            "width": [
+              "x",
+              "y",
+              "height"
+            ],
+            "height": [
+              "x",
+              "y",
+              "width"
+            ]
+          },
+          "if": {
+            "properties": {
+              "shape": {
+                "const": "rect"
+              }
+            },
+            "required": [
+              "shape"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "radius"
+              ]
+            },
+            "description": "`radius` is a field of `shape: \"rect\"` only: an inscribed circle or ellipse has no corners to round, and a field the renderer cannot honour is worse than no field (ADR-0084, ADR-0014, ADR-0007)."
+          },
+          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\n**One rect, shared by all three shapes** (ADR-0084). `x`, `y`, `width`, `height`\nname the rect the shape is inscribed in — `circle` is the largest circle inscribed\nin it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn\nthere, never which fields exist. The four are **all-or-none**, element-local\nintegers measured from the element rect's top-left whatever the `origin` keyword\nis, and their identity value is the element's own rect: a bare\n`{\"name\": \"mask\", \"shape\": \"circle\"}` (ADR-0068's form) is the same declaration\nreached by the same arithmetic, not a legacy spelling beside this one.\n\n`radius` rounds the corners of a `rect` mask, identity `0`. On `circle` or\n`ellipse` it is an unknown key naming its reason, exactly as `radius` is on a drawn\nellipse (ADR-0014): an inscribed ellipse has no corners to round.\n\nThe mask is declared inside the element's box in unscaled units, so the element's\n`scale` grows it and its `rotation` turns it — the rule a `blur` radius and a\n`stroke_width` already follow. The fields stay literal integers on every frame, so\nthat is not a keyframed effect parameter."
         },
         {
           "type": "object",
@@ -1214,7 +1274,8 @@
         "circle",
         "rect",
         "ellipse"
-      ]
+      ],
+      "description": "The figure an [`Effect::Mask`] draws in its rect (ADR-0084).\n\nNot a schema discriminator: all three shapes take the same fields, and `shape` says\nwhich figure is cut in them. ADR-0049's two-level-lookup objection is why — an agent\nthat has learned `mask` has learned all of `mask`."
     },
     "Speed": {
       "type": "number",
