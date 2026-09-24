@@ -150,6 +150,23 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   already follow, and it is not keyframing an effect parameter: the fields stay literal
   integers on every frame. `clip` is the other thing — frame-space, static, never rotating —
   and a *shaped* static porthole is not expressible in v1.
+- **`chroma` keys a screen colour out, and `color` is a literal `#RRGGBB`** (ADR-0088). Not
+  a hue angle: a bare hue *inverts* the key on real footage, and supplying the saturation
+  and value it is missing is the colour restated in three fields. `tolerance` is a
+  normalised distance in the chroma plane, `softness` the width of the partial-alpha band
+  above it, and `spill` suppresses screen colour reflected onto what the matte keeps. All
+  three run `0.0`–`1.0` and every one of them has its identity at `0` — `tolerance: 0` keys
+  nothing, which makes the whole member a no-op.
+- **A key serves a screen that is uniform in time** (ADR-0088). No effect parameter is
+  keyframable, so one `tolerance` covers the whole element: footage whose lighting drifts
+  mid-take has to be cut into elements at the drift boundaries, or keyed upstream and
+  brought in already carrying alpha. `measure` on a keyed element reports the resulting
+  alpha coverage per frame, which is how you find where a screen drifts — and how you find
+  out that `tolerance: 0.01` keyed nothing, without looking at a picture.
+- **Put `chroma` before the colour scalars, not after** (ADR-0088). `effects` is ordered,
+  so a `tint` or a `saturation` ahead of the key changes the pixels the key is measured
+  against and your `color` no longer names what is in the frame. `validate` reports it at
+  `review` rather than refusing it, because a deliberate pre-grade is a real technique.
 - **`circle` is the one mask shape that discards part of its rect** (ADR-0084). Its diameter
   is the short side, so on a non-square rect — derived or explicit — the difference is thrown
   away without the author ever typing that number, and `validate` says so at `review`.

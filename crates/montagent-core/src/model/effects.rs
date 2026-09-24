@@ -15,7 +15,13 @@
 //! remote (`remote = "Self"`, serde's own name for "write the functions, not the impls")
 //! and the trait impls below wrap it — the parse the derive produces, then
 //! [`Effect::checked`]. There is no second enumeration of the vocabulary anywhere: the
-//! seven members are declared once, here.
+//! eight members are declared once, here.
+//!
+//! ADR-0088 adds a third rule of the same kind, on `chroma`: three of its four parameters
+//! are bounded to `[0, 1]`, and a Rust `f64` field cannot say so. It joins the other two in
+//! [`Effect::checked`], and is published in the schema by `crate::schema::publish_chroma_bounds`
+//! for the same reason the mask rules are — a schema admitting numbers this binary refuses
+//! is the two-artifact divergence, arriving through under-statement.
 //!
 //! The same two rules are said again in the published schema, by
 //! `crate::schema::publish_mask_rect`, for the reason ADR-0041 and #168 both give: a schema
@@ -95,7 +101,61 @@ pub enum Effect {
     Brightness { amount: f64 },
     /// Signed offset from unchanged at `0`.
     Contrast { amount: f64 },
+    /// Key a screen colour out of the element's pixels (ADR-0088).
+    ///
+    /// **A matte operation, not a colour one.** Its output is transparency: it decides
+    /// which pixels survive, and the RGB it keeps is the RGB it was given. That is why
+    /// ADR-0049's stopping rule — which opens *"a **colour operation** is admissible in v1
+    /// only if…"* — does not reach the keying, and why `color` is a literal `#RRGGBB`
+    /// rather than `tint.color`'s closed exception being cited a second time.
+    ///
+    /// `color` is the screen colour, in the one spelling ADR-0014 fixes for every colour in
+    /// the format. Not `#RRGGBBAA`: an alpha on the key colour is meaningless and would be
+    /// a second way to say nothing — [`Effect::checked`] refuses one.
+    ///
+    /// `tolerance` is the normalised distance in the chroma plane within which a pixel is
+    /// keyed out, identity `0` — which keys **nothing**, and makes the whole member a
+    /// no-op. `softness` is the width of the partial-alpha band at the edge of the key,
+    /// identity `0` — a hard, binary matte. `spill` suppresses screen colour reflected onto
+    /// the subject, identity `0`; it is the one parameter that changes RGB, and ADR-0088
+    /// admits it on ADR-0049's four clauses directly rather than by any exception.
+    ///
+    /// All three are `0.0`–`1.0`, which the derive cannot state and [`Effect::checked`]
+    /// does.
+    ///
+    /// Static, like every effect parameter (ADR-0012). So the member keys a screen that is
+    /// uniform **in time**: footage whose lighting drifts mid-take needs the element cut at
+    /// the drift boundaries, and `measure`'s per-frame coverage reading is how those
+    /// boundaries are found. That is a stated limitation of ADR-0088, not a gap.
+    Chroma {
+        color: Colour,
+        tolerance: f64,
+        softness: f64,
+        spill: f64,
+    },
 }
+
+/// The word a document spells ADR-0088's keyer with.
+///
+/// Three places outside this module ask *"is this member the key"* — the check, `measure`'s
+/// dispatch and the schema pass that publishes its bounds — and each asks it of a permissive
+/// `Value` rather than of a parsed [`Effect`], where the variant would have answered. A
+/// literal in each would be three spellings of one name, which is [`MASK_RECT`]'s objection
+/// applied to a word instead of to a list.
+pub(crate) const CHROMA: &str = "chroma";
+
+/// The four **Colour filter** members' names (ADR-0049), as a document spells them.
+///
+/// Named here, beside the vocabulary, because `crate::checks::chroma` asks *"is a colour
+/// operation listed ahead of this key"* and that question needs the sub-family rather than
+/// the whole list. A copy in the check would be a second answer to "which members change
+/// pixel colour" — the sub-family is load-bearing under ADR-0088, which turns on the
+/// distinction between a colour operation and a matte one, so it is declared once.
+///
+/// `shadow` is not among them and neither is `chroma`'s own `spill`: `shadow` paints behind
+/// the element rather than changing its pixels, and `spill` is a parameter of the key
+/// itself, applied after the distance it is conditioned on has been measured.
+pub(crate) const COLOUR_FILTERS: [&str; 4] = ["tint", "saturation", "brightness", "contrast"];
 
 /// The four names of the mask rect, in ADR-0084's canonical order.
 ///
@@ -103,14 +163,66 @@ pub enum Effect {
 /// *other* three and a second listing would be a second answer to "which four".
 pub(crate) const MASK_RECT: [&str; 4] = ["x", "y", "width", "height"];
 
+/// `chroma`'s three bounded scalars, in the order ADR-0088 declares them.
+///
+/// One array rather than three literals for [`MASK_RECT`]'s reason: the bound is one rule
+/// about three fields, and [`crate::schema::publish_chroma_bounds`] publishes the same
+/// three. A second listing would be a second answer to "which parameters are bounded".
+pub(crate) const CHROMA_SCALARS: [&str; 3] = ["tolerance", "softness", "spill"];
+
 impl Effect {
-    /// This effect, if ADR-0084's two relational rules hold of it — or the sentence saying
-    /// which one does not.
+    /// This effect, if the three relational rules the derive cannot state hold of it — or
+    /// the sentence saying which one does not.
     ///
-    /// Both are about `mask`, and neither can be a field's own type: one relates four
-    /// optional fields to each other, the other makes a declared field unknown under two of
-    /// three `shape` values.
+    /// Two are ADR-0084's, about `mask`, and neither can be a field's own type: one relates
+    /// four optional fields to each other, the other makes a declared field unknown under
+    /// two of three `shape` values. The third is ADR-0088's, about `chroma`: its three
+    /// scalars are bounded to `[0, 1]` and its `color` is `#RRGGBB` with no alpha, and an
+    /// `f64` field and a [`Colour`] say neither.
     fn checked(self) -> Result<Self, String> {
+        if let Effect::Chroma {
+            color,
+            tolerance,
+            softness,
+            spill,
+        } = &self
+        {
+            // Bounded, and the message says what the bound is *for* — a distance and two
+            // widths, all normalised — rather than only that the number is out of range.
+            for (name, value) in CHROMA_SCALARS.iter().zip([tolerance, softness, spill]) {
+                if !(0.0..=1.0).contains(value) {
+                    return Err(format!(
+                        "`chroma`'s `{name}` is {value}: the key's three scalars are \
+                         normalised and must be within `[0, 1]`, each with its \
+                         identity at `0` (ADR-0088)"
+                    ));
+                }
+            }
+            // ADR-0088: *"Not `#RRGGBBAA`: an alpha on the key colour is meaningless and
+            // would be a second way to say nothing."* `Colour` admits both spellings —
+            // `shadow.color` and every `fill` may carry an alpha — so the narrowing is
+            // this member's own, and it is refused rather than ignored (ADR-0007: a field
+            // the renderer cannot honour is worse than no field).
+            //
+            // **Length is the whole question, because `Colour` has already answered every
+            // other part of it**: its own deserializer fixes the leading `#`, uppercase hex
+            // digits and exactly one of two arities (ADR-0014), and refuses `#RRGGBBFF` as a
+            // second spelling of the six-digit form. So the only colour that can reach here
+            // and still be wrong is a genuinely translucent one, and that is what this
+            // measures. The published `^#[0-9A-F]{6}$` says the same thing to a reader who
+            // has no `Colour` to lean on.
+            let written = color.as_str();
+            if written.len() != "#RRGGBB".len() {
+                return Err(format!(
+                    "`chroma`'s `color` is {written}: the screen colour is `#RRGGBB`, and an \
+                     alpha on it is meaningless — a key colour names a colour to \
+                     find in the frame, never one to composite (ADR-0088, \
+                     ADR-0014)"
+                ));
+            }
+            return Ok(self);
+        }
+
         let Effect::Mask {
             shape,
             x,

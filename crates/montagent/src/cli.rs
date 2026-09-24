@@ -209,7 +209,8 @@ enum Command {
 
     /// What does this text actually occupy, in the fonts the project declares? Or, given
     /// `--at` instead, the nearest sampled instant at-or-before a time, on the project's
-    /// own frame grid (ADR-0035).
+    /// own frame grid (ADR-0035). Or, given an element carrying a `chroma` effect, what
+    /// that key does to its own pixels frame by frame (ADR-0088).
     ///
     /// `--element` takes the text element itself, as JSON — the same shape you are about
     /// to write into the file, and the shape `montagent://schema.json` publishes. It needs
@@ -228,7 +229,11 @@ enum Command {
         /// The text element, as JSON: `runs`, `font`, `size`, and optionally
         /// `line_height`, `y`, `origin` and `stroke_width`. Any other field is ignored —
         /// `width` and `height` included, because `measure` derives and never judges
-        /// (ADR-0024). Exclusive with `--at`, `--elements` and `--all`.
+        /// (ADR-0024). An element carrying a `chroma` effect answers a different question
+        /// instead: the keyed-alpha coverage its own key produces, one sample per frame
+        /// across the element's range (ADR-0088). Which of the two an element has is a
+        /// property of the element, so there is no flag to choose between them. Exclusive
+        /// with `--at`, `--elements` and `--all`.
         #[arg(long, value_name = "JSON")]
         element: Option<String>,
         /// A time, in absolute milliseconds, to resolve against the project's frame grid

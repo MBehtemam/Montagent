@@ -17,6 +17,7 @@ pub mod anchor;
 pub mod box_slack;
 pub mod canvas;
 pub mod caption;
+pub mod chroma;
 pub mod coverage;
 pub mod cut;
 pub mod derived;

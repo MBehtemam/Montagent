@@ -804,6 +804,7 @@ fn measure_block(measure: &Value) -> String {
         Some("element") => element_block(measure),
         Some("at") => instant_block(measure),
         Some("batch") => batch_block(measure),
+        Some("coverage") => coverage_block(measure),
         other => format!(
             "\nMEASURE  this build cannot render a `{}` answer\n",
             other.unwrap_or("(unnamed)")
@@ -849,6 +850,61 @@ fn batch_block(measure: &Value) -> String {
         }
     }
     out
+}
+
+/// ADR-0088's keyed-alpha coverage: one row per sampled frame, and **every** row prints.
+///
+/// A 140-row table is a lot of terminal, and collapsing it would defeat the reading. The
+/// series exists because a single sample answers *"did this key at all"* while the series
+/// answers *"did this key **stay**"*, and a step mid-element is the signal telling an
+/// author where to cut. A summary of a series is a summary of the one thing it was for.
+/// `measure` is also the verb with no verbosity switch, because *"the answer itself is the
+/// output, and it is never collapsed"*.
+///
+/// No verdict anywhere in it (ADR-0024): three fractions and the instant they were read at.
+fn coverage_block(measure: &Value) -> String {
+    let asked = &measure["asked"];
+    let frames = measure["frames"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+
+    let mut out = format!(
+        "\nMEASURE  keyed alpha for {} over `{}`, {} x {} px, {} sampled frame{}\n",
+        match asked["id"].as_str() {
+            // ADR-0024's rule again: an element being authored has no `id` to print.
+            Some(id) => format!("`{id}`"),
+            None => "an element carrying no `id`".to_string(),
+        },
+        asked["source"].as_str().unwrap_or_default(),
+        stated_number(&asked["width"]),
+        stated_number(&asked["height"]),
+        frames.len(),
+        if frames.len() == 1 { "" } else { "s" },
+    );
+    out.push_str(&row(
+        "  frame        at    opaque   partial  transparent".to_string()
+    ));
+    for frame in frames {
+        out.push_str(&row(format!(
+            "  {:>5}  {:>6} ms  {:>7}  {:>8}  {:>11}",
+            stated_number(&frame["frame"]),
+            stated_number(&frame["at"]),
+            percent(&frame["opaque"]),
+            percent(&frame["partial"]),
+            percent(&frame["transparent"]),
+        )));
+    }
+    out
+}
+
+/// A fraction of one, as a percentage with one decimal — the form the ADR's own evidence
+/// table and `chroma_key_scan.sh` both quote coverage in.
+fn percent(value: &Value) -> String {
+    match value.as_f64() {
+        Some(fraction) => format!("{:.1}%", fraction * 100.0),
+        None => stated_number(value),
+    }
 }
 
 /// `--at`'s answer: the nearest sampled instant at-or-before a time, on the project's own

@@ -47,7 +47,16 @@
 //!
 //! The ordered [`Effect`] list — blur, shadow, mask and the four colour scalars — arrived
 //! with [#214](https://github.com/MBehtemam/Montagent/issues/214) and is applied by
-//! [`Canvas::through`], in element space, in the order the list is written.
+//! [`Canvas::through`], in element space, in the order the list is written. ADR-0088's
+//! `chroma` joined it with [#342](https://github.com/MBehtemam/Montagent/issues/342) as an
+//! eighth member and a fifth paint rule:
+//!
+//! - **A key is computed in the chroma plane, not in RGB.** [`Effect::Chroma`] converts
+//!   both the pixel and the declared screen colour to BT.601 `(U, V)` and measures the
+//!   distance there, with the luma axis dropped rather than weighted. That is `ffmpeg`'s
+//!   `chromakey`, which is the filter every number in ADR-0088's evidence table was
+//!   measured through — so the fixture's plateau is a reading of this code's own tolerance
+//!   axis and not of a neighbouring one.
 //!
 //! What is **not** here, and is the core's business rather than an omission: `crossfade`
 //! and a run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
@@ -56,10 +65,10 @@
 //! reach this crate as the numbers every other element's do.
 
 use skia_safe::{
-    AlphaType, BlendMode, Color, Color4f, ColorType, Data, EncodedImageFormat, ISize, Image,
-    ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType, RRect,
-    Rect, SamplingOptions, Surface, canvas::SaveLayerRec, color_filters, image_filters, images,
-    surfaces,
+    AlphaType, BlendMode, Color, Color4f, ColorFilter, ColorType, Data, EncodedImageFormat, ISize,
+    Image, ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType,
+    RRect, Rect, RuntimeEffect, SamplingOptions, Surface, canvas::SaveLayerRec, color_filters,
+    image_filters, images, surfaces,
 };
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
@@ -238,6 +247,18 @@ pub enum Effect {
     Brightness { amount: f64 },
     /// Signed offset from unchanged at `0` (ADR-0049).
     Contrast { amount: f64 },
+    /// Key `colour` out of the element's pixels (ADR-0088).
+    ///
+    /// `tolerance` is the normalised chroma distance within which a pixel is keyed out and
+    /// `softness` the width of the partial-alpha band beyond it; both have their identity
+    /// at `0`, which is a member that keys nothing and one that keys hard. `spill`
+    /// suppresses the screen colour reflected onto what the matte keeps, identity `0`.
+    Chroma {
+        colour: Rgba,
+        tolerance: f64,
+        softness: f64,
+        spill: f64,
+    },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -373,6 +394,108 @@ fn sigma(radius: f64) -> f32 {
 /// without one.
 const LUMA: [f32; 3] = [0.213, 0.715, 0.072];
 
+/// ADR-0088's keyer, as one SkSL colour filter.
+///
+/// **A runtime effect rather than a colour matrix**, because a key is not a linear function
+/// of the pixel: the output alpha is a *distance* thresholded against two numbers, and no
+/// 4x5 matrix has a threshold in it. This is the one effect in the vocabulary that cannot
+/// be spelled as [`Effect::matrix`].
+///
+/// # The three readings this shader makes, none of which an ADR fixes
+///
+/// ADR-0088 specifies the parameters, their bounds and their identity values, and says
+/// `tolerance` is a *"normalised distance in the chroma plane"*. It does not say which
+/// chroma plane, how the distance is normalised, or what `spill` does arithmetically. Three
+/// readings are made here, and they are recorded rather than assumed — the same treatment
+/// [`sigma`] gives `blur`'s radius.
+///
+/// - **BT.601 chroma, and the distance normalised by `sqrt(2)`.** This is `ffmpeg`'s
+///   `chromakey`, which is what every number in ADR-0088's evidence table was measured
+///   through: the fixture's plateau of 0.05-0.30 and its silent 0.01 are readings of *that*
+///   filter's tolerance axis, and a keyer whose axis was scaled differently would reproduce
+///   none of them. Matching it is what makes `chroma_key_scan.sh`'s numbers an acceptance
+///   test of this code rather than of `ffmpeg` alone.
+/// - **`softness` is the blend band above `tolerance`**, so alpha ramps linearly from 0 at
+///   `tolerance` to 1 at `tolerance + softness`. At `softness: 0` the comparison is the
+///   hard one, which keeps ADR-0088's *"identity `0`: a hard, binary matte"* exact rather
+///   than approached.
+/// - **`spill` removes the key's own chroma component from what the matte keeps.** The
+///   pixel's chroma is projected onto the key's chroma direction and `spill` x that
+///   projection is subtracted, luma untouched — so `spill: 1` leaves a retained pixel with
+///   no screen colour in it at all, and `spill: 0` provably touches nothing. Conditioning on
+///   the projection is what ADR-0088 names as the reason the member is not reproducible by
+///   composing `tint`/`saturation`: those reach every pixel, and this reaches the ones
+///   carrying screen colour.
+///
+/// Raised at [#342](https://github.com/MBehtemam/Montagent/issues/342) alongside ADR-0088's
+/// own unmeasured edges, since a reading is not a decision.
+///
+/// # Premultiplied in, premultiplied out
+///
+/// Skia hands a runtime colour filter **premultiplied** colour, and the key is a question
+/// about the pixel's own colour rather than about its colour already faded — so the shader
+/// unpremultiplies, keys, and premultiplies the result against the alpha it computed. A
+/// keyer that read premultiplied channels would find a half-transparent green pixel a
+/// different colour from an opaque one, and `[mask, chroma]` would key a different set of
+/// pixels from `[chroma, mask]` for a reason nothing in ADR-0040's ordering rule predicts.
+/// `a_half_transparent_screen_pixel_keys_like_an_opaque_one` is what holds it.
+const KEYER: &str = r"
+uniform float keyR;
+uniform float keyG;
+uniform float keyB;
+uniform float tolerance;
+uniform float softness;
+uniform float spill;
+
+// BT.601 chroma, centred on zero: the (U, V) `ffmpeg`'s `chromakey` measures in.
+float2 chroma_of(float3 rgb) {
+    return float2(
+        -0.168736 * rgb.r - 0.331264 * rgb.g + 0.500000 * rgb.b,
+         0.500000 * rgb.r - 0.418688 * rgb.g - 0.081312 * rgb.b);
+}
+
+half4 main(half4 color) {
+    // ADR-0088's stated identity, and it is a guard rather than a value the arithmetic
+    // below happens to produce. At `tolerance: 0` the blend band still opens when
+    // `softness` is set, and a pixel sitting exactly on the key would be keyed by it --
+    // so chroma{tolerance: 0, softness: 0.3} would key a green screen outright while
+    // ADR-0088 says the whole member reduces to a no-op at tolerance 0, and while
+    // N-CHROMA-INERT tells its author it keys nothing. The identity wins.
+    if (tolerance <= 0.0) { return color; }
+    float a = float(color.a);
+    if (a <= 0.0) { return color; }
+    float3 rgb = float3(color.rgb) / a;
+
+    float2 key = chroma_of(float3(keyR, keyG, keyB));
+    float2 uv = chroma_of(rgb);
+    // Normalised by the longest distance the plane holds, so `tolerance` runs 0-1.
+    float distance = length(uv - key) / sqrt(2.0);
+
+    float keep = softness > 0.0
+        ? clamp((distance - tolerance) / softness, 0.0, 1.0)
+        : (distance > tolerance ? 1.0 : 0.0);
+
+    // Despill, on what the matte keeps. `length(key)` is zero only for a grey screen
+    // colour, which has no chroma direction to suppress along and no spill to remove.
+    float weight = dot(key, key);
+    if (spill > 0.0 && weight > 0.0) {
+        float projection = dot(uv, key) / weight;
+        if (projection > 0.0) {
+            uv -= spill * projection * key;
+            float luma = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+            rgb = clamp(
+                float3(luma + 1.402000 * uv.y,
+                       luma - 0.344136 * uv.x - 0.714136 * uv.y,
+                       luma + 1.772000 * uv.x),
+                0.0, 1.0);
+        }
+    }
+
+    float out_a = a * keep;
+    return half4(half3(rgb * out_a), half(out_a));
+}
+";
+
 impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
@@ -424,7 +547,45 @@ impl Effect {
                 None,
                 None,
             ),
+            // The one member with a threshold in it, so the one that is a runtime effect
+            // rather than a matrix ([`KEYER`]).
+            Effect::Chroma {
+                colour,
+                tolerance,
+                softness,
+                spill,
+            } => {
+                let [r, g, b, _] = colour.0;
+                image_filters::color_filter(
+                    Effect::keyer(&[
+                        f32::from(r) / 255.0,
+                        f32::from(g) / 255.0,
+                        f32::from(b) / 255.0,
+                        tolerance as f32,
+                        softness as f32,
+                        spill as f32,
+                    ])?,
+                    None,
+                    None,
+                )
+            }
         }
+    }
+
+    /// [`KEYER`] bound to one set of uniforms, or `None` if this Skia declined to build it.
+    ///
+    /// Compiled on every call rather than cached: `filter` already builds a fresh
+    /// `ImageFilter` per effect per element per frame, and a cache keyed on six floats would
+    /// be a second lifetime to reason about for a compile Skia itself memoises.
+    ///
+    /// The uniforms are six bare `float`s in declaration order — never a `float3` — so the
+    /// bytes below are the packing SkSL asks for without a layout rule having to be
+    /// remembered here.
+    fn keyer(uniforms: &[f32; 6]) -> Option<ColorFilter> {
+        let bytes: Vec<u8> = uniforms.iter().flat_map(|v| v.to_ne_bytes()).collect();
+        RuntimeEffect::make_for_color_filter(KEYER, None)
+            .ok()?
+            .make_color_filter(Data::new_copy(&bytes), None)
     }
 
     /// The four colour scalars as one row-major colour matrix (ADR-0049).
@@ -511,8 +672,11 @@ impl Effect {
             // Never reached: [`Effect::filter`] names the four colour members explicitly
             // and sends nothing else here. The identity is what a new member would get if
             // that ever stopped being true, and adding one to the enum breaks *this* match
-            // first, which is the point of spelling the three out rather than `_`.
-            Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. } => [
+            // first, which is the point of spelling the four out rather than `_`.
+            Effect::Blur { .. }
+            | Effect::Shadow { .. }
+            | Effect::Mask { .. }
+            | Effect::Chroma { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //
@@ -751,6 +915,23 @@ impl Canvas {
     /// subprocess: at 1080x1920 that is 2 MB per frame saved, 1631 times on the committed
     /// fixture.
     pub fn rgb(&mut self) -> Option<Vec<u8>> {
+        Some(
+            self.rgba()?
+                .chunks_exact(4)
+                .flat_map(|px| [px[0], px[1], px[2]])
+                .collect(),
+        )
+    }
+
+    /// The frame's pixels as packed **premultiplied** RGBA8, row-major — the surface's own
+    /// bytes, alpha included.
+    ///
+    /// [`Canvas::rgb`] is this composited over black, and is what the encoder is fed. This
+    /// is what a caller asking about *transparency* needs: `measure`'s keyed-alpha coverage
+    /// reading (ADR-0088) counts these alpha bytes, and it is the same surface `render`
+    /// paints, through the same effects, rather than a second keyer written to answer the
+    /// question.
+    pub fn rgba(&mut self) -> Option<Vec<u8>> {
         let info = ImageInfo::new(
             ISize::new(self.width, self.height),
             ColorType::RGBA8888,
@@ -768,11 +949,7 @@ impl Canvas {
         ) {
             return None;
         }
-        Some(
-            rgba.chunks_exact(4)
-                .flat_map(|px| [px[0], px[1], px[2]])
-                .collect(),
-        )
+        Some(rgba)
     }
 
     /// Draw one `rect` or `ellipse` (ADR-0014).
@@ -1207,6 +1384,165 @@ fn intersect(a: Region, b: Region) -> Option<Region> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // -----------------------------------------------------------------------
+    // ADR-0088's keyer, at the one seam where it can be asked about a pixel
+    // -----------------------------------------------------------------------
+    //
+    // Every assertion below reads **alpha**, because a matte operation's whole output is
+    // alpha, and asserts **both directions** — the colour that must key and the colour
+    // that must not — which is the rule `chroma_key_scan.sh` follows for the same reason:
+    // a keyer that keys everything passes a one-sided test.
+
+    /// The screen colour ADR-0088's forcing case measures: `(0, 205, 0)` at every one of
+    /// its 25 sample points.
+    const SCREEN: Rgba = Rgba([0x00, 0xCD, 0x00, 0xFF]);
+
+    /// One 2x1 element — `left` then `right` — painted through `effects`, as premultiplied
+    /// RGBA.
+    ///
+    /// A raster rather than a shape, because that is what a keyed element is: the pixels
+    /// come from a source and the keyer reads them, rather than being a paint this crate
+    /// chose.
+    fn keyed(left: [u8; 4], right: [u8; 4], effects: &[Effect]) -> Vec<u8> {
+        let mut pixels = left.to_vec();
+        pixels.extend_from_slice(&right);
+        let source = Raster::from_rgba(&pixels, 2, 1).expect("a 2x1 source");
+        let mut canvas = Canvas::new(2, 1).expect("a surface");
+        canvas.raster(
+            &source,
+            Extent {
+                width: 2.0,
+                height: 1.0,
+            },
+            &Transform {
+                x: 0.0,
+                y: 0.0,
+                scale: (1.0, 1.0),
+                rotation: 0.0,
+                opacity: 1.0,
+                origin: (0.0, 0.0),
+            },
+            None,
+            effects,
+        );
+        canvas.rgba().expect("the surface reads back")
+    }
+
+    fn chroma(tolerance: f64, softness: f64, spill: f64) -> Effect {
+        Effect::Chroma {
+            colour: SCREEN,
+            tolerance,
+            softness,
+            spill,
+        }
+    }
+
+    #[test]
+    fn the_keyer_keys_the_screen_colour_and_keeps_what_is_not_it() {
+        // Both directions in one frame: the screen goes, the subject stays. A keyer that
+        // erased the whole element would satisfy only the first half.
+        let out = keyed(
+            SCREEN.0,
+            [0xC8, 0x64, 0x32, 0xFF],
+            &[chroma(0.10, 0.0, 0.0)],
+        );
+        assert_eq!(out[3], 0, "the screen pixel is keyed out: {out:?}");
+        assert_eq!(out[7], 0xFF, "the subject pixel is untouched: {out:?}");
+        assert_eq!(
+            [out[4], out[5], out[6]],
+            [0xC8, 0x64, 0x32],
+            "and keeps the RGB it was given — a matte operation, not a colour one"
+        );
+    }
+
+    #[test]
+    fn tolerance_zero_is_the_identity_whatever_the_other_two_parameters_say() {
+        // ADR-0088's documented identity, which is what makes the member a no-op rather
+        // than a member with no off switch. Asserted on the screen colour itself, the one
+        // pixel any non-identity tolerance would take.
+        let out = keyed(SCREEN.0, SCREEN.0, &[chroma(0.0, 0.0, 0.0)]);
+        assert_eq!([out[3], out[7]], [0xFF, 0xFF], "{out:?}");
+
+        // And with the other two parameters set, which is where the band arithmetic alone
+        // would have keyed it: `(distance - 0) / softness` is 0 at the key, and 0 is
+        // transparent. ADR-0088 says "the whole member reducing to a no-op at
+        // `tolerance: 0`", and `N-CHROMA-INERT` tells its author it "keys nothing" — both
+        // are false for this document unless the identity outranks the formula.
+        let out = keyed(SCREEN.0, SCREEN.0, &[chroma(0.0, 0.3, 1.0)]);
+        assert_eq!([out[3], out[7]], [0xFF, 0xFF], "{out:?}");
+        assert_eq!(
+            [out[0], out[1], out[2]],
+            [SCREEN.0[0], SCREEN.0[1], SCREEN.0[2]],
+            "and `spill` did not touch the RGB either: {out:?}"
+        );
+    }
+
+    #[test]
+    fn softness_zero_is_a_hard_matte_and_a_band_above_it_is_partial() {
+        // A colour sitting inside the blend band: keyed softly, keyed hard, kept entirely
+        // — three answers about one pixel, decided by `softness` alone.
+        let edge = [0x40, 0xA0, 0x40, 0xFF];
+        let hard = keyed(edge, edge, &[chroma(0.02, 0.0, 0.0)]);
+        assert_eq!(hard[3], 0xFF, "outside a hard key, nothing is partial");
+
+        let soft = keyed(edge, edge, &[chroma(0.02, 0.20, 0.0)]);
+        assert!(
+            (1..0xFF).contains(&soft[3]),
+            "inside the blend band the alpha ramps: {}",
+            soft[3]
+        );
+    }
+
+    #[test]
+    fn spill_zero_provably_leaves_rgb_untouched_and_spill_one_removes_the_screen_cast() {
+        // ADR-0088 admits `spill` as a colour operation on ADR-0049's clauses, one of
+        // which is a documented identity value. This is that clause, measured — and its
+        // other end, so the parameter is not merely inert.
+        let cast = [0x50, 0xB0, 0x50, 0xFF];
+        let none = keyed(cast, cast, &[chroma(0.01, 0.0, 0.0)]);
+        assert_eq!([none[0], none[1], none[2]], [0x50, 0xB0, 0x50]);
+
+        let despilled = keyed(cast, cast, &[chroma(0.01, 0.0, 1.0)]);
+        assert!(
+            despilled[1] < none[1],
+            "the green cast is suppressed: {} vs {}",
+            despilled[1],
+            none[1]
+        );
+        assert_eq!(despilled[3], 0xFF, "and the pixel is still opaque");
+    }
+
+    #[test]
+    fn a_half_transparent_screen_pixel_keys_like_an_opaque_one() {
+        // The premultiplication reading in [`KEYER`]'s own doc, as a test. A shader reading
+        // premultiplied channels would see `(0, 103, 0)` here and measure it against the
+        // key as a different colour, so `[mask, chroma]` and `[chroma, mask]` would key
+        // different pixels for a reason ADR-0040's ordering rule does not predict.
+        let half = [0x00, 0xCD, 0x00, 0x80];
+        let out = keyed(half, half, &[chroma(0.10, 0.0, 0.0)]);
+        assert_eq!(out[3], 0, "{out:?}");
+    }
+
+    #[test]
+    fn the_tolerance_plateau_adr_0088_measured_is_flat_here_too() {
+        // ADR-0088's forcing case: 0.05 through 0.30 all key identically, which is the
+        // measurement that makes one static `tolerance` usable at all. Asserted against a
+        // *noisy* screen pixel — the fixture is h264 and its screen arrives a digit or two
+        // off `(0, 205, 0)` — and against a subject colour that must survive every one of
+        // them, so a wider key fails here as loudly as a broken one.
+        let noisy = [0x04, 0xC9, 0x06, 0xFF];
+        let subject = [0xC8, 0x64, 0x32, 0xFF];
+        for tolerance in [0.05, 0.10, 0.20, 0.30] {
+            let out = keyed(noisy, subject, &[chroma(tolerance, 0.0, 0.0)]);
+            assert_eq!(out[3], 0, "the screen keys at {tolerance}: {out:?}");
+            assert_eq!(out[7], 0xFF, "the subject survives {tolerance}: {out:?}");
+        }
+        // And the cliff below it, which is what tells the plateau from a keyer that keys
+        // whatever it is given: ADR-0088 measured `tolerance: 0.01` keying nothing.
+        let out = keyed(noisy, subject, &[chroma(0.01, 0.0, 0.0)]);
+        assert_eq!([out[3], out[7]], [0xFF, 0xFF], "{out:?}");
+    }
 
     #[test]
     fn half_scale_rounds_up_and_never_reaches_zero() {

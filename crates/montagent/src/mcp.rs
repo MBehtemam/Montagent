@@ -191,6 +191,9 @@ pub struct MeasureParams {
     /// The text element, as `montagent://schema.json` shapes one: `runs`, `font`, `size`,
     /// and optionally `line_height`, `y`, `origin` and `stroke_width`. Any other field is
     /// ignored, so an element still being authored measures as readily as a finished one.
+    /// An element carrying a `chroma` effect is measured differently — its keyed-alpha
+    /// coverage, per frame (ADR-0088) — and needs its `source`, its box and its declared
+    /// source range, because a key is a fact about pixels rather than about a style.
     /// Exclusive with `at`.
     #[serde(default)]
     pub element: Option<serde_json::Value>,
@@ -681,7 +684,15 @@ impl Montagent {
                        measure many in one call, or `all` to measure every text element the \
                        project already has; one unmeasurable element in a batch reports its \
                        own error and the rest of the batch still answers. Exactly one of \
-                       `element`, `at`, `elements` and `all` may be given.",
+                       `element`, `at`, `elements` and `all` may be given. An `element` \
+                       carrying a `chroma` effect answers a third question instead: the \
+                       keyed-alpha coverage that key produces — the opaque, partial and \
+                       transparent fraction of the element's own box, one sample per frame \
+                       across its range. That is how you find out whether a key worked, and \
+                       whether it *stayed* working: a series that steps mid-element is a \
+                       screen whose lighting drifts, and the fix is to cut the element at \
+                       the step, since effect parameters are static. It reaches no verdict \
+                       here either.",
         input_schema = advertised::<MeasureParams>()
     )]
     fn measure(

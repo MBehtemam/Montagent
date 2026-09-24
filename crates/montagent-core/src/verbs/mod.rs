@@ -11,6 +11,7 @@ pub mod create_project;
 pub mod fmt;
 pub mod fonts;
 pub mod frame;
+pub mod keyed;
 pub mod measure;
 pub mod preview;
 pub mod probe;

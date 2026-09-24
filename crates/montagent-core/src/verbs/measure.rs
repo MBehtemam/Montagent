@@ -53,6 +53,16 @@
 //! `query --at`'s crop rectangle is blocked on. It belongs with that, decided once, rather
 //! than invented twice.
 //!
+//! ADR-0088 gives `measure` an answer of a different kind: for an element carrying a
+//! `chroma` effect, the **keyed-alpha coverage** its own key produces, sampled per frame
+//! across the element's range ([`crate::verbs::keyed`]). It is dispatched off the element
+//! rather than off a flag, because which answer an element has is a property of the element:
+//! a `text` element occupies a block, and a keyed one has a matte.
+//!
+//! That reading is load-bearing rather than decorative. ADR-0040 refused the keyer because
+//! its result was *"not readable"*, and this is the mechanism that makes it readable — with
+//! no verdict, exactly as the extent has none.
+//!
 //! ADR-0035 gives `measure` a third answer that has nothing to do with text — *"the nearest
 //! sampled instant at-or-before a given time, for the project's own `fps`"*, so an author
 //! targeting an exact rendered value never derives the grid arithmetic by hand. Its
@@ -173,6 +183,8 @@ pub enum View {
     At(Instant),
     /// A batch — `elements` or `all` (#317).
     Batch(Batch),
+    /// What an element's key does to its own pixels, frame by frame (ADR-0088).
+    Coverage(crate::verbs::keyed::Coverage),
 }
 
 /// The ordered answer to a batch call: one slot per input element, in input order.
@@ -373,6 +385,22 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
             );
         }
     };
+
+    // ADR-0088's keyed-alpha coverage: a third answer to the same `element` question, not a
+    // third input mode. Which answer an element has is a property of the element — a `text`
+    // element occupies a block and a keyed one has a matte — so the dispatch reads the
+    // element rather than asking the caller to say which verb they meant. It is asked first
+    // because the text path refuses a non-`text` element by name, and a keyed `video` is
+    // exactly such an element.
+    if crate::verbs::keyed::is_keyed(element) {
+        return match crate::verbs::keyed::coverage(&document, element) {
+            Ok(coverage) => Answer {
+                view: Some(View::Coverage(coverage)),
+                report: Report::new(TOOL, project),
+            },
+            Err(reason) => rejected(project, reason),
+        };
+    }
 
     match try_measure_element(&document, element) {
         Ok(text) => Answer {

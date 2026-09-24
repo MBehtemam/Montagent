@@ -1198,6 +1198,73 @@ from t={from} to t={to}; ease={ease} describes no motion.",
 outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
         status: Live,
     },
+    // ---- `chroma` (#342, ADR-0088). -------------------------------------------------
+    //
+    // Four findings, and **not one of them keys a frame**. ADR-0006 keeps `validate` to
+    // "is this internally legal, and does it agree with the media on disk"; a check that
+    // had to run the keyer to form an opinion would be the "does it say what you meant"
+    // verb that ADR refuses to be. Three read the document alone and the fourth reads one
+    // `ffprobe` field the pipeline already has.
+    //
+    // All four state facts and none proposes a repair (ADR-0043), which is also why none
+    // is `error`-class: every condition below is a real if unusual technique, and the
+    // author is the only one who knows which.
+    CheckSpec {
+        // A colour operation ahead of the key in the same ordered list. `effects` is
+        // ordered and order is semantically real (ADR-0040), so the scalar changes the
+        // pixels the key is measured against and the author's `color` no longer names what
+        // is in the frame by the time the key reads it.
+        code: "R-CHROMA-AFTER-COLOUR",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is two positions in one list. There is no number here at all.
+        threshold: Internal,
+        adr: "ADR-0088",
+        template: "{element}: `effects[{index}]` keys `{color}` out of pixels that \
+`effects[{colour_index}]`, a `{colour_name}`, has already changed — `effects` is ordered, so the key is measured against the graded frame rather than the source's own colour.",
+        status: Live,
+    },
+    CheckSpec {
+        // A key on pixels this format authored. The colour being keyed out is one the
+        // document itself put there, so the author is asking for a shape they could have
+        // declared.
+        code: "R-CHROMA-ON-AUTHORED-ELEMENT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0088",
+        template: "{element}: `effects[{index}]` keys `{color}` out of a `{type}`, whose \
+pixels this format authored — the colour being keyed is one the document itself states.",
+        status: Live,
+    },
+    CheckSpec {
+        // A key on a source that already carries alpha. One `ffprobe` field, from the probe
+        // `crate::checks::source` runs anyway.
+        //
+        // **The #339 relationship is coverage, not trust** (ADR-0088): `pix_fmt`-derived
+        // detection yields false *negatives*, so this check is correct whenever it fires
+        // and merely silent when it should have fired. It ships with that gap stated.
+        code: "R-CHROMA-ON-ALPHA-SOURCE",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0088",
+        template: "{element}: `effects[{index}]` keys `{color}` out of {source}, which the \
+probe reports as already carrying an alpha channel.",
+        status: Live,
+    },
+    CheckSpec {
+        // `tolerance: 0`, the identity value, which keys nothing. The shape ADR-0052
+        // already made a finding for with inert ease: a declared effect that does nothing.
+        code: "N-CHROMA-INERT",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0088",
+        template: "{element}: `effects[{index}]` is a `chroma` with `tolerance: 0`, the \
+identity value, so it keys nothing.",
+        status: Live,
+    },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],
