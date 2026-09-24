@@ -2,10 +2,10 @@
 
 You are the engineering agent on a small video pipeline. It broke this morning.
 
-We publish short videos with **Montaget**, an agent-first video editor. A
-Montaget project is a single declarative JSON file that is the source of truth
+We publish short videos with **Montagent**, an agent-first video editor. A
+Montagent project is a single declarative JSON file that is the source of truth
 for a video — images, video clips and audio on one absolute timeline. We render
-it on a build box by running `montaget render <file>`.
+it on a build box by running `montagent render <file>`.
 
 **The overnight render failed and the video did not go out.** Nobody has touched
 the build box in months. The project file and the exact terminal output from the
@@ -33,4 +33,4 @@ this file is away. Do whatever you judge is right.
      before, and anything you could not check.
 
 Work alone. Do not look in any sibling directory, and do not consult any
-Montaget repository, spec or website — the build box has no network.
+Montagent repository, spec or website — the build box has no network.

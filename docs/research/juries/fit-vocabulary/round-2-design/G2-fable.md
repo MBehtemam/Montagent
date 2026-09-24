@@ -1,8 +1,8 @@
-# G2 verdict — round 2, Montaget issue #48, the `fit` vocabulary
+# G2 verdict — round 2, Montagent issue #48, the `fit` vocabulary
 
 Juror G2 (Fable). Sources read: issue #48, ADR-0003, ADR-0005, ADR-0006, ADR-0012 (clip/aperture
 section), ADR-0013 (in full), ADR-0014 (gravity clause), CONTEXT.md, the 8 image elements of
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`, and a live run of
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`, and a live run of
 `docs/research/sample-project-migration/fit_rounding_scan.py` (all assertions passed, exit 0).
 All arithmetic below was computed in exact integer arithmetic, not guessed.
 
@@ -179,7 +179,7 @@ regardless — the grid is the fact; the aspect is an interpretation.
 
 *Printing is mandatory:* this is ADR-0005's `speed` divergence applied exactly. `3368/0.645`
 sent four agents to 5222 and one to 5220 and nothing in any output exposed *which operand
-reading* diverged; the fix Montaget already institutionalised (ADR-0005: "the error states the
+reading* diverged; the fix Montagent already institutionalised (ADR-0005: "the error states the
 duration it found") is to print the measured operand next to the verdict. With two known
 transpose/PAR ambiguity sources, a deviation finding that does not show the dimensions used is
 undebuggable across implementations; one that does turns any implementation split into a
@@ -215,7 +215,7 @@ derivation only; source range, `speed`, `fill: hold/loop` (ADR-0005) are orthogo
 member of this vocabulary may ever grow a temporal meaning — recorded so nobody reaches for
 `fit` to spell temporal stretching.
 
-**Why:** ADR-0003 is dispositive twice over. Montaget's reference class "edits video" in its
+**Why:** ADR-0003 is dispositive twice over. Montagent's reference class "edits video" in its
 first sentence, and the guard's asymmetry rule makes "the fixture has zero video elements" (I
 checked — it has none) inadmissible as an argument for scoping to `image`. Scoping to `image`
 and "extending later" would ship a format in which `fit` on a video element is *undefined* —

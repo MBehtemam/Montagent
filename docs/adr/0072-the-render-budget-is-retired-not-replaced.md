@@ -5,8 +5,8 @@ amends: 0021 (retires the render half's enforced reading and records the measure
 
 # The render budget is retired, not replaced
 
-[Ticket #217](https://github.com/MBehtemam/Montaget/issues/217), from
-[#168](https://github.com/MBehtemam/Montaget/issues/168).
+[Ticket #217](https://github.com/MBehtemam/Montagent/issues/217), from
+[#168](https://github.com/MBehtemam/Montagent/issues/168).
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) opens by naming the
 original budget — *"a 60 s render under 2 minutes, a 10 s preview under 5
 seconds"* — and says of it: *"written for 1080×1920/30 and never re-derived"*
@@ -22,20 +22,20 @@ The code did. This ADR records why it no longer does.
 The gap ADR-0021 left open was filled three times, by three tickets, none of
 them an ADR.
 
-[#189](https://github.com/MBehtemam/Montaget/issues/189) built
-`montaget_render::budget` so that *"the verb tickets have somewhere to assert
+[#189](https://github.com/MBehtemam/Montagent/issues/189) built
+`montagent_render::budget` so that *"the verb tickets have somewhere to assert
 rather than each inventing a number"*, and gave `render` a rate —
 `RENDER_MS_PER_OUTPUT_SECOND = 2_000` — by dividing the retired pair. Its own
 doc comment — removed by #217, and readable in the history of
-`crates/montaget-render/src/budget.rs` — was honest about what it was doing:
+`crates/montagent-render/src/budget.rs` — was honest about what it was doing:
 *"This is the one budget stated here as a rate rather than as the pair it was
 written as, and that is an assumption worth seeing."*
 
-[#215](https://github.com/MBehtemam/Montaget/issues/215) asserted against it.
+[#215](https://github.com/MBehtemam/Montagent/issues/215) asserted against it.
 The whole committed fixture is 65216 ms, so the rate produced a 130 s ceiling,
 and `render_budget.rs` failed the suite if a render missed it.
 
-[#217](https://github.com/MBehtemam/Montaget/issues/217) removed both. The
+[#217](https://github.com/MBehtemam/Montagent/issues/217) removed both. The
 constant is deleted and nothing judges against it.
 
 **A rate read off a retired point is not a smaller claim than the point — it is
@@ -50,7 +50,7 @@ frame-alignment instruction had already had to be walked back for.
 ## The evidence
 
 `render`, the whole committed `en-halloween-decorating` fixture, cold with an
-empty probe sidecar ([ADR-0069](0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)),
+empty probe sidecar ([ADR-0069](0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montagent-observed.md)),
 release build, `skia-safe` ([ADR-0010](0010-skia-safe-rasterizer-text-beside-it.md)),
 M1 Pro. **1080×1920 at 25 fps, 65216 ms of output** — 60 elements, 22 carrying
 text, 20 narration elements mixed.
@@ -106,7 +106,7 @@ standing to supply, and all three are why this ADR states no target:
    encodes the code.
 3. **A statement of what the target is for.** ADR-0021 establishes that `frame`
    and span time answer different questions and that
-   [#7](https://github.com/MBehtemam/Montaget/issues/7)'s reviewers found render
+   [#7](https://github.com/MBehtemam/Montagent/issues/7)'s reviewers found render
    time *"is not a legitimate per-turn gate"*. A render budget that is not the
    agent's loop needs to say whose it is before it can say what it should be.
 
@@ -116,14 +116,14 @@ project knows about how long a render takes.
 ## Consequences
 
 - `RENDER_MS_PER_OUTPUT_SECOND` is gone from the public surface of
-  `montaget-render`, along with the 130 s ceiling #215 asserted against.
+  `montagent-render`, along with the 130 s ceiling #215 asserted against.
   `Budget::Render.limit()` is `None` and `is_enforced()` is false.
 - `nearest_reference` takes the budget whose references it reads, and
   `Budget::references()` names them. An enforced arm has none: it judges against
   its stated number, and a reference it never consults would be a number with no
   reader.
 - **`render` has no regression gate, and nothing added later may become one by
-  sitting in the reference list.** `crates/montaget/tests/render_budget.rs`
+  sitting in the reference list.** `crates/montagent/tests/render_budget.rs`
   asserts that the render succeeded, that it produced exactly the span the
   references were taken over, and that the harness reached `Verdict::Observed`
   rather than a pass against a limit — the last of those being the guard that
@@ -142,16 +142,16 @@ reproducing"*. **The wall clocks in the table cannot meet that bar, and this
 section says so rather than letting the reader assume they do.** A measurement
 on stated hardware is not reproducible on other hardware; that is what makes it
 a record and not a threshold, and it is precisely why nothing here is enforced.
-ADR-0021 carries [#34](https://github.com/MBehtemam/Montaget/issues/34)'s
+ADR-0021 carries [#34](https://github.com/MBehtemam/Montagent/issues/34)'s
 19.04 s the same way.
 
 What *is* committed and re-executable is the part that can rot silently:
 
-- `crates/montaget/tests/render_budget.rs` re-takes the measurement on any
+- `crates/montagent/tests/render_budget.rs` re-takes the measurement on any
   release run and prints it against the recorded set, so a reader can see
   today's number beside the ones above.
 - `the_recorded_spread_is_the_one_the_prose_states`
-  (`crates/montaget-render/tests/budget.rs`) re-derives the ends, the 1.14×
+  (`crates/montagent-render/tests/budget.rs`) re-derives the ends, the 1.14×
   span, and which entry a measurement is actually baselined against, from the
   entries themselves. It fails the moment someone appends a reading and leaves
   a paragraph — here or there — saying the old thing.

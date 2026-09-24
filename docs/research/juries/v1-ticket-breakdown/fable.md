@@ -2,7 +2,7 @@
 
 Verified against: `gh issue view 168` (body, no comments), `docs/adr/README.md` (67 ADRs + index),
 ADR-0006/0007/0010/0011/0021/0032/0040/0041/0043/0055/0057/0058/0059/0063/0067, `CONTEXT.md`,
-the committed fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`,
+the committed fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`,
 155 lines, 14 tracks, 60 elements — the brief's counts are right), #36, #143, #178, the
 `to-tickets` SKILL.md (the brief quotes its rules accurately), and
 `docs/research/prototypes/rust-rasterizer/Cargo.toml`.

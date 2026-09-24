@@ -27,7 +27,7 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 >   lookup. Also states the coordinate space and transform behaviour this ADR's effect model
 >   implied but never said
 
-[#22](https://github.com/MBehtemam/Montaget/issues/22) asked five questions. #19 had
+[#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a
 stack in the After Effects sense, never a plugin architecture. What #22 owed: how an
 effect attaches, whether order is meaningful, the concrete v1 list, whether text effects

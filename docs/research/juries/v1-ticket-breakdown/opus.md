@@ -4,7 +4,7 @@ Juror: Opus 5 (1M). Ruling alone. All claims below were checked against the work
 `73c09f1b` and against the GitHub tracker, not against the brief.
 
 **Facts in the brief I checked and that hold:** 67 ADRs in `docs/adr/` (index rows counted);
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` is 155 lines, 14
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` is 155 lines, 14
 tracks, 60 elements; `reference/en-halloween-decorating.mp4` exists (10.98 MB, 65.259 s);
 #36 is open and unlabelled; ADR-0067 does keep two floors as two separate refusals.
 **One arithmetic slip:** #168 has **84** stories, not 83 — 1–83 plus `62a`. Minor, but the
@@ -16,7 +16,7 @@ coverage walk in Q4 has to be done over 84 rows or `62a` falls through.
 
 The four-way split the brief invites me to attack (8, 9, 13, 14) **survives**. Each of the
 four ends at a fact an operator can see: a fixture that fires the check and a fixture that
-must not, over `montaget validate`, over both adapters, with the finding's code and inline
+must not, over `montagent validate`, over both adapters, with the finding's code and inline
 numbers asserted. That is a complete path — the spine (parse → check → Finding → JSON →
 text → exit code → CLI/MCP) is built once in ticket 1, and after that a check ticket is
 narrow-but-complete by construction, not a horizontal cut. The `#168` testing section
@@ -198,7 +198,7 @@ spelling table and the unknown-key error. The fixture parses clean only at 3c, w
 right place for that demo.
 
 **Ticket 10** — `parley`/`harfrust`/`icu_segmenter` with `complex-scripts`, `skrifa` scaling,
-Montaget's own UAX #14 line partition (ADR-0008 explicitly takes ownership away from
+Montagent's own UAX #14 line partition (ADR-0008 explicitly takes ownership away from
 `split('\n')`), half-leading baselines read across *every* run on the line (ADR-0029), exact-
 tenths block height (ADR-0028), fitted extents in exact integer arithmetic including the legal
 `0` case ADR-0024 forbids clamping, the declared-font-chain-only rule, and the font-swap

@@ -16,8 +16,8 @@ amends: 0011 (no tenth verb; the nine-tool surface holds), 0012 (derived keyfram
 > ([`recorded_intent_scan.py`](recorded_intent_scan.py)). The **"inert provenance"** need
 > this ADR deferred to the map's fog is designed there.
 
-[Ticket #68](https://github.com/MBehtemam/Montaget/issues/68), re-scoped from
-[#12](https://github.com/MBehtemam/Montaget/issues/12) after the preset-catalog framing was
+[Ticket #68](https://github.com/MBehtemam/Montagent/issues/68), re-scoped from
+[#12](https://github.com/MBehtemam/Montagent/issues/12) after the preset-catalog framing was
 measured and killed. What survived that kill was a discriminator — *"does the tool have an
 input the agent lacks?"* — and two candidate needs it left standing. This ADR closes the
 ticket by applying that same discriminator to the one candidate that reached it still alive.
@@ -59,7 +59,7 @@ than authored — the gap survives the tool.
 
 **The case considered and rejected.** An emit-only derive tool was weighed on safety grounds
 — that manual timestamp arithmetic is exactly the failure mode ADR-0005 already lines up
-against by making `shift` "the one edit Montaget performs instead of the agent." This doesn't
+against by making `shift` "the one edit Montagent performs instead of the agent." This doesn't
 hold: `shift` earns that role because it preserves document-wide relationships across many
 coupled values in one mutation, an invariant an agent cannot maintain by hand-editing.
 Computing a single derived timestamp has no such invariant at write time — the invariant that
@@ -76,7 +76,7 @@ Resolved by a jury of three independent models (Opus, Sonnet, Haiku), unanimous 
 **No authoring tool ships for derived-time computation.** The real need is a record of
 derivation — provenance — not a computation the agent already has the means to perform. That
 need is already open, correctly unticketed, as **"inert provenance"** in the map's fog,
-graduated from [#69](https://github.com/MBehtemam/Montaget/issues/69) /
+graduated from [#69](https://github.com/MBehtemam/Montagent/issues/69) /
 [ADR-0036](./0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md): a
 renderer-ignored derivation-claim field on the time axis, structurally
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)'s `fit` transplanted, left

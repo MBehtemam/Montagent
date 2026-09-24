@@ -1,4 +1,4 @@
-$ montaget validate en-halloween-decorating.montaget.json
+$ montagent validate en-halloween-decorating.montagent.json
 
 error  photo-05-intro: `gravity` is not a field of this format.
        Which part of the source survives is determined by `x`, `y`, `origin` and `clip`.

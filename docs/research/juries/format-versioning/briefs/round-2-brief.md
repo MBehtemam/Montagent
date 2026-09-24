@@ -1,4 +1,4 @@
-# Jury brief, round 2 — Montaget format versioning and migration (ticket #14)
+# Jury brief, round 2 — Montagent format versioning and migration (ticket #14)
 
 Round 1 ran five jurors on four models. This is round 2. You are a fresh juror:
 you did not sit in round 1 and you are **not** reviewing round 1's output.
@@ -12,7 +12,7 @@ that round was voided. Weigh each position on its argument alone.
 Read the round-1 brief first, for the project context, the standing principles,
 the anti-drift rule and the worked example of breaking it:
 
-`/private/tmp/claude-501/-Users-mohammedehtemam-projects-github-Montaget/6e22850c-f895-4fb4-bef7-dbe42e44211c/scratchpad/jury-14/BRIEF.md`
+`/private/tmp/claude-501/-Users-mohammedehtemam-projects-github-Montagent/6e22850c-f895-4fb4-bef7-dbe42e44211c/scratchpad/jury-14/BRIEF.md`
 
 Everything in that brief still applies **except the corrections below**, which
 supersede it. Do not read any other juror's scratchpad directory. You have your
@@ -82,7 +82,7 @@ photos and **`"center"` on `handle-logo`**. No accepted ADR records that last
 byte. A round-1 juror reconstructing the file from the ADRs alone got 7 of 8
 right and that one wrong. The only witness to a retired field's *values* is git.
 
-**M3 — `montaget migrate`'s hardest case has no replacement to name.** Round 1
+**M3 — `montagent migrate`'s hardest case has no replacement to name.** Round 1
 converged on repairing stale files through `validate` error messages that name
 the replacement, as every ADR in the chain already does (ADR-0015 does not say
 "migrate `gravity` away"; it says *"a schema error naming `x`/`y`/`origin` and
@@ -100,7 +100,7 @@ answers contradicting your own worklog will be discarded.
 and confirm or refute C1's arithmetic. Two minutes; do not take either on trust.
 
 **A2 — run the migration-by-error-message exercise, both roles.** Take the real
-pre-ADR-0015 file (`git show '3b795255^:fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json'`)
+pre-ADR-0015 file (`git show '3b795255^:fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json'`)
 into your scratchpad. First act as **`validate`**: write out, literally, the
 error messages you would emit for that file under the current ADR set. Then act
 as **the agent**: using only those messages and the published ADRs — not git,
@@ -117,7 +117,7 @@ not, say precisely what is missing and whether *any* mechanism could supply it.
 
 **A4 — test the identification claim independently of versioning.** List what is
 actually in `fixtures/en-halloween-decorating/` and say whether a tool handed an
-arbitrary path can currently tell a Montaget project from any other JSON. Then
+arbitrary path can currently tell a Montagent project from any other JSON. Then
 answer: does a magic marker earn its place on **identification alone**, with no
 versioning argument at all? This matters because if it does, the marker and the
 version number are separable decisions and must be taken separately.
@@ -136,10 +136,10 @@ as speculation; say what would falsify you.
 
 Positions from round 1, unattributed:
 
-- **P1.** One top-level integer, `"montaget": N`, naming a revision of the whole
+- **P1.** One top-level integer, `"montagent": N`, naming a revision of the whole
   format contract (shape *and* normative reading).
 - **P2.** A top-level marker is justified by **file identification alone** — a
-  `.montaget.json` with no marker is indistinguishable from any JSON with a
+  `.montagent.json` with no marker is indistinguishable from any JSON with a
   `tracks` key — and the version number is a *free rider* on a marker that is
   independently warranted. On this view the versioning half rests on an
   **unmeasured** ergonomic claim, and a defensible outcome is a marker frozen at
@@ -176,7 +176,7 @@ every position addressed it. Say whether it changes your answer.
 - **P7.** The **first tagged release** / first external user.
 - **P8.** The **publication of the JSON Schema resource** (ADR-0011 already
   schedules it as an MCP resource), on the ground that *a version number names a
-  legality predicate and Montaget currently has none* — the format is fifteen
+  legality predicate and Montagent currently has none* — the format is fifteen
   ADRs of prose, and ADR-0013 explicitly left "whether `fit` may be omitted"
   undefined, so at that revision there was no fact of the matter about whether a
   given file was legal. You cannot index a predicate that does not exist. Under
@@ -184,16 +184,16 @@ every position addressed it. Say whether it changes your answer.
 - **P9.** Split it: the **mechanics** bind from the next ADR, the **promise** to
   strangers binds at release.
 
-### Q8 — Does `montaget migrate` ever exist?
+### Q8 — Does `montagent migrate` ever exist?
 
 - **P10.** **Never.** The distinction is the project's own: `CONTEXT.md`
   justifies `shift` as *"the one edit that is arithmetic rather than authorship,
-  and therefore the one Montaget performs instead of the agent."* Deletions and
+  and therefore the one Montagent performs instead of the agent."* Deletions and
   renames are arithmetic and may ship as scripts; synthesising a retired `fit`
   value is **authorship**, because under strict equality a stale rect may match
   neither `cover` nor `contain`, leaving only `literal` — an assertion about what
   the author meant. A tool writing it fabricates intent to make a file pass.
-  Montaget is agent-first: the repairing entity is always an LLM, and repair from
+  Montagent is agent-first: the repairing entity is always an LLM, and repair from
   a replacement-naming error message is the same act as the authoring the format
   already assumes.
 - **P11.** **At release**, as the chain of per-change scripts made idempotent by

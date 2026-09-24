@@ -46,7 +46,7 @@ FAILED = "DOWNLOAD AND INSTALL FAILED"
 
 # Every way the log can say "the prebuilt was not used", with what each one
 # means. The two `Refusing` lines come from `skia-safe`'s `no-compile` feature,
-# which `montaget-render` turns on by default: they are a miss that was stopped
+# which `montagent-render` turns on by default: they are a miss that was stopped
 # before it became a forty-minute compile, which is a better outcome than the
 # `STARTING` lines and is still a canary failure.
 SOURCE_BUILD_MARKERS = {
@@ -204,7 +204,7 @@ def self_test(manifest: Path) -> int:
         ),
         (
             "a warm build, where nothing was downloaded because nothing was built",
-            "   Compiling montaget-render v0.1.0\n    Finished `dev` profile\n",
+            "   Compiling montagent-render v0.1.0\n    Finished `dev` profile\n",
             False,
         ),
         (

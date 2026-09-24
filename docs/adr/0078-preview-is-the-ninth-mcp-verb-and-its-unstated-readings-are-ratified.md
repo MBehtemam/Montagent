@@ -13,8 +13,8 @@ amends: 0011 (the verb table gains a `preview` row and the counts become nine MC
 
 # `preview` is the ninth MCP verb, and the eleven readings #218 had to pick are ratified — one with a correction
 
-**Ticket:** [#295](https://github.com/MBehtemam/Montaget/issues/295).
-[#218](https://github.com/MBehtemam/Montaget/issues/218) built `preview` and the proxy
+**Ticket:** [#295](https://github.com/MBehtemam/Montagent/issues/295).
+[#218](https://github.com/MBehtemam/Montagent/issues/218) built `preview` and the proxy
 ladder. The ladder is fully ADR-stated — [ADR-0021](0021-preview-budget-and-graceful-degradation.md),
 [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md),
 [ADR-0050](0050-preview-hard-refuses-below-360p.md),
@@ -26,8 +26,8 @@ of what it discloses. Eleven such readings were recorded in the source and raise
 than left to be found. Ten are ratified as written. One is ratified with a correction to the
 code, below.
 
-**Evidence:** `crates/montaget-core/tests/preview.rs`, which asserts each reading against a
-real project file through the core verb, and `crates/montaget-render/src/proxy.rs`'s own unit
+**Evidence:** `crates/montagent-core/tests/preview.rs`, which asserts each reading against a
+real project file through the core verb, and `crates/montagent-render/src/proxy.rs`'s own unit
 tests for the arithmetic. Each numbered reading below names the test that fails the moment it
 stops holding. The two readings that had no test — the between-caps degrade and the
 per-attempt clock — gained one in this change, which is how the correction was found.
@@ -36,7 +36,7 @@ per-attempt clock — gained one in this change, which is how the correction was
 
 **1. `preview` is the ninth MCP verb. ADR-0011's table gains a row.**
 
-Spec [#168](https://github.com/MBehtemam/Montaget/issues/168)'s title says *"nine MCP verbs,
+Spec [#168](https://github.com/MBehtemam/Montagent/issues/168)'s title says *"nine MCP verbs,
 three CLI verbs"* and its stories 61–63 are `preview`'s, so the ninth is this verb.
 ADR-0011's own table — the one `CONTEXT.md`'s **Verb** entry calls authoritative — lists
 eight MCP tools and eleven CLI commands, and `preview` is in neither count.
@@ -53,7 +53,7 @@ per `docs/agents/domain.md`; this ADR is where the row lives and its banner is w
 reader of the table is sent.
 
 The MCP count is asserted rather than restated:
-`crates/montaget/tests/adapters.rs::the_mcp_surface_is_exactly_nine_tools_and_preview_is_the_ninth`
+`crates/montagent/tests/adapters.rs::the_mcp_surface_is_exactly_nine_tools_and_preview_is_the_ninth`
 reads `tools/list` off the running server and names all nine. ADR-0011's own opening
 sentence — *"nine verbs and two resources"*, above a table of eleven — is the standing
 demonstration of what a count in prose is worth once the thing it counts has moved.
@@ -75,7 +75,7 @@ the same exit code: `preview_runs_the_same_checks_render_runs_and_refuses_on_an_
 
 **8. A hard fail on the budget is exit 3.** Ratified, under ADR-0011's own exit-code table,
 whose distinguishing question is *"what the caller does next"*: the document is legal
-(not 1), the file parsed (not 2), and Montaget did not break (not 70). What could not be
+(not 1), the file parsed (not 2), and Montagent did not break (not 70). What could not be
 satisfied is the invocation, and row 3's next move — *fix the command* — is exactly the
 lever available: a shorter range, or the full-resolution escape hatch. Asserted in
 `a_540p_miss_hard_fails_and_there_is_no_third_tier` and

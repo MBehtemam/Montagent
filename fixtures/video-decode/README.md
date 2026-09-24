@@ -3,13 +3,13 @@
 This project exists because **the committed `en-halloween-decorating` fixture has zero
 `video` elements**, and [ADR-0003](../../docs/adr/0003-general-video-editor-not-channel-tooling.md)'s
 asymmetry is explicit that a channel's silence is evidence a capability is *needed*, never
-that one is *unneeded*. Spec [#168](https://github.com/MBehtemam/Montaget/issues/168) names
+that one is *unneeded*. Spec [#168](https://github.com/MBehtemam/Montagent/issues/168) names
 the zero-`video` case as *"the one most likely to be missed"*: `frame` and `render` must
 decode through ADR-0023's rotation pipeline, and **no ticket will discover that from the
 real fixture**.
 
 So the decode path gets a fixture of its own rather than borrowing one, and
-[#212](https://github.com/MBehtemam/Montaget/issues/212) requires it by name.
+[#212](https://github.com/MBehtemam/Montagent/issues/212) requires it by name.
 
 ## What it exercises, and why each element is here
 
@@ -33,7 +33,7 @@ produced by the thing under test, so it catches regressions and nothing else (sp
 *"a golden frame we render ourselves and commit is self-confirming"*). Only
 `../en-halloween-decorating/reference/frame-*.png`, extracted from the published MP4,
 falsifies — and that comparison belongs to
-[#213](https://github.com/MBehtemam/Montaget/issues/213), where text is drawn and the
+[#213](https://github.com/MBehtemam/Montagent/issues/213), where text is drawn and the
 frames become comparable.
 
 **It does not test real container/codec disagreement.** ADR-0023 records the same gap for

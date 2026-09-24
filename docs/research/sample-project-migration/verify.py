@@ -1,12 +1,12 @@
 """Check the migration. Usage: python3 verify.py <old.json> <new.json>
 
 <old.json> is the pre-migration prototype, preserved on main at
-  docs/research/sample-project/pre-migration.montaget.json
+  docs/research/sample-project/pre-migration.montagent.json
 
 So the whole migration is re-runnable from a checkout of main:
   python3 docs/research/sample-project-migration/verify.py \
-      docs/research/sample-project/pre-migration.montaget.json \
-      fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json
+      docs/research/sample-project/pre-migration.montagent.json \
+      fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json
 """
 import json, collections, sys, os, struct, subprocess, tempfile
 old=json.load(open(sys.argv[1])); new=json.load(open(sys.argv[2]))

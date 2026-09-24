@@ -11,7 +11,7 @@ amends: 0011 (the write-tool invariant — "the return value is the findings" �
 
 # MCP's `isError` tracks `RepairClass::NotAboutDocument`, not "did the args deserialise"
 
-**Ticket:** [#313](https://github.com/MBehtemam/Montaget/issues/313), grilled and then
+**Ticket:** [#313](https://github.com/MBehtemam/Montagent/issues/313), grilled and then
 put to three three-juror courts (Opus, Sonnet, Haiku — reproduce with `/court`):
 unanimous on the rule below and on this ADR's placement, 2–1 on scope, judge-broken
 toward the wider reading recorded here.
@@ -28,7 +28,7 @@ what converts an opt-in check into a structural one."*
 Both readings are correct as far as they go, and #313 is that they disagree.
 `E-PROJECT-EXISTS` is simultaneously "a verb that ran and found something" (the
 write-tool invariant's trigger) and "the invocation was wrong" (`rejected`'s own stated
-trigger for `isError`, quoted from `crates/montaget/src/mcp.rs`: *"`isError` is what
+trigger for `isError`, quoted from `crates/montagent/src/mcp.rs`: *"`isError` is what
 tells its client the call did not run at all"*). ADR-0080's own text supplied a possible
 scope argument — *"a caller that branched on exit 1"*, read as an argv caller — but that
 line is ADR-0080 §5, about the `frame`-nesting argument shape, not §2, about the exit
@@ -53,7 +53,7 @@ anything the core computes.
 write-tool invariant's *"return value is the findings"* was reasoned about findings
 *about a document* — `Advise`/`Refuse`, exit 0/1 — and stays exactly that scoped:
 findings about the document keep answering `success`, findings whose subject is the
-invocation, the raw bytes, or Montaget's own process now set `isError`.
+invocation, the raw bytes, or Montagent's own process now set `isError`.
 
 Applies uniformly to every code the registry declares `NotAboutDocument` today:
 `E-PARSE`, `E-READ`, `E-INVOCATION`, `E-INTERNAL`, `E-PROJECT-EXISTS` — regardless of
@@ -64,7 +64,7 @@ distinction between "the args never parsed" and "the verb ran and refused" was n
 load-bearing and this ADR retires it.
 
 Implemented as one predicate, `Report::is_not_about_document`, and one call site per MCP
-tool routed through a shared `respond(report, content)` helper in `crates/montaget/src/mcp.rs`
+tool routed through a shared `respond(report, content)` helper in `crates/montagent/src/mcp.rs`
 — so a future `NotAboutDocument` code inherits the rule rather than requiring a ninth
 call site to remember it.
 
@@ -112,10 +112,10 @@ the same breaking change on the same clients a second time.
   or `E-PROJECT-EXISTS` sees a behaviour change. The change is additive at the wire
   level — the same content, the same codes, the same JSON shape — only the protocol
   flag moves.
-- **`Report::is_not_about_document`** is added to `montaget-core`'s `Report`, backed by
+- **`Report::is_not_about_document`** is added to `montagent-core`'s `Report`, backed by
   the existing private `terminal` field — no new state, a name for a distinction the
   type already drew for `exit_code()`.
-- **`crates/montaget/src/mcp.rs` gains a `respond` helper** that every write-tool
+- **`crates/montagent/src/mcp.rs` gains a `respond` helper** that every write-tool
   handler (`validate`, `create_project`, `query`, `frame`, `render`, `preview`,
   `measure`, `shift`, `compare`) now routes its result through, replacing nine
   independent `CallToolResult::success(...)` call sites.

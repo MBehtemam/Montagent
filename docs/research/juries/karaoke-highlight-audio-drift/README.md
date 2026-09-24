@@ -1,9 +1,9 @@
 # Court: karaoke highlight audio-drift check
 
-Evidence backing [ticket #166](https://github.com/MBehtemam/Montaget/issues/166),
+Evidence backing [ticket #166](https://github.com/MBehtemam/Montagent/issues/166),
 graduated from the map's fog, originally named out of scope in
 [ADR-0051](../../adr/0051-word-alignment-is-external-validate-and-compare-catch-drift.md)
-(on branch `domain/word-alignment-workflow`) and [#120](https://github.com/MBehtemam/Montaget/issues/120).
+(on branch `domain/word-alignment-workflow`) and [#120](https://github.com/MBehtemam/Montagent/issues/120).
 
 Three independent jurors (Opus, Sonnet, Haiku), blind to each other's ballots,
 voted on three sub-questions: whether closing the gap needs a new schema-level
@@ -22,7 +22,7 @@ cache-miss would false-positive at a rate that rises with project density —
 exactly the kind of noise that teaches an agent to ignore `validate`'s output.
 
 `measure_overlap_ambiguity.py` tested that claim against the real,
-currently-committed fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`),
+currently-committed fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`),
 which has zero actual karaoke highlighting (per ADR-0048) — every text
 element stands in as a proxy for a would-be highlight-bearing element:
 
@@ -50,5 +50,5 @@ project's own shape, the correct check needs a declared link between a
 minting as a schema field yet (no implementation exists, no evidence of how
 often real audio re-recording drift occurs) — which in turn makes this a
 named instance of the map's broader "recorded intent" fog entries, not a
-standalone fix. See [ticket #166](https://github.com/MBehtemam/Montaget/issues/166)
+standalone fix. See [ticket #166](https://github.com/MBehtemam/Montagent/issues/166)
 for the resolution.

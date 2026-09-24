@@ -12,7 +12,7 @@
 
 ### 1. Reproduced the diagnosis on paper, because I can't reproduce it for real
 
-There is **no `montaget` binary on this box**, and **none of the 16 referenced assets exist** either. This directory contains only `project.json`, `render-output.txt` and the task. So I could not run the render, could not iterate, and could not eyeball a single frame. Everything below is static analysis of the file against the transcript. That limitation is the reason I did not hand you a "fixed" file.
+There is **no `montagent` binary on this box**, and **none of the 16 referenced assets exist** either. This directory contains only `project.json`, `render-output.txt` and the task. So I could not run the render, could not iterate, and could not eyeball a single frame. Everything below is static analysis of the file against the transcript. That limitation is the reason I did not hand you a "fixed" file.
 
 ### 2. Accounted for all 16 errors
 
@@ -45,13 +45,13 @@ Can the same crop be expressed in vocabulary 0.9.2 accepts? No: I don't have 0.9
 - **Delete `fit` and `clip` to make it validate.** Rejected, hard. Breaks the layout for all 25 caption elements, and it's the one thing the tool explicitly forbids. The trap is that deleting *works* — validates, renders, produces an MP4 — so the mistake surfaces only when a human watches the output, or after publication.
 - **Delete `clip` only on `handle-logo`.** Harmless in isolation, but fixes 2 of 16 errors and leaves a half-migrated file.
 - **Rewrite the crop using only proven-known keys** (`height: 1300`, `origin`/`scale` tricks). Pure guesswork; silently-wrong geometry is the same failure as deleting, harder to spot in review.
-- **Upgrade or reinstall Montaget.** Correct fix, impossible here — no network.
+- **Upgrade or reinstall Montagent.** Correct fix, impossible here — no network.
 - **Leave a `project.render-me.json` with keys stripped, labelled "not for publication."** Came close, decided against: an unverified file that renders a visibly wrong video, sitting in the directory on a day when everyone is told the video must go out, will get rendered and published by someone who doesn't read the label.
 - **"Fixing" the past-the-end zoom keyframes.** Not a bug. Every `scale` ramp spans exactly 15000 ms — a constant-rate Ken Burns zoom sampled per visible window.
 
 ## What I would tell the team
 
-> Overnight render failed and I don't have a same-day fix from the build box — but the project file is fine, and I've deliberately not touched it. The build box is running Montaget 0.9.2 and the file uses two keys (`fit`, `clip`) from a newer format revision. The tempting fix is to delete the two keys and let it validate — please don't, and don't let a bot do it either. `clip` is what crops the photos to the top 1300 px and creates the cream band that all 25 captions and sentence cards sit on; strip it and you get a clean successful render of a broken-looking video, which is how a wrong cut gets published. Root cause: the build box has been pinned at 0.9.2 for months while files are authored against a newer revision, and nothing warns us until a 3am render dies.
+> Overnight render failed and I don't have a same-day fix from the build box — but the project file is fine, and I've deliberately not touched it. The build box is running Montagent 0.9.2 and the file uses two keys (`fit`, `clip`) from a newer format revision. The tempting fix is to delete the two keys and let it validate — please don't, and don't let a bot do it either. `clip` is what crops the photos to the top 1300 px and creates the cream band that all 25 captions and sentence cards sit on; strip it and you get a clean successful render of a broken-looking video, which is how a wrong cut gets published. Root cause: the build box has been pinned at 0.9.2 for months while files are authored against a newer revision, and nothing warns us until a 3am render dies.
 
 ## Confidence
 

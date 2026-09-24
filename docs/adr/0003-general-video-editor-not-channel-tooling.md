@@ -2,9 +2,9 @@
 status: accepted
 ---
 
-# Montaget is a general video editor; the channel is a fixture
+# Montagent is a general video editor; the channel is a fixture
 
-Montaget is a **general-purpose, agent-first video editor**. It will be open
+Montagent is a **general-purpose, agent-first video editor**. It will be open
 source and run by people other than its author. Its primitives are shaped by what
 a video editor must be able to express — never by what any one project happens to
 produce today.
@@ -12,7 +12,7 @@ produce today.
 The `youtube_language_learning` channel, whose halloween short is checked in under
 `fixtures/`, is **test data and a regression guard**. It is evidence that the
 primitives are sufficient for real published work. It has no authority over what
-Montaget must do.
+Montagent must do.
 
 The reference class is **CapCut and Premiere**: a video editor that edits video
 and audio, places images, scales and transforms them, and draws shapes, text,
@@ -22,7 +22,7 @@ effects and text effects. **After Effects is out of scope for now** — see
 ## Why
 
 **The project was documented as two different products.** The map's destination
-said "a specification for Montaget, an agent-first video editor"; two paragraphs
+said "a specification for Montagent, an agent-first video editor"; two paragraphs
 later its domain note said "video composition tooling for an AI-driven YouTube
 channel (vertical 9:16 language-teaching shorts)". Those are not the same scope,
 and every working session loaded the second one.
@@ -36,7 +36,7 @@ cannot set Arabic, Hebrew or Persian text is Latin-only by construction, whateve
 any one channel publishes. Same ticket, same facts, opposite answer, purely from
 framing.
 
-**Open source removes the last defence of the narrow reading.** If Montaget had
+**Open source removes the last defence of the narrow reading.** If Montagent had
 one operator, "we do not need it" would at least be a coherent scope argument.
 Strangers will run this, feed it their own assets, and drive it with their own
 agents. What one channel currently publishes says nothing about what the tool
@@ -73,7 +73,7 @@ unsatisfiable by construction. "Matches" means duration, frame size, which eleme
 is on screen when, and audio alignment.
 
 **"Bilingual subtitle" is not a concept in the format.** A target/bridge string
-pair is language-teaching vocabulary. Montaget has *text*; that two text elements
+pair is language-teaching vocabulary. Montagent has *text*; that two text elements
 form a translation pair is meaning the agent holds and a `group` may label. It is
 not a field, and it does not appear in the schema that every unrelated user reads.
 

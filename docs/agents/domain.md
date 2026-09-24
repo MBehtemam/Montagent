@@ -103,6 +103,6 @@ grounds the claim or that it was tiered correctly.
 The motivating failure, left otherwise unfixed until now: ADR-0006's *"every
 numeric claim... was verified by script against the file"* cited a project
 file that was never committed —
-`git log --all --diff-filter=A -- '*.montaget.json'` returns exactly one
+`git log --all --diff-filter=A -- '*.montagent.json'` returns exactly one
 project file, and it is not that one. The claim is now flagged inline in
 ADR-0006 as unreproducible rather than left silently uncheckable.

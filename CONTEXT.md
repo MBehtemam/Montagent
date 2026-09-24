@@ -1,20 +1,20 @@
-# Montaget
+# Montagent
 
-Montaget is a video editor whose project format is designed to be authored and
+Montagent is a video editor whose project format is designed to be authored and
 edited by an AI agent rather than dragged around in a GUI. A project states, by
-being read, what is on screen at any given moment; Montaget renders it.
+being read, what is on screen at any given moment; Montagent renders it.
 
 ## Actors
 
-**Montaget**:
+**Montagent**:
 The tool — a renderer and an MCP server. It is deterministic and contains no
 model: given the same project and the same files it produces the same video
 every time.
-_Avoid_: calling Montaget an agent, or "the AI"
+_Avoid_: calling Montagent an agent, or "the AI"
 
 **Agent**:
-An LLM client outside Montaget — Claude Code, or any other MCP client — that
-authors and edits projects and calls Montaget's tools. Montaget never calls an
+An LLM client outside Montagent — Claude Code, or any other MCP client — that
+authors and edits projects and calls Montagent's tools. Montagent never calls an
 agent.
 _Avoid_: user, bot, assistant, client (unqualified)
 
@@ -129,7 +129,7 @@ which is what a Ken Burns is. Shaped and soft masks are a different thing and ar
 rect fills it exactly, but under `contain` the derived rect can be smaller, leaving slack.
 Where that slack goes is not a separate placement field — it is ordinary `x`/`y`/`origin`
 work against `clip`'s own corner and centre, the same as any other visual element's rect.
-([#52](https://github.com/MBehtemam/Montaget/issues/52))
+([#52](https://github.com/MBehtemam/Montagent/issues/52))
 _Avoid_: crop, mask, viewport, bounds
 
 **Run**:
@@ -385,7 +385,7 @@ _Avoid_: padding, buffer, margin (a spatial term already spoken for)
 Moving every time at or after some instant by an offset, so that inserting or
 removing time carries the rest of the project with it. It is named because it is
 the one edit that is arithmetic rather than authorship, and therefore the one
-Montaget performs instead of the agent. It refuses an edit that would change an
+Montagent performs instead of the agent. It refuses an edit that would change an
 existing slack's size, the same way it refuses to stretch a time-based
 straddler, rather than silently absorbing the difference.
 ([ADR-0032](docs/adr/0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md))
@@ -432,7 +432,7 @@ itself content
 ([ADR-0030](docs/adr/0030-defaultable-field-presence-is-content.md)). The half that reaches
 outside the document — the offset into the source, the crop rectangle, the ink box and the
 `NOT COVERED` region — is not in it yet
-([#210](https://github.com/MBehtemam/Montaget/issues/210)).
+([#210](https://github.com/MBehtemam/Montagent/issues/210)).
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
 _Avoid_: frame, render state, snapshot, sample
 
@@ -457,15 +457,15 @@ _Avoid_: filter, selector, query (the verb's name), expression
 **Reference frame**:
 A frame of the already-published short, extracted from
 `fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4` and committed
-beside it. Produced by a Python/FFmpeg/ASS pipeline that knows nothing about Montaget, so
-nothing Montaget does can change it — which is what makes it the only thing in the
+beside it. Produced by a Python/FFmpeg/ASS pipeline that knows nothing about Montagent, so
+nothing Montagent does can change it — which is what makes it the only thing in the
 repository capable of **falsifying** the format rather than merely catching a change to
 it. Compared against by SSIM over a stated region at a stated threshold, never by byte
 equality, with the regions that differ for a known reason — the typeface substitution
-([#186](https://github.com/MBehtemam/Montaget/issues/186)) — masked out of the gate and
+([#186](https://github.com/MBehtemam/Montagent/issues/186)) — masked out of the gate and
 measured beside it. A divergence is masked only while its cause is unfixed: the fixture's
 Ken Burns pivot was masked out of the later frame until
-[#276](https://github.com/MBehtemam/Montaget/issues/276) corrected the fixture, and that
+[#276](https://github.com/MBehtemam/Montagent/issues/276) corrected the fixture, and that
 frame now gates the photograph as a region of its own. **The typeface mask is the one
 exception, and is permanent**: its cause is ADR-0057's licence gate, not a bug, so no work
 discharges it short of re-rendering the reference — which would replace the falsifier with
@@ -473,15 +473,15 @@ a golden. The fixture's own declared layouts were measured under both faces and 
 ([ADR-0085](docs/adr/0085-the-font-swap-census-holds-and-the-text-mask-is-permanent.md));
 that they hold is a *layout* fact and does not make the *pixels* comparable, which is the
 conflation #186 was written around.
-`crates/montaget-core/tests/reference_frames.rs`.
-(spec [#168](https://github.com/MBehtemam/Montaget/issues/168),
+`crates/montagent-core/tests/reference_frames.rs`.
+(spec [#168](https://github.com/MBehtemam/Montagent/issues/168),
 [ADR-0010](docs/adr/0010-skia-safe-rasterizer-text-beside-it.md))
 _Avoid_: golden frame (it is the opposite — see below), expected output, baseline. The
 bare word *reference* is also spoken for by Citation's avoid-list; this is the two-word
 term and only ever the two-word term.
 
 **Golden frame**:
-A frame **Montaget rendered and committed**, under `crates/montaget-core/tests/golden/`
+A frame **Montagent rendered and committed**, under `crates/montagent-core/tests/golden/`
 and `docs/research/prototypes/rust-rasterizer/frames/oracle/`. Self-confirming by
 construction: it catches an unintended change — a `skia-safe` bump that shifts
 antialiasing, a text change that moves every baseline — and it can never say the format is
@@ -515,7 +515,7 @@ _Avoid_: scale factor, downsample ratio, quality setting; and **do not call the 
 **Wall-clock give-up point** / **legibility floor**:
 Two different limits that one word used to name, and they are never one number
 ([ADR-0067](docs/adr/0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md),
-resolving [#178](https://github.com/MBehtemam/Montaget/issues/178)). The **wall-clock
+resolving [#178](https://github.com/MBehtemam/Montagent/issues/178)). The **wall-clock
 give-up point** is 540p: where the *ladder* stops, because one degrade step buys only
 ~0.71 s at 8K and a miss larger than that cannot be rescued by another rung. The
 **legibility floor** is 360p: where a *frame* stops being readable, measured on the real
@@ -528,7 +528,7 @@ _Avoid_: *the* floor (there are two), minimum resolution, cutoff
 
 ## Findings and reports
 
-The vocabulary above is the document's. This is the tooling's: what Montaget has
+The vocabulary above is the document's. This is the tooling's: what Montagent has
 to say about a document, and the shape it says it in. Every term here is defined
 by an ADR rather than invented at the source tree, and the entries cite the ADR
 that owns each one.
@@ -593,7 +593,7 @@ and holds for every instance it matches, including the ones that look safe. It
 is orthogonal to class, not a fourth severity. Whether the binary reaches
 findings that are not about a document at all — a file that would not parse, an
 invocation that was wrong — is open
-([#224](https://github.com/MBehtemam/Montaget/issues/224)).
+([#224](https://github.com/MBehtemam/Montagent/issues/224)).
 ([ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
 _Avoid_: fix, suggestion, autofix, quick fix — each implies something will
 apply it
@@ -650,14 +650,14 @@ announcing a source that grew on disk can only fire twice within one process, an
 unknown version, unwritable — is a cache miss and never a finding, because a
 cache directory is not the project. Nothing about a **remote** source is ever
 stored in it.
-([ADR-0069](docs/adr/0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md),
+([ADR-0069](docs/adr/0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montagent-observed.md),
 [ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
 [ADR-0056](docs/adr/0056-remote-source-probe-session-scoped-no-persistent-cache.md))
 _Avoid_: index, database, manifest, cache file (unqualified)
 
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
-file was not compared against any prior version or instruction, and Montaget
+file was not compared against any prior version or instruction, and Montagent
 cannot tell you whether it says what you meant it to say. It is there because
 without it a clean run is read as *"the file is right"*, which is the rejected
 `sequence` label wearing a `validate` label instead.
@@ -666,8 +666,8 @@ _Avoid_: caveat, disclaimer, limitations
 
 **Resource**:
 Something the MCP server publishes for an agent to *read* rather than to call —
-the published JSON Schema (`montaget://schema.json`) and the format docs
-(`montaget://format.md`). There are exactly two, and being resources rather than
+the published JSON Schema (`montagent://schema.json`) and the format docs
+(`montagent://format.md`). There are exactly two, and being resources rather than
 verbs is the whole point: an MCP tool schema costs the agent context on every
 turn, and a resource costs no tool slot at all, so this is what makes *"how does
 the agent know how to edit `project.json`"* answerable the same way
@@ -694,11 +694,11 @@ new state's findings, never an `ok`. (`preview` was missing from ADR-0011's
 table, which this entry calls authoritative;
 [ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
 gives it a row and settles the counts, resolving
-[#295](https://github.com/MBehtemam/Montaget/issues/295). ADR-0011's own prose
+[#295](https://github.com/MBehtemam/Montagent/issues/295). ADR-0011's own prose
 still opens with *"nine verbs and two resources"* above a table of eleven, and
 its *"eight MCP tools, eleven CLI commands"* line no longer holds — an ADR is
 amended, never rewritten, so read its banner. The nine is asserted rather than
-restated — `crates/montaget/tests/adapters.rs` reads `tools/list` off the running
+restated — `crates/montagent/tests/adapters.rs` reads `tools/list` off the running
 server and names all nine. `create_project` is the one verb whose two surfaces
 spell it differently: the MCP tool is `create_project`, the CLI command is
 `create-project` with the underscore kept as a permanent alias, because
@@ -711,7 +711,7 @@ _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 
 **Registry**:
-The single declaration of every code Montaget can emit, and what is true of it:
+The single declaration of every code Montagent can emit, and what is true of it:
 which classes it may carry, whether it is refuse- or advise-class, whether its
 threshold is internal or external, the ADR that owns it, and its template. It
 exists so those facts are looked up rather than restated at each call site — the
@@ -727,7 +727,7 @@ tool, which is exactly why using it here would mislead.
 
 **Scene**:
 Elsewhere a scene owns its own clock, so its children's times are relative to it.
-A `track` is the one container Montaget has, and the distinction is exactly this:
+A `track` is the one container Montagent has, and the distinction is exactly this:
 a scene owns a clock, a track owns a stacking position. A track has no start, no
 duration and no origin, so there is nothing for a child's time to be relative to.
 Nesting still *invites* the assumption — JSON2Video documents the silent failure
@@ -736,12 +736,12 @@ loudly rather than relying on this paragraph.
 
 **Clip**:
 Elsewhere a clip pairs a visual with its audio, and its duration follows that
-audio. In Montaget audio is an ordinary element with its own independent time
+audio. In Montagent audio is an ordinary element with its own independent time
 range, so no such pairing exists.
 
 **Asset**:
 Elsewhere an asset is an imported file declared once and referenced by id.
-Montaget writes the file's location on the element that uses it. Note also that
+Montagent writes the file's location on the element that uses it. Note also that
 an asset is *not* a reusable configured object in the sense of a Unity prefab —
 that is templating, and it is out of scope for v1. The one carve-out is **Font**,
 for reasons recorded in [ADR-0002](docs/adr/0002-inline-source-no-asset-table.md);
@@ -749,7 +749,7 @@ media sources never get a table.
 
 **Anchor, for text positioning**:
 Every comparable tool — ASS's `\an`, CSS, every GUI editor — calls the nine-way
-positioning point an *anchor*. Montaget spends that word on layer-relative stacking
+positioning point an *anchor*. Montagent spends that word on layer-relative stacking
 instead, so the positioning point is **`origin`**. The collision is recorded here
 because it is near-certain to be rediscovered: the positioning concept appears on
 essentially every text element, and layer anchoring appears rarely. The schema catches
@@ -775,7 +775,7 @@ standing rule that a check refuses where any instance it can match could be load
 [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md)'s remark
 that *"`box` was migrated by arithmetic script"* is a historical note about `migrate.py`,
 not a classification. The placement is provisional; the ruling belongs to an ADR
-([#228](https://github.com/MBehtemam/Montaget/issues/228), evidence in
+([#228](https://github.com/MBehtemam/Montagent/issues/228), evidence in
 [`docs/research/juries/retired-spelling-classes/`](docs/research/juries/retired-spelling-classes/README.md)).
 
 **Align, for images**:
@@ -787,12 +787,12 @@ Clip), the same fields that place any other visual element's rect, including the
 naming `x`/`y`/`origin` and `clip` as the replacement. The collision is recorded because it
 caused a live misreading: the fixture's `align:"left"` on text was transcribing ASS `\an4`,
 **left-middle**, so its `y` was a centre and nothing in the file said so.
-([#52](https://github.com/MBehtemam/Montaget/issues/52))
+([#52](https://github.com/MBehtemam/Montagent/issues/52))
 
 **Its repair class is open for the same reason `box`'s is.** On an image the word meant
 exactly what `gravity` meant, so repairing it needs the same absent fact, and no ADR has
 ruled. The check refuses provisionally; see the note under Box
-([#228](https://github.com/MBehtemam/Montaget/issues/228)).
+([#228](https://github.com/MBehtemam/Montagent/issues/228)).
 
 **Path, line, polygon**:
 Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is
@@ -826,8 +826,8 @@ fixture with two `top`→`bottom` values flipped, given `validate` output alone 
 0 of 3 with it**, because the entry's own framing (*"no freedom left to spend," met by
 "copying a neighbouring element"*) read as license to discard the value on any element, not
 only the ones where it happened not to matter.
-([#76](https://github.com/MBehtemam/Montaget/issues/76),
-[`docs/research/juries/format-versioning/experiment-gravity-fork/`](https://github.com/MBehtemam/Montaget/tree/main/docs/research/juries/format-versioning/experiment-gravity-fork))
+([#76](https://github.com/MBehtemam/Montagent/issues/76),
+[`docs/research/juries/format-versioning/experiment-gravity-fork/`](https://github.com/MBehtemam/Montagent/tree/main/docs/research/juries/format-versioning/experiment-gravity-fork))
 
 **Derivation claim**:
 A **renderer-ignored declaration recording how the author computed a literal**, whose only
@@ -918,6 +918,6 @@ advise-class finding whose repair cannot be applied verbatim spends the guarante
 field exists to give. What is missing is an asset rather than an intent, which fits neither
 arm of [ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md)
 cleanly; the ruling belongs to an ADR
-([#228](https://github.com/MBehtemam/Montaget/issues/228)). The spelling sits on the text
+([#228](https://github.com/MBehtemam/Montagent/issues/228)). The spelling sits on the text
 element as often as on a run — the one real project file carried `"weight": "bold"` on all
 22 of its text elements.

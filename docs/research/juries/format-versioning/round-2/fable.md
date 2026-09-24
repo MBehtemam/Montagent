@@ -2,11 +2,11 @@
 
 ## Headline
 
-One top-level integer, `"montaget": N`, lower bound, value `1` until first
+One top-level integer, `"montagent": N`, lower bound, value `1` until first
 release, whose **sole designed consumer is an older binary refusing to
 mis-repair a newer file** — and whose defense against fact 6 (agents copy
 fields stale) is that validate can check it in both directions, which no other
-position in the round provides. `montaget migrate` never exists; its real
+position in the round provides. `montagent migrate` never exists; its real
 content is a **retired-vocabulary table inside validate** (retired key/type →
 retiring ADR → successor recipe or explicit "no successor"), which my A2 run
 shows is sufficient for the only real migration this project has ever performed
@@ -67,10 +67,10 @@ a retired-vocabulary table and mechanisms that don't.
 
 **A4.** The fixture directory itself contains a JSON that is not a project
 file (`transcript.json`), so "which JSON is the project?" exists even at home.
-Identification today is the `.montaget.json` extension (defeated by
+Identification today is the `.montagent.json` extension (defeated by
 rename/pipe) or sniffing the key conjunction {frame, fps, background,
 duration, output, fonts, tracks} — a heuristic. Identification **alone**
-justifies a marker only weakly: the failure prevented ("not a Montaget
+justifies a marker only weakly: the failure prevented ("not a Montagent
 project" instead of a 60-error spray an eager agent might "repair") is real in
 kind but unmeasured, and the extension covers the common path. **The marker
 and the version are separable decisions** — and on my Q5 answer the direction
@@ -79,7 +79,7 @@ identification rides on it.
 
 ## Q5 — marker at all, and is it a version?
 
-**Preferred answer: P1, sharpened.** One top-level integer `"montaget": N`
+**Preferred answer: P1, sharpened.** One top-level integer `"montagent": N`
 naming a revision of the whole contract, with two non-negotiable riders:
 
 - **Its designed consumer is the stale binary.** The failure it prevents is
@@ -87,8 +87,8 @@ naming a revision of the whole contract, with two non-negotiable riders:
   binary meeting a newer file reports either nothing (lenient unknown-key →
   silent misrender) or "unknown key `fit`" (strict) — and fact 6's population
   of eager repairers responds to "unknown key" by **deleting the future to
-  make the file pass**. `"montaget": 4` read by a binary that speaks 2
-  produces "this file claims a newer contract than I speak; upgrade montaget,
+  make the file pass**. `"montagent": 4` read by a binary that speaks 2
+  produces "this file claims a newer contract than I speak; upgrade montagent,
   do not edit the file" — the only error message in this space that points the
   repair at the *binary* instead of the *file*.
 - **It must be checkable, or it is ceremony.** Validate (current binary)
@@ -101,7 +101,7 @@ naming a revision of the whole contract, with two non-negotiable riders:
   a ceremony field.
 
 **Strongest attack (P3's, plus the population attack).** (a) Pre-release there
-are no stale binaries, and Montaget may be consumed mostly via MCP where the
+are no stale binaries, and Montagent may be consumed mostly via MCP where the
 server is current — the number's sole consumer may be a near-empty population;
 this is unmeasured and I label it speculation. (b) P3's structural point is
 correct as far as it goes: C1's class is a fact about which binary you run,
@@ -178,7 +178,7 @@ constant. I cannot fully dismiss the attack and say so. **Falsifier:** if
 ADR-0016 turns out to need a bump for a real external consumer before any
 release, P8/P9's collapse was wrong and P7's trigger was too late.
 
-## Q8 — does `montaget migrate` ever exist?
+## Q8 — does `montagent migrate` ever exist?
 
 **Preferred answer: P10 — never**, and my Part A results, not my prior, decide
 it: A2 produced a byte-identical repair from error messages plus ADRs, and A3
@@ -295,7 +295,7 @@ outcomes, so #14 does not block on the new ticket either.
 ## What I could not settle
 
 - **Whether the stale-binary population will exist.** The entire weight of my
-  Q5 answer rests on Montaget shipping as an installable CLI/MCP server that
+  Q5 answer rests on Montagent shipping as an installable CLI/MCP server that
   goes stale in the wild. That is a distribution-model fact nobody has
   decided. It should be *decided or measured*, not assumed — and my verdict
   flips to P3 if it resolves to guaranteed-current.

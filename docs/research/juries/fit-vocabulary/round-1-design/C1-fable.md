@@ -1,6 +1,6 @@
 # Juror C1 verdict — issue #48, the `fit` vocabulary
 
-Evidence base: issue #48; ADR-0013 (all), ADR-0012 (clip/aperture), ADR-0014 (gravity, text box), ADR-0006 (opt-in rule), ADR-0003 (asymmetry guard), CONTEXT.md; the 8 image elements of `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`; `fit_rounding_scan.py` run clean (exit 0); PNG headers of all five image sources read directly (photos 1536x2720, logo 800x800).
+Evidence base: issue #48; ADR-0013 (all), ADR-0012 (clip/aperture), ADR-0014 (gravity, text box), ADR-0006 (opt-in rule), ADR-0003 (asymmetry guard), CONTEXT.md; the 8 image elements of `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`; `fit_rounding_scan.py` run clean (exit 0); PNG headers of all five image sources read directly (photos 1536x2720, logo 800x800).
 
 ## Q1
 

@@ -1,9 +1,9 @@
 # FINDINGS -- preview degradation under a heavy composite stack
 
-For [#159](https://github.com/MBehtemam/Montaget/issues/159). Every number below comes
+For [#159](https://github.com/MBehtemam/Montagent/issues/159). Every number below comes
 from `./run.sh`; re-run it to reproduce (~10 min on an M1 Pro -- the 8K/native tier alone
 is 130s). Methodology, scale-fraction table and backend choice all copy
-[#87](https://github.com/MBehtemam/Montaget/issues/87)'s harness exactly, so the two are
+[#87](https://github.com/MBehtemam/Montagent/issues/87)'s harness exactly, so the two are
 directly comparable: same `[10, 20)` 10s window, same `<5s` scrub-preview budget, same
 `skia-safe` load-bearing backend (ADR-0009/ADR-0010), same 4K/8K canvases.
 

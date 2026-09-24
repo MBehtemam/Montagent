@@ -1,9 +1,9 @@
 # Jury: proxy target resolution, degradation ladder and floor
 
-For [#158](https://github.com/MBehtemam/Montaget/issues/158), graduated from
-[#87](https://github.com/MBehtemam/Montaget/issues/87), amending
+For [#158](https://github.com/MBehtemam/Montagent/issues/158), graduated from
+[#87](https://github.com/MBehtemam/Montagent/issues/87), amending
 [ADR-0021](../../../adr/0021-preview-budget-and-graceful-degradation.md), part of the
-map [#2](https://github.com/MBehtemam/Montaget/issues/2).
+map [#2](https://github.com/MBehtemam/Montagent/issues/2).
 
 Three independent jurors (Opus, Sonnet, Fable), each given the same brief (the
 author's draft answer plus #87's `FINDINGS.md`), blind to each other, instructed to

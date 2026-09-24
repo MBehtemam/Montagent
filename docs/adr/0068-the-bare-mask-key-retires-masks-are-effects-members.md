@@ -23,7 +23,7 @@ amends: 0040 (retires its "no migration needed" Consequences bullet, and states 
 
 [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) contains two accepted
 sentences that cannot both be implemented. Found while breaking
-[#168](https://github.com/MBehtemam/Montaget/issues/168) into tickets, where the very
+[#168](https://github.com/MBehtemam/Montagent/issues/168) into tickets, where the very
 first ticket's demo — *the committed fixture round-trips* — is the thing that fails.
 
 **Its schema clause** puts masks inside the effect list:

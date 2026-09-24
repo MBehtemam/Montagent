@@ -8,10 +8,10 @@ guessing** — which is the strongest single piece of evidence this ticket has, 
 points away from a migration tool. But the result has a scope limit that I state
 rather than hide: it worked because ADR-0015 retired `gravity` *for being inert*, and
 an inert field loses nothing when deleted. My answer is therefore a package, not four
-independent calls: **one top-level marker `"montaget": 1`, justified on a
+independent calls: **one top-level marker `"montagent": 1`, justified on a
 destructive-write hazard I found in `fmt` and explicitly *not* on versioning; the
 number frozen at 1 and read as a lower bound if it is ever read at all; the revision
-counter starting when the JSON Schema resource ships, not at ADR-0016; `montaget
+counter starting when the JSON Schema resource ships, not at ADR-0016; `montagent
 migrate` never, replaced by a one-line constraint on what ADRs may retire; and no
 second version field, because the semantics-only class belongs on the renderer, not in
 the document.** C1 is the reason the last of those changed: it removes the version
@@ -86,7 +86,7 @@ which is Q7's whole argument arriving from an unexpected direction.
 `migrate.py` has three commits (`afc12d24`, `ed3db37c`, `3b795255`) — edited in place at
 each ADR, never an N→N+1 step. No per-change scripts exist. Its input `old.json` is
 **nowhere in the worktree under that name**; the origin is
-`docs/research/prototypes/sample-project/en-halloween-decorating.montaget.json` on the
+`docs/research/prototypes/sample-project/en-halloween-decorating.montagent.json` on the
 **unmerged** branch `prototype/sample-project-file`. Fetching it and running
 `python3 migrate.py linear old.json regen.json` reproduces the current fixture exactly —
 so the regenerator works, but round-1 fact 3's "the mapping re-runs from a clean
@@ -114,15 +114,15 @@ it covers A2's scope limit too.
 
 The file's top-level keys are `frame, fps, background, duration, output, fonts, tracks`.
 Nothing in the document identifies it. Two discriminators exist, both outside it: the
-`*.montaget.json` filename convention (real, free, defeated by renaming or stdin) and
+`*.montagent.json` filename convention (real, free, defeated by renaming or stdin) and
 key-set sniffing (a heuristic; `tracks`+`fps`+`duration` is shared with OTIO and DAW
 exports). The "nicer error message" argument is real but unmeasured and I do not lean
 on it.
 
 The one argument that is neither ergonomic nor about versioning: **ADR-0011 gives `fmt`
 a write bit — "rewrite the file in the canonical convention" — and nothing in ADR-0011
-or ADR-0006 conditions it on `validate` passing.** `montaget fmt` aimed at a mis-named
-JSON rewrites a file that is not Montaget's, in the user's git repo. Bounded by git, but
+or ADR-0006 conditions it on `validate` passing.** `montagent fmt` aimed at a mis-named
+JSON rewrites a file that is not Montagent's, in the user's git repo. Bounded by git, but
 a destructive write and a named failure.
 
 **So yes, the marker and the number are separable, and A2 demonstrates it from both
@@ -133,7 +133,7 @@ file, and the identification hazard exists with no versioning argument attached.
 
 ## Q5 — Does the file carry a marker, and is it a version?
 
-**Preferred answer.** A single top-level `"montaget": 1`, adopted on **P2's shape but
+**Preferred answer.** A single top-level `"montagent": 1`, adopted on **P2's shape but
 not P2's reasoning**: justified by the `fmt` destructive-write guard above, frozen at 1,
 and stated in the ADR as **not yet a version number**. P1 is rejected because it asserts
 a contract revision over a contract that does not exist in machine-readable form (fact
@@ -242,7 +242,7 @@ knowingly underdetermined, which would make P8 fire on a predicate as absent as 
 
 ---
 
-## Q8 — Does `montaget migrate` ever exist?
+## Q8 — Does `montagent migrate` ever exist?
 
 **Preferred answer: P10 — never — with one amendment that P10 does not contain.**
 
@@ -385,7 +385,7 @@ population shrinks and #61's stakes shrink with it. Speculation, labelled.
 C4 is right that nothing states it and right that it is load-bearing. It understates the
 case: **#14 cannot avoid the question, because #14 is about to add a top-level key to a
 format that has never had one.** Whether a validator may reject unknown keys *is* the
-question of whether adding `"montaget"` is itself breaking. It is inside this change, not
+question of whether adding `"montagent"` is itself breaking. It is inside this change, not
 adjacent to it. That, not the Q4 row, is the decisive reason it belongs here.
 
 **Which way: strict.** Unknown top-level keys and unknown element keys are a schema error
@@ -412,7 +412,7 @@ project later wants an escape hatch, an explicitly-reserved prefix is an additiv
 it can make then, from a strict baseline — which is the direction that is cheap. The
 reverse (tightening from permissive) is not.
 
-**Falsifier.** A named use for in-band third-party annotation on a Montaget project file
+**Falsifier.** A named use for in-band third-party annotation on a Montagent project file
 that cannot be served by a sidecar in the same git repo.
 
 ---
@@ -446,7 +446,7 @@ that cannot be served by a sidecar in the same git repo.
 
 | | answer | confidence | note |
 |---|---|---|---|
-| **Q5** | marker `"montaget": 1`, frozen, not a version | **0.55 — low** | The whole justification is one unaddressed `fmt` hazard, and a one-line precondition kills it. P3 is not refuted and a reasonable jury takes it. My lowest-confidence answer and the one I would most expect to be talked out of. |
+| **Q5** | marker `"montagent": 1`, frozen, not a version | **0.55 — low** | The whole justification is one unaddressed `fmt` hazard, and a one-line precondition kills it. P3 is not refuted and a reasonable jury takes it. My lowest-confidence answer and the one I would most expect to be talked out of. |
 | **Q6** | P5, lower bound | **0.85 — high** | M1 re-verified by hand; P6 would have manufactured three meaningless mass rewrites. The main residual is that P5 makes the field so weak it undermines Q5 — which I accept and follow. |
 | **Q7** | P8, schema publication; P9's mechanics already binding | **0.70 — moderate** | Fact 2 plus two independently-found instances of an absent predicate. The gameability attack is real and only partly answered by ADR-0011's existing commitment. |
 | **Q8** | P10, never — plus the retirement rule | **0.80 — high** | Two direct experiments (A2 byte-exact, A3 no-tool-can-help) and C2 removing P11's only mechanism. Held below 0.9 because A2 is n=1 on the easiest possible case, selected by the format's author. |

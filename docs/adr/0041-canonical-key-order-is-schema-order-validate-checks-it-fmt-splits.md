@@ -20,9 +20,9 @@ amends: 0005 (its writing-convention sentence stops being folklore and becomes a
 > for an element; and clarifies that a `LAYOUT` finding names only the keys a structure
 > actually carries, never the ones it omits.
 
-[Ticket #73](https://github.com/MBehtemam/Montaget/issues/73), from [#12](https://github.com/MBehtemam/Montaget/issues/12)
-and sharpened by [#8](https://github.com/MBehtemam/Montaget/issues/8) and
-[#16](https://github.com/MBehtemam/Montaget/issues/16). [ADR-0005](./0005-absolute-integer-milliseconds.md)
+[Ticket #73](https://github.com/MBehtemam/Montagent/issues/73), from [#12](https://github.com/MBehtemam/Montagent/issues/12)
+and sharpened by [#8](https://github.com/MBehtemam/Montagent/issues/8) and
+[#16](https://github.com/MBehtemam/Montagent/issues/16). [ADR-0005](./0005-absolute-integer-milliseconds.md)
 already required elements to be written "sorted by `start` within a track, one element per
 line, stable key order," and said this is load-bearing *because agents edit by exact-string
 replace* — but it published no actual order and nothing checked it. Two incidents followed.
@@ -70,7 +70,7 @@ so adding one field to one type forces a decision that silently reshuffles every
 line. Tying order to the schema instead of a parallel document means there is exactly one
 place key order can go stale — the schema itself — rather than two artifacts that can drift
 apart, which is the identical failure this map has now found twice in jury evidence
-([#72](https://github.com/MBehtemam/Montaget/issues/72)) and once in `validate`'s own
+([#72](https://github.com/MBehtemam/Montagent/issues/72)) and once in `validate`'s own
 measured facts ([ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s stale
 severity claims). It also matches this project's own standing principle that **the format is
 discoverable through its published schema**, not through a document that merely describes it.
@@ -130,11 +130,11 @@ stops being renderable.
 A `LAYOUT` finding names the element, its line, and the fix:
 
 > `LAYOUT` — `photo-06` (line 42): key order does not match the schema for `image`; expected
-> `id,type,group,start,end,source,x,y,origin,width,height,fit,clip,scale`. Run `montaget fmt`.
+> `id,type,group,start,end,source,x,y,origin,width,height,fit,clip,scale`. Run `montagent fmt`.
 
 ### 4. `fmt` splits into `--check` and its existing write mode (unanimous 3/3)
 
-[#61](https://github.com/MBehtemam/Montaget/issues/61) found `fmt` may also materialize (or,
+[#61](https://github.com/MBehtemam/Montagent/issues/61) found `fmt` may also materialize (or,
 per [ADR-0030](./0030-defaultable-field-presence-is-content-fmt-leaves-it-alone.md), now must
 *not* materialize) defaulted fields. Bundling a key reorder and any other rewrite into one
 silent pass produces a diff whose size and content conflate independent, separately-arguable

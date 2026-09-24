@@ -15,8 +15,8 @@ candidate renderer built for a different ticket printed the same three-element s
 on all 47 sampled rows, never once naming the photo or caption beneath it. ADR-0006
 sent "the geometry-aware same-layer check" to #24; #24 turned out to be the anchor
 repair, not this question, and the check has had no owner since — resolving
-[#134](https://github.com/MBehtemam/Montaget/issues/134), graduated from
-[#10](https://github.com/MBehtemam/Montaget/issues/10).
+[#134](https://github.com/MBehtemam/Montagent/issues/134), graduated from
+[#10](https://github.com/MBehtemam/Montagent/issues/10).
 
 Settled by a 3-juror court (Opus, Haiku, Fable), independent, blind to each other,
 put the same three questions below. Unanimous on the first and third; 2–1 on the

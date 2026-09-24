@@ -11,7 +11,7 @@ status: accepted
 
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) named this check
 inside a list of two the exercise found unnamed, gave it a timestamp that does not
-match the fixture, and left it blocked on [#21](https://github.com/MBehtemam/Montaget/issues/21).
+match the fixture, and left it blocked on [#21](https://github.com/MBehtemam/Montagent/issues/21).
 #21 is closed. This ADR gives the check an owner and a full specification.
 
 **Correction to ADR-0006:** the second same-source cut is at **64016**, not 64816.

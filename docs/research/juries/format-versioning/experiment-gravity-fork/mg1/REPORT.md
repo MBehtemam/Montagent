@@ -121,7 +121,7 @@ it changes nothing.
 - `photo-05-intro` and `photo-05` are the same source and the same rect split across
   a cut at 3018 with separate restarting ramps — the scale visibly snaps back to 1.0
   at 3018. Intentional-looking (the hook lands there), not flagged, untouched.
-- `validate-output.txt` names the file `en-halloween-decorating.montaget.json`, while
+- `validate-output.txt` names the file `en-halloween-decorating.montagent.json`, while
   the file I was given is `project.json`. I assumed these are the same file renamed
   and did not rename anything.
 

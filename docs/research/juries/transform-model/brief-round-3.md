@@ -1,10 +1,10 @@
 # Brief (round 3): two questions, and you must rule on both
 
-You are an agent that authors and edits Montaget projects — a video editor whose project
+You are an agent that authors and edits Montagent projects — a video editor whose project
 format is one declarative JSON file, authored by an AI agent rather than a GUI. You are
 the consumer who will live in this format. Not a reviewer.
 
-Repo: `/Users/mohammedehtemam/projects/github/Montaget` (read-only).
+Repo: `/Users/mohammedehtemam/projects/github/Montagent` (read-only).
 
 **You must return a decision on BOTH questions. "It depends", "either is defensible", and
 "the panel should choose" are not answers. If it is close, say it is close, then decide.**
@@ -30,7 +30,7 @@ revise it later. If you got it ambiguous or wrong, that is data — record it as
 - `CONTEXT.md`; `docs/adr/0001`, `0005`, `0006`, `0007`, `0011`.
 - `gh issue view 21 --comments` and `gh issue view 22`.
 - The sample project:
-  `git show prototype/sample-project-file:docs/research/prototypes/sample-project/en-halloween-decorating.montaget.json`
+  `git show prototype/sample-project-file:docs/research/prototypes/sample-project/en-halloween-decorating.montagent.json`
 
 ## Settled — do not reopen
 

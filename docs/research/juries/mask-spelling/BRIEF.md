@@ -1,7 +1,7 @@
 # Brief: ADR-0040 contradicts itself on the fixture's bare `mask` key
 
 You are ruling on a live contradiction in an accepted ADR, found while breaking the v1
-implementation spec into tickets. Repository: `/Users/mohammedehtemam/projects/github/Montaget`.
+implementation spec into tickets. Repository: `/Users/mohammedehtemam/projects/github/Montagent`.
 
 ## The facts
 

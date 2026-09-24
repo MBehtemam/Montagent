@@ -1,11 +1,11 @@
 # proxy-preview-savings — measuring proxy-resolution preview at 4K/8K
 
-Prototype for [#87](https://github.com/MBehtemam/Montaget/issues/87), graduated from
+Prototype for [#87](https://github.com/MBehtemam/Montagent/issues/87), graduated from
 [ADR-0021](../../../adr/0021-preview-budget-and-graceful-degradation.md), part of the map
-[#2](https://github.com/MBehtemam/Montaget/issues/2). **Throwaway. The answer is in
+[#2](https://github.com/MBehtemam/Montagent/issues/2). **Throwaway. The answer is in
 [FINDINGS.md](FINDINGS.md).**
 
-Reuses [#34](https://github.com/MBehtemam/Montaget/issues/34)'s compiled
+Reuses [#34](https://github.com/MBehtemam/Montagent/issues/34)'s compiled
 `rast-bench` binary (`../rust-rasterizer/`) by relative path — no fork of the Rust
 crate, no source changes. The binary's existing `--scale=k` flag already decouples
 destination size (what `k` scales) from source-decode size (what the scene's own

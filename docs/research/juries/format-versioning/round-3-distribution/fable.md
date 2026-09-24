@@ -31,7 +31,7 @@ users hold, in three separate places:
   spawns a **local executable on the user's machine**. There is no hosted
   service anywhere in the ADR; "hosted in Rust" in its first line means
   implementation language, not a hosting model.
-- *"**Montaget spawns a separate `ffmpeg` executable and pipes raw frames to
+- *"**Montagent spawns a separate `ffmpeg` executable and pipes raw frames to
   it**"* and, stated as a cost: the distribution claim *"is now 'a binary,
   plus an `ffmpeg` the user supplies.'"* A user who must supply their own
   ffmpeg is by construction a user administering local binaries.
@@ -44,7 +44,7 @@ surface reachable from the user's shell is incompatible with "MCP-hosted only":
 part of the accepted tool surface only exists if the binary is on the user's
 PATH.
 
-**ADR-0010** adds: *"Montaget does not need to be a resident server"* — a
+**ADR-0010** adds: *"Montagent does not need to be a resident server"* — a
 fully cold process is the assumed mode. Cold-spawned local processes are the
 opposite of a centrally-managed always-current service.
 
@@ -55,11 +55,11 @@ a measurement that only makes sense for a distribute-a-binary future.
 
 ## 2. The map's own fog entry (issue #2, "Packaging and distribution")
 
-Quoted from the entry: *"**Packaging and distribution** — how Montaget is
+Quoted from the entry: *"**Packaging and distribution** — how Montagent is
 installed and run. **Narrowed hard by ADR-0009** … a compiled binary, no
 interpreter, no `node_modules`. But the *self-contained* half of that claim is
 gone: `libx264` is GPL and FFmpeg's legal page states it covers all of FFmpeg,
-so Montaget spawns an `ffmpeg` **the user supplies**, and bundling one instead
+so Montagent spawns an `ffmpeg` **the user supplies**, and bundling one instead
 makes this project a distributor of GPL software owing source-offer duties
 under GPL §3/§6. **There is no option that is both self-contained and
 obligation-free** — what is left here is choosing between those two, plus the
@@ -68,7 +68,7 @@ container question and the asset-path story."*
 What the GPL analysis implies for this question: every candidate still on the
 table is a variant of *the user holds and runs binaries locally*. Either (a)
 the user supplies ffmpeg — so they are already managing a locally installed
-toolchain that nothing auto-updates — or (b) Montaget bundles ffmpeg and
+toolchain that nothing auto-updates — or (b) Montagent bundles ffmpeg and
 becomes a GPL distributor, i.e. ships release archives that users download
 and hold. Both branches produce users holding installed binaries. Neither
 branch is, or could become, "hosted only". The fog entry's open questions are
@@ -87,7 +87,7 @@ only" is therefore **false by accepted decision**, not open.
 
 **Undecided (someone must still choose):** the install channel — cargo
 install / homebrew / release tarball / container — and any update policy. The
-fog entry says so explicitly ("how Montaget is installed and run" is under
+fog entry says so explicitly ("how Montagent is installed and run" is under
 "Not yet specified"). So "hard auto-update" is formally open.
 
 **But no choice in the undecided region empties the population**, for three
@@ -147,7 +147,7 @@ one-sided detector with zero false alarms in one direction and a floor at the
 status quo in the other is cheap insurance, not machinery for its own sake.
 
 **Attack 3 — the stale-HIGH number, the genuinely new failure.** An agent
-copies `"montaget": 7` out of a web tutorial into a file for a revision-4
+copies `"montagent": 7` out of a web tutorial into a file for a revision-4
 binary whose content is actually revision-4 legal. The binary now refuses a
 file it could have processed, saying "upgrade the binary". This is the one
 case the field *creates*. But examine the blast radius: the message points at

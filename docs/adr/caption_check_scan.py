@@ -20,7 +20,7 @@ third reason and stop witnessing the disagreement at all.
 Grapheme segmentation is not in the standard library. The fixture is Latin text with no
 combining marks or emoji — asserted here rather than assumed — so `len(str)` is the
 cluster count for this file and this file only. The product counts clusters properly
-(`unicode-segmentation`, `crates/montaget-core/src/checks/caption.rs`); this scan is
+(`unicode-segmentation`, `crates/montagent-core/src/checks/caption.rs`); this scan is
 evidence about one committed document, not a second implementation of the metric.
 
 Run it by hand. It is registered in `.github/workflows/ci.yml` beside the other two
@@ -36,7 +36,7 @@ import unicodedata
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(
     HERE, "..", "..", "fixtures", "en-halloween-decorating",
-    "en-halloween-decorating.montaget.json",
+    "en-halloween-decorating.montagent.json",
 )
 
 PACE_CPS = 20          # ADR-0034

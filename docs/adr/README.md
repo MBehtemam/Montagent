@@ -1,12 +1,12 @@
 # ADR index
 
-**The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montaget/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
+**The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montagent/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
 **Most of this series amends itself — 70 of 86 ADRs declare an amendment: 67 in an `amends:` header, three ([0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md), [0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
 **ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0011 (23 amendments) and ADR-0006/ADR-0012 (20 and 12), which is expected: they are the tool surface, the validate report and the transform model, and nearly every later decision lands on one of them.
 
-ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montaget/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
+ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (360p vs 540p). **Resolved by [ADR-0067](0067-two-floors-a-wall-clock-give-up-point-and-a-legibility-refusal.md)** ([#178](https://github.com/MBehtemam/Montagent/issues/178)): they are two different refusals sharing one word — a wall-clock give-up point at 540p and a legibility threshold at 360p. Both stand. Read ADR-0067 before implementing preview degradation.
 
 ---
 
@@ -14,7 +14,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0003](0003-general-video-editor-not-channel-tooling.md) | Montaget is a general video editor in the CapCut/Premiere class; After Effects is out. The channel is a fixture and a regression guard, **never a scope boundary** — evidence a capability is needed, never evidence one is unneeded | — |
+| [0003](0003-general-video-editor-not-channel-tooling.md) | Montagent is a general video editor in the CapCut/Premiere class; After Effects is out. The channel is a fixture and a regression guard, **never a scope boundary** — evidence a capability is needed, never evidence one is unneeded | — |
 
 ## Host, renderer and distribution
 
@@ -39,11 +39,11 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0002](0002-inline-source-no-asset-table.md) | An element names its file inline. There is no asset table — the one carve-out is the `fonts` table | 0007, 0053 |
 | [0053](0053-asset-path-resolution-no-assetroot.md) | Paths resolve against the project file's own directory. No `assetRoot`; absolute paths permitted; a missing source is a plain error | 0056 |
 | [0056](0056-remote-source-probe-session-scoped-no-persistent-cache.md) | A URL source is probed once per session, deduplicated by URL, with no persistent cache. A network failure is `UNCHECKED`, never a confirmed defect | — |
-| [0069](0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md) | The **local** probe cache persists as one per-user JSON file under the platform cache directory — never beside the project — keyed on a canonicalised `(path, size, mtime)` and holding the whole probe. Every failure in it is a cache miss, never a finding. Remote stays uncached | — |
-| [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) | The file carries **no version number**. The unknown-key error is the migration mechanism, and there is no `montaget migrate` | 0017, 0041, 0042 |
+| [0069](0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montagent-observed.md) | The **local** probe cache persists as one per-user JSON file under the platform cache directory — never beside the project — keyed on a canonicalised `(path, size, mtime)` and holding the whole probe. Every failure in it is a cache miss, never a finding. Remote stays uncached | — |
+| [0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) | The file carries **no version number**. The unknown-key error is the migration mechanism, and there is no `montagent migrate` | 0017, 0041, 0042 |
 | [0017](0017-closed-schema-no-escape-hatch.md) | The schema is closed at every object level, including `run` and `keyframe`. No `x-` prefix, no in-band escape hatch | — |
 | [0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) | Canonical key order **is** schema property-declaration order. `validate` checks it under a `LAYOUT` category; `fmt` splits into `--check` and write | 0068, 0079 |
-| [0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) | `.montaget.json` is a documented convention, never enforced, with no in-document marker. `fmt` refuses only when `tracks`/`fps`/`frame` are wholesale missing | — |
+| [0042](0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md) | `.montagent.json` is a documented convention, never enforced, with no in-document marker. `fmt` refuses only when `tracks`/`fps`/`frame` are wholesale missing | — |
 | [0030](0030-defaultable-field-presence-is-content.md) | A defaultable field's **presence is content**. `fmt` never adds or removes one; omission and explicit-at-default are two different declarations | 0080 |
 
 ## Time
@@ -85,11 +85,11 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | ADR | Decision | Amended by |
 | --- | --- | --- |
 | [0007](0007-text-runs-literal-size-declared-fonts.md) | Text is **styled runs at a literal size**, always an array, in fonts the project declares by path. No fit-to-box, no auto-wrap, no `weight`/`bold`, no variable axes. NFC, raw UTF-8 | 0012, 0014, 0028, 0029, 0030, 0040, 0048, 0057 |
-| [0008](0008-line-breaks-belong-to-the-agent.md) | The renderer never needs a break opportunity; the agent always does. `\n` is the only mechanism, `measure` gains a break-opportunity output, and **Montaget owns the line partition** via UAX #14 | — |
+| [0008](0008-line-breaks-belong-to-the-agent.md) | The renderer never needs a break opportunity; the agent always does. `\n` is the only mechanism, `measure` gains a break-opportunity output, and **Montagent owns the line partition** via UAX #14 | — |
 | [0028](0028-text-block-arithmetic-is-exact-tenths.md) | `line_height` is restricted to tenths; block height is `ceil`, in exact integer arithmetic, never IEEE double. States the general rule for any such field | — |
 | [0029](0029-line-baseline-half-leading.md) | The baseline is half-leading — `slot_centre_y + (ascent − descent) / 2` — read across **every** run on the line, not the largest | — |
 | [0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) | Per-word highlighting is a `highlight` object **on the run**: a timed window with its own style delta. Word times are frozen literals; one highlighted word is one run | 0051 |
-| [0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md) | Forced alignment stays **entirely external** — a forced aligner is a model, and Montaget contains none. No ingestion tool; `validate` and `compare` catch the drift | — |
+| [0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md) | Forced alignment stays **entirely external** — a forced aligner is a model, and Montagent contains none. No ingestion tool; `validate` and `compare` catch the drift | — |
 | [0057](0057-font-vendoring-licence-gate-and-path-keyed-attestation.md) | `fonts vendor` is a local-only copy behind a three-bucket licence gate with a hard refuse and no override. Attestation is keyed by **file path** | — |
 
 ## Shapes, effects and audio
@@ -115,7 +115,7 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 | [0031](0031-timeline-overview-is-not-required-to-be-spatial.md) | An agent-facing overview is **not required to be spatial** — measured, not assumed. `timeline` as the human's wide view is unaffected | — |
 | [0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md) | **`preview` is the ninth MCP verb and 0011's table gains a row** (nine MCP tools, twelve CLI commands). Ratifies the eleven readings #218 had to pick around the ladder — the check-engine refusal, the never-the-deliverable rule, the per-attempt clock, the abandoned span, the undegradable escape hatch, exit 3, the floor's proxy-only scope, the between-caps degrade, and `native` disclosure — correcting one: a rung is named for the frame it rasterized **everywhere** it is named. No rung, cap or floor moves | — |
 | [0079](0079-fmt-check-stays-exit-0-l-layout-is-ratified.md) | The five-code exit ladder stays five: `LAYOUT` never gates `fmt --check`'s (or `validate`'s) exit code — a caller that wants a hard gate reads `--json`'s counted `summary.layout`. Ratifies `L-LAYOUT` as a second, whole-file `LAYOUT` finding alongside the element-scoped `L-KEY-ORDER`; ratifies the header's and each track's key order as schema property-declaration order; a `LAYOUT` finding names only the keys a structure carries, never the ones it omits | — |
-| [0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md) | Closes #246's five gaps in `create_project` and the two resources. **The scaffold writes `background`/`duration`/`output` only when asked** — ADR-0030's open question, closed on its own reasoning, overruling #194's five-key sentence on the merits. **`E-PROJECT-EXISTS` moves to exit 3 and `NotAboutDocument`**: the project is intact, so the repair is to the command. The two resource URIs, names and media types are **named and pinned by test**; the format docs live inside `montaget-core` (ADR-0064); the CLI is `create-project` while MCP takes nested `frame`, reading 0011's write-tool invariant as binding MCP and not argv | 0083 |
+| [0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md) | Closes #246's five gaps in `create_project` and the two resources. **The scaffold writes `background`/`duration`/`output` only when asked** — ADR-0030's open question, closed on its own reasoning, overruling #194's five-key sentence on the merits. **`E-PROJECT-EXISTS` moves to exit 3 and `NotAboutDocument`**: the project is intact, so the repair is to the command. The two resource URIs, names and media types are **named and pinned by test**; the format docs live inside `montagent-core` (ADR-0064); the CLI is `create-project` while MCP takes nested `frame`, reading 0011's write-tool invariant as binding MCP and not argv | 0083 |
 | [0081](0081-speed-literal-obligation-is-about-the-division-not-the-parser.md) | ADR-0045's string-carriage sentence binds **the division**, not `serde_json`'s own parse: a `speed` literal with more digits than `f64` distinguishes is a theoretical gap with zero observed instances, not worth a string-preserving read path or dropping `untagged` from the keyframe model | — |
 | [0082](0082-a-keyframe-list-must-be-written-in-ascending-t.md) | A keyframe list must be written in **strictly ascending `t`** — new schema law. Makes ADR-0038's positional `ease` rule and the resolver's clock-based read the same statement by construction, closing the divergence a reverse-order list could produce | — |
 | [0083](0083-mcp-iserror-tracks-notaboutdocument.md) | Resolves #313: MCP's `isError` is true exactly when a report is `RepairClass::NotAboutDocument`-classed (exit 2/3/70 — `E-PARSE`, `E-READ`, `E-INVOCATION`, `E-INTERNAL`, `E-PROJECT-EXISTS`), `success` otherwise (exit 0/1). One shared `respond` helper across all nine MCP tools; the write-tool invariant's "return value is the findings" is restated as scoped to findings about the document | — |
@@ -169,7 +169,7 @@ The series is 80 ADRs and mostly not worth reading front to back. To get the mod
 
 - **Amended, never rewritten.** An ADR that corrects an earlier one says so; the earlier one gets a pointer under its title.
 - **Evidence is committed before `status: accepted`.** A numeric claim needs a re-executable script; a qualitative one needs the artifact verbatim. See `docs/agents/domain.md`.
-- **ADRs land on `main` as their ticket closes.** Nine of these did not, for a while, and [#178](https://github.com/MBehtemam/Montaget/issues/178) is what that cost.
+- **ADRs land on `main` as their ticket closes.** Nine of these did not, for a while, and [#178](https://github.com/MBehtemam/Montagent/issues/178) is what that cost.
 
 ### The amendment rule is now enforced, not just written
 

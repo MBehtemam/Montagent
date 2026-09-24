@@ -1,4 +1,4 @@
-# Montaget format reference — image elements, sizing
+# Montagent format reference — image elements, sizing
 
 *(Published format documentation. This is what the schema enforces.)*
 

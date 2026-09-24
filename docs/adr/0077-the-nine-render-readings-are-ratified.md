@@ -5,15 +5,15 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 
 # The nine `render` readings are ratified
 
-**Ticket:** [#287](https://github.com/MBehtemam/Montaget/issues/287), from
-[#215](https://github.com/MBehtemam/Montaget/issues/215).
+**Ticket:** [#287](https://github.com/MBehtemam/Montagent/issues/287), from
+[#215](https://github.com/MBehtemam/Montagent/issues/215).
 
 ## The gap
 
-[#215](https://github.com/MBehtemam/Montaget/issues/215) built `render`. Nine places where
+[#215](https://github.com/MBehtemam/Montagent/issues/215) built `render`. Nine places where
 the ADR series names a rule but not its edge — or names nothing at all — had to be decided
-in the code to ship it. Each was argued at its site, in `crates/montaget-core/src/verbs/render.rs`
-and `crates/montaget-render/src/encode.rs`, and each ended *"raised for ratification"*.
+in the code to ship it. Each was argued at its site, in `crates/montagent-core/src/verbs/render.rs`
+and `crates/montagent-render/src/encode.rs`, and each ended *"raised for ratification"*.
 
 This ADR is that ratification, on the precedent of
 [ADR-0076](0076-the-four-structural-time-finding-codes-are-ratified.md) and the tickets it
@@ -177,8 +177,8 @@ slow.
 
 It is not a reading because no ADR is being extended and no choice is being defended: it is
 a cost nobody has measured. The only render wall clock this project has taken is over the
-committed fixture (`montaget_render::budget::RENDER_REFERENCES`), which has **no `video`
-element** — spec [#168](https://github.com/MBehtemam/Montaget/issues/168) names this as the
+committed fixture (`montagent_render::budget::RENDER_REFERENCES`), which has **no `video`
+element** — spec [#168](https://github.com/MBehtemam/Montagent/issues/168) names this as the
 case most likely to be missed — so the saving a streaming decoder would deliver is
 currently invented rather than measured.
 
@@ -190,9 +190,9 @@ measures a `video`-carrying project before it optimises one.
 
 #287's closing section quotes #215's 17.3 s whole-fixture render against *"the 130 s ceiling
 `RENDER_MS_PER_OUTPUT_SECOND` implies"*. That ceiling no longer exists.
-[#217](https://github.com/MBehtemam/Montaget/issues/217) deleted the constant and ADR-0072
+[#217](https://github.com/MBehtemam/Montagent/issues/217) deleted the constant and ADR-0072
 retired the budget: `render` is observational, `Budget::Render.limit()` is `None`, and
-`crates/montaget/tests/render_budget.rs` asserts that the harness reached `Verdict::Observed`
+`crates/montagent/tests/render_budget.rs` asserts that the harness reached `Verdict::Observed`
 rather than passing against a limit. The 17.3 s reading itself survives, as the first row of
 `RENDER_REFERENCES` and of ADR-0072's table.
 
@@ -203,8 +203,8 @@ ADR does not conclude the ceiling was quietly kept.
 
 - **ADR-0035, ADR-0011, ADR-0021, ADR-0009 and ADR-0055** each gain an "Amended by" banner
   pointing here, naming the reading that extends them.
-- The *"raised for ratification"* passages in `crates/montaget-core/src/verbs/render.rs`
-  and `crates/montaget-render/src/encode.rs` are replaced with citations to this ADR. **No
+- The *"raised for ratification"* passages in `crates/montagent-core/src/verbs/render.rs`
+  and `crates/montagent-render/src/encode.rs` are replaced with citations to this ADR. **No
   behaviour changes** — this ADR ratifies what #215 shipped.
 - Four readings, or halves of readings, that shipped with no test of their own now have
   one, so that a later change to any of them is a failing suite rather than a silent

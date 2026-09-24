@@ -8,7 +8,7 @@ amends: 0040 (confirms the "own shape — likely id-targeting" prediction; the e
 CapCut and Premiere both make transitions first-class; nothing in the settled model
 (ADR-0012's transform/keyframes, ADR-0040's effect model) could express one. This
 settles representation, scope, timing, and interaction with the track model —
-resolving [#133](https://github.com/MBehtemam/Montaget/issues/133).
+resolving [#133](https://github.com/MBehtemam/Montagent/issues/133).
 
 ## Decisions
 
@@ -23,7 +23,7 @@ inherently reads two elements' pixels together, so stretching effects to cover i
 would either break element-locality for every other effect reader or bolt on a
 second-id reference nothing else there has. A property on one of the two elements
 creates an unprincipled ownership question (outgoing or incoming? both, now synced?)
-and gives the transition no time range of its own for `montaget timeline`/`query` to
+and gives the transition no time range of its own for `montagent timeline`/`query` to
 surface.
 
 **Scope includes plain crossfade**, not only directional transitions (wipe, slide,

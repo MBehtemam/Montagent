@@ -13,7 +13,7 @@ not belong in a decision record but that the next exercise needs.
 ## The file under test
 
 The genuinely defective project file an agent shipped in
-[#9](https://github.com/MBehtemam/Montaget/issues/9)'s second exercise, at
+[#9](https://github.com/MBehtemam/Montagent/issues/9)'s second exercise, at
 **"very high" self-reported confidence**. Judges were not told it was defective, or
 who wrote it.
 
@@ -38,7 +38,7 @@ never had.
 **Round one — a scenario, not a questionnaire.** Five judges were told an editing
 session had just finished on the file, given the three tasks that session had been
 set, and told they were the agent who now had to decide whether it was safe to
-render. They were asked for **the verbatim text they wished `montaget validate` had
+render. They were asked for **the verbatim text they wished `montagent validate` had
 printed at them** — the literal output, byte for byte, not a description of it — and
 for which findings they would have missed by hand. Only then the seven design
 questions, stated neutrally with the author's recommendations stripped out. One was

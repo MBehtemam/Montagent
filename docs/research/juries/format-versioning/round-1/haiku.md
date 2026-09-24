@@ -1,8 +1,8 @@
-# Montaget Versioning Jury — VERDICT
+# Montagent Versioning Jury — VERDICT
 
 ## Headline
 
-Montaget must adopt **explicit top-level version numbering** (`"montaget": N`) before any 1.0 release, binding from ADR-0016 onward. Shape-based inference is falsified by ADR-0013 (zero-byte semantic change). The version must track **renderer algorithm**, not just **file shape**. A pre-1.0 grace period applies to ADRs 0001–0015 (rerunnable migration scripts, no version field); at 1.0, strict backward compatibility begins.
+Montagent must adopt **explicit top-level version numbering** (`"montagent": N`) before any 1.0 release, binding from ADR-0016 onward. Shape-based inference is falsified by ADR-0013 (zero-byte semantic change). The version must track **renderer algorithm**, not just **file shape**. A pre-1.0 grace period applies to ADRs 0001–0015 (rerunnable migration scripts, no version field); at 1.0, strict backward compatibility begins.
 
 ---
 
@@ -10,7 +10,7 @@ Montaget must adopt **explicit top-level version numbering** (`"montaget": N`) b
 
 ## Preferred Answer
 
-**(a) One top-level integer field, e.g. `"montaget": 1`**, naming a revision of the whole format. Not per-object versions (b), not shape inference (c).
+**(a) One top-level integer field, e.g. `"montagent": 1`**, naming a revision of the whole format. Not per-object versions (b), not shape inference (c).
 
 ## Attack: The Agent Copy Problem
 
@@ -20,9 +20,9 @@ The brief documents a critical failure mode:
 
 And: "agents author by copying the nearest example, so a retirement that leaves the field on 8 shipped elements is a retirement in name only."
 
-**This directly threatens the top-level version number.** If an agent copies `"montaget": 1` from an example, applies edits, and never increments it, the file's version field becomes a **stale lie**. How is this worse than no version field?
+**This directly threatens the top-level version number.** If an agent copies `"montagent": 1` from an example, applies edits, and never increments it, the file's version field becomes a **stale lie**. How is this worse than no version field?
 
-1. **Stale metadata is worse than missing metadata** — a reader seeing `"montaget": 1` applies version-1 rules; seeing nothing would at least trigger a shape-sniff attempt. A confident wrong answer defeats uncertainty.
+1. **Stale metadata is worse than missing metadata** — a reader seeing `"montagent": 1` applies version-1 rules; seeing nothing would at least trigger a shape-sniff attempt. A confident wrong answer defeats uncertainty.
 
 2. **Confidence fails catastrophically** — When agents copied gravity, they failed silently. They hit validation errors or produced wrong output. But because no validator existed yet, the mistake propagated. A version field that agents hand-maintain has the same failure mode but with less visibility: the file renders identically under both interpretations (if lucky), so the mismatch goes undetected.
 
@@ -44,7 +44,7 @@ Despite this attack, (a) is still the only tenable choice. Here is why:
 
 3. **The version field is **not** maintained by agents in normal editing**
 
-   Here is the key reframe: under "file-as-truth," the agent edits the file with exact-string replace. The version field is **not** maintained by agents; it is **advanced by Montaget** (or manually by the author reading an ADR). This breaks the feedback loop of stale copies:
+   Here is the key reframe: under "file-as-truth," the agent edits the file with exact-string replace. The version field is **not** maintained by agents; it is **advanced by Montagent** (or manually by the author reading an ADR). This breaks the feedback loop of stale copies:
 
    - Author writes version-5 file
    - Agent edits an element using exact-string replace
@@ -55,7 +55,7 @@ Despite this attack, (a) is still the only tenable choice. Here is why:
 
 4. **Agents can be trained to ignore or not-touch the version field**
 
-   Unlike gravity (silently copied), a version field can be documented as: "Montaget sets this; agents never modify it." The fact that agents copy examples is real, but it's not universal. Gravity was copied because it was in the element block and agents were copying elements. A top-level metadata field is structurally different.
+   Unlike gravity (silently copied), a version field can be documented as: "Montagent sets this; agents never modify it." The fact that agents copy examples is real, but it's not universal. Gravity was copied because it was in the element block and agents were copying elements. A top-level metadata field is structurally different.
 
 ## Falsifiability
 
@@ -73,13 +73,13 @@ Despite this attack, (a) is still the only tenable choice. Here is why:
 
 ## Preferred Answer
 
-**Pre-1.0 grace period: no version field, format breaks freely, fixture migrates with committed script.** This applies to ADRs 0001–0015 (already past). **At 1.0, strict policy binds:** ADR-0016 onward must carry `"montaget": N` bumps. The switch event is the **first production release** or explicit "v1.0 declared" decision.
+**Pre-1.0 grace period: no version field, format breaks freely, fixture migrates with committed script.** This applies to ADRs 0001–0015 (already past). **At 1.0, strict policy binds:** ADR-0016 onward must carry `"montagent": N` bumps. The switch event is the **first production release** or explicit "v1.0 declared" decision.
 
 ## Attack: Why Not Start Now?
 
 The brief points out: "the format breaks freely and the only obligation is that the fixture is migrated with a committed, re-runnable script (a rule `docs/agents/domain.md` already imposes)."
 
-**Counter-attack:** Montaget has **already changed fifteen times** (ADRs 0001–0015) without a version number in the fixture. The fixture has been migrated twice manually:
+**Counter-attack:** Montagent has **already changed fifteen times** (ADRs 0001–0015) without a version number in the fixture. The fixture has been migrated twice manually:
 1. Wholesale by #42 with `migrate.py` and `verify.py` committed
 2. Again by #48, which deleted 8 gravity keys
 
@@ -95,23 +95,23 @@ Both migrations are **already done** and **already committed with their scripts*
 
 ## Why the Answer Survives
 
-1. **Montaget is not released yet** (fact 8) — The cost of a free-form version policy is zero until code reaches users. If Montaget ships and then the first user's file breaks under ADR-0020, that user has a problem. But today, the only user is the author (who wrote the fixture by hand and understands it fully).
+1. **Montagent is not released yet** (fact 8) — The cost of a free-form version policy is zero until code reaches users. If Montagent ships and then the first user's file breaks under ADR-0020, that user has a problem. But today, the only user is the author (who wrote the fixture by hand and understands it fully).
 
 2. **The fixture is a test artifact, not a user's file** — The brief emphasizes that "the fixture is a test artifact and a regression guard — evidence that primitives suffice." A hand-written test file by the author is not the same as a file a stranger edits in their repo for two years. The migration obligation is stronger for production files.
 
 3. **The grace period is honest about the current state** — The published rule (migrate with a script, version reflected in the ADR prose) matches what has already been done. Making it official validates the current workflow instead of breaking it retroactively.
 
-4. **Post-1.0, strict policy is unavoidable** — Once Montaget ships, there *will* be files in strangers' repositories. The version field and strict upgrade-chain are not negotiable then. Delaying to 1.0 costs nothing and aligns incentives: whoever ships Montaget 1.0 will ensure the first few ADRs (post-1.0) carry a version bump.
+4. **Post-1.0, strict policy is unavoidable** — Once Montagent ships, there *will* be files in strangers' repositories. The version field and strict upgrade-chain are not negotiable then. Delaying to 1.0 costs nothing and aligns incentives: whoever ships Montagent 1.0 will ensure the first few ADRs (post-1.0) carry a version bump.
 
 ## Falsifiability
 
 **The grace period fails if:**
-- Montaget ships to users *before* a version-numbering ADR is written and committed
+- Montagent ships to users *before* a version-numbering ADR is written and committed
 - A shipped user's file breaks under an ADR change, and no migration script exists
 
 **The grace period succeeds if:**
-- Montaget 1.0 release is preceded by a versioning ADR (e.g., ADR-0016)
-- All shipping fixtures carry version `"montaget": 1` as a baseline
+- Montagent 1.0 release is preceded by a versioning ADR (e.g., ADR-0016)
+- All shipping fixtures carry version `"montagent": 1` as a baseline
 
 ---
 
@@ -143,11 +143,11 @@ But for today's use case (one fixture, two migrations, author-written files):
 
    The brief states: "The fixture is evidence that a capability is **needed**. It is never evidence that a capability is **unneeded**."
    
-   But this goes both ways. The fixture is also evidence that a capability is **used**. The fixture is hand-written; no agent has written a Montaget file yet. A capability that no agent has exercised is not proven needed.
+   But this goes both ways. The fixture is also evidence that a capability is **used**. The fixture is hand-written; no agent has written a Montagent file yet. A capability that no agent has exercised is not proven needed.
 
 2. **Strangers' files are future burden, not present burden**
 
-   Once Montaget ships and gets users, files in the wild *will* need migration. But the migration tool for "files Montaget never wrote" is not an immediate requirement. The specification should **allow for it** (make sure migration is idempotent, make sure the format supports offline re-running), but building it now is premature.
+   Once Montagent ships and gets users, files in the wild *will* need migration. But the migration tool for "files Montagent never wrote" is not an immediate requirement. The specification should **allow for it** (make sure migration is idempotent, make sure the format supports offline re-running), but building it now is premature.
 
 3. **Per-ADR scripts have a proven track record**
 
@@ -161,7 +161,7 @@ But for today's use case (one fixture, two migrations, author-written files):
 
 **Option (b) fails if:**
 - The committed fixture cannot be migrated using per-ADR scripts
-- Montaget ships, users adopt it, and per-ADR migration proves insufficient for real-world files
+- Montagent ships, users adopt it, and per-ADR migration proves insufficient for real-world files
 
 **Option (b) succeeds if:**
 - Per-ADR scripts continue to work for the committed fixture
@@ -219,7 +219,7 @@ Proof from worklog: fixture version N and fixture version N' (post-ADR-0013 grav
 
 2. **The renderer's state is the meaning** — A file's meaning is not "what bytes do I contain?" but "what picture do I render?" Two files, same bytes, different algorithms, different pictures. The version field names which algorithm the file requires.
 
-3. **It is the same field** — There is one version number (`"montaget": N`) that advances when:
+3. **It is the same field** — There is one version number (`"montagent": N`) that advances when:
    - Schema changes (new required fields)
    - Semantics change (algorithm changes)
    - **Both** (as in ADR-0015: `fit` became required *and* `gravity` was retired)
@@ -256,7 +256,7 @@ The version field is about **compatibility of the file with the current reader**
 
 4. **Measurement of "before/after X.0"**
 
-   The brief asks "who decides" when the switch from pre-1.0 to strict versioning occurs. I've said "first production release" or "explicit v1.0 declared decision," but Montaget does not have a release process documented. Should 1.0 be a tagged commit? A published artifact? A running of `montaget --version`? This is implementation-dependent.
+   The brief asks "who decides" when the switch from pre-1.0 to strict versioning occurs. I've said "first production release" or "explicit v1.0 declared decision," but Montagent does not have a release process documented. Should 1.0 be a tagged commit? A published artifact? A running of `montagent --version`? This is implementation-dependent.
 
 5. **Cascade chains and compatibility depth**
 
@@ -269,15 +269,15 @@ The version field is about **compatibility of the file with the current reader**
 | Question | Confidence | Notes |
 |----------|-----------|-------|
 | **Q1: Explicit version field required** | **Very high (95%)** | ADR-0013 falsifies shape-sniffing. The agent-copy problem is real but manageable. Field is one line, not element-wide. |
-| **Q2: Grace period until 1.0** | **High (80%)** | Consistent with current practice. Risk: Montaget ships before versioning ADR written. But current workflow already uses per-ADR scripts, which suffices. |
+| **Q2: Grace period until 1.0** | **High (80%)** | Consistent with current practice. Risk: Montagent ships before versioning ADR written. But current workflow already uses per-ADR scripts, which suffices. |
 | **Q3: Target committed files, not strangers yet** | **Medium (70%)** | Current state supports this, but it delays harder problems. Risk: migration tooling untested on real-world files. But no real-world files exist yet. |
 | **Q4: Semantic changes require bumps** | **Very high (90%)** | ADR-0013 is proof. Shape is insufficient. Semantic changes (algorithm, default) must bump. Classification is clear except for a few edge cases (default values). |
 
 **Where confidence is lower:**
 
-- Q2: Depends on an unwritten event (Montaget release). The grace period only works if release happens *after* a versioning ADR is written. If release happens before, the entire scheme collapses.
+- Q2: Depends on an unwritten event (Montagent release). The grace period only works if release happens *after* a versioning ADR is written. If release happens before, the entire scheme collapses.
 
-- Q3: Assumes strangers' files are a future problem. This is only true if Montaget reaches users. If it stays a research project, the commitment is moot. But planning for the future is reasonable.
+- Q3: Assumes strangers' files are a future problem. This is only true if Montagent reaches users. If it stays a research project, the commitment is moot. But planning for the future is reasonable.
 
 ---
 

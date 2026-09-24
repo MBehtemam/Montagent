@@ -1,6 +1,6 @@
 # Track vs `layer`: re-testing the no-track decision against the CapCut/Premiere reference class
 
-Research for [#20](https://github.com/MBehtemam/Montaget/issues/20). Companion to
+Research for [#20](https://github.com/MBehtemam/Montagent/issues/20). Companion to
 [the declarative video API survey](./declarative-video-api-models.md), which covered the
 *authoring API* side (Shotstack, Creatomate, JSON2Video, Editly). This file covers the gap:
 the **desktop NLE / interchange** side — OpenTimelineIO, Premiere Pro, CapCut, DaVinci
@@ -28,7 +28,7 @@ application, so it is quoted from a verbatim mirror).
    Premiere's `getStartTime` *"the starting sequence time of this track item"*, Resolve's
    `GetStart() # Returns the start frame position on the timeline`, CapCut's
    `target_timerange` — plus a *separate* source range and an integer lane index. Field for
-   field, that is Montaget's element. **The constraint lives in the edit operations, not in
+   field, that is Montagent's element. **The constraint lives in the edit operations, not in
    the storage.** (§3 Q1.)
 3. **This reframes the whole question.** It is not "flat absolute times vs tracks" — every
    tool in the reference class is flat and absolute underneath. It is: **should the
@@ -39,7 +39,7 @@ application, so it is quoted from a verbatim mirror).
    flag (§2.2) — an opt-in operation that recomputes absolute times, which is exactly what an
    agent rewriting downstream `start` values would do. It is not a free consequence of track
    storage. It is also only ever free *within* a lane; cross-lane sync is a UI affordance
-   Montaget has no place for, and ADR-0001's own fixture (a 14.5s still over six unrelated
+   Montagent has no place for, and ADR-0001's own fixture (a 14.5s still over six unrelated
    audio events, three attached to no visual) is the case a per-lane ripple silently
    desynchronises. (§3 Q3.)
 5. **The one real cost of the flat model is the diff, not the edit** — a conceptually
@@ -119,7 +119,7 @@ the stack). Images in a stack overlay lower images using an alpha composite oper
 Note this is the *opposite* direction to Shotstack's first-is-top (see the
 [API survey](./declarative-video-api-models.md)) — three of the formats surveyed so far
 disagree on which end of a list is in front, which is exactly the kind of thing a generator
-gets backwards. Montaget's explicit integer `layer` sidesteps that class of error entirely.
+gets backwards. Montagent's explicit integer `layer` sidesteps that class of error entirely.
 
 **Overlap *within* a track exists, but only as a special case.** *"Within a track, clips may
 overlap via a `transition`. In that case, the contribution of track is the linear blend of
@@ -143,11 +143,11 @@ refer to a `Composition` as though it was just another `Clip` in the outer
 children"* — i.e. the standard NLE picture is literally *stack-of-tracks*: overlap between
 lanes, sequence within a lane.
 
-**What this establishes for Montaget.** OTIO is evidence *for* ADR-0001's premise, not
+**What this establishes for Montagent.** OTIO is evidence *for* ADR-0001's premise, not
 against it: the format that thought hardest about this refused to make one container mean
-both things. Montaget's `elements[] + layer` is the *Stack* half — parallel composition
+both things. Montagent's `elements[] + layer` is the *Stack* half — parallel composition
 with explicit stacking — with each element carrying its own absolute time range instead of
-being aligned at 0. What Montaget does not have is the *Track* half, and OTIO shows exactly
+being aligned at 0. What Montagent does not have is the *Track* half, and OTIO shows exactly
 what that half is: **ordinal timing, plus `Gap` objects, plus a transition special case.**
 
 ### 2.2 Adobe Premiere Pro — UXP API
@@ -163,10 +163,10 @@ track item"*, and `getEndTime` the ending sequence time. Source trimming is a **
 pair: `getInPoint` / `getOutPoint` *"representing the track item in point relative to the
 start time"*. There is also `getTrackIndex`.
 
-This is a genuinely important result for #20, and it cuts *for* Montaget's shape rather than
+This is a genuinely important result for #20, and it cuts *for* Montagent's shape rather than
 against it: **Premiere is not OTIO-shaped.** A Premiere clip is not positioned by summing
 what precedes it — it holds an absolute sequence start, an absolute sequence end, a separate
-source range, and an integer track index. That is, field for field, Montaget's element:
+source range, and an integer track index. That is, field for field, Montagent's element:
 absolute time range, plus separate source range, plus an integer lane. The distinction
 CONTEXT.md draws between **Element** time range and **Source range** is exactly Premiere's
 start/end vs in/out split.
@@ -227,7 +227,7 @@ the source as *"片段在轨道上的时间范围"* — the time range of the se
 `start` plus a `duration`. `source_timerange` is separate: *"截取的素材片段的时间范围, 对贴纸而言
 不存在"* — the range taken from the source material, *which does not exist for stickers*.
 
-That is the **third** independent confirmation (with §2.2 and §2.4) of two things Montaget
+That is the **third** independent confirmation (with §2.2 and §2.4) of two things Montagent
 already does: timeline position stored absolutely on the item, and source range as a separate
 optional concern that only time-based media has. CONTEXT.md's **Source range** entry — *"Only
 elements built on time-based media — video and audio — have one; images, text and shapes have
@@ -247,7 +247,7 @@ would have no reason to invent it.
 
 This is a **second and sharper counter-example to ADR-0001's rejection of per-kind
 collections** than Resolve's (§2.4). Resolve's kinds (video/audio/subtitle) never compete for
-z-order; CapCut's `text` and `sticker` plainly do. So a shipping product in exactly Montaget's
+z-order; CapCut's `text` and `sticker` plainly do. So a shipping product in exactly Montagent's
 class does partition by kind *and* has to stack across kinds. **NOT CONFIRMED — and this is a
 real gap — how CapCut resolves z-order across kinds.** Segments export a
 `track_render_index` field, but the library sets it to `0` and offers no explanation, and no
@@ -307,7 +307,7 @@ was that *"cross-kind stacking becomes unanswerable: if a text and a shape live 
 arrays, nothing in the document's structure says which draws in front."* Resolve does exactly
 that and lives with it — because subtitles and audio never compete with video for z-order, so
 the ambiguity ADR-0001 fears does not arise for *those* particular kinds. It would arise for
-Montaget's text/shape/image, which Resolve keeps together on video tracks. **The ADR's
+Montagent's text/shape/image, which Resolve keeps together on video tracks. **The ADR's
 argument survives, but its scope is narrower than stated.**
 
 ### 2.5 FCPXML `spine` / `lane`
@@ -338,7 +338,7 @@ implementation.
 ```
 
 So FCPXML has **an integer stacking coordinate with an explicitly stated direction — higher is
-in front — carried as a property of the item, exactly like Montaget's `layer`**, plus a
+in front — carried as a property of the item, exactly like Montagent's `layer`**, plus a
 separate `offset` giving position in the parent's timeline. Apple did not overload one concept
 to mean both things; it shipped `spine` for "plays after" and `lane` for "draws over".
 
@@ -399,7 +399,7 @@ a transition is present."* Two vendors, same design, same exception.
 - CapCut: `target_timerange` = *"片段在轨道上的时间范围"*, a start plus a duration, with
   `source_timerange` separate (§2.3).
 
-**Three for three, the editors store what Montaget stores**: an absolute time range on the
+**Three for three, the editors store what Montagent stores**: an absolute time range on the
 item, a separate source range, and an integer lane coordinate. Nobody in Group 2 makes a
 clip's position depend on its neighbours.
 
@@ -414,7 +414,7 @@ absolute.**
 a track constrains its contents to play in sequence without overlapping."* That is now
 confirmed five for five, from primary sources, and is the best-evidenced claim in either
 survey. What is *not* confirmed — and what the ADR never actually claimed, though it is easy
-to read in — is that adopting a track would force ordinal timing on Montaget. It would not.
+to read in — is that adopting a track would force ordinal timing on Montagent. It would not.
 Premiere is proof that you can have the constraint and keep absolute times.
 
 This makes option (c2) in §4 (tracks as containers over absolutely-timed children) a
@@ -442,13 +442,13 @@ expressible, and if so, where does it live: in the data, in a validator, or in a
   CapCut: **NOT CONFIRMED** — an unexplained `track_render_index` (§2.3).
 
 FCPXML is worth dwelling on, because it is the closest thing to independent confirmation of
-Montaget's design that this research found: **Apple, facing exactly this question, shipped
+Montagent's design that this research found: **Apple, facing exactly this question, shipped
 `spine` for "plays after" and a per-item integer `lane` for "draws over", and did not overload
-one for the other.** Montaget's `layer` is FCPXML's `lane` with the anchoring dropped.
+one for the other.** Montagent's `layer` is FCPXML's `lane` with the anchoring dropped.
 
 This is the clearest finding of the whole exercise and it does **not** depend on the
 sequencing question. A generated document that gets the direction backwards renders
-successfully and looks wrong. Montaget's explicit integer `layer`, with a stated direction
+successfully and looks wrong. Montagent's explicit integer `layer`, with a stated direction
 (*"higher draws in front"*, CONTEXT.md), removes the class of error rather than picking a
 side of it. **Nothing in this research argues against `layer` as the z-order mechanism.**
 The whole live question is about *sequencing*, which is a separate axis that these formats
@@ -466,7 +466,7 @@ assumes.** In Premiere, ripple is **an argument to an operation, not a property 
 data**: `createRemoveItemsAction` takes a `ripple` boolean and a `shiftOverLapping` boolean
 (§2.2). Premiere stores absolute times per item (Q1 above) and *recomputes them when you ask
 for a ripple*. So the tool the reference class is named after does exactly what an agent
-editing Montaget JSON would do: hold absolute times, and rewrite the downstream ones on
+editing Montagent JSON would do: hold absolute times, and rewrite the downstream ones on
 demand. **Ripple is not something a track model gives you for free; it is something an editor
 implements over flat absolute data, and it is opt-in even there.** That removes the premise of
 the classic argument. The remaining four points stand on their own:
@@ -490,10 +490,10 @@ the document, and "the project is inert data understood by reading, not evaluati
 project's stated premise (CONTEXT.md: a project *"states, by being read, what is on screen
 at any given moment"*).
 
-**3. Ripple is only free *within a lane*, and Montaget's own fixture is the case where that
+**3. Ripple is only free *within a lane*, and Montagent's own fixture is the case where that
 is wrong.** In a track-based NLE, rippling one track shifts that track only; audio,
 captions and overlays on other tracks stay put unless the human engages a sync/ripple-all
-affordance — which is a **UI** feature. Montaget has no UI. ADR-0001's fixture is exactly
+affordance — which is a **UI** feature. Montagent has no UI. ADR-0001's fixture is exactly
 the shape that breaks: *"one still is on screen for 14.5s with six unrelated audio events
 under it, three belonging to no visual at all."* A per-lane ripple through that produces
 silent desynchronisation — a render that succeeds and is wrong. The agent would have to
@@ -516,7 +516,7 @@ without changing the time model.
 human's inability to retype twenty numbers, and it is bought with a read-time cost that a
 human pays with their eyes for free (they are looking at a rendered timeline, not at the
 file) and an agent pays with arithmetic every turn. The asymmetry runs the opposite way for
-the two authors, and Montaget has only one of them.
+the two authors, and Montagent has only one of them.
 
 ### Q4 — What the flat model makes hard
 
@@ -543,7 +543,7 @@ the two authors, and Montaget has only one of them.
   **relative to its parent**"*, `>0` above and `<0` below. A connected title is attached to
   the clip it annotates and travels with it. The mechanism is **a relationship between two
   items, orthogonal to both sequencing and absolute stacking** — neither a track nor a global
-  z-index. That is a live design option for Montaget that #20 does not list, and it is added
+  z-index. That is a live design option for Montagent that #20 does not list, and it is added
   as **(b5)** in §4. It is not free: it makes `layer` relative, so "what draws in front"
   requires walking to the parent — a small, bounded dose of exactly the arithmetic ADR-0001
   exists to avoid.
@@ -640,7 +640,7 @@ whether the read cost comes back.
 
 #### (b1) Sequencing as an *operation*, not a field — materialised into absolute times
 
-Montaget grows an editing operation (an MCP tool, or a documented script) — `insert_at`,
+Montagent grows an editing operation (an MCP tool, or a documented script) — `insert_at`,
 `ripple`, `swap` — that rewrites absolute times and hands back a normal project file. The
 document's shape never changes. There is no new field, no new noun, nothing new to read.
 
@@ -703,7 +703,7 @@ given moment"*.
 #### (b3) Declared sequencing intent that the renderer ignores — a lint, not a constraint
 
 Elements may carry a free-text sequencing name, exactly parallel to `group`: the renderer
-ignores it completely, times stay absolute, but Montaget's validator warns when two
+ignores it completely, times stay absolute, but Montagent's validator warns when two
 elements sharing that name overlap in time or leave an unintended hole.
 
 This is the only variant that adds *sequencing* without adding *sequencing semantics*.
@@ -749,7 +749,7 @@ is in front of it and stays in front of it whatever renumbering happens elsewher
   document states. For an agent doing repeated targeted edits this is exactly the class of
   invariant that silently rots under (a).
 - **Note the asymmetry worth flagging to the decider:** FCPXML's anchoring also carries
-  *timing* (a connected clip moves in time with its parent). A Montaget version could take
+  *timing* (a connected clip moves in time with its parent). A Montagent version could take
   the z-order half and leave the timing half — which would be a genuinely novel split, and
   therefore unevidenced. **NOT CONFIRMED that anyone ships z-anchoring without time-anchoring.**
 - **ADR text:** the opening paragraph's element field list, plus a Consequences bullet. The
@@ -784,7 +784,7 @@ objects; in-lane overlap is a typed transition or is impossible.
 - **Buys:** the one-line insertion diff, structural impossibility of accidental overlap,
   familiarity to a reader who pictures CapCut, and free ripple *within a lane* (with the
   cross-lane sync caveat from §3 question 3 — which is not a caveat the format solves, it
-  is one every track-based NLE solves in its UI, and Montaget has no UI to solve it in).
+  is one every track-based NLE solves in its UI, and Montagent has no UI to solve it in).
 - **ADR text:** effectively a rewrite, and the new ADR would supersede rather than amend.
   The **title** (*"A project is a flat list of uniform elements, not tracks or scenes"*),
   the **opening paragraph** in full, the **driving-requirement paragraph**, and the
@@ -855,7 +855,7 @@ the editing logic lives — not about the time model at all.
 
 And per §3 Q1, (c1) is the *interchange-format* shape, not the reference class. **Premiere,
 Resolve and CapCut are all in the (c2)-with-a-constraint row.** So the decision #20 poses is
-narrower than it looks: nobody is asking Montaget to give up absolute times, because none of
+narrower than it looks: nobody is asking Montagent to give up absolute times, because none of
 the tools it is being compared to have. The live question is whether the non-overlap rule
 should be expressible at all, and if so whether it lives in a container (c2), an inert label
 checked by a validator (b3), an editing operation (b1), or nowhere (a).

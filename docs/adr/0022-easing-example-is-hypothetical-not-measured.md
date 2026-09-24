@@ -12,7 +12,7 @@ with `photo-06`, published there as `"ease":"ease-in-out"`, computing a 10.3–1
 cost if the split halves were snapped back to the nearest name, and stating *"four jurors
 computed this independently and three agree to the digit."*
 
-[#42](https://github.com/MBehtemam/Montaget/issues/42) later measured `photo-06`'s actual
+[#42](https://github.com/MBehtemam/Montagent/issues/42) later measured `photo-06`'s actual
 motion by SSIM against the real reference video (`reference/kenburns/06.mp4`, 7 of 7 points)
 and found it is **`linear`**, not `ease-in-out`. The migrated project file on `main` records
 `photo-06`'s ease as the measured value. Grepping the committed fixture confirms it further:
@@ -28,7 +28,7 @@ continuous family of curves (de Casteljau subdivision varies continuously in the
 parameter; the named eases are five fixed control-point quadruples, and `linear`'s alone are
 collinear with its endpoints, which subdivision preserves). That holds for any element
 carrying a non-`linear`/`step` named ease, independent of whether `photo-06` — or anything in
-the current fixture — happens to be one. Nothing in [#45](https://github.com/MBehtemam/Montaget/issues/45)
+the current fixture — happens to be one. Nothing in [#45](https://github.com/MBehtemam/Montagent/issues/45)
 reopens ADR-0012's decisions: the property set, the keyframe shape, `entering`-semantics for
 `ease`, the closed name set, or the SPLIT algorithm.
 

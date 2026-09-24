@@ -1,6 +1,6 @@
 # Worklog — arm: literal (Opus)
 
-Sources: `SPEC-literal.md` only, plus `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`
+Sources: `SPEC-literal.md` only, plus `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`
 for context. No `docs/adr/` was read.
 
 Helper used for all arithmetic (integer only, floor division):

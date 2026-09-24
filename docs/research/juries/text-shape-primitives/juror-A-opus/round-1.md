@@ -1,7 +1,7 @@
 # The text and shape primitives, answered by the agent who has to write the file
 
 I am the consumer here. Everything below is argued from an edit I would actually type
-into `en-halloween-decorating.montaget.json` and what would go wrong when I did.
+into `en-halloween-decorating.montagent.json` and what would go wrong when I did.
 
 Two things I checked myself before answering, because they turned out to carry weight:
 

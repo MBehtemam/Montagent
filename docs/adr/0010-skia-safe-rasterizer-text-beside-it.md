@@ -7,7 +7,7 @@ status: accepted
 > **Amended by [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md).** Names its
 > "obvious members" — blur, drop shadow — as the accepted v1 set.
 
-Montaget rasterizes with **`skia-safe`** (Rust bindings to Google's C++ Skia).
+Montagent rasterizes with **`skia-safe`** (Rust bindings to Google's C++ Skia).
 Text is shaped and positioned by **`parley`** and scaled by **`skrifa`** *outside*
 the rasterizer, which only fills paths. **FFmpeg is a separate subprocess** for
 decode and encode.
@@ -19,7 +19,7 @@ so reversing one does not silently reverse the other.
 
 ## Why — and why not for the reason the measurement led with
 
-**Not for speed.** [#34](https://github.com/MBehtemam/Montaget/issues/34)
+**Not for speed.** [#34](https://github.com/MBehtemam/Montagent/issues/34)
 measured `skia-safe` at **6.7 ms/frame against `tiny-skia`'s 13.5 ms** at
 1080×1920, and framed the < 5 s preview budget as *"the whole decision."*
 **That framing is rejected here; the measurements are kept.** Two reasons.
@@ -45,8 +45,8 @@ discriminate** (0.12 vs 0.13 s).
 rendering, image filters and blur out of scope** — ADR-0009 already named these
 as "the real objections to it — not text." These are missing subsystems, not
 missing optimisations: no patch adds them without `tiny-skia` becoming a second
-Skia. Montaget's effect vocabulary is a closed named list still to be designed
-([#22](https://github.com/MBehtemam/Montaget/issues/22)) and blur is an obvious
+Skia. Montagent's effect vocabulary is a closed named list still to be designed
+([#22](https://github.com/MBehtemam/Montagent/issues/22)) and blur is an obvious
 member. Choosing `skia-safe` buys headroom for a feature category already
 anticipated. **That is a capability bet, not a speed bet** — and if someone
 optimises `tiny-skia`'s resampler, nothing here changes.
@@ -91,7 +91,7 @@ prebuilt story breaks. **Not** if someone merely optimises the resampler.
 ## Text layout stands beside the rasterizer
 
 Unanimous across three independent reviewers in
-[#7](https://github.com/MBehtemam/Montaget/issues/7) and carried by ADR-0009,
+[#7](https://github.com/MBehtemam/Montagent/issues/7) and carried by ADR-0009,
 recorded here because it is a *renderer* decision and has no other home.
 
 **`SkParagraph` is excluded, and the exclusion is load-bearing.**
@@ -135,7 +135,7 @@ partial render is therefore ordinary here, not architectural.
 
 ## Consequences
 
-### Montaget does not need to be a resident server
+### Montagent does not need to be a resident server
 
 ADR-0009 asked the renderer ADR to state which mode it assumes. **It assumes
 none.** A fully cold process — launch, load the project, resolve fonts, decode
@@ -150,7 +150,7 @@ That premise must be continuously verified: a sustained prebuilt miss on a
 tier-1 target is a trigger to revisit toward the `tiny-skia` exit. The
 *mechanism* — a cold-cache CI job across the six targets that fails if a Skia
 source compile is triggered — is implementation and is ticketed separately
-([#36](https://github.com/MBehtemam/Montaget/issues/36)). The feature set is
+([#36](https://github.com/MBehtemam/Montagent/issues/36)). The feature set is
 pinned in one place and changed only deliberately; `svg` and `skottie` both
 imply `textlayout` and would move the key.
 
@@ -160,14 +160,14 @@ The chosen key is **CPU-only**. At 2160×3840 a 10 s preview with video costs
 **19.0 s (`skia-safe`) and 30.0 s (`tiny-skia`)** — *both* miss the < 5 s budget
 by 4–6×, so 4K discriminates nothing about this choice. It is a fact about the
 **budget**, ticketed as
-[#35](https://github.com/MBehtemam/Montaget/issues/35); a proxy-resolution
+[#35](https://github.com/MBehtemam/Montagent/issues/35); a proxy-resolution
 preview strategy is the likely shape, and enabling a `ganesh`/`metal` prebuilt
 (published, a different key) is the other lever. `tiny-skia` has no such lever.
 
 ### Not decided here
 
 - **Image filters and blur are untested in either arm.** Belongs to the effect
-  model ([#22](https://github.com/MBehtemam/Montaget/issues/22)).
+  model ([#22](https://github.com/MBehtemam/Montagent/issues/22)).
 - **The glyph atlas.** Neither arm used one, so the measured gap **understates**
   `skia-safe`'s lead rather than overstating it. Skia has one; `tiny-skia` has
   no equivalent.

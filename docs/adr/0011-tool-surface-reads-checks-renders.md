@@ -30,7 +30,7 @@ status: accepted
 > - [ADR-0041](0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) —
 >   `fmt` gains a non-destructive `--check` mode; the write-tool invariant is restated for
 >   key order
-> - [ADR-0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) — adds a
+> - [ADR-0042](0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md) — adds a
 >   precondition to `fmt`
 > - [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md) —
 >   confirms the tool surface is unchanged
@@ -52,8 +52,8 @@ status: accepted
 > - [ADR-0078](0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md)
 >   — **the verb table below gains a `preview` row, and its counts become nine MCP tools,
 >   twelve CLI commands, two resources.** `preview` is spec
->   [#168](https://github.com/MBehtemam/Montaget/issues/168)'s ninth MCP verb, built by
->   [#218](https://github.com/MBehtemam/Montaget/issues/218) and missing from the table
+>   [#168](https://github.com/MBehtemam/Montagent/issues/168)'s ninth MCP verb, built by
+>   [#218](https://github.com/MBehtemam/Montagent/issues/218) and missing from the table
 >   below, which `CONTEXT.md` calls authoritative. *"Eight MCP tools, eleven CLI commands"*
 >   no longer holds. The exit-code table's row 3 is also what a `preview` budget hard-fail
 >   returns — the document is legal and the invocation is what could not be satisfied
@@ -62,10 +62,10 @@ status: accepted
 >   already states for `validate` and `render`. A caller that wants a hard gate on canonical
 >   form reads `--json`'s counted `summary.layout` field
 > - [ADR-0080](0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)
->   — **names the two resources this ADR publishes without naming**: `montaget://schema.json`
->   (`montaget-schema`, `application/schema+json`) and `montaget://format.md`
->   (`montaget-format`, `text/markdown`), in that order, and places the format docs inside
->   `montaget-core` rather than under `docs/`. It also **replaces `E-PROJECT-EXISTS`'s exit
+>   — **names the two resources this ADR publishes without naming**: `montagent://schema.json`
+>   (`montagent-schema`, `application/schema+json`) and `montagent://format.md`
+>   (`montagent-format`, `text/markdown`), in that order, and places the format docs inside
+>   `montagent-core` rather than under `docs/`. It also **replaces `E-PROJECT-EXISTS`'s exit
 >   code**: `create_project` onto an existing path is exit 3, not exit 1 — the project is
 >   not what needs fixing, the path argument is — and settles that the CLI spells the verb
 >   `create-project` while the MCP tool takes `frame` as the nested object, reading the
@@ -105,14 +105,14 @@ status: accepted
 > element the crop rectangle is computable by reading. **How `fit`, `align` and `scale`
 > interact** is settled — `align` on images became `gravity`, and the aperture became `clip`.
 
-> **Extended by [ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md)**:
+> **Extended by [ADR-0042](./0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md)**:
 > `fmt` gains a precondition — it refuses to act on a document missing the required top-level
 > keys (`tracks`/`fps`/`frame`), sharing the same structural predicate `validate`'s schema
 > layer uses. It stays unconditional on `error`/`review`/`note` findings otherwise; the eight
 > MCP / eleven CLI counts below are unchanged.
 
 
-Montaget exposes **nine verbs and two resources**. The surface's job is not to
+Montagent exposes **nine verbs and two resources**. The surface's job is not to
 provide editing verbs; it is to make **reading, checking, comparing and
 rendering** cheap, and to let the agent edit the file with the tools it is
 already strongest with.
@@ -152,7 +152,7 @@ path. Two of them — Sonnet and Opus — logged another agent overwriting their
 working copy mid-session. Both recorded it rather than tidying it away. No
 measurement below rests on their timings or their friction reports; the
 measurements that survive were re-derived. This is the author's setup error and
-is recorded in the same spirit as [#9](https://github.com/MBehtemam/Montaget/issues/9)'s
+is recorded in the same spirit as [#9](https://github.com/MBehtemam/Montagent/issues/9)'s
 declared contamination.
 
 Three claims died under verification, and the corrections are load-bearing:
@@ -167,8 +167,8 @@ Three claims died under verification, and the corrections are load-bearing:
 > A tool that writes may only take a complete element, as a schema-shaped object.
 > No tool takes a field name or an element id.
 
-[#8](https://github.com/MBehtemam/Montaget/issues/8) found none of three agents
-wanted an `update_element`. [#9](https://github.com/MBehtemam/Montaget/issues/9)'s
+[#8](https://github.com/MBehtemam/Montagent/issues/8) found none of three agents
+wanted an `update_element`. [#9](https://github.com/MBehtemam/Montagent/issues/9)'s
 jury said unanimously that a CRUD API would be *actively negative*. This
 exercise reproduces it twice more, now priced:
 
@@ -246,7 +246,7 @@ on the other three.
 `scale` interact is specified nowhere**. The ink box needs the font binary and a
 shaper. A Rust implementation faces the identical wall. So `query`'s expensive
 half — the half that justifies the verb — is **blocked on
-[#21](https://github.com/MBehtemam/Montaget/issues/21) and on `measure`**, not
+[#21](https://github.com/MBehtemam/Montagent/issues/21) and on `measure`**, not
 merely expensive to build.
 
 The hostile consumer's own caveat is upheld and recorded: this fixture contains
@@ -271,7 +271,7 @@ function of **decoded pixel dimensions**. Therefore:
   JPEG is still preferred, purely for latency and disk.
 - **Nothing downsamples the frame for you.** The ~1.19 MP ceiling that motivated
   "full resolution buys nothing" applies only to models before Claude 4.7. On the
-  models that would drive Montaget the ceiling is ~3.75 MP, and a 1080×1920 frame
+  models that would drive Montagent the ceiling is ~3.75 MP, and a 1080×1920 frame
   passes through untouched.
 
 | | tokens |
@@ -287,7 +287,7 @@ caller from it.
 **`frame` must print the `query --at` block alongside the image, unconditionally.**
 Looking at a picture without knowing which elements produced it is how a defect
 gets attributed to the wrong element. The `--describe` text form asked for in
-[#26](https://github.com/MBehtemam/Montaget/issues/26) is not an alternative to
+[#26](https://github.com/MBehtemam/Montagent/issues/26) is not an alternative to
 the picture; it is the picture's caption.
 
 **And `frame` is demoted from a job it keeps being assigned.** It is how an agent
@@ -337,7 +337,7 @@ each line also carries its resolved `baseline_y`.
 
 ## `compare`
 
-**Build it.** [#26](https://github.com/MBehtemam/Montaget/issues/26) handed this
+**Build it.** [#26](https://github.com/MBehtemam/Montagent/issues/26) handed this
 verb to the tool-surface question after ten agent sessions asked for it
 unprompted. An argument was made here that it should instead be **ruled out of
 scope**, dissolved by a census against the current file — *"zero elements remain
@@ -492,7 +492,7 @@ whole surface leans on survives only if every writer honours a convention no
 standard tool implements. Hence `fmt`, and hence this as a hard requirement on
 every write tool.
 
-**And `shift` cannot ship until [#21](https://github.com/MBehtemam/Montaget/issues/21)
+**And `shift` cannot ship until [#21](https://github.com/MBehtemam/Montagent/issues/21)
 answers.** Two agents independently built both readings of a stretched element's
 keyframes. The naive reading stretched `photo-06`'s zoom ramp from 15000 ms to
 17000 ms — a ~0.9% scale error, roughly 10 px of framing. The careful reading
@@ -616,11 +616,11 @@ check.
 **The real defect is that the union has no notion of which elements are
 *content*,** and `type` cannot express it. The one signal already in the file and
 unused is `group: "header"`. What to do about it is
-[#23](https://github.com/MBehtemam/Montaget/issues/23)'s, per ADR-0006's own
+[#23](https://github.com/MBehtemam/Montagent/issues/23)'s, per ADR-0006's own
 escape hatch: *"if #23 settles it differently, the severity rule follows it."*
 
 **4. A miscitation.** ADR-0006 sends the geometry-aware same-layer check to
-[#24](https://github.com/MBehtemam/Montaget/issues/24), but #24 is *"Repair the
+[#24](https://github.com/MBehtemam/Montagent/issues/24), but #24 is *"Repair the
 layer anchor…"*. **The geometry check has no home in the map.**
 
 **5. Drift detection rests on the cache alone.** The document records **no source
@@ -671,7 +671,7 @@ worse one would have cost:
   reader to skip the output — for the one check that compares the document to
   something outside itself.
 
-And one naming failure that is not Montaget's, recorded because it generalises:
+And one naming failure that is not Montagent's, recorded because it generalises:
 the fixture's track named `caption` does **not** hold the sentence captions; the
 track named `sentence-text` does. An agent asked to restyle "every sentence
 caption" was pointed at the wrong track by name, and resolved it only by finding

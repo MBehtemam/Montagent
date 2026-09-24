@@ -1,7 +1,7 @@
 # Juror A2 — #48, the `fit` vocabulary
 
 Every number below was computed against
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` and the PNG
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` and the PNG
 headers on disk (`images/0{5,6,7,8}.png` = 1536x2720, `brand/logo-en.png` = 800x800),
 not recalled from the ADRs.
 
@@ -246,7 +246,7 @@ even under `UNCHECKED`.
   *implicit `fill`* by name. Independently, CSS `object-fit: fill` means *stretch to the
   box ignoring aspect* — a derivation instruction, the opposite of declining to derive —
   so an agent reaching for CSS habit would write it meaning "distort to my rect" and get a
-  value that in Montaget asserts nothing. Worst available candidate.
+  value that in Montagent asserts nothing. Worst available candidate.
 - **`none` is the trap.** CSS `object-fit: none` means *use the source's intrinsic size*.
   That is not "use my rect"; it is the natural-source-size default that ADR-0012 forbade
   outright and ADR-0005 killed for `fill`. A name that an agent decodes into the one

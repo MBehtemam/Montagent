@@ -132,7 +132,7 @@ dimensions.
 
 Three-juror court on the four sub-questions (severity, threshold shape, finding
 code + census, scope), ballots recorded in the ticket
-([#132](https://github.com/MBehtemam/Montaget/issues/132)); severity resolved by
+([#132](https://github.com/MBehtemam/Montagent/issues/132)); severity resolved by
 the human after a 1–2 split. Per-element table above re-derived directly from
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` against
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` against
 ADR-0028's formula.

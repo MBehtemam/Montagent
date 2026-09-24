@@ -4,7 +4,7 @@
 > before ADR-0007 and ADR-0012 landed. Its field names are the pre-migration ones — `box`,
 > `align` on images, `"text"` instead of `runs`, positional `scale` pairs. The current file
 > lives at
-> [`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json);
+> [`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json);
 > what changed and why is in
 > [`docs/research/sample-project-migration/`](../sample-project-migration/README.md), which
 > also records three findings that land on ADR-0012 itself. Read this document for the
@@ -12,7 +12,7 @@
 
 
 Five agents — Opus, two Sonnets, Haiku and Fable — were each given a **private copy** of
-[`en-halloween-decorating.montaget.json`](./pre-migration.montaget.json),
+[`en-halloween-decorating.montagent.json`](./pre-migration.montagent.json),
 `CONTEXT.md`, the five ADRs, and the fixture media. Each did the same three tasks and then
 reported what the experience was like. Their edited files were scored by script, against
 the invariants, independently of what they claimed.

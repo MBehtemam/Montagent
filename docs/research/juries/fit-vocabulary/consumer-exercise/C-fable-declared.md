@@ -131,7 +131,7 @@ it only survives as unexplained integers plus a clip.
 Usable, yes — the closed value set, integer-only arithmetic, and floor/ceil tolerance make every task
 mechanically checkable, and `declared` is an honest escape hatch. The single worst thing: **the spec and
 the shipped fixture contradict each other** — every photo element in
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` carries `"gravity":"top"`,
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` carries `"gravity":"top"`,
 which the spec flatly says is not a field. A consumer copying the nearest working example (the normal
 way anyone authors these files) immediately writes an illegal field, and there is no stated behavior for
 unknown fields (rejected? ignored?). One concrete change: make `validate` reject (or at least warn on)

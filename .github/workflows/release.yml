@@ -1,4 +1,4 @@
-# Cuts a GitHub Release for a `v*` tag: one `montaget` binary per desktop tier-1 target
+# Cuts a GitHub Release for a `v*` tag: one `montagent` binary per desktop tier-1 target
 # (ADR-0064), a `SHA256SUMS` file over all of them, and — when a crates.io token is
 # configured — `cargo publish` of the four workspace crates in dependency order.
 #
@@ -84,8 +84,8 @@ jobs:
 
       # Only the shipping binary — not the workspace's test-only crates (the golden-frame
       # harness in `docs/research/prototypes/rust-rasterizer` needs nothing released).
-      - name: Build montaget
-        run: cargo build --release --locked --target ${{ matrix.target }} -p montaget
+      - name: Build montagent
+        run: cargo build --release --locked --target ${{ matrix.target }} -p montagent
 
       - name: Package
         id: package
@@ -93,13 +93,13 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ inputs.tag || github.ref_name }}"
-          name="montaget-${version}-${{ matrix.target }}"
+          name="montagent-${version}-${{ matrix.target }}"
           stage="$(mktemp -d)/${name}"
           mkdir -p "$stage"
           if [ "${{ runner.os }}" = "Windows" ]; then
-            cp "target/${{ matrix.target }}/release/montaget.exe" "$stage/"
+            cp "target/${{ matrix.target }}/release/montagent.exe" "$stage/"
           else
-            cp "target/${{ matrix.target }}/release/montaget" "$stage/"
+            cp "target/${{ matrix.target }}/release/montagent" "$stage/"
           fi
           pushd "$(dirname "$stage")" >/dev/null
           if [ "${{ matrix.archive }}" = "zip" ]; then
@@ -164,7 +164,7 @@ jobs:
         with:
           toolchain: "1.90"
 
-      - name: Skia's Linux link dependencies (montaget-render needs to build to publish)
+      - name: Skia's Linux link dependencies (montagent-render needs to build to publish)
         if: steps.gate.outputs.configured == 'true'
         run: |
           sudo apt-get update
@@ -176,7 +176,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-          for crate in montaget-text montaget-render montaget-core montaget; do
+          for crate in montagent-text montagent-render montagent-core montagent; do
             echo "publishing ${crate}"
             cargo publish -p "${crate}" --locked
             # crates.io needs a moment before the next crate's path dependency resolves

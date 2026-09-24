@@ -5,7 +5,7 @@ amends: 0037 (its evidence does not reproduce — erratum below; and its deferre
 
 # Recorded intent is one pattern with several fields, and the time axis instantiates it
 
-[Ticket #324](https://github.com/MBehtemam/Montaget/issues/324), merging the map's two
+[Ticket #324](https://github.com/MBehtemam/Montagent/issues/324), merging the map's two
 **recorded intent** fog patches. Four exemplars, found independently on three axes, each
 naming the same gap: **the format has no way to record what an author meant.** Every value
 is a literal, deliberately, so a relationship between two values exists only in the author's
@@ -28,7 +28,7 @@ entry's first pricing datum."*
 
 **None of it reproduces.** Those four values appear in **no committed version** of the
 fixture — all five commits that have ever touched
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` return zero
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` return zero
 matches. The file carries **135** timeline instants, not 52, and has no `highlight` anywhere
 to hold a caption out. This is the defect
 [`docs/agents/domain.md`](../agents/domain.md) already records as the motivating failure —
@@ -53,7 +53,7 @@ exits non-zero the moment any stops holding.
 | …whose final keyframe runs **past** the element's own `end` | **7 of 7** | and **0 of 7** land on it |
 | repeat-reading pairs (`*-a` → `*-b`) | **8 of 8** | a fixed inter-element gap, bimodal and exceptionless: **800 ms** on all 4 word pairs, **520 ms** on all 4 sentence pairs |
 | instants in those relationships whose value appears exactly once in the file | **16 of 16** and **7 of 7** | nothing anywhere records the relationship |
-| text elements overlapping 2+ audio sources | **11 of 22** | carried forward from [#166](https://github.com/MBehtemam/Montaget/issues/166), re-derived here so the two ADRs cannot drift |
+| text elements overlapping 2+ audio sources | **11 of 22** | carried forward from [#166](https://github.com/MBehtemam/Montagent/issues/166), re-derived here so the two ADRs cannot drift |
 
 **The third row settles a question ADR-0036 left open.** It called the renderer-ignored
 declaration a **half-binding**, because it *"records a start instant but not whether the
@@ -144,7 +144,7 @@ own grounds:
 **So the invariant is restated, honestly and not finessed: zero *live* references.** That is
 a weaker line than zero references and it will be cited by future proposals, so the
 permission is **per-axis and earned** — granted only where an ADR carries a **measurement
-that inference fails**. [#166](https://github.com/MBehtemam/Montaget/issues/166)'s 11-of-22
+that inference fails**. [#166](https://github.com/MBehtemam/Montagent/issues/166)'s 11-of-22
 clears that bar for audio. Nothing else clears it today, and **this ADR grants the
 permission to no axis** — it fixes the terms on which a later one may spend it.
 

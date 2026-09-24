@@ -11,7 +11,7 @@ import json, os, random, struct, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(HERE, "..", "..", "..", "fixtures",
-                       "en-halloween-decorating", "en-halloween-decorating.montaget.json")
+                       "en-halloween-decorating", "en-halloween-decorating.montagent.json")
 fail = []
 
 

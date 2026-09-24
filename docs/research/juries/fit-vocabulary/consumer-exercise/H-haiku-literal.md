@@ -1,4 +1,4 @@
-# Worklog: Haiku model authoring Montaget elements
+# Worklog: Haiku model authoring Montagent elements
 
 ## Task 1: New photo
 

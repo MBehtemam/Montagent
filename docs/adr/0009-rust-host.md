@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Montaget is a Rust MCP server
+# Montagent is a Rust MCP server
 
 > **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which ratifies the encoder
 > settings the spawned `ffmpeg` is given — `libx264`, `yuv420p`, CRF 20, preset `medium`,
@@ -10,17 +10,17 @@ status: accepted
 > is still not taken: an `ffmpeg` without `libx264` surfaces as exit 70 carrying its own
 > sentence, never a silent fallback.
 
-Montaget is hosted in **Rust**, built on the first-party **`rmcp`** SDK.
+Montagent is hosted in **Rust**, built on the first-party **`rmcp`** SDK.
 
 This ADR records the **host** only — the language, the MCP SDK, the packaging
 shape and the consequences that follow from them. **It does not choose the
-renderer.** That half of [#7](https://github.com/MBehtemam/Montaget/issues/7)
+renderer.** That half of [#7](https://github.com/MBehtemam/Montagent/issues/7)
 rests on a different body of evidence, is still unmeasured, and gets its own ADR.
 
 ## Why
 
 **Not for speed.** The axis everybody expected to decide this was measured and
-came back noise. [#16](https://github.com/MBehtemam/Montaget/issues/16) timed
+came back noise. [#16](https://github.com/MBehtemam/Montagent/issues/16) timed
 spawn→`tools/list` at **Rust 4.8 ms, TypeScript 103.3 ms, Python 421.6 ms** — an
 88× win for Rust that **cannot be spent**. On the stdio binding the client
 launches one subprocess per session, so startup is paid once: never per tool
@@ -29,7 +29,7 @@ every preview and under half of FFmpeg's 0.93 s *per frame*. A future reader who
 assumes this was a performance decision will draw the wrong conclusions from it.
 
 **The tie broke by one side weakening, not by Rust strengthening.**
-[#15](https://github.com/MBehtemam/Montaget/issues/15) left the choice split:
+[#15](https://github.com/MBehtemam/Montagent/issues/15) left the choice split:
 the schema story pointed at TypeScript, distribution pointed at Rust. Then #16
 found the **TypeScript SDK is a protocol revision behind** — 1.30.0 is `latest`,
 tops out at `2025-11-25`, and returns `-32601` for `server/discover`, while
@@ -51,12 +51,12 @@ that could not discriminate between hosts. But
 [ADR-0007](0007-text-runs-literal-size-declared-fonts.md) requires fonts to come
 only from files the project declares. `parley`, `cosmic-text`, `fontique`,
 `fontdb` and `icu_segmenter` are Rust-only, and
-[#27](https://github.com/MBehtemam/Montaget/issues/27) has already run that
+[#27](https://github.com/MBehtemam/Montagent/issues/27) has already run that
 stack end to end. The surveys scored this axis as host-neutral; it is not.
 
 ## What this ADR does not decide
 
-**The rasterizer.** [#6](https://github.com/MBehtemam/Montaget/issues/6)
+**The rasterizer.** [#6](https://github.com/MBehtemam/Montagent/issues/6)
 measured `skia-canvas`, which is **Node**. No rasterizer has been measured under
 a Rust host, and every downstream argument has been quietly transferring those
 Node figures. `skia-safe` and `tiny-skia` have opposite build and distribution
@@ -89,7 +89,7 @@ a strong type language, we don't need to do json schema validation here. But if
 you do have to validate … you can use the `jsonschema` crate."*
 
 So the map's principle — *schema catches malformed, agent catches wrong* —
-requires Montaget to supply the missing half:
+requires Montagent to supply the missing half:
 
 > **`element.json` is the artifact.** It is hand-written, embedded with
 > `include_str!`, advertised verbatim through `input_schema`, and compiled once
@@ -102,7 +102,7 @@ of truth: the Rust type becomes the source and the published document a
 generated shadow of it. This ADR's author initially recommended exactly that,
 and three independent reviewers rejected it — it *recreates* the two-artifact
 split rather than closing it, which is the defect
-[#15](https://github.com/MBehtemam/Montaget/issues/15) charged Python with.
+[#15](https://github.com/MBehtemam/Montagent/issues/15) charged Python with.
 The document is the contract; the Rust type is one consumer of it.
 
 ### FFmpeg is a subprocess, and the binary is not as self-contained as claimed
@@ -111,13 +111,13 @@ The document is the contract; the Rust type is one consumer of it.
 accident.** `libx264` is GPL-2.0-or-later. FFmpeg's `configure` places it in
 `EXTERNAL_LIBRARY_GPL_LIST`, so it requires `--enable-gpl`, and FFmpeg's own
 legal page states that **"if those parts get used the GPL applies to all of
-FFmpeg."** Linking `libavcodec` into Montaget via `ffmpeg-next` would make the
+FFmpeg."** Linking `libavcodec` into Montagent via `ffmpeg-next` would make the
 distributed binary a GPL combined work — the FSF is explicit that static *or*
-dynamic linking produces a combined work — and the permissive licence Montaget
+dynamic linking produces a combined work — and the permissive licence Montagent
 intends to publish under would be false. The crate's own licence is irrelevant;
 the C library it links is what carries the obligation.
 
-> **Montaget spawns a separate `ffmpeg` executable and pipes raw frames to it.**
+> **Montagent spawns a separate `ffmpeg` executable and pipes raw frames to it.**
 
 The FSF's stated position is that pipes and fork/exec are the communication
 mechanisms of *separate programs*, and raw video frames are data rather than
@@ -128,7 +128,7 @@ ffmpeg-as-subprocess. This is the FSF's position, not settled law.
 **This costs the distribution claim above, and the cost is stated rather than
 softened.** #7 argued for Rust partly on a single static binary with no runtime.
 That is now **"a binary, plus an `ffmpeg` the user supplies."** Bundling one in
-the release archive is mere aggregation for Montaget's own code — but it makes
+the release archive is mere aggregation for Montagent's own code — but it makes
 this project a **distributor of GPL software, owing the source-offer duties of
 GPL §3/§6 for the bundled binary.** There is no option here that is both
 self-contained and obligation-free.
@@ -146,7 +146,7 @@ Cisco's royalty payment covers only its own precompiled binaries.
 
 ### The `skia-safe` CI worry does not apply to a textlayout-free build
 
-[#15](https://github.com/MBehtemam/Montaget/issues/15) ranked Skia's CI story
+[#15](https://github.com/MBehtemam/Montagent/issues/15) ranked Skia's CI story
 third because `skia-safe` fetches feature-hash-keyed prebuilts and can silently
 fall back to a source build. A reviewer of this ADR argued the inversion — that
 dropping `textlayout` (which the text decision above implies) would *cause* that
@@ -189,7 +189,7 @@ candidate.
 - **The budget was written for 1080×1920/30 and has never been re-derived**
   since [ADR-0003](0003-general-video-editor-not-channel-tooling.md)
   generalised the scope. "~9× slack" is not a claim about 4K.
-- **Nobody has stated whether Montaget is a resident server.** #16 retired
+- **Nobody has stated whether Montagent is a resident server.** #16 retired
   startup by measuring it against the 10 s preview; the per-turn
   self-verification loop is a *single frame*, where the same spread is a much
   larger share. The renderer ADR should say which mode it assumes.

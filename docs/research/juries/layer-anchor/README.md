@@ -1,7 +1,7 @@
 # Layer-anchor hardening: court ballots
 
 Evidence for [ADR-0019](../../../adr/0019-layer-anchor-gets-an-id-a-validate-check-and-one-hop.md),
-resolving wayfinder ticket [#24](https://github.com/MBehtemam/Montaget/issues/24).
+resolving wayfinder ticket [#24](https://github.com/MBehtemam/Montagent/issues/24).
 
 Two rounds, three jurors each, backed by three different models: GitHub
 Copilot's auto-selected model, Qwen2 7B and Llama 3.2 (the latter two local,

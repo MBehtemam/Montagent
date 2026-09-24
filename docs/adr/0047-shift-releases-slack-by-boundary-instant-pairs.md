@@ -12,7 +12,7 @@ undecided — slack didn't exist as a nameable concept until that ADR, so no
 prior ticket had reason to specify it. Three candidates were on the table
 going in: a `release` argument on `shift` itself, a distinct write specific
 to slack, or something neither prior jury had considered
-([#102](https://github.com/MBehtemam/Montaget/issues/102)).
+([#102](https://github.com/MBehtemam/Montagent/issues/102)).
 
 ## Decision
 

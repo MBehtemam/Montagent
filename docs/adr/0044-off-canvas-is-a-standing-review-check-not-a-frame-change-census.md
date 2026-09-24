@@ -4,13 +4,13 @@ status: accepted
 
 # Off-canvas is a standing `review` check, not a frame-change census
 
-**Ticket:** [#84](https://github.com/MBehtemam/Montaget/issues/84)
+**Ticket:** [#84](https://github.com/MBehtemam/Montagent/issues/84)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (adds a check),
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) (the evidence
 this check is built on)
 **Resolves the second of two findings [ADR-0018](./0018-cross-track-coverage-is-group-scoped-not-a-union.md)
 graduated and declined to answer** (the first, group-shared keyframe-time
-disagreement, is [#71](https://github.com/MBehtemam/Montaget/issues/71)/[ADR-0039](./0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md))
+disagreement, is [#71](https://github.com/MBehtemam/Montagent/issues/71)/[ADR-0039](./0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md))
 
 ## Decision
 
@@ -69,10 +69,10 @@ what makes `validate` actually say so.
 
 ### Why a standing invariant, not an edit-triggered one
 
-Montaget has rejected every mechanism that requires knowing "what just happened" to
+Montagent has rejected every mechanism that requires knowing "what just happened" to
 a file, for the same reason each time: [ADR-0005](./0005-absolute-integer-milliseconds.md)
 rejected persisted time-anchors because they degrade to stale literals the moment
-anything shifts; the derived-time-signature question ([#68](https://github.com/MBehtemam/Montaget/issues/68))
+anything shifts; the derived-time-signature question ([#68](https://github.com/MBehtemam/Montagent/issues/68))
 stays parked in this map's fog precisely because nothing records provenance and the
 format is read-not-evaluated. An off-canvas element is a fact about the **current
 file** — it is exactly as invisible whether a `frame` edit, a hand-edited `x`, or a

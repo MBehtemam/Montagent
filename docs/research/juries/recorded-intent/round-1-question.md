@@ -14,7 +14,7 @@ everything they reasoned from is below.
 
 # Context
 
-Montaget is an agent-first declarative video editor. A single JSON project file in git is the source of truth. Standing principles (settled, not reopenable):
+Montagent is an agent-first declarative video editor. A single JSON project file in git is the source of truth. Standing principles (settled, not reopenable):
 
 - **File-as-truth.** The project file is the source of truth.
 - **Inert data, no evaluation.** The file must be fully understandable by *reading* it. The moment it becomes code, the agent has to execute it in its head to know what is on screen at 6s — the original disease.

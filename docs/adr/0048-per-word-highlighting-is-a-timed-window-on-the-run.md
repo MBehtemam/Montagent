@@ -14,7 +14,7 @@ highlighting from the effect model on two independent grounds — addressing (a 
 lives inside a run, not at the element level effects attach to) and timing (the
 interesting, animated form needs audio-synced timing, and keyframes are transform-only)
 — and graduated the animated case to this ticket
-([#106](https://github.com/MBehtemam/Montaget/issues/106)). A **static** per-word
+([#106](https://github.com/MBehtemam/Montagent/issues/106)). A **static** per-word
 highlight (fixed paint, no timing) was already expressible with the existing run
 style-delta mechanism; only the animated, audio-synced form was open.
 
@@ -98,7 +98,7 @@ renderer to version a third-party alignment format it does not own.
 More fundamentally, a highlight window is not a derived convenience value at all — it is
 content, the same status a clip's `start`/`end` already has. That the number originated
 from a forced aligner is no more relevant to its status in the document than that an
-in-point originated from someone scrubbing a timeline. Every time in a Montaget document
+in-point originated from someone scrubbing a timeline. Every time in a Montagent document
 is a literal someone or something decided; word times are not a special category needing
 a special mechanism, and this is the same authoring-time-freeze pattern
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) already established for

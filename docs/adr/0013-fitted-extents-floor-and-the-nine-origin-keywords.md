@@ -17,12 +17,12 @@ amends: 0012 (the rounding paragraph over-generalised; `photo-06` was right), 00
 > **Extended by [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md)**: as
 > `fmt` may never rewrite a declared extent, it may never rewrite a **colour** — including
 > converting between `#RRGGBB` and `#RRGGBBAA`. Under declared-authoritative the spelling
-> is content. ADR-0014 also declines `gravity` to [#48](https://github.com/MBehtemam/Montaget/issues/48)
+> is content. ADR-0014 also declines `gravity` to [#48](https://github.com/MBehtemam/Montagent/issues/48)
 > rather than settling it, on this ADR's own refusal to create a schema value by implication.
 
 > **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
 > worked example below carried `"gravity":"top"`, retired by that ADR.
-> **[#72](https://github.com/MBehtemam/Montaget/issues/72) removed the `gravity` key** from
+> **[#72](https://github.com/MBehtemam/Montagent/issues/72) removed the `gravity` key** from
 > the code block, since it is the part an agent copy-pastes; every other field is unchanged
 > and still matches the committed fixture.
 
@@ -45,7 +45,7 @@ because the rectangle is not integral: exact cover here is 1912.5 px."*
 
 ## The decision is that exactly one integer is published
 
-[#44](https://github.com/MBehtemam/Montaget/issues/44)'s complaint is *"Two authors who
+[#44](https://github.com/MBehtemam/Montagent/issues/44)'s complaint is *"Two authors who
 round differently write different files for the same picture, and nothing in either file
 says which is right."* **Determinism is the decision.** Floor-versus-ceil is a tiebreak
 underneath it, and this ADR is explicit about that ordering because the alternative —
@@ -84,7 +84,7 @@ inequality that defines it, and its extent rounds to preserve that inequality. B
 `contain` is defined in no ADR and appears nowhere in `CONTEXT.md`, and legislating a
 rounding rule for it would **create a schema value by implication**. `cover` is 8 of 8
 elements in the only real project file; the `fit` vocabulary is undefined and is
-[#48](https://github.com/MBehtemam/Montaget/issues/48).
+[#48](https://github.com/MBehtemam/Montagent/issues/48).
 
 ### Why floor, honestly
 
@@ -175,7 +175,7 @@ on `chip-text` and `handle-text`.
 
 **`anchor` carrying a string is a schema error naming `origin`.** `CONTEXT.md` records the
 collision as *"near-certain to be rediscovered"* — every comparable tool calls the nine-way
-point an anchor, and Montaget spends that word on layer-relative stacking. The error fires
+point an anchor, and Montagent spends that word on layer-relative stacking. The error fires
 on **shape, not presence**: `anchor` carrying a below/above object is the existing feature
 and stays legal.
 
@@ -243,8 +243,8 @@ so at render time the check is always answerable — UNCHECKED is a `validate`-o
   survives at all"* open on a split jury with no measurement. Under the settled drawn-rect
   reading, `gravity` is **inert on 8 of 8 image elements** in the only real project file —
   the declared rect and `clip` together already determine which part of the source
-  survives. That number is handed to [#13](https://github.com/MBehtemam/Montaget/issues/13)
-  and [#21](https://github.com/MBehtemam/Montaget/issues/21). It is not decided here.
+  survives. That number is handed to [#13](https://github.com/MBehtemam/Montagent/issues/13)
+  and [#21](https://github.com/MBehtemam/Montagent/issues/21). It is not decided here.
 - **An author who wants deliberate anisotropy** writes the rect at the rule value and puts
   the distortion in `scale`, which is `[sx, sy]` precisely so anisotropy can be stated —
   `1546` with `scale:[1.0, 1.236740]`. See *Not settled here* for why this is not yet good
@@ -257,7 +257,7 @@ so at render time the check is always answerable — UNCHECKED is a `validate`-o
   23.6% stretch. Making large deviations an `error` is defensible — a rect contradicting
   its own declared `fit` given the media on disk is the document contradicting itself, which
   is ADR-0006's charter — but it is **blocked on the `fit` vocabulary**
-  ([#48](https://github.com/MBehtemam/Montaget/issues/48)). `cover` is the only value that
+  ([#48](https://github.com/MBehtemam/Montagent/issues/48)). `cover` is the only value that
   exists, omission is undefined, and so there is no legal way to spell *"do not fit this,
   use my rect."* The one available escape — expressing the stretch in `scale` — **collides
   with the animation channel on 7 of 8 image elements**, which already animate `scale`:

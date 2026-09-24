@@ -1215,13 +1215,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "montaget"
+name = "montagent"
 version = "0.1.0"
 dependencies = [
  "base64",
  "clap",
- "montaget-core",
- "montaget-render",
+ "montagent-core",
+ "montagent-render",
  "rmcp",
  "schemars",
  "serde",
@@ -1230,12 +1230,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "montaget-core"
+name = "montagent-core"
 version = "0.1.0"
 dependencies = [
  "image",
- "montaget-render",
- "montaget-text",
+ "montagent-render",
+ "montagent-text",
  "schemars",
  "serde",
  "serde_json",
@@ -1246,7 +1246,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "montaget-render"
+name = "montagent-render"
 version = "0.1.0"
 dependencies = [
  "skia-safe",
@@ -1254,7 +1254,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "montaget-text"
+name = "montagent-text"
 version = "0.1.0"
 dependencies = [
  "icu_segmenter",

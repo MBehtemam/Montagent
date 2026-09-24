@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PROTOTYPE — throwaway. Answers #11: what does `montaget timeline` print?
+"""PROTOTYPE — throwaway. Answers #11: what does `montagent timeline` print?
 
 Emits four candidate renderings of the committed fixture project so they can be
 read side by side at a real terminal width. Not production code.
@@ -7,7 +7,7 @@ read side by side at a real terminal width. Not production code.
 import json, sys, shutil
 from collections import defaultdict
 
-PATH = "fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json"
+PATH = "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"
 COLS = int(sys.argv[1]) if len(sys.argv) > 1 else 100
 
 doc = json.load(open(PATH))

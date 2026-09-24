@@ -13,10 +13,10 @@ amends: 0011 (the five-code exit ladder stays five; `LAYOUT` never gates `fmt --
 
 # `fmt --check` stays exit 0 on a non-canonical file; `L-LAYOUT` is ratified
 
-**Ticket:** [#241](https://github.com/MBehtemam/Montaget/issues/241), surfaced by
-implementing [#193](https://github.com/MBehtemam/Montaget/issues/193) (`fmt`, the
+**Ticket:** [#241](https://github.com/MBehtemam/Montagent/issues/241), surfaced by
+implementing [#193](https://github.com/MBehtemam/Montagent/issues/193) (`fmt`, the
 canonical convention, the atomic write and the key-order predicate). Three things
-`crates/montaget-core/src/verbs/fmt.rs` and `crates/montaget-core/src/registry.rs` raised
+`crates/montagent-core/src/verbs/fmt.rs` and `crates/montagent-core/src/registry.rs` raised
 inline rather than silently deciding, per `docs/agents/domain.md`'s *"if your output
 contradicts an existing ADR, surface it explicitly."* Nothing in `#193`'s shipped code
 changes; this ADR is where the surface it invented becomes spec.
@@ -39,7 +39,7 @@ something exact rather than the coarse pass/fail the ladder gives every other ch
 `--json`'s counted `summary.layout` field:
 
 ```
-montaget fmt p.montaget.json --check --json | jq -e '.summary.layout == 0'
+montagent fmt p.montagent.json --check --json | jq -e '.summary.layout == 0'
 ```
 
 This is the same shape ADR-0013 already established for `UNCHECKED` — a report category
@@ -82,7 +82,7 @@ alongside it.
 **The header's and each track's key order are ratified as schema property-declaration
 order** — the same rule ADR-0041 states *"within an element only"* — because
 `crate::layout::Published::Project` and `Published::Track` already read both from the
-identical generated-schema cache `Published::Element` does (`crates/montaget-core/src/layout.rs`),
+identical generated-schema cache `Published::Element` does (`crates/montagent-core/src/layout.rs`),
 and that is the only reading consistent with ADR-0041's own justification for the rule:
 the published schema is the one order-bearing document already in the project, and nothing
 about the header or a track is exempt from the reasoning that put an element's fields in
@@ -100,14 +100,14 @@ name only what is carried — is the one consistent with ADR-0030, and is ratifi
 
 ## Consequences
 
-- `crates/montaget-core/src/registry.rs`'s `#241` comment above `L-LAYOUT` is replaced
+- `crates/montagent-core/src/registry.rs`'s `#241` comment above `L-LAYOUT` is replaced
   with a citation to this ADR; the code does not change.
-- `crates/montaget-core/src/verbs/fmt.rs`'s doc comment on `pub fn fmt`, which stated the
+- `crates/montagent-core/src/verbs/fmt.rs`'s doc comment on `pub fn fmt`, which stated the
   tension and raised `#241` inline, is updated to state the ratified answer instead.
 - **ADR-0011** gains an "Amended by" banner pointing here.
 - **ADR-0041** gains an "Amended by" banner pointing here.
 - **ADR-0006** gains an "Amended by" banner pointing here, for the identical
   `validate`-side answer to the same exit-code question.
 - No functional code change and no test changes: this ADR ratifies what `#193` shipped and
-  what `crates/montaget-core/tests/fmt.rs`, `tests/validate.rs` and `tests/registry.rs`
+  what `crates/montagent-core/tests/fmt.rs`, `tests/validate.rs` and `tests/registry.rs`
   already assert.

@@ -8,8 +8,8 @@ amends: 0006 (retracts a commissioned check that violates the noise-budget princ
 > **Amended by [ADR-0063](0063-compare-drift-checks-keyframe-instant-relationships.md).**
 > Designs the coupled-motion-drift mechanics it deferred.
 
-[Ticket #71](https://github.com/MBehtemam/Montaget/issues/71), from
-[#12](https://github.com/MBehtemam/Montaget/issues/12). [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)
+[Ticket #71](https://github.com/MBehtemam/Montagent/issues/71), from
+[#12](https://github.com/MBehtemam/Montagent/issues/12). [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md)
 commissioned a `validate` check — fire when elements sharing a `group` have transform
 keyframe times that disagree — as the mitigation for a real hazard: two elements meant to
 move as one (a lower-third's bar and its text), desynced by an edit, with nothing in the file

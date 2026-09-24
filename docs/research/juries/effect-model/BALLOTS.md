@@ -1,7 +1,7 @@
 # Effect model court — ballots
 
 Three jurors (Claude Opus, Claude Haiku, Claude Fable), empanelled via `/court` to
-resolve [#22](https://github.com/MBehtemam/Montaget/issues/22)'s four open questions.
+resolve [#22](https://github.com/MBehtemam/Montagent/issues/22)'s four open questions.
 Each received the identical question packet (background context plus Q1–Q4, reproduced
 below) cold, isolated, with no visibility into the other jurors' ballots and no
 visibility into the author's recommended answers. Feeds

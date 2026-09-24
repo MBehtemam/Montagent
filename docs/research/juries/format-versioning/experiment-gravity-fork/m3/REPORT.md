@@ -59,7 +59,7 @@ The file parses as valid JSON.
    `y`: the smaller diff, and consistent with the sibling photo elements. I also
    assumed negative coordinates are legal ("absolute integer pixels" does not
    forbid them, and off-frame placement plus clip is the natural idiom); I could
-   not run `montaget validate` to confirm.
+   not run `montagent validate` to confirm.
 
 3. **Interaction with the `scale` keyframes (1.0 → 1.08 Ken Burns zoom).** I do
    not know the format's scale anchor point (the origin point? rect center?).
@@ -93,7 +93,7 @@ The file parses as valid JSON.
 - **The source images' pixel dimensions** (`images/05..08.png`,
   `brand/logo-en.png`) — to confirm 1080×1912 is the cover-scaled source size
   and that the logo is square.
-- **A runnable `montaget validate`** — to confirm the repaired file passes,
+- **A runnable `montagent validate`** — to confirm the repaired file passes,
   that negative `y` is accepted, and that nothing else regressed.
 - **The scale-anchor rule** — to judge how far the zoom drift on photo-06/07
   deviates from the old bottom-pinned behavior, if it was bottom-pinned.

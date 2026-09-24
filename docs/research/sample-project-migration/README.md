@@ -1,10 +1,10 @@
 # Migrating the sample project onto the accepted ADRs
 
 The one real project file this repo has was hand-written to answer
-[#9](https://github.com/MBehtemam/Montaget/issues/9) and then sat on an unmerged prototype
+[#9](https://github.com/MBehtemam/Montagent/issues/9) and then sat on an unmerged prototype
 branch while ADR-0007 and ADR-0012 landed. This migration brings it up to accepted ADRs
 0001–0012 and commits it to `main` as
-[`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json),
+[`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json),
 beside the media it references — so every `source` path resolves.
 
 `migrate.py` performs the transformation and `verify.py` checks it. Both are committed so
@@ -49,7 +49,7 @@ published element over its published rule. **Needs an owner** — the rounding r
 schema-level fact an author needs before writing an element, not a renderer detail.
 
 > **Resolved by [ADR-0013](../../adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md)
-> ([#44](https://github.com/MBehtemam/Montaget/issues/44)): 1912 stands, and the ADR's
+> ([#44](https://github.com/MBehtemam/Montagent/issues/44)): 1912 stands, and the ADR's
 > published element was right.** *Ties away from zero* is scoped to `x`/`y` interpolation
 > residuals under SPLIT and never reached fitted extents; a fitted extent is a derived
 > bound and floors. Both roundings were geometrically safe — the finding's framing of this
@@ -80,7 +80,7 @@ really fail; the 15 give one that cannot.
 
 The migration wrote `width: 984` (the design's 48 px margin, evidenced by every panel and
 card rect in the ASS) and the block-formula height, and marks it here rather than hiding it.
-**Belongs to [#13](https://github.com/MBehtemam/Montaget/issues/13).**
+**Belongs to [#13](https://github.com/MBehtemam/Montagent/issues/13).**
 
 ### D3 — the fixture's Ken Burns is `linear`, and ADR-0012's worked example assumes `ease-in-out`
 
@@ -134,8 +134,8 @@ from the prototype, and the first-half fit is consistent with it.
 > (2 × 2 px at 400 ms). The displacement implied by that pair puts the pivot at roughly
 > 0.40 of the box horizontally, which is not one of ADR-0013's nine keywords — so whatever
 > is left, it is not a pivot this format could spell. It is reported without a threshold by
-> `crates/montaget-core/tests/reference_frames.rs` and owned by
-> [#299](https://github.com/MBehtemam/Montaget/issues/299).
+> `crates/montagent-core/tests/reference_frames.rs` and owned by
+> [#299](https://github.com/MBehtemam/Montagent/issues/299).
 
 ### D4 — `clip` on `handle-logo` is a no-op
 
@@ -166,12 +166,12 @@ with `center` being the middle keyword; `middle-left` is equally defensible. Che
 settle, and a schema needs it settled.
 
 > **Resolved by [ADR-0013](../../adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md)
-> ([#44](https://github.com/MBehtemam/Montaget/issues/44)): `center-left`, and the
+> ([#44](https://github.com/MBehtemam/Montagent/issues/44)): `center-left`, and the
 > migration's spelling stands.** All nine are now spelled in `CONTEXT.md`, vertical
 > component first, with the middle as `center` alone and `center-center` a schema error
 > naming it. `middle` would spell one concept two ways depending on axis, since
 > `top-center` needs a horizontal-middle word regardless. The `\an1..\an9` mapping this
-> finding rests on stays here as evidence rather than moving into the ADR — Montaget does
+> finding rests on stays here as evidence rather than moving into the ADR — Montagent does
 > not ingest ASS, and a normative mapping would imply an input format that does not exist.
 >
 > The mapping, so the two migrated values are checkable rather than asserted — ASS

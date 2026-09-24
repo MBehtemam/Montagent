@@ -22,7 +22,7 @@ amends: 0013 (tiebreak (2) is false; the fit-deviation note becomes an error at 
 >   intrinsic pixel dimensions" deferral
 
 `fit` was on 8 of 8 image elements in the only real project file and **no document defined
-its value set**. [#48](https://github.com/MBehtemam/Montaget/issues/48) asked for the
+its value set**. [#48](https://github.com/MBehtemam/Montagent/issues/48) asked for the
 vocabulary. The vocabulary turned out to be the smaller half of the answer.
 
 ## What `fit` actually is
@@ -195,7 +195,7 @@ silent, because silence is what made EXIF a near-miss.
 ### These rules are type-generic
 
 They govern **any element carrying a raster source**, not `image` alone. ADR-0003 commits
-Montaget to video clips, which have the identical source-dimensions shape; writing this
+Montagent to video clips, which have the identical source-dimensions shape; writing this
 image-scoped now buys a schema change later. Video's open wrinkles are named, not solved: PAR,
 container rotation metadata, and mid-stream dimension changes.
 

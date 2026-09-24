@@ -238,7 +238,7 @@ The redraw sets itself the standard *"every row of the index has a ticket"*. Wal
 rows: **0003, 0022, 0027, 0037 are named by no ticket.** Three are genuine no-ops
 (0022 *"No decision changes"*; 0037 *"No authoring tool ships"*; 0003 is the scope frame, cited
 only in a note). ADR-0027 has one live consequence — *"`probe` need not define a 'dimensionless
-source' report category; every source Montaget accepts has decodable pixel dimensions"* — which
+source' report category; every source Montagent accepts has decodable pixel dimensions"* — which
 belongs to ticket 3 and is unnamed there. Small in itself; it matters because the redraw claims
 the walk came out clean and it did not.
 

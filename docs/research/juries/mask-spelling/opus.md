@@ -22,7 +22,7 @@ Both quotes are verbatim and both are on `main`.
 >   members in v1 …
 
 The fixture is as described —
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json:118` ends
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json:118` ends
 `…,"clip":[478,96,68,68],"mask":"circle"}`.
 
 ADR-0017 is as described: closed **at every object level**, at `error` severity, no `x-` prefix,

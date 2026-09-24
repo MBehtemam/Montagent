@@ -17,8 +17,8 @@ named the trap — an agent will write `opacity` on an audio element meaning
 volume, and it fades nothing, forever — but deferred naming the real
 replacement. No volume field exists anywhere today: not in any ADR, not in
 `CONTEXT.md`, not on any of the fixture's 20 audio elements (all narration,
-no music bed). Graduated from [#12](https://github.com/MBehtemam/Montaget/issues/12)
-via the map's "Audio mixing model" fog entry, as [#126](https://github.com/MBehtemam/Montaget/issues/126).
+no music bed). Graduated from [#12](https://github.com/MBehtemam/Montagent/issues/12)
+via the map's "Audio mixing model" fog entry, as [#126](https://github.com/MBehtemam/Montagent/issues/126).
 
 ## Decision
 
@@ -43,7 +43,7 @@ Mirrors two conventions already in the format: `speed`
 ([ADR-0020](./0020-speed-overrun-hold-loop.md), "a rate you multiply by")
 and `saturation{amount}` ([ADR-0049](./0049-v1-colour-filter-vocabulary-four-scalar-members.md),
 `0`/extreme, `1`/identity, `>1`/intensified). An agent that has learned one
-Montaget scalar has learned this one. Decibels were rejected: the scale is
+Montagent scalar has learned this one. Decibels were rejected: the scale is
 logarithmic and the identity value would be `0`, which means "off" in every
 other field in this format — a reader cannot tell the level at a keyframe
 without doing log arithmetic, and the vocabulary is a UI for the agent, not
@@ -152,4 +152,4 @@ Decided **unanimous 3/3** (Opus, Haiku, Fable).
 Three-juror independent court (Opus, Haiku, Fable), blind to each other,
 one ballot per sub-question, five sub-questions: **unanimous 15/15**. Full
 ballots recorded in the resolution comment on
-[#126](https://github.com/MBehtemam/Montaget/issues/126).
+[#126](https://github.com/MBehtemam/Montagent/issues/126).

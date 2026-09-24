@@ -7,7 +7,7 @@
  "background": "#FBF3E3",
  "spans": [
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/a-4k-still.png",
+   "image": "/Users/mohammedehtemam/projects/github/Montagent/docs/research/prototypes/heavy-composite-stack/media/a-4k-still.png",
    "start": 0.0,
    "end": 25.0,
    "cropW": 2160,
@@ -17,7 +17,7 @@
    "zoomStep": 0.0009
   },
   {
-   "image": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/b-4k-still.png",
+   "image": "/Users/mohammedehtemam/projects/github/Montagent/docs/research/prototypes/heavy-composite-stack/media/b-4k-still.png",
    "start": 0.0,
    "end": 25.0,
    "cropW": 800,
@@ -32,7 +32,7 @@
   }
  ],
  "badge": {
-  "src": "/Users/mohammedehtemam/projects/github/Montaget/fixtures/en-halloween-decorating/brand/logo-en.png",
+  "src": "/Users/mohammedehtemam/projects/github/Montagent/fixtures/en-halloween-decorating/brand/logo-en.png",
   "x": 470.0,
   "y": 104.0,
   "w": 64.0,
@@ -305,7 +305,7 @@
  "audio": [],
  "clips": [
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/a-4k-video.mp4",
+   "src": "/Users/mohammedehtemam/projects/github/Montagent/docs/research/prototypes/heavy-composite-stack/media/a-4k-video.mp4",
    "start": 5.0,
    "end": 25.0,
    "srcStart": 5.0,
@@ -315,7 +315,7 @@
    "dh": 2600
   },
   {
-   "src": "/Users/mohammedehtemam/projects/github/Montaget/docs/research/prototypes/heavy-composite-stack/media/b-4k-video.mp4",
+   "src": "/Users/mohammedehtemam/projects/github/Montagent/docs/research/prototypes/heavy-composite-stack/media/b-4k-video.mp4",
    "start": 5.0,
    "end": 25.0,
    "srcStart": 0.0,

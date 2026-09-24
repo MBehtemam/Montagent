@@ -1,13 +1,13 @@
 # Jury: which repair class do `box`, `align`-on-image and `bold`/`weight` take?
 
-Convened while implementing [#192](https://github.com/MBehtemam/Montaget/issues/192),
+Convened while implementing [#192](https://github.com/MBehtemam/Montagent/issues/192),
 which had to place three retired spellings that no ADR classifies. The question is
-[#228](https://github.com/MBehtemam/Montaget/issues/228). This directory is the evidence
+[#228](https://github.com/MBehtemam/Montagent/issues/228). This directory is the evidence
 that ticket rests on.
 
 **Four jurors, four models — Sonnet, Haiku, Fable, and an adversarial Opus — each answering
 the same six questions, blind to each other.** Each was pinned to commit `aef1cdcf` and
-told not to read `crates/montaget-core/src/checks/`, issues #192/#228 or PR #229, so that
+told not to read `crates/montagent-core/src/checks/`, issues #192/#228 or PR #229, so that
 none could review the implementing agent's conclusion instead of the artifact. All four
 reported the contamination check clean. The Opus juror was briefed to **default to
 refuted**: predict the consensus, then argue against it.
@@ -55,7 +55,7 @@ On a **rect**, the same key needs no probe — `out["width"], out["height"] = w,
 spelling, two repairs, one of which reads the media on disk.
 
 **Consequence for the implementation:** the advise repair for `box` on an image is not
-computable by `validate` today, because probing is [#190](https://github.com/MBehtemam/Montaget/issues/190)
+computable by `validate` today, because probing is [#190](https://github.com/MBehtemam/Montagent/issues/190)
 and has not landed. A check that advises here before then would have to invent the source
 dimensions or omit `clip`.
 

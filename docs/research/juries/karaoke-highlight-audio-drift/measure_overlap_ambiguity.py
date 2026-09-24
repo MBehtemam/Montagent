@@ -13,7 +13,7 @@ Run from the repo root:
 import json
 import collections
 
-FIXTURE = "fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json"
+FIXTURE = "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"
 
 
 def overlaps(a_start, a_end, b_start, b_end):

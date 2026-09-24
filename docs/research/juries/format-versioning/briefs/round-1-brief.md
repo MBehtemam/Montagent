@@ -1,4 +1,4 @@
-# Jury brief — Montaget format versioning and migration (ticket #14)
+# Jury brief — Montagent format versioning and migration (ticket #14)
 
 You are being consulted on an open design decision. You are **not** reviewing
 someone's answer: no answer exists yet, and the person convening you has
@@ -11,12 +11,12 @@ juror showing the question was the wrong one.
 
 ---
 
-## What Montaget is
+## What Montagent is
 
 An **agent-first video editor**: files in (images, video, audio), video out.
 There is no GUI. An external LLM agent (Claude Code, or any MCP client) authors
 and edits a **single declarative JSON project file**, which is the source of
-truth and lives in the user's git repo. Montaget itself is an MCP server plus a
+truth and lives in the user's git repo. Montagent itself is an MCP server plus a
 small CLI. It contains no model and is never an agent.
 
 Standing principles, all settled and **not** up for reopening in this exercise:
@@ -27,24 +27,24 @@ Standing principles, all settled and **not** up for reopening in this exercise:
   *reading* it. No expression language, no computed properties whose inputs are
   not in the document.
 - **The agent edits the file with ordinary file tools** (read, write,
-  exact-string replace). Montaget may expose a write tool, but *a tool that
+  exact-string replace). Montagent may expose a write tool, but *a tool that
   writes takes a complete element as a schema-shaped object — never a field
   name, never an element id.* The `update_element` / `delete_element` family is
   banned by that invariant.
 - **Schema catches malformed, agent catches wrong.**
-- Montaget is a **general-purpose** video editor in the CapCut/Premiere class,
+- Montagent is a **general-purpose** video editor in the CapCut/Premiere class,
   open source, intended for people other than its author. After Effects-class
   compositing (precomps, arbitrary-property keyframes, expressions, plugin
   effects) is out of scope.
 
 ## Where to read
 
-Repo: `/Users/mohammedehtemam/projects/github/Montaget`, branch `origin/main`.
+Repo: `/Users/mohammedehtemam/projects/github/Montagent`, branch `origin/main`.
 
 - `CONTEXT.md` — the settled domain vocabulary. Read it.
 - `docs/adr/0001` … `docs/adr/0015` — fifteen accepted decisions. Skim all the
   titles; read in full any you rely on.
-- `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` — the
+- `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` — the
   **only real project file that exists**, 60 elements, 154 lines, migrated from
   a published 65.2 s YouTube short.
 - `docs/research/` — prototypes and prior juries.
@@ -70,7 +70,7 @@ was written. Re-check any you intend to rely on.
 
 1. **The fixture carries no version field of any kind.** Its top-level keys are
    `frame`, `fps`, `background`, `duration`, `output`, `fonts`, `tracks`. There
-   is no `"montaget"`, no `$schema`, no per-object version.
+   is no `"montagent"`, no `$schema`, no per-object version.
 2. **No JSON Schema artifact exists anywhere in the repo.** The "format" is
    fifteen ADRs of prose. The thing this ticket proposes to version does not yet
    exist as a machine-readable artifact.
@@ -93,7 +93,7 @@ was written. Re-check any you intend to rely on.
    #9's five-agent edit exercise). Nobody wanted an `update_element`. The file is
    written one element per line, sorted by `start`, with stable key order,
    precisely so a unique matchable substring exists.
-8. **Montaget has never been released.** No renderer exists. There are no users
+8. **Montagent has never been released.** No renderer exists. There are no users
    and exactly one project file.
 9. Two adjacent tickets are open and unresolved, and you may not assume either
    way on them: **#61** — nothing says whether `fmt` materialises defaulted
@@ -109,7 +109,7 @@ was written. Re-check any you intend to rely on.
 
 `fixtures/en-halloween-decorating/` is a **fixture, not a scope**. It is test
 data and a regression guard — evidence that the primitives suffice for real
-published work. It has **no authority** over what Montaget must do.
+published work. It has **no authority** over what Montagent must do.
 
 > The fixture is evidence that a capability is **needed**. It is never evidence
 > that a capability is **unneeded**.
@@ -175,7 +175,7 @@ Cite evidence. Where you are speculating, label it speculation. Where a claim is
 falsifiable, say what would falsify it.
 
 **Q1 — Is there a version in the file at all, and what is versioned?**
-Candidate shapes: (a) one top-level integer, e.g. `"montaget": 1`, naming a
+Candidate shapes: (a) one top-level integer, e.g. `"montagent": 1`, naming a
 revision of the whole format; (b) OpenTimelineIO-style per-object versions
 (`"Clip.5"`) with chained upgrade functions; (c) no version field at all — the
 revision is inferred from the file's shape. Note the tension you must address
@@ -184,7 +184,7 @@ either way: a version integer is a field the **agent hand-maintains**, and fact
 number worse than no version number?
 
 **Q2 — Does the policy fire now, or only after a stated 1.0?**
-Montaget has never shipped (fact 8) and the fifteen changes behind us cost
+Montagent has never shipped (fact 8) and the fifteen changes behind us cost
 nothing to make. Does the spec state a pre-1.0 clause — the format breaks freely
 and the only obligation is that the fixture is migrated with a committed,
 re-runnable script (a rule `docs/agents/domain.md` already imposes) — with the
@@ -194,12 +194,12 @@ migration? If you choose the former, say what event trips the switch, and who
 decides.
 
 **Q3 — Whose files must survive N+1?**
-Is the design target (a) files Montaget never wrote and cannot see — in
+Is the design target (a) files Montagent never wrote and cannot see — in
 strangers' repos, possibly hand-edited, possibly half-migrated — which makes
 migration a shipped, standalone, idempotent capability; or (b) only files within
 reach, which makes a migration a script committed beside the ADR that caused it,
-exactly as #42 and #48 already did, and may mean `montaget migrate` need not
-exist? Under file-as-truth Montaget never holds a database it can sweep. State
+exactly as #42 and #48 already did, and may mean `montagent migrate` need not
+exist? Under file-as-truth Montagent never holds a database it can sweep. State
 what a general migration tool buys over a per-change script, in failures
 prevented, or concede that it buys nothing.
 

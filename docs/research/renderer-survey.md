@@ -1,24 +1,24 @@
 # Survey: programmatic and declarative video renderers
 
-Research for [#5](https://github.com/MBehtemam/Montaget/issues/5), part of the map [#2](https://github.com/MBehtemam/Montaget/issues/2).
+Research for [#5](https://github.com/MBehtemam/Montagent/issues/5), part of the map [#2](https://github.com/MBehtemam/Montagent/issues/2).
 
 **Date of research:** 2026-09-02. Version numbers, release dates and star counts are as of that date.
 
-**This document does not recommend a winner.** [#7 "Choose the renderer and host language"](https://github.com/MBehtemam/Montaget/issues/7) makes that call, informed by measurements from [#6](https://github.com/MBehtemam/Montaget/issues/6). What follows is the landscape and the scores.
+**This document does not recommend a winner.** [#7 "Choose the renderer and host language"](https://github.com/MBehtemam/Montagent/issues/7) makes that call, informed by measurements from [#6](https://github.com/MBehtemam/Montagent/issues/6). What follows is the landscape and the scores.
 
 **Sourcing rule applied:** every claim cites a primary source (official docs, repo, LICENSE, registry API). Where a figure is not published, this document says so explicitly rather than estimating. A handful of Remotion claims could only be recovered through search-engine summaries because the doc URLs 404'd on direct fetch; those are marked **[secondary]**.
 
 > [!WARNING]
 > **Scope correction — the criteria below were written under a narrower scope than now stands.**
 >
-> [ADR-0003](../adr/0003-general-video-editor-not-channel-tooling.md) settles that Montaget is a **general, open-source, agent-first video editor** in the CapCut/Premiere class. The `youtube_language_learning` channel is a **fixture and regression guard, never a scope boundary**. See [#19](https://github.com/MBehtemam/Montaget/issues/19).
+> [ADR-0003](../adr/0003-general-video-editor-not-channel-tooling.md) settles that Montagent is a **general, open-source, agent-first video editor** in the CapCut/Premiere class. The `youtube_language_learning` channel is a **fixture and regression guard, never a scope boundary**. See [#19](https://github.com/MBehtemam/Montagent/issues/19).
 >
 > Two things below were written against the narrow scope and must not be read at face value:
 >
 > - **C2 says "bilingual subtitle text."** Read it as **text and typography generally** — multi-script, arbitrary fonts, styled runs, full shaping. A video editor that strangers run cannot be Latin-only by construction, whatever any one channel publishes. Note this makes tiny-skia's disqualification on C2 stand *more* firmly, not less.
-> - **"Target format throughout: 1080x1920, 30fps"** was the *channel's* format, not a constraint on Montaget. Frame size and rate are project properties, and **arbitrary aspect ratios are in scope**.
+> - **"Target format throughout: 1080x1920, 30fps"** was the *channel's* format, not a constraint on Montagent. Frame size and rate are project properties, and **arbitrary aspect ratios are in scope**.
 >
-> The **facts** in this survey are unaffected — they were gathered against primary sources and remain good. Only the **weighting** changes. [#7](https://github.com/MBehtemam/Montaget/issues/7) must re-score against general criteria rather than reading the scores here at face value.
+> The **facts** in this survey are unaffected — they were gathered against primary sources and remain good. Only the **weighting** changes. [#7](https://github.com/MBehtemam/Montagent/issues/7) must re-score against general criteria rather than reading the scores here at face value.
 
 ---
 
@@ -58,7 +58,7 @@ Legend: **Y** meets it, **~** partial or with caveats, **N** does not.
 | **OTIO** | **Y** (JSON) | **N** (no text model) | **N** (opaque effects) | n/a — not a renderer | n/a | n/a | Y Apache-2.0 | Y (ASWF) | n/a |
 | **FCPXML** | ~ (XML, but indirection) | **N** (Motion templates) | ~ (`keyframeAnimation`) | n/a — not a renderer | n/a | Apple terms | Y (Apple-maintained) | **N** (macOS/FCP) | n/a |
 
-**The single most important cross-cutting finding:** *no candidate in this survey publishes a throughput figure for 1080x1920 at 30fps.* Not one. The closest published claims are Revideo's qualitative "almost always faster than real-time" and per-op canvas micro-benchmarks from the Node Skia bindings. This is precisely why [#6](https://github.com/MBehtemam/Montaget/issues/6) exists as a separate measurement ticket — the C6 column above cannot be filled from published sources at all.
+**The single most important cross-cutting finding:** *no candidate in this survey publishes a throughput figure for 1080x1920 at 30fps.* Not one. The closest published claims are Revideo's qualitative "almost always faster than real-time" and per-op canvas micro-benchmarks from the Node Skia bindings. This is precisely why [#6](https://github.com/MBehtemam/Montagent/issues/6) exists as a separate measurement ticket — the C6 column above cannot be filled from published sources at all.
 
 **The second:** every *renderer* in this survey fails C1 (Remotion, Revideo, Motion Canvas) or fails C2/C3 (FFmpeg, Skia), while every candidate that passes C1 cleanly (OTIO, headless Chrome, Skia) is not a complete renderer. Nothing off the shelf is both an inert declarative format and a capable renderer. That gap is the shape of the project.
 
@@ -71,14 +71,14 @@ Legend: **Y** meets it, **~** partial or with caveats, **N** does not.
 - **Host language / runtime.** React components in TypeScript. Node ≥16 per the getting-started guide ([docs](https://www.remotion.dev/docs/)); v5.0 raises the minimum ([v5.0 migration](https://www.remotion.dev/docs/5-0-migration)); `@remotion/media-parser` needs Node ≥20 ([runtime support](https://www.remotion.dev/docs/media-parser/runtime-support)).
 - **Runtime dependencies.** Auto-installs **Chrome Headless Shell** into `node_modules/.remotion/chrome-headless-shell/` (pinned build, e.g. 149.0.7790.0 as of 4.0.452); `npx remotion browser ensure` verifies it ([Chrome Headless Shell](https://www.remotion.dev/docs/miscellaneous/chrome-headless-shell)). Linux needs extra shared libraries ([Linux dependencies](https://www.remotion.dev/docs/miscellaneous/linux-dependencies)). Requires ffmpeg/ffprobe ≥4.1 and auto-installs if missing **[secondary]**.
 - **C1 — inert file: NO.** A composition *is* a React component tree. `calculateMetadata()` is a callback that can transform props and metadata at render time ([calculateMetadata](https://www.remotion.dev/docs/calculate-metadata)). Knowing what is on screen at t=6s requires executing the tree. This is the exact disease the map names.
-  - **But there is a real data seam.** `getInputProps()` reads CLI `--props` JSON at render time; input props must be JSON-serializable; a Zod `z.object()` schema can be attached to a composition to validate them ([schemas](https://www.remotion.dev/docs/schemas), [getInputProps](https://www.remotion.dev/docs/get-input-props)). A Montaget project file could be passed wholesale as input props to a *fixed, general* Remotion composition that interprets it. The inert file would then be Montaget's, and Remotion would be a rendering backend rather than the authoring format. This is an architectural option worth naming, not a property Remotion has out of the box.
+  - **But there is a real data seam.** `getInputProps()` reads CLI `--props` JSON at render time; input props must be JSON-serializable; a Zod `z.object()` schema can be attached to a composition to validate them ([schemas](https://www.remotion.dev/docs/schemas), [getInputProps](https://www.remotion.dev/docs/get-input-props)). A Montagent project file could be passed wholesale as input props to a *fixed, general* Remotion composition that interprets it. The inert file would then be Montagent's, and Remotion would be a rendering backend rather than the authoring format. This is an architectural option worth naming, not a property Remotion has out of the box.
 - **C2 — text.** Chromium's layout engine: full CSS/DOM text layout, line wrapping, bidi, everything a browser does. `@remotion/google-fonts` loads Google Fonts without hand-written CSS; manual `FontFace` loading pairs with `delayRender()`/`continueRender()`. From v2.2 Remotion automatically waits for CSS-imported fonts to load, which defuses the classic font-load race **[secondary]**. Best-in-survey for bilingual text.
 - **C3 — animation.** `interpolate()` with `extrapolateLeft/Right: 'clamp'` and easing ([interpolate](https://www.remotion.dev/docs/interpolate)); `spring()` for physics-based 0→1 ([spring](https://www.remotion.dev/docs/spring)); `Easing` module ([easing](https://www.remotion.dev/docs/easing)); `@remotion/shapes` for SVG shape generation ([shapes](https://www.remotion.dev/docs/shapes)). Plus all of CSS and SVG.
 - **C4 — single frame: YES, first-class.** `npx remotion still <serve-url> [composition-id] [output]` with `--frame`, `--image-format` (PNG/JPEG), `--scale`, `--timeout` (default 30000ms for `delayRender`) ([CLI still](https://www.remotion.dev/docs/cli/still)).
 - **C5 — partial range: YES, first-class.** `--frames=a-b` inclusive; comma-separated ranges concatenate, e.g. `--frames=0-99,150-199`, and mixed forms like `--frames=0,30-59,90-` work. Available from **4.0.502**. `--sequence` emits an image sequence instead of a video ([CLI render](https://www.remotion.dev/docs/cli/render)).
 - **C6 — speed: NOT PUBLISHED.** No fps or render-time figures found in the official docs. Remotion ships `npx remotion benchmark` so you measure your own ([CLI benchmark](https://www.remotion.dev/docs/cli/benchmark)); Lambda concurrency docs discuss `framesPerLambda` trade-offs qualitatively **[secondary]** but state no numbers.
 - **C7 — licence: NOT MIT. The significant catch in this survey.** Per [LICENSE.md](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md): the **Free License** covers individuals, for-profit orgs with **up to 3 employees**, non-profits, and orgs evaluating Remotion — commercial use permitted, but you may not resell/relicense/sublicense a derivative of Remotion itself. A **Company License** is required for for-profit orgs of 4+ people. Pricing at [remotion.pro/license](https://www.remotion.pro/license): "Remotion for Automators" $0.01/render with a $100/month minimum; "Remotion for Creators" $25/month/seat; Enterprise from $500/month. LICENSE.md notes the licence "will slightly change" in v5.0, linking [PR #3750](https://github.com/remotion-dev/remotion/pull/3750) — a pending change, not yet reviewed here.
-  - Two flags for #7. First, the **"may not resell a derivative"** clause deserves reading closely if Montaget is ever distributed as a tool that embeds Remotion — that is a different posture from using it to render your own channel's videos. Second, the per-render Automators tier is a *usage-metered* model, which interacts badly with a design where a render is cheap and frequent (single-frame self-verification on every agent turn).
+  - Two flags for #7. First, the **"may not resell a derivative"** clause deserves reading closely if Montagent is ever distributed as a tool that embeds Remotion — that is a different posture from using it to render your own channel's videos. Second, the per-render Automators tier is a *usage-metered* model, which interacts badly with a design where a render is cheap and frequent (single-frame self-verification on every agent turn).
 - **C8 — health: excellent.** npm `remotion` **4.0.520**, published 2026-09-01 ([registry](https://registry.npmjs.org/remotion)). GitHub `remotion-dev/remotion`: **58,098 stars**, last push 2026-09-02 (same day as this research), not archived. Company-backed by Remotion GmbH.
 - **C9 — headless: yes**, CLI-driven throughout.
 - **Fit for this project's shape.** `@remotion/captions` provides `createTikTokStyleCaptions()`, grouping caption tokens into pages via `combineTokensWithinMilliseconds` — low values give word-by-word TikTok-style display ([createTikTokStyleCaptions](https://www.remotion.dev/docs/captions/create-tiktok-style-captions), [API](https://www.remotion.dev/docs/captions/api)). Images and audio are `<Img>`/`<Audio>`; 9:16 is just composition width/height. This is the most directly on-target feature set in the survey.
@@ -133,7 +133,7 @@ A fork of Motion Canvas adding headless rendering, audio and a library-first API
 
 ## 5. Build-your-own substrates
 
-These are not products; they are the materials you would use if Montaget renders frames itself. They score perfectly on C1, C4 and C5 for the trivial reason that *you* define the file format and *you* own the frame loop — the cost is that C2 and C3 become your problem.
+These are not products; they are the materials you would use if Montagent renders frames itself. They score perfectly on C1, C4 and C5 for the trivial reason that *you* define the file format and *you* own the frame loop — the cost is that C2 and C3 become your problem.
 
 ### Headless Chrome + FFmpeg muxing
 
@@ -173,7 +173,7 @@ This is what the project uses today via agent-written throwaway Python. Understa
   - `text_shaping`: "If set to 1, attempt to shape the text (for example, reverse the order of right-to-left text and join Arabic characters) before drawing it... By default 1 (if supported)". The "(if supported)" is doing real work for a bilingual project.
   - **No automatic line wrapping exists.** Only `line_spacing` (pixel gap between explicit lines) and `tabsize`. Line breaks must be inserted manually into the text. For subtitles this means the caller computes wrapping — with no text metrics available to it.
   - **Escaping is documented as three-level and is genuinely awful.** Level 1 escapes `'` and `:` inside the option value; level 2 additionally escapes `,` when embedded in a filtergraph; level 3 escapes again per the shell's rules. FFmpeg's own example: `-vf "drawtext=text=this is a \\\\\\'string\\\\\\'\\\\: may contain one\\, or more\\, special characters"` ([Notes on filtergraph escaping](https://ffmpeg.org/ffmpeg-filters.html)). The docs themselves recommend `textfile` over inline `text` to escape the escaping. **For an agent generating bilingual subtitle text mechanically, this is a correctness minefield.**
-  - The better path is `subtitles`/`ass` via **libass** (needs `--enable-libass`): options include `force_style` ASS overrides, `wrap_unicode` (Unicode Line Breaking Algorithm, needs libass ≥0.17.0 with libunibreak, on by default except native ASS), and `shaping` (`auto`/`simple`/`complex`, where complex — required for Arabic/Hebrew/Devanagari/Thai — needs libass built with HarfBuzz) ([subtitles](https://ffmpeg.org/ffmpeg-filters.html#subtitles), [ass](https://ffmpeg.org/ffmpeg-filters.html#ass-1)). This works, but it means the real text format is ASS, and Montaget's project file would be generating a second file format as an intermediate.
+  - The better path is `subtitles`/`ass` via **libass** (needs `--enable-libass`): options include `force_style` ASS overrides, `wrap_unicode` (Unicode Line Breaking Algorithm, needs libass ≥0.17.0 with libunibreak, on by default except native ASS), and `shaping` (`auto`/`simple`/`complex`, where complex — required for Arabic/Hebrew/Devanagari/Thai — needs libass built with HarfBuzz) ([subtitles](https://ffmpeg.org/ffmpeg-filters.html#subtitles), [ass](https://ffmpeg.org/ffmpeg-filters.html#ass-1)). This works, but it means the real text format is ASS, and Montagent's project file would be generating a second file format as an intermediate.
 - **C3 — animation: expression soup.**
   - Timeline gating via `enable='between(t,10,3*60)'` on filters supporting it ([timeline editing](https://ffmpeg.org/ffmpeg-filters.html)).
   - `drawtext` `x`/`y` accept expressions over `t`, `n`, `w`/`h`, `text_w`/`text_h`.
@@ -208,7 +208,7 @@ Neither OTIO nor FCPXML renders anything. They are in this survey as **prior art
 
 **What to steal:**
 
-- **Exact rational time with explicit rate everywhere** — `RationalTime(value, rate)` rather than floats. Frame-accurate, no accumulation error, and an agent reading `{"value": 180, "rate": 30}` knows exactly which frame that is. Directly relevant to [#8 "Decide the time model"](https://github.com/MBehtemam/Montaget/issues/8).
+- **Exact rational time with explicit rate everywhere** — `RationalTime(value, rate)` rather than floats. Frame-accurate, no accumulation error, and an agent reading `{"value": 180, "rate": 30}` knows exactly which frame that is. Directly relevant to [#8 "Decide the time model"](https://github.com/MBehtemam/Montagent/issues/8).
 - **Gaps as explicit first-class objects.** Silence and blank space are things you can point at, name and edit — not the absence of a thing. Enormously easier for an agent to reason about and to diff.
 - **Per-object embedded schema version** (`"OTIO_SCHEMA": "Clip.5"`) with automatic chained upgrades. A versioning story that lives in the file rather than in a sidecar.
 - **Plain indented human-readable JSON as the canonical form**, explicitly choosing gzip over minification when size matters — i.e. never trading readability for bytes.
@@ -235,9 +235,9 @@ Neither OTIO nor FCPXML renders anything. They are in this survey as **prior art
 
 **What to steal:**
 
-- **Explicit rational-second time strings** (`"1001/30000s"`) — unambiguous, and notably a *different* encoding of the same good idea as OTIO's `RationalTime`. Two independent formats converging on exact rational time is the strongest signal in this whole section for [#8](https://github.com/MBehtemam/Montaget/issues/8).
+- **Explicit rational-second time strings** (`"1001/30000s"`) — unambiguous, and notably a *different* encoding of the same good idea as OTIO's `RationalTime`. Two independent formats converging on exact rational time is the strongest signal in this whole section for [#8](https://github.com/MBehtemam/Montagent/issues/8).
 - **Separating shared `resources` from the timeline that references them.** Asset and format definitions are declared once and referenced by id, rather than repeated at every use — the fix for OTIO's no-instancing duplication problem.
-- **The *shape* of `param` / `keyframeAnimation` / `keyframe`** — a generic vocabulary of (name, value, time, interp, curve). Even discarding Motion's semantics entirely, that tuple is a good starting vocabulary for [#12 "Design the animation model"](https://github.com/MBehtemam/Montaget/issues/12), and it is genuinely declarative data, unlike an FFmpeg expression string or a Remotion `interpolate()` call.
+- **The *shape* of `param` / `keyframeAnimation` / `keyframe`** — a generic vocabulary of (name, value, time, interp, curve). Even discarding Motion's semantics entirely, that tuple is a good starting vocabulary for [#12 "Design the animation model"](https://github.com/MBehtemam/Montagent/issues/12), and it is genuinely declarative data, unlike an FFmpeg expression string or a Remotion `interpolate()` call.
 - **`start`/`duration`/`offset` on every clip** — simple, explicit, addressable.
 
 **What makes it a poor fit for hand-editing by an agent:**
@@ -258,17 +258,17 @@ Read side by side, the two formats agree on the structural questions and both fa
 | Reuse | none (duplicates) | `resources` + `IDREF` | Take FCPXML's id/reference table. |
 | Versioning | per-object schema version + upgrade chain | tied to FCP release | Take OTIO's idea, simplify so it stays hand-writable. |
 | Gaps | explicit `Gap` object | implicit via `offset` | Take OTIO's explicit gaps. |
-| Text | none | Motion template by UID | **Neither is usable. This is Montaget's to invent** ([#13](https://github.com/MBehtemam/Montaget/issues/13)). |
-| Animation | opaque effects | `keyframeAnimation` | Take FCPXML's tuple shape, define real semantics ([#12](https://github.com/MBehtemam/Montaget/issues/12)). |
+| Text | none | Motion template by UID | **Neither is usable. This is Montagent's to invent** ([#13](https://github.com/MBehtemam/Montagent/issues/13)). |
+| Animation | opaque effects | `keyframeAnimation` | Take FCPXML's tuple shape, define real semantics ([#12](https://github.com/MBehtemam/Montagent/issues/12)). |
 | Readability | indented JSON | verbose XML + DTD | Take OTIO's JSON posture. |
 
-Both are *interchange* formats — designed to move an edit between applications that already know how to render, where the receiving app supplies all the meaning. Montaget's file is an *authoring* format that must carry its own meaning, because the thing reading it is an agent with no application-specific knowledge to supply. That difference explains every one of the "poor fit" points above.
+Both are *interchange* formats — designed to move an edit between applications that already know how to render, where the receiving app supplies all the meaning. Montagent's file is an *authoring* format that must carry its own meaning, because the thing reading it is an agent with no application-specific knowledge to supply. That difference explains every one of the "poor fit" points above.
 
 ---
 
 ## 8. Open items this survey could not close
 
-1. **No throughput figures exist, anywhere, for any candidate at 1080x1920/30fps.** The C6 column is unfillable from published sources. [#6](https://github.com/MBehtemam/Montaget/issues/6) must measure.
+1. **No throughput figures exist, anywhere, for any candidate at 1080x1920/30fps.** The C6 column is unfillable from published sources. [#6](https://github.com/MBehtemam/Montagent/issues/6) must measure.
 2. **Revideo single-frame render** — no API found, but recorded as *not confirmed* rather than *absent*. Worth 10 minutes of source-reading before #7 decides.
 3. **Remotion v5.0 licence change** ([PR #3750](https://github.com/remotion-dev/remotion/pull/3750)) not reviewed. If Remotion is a serious candidate, read it.
 4. **Remotion's exact v5.0 minimum Node version** is templated as `<MinNodeVersion/>` in the migration doc and never resolves to a literal in the published page.

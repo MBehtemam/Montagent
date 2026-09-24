@@ -9,7 +9,7 @@ amends: 0011 (`fmt` gains an explicit exception), 0015 (states the fixed-point b
 When a source's aspect ratio exactly matches its aperture's (`clip`'s), `cover` and
 `contain` (ADR-0015) compute the identical rect, so two `fit` values describe one element
 with no difference in output. Live in the committed fixture: `handle-logo` is an 800x800
-source into a 68x68 aperture, giving 68x68 under either rule. [#56](https://github.com/MBehtemam/Montaget/issues/56)
+source into a 68x68 aperture, giving 68x68 under either rule. [#56](https://github.com/MBehtemam/Montagent/issues/56)
 asked whether `fmt` (ADR-0011), which normalizes the file on write, should canonicalize one
 spelling, or whether both should stand as permanently legal.
 

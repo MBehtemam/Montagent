@@ -1,6 +1,6 @@
 # Worklog — F-sonnet-literal
 
-Source consulted: `SPEC-literal.md` only. Reference (read, not edited): `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`.
+Source consulted: `SPEC-literal.md` only. Reference (read, not edited): `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`.
 No files under `docs/adr/` were read.
 
 **Note on the reference project file up front:** every existing image element in it carries a

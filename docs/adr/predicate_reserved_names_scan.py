@@ -15,7 +15,7 @@ true when the schema grows:
      `fonts` table's names — are not checked and do not need to be: a predicate path starts
      at an element, and no element reaches that table.
 
-Run this before adding a property to `schema/montaget.schema.json` — by hand. It is
+Run this before adding a property to `schema/montagent.schema.json` — by hand. It is
 registered in `.github/workflows/ci.yml` beside the amendment-banner check, but GitHub
 Actions is disabled for this repository, so nothing runs it for you. A failure here is not
 a bug in the scan — it means ADR-0070 needs an amendment, because a predicate that used to
@@ -27,7 +27,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SCHEMA = os.path.join(HERE, "..", "..", "schema", "montaget.schema.json")
+SCHEMA = os.path.join(HERE, "..", "..", "schema", "montagent.schema.json")
 
 failures = []
 

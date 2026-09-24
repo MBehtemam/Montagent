@@ -14,8 +14,8 @@ amends: 0068 (retires its "the rendered frame is unchanged" Consequences bullet 
 > and `rotation` — are ratified there, and the goldens this ADR's reasoning implies are
 > commissioned as tests rather than asserted as prose. Every number below stands.
 
-**Ticket:** [#279](https://github.com/MBehtemam/Montaget/issues/279). Evidence:
-`crates/montaget-core/tests/effects.rs::the_badges_mask_changes_only_the_antialiasing_of_its_own_rim`,
+**Ticket:** [#279](https://github.com/MBehtemam/Montagent/issues/279). Evidence:
+`crates/montagent-core/tests/effects.rs::the_badges_mask_changes_only_the_antialiasing_of_its_own_rim`,
 which re-derives every number below by rendering the committed fixture twice — with the
 badge's `mask` and with it removed — at the instant and scale the committed golden is
 taken at, and fails the suite the moment one stops reproducing.
@@ -31,7 +31,7 @@ with a claim about the pixels:
 — and, in its Consequences: *"The committed fixture, `migrate.py` and `verify.py` are
 updated in this change. **The rendered frame is unchanged.**"*
 
-[#214](https://github.com/MBehtemam/Montaget/issues/214) implemented the `mask` member.
+[#214](https://github.com/MBehtemam/Montagent/issues/214) implemented the `mask` member.
 The rendered frame is not unchanged.
 
 ## What the ADR measured, and what it did not
@@ -42,7 +42,7 @@ opaque pixels outside its inscribed circle and zero transparent pixels inside it
 badge is the inscribed circle, drawn into the asset.
 
 The renderer does not paint the stored asset. `handle-logo` is a 68×68 slot, so
-`montaget-render` resamples 800×800 down into it — an 11.8× bilinear minification with no
+`montagent-render` resamples 800×800 down into it — an 11.8× bilinear minification with no
 mipmaps, kept that way in `canvas::sampling` because the golden frames were measured with
 it. A minification that steep carries a little of each boundary texel into the destination
 pixels immediately *outside* the ideal circle. So the **drawn** badge reaches marginally
@@ -87,7 +87,7 @@ reaching another would violate.
 **The magnitude is the same order as the noise the suite already budgets for.**
 `tests/golden_frames.rs` admits SSIM ≥ 0.999 and a mean channel delta ≤ 0.5, on the ground
 that the last bit differs across platforms —
-[#34](https://github.com/MBehtemam/Montaget/issues/34) measured that drift at 0.003–0.004,
+[#34](https://github.com/MBehtemam/Montagent/issues/34) measured that drift at 0.003–0.004,
 which brackets this change's 0.0041. The pre-#214 golden would have gone on passing
 against the masked render — 0.0041 is inside the 0.5 ceiling and 0.999982 inside the 0.999
 floor — which is the fact the next section turns on. The delta is real and it is not

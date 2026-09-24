@@ -8,12 +8,12 @@ amends: 0004 (states that its "absolute times unmissable" duty is satisfied by a
 # The agent's overview is not required to be spatial
 
 [ADR-0004](./0004-tracks-as-constrained-lanes.md) carries an accepted requirement:
-*"the published schema and `montaget timeline` output must both make absolute times
-unmissable."* [#11](https://github.com/MBehtemam/Montaget/issues/11) established that
+*"the published schema and `montagent timeline` output must both make absolute times
+unmissable."* [#11](https://github.com/MBehtemam/Montagent/issues/11) established that
 some overview halves an agent's tool-call cost on real tasks at no cost to correctness
 (disjoint ranges, raw file vs. overview), but left open whether that overview has to be
 *spatial* — an ASCII axis with bars and a ruler — or whether the same facts printed flat
-do the same job. [#63](https://github.com/MBehtemam/Montaget/issues/63) asked for that to
+do the same job. [#63](https://github.com/MBehtemam/Montagent/issues/63) asked for that to
 be settled by measurement rather than opinion, since #11's own ablation had only n=3 per
 arm and its ranges overlapped.
 

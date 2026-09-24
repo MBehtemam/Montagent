@@ -5,11 +5,11 @@
 The render failed with 16 errors, all the same shape: `unknown key `fit`` and
 `unknown key `clip`` on 8 elements (the 7 `photo-*` image elements and
 `handle-logo`). The tool's own error message was explicit: these keys may
-belong to a newer format revision than the installed `montaget 0.9.2`, and it
+belong to a newer format revision than the installed `montagent 0.9.2`, and it
 warned **not** to just delete them to make the file validate, because that
 would silently change the render.
 
-I don't have network access, so I can't fetch a newer `montaget` build or the
+I don't have network access, so I can't fetch a newer `montagent` build or the
 format spec to learn what `fit`/`clip` are supposed to do. Instead I reasoned
 from the data actually in the file, since deleting them wasn't a safe option
 on its own:
@@ -70,7 +70,7 @@ on its own:
 ## What I would tell the team
 
 The overnight render broke because `project.json` uses `fit`/`clip` keys on
-the photo and logo elements that this build box's `montaget 0.9.2` doesn't
+the photo and logo elements that this build box's `montagent 0.9.2` doesn't
 know -- almost certainly written against a newer schema than what's
 installed here. I got it rendering again without deleting those keys blindly
 (the tool explicitly warned that would silently change output): for
@@ -78,7 +78,7 @@ installed here. I got it rendering again without deleting those keys blindly
 7 photo elements the `clip` was cropping real content, so I replaced it with
 an explicit background-colored rect that reproduces the same visible mat
 around the photos, then dropped the now-unused keys. The video should render
-today. Separately, and not urgently: whoever owns `montaget`/this file
+today. Separately, and not urgently: whoever owns `montagent`/this file
 should reconcile why the build box binary is behind the format the project
 file was authored against, so this doesn't happen again on the next file
 that uses a newer key.

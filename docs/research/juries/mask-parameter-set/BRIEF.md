@@ -1,10 +1,10 @@
 You are a juror. Answer from the packet below alone. Do not use tools, do not read files, do not edit anything, do not offer recommendations about process. Answer the four questions and nothing else.
 
-# Packet: the `mask` effect's parameter set in Montaget
+# Packet: the `mask` effect's parameter set in Montagent
 
-## What Montaget is
+## What Montagent is
 
-Montaget is an agent-first video editor. A single declarative JSON project file is the source of truth; agents author and edit it with ordinary file tools. The file must be fully understandable by *reading* it — no evaluation, no code. A small CLI/MCP surface (validate, query, frame, render, compare, ...) does what a text editor cannot. It will be open source and used by people other than its author, so primitives are shaped by what a video editor must express, never by what one project happens to use.
+Montagent is an agent-first video editor. A single declarative JSON project file is the source of truth; agents author and edit it with ordinary file tools. The file must be fully understandable by *reading* it — no evaluation, no code. A small CLI/MCP surface (validate, query, frame, render, compare, ...) does what a text editor cannot. It will be open source and used by people other than its author, so primitives are shaped by what a video editor must express, never by what one project happens to use.
 
 The repo carries one real fixture: a 9:16 language-teaching YouTube short. The fixture is **evidence a capability is needed, never evidence one is unneeded**.
 

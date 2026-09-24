@@ -1,0 +1,390 @@
+//! The `Finding` — the one object every Montagent verb answers with.
+//!
+//! ADR-0011: *"An error is a finding. Same objects and same stable codes as ADR-0006,
+//! including for invocation errors, so there is exactly one thing to parse across the
+//! surface."*
+//!
+//! A finding carries a stable code, a class, a location, and **every relevant number
+//! inline** — ADR-0006 is emphatic that a finding saying *"see `vo-sentence-06-a`"*
+//! forces a re-read of the whole project, and that the re-read, not the output, is the
+//! real context cost. The numbers live in [`Finding::fields`] rather than in a prose
+//! string, because JSON is canonical and the prose is generated from it through the
+//! registered template: one code, one field set, one template.
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap;
+
+use crate::registry::{self, RepairClass};
+
+/// What kind of thing a finding is.
+///
+/// Three of these are ADR-0006's severities, named for what the reader does. The other
+/// three are report categories that are not severities at all and never gate a render:
+/// `Unchecked` (ADR-0013 — the disk-agreement half of the question was *unanswerable*,
+/// not *failed*), `Layout` (ADR-0041 — a key-order violation renders identically), and
+/// `Drift` (ADR-0063/ADR-0066 — `compare`'s facts about what changed between two
+/// documents, which carry no severity because `compare` "describes what changed, it
+/// does not judge it": `render` never consults them). `NOT CHECKED`, the report's own
+/// printed boundary, is not a finding at all; it lives on the report (see
+/// [`crate::report::NOT_CHECKED`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Class {
+    /// The render is refused or is guaranteed wrong.
+    Error,
+    /// Legal, renders, and you must look at a frame to know if it was meant.
+    Review,
+    /// A fact you may want and will not act on today.
+    Note,
+    /// A check that could not run. Counted in the summary line, never a verdict.
+    Unchecked,
+    /// The file is unsafe to edit, not unsafe to render. `validate`-only.
+    Layout,
+    /// What changed between two documents, as a fact with no severity. `compare`-only.
+    Drift,
+}
+
+impl Class {
+    /// Whether this class is one of ADR-0006's three severities.
+    pub fn is_severity(self) -> bool {
+        matches!(self, Class::Error | Class::Review | Class::Note)
+    }
+
+    /// Whether findings of this class print in full rather than collapsing to one
+    /// counted line. ADR-0006: *"errors and near-errors print in full; informational
+    /// classes collapse to one counted line carrying their code."*
+    ///
+    /// `Drift` joins `Error`/`Review` here rather than collapsing: a `compare` fact is
+    /// the entire point of the call, the same way `timeline`'s view has nothing left to
+    /// say if it is filtered out — collapsing "3 D-SLACK-DRIFT — expand with --verbose"
+    /// would hide the one thing the caller ran the verb to see.
+    pub fn prints_in_full(self) -> bool {
+        matches!(self, Class::Error | Class::Review | Class::Drift)
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Class::Error => "error",
+            Class::Review => "review",
+            Class::Note => "note",
+            Class::Unchecked => "unchecked",
+            Class::Layout => "layout",
+            Class::Drift => "drift",
+        }
+    }
+}
+
+/// Where in the project a finding is. Every field is optional because a finding about
+/// the file as a whole has no element, and a finding about an element has no column.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Location {
+    pub file: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub column: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub byte_offset: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub element: Option<String>,
+}
+
+/// ADR-0043's repair field, orthogonal to severity and carried by `error`-class
+/// findings alone.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Repair {
+    /// Refuse-class: the fix depends on knowing what the author meant, which the
+    /// document does not and cannot carry. Non-bypassable — no future flag, force mode
+    /// or MCP write tool may lift it.
+    None,
+    /// Advise-class: the correct fix is fully determined by the document, the media on
+    /// disk and the published rendering semantics.
+    Advise(Value),
+}
+
+impl Serialize for Repair {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            // The literal string ADR-0043 specifies, so `repair == "none"` is a
+            // machine-checkable gate with no prose parsing and no naming convention.
+            Repair::None => s.serialize_str("none"),
+            Repair::Advise(v) => v.serialize(s),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Repair {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let v = Value::deserialize(d)?;
+        Ok(match v.as_str() {
+            Some("none") => Repair::None,
+            _ => Repair::Advise(v),
+        })
+    }
+}
+
+/// One group of a sibling census: the members that share one observable,
+/// document-derived value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CensusGroup {
+    pub value: Value,
+    pub members: Vec<String>,
+}
+
+/// ADR-0006's sibling census — *"four of five are 1597, one is 1537"* — the move that
+/// makes a finding actionable without deciding anything.
+///
+/// Groups keep the order they were declared in. Nothing here sorts by size: ADR-0043 is
+/// explicit that a census *"must not be worded in a way that implies the larger group is
+/// the correct one"*, and the fixture's own `word-08-target` is a census outlier that is
+/// correct.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Census {
+    pub field: String,
+    pub groups: Vec<CensusGroup>,
+}
+
+impl Census {
+    pub fn on(field: impl Into<String>) -> Self {
+        Census {
+            field: field.into(),
+            groups: Vec::new(),
+        }
+    }
+
+    pub fn group<I, S>(mut self, value: Value, members: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.groups.push(CensusGroup {
+            value,
+            members: members.into_iter().map(Into::into).collect(),
+        });
+        self
+    }
+}
+
+/// ADR-0061's fenced exception: a document-derived fact compared against an
+/// externally-sourced numeric threshold, cited inline in the finding.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Citation {
+    pub threshold: Value,
+    /// Where the number comes from, in words.
+    pub source: String,
+    /// The specific ADR that introduced the check — not `validate`'s general docs.
+    pub adr: String,
+}
+
+/// ADR-0056's mandatory structured reason on `UNCHECKED`, so that a network-flavoured
+/// unknown is distinguishable from an unattempted one without promoting either into its
+/// own severity.
+///
+/// Exactly ADR-0056's enumeration — `timeout` / `dns` / `unreachable` / an HTTP status —
+/// and no more. A `missing` variant is deliberately absent: ADR-0013 calls a missing file
+/// `UNCHECKED` and ADR-0053/ADR-0056 call a *confirmed* absence "the plain `error`", and
+/// which of those a local missing source is belongs to the probe ticket that implements
+/// the check, not to the ticket that builds the type it will use.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum UncheckedReason {
+    Timeout,
+    Dns,
+    Unreachable,
+    Http { status: u16 },
+}
+
+/// One fact about the project, with a stable code and every relevant number inline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Finding {
+    pub code: String,
+    pub class: Class,
+    pub location: Location,
+    /// The template's field set. Ordered so the canonical JSON is stable across runs.
+    pub fields: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repair: Option<Repair>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub census: Option<Census>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub citation: Option<Citation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<UncheckedReason>,
+}
+
+impl Finding {
+    /// Start a finding for a registered code, at that check's usual class.
+    ///
+    /// # Panics
+    ///
+    /// If `code` is not registered. A check emitting an unregistered code is a bug in
+    /// the check, not a condition of the project under validation.
+    #[track_caller]
+    pub fn new(code: &str) -> Self {
+        let spec =
+            registry::spec(code).unwrap_or_else(|| panic!("{code} is not a registered check code"));
+        Finding::at_class(code, spec.default_class())
+    }
+
+    /// Start a finding at a class the check computed for this instance.
+    ///
+    /// ADR-0006: *"Severity is computed from the consequence at an instant. Not from the
+    /// check, and not from the track."* A visual gap nothing covers is `review` and the
+    /// next one is a `note`, from one code. The registry bounds which classes a code may
+    /// take, so the freedom stays a computation rather than a free hand.
+    ///
+    /// # Panics
+    ///
+    /// If `code` is not registered, or is not declared as able to emit `class`.
+    #[track_caller]
+    pub fn at_class(code: &str, class: Class) -> Self {
+        let spec =
+            registry::spec(code).unwrap_or_else(|| panic!("{code} is not a registered check code"));
+        assert!(
+            spec.may_emit(class),
+            "{code} is not declared as able to emit {class:?}; the registry allows {:?}",
+            spec.classes
+        );
+        // ADR-0043's class is taken from the declaration, never from the call site.
+        // "Granularity is per check, not per instance. If any instance a check can match
+        // is capable of being load-bearing, the check emits `repair: "none"` for **every**
+        // instance it matches, including ones that look safe." A builder the check could
+        // call on one branch and not another would leave that as a convention; reading it
+        // here makes it a property of the code.
+        //
+        // An advise-class check still supplies its repair's *content* per instance, via
+        // [`Finding::repair_value`] — what is fixed per check is the class, not the value.
+        let repair = match (class, spec.repair) {
+            (Class::Error, Some(RepairClass::Refuse)) => Some(Repair::None),
+            _ => None,
+        };
+
+        Finding {
+            code: spec.code.to_string(),
+            class,
+            location: Location::default(),
+            fields: BTreeMap::new(),
+            repair,
+            census: None,
+            citation: None,
+            reason: None,
+        }
+    }
+
+    /// ADR-0042's refusal, for a verb that was pointed at something that is not a project.
+    ///
+    /// One spelling for every verb that holds the precondition — `fmt`, `timeline`,
+    /// `query`, `validate`, `fonts vendor` — so the field the template reads and the way
+    /// the missing keys are quoted cannot drift between them. What the verb advises is
+    /// the verb's own: `repair` is the sentence that names it.
+    pub fn not_a_project(
+        file: impl Into<String>,
+        not_a_project: &crate::permissive::NotAProject,
+        repair: &str,
+    ) -> Self {
+        Finding::new("E-NOT-A-PROJECT")
+            .at_file(file)
+            .field(
+                "missing",
+                Value::String(
+                    not_a_project
+                        .missing
+                        .iter()
+                        .map(|key| format!("`{key}`"))
+                        .collect::<Vec<_>>()
+                        .join("/"),
+                ),
+            )
+            .repair_value(serde_json::json!({"value": repair}))
+    }
+
+    pub fn at_file(mut self, file: impl Into<String>) -> Self {
+        self.location.file = file.into();
+        self
+    }
+
+    pub fn at_element(mut self, element: impl Into<String>) -> Self {
+        self.location.element = Some(element.into());
+        self
+    }
+
+    pub fn at_track(mut self, track: impl Into<String>) -> Self {
+        self.location.track = Some(track.into());
+        self
+    }
+
+    /// The line a finding is about, where that is all the run knows.
+    ///
+    /// Separate from [`Finding::at_offset`] rather than a looser version of it: a parse
+    /// failure has a column and a byte offset because `serde_json` counted them, and a
+    /// layout finding about an element has neither — the element is a line, not a
+    /// position in one. Filling the other two with zeroes would publish two numbers
+    /// nothing measured.
+    pub fn at_line(mut self, line: u32) -> Self {
+        self.location.line = Some(line);
+        self
+    }
+
+    pub fn at_offset(mut self, line: u32, column: u32, byte_offset: u64) -> Self {
+        self.location.line = Some(line);
+        self.location.column = Some(column);
+        self.location.byte_offset = Some(byte_offset);
+        self
+    }
+
+    pub fn field(mut self, name: impl Into<String>, value: Value) -> Self {
+        self.fields.insert(name.into(), value);
+        self
+    }
+
+    /// Supply the content of an advise-class repair, which varies per instance where the
+    /// *class* does not.
+    ///
+    /// # Panics
+    ///
+    /// If the check is not declared advise-class. A refuse-class check reaching for this
+    /// is the per-instance triage ADR-0043 forbids — the gravity experiment's 6 safe
+    /// deletions and 2 load-bearing ones were separated by a fact that is not in the
+    /// document, and a check that thinks it can tell them apart is the failure mode, not
+    /// the fix.
+    #[track_caller]
+    pub fn repair_value(mut self, repair: Value) -> Self {
+        let declared = registry::spec(&self.code).and_then(|spec| spec.repair);
+        assert_eq!(
+            declared,
+            Some(RepairClass::Advise),
+            "{} is declared {declared:?}, so it may not state a repair value",
+            self.code
+        );
+        assert_eq!(
+            self.class,
+            Class::Error,
+            "`repair` is an axis of `error` alone"
+        );
+        self.repair = Some(Repair::Advise(repair));
+        self
+    }
+
+    pub fn census(mut self, census: Census) -> Self {
+        self.census = Some(census);
+        self
+    }
+
+    pub fn citation(mut self, citation: Citation) -> Self {
+        self.citation = Some(citation);
+        self
+    }
+
+    pub fn unchecked_because(mut self, reason: UncheckedReason) -> Self {
+        debug_assert_eq!(
+            self.class,
+            Class::Unchecked,
+            "a reason belongs to `UNCHECKED`"
+        );
+        self.reason = Some(reason);
+        self
+    }
+}

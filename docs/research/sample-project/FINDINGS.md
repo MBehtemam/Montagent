@@ -4,30 +4,30 @@
 > before ADR-0007 and ADR-0012 landed. Its field names are the pre-migration ones — `box`,
 > `align` on images, `"text"` instead of `runs`, positional `scale` pairs. The current file
 > lives at
-> [`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json);
+> [`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`](../../../fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json);
 > what changed and why is in
 > [`docs/research/sample-project-migration/`](../sample-project-migration/README.md), which
 > also records three findings that land on ADR-0012 itself. Read this document for the
 > *evidence and the juries*, not for the schema.
 
 
-Answers [#9](https://github.com/MBehtemam/Montaget/issues/9) — *"write, by hand, the
+Answers [#9](https://github.com/MBehtemam/Montagent/issues/9) — *"write, by hand, the
 complete project file that would produce the reference short, and see whether it is
 something an agent could plausibly author and edit."*
 
-The artifact is [`en-halloween-decorating.montaget.json`](./pre-migration.montaget.json):
+The artifact is [`en-halloween-decorating.montagent.json`](./pre-migration.montagent.json):
 **14 tracks, 60 elements, 154 lines, 12.9 KB**, expressing all 65.216 s of
 `fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4`.
 
 It is **throwaway**. It is not a schema, not a spec, and no renderer exists to run it.
 Everything it claims about what would appear on screen was read off the fixture and the
 published MP4, never rendered. Fields marked **INVENTED** below are guesses at decisions
-the map has not made yet — [#21](https://github.com/MBehtemam/Montaget/issues/21) transform,
-[#22](https://github.com/MBehtemam/Montaget/issues/22) effects, the shape primitive, the
+the map has not made yet — [#21](https://github.com/MBehtemam/Montagent/issues/21) transform,
+[#22](https://github.com/MBehtemam/Montagent/issues/22) effects, the shape primitive, the
 text model. Do not read them as proposals; read them as *the shape of the hole*.
 
 The ticket named the pumpkin short and "ten image/audio/subtitle triples". Both are stale
-— [#3](https://github.com/MBehtemam/Montaget/issues/3) substituted the decorating short,
+— [#3](https://github.com/MBehtemam/Montagent/issues/3) substituted the decorating short,
 which has four items. The exercise is unchanged.
 
 ---
@@ -70,7 +70,7 @@ overlaps the others *in time*, so each needs its own track.
 `caption-overflow` are tracks in the way an empty box is a container.
 
 The only thing marking these eight as one thing is `group: "header"`, which the renderer
-ignores. This is [#23](https://github.com/MBehtemam/Montaget/issues/23) arriving from a
+ignores. This is [#23](https://github.com/MBehtemam/Montagent/issues/23) arriving from a
 second direction: ADR-0004 left *"the interaction between `group` and `track` is now an
 open question"*, and the fixture answers *"and here is what it costs when you don't"*.
 
@@ -167,7 +167,7 @@ Consequences:
 
 The move is a slow centre-anchored zoom, ≈1.0 → ≈1.08 over a fixed 15 s, from a 1536 × 2720
 still into a 1080 × 1300 box, top-aligned. Written as **INVENTED**
-`box` / `fit` / `align` / `scale` keyframes, since [#21](https://github.com/MBehtemam/Montaget/issues/21)
+`box` / `fit` / `align` / `scale` keyframes, since [#21](https://github.com/MBehtemam/Montagent/issues/21)
 is open.
 
 **Surprise 1 — the move restarts at every segment boundary.** Confirmed by comparing frames
@@ -212,15 +212,15 @@ and the file gives the reader no signal which case they are in.
 
 Five, all INVENTED here:
 
-1. **`box` / `fit` / `align`** on an image — the entire spatial model. [#21](https://github.com/MBehtemam/Montaget/issues/21).
-2. **Transform keyframes** (`scale`) — [#21](https://github.com/MBehtemam/Montaget/issues/21).
+1. **`box` / `fit` / `align`** on an image — the entire spatial model. [#21](https://github.com/MBehtemam/Montagent/issues/21).
+2. **Transform keyframes** (`scale`) — [#21](https://github.com/MBehtemam/Montagent/issues/21).
 3. **A `rect` shape with a `fill`** — the map's *"shape primitive"* fog. Nine of the 60
    elements are rectangles. Note they are **sharp-cornered**, so a plain rect suffices; see
    §H.
-4. **`mask: "circle"`** on the logo badge. Probably [#22](https://github.com/MBehtemam/Montaget/issues/22).
+4. **`mask: "circle"`** on the logo badge. Probably [#22](https://github.com/MBehtemam/Montagent/issues/22).
 5. **Text style within one element.** See C2.
 
-Point 5 has a consequence worth stating on its own. [#19](https://github.com/MBehtemam/Montaget/issues/19)
+Point 5 has a consequence worth stating on its own. [#19](https://github.com/MBehtemam/Montagent/issues/19)
 settled that *"bilingual subtitle" is not in the format — two text elements sharing a group*.
 The fixture renders the word slot as **one string**, `"cobweb  -  cobweb"`. Under #19 that
 should be two elements — and then they are simultaneous, so they need two tracks, and the
@@ -249,7 +249,7 @@ quietest good news here.
   substantially smaller than stated. The claim's *point* stands; its number does not.
 - **`beats.json`'s 15 beats do not describe the timeline.** The file needs 60 elements. The
   repeats, the 800 ms word pause, the 520 ms sentence pause and the 0.645× slow pass are all
-  implicit in the old pipeline's code — which is precisely the disease Montaget exists to
+  implicit in the old pipeline's code — which is precisely the disease Montagent exists to
   cure, and a good illustration that the old config is a *template's parameters*, not a
   project.
 - **Timing sources disagree slightly and are not smoothed here.** `beats.json` rounds to
@@ -271,10 +271,10 @@ quietest good news here.
 
 **Evidence for tickets that already exist:**
 
-- [#23](https://github.com/MBehtemam/Montaget/issues/23) (`group` × `track`) — §B gives it a
+- [#23](https://github.com/MBehtemam/Montagent/issues/23) (`group` × `track`) — §B gives it a
   second, sharper instance than the one it was opened with: eight co-timed static objects
   across eight tracks, tied only by a label the renderer discards.
-- [#21](https://github.com/MBehtemam/Montaget/issues/21) (transform + keyframes) — §E hands
+- [#21](https://github.com/MBehtemam/Montagent/issues/21) (transform + keyframes) — §E hands
   it the absolute-keyframe reading, the out-of-range rule, and the restart-per-appearance
   fact.
 - `validate`'s report format (map fog) — inherits the out-of-range-keyframe rule from §E and
@@ -357,7 +357,7 @@ keyframe as expressive; it is at least as good a reading that it is a leak.
 3981.40` against a declared `3981`; `1992 / 0.645 = 3088.37` against `3088`. Three numbers,
 two of which disagree at integer milliseconds, and **nothing says which the renderer
 obeys**. This is precisely the failure ADR-0005 used to kill dual representations, occurring
-inside the prototype meant to test it. [#25](https://github.com/MBehtemam/Montaget/issues/25)
+inside the prototype meant to test it. [#25](https://github.com/MBehtemam/Montagent/issues/25)
 must pick two of {timeline range, source range, speed} and derive the third.
 
 **4. Layer collides across tracks, and no anchor was used.** *(All five.)* `chip-panel` and
@@ -367,7 +367,7 @@ correctly only because those boxes happen not to intersect — safety that is in
 cross-referencing every box on the layer. Worse: **the file uses zero anchors and zero
 per-element layer overrides**, and hand-maintains a 30/31/32/33/34 ladder instead. That
 ladder is the exact arithmetic all eight agents in ADR-0004 demanded anchors *to prevent*.
-Belongs to [#24](https://github.com/MBehtemam/Montaget/issues/24).
+Belongs to [#24](https://github.com/MBehtemam/Montagent/issues/24).
 
 **5. `shift` cannot extend the tail, and does not mention keyframes.** *(Opus; Fable.)*
 `65216` appears as a literal **11 times**. Lengthening the video is 11 exact-string edits,
@@ -388,7 +388,7 @@ subtitle is **two** replace-alls on **two different coordinate systems** — tex
 author knowing `1537 ≈ 1453 + 169/2`. Miss the second and the text slides off its card, and
 **nothing validates it**. `group: "item-05"` is far too coarse to select the pair: it also
 contains the photo, the hook, the word and six audio elements. `anchor` handles z-order, not
-position. Direct evidence for [#23](https://github.com/MBehtemam/Montaget/issues/23).
+position. Direct evidence for [#23](https://github.com/MBehtemam/Montagent/issues/23).
 
 **8. Text `y` has no declared vertical anchor.** *(Opus.)* `chip-text` at `y: 130` with
 `align: "left"` transcribes ASS `\an4` — left-*middle* — so `y` is a centre. Nothing in the

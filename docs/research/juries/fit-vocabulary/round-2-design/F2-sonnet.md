@@ -15,7 +15,7 @@ would read as "the precisely correct fit," when the escape value means the oppos
 no rule was applied at all. `none` is the dangerous one: CSS `object-fit: none`
 means *draw the source at its own intrinsic size, cropped or letterboxed inside the
 box* — it still leaves the box's declared dimensions in force and never stretches.
-Montaget's declared-rect-authoritative render always resamples to the declared
+Montagent's declared-rect-authoritative render always resamples to the declared
 `width`/`height` regardless of `fit`, so an agent arriving from CSS and reading
 `fit:"none"` would form exactly the wrong mental model: that the renderer falls back
 to 1:1 sampling. That is a false-friend collision, not a coincidental one, because

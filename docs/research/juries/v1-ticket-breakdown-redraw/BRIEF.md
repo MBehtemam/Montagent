@@ -20,13 +20,13 @@ The visible consequences: `probe` moves to the spine and owns FFmpeg resolution 
 *Blocked by: none.* Implements ADR-0006, ADR-0011, ADR-0043, ADR-0061.
 The four crates; `Finding` with code, severity, location, inline numbers, sibling census, `repair`, and `UNCHECKED` reason; the four non-severity categories (`NOT CHECKED`, `UNCHECKED`, `LAYOUT`); JSON canonical with the text form generated from it; exit codes 0/1/2/3/70; `E-PARSE` with line, column, byte offset, offending line and caret; the CLI and MCP adapters, both thin.
 Plus the **check registry** — the first draft left this ownerless and two tickets would each have invented it. It carries ADR-0043's per-check refuse-class declaration and a completeness test that every registered `error` code has one.
-*Demo:* `montaget validate` over both adapters on a header-only project — and the negative arm, which is what makes it a tracer bullet rather than a happy path: a malformed file giving `E-PARSE` with a caret and **exit 2**, a bad invocation giving **exit 3**.
+*Demo:* `montagent validate` over both adapters on a header-only project — and the negative arm, which is what makes it a tracer bullet rather than a happy path: a malformed file giving `E-PARSE` with a caret and **exit 2**, a bad invocation giving **exit 3**.
 *Note:* the `Finding` type is being designed against one finding that uses almost none of its fields. Construct a census-carrying, a refuse-class and a citation-carrying finding as test fixtures here, or the type gets reshaped at the first check ticket that needs one.
 
 **2. CI: six tier-1 targets, and the Skia prebuilt canary**
 *Blocked by: 1.* Implements ADR-0010, #36.
 Two jobs, not one. The test suite per-PR; the canary **scheduled, with an empty `CARGO_HOME` and empty target dir**, because #36's point is that the failure arrives from upstream rather than from a commit and a cached per-PR job structurally cannot see it.
-The acceptance criterion is **the resolved key `jpegd-jpege-pdf`**, not "the build succeeded" — pinned in exactly one place. `montaget-render` declares `skia-safe` from here even though nothing calls it yet; cargo builds a declared dependency, so the canary is live from day one rather than from the rasterizer ticket thirteen tickets later.
+The acceptance criterion is **the resolved key `jpegd-jpege-pdf`**, not "the build succeeded" — pinned in exactly one place. `montagent-render` declares `skia-safe` from here even though nothing calls it yet; cargo builds a declared dependency, so the canary is live from day one rather than from the rasterizer ticket thirteen tickets later.
 
 **3. FFmpeg resolution and `probe`**
 *Blocked by: 1.* Implements ADR-0023, ADR-0056, ADR-0011's `probe` quad.
@@ -85,7 +85,7 @@ Fitted extents by integer cross-multiplication, box dimension assigned verbatim,
 ## Text
 
 **15. `measure` and the text engine** — *blocked by: 4a.* ADR-0007, 0008, 0028, 0029.
-`parley`/`skrifa` with `complex-scripts`; Montaget's own UAX #14 line partition, since ADR-0008 takes the partition away from `split('\n')`; advance width, ascent, descent, line count; per-line `baseline_y` as half-leading read across **every** run on the line, not the largest; block height as `ceil` in exact tenths; break opportunities with the segmenter version named; the **stroked** extent rather than the typographic one (ADR-0014); and the renderer opening nothing outside the declared font chain.
+`parley`/`skrifa` with `complex-scripts`; Montagent's own UAX #14 line partition, since ADR-0008 takes the partition away from `split('\n')`; advance width, ascent, descent, line count; per-line `baseline_y` as half-leading read across **every** run on the line, not the largest; block height as `ceil` in exact tenths; break opportunities with the segmenter version named; the **stroked** extent rather than the typographic one (ADR-0014); and the renderer opening nothing outside the declared font chain.
 
 **16. ADR-0007's text checks** — *blocked by: 15, 3.* Glyph coverage across the chain (error), the font census, the grapheme-cluster check that no run boundary splits a base from its combining mark, the invisible-character census (ZWJ/ZWNJ, RLM/LRM, variation selectors), the mixed-normalization finding, and font files joining the `(path, size, mtime)` probe cache — a font swapped in place is a silent whole-project render change that no census sees.
 

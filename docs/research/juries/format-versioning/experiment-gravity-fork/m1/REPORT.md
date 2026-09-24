@@ -1,4 +1,4 @@
-# Repair report — en-halloween-decorating.montaget.json
+# Repair report — en-halloween-decorating.montagent.json
 
 All 8 errors were the same one: `gravity` is no longer a field of the format.
 The validator's own hint says its job — *which part of the source survives* — is
@@ -109,8 +109,8 @@ on screen.
   top-left). This decides uncertainty 2.
 - **The legal `origin` vocabulary.** I inferred `bottom-left` exists.
 - **The validator itself.** I have its previous output but cannot re-run
-  `montaget validate`, so "the repaired file validates" is reasoned, not observed.
-- I did not consult any Montaget repository, ADR, spec or website.
+  `montagent validate`, so "the repaired file validates" is reasoned, not observed.
+- I did not consult any Montagent repository, ADR, spec or website.
 
 ## Confidence
 

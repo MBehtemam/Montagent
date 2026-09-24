@@ -3,9 +3,9 @@
 
 `fixtures/en-halloween-decorating/reference/frame-intro.png` and
 `frame-05-at-11s.png` are the only two pictures in this repository that can
-falsify Montaget: they were extracted from the already-published MP4 by a
-pipeline that knows nothing about Montaget, so nothing Montaget does can change
-them. `crates/montaget-core/tests/reference_frames.rs` compares `frame` against
+falsify Montagent: they were extracted from the already-published MP4 by a
+pipeline that knows nothing about Montagent, so nothing Montagent does can change
+them. `crates/montagent-core/tests/reference_frames.rs` compares `frame` against
 both.
 
 Neither PNG carries its instant, and the file names are not a reliable source
@@ -28,7 +28,7 @@ is what `docs/agents/domain.md` asks of a committed numeric claim.
 
 2. **That the fixture's Ken Burns pivots about the point the file now names.**
    Recover the photograph's scale and offset at the later frame by searching
-   (scale, dx, dy) against a Montaget render taken at the ramp's origin, where
+   (scale, dx, dy) against a Montagent render taken at the ramp's origin, where
    the scale is exactly 1.0 -- so whatever comes back is the *published* move
    rather than a difference between two moves. The recovered scale must match
    the fixture's declared ramp, and the recovered offset must match what the
@@ -50,14 +50,14 @@ is what `docs/agents/domain.md` asks of a committed numeric claim.
 
    It does **not** close to zero. The offset the search recovers is a couple of
    reference pixels from the centre pivot's prediction, which is a residual
-   `crates/montaget-core/tests/reference_frames.rs` measures at 8 x 4 project px
+   `crates/montagent-core/tests/reference_frames.rs` measures at 8 x 4 project px
    at this instant and names as unexplained. The tolerance below is set to admit
    it deliberately: the claim this script makes is that the centre pivot is the
    right one of the two the fixture could spell, not that it is exact.
 
 ## Requirements
 
-`ffmpeg` on PATH (Montaget spawns one rather than bundling one -- ADR-0009), and
+`ffmpeg` on PATH (Montagent spawns one rather than bundling one -- ADR-0009), and
 Pillow. No numpy: the search below is a few thousand Pillow resizes and
 histograms, all of them C.
 
@@ -66,7 +66,7 @@ histograms, all of them C.
     ci/reference_frame_instants.py                  # assert; exit 0 or 1
     ci/reference_frame_instants.py --verbose        # print every candidate
     ci/reference_frame_instants.py --instants-only  # skip the half that needs a build
-    ci/reference_frame_instants.py --binary target/release/montaget
+    ci/reference_frame_instants.py --binary target/release/montagent
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "fixtures" / "en-halloween-decorating"
 REFERENCE = FIXTURE / "reference"
 VIDEO = REFERENCE / "en-halloween-decorating.mp4"
-PROJECT = FIXTURE / "en-halloween-decorating.montaget.json"
+PROJECT = FIXTURE / "en-halloween-decorating.montagent.json"
 
 # The *project's* frame duration, which is what an instant handed to `frame` is
 # measured in: the fixture declares `"fps": 25`. The published MP4 is 1629
@@ -115,7 +115,7 @@ ELEMENT = "photo-05"
 
 # ADR-0013's nine origin keywords, as the (horizontal, vertical) fraction of the
 # element's own box that `x`/`y` place and a transform pivots about. The renderer
-# spells these in crates/montaget-core/src/verbs/query/geometry.rs; they are
+# spells these in crates/montagent-core/src/verbs/query/geometry.rs; they are
 # restated here so this script can be run against a checkout without building it.
 ORIGIN_FRACTION = {
     "top-left": (0.0, 0.0), "top-center": (0.5, 0.0), "top-right": (1.0, 0.0),
@@ -271,7 +271,7 @@ def rendered(at_ms: int, scratch: Path, binary: str | None) -> Path:
     if out.exists():
         return out
     invocation = (
-        [binary] if binary else ["cargo", "run", "--quiet", "-p", "montaget", "--"]
+        [binary] if binary else ["cargo", "run", "--quiet", "-p", "montagent", "--"]
     )
     subprocess.run(
         invocation
@@ -379,7 +379,7 @@ def main() -> int:
     parser.add_argument(
         "--binary",
         metavar="PATH",
-        help="an already-built `montaget` to render through, instead of `cargo run`",
+        help="an already-built `montagent` to render through, instead of `cargo run`",
     )
     parser.add_argument(
         "--instants-only",

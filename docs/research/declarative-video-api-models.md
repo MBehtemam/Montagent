@@ -1,6 +1,6 @@
 # Survey: how declarative JSON video APIs model a timeline
 
-Gathered while resolving [Name the core domain model](https://github.com/MBehtemam/Montaget/issues/4).
+Gathered while resolving [Name the core domain model](https://github.com/MBehtemam/Montagent/issues/4).
 Companion to [the renderer survey](./renderer-survey.md), which covered *renderers*
 and *interchange formats*; this one covers **authoring APIs** — products whose
 input is a JSON document describing a video.

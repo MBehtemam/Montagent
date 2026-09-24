@@ -9,7 +9,7 @@ amends: 0034 (both of its "on the fixture" paragraphs are corrected against its 
 
 # What the caption checks actually fire on: ADR-0034's evidence corrected, and ADR-0061's fenced category has two members
 
-[#199](https://github.com/MBehtemam/Montaget/issues/199) implemented the four
+[#199](https://github.com/MBehtemam/Montagent/issues/199) implemented the four
 `R-CAPTION-*` checks against the mechanics
 [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md) and
 [ADR-0054](./0054-caption-audio-backing-and-minimum-duration-checks.md) state, and three
@@ -18,8 +18,8 @@ a rule: two are evidence paragraphs describing what the checks do to the committ
 fixture, and the third is a count of how many checks borrow a threshold. All three are the
 kind of claim a reader takes on trust precisely because it looks like reporting rather
 than deciding, which is why they are corrected here rather than left to be rediscovered by
-the next implementer. Raised as [#259](https://github.com/MBehtemam/Montaget/issues/259)
-and [#260](https://github.com/MBehtemam/Montaget/issues/260).
+the next implementer. Raised as [#259](https://github.com/MBehtemam/Montagent/issues/259)
+and [#260](https://github.com/MBehtemam/Montagent/issues/260).
 
 **Every number below is re-derived by `caption_check_scan.py`**, beside this file, which
 asserts both directions of each claim and exits non-zero the moment any of them stops
@@ -139,15 +139,15 @@ headers, which are the ones on the ADRs that amend the most.
   what this ADR confirms; the two *"On the fixture"* paragraphs are evidence, and evidence
   that disagrees with the mechanic it illustrates is corrected to the mechanic.
 - **The committed fixture carries ten `review` findings**, and this is not a defect in the
-  checks. Spec [#168](https://github.com/MBehtemam/Montaget/issues/168) makes a check that
+  checks. Spec [#168](https://github.com/MBehtemam/Montagent/issues/168) makes a check that
   fires on the fixture wrong *"unless an ADR says otherwise"*; ADR-0034 and ADR-0054 were
   both written **from** this file's defects, so they say otherwise about all ten.
-  `crates/montaget-core/tests/fixture.rs` names each one.
+  `crates/montagent-core/tests/fixture.rs` names each one.
 - **ADR-0061's fenced category has two members and is no longer counted in prose.** The
   registry is the live answer and the existing registry test is the enforcement.
 - **`caption_check_scan.py` joins the two existing hand-run checks** under `docs/adr/`.
   All three are registered in CI, and CI is disabled for this repository
-  ([#249](https://github.com/MBehtemam/Montaget/issues/249)), so all three are checks a
+  ([#249](https://github.com/MBehtemam/Montagent/issues/249)), so all three are checks a
   reader runs.
 - **`check_amendment_banners.py` reads multi-line `amends:` headers.** Running it before
   this ADR reported `OK` on a series with a missing edge.

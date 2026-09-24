@@ -12,7 +12,7 @@ the mask union member as `mask{shape: "circle"|"rect"|"ellipse", ...shape params
 wrote the ellipsis.
 [ADR-0068](../../../adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md) stated the
 minimum its migration forced — the param-less form is the inscribed shape — and graduated the
-rest to [#185](https://github.com/MBehtemam/Montaget/issues/185).
+rest to [#185](https://github.com/MBehtemam/Montagent/issues/185).
 
 ## Verdicts
 

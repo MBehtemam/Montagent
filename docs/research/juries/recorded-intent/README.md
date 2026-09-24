@@ -1,7 +1,7 @@
 # Recorded intent — jury evidence
 
 Evidence for [ADR-0086](../../../adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md),
-resolving [#324](https://github.com/MBehtemam/Montaget/issues/324).
+resolving [#324](https://github.com/MBehtemam/Montagent/issues/324).
 
 Two rounds, three jurors each, one model family per juror so that agreement
 across a round is not agreement of one model with itself:

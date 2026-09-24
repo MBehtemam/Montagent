@@ -43,7 +43,7 @@ neighbourhood: ADR-0013's normative rule is *"computed in **exact** integer arit
 its worked line is *"**exact** cover here is 1912.5 px"*. `fit:"exact"` would be read by half
 of all readers as "use the exact, unrounded cover", i.e. the opposite of declining the rule.
 Note also what is *not* on the candidate list and why: CSS's actual anisotropic member is
-`fill`, which Montaget has spent twice already (a shape's paint in ADR-0014, and `hold`/`loop`
+`fill`, which Montagent has spent twice already (a shape's paint in ADR-0014, and `hold`/`loop`
 in ADR-0005). That double spend is what pushes a CSS-minded author toward `none` — which is
 the trap in the next paragraph.
 
@@ -135,7 +135,7 @@ today's hard-coded check.
 that one is unneeded"*, and this is the exact inversion ADR-0014's method note recorded a juror
 committing under a verbatim guard. Positively: the reference class is CapCut/Premiere, where
 "fit" and "fill" are both first-class one-click operations, and the single most ordinary
-operation in the vertical-shorts class Montaget's fixture belongs to is placing 16:9 footage in
+operation in the vertical-shorts class Montagent's fixture belongs to is placing 16:9 footage in
 a 9:16 frame. Computed: `contain(1920×1080 → 1080×1920) = 1080×607`; `cover` of the same gives
 `3413×1920`, discarding 68% of the frame's width of picture. Without `contain` the only legal
 spellings of a letterbox are `cover` (wrong rect, error under the promoted check) or `declared`
@@ -303,7 +303,7 @@ most work. "Container wins over codec" is a decree, not a derivation — MP4/MOV
 genuinely split (a `tkhd` matrix and a `pasp` atom can be authored by different tools at
 different times), and FFmpeg, AVFoundation and browser decoders do not agree on all of these
 cases. So the rule may pin determinism to a reading that the most-used implementation does not
-produce, which would make every conforming Montaget disagree with `ffprobe` on the same file —
+produce, which would make every conforming Montagent disagree with `ffprobe` on the same file —
 the worst possible outcome for a format whose authors will check their work with `ffprobe`.
 An alternative worth weighing is to define the dimensions as *whatever the project's declared
 reference decoder reports*, which is unambiguous by construction but outsources a normative

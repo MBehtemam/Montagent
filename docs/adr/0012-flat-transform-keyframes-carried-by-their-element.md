@@ -13,16 +13,16 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 > **Amended by [ADR-0082](./0082-a-keyframe-list-must-be-written-in-ascending-t.md)**:
 > a keyframe list must be written with strictly ascending `t` — new schema law closing
-> [#270](https://github.com/MBehtemam/Montaget/issues/270).
+> [#270](https://github.com/MBehtemam/Montagent/issues/270).
 
 > **Amended by [ADR-0022](./0022-easing-example-is-hypothetical-not-measured.md)**: the
 > worked example below carried `"ease":"ease-in-out"` on its `scale` keyframe, under the id
-> `photo-06`. That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montaget/issues/42)
+> `photo-06`. That is now known false of the real fixture — [#42](https://github.com/MBehtemam/Montagent/issues/42)
 > measured the actual motion as `linear`, and the committed project file records it that way.
 > Read the easing worked example below, and its 10.3–10.9 px figure, as **hypothetical** —
 > the closure argument it illustrates stands regardless; the specific numbers describe no
 > element that exists. The sentence *"four jurors computed this independently and three agree
-> to the digit"* no longer stands as corroboration and should be disregarded. **[#72](https://github.com/MBehtemam/Montaget/issues/72)
+> to the digit"* no longer stands as corroboration and should be disregarded. **[#72](https://github.com/MBehtemam/Montagent/issues/72)
 > renamed the code block's `id` to `photo-06-hypothetical`** so it can no longer be
 > copy-pasted as if it described the real element — this banner's guidance now also holds
 > for the JSON itself, not just for the prose around it.
@@ -30,7 +30,7 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 > **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**: the
 > worked example below carried `"gravity":"top"`, and **`gravity` no longer exists** — the
 > declared rect plus `clip` already determine which part of the source survives.
-> **[#72](https://github.com/MBehtemam/Montaget/issues/72) removed the `gravity` key from
+> **[#72](https://github.com/MBehtemam/Montagent/issues/72) removed the `gravity` key from
 > the code block below**, since leaving it there let an agent that skims straight to the
 > JSON write the retired field back into a real project; nothing else in the element changed.
 
@@ -365,8 +365,8 @@ shape and soft masks — the fixture's `mask:"circle"` on `handle-logo` — to #
   **inert on 8 of 8 image elements** in the only real project file — the declared rect and
   `clip` together already determine which part of the source survives. That is the number
   the split jury did not have. It is a fact handed to
-  [#13](https://github.com/MBehtemam/Montaget/issues/13) and
-  [#21](https://github.com/MBehtemam/Montaget/issues/21), not a decision.
+  [#13](https://github.com/MBehtemam/Montagent/issues/13) and
+  [#21](https://github.com/MBehtemam/Montagent/issues/21), not a decision.
 - **Whether `clip` is keyframable.** Nothing in the fixture animates it — all seven photos use
   one static rect — but a wipe or reveal is exactly a keyframed aperture. If it is, it joins
   the properties SPLIT must handle and the 0.000 px result must be re-run over it.

@@ -12,7 +12,7 @@ import json
 import collections
 import sys
 
-FIXTURE = "fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json"
+FIXTURE = "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"
 TRANSFORM_PROPS = ["x", "y", "scale", "rotation", "opacity"]
 
 

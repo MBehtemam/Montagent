@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/montaget-core",
-    "crates/montaget-text",
-    "crates/montaget-render",
-    "crates/montaget",
+    "crates/montagent-core",
+    "crates/montagent-text",
+    "crates/montagent-render",
+    "crates/montagent",
     # ADR-0010 requires the two-arm harness to stay in-tree as the correctness
     # oracle and golden-frame guard, and #168 names its path. It is a member so
     # that `skia-safe` is pinned in exactly one place (#189) and so `cargo test
@@ -18,12 +18,12 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT"
-repository = "https://github.com/MBehtemam/Montaget"
+repository = "https://github.com/MBehtemam/Montagent"
 
 [workspace.dependencies]
-montaget-core = { path = "crates/montaget-core", version = "0.1.0" }
-montaget-text = { path = "crates/montaget-text", version = "0.1.0" }
-montaget-render = { path = "crates/montaget-render", version = "0.1.0" }
+montagent-core = { path = "crates/montagent-core", version = "0.1.0" }
+montagent-text = { path = "crates/montagent-text", version = "0.1.0" }
+montagent-render = { path = "crates/montagent-render", version = "0.1.0" }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -31,7 +31,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # ADR-0034's pace metric is counted over **grapheme clusters** — "not UTF-16 code
 # units — combining marks and emoji must not double-count" — and its repeat check
 # groups on text that is byte-identical **after NFC normalization**. Neither is a
-# table Montaget can carry itself: both are derived from the Unicode character
+# table Montagent can carry itself: both are derived from the Unicode character
 # database, which is versioned and revised, and a hand-rolled approximation of
 # either would be a threshold with no provenance (ADR-0061) wearing the costume of
 # an implementation detail.
@@ -46,11 +46,11 @@ unicode-normalization = "=0.1.23"
 # set*, so the feature list below is not a preference — it is the key.
 #
 # `default-features = false` plus the explicit list is deliberate: it means an
-# upstream change to `skia-safe`'s defaults cannot move Montaget's key without
+# upstream change to `skia-safe`'s defaults cannot move Montagent's key without
 # a diff here. Changing this list is its own ticket that re-verifies all six
 # targets (#189); `svg` and `skottie` both imply `textlayout` and would move it.
 #
-# `crates/montaget-render/tests/skia_pin.rs` derives the resolved key from this
+# `crates/montagent-render/tests/skia_pin.rs` derives the resolved key from this
 # list and checks it against `workspace.metadata.skia.prebuilt-key` below, so
 # the key is computed from the pin rather than stated a second time.
 skia-safe = { version = "=0.153.2", default-features = false, features = [

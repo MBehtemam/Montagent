@@ -32,7 +32,7 @@ The cost of (b) is disproportionate and lands in the wrong place. Network
 access in a core project-mutation tool drags in: license/provenance questions
 (Google Fonts ships OFL, other URLs ship whatever — and vendored binaries get
 committed into someone's repo), integrity verification, TLS/proxy/offline-CI
-failure modes, a service dependency whose API shape Montaget doesn't control,
+failure modes, a service dependency whose API shape Montagent doesn't control,
 and the reproducibility problem that the same command run twice can yield
 different bytes. For an agent-first tool this last point matters most: an
 agent invoking a networked `fonts vendor` introduces a nondeterministic,
@@ -48,7 +48,7 @@ and a reason not to grow a second, differently-shaped remote path inside
 not yet installed — they must obtain the file before vendoring. That is a
 small, well-understood, one-time friction, and it keeps the license decision
 in a human's hands rather than implied by a family-name string. It also means
-Montaget has no built-in font discovery ("what fonts can I use?" is answered
+Montagent has no built-in font discovery ("what fonts can I use?" is answered
 only by what's installed), which is a real but acceptable gap. The honest
 risk in voting (a) is that `fonts vendor <path-or-url>` looks like a one-line
 addition and will be requested repeatedly; the answer should be that a URL is
@@ -85,7 +85,7 @@ an explicit additive tool, not a mode of `fonts vendor`.
 
 🗳️ **Juror** (Claude Haiku 4.5) — **VOTE: a**
 
-**Reasoning:** Montaget's architecture—agent-first, vendoring fonts as
+**Reasoning:** Montagent's architecture—agent-first, vendoring fonts as
 explicit file paths per ADR-0007—suggests the design prioritizes local
 control and offline operation. The ADR language ("lists system fonts with
 paths and face indices") indicates system fonts were the intended scope. For
@@ -121,7 +121,7 @@ not `rm`). (c) puts the gate after the irreversible step and is therefore not
 a gate at all; it converts a preventable illegal act into a post-hoc report
 of one.
 
-(b) fails specifically because Montaget is agent-first. "A loud warning the
+(b) fails specifically because Montagent is agent-first. "A loud warning the
 author must acknowledge" assumes a human reading a terminal. The actual
 caller is usually an agent, and agents acknowledge warnings — that is the one
 thing they are reliably good at. Any consent gate whose only cost is emitting
@@ -177,7 +177,7 @@ can be enforced with certainty is before the write syscall that puts the font
 bytes into the repo tree.
 
 **Trade-offs:** This costs some flexibility — an agent or user who has a
-valid personal/enterprise licence for a font Montaget's checker can't verify
+valid personal/enterprise licence for a font Montagent's checker can't verify
 (e.g. no machine-readable licence metadata, ambiguous EULA) is blocked even
 when copying would be legitimate, so the tool needs an explicit
 override/allowlist escape hatch for verified-licensed cases rather than a
@@ -340,7 +340,7 @@ project file into a failing one. Both violate the premise that the project
 file in git is the source of truth: a committed repo would no longer render
 the same way tomorrow as today.
 
-There is also a consistency argument the Question itself supplies. Montaget
+There is also a consistency argument the Question itself supplies. Montagent
 already accepts that an agent with ordinary file tools bypasses `validate`
 and `render`. Re-verification at those points is thus security theatre
 against the exact adversary it purports to stop — anyone willing to drop an
@@ -373,7 +373,7 @@ the renderer is a lawyer.
 
 🗳️ **Juror** (Claude Sonnet 5) — **VOTE: b**
 
-**Reasoning:** Montaget already accepts that `validate`/`render` can't stop
+**Reasoning:** Montagent already accepts that `validate`/`render` can't stop
 an agent from hand-editing the project file, but that's a different threat
 than licence drift on a *vendored asset*. The vendor-time check only proves
 the file was licensed at the moment it was copied in. After that, the file
@@ -436,7 +436,7 @@ achievable.
 Open-ended; no bounded option set.
 
 🗳️ **Juror** (Claude Opus 5) — **VOTE:** Ship a small, curated, in-repo
-blocklist maintained by Montaget itself — seeded with the Apple system font
+blocklist maintained by Montagent itself — seeded with the Apple system font
 families (SF Pro, SF Pro Text/Display, SF Pro Rounded, SF Compact, SF Mono,
 New York, and the private `.SF NS *` / `.AppleSystemUIFont` internal names) —
 versioned with the code, extended only by PR, and append-only from the
@@ -447,7 +447,7 @@ registry, no runtime fetch.
 **Reasoning:** The research already establishes there is no machine-readable
 redistribution signal, so bucket 1 cannot be derived — it can only be
 asserted. An asserted list must live somewhere with accountability, and the
-only party with that accountability here is Montaget. Every alternative
+only party with that accountability here is Montagent. Every alternative
 fails on a specific point: a user-editable list is not a gate at all (the
 one caller most likely to delete the SF Pro entry is precisely the caller
 the entry exists for); an external database creates a network dependency and
@@ -455,7 +455,7 @@ a supply-chain input on a code path whose whole job is to refuse, and gives
 the refusal a third-party failure mode ("offline, so it copied"); a
 community registry inherits the legal-claim problem without the legal
 review — an incorrect community entry either wrongly blocks a legitimate
-font or, worse, wrongly permits one, and Montaget still eats the
+font or, worse, wrongly permits one, and Montagent still eats the
 reputational hit.
 
 The list is also not load-bearing in the way a security allowlist is, which
@@ -492,7 +492,7 @@ font that shares a blocked name, is simply stuck. This is survivable only if
 the refusal message is genuinely helpful — it must name the specific reason
 and point at the alternative (reference the font by system path at render
 time rather than vendoring it into the repo), otherwise the gate reads as a
-bug and someone patches it out. Third, Montaget takes on a standing,
+bug and someone patches it out. Third, Montagent takes on a standing,
 unbounded-in-principle maintenance duty and an implicit legal-assertion
 posture: publishing "font X may not be redistributed" is a claim about
 someone else's licence, and a wrong entry is a small but real liability. Cap
@@ -500,9 +500,9 @@ that by keeping entries to cases with a citable licence clause, recording the
 citation next to each entry, and refusing to grow the list on vibes.
 
 🗳️ **Juror** (Claude Sonnet 5) — **VOTE:** Ship a small, hardcoded,
-non-user-editable blocklist maintained by Montaget itself, starting with the
+non-user-editable blocklist maintained by Montagent itself, starting with the
 Apple system families (SF Pro, SF Pro Rounded, SF Compact, New York, and the
-private `.SF NS *` names), expanded only by Montaget maintainers via normal
+private `.SF NS *` names), expanded only by Montagent maintainers via normal
 code review/release — not sourced from any external database or community
 list.
 
@@ -513,7 +513,7 @@ That requirement is incompatible with user-editability (a user-editable
 sourcing (an unreviewed feed becomes a supply-chain vector: poison the feed,
 silently unblock a font, or — worse — silently block a legitimate one and
 break unrelated projects). A community-maintained list has the same trust
-problem plus coordination overhead Montaget doesn't need yet. Since research
+problem plus coordination overhead Montagent doesn't need yet. Since research
 already established there's no reliable in-file signal for redistributability,
 this list can only ever be a curated set of known-bad names/identifiers —
 which is exactly what a small, versioned, code-reviewed constant is for.
@@ -523,11 +523,11 @@ other unknown font through bucket 3 (safe-by-default refusal), so bucket 1
 doesn't need to be comprehensive to be sound — it only needs to be correct
 for what it does contain.
 
-**Trade-offs:** This means Montaget takes on an ongoing, manual curation
+**Trade-offs:** This means Montagent takes on an ongoing, manual curation
 burden — every new known-non-redistributable font family requires a code
 change and release, so the list will always lag reality and can never be
 crowdsourced or auto-updated for fast coverage. It also concentrates
-liability/judgment calls on Montaget's maintainers (what counts as "known
+liability/judgment calls on Montagent's maintainers (what counts as "known
 non-redistributable" enough to hard-block, versus merely unknown) with no
 formal external authority backing the list, which could invite disputes if a
 blocked/unblocked call is contested. Practically low-risk here because
@@ -603,7 +603,7 @@ is an acceptable fallback, provided the schema states that identical paths
 must carry identical attestations and `validate` enforces that as a hard
 error rather than resolving the conflict itself. Against (b): it cannot
 represent a mixed-provenance chain at all, which is the common bilingual
-case Montaget explicitly supports, so it is not a viable option here.
+case Montagent explicitly supports, so it is not a viable option here.
 
 🗳️ **Juror** (Claude Sonnet 5) — **VOTE: a — per-file attestation**
 

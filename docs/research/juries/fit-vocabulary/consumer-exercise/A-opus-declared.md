@@ -1,7 +1,7 @@
 # Worklog — arm: declared (Opus)
 
 Source of truth: `SPEC-declared.md` only. Did not open `docs/adr/`.
-Frame 1080x1920. Context read: `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` (not edited).
+Frame 1080x1920. Context read: `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` (not edited).
 
 Helper used for every computation (integer only, floor division):
 

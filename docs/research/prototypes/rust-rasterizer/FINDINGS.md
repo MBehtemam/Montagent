@@ -1,7 +1,7 @@
 # skia-safe vs tiny-skia under a Rust host, decoding real video
 
-Prototype for [#34](https://github.com/MBehtemam/Montaget/issues/34), part of the map
-[#2](https://github.com/MBehtemam/Montaget/issues/2). **Throwaway.** Nothing here is a
+Prototype for [#34](https://github.com/MBehtemam/Montagent/issues/34), part of the map
+[#2](https://github.com/MBehtemam/Montagent/issues/2). **Throwaway.** Nothing here is a
 proposed design; `scene.json` is #6's intermediate, not a candidate project format.
 
 ## Verdict
@@ -138,7 +138,7 @@ arms**, and it is where the entire gap lives (6.5 ms vs 12.3 ms). Glyph-path fil
 *faster*.**
 
 So the honest statement is narrow: *`tiny-skia`'s image resampler is about half the speed
-of Skia's, and this scene is an image resampler benchmark.* Every workload Montaget cares
+of Skia's, and this scene is an image resampler benchmark.* Every workload Montagent cares
 about is — stills, video frames, and scaled clips are the substance of a video editor.
 
 ### 5. The 4K pass
@@ -192,7 +192,7 @@ real; describing `tiny-skia` as unmaintained *today* is not supported.
 
 - **The other objections to `tiny-skia` stand untested here**: no GPU, and no image filters
   or blur. This ticket measured speed and decode. Blur is an effect-model question
-  ([#22](https://github.com/MBehtemam/Montaget/issues/22)), and on these numbers a CPU
+  ([#22](https://github.com/MBehtemam/Montagent/issues/22)), and on these numbers a CPU
   rasterizer at 7 ms/frame does not need a GPU at 1080p — but it does at 4K, where
   `skia-safe` is 29 ms/frame on CPU alone.
 - **Neither arm was used idiomatically for text.** Both fill `skrifa` outlines per glyph,

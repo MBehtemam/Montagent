@@ -1,7 +1,7 @@
 # Colour-filter vocabulary: court ballots
 
 Evidence for [ADR-0049](../../../adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md),
-resolving [#107](https://github.com/MBehtemam/Montaget/issues/107). Two court rounds, run
+resolving [#107](https://github.com/MBehtemam/Montagent/issues/107). Two court rounds, run
 via `/court`, jurors on Opus, Haiku and Fable, independent and blind to each other's
 ballots and to the author's recommendation.
 
@@ -199,7 +199,7 @@ there is no zero-parameter oddball.
 
 **Trade-offs:** D costs the convenience of writing `grayscale` as a bare word — an agent
 must write `saturation{amount: 0}`, which is slightly less self-documenting and less
-greppable in a `.montaget.json`, and the >1 oversaturation range is a small
+greppable in a `.montagent.json`, and the >1 oversaturation range is a small
 interpretive burden (needs a documented clamp/reference behaviour). A is too thin: it
 cannot express the two most-requested corrections (exposure and contrast) and forces an
 immediate v1.1 reopening, which is the "family that doesn't stop" outcome by another

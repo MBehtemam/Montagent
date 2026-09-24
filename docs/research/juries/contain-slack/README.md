@@ -1,4 +1,4 @@
-# Where `contain`'s slack goes — [#52](https://github.com/MBehtemam/Montaget/issues/52)
+# Where `contain`'s slack goes — [#52](https://github.com/MBehtemam/Montagent/issues/52)
 
 **Outcome: no schema change.** The slack is placed by `x`/`y`/`origin`, exactly as every
 other element is placed. What was missing is a sentence, not a field.
@@ -93,13 +93,13 @@ is what ADR-0006 exists to refuse. Worse, the prescription is catastrophic if un
 `photo-05` at the clip centre gives a rect top of **-306** against a committed 0 — a 306px
 crop shift on a 1300px aperture, silently re-implementing the `gravity:"top"` ADR-0015 retired.
 
-## The repairs — [#74](https://github.com/MBehtemam/Montaget/issues/74)
+## The repairs — [#74](https://github.com/MBehtemam/Montagent/issues/74)
 
-#52's resolution named four repairs, out of scope for [#62](https://github.com/MBehtemam/Montaget/pull/62) and unowned
+#52's resolution named four repairs, out of scope for [#62](https://github.com/MBehtemam/Montagent/pull/62) and unowned
 until #74:
 
 1. `CONTEXT.md`'s *Align, for images* entry had gone stale — it still named `gravity`,
-   which [ADR-0015](https://github.com/MBehtemam/Montaget/blob/main/docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md)
+   which [ADR-0015](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md)
    retired. Corrected to name `x`/`y`/`origin` and `clip`.
 2. `CONTEXT.md`'s **Clip** entry now states the connection this ticket's finding turned
    on: `clip` is also the aperture `fit` works against, and where `contain`'s slack goes
@@ -107,7 +107,7 @@ until #74:
 3. `align` on a non-text element is now documented as a schema error naming `x`/`y`/`origin`
    and `clip` — folded into the corrected *Align, for images* entry, ordered after item 1
    so the error message doesn't teach the retired field.
-4. **`badge-idiom-example.montaget.json`**, committed beside this file, rather than into
+4. **`badge-idiom-example.montagent.json`**, committed beside this file, rather than into
    the production fixture. The real published video has no `contain`-with-slack moment —
    every image in it is `cover`, and the one non-`cover` candidate (the square header
    badge into a square aperture) has zero slack regardless of fit mode, so there is no

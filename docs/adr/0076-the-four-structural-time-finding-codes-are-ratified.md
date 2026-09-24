@@ -5,14 +5,14 @@ amends: 0004 (names `E-TRACK-OVERLAP` and `N-TRACK-GAP` as the two findings its 
 
 # The four structural-time finding codes are ratified: `E-TRACK-OVERLAP`, `N-TRACK-GAP`, `E-SPEED-MISMATCH`, `E-OVERRUN-UNNEEDED`
 
-**Ticket:** [#255](https://github.com/MBehtemam/Montaget/issues/255).
+**Ticket:** [#255](https://github.com/MBehtemam/Montagent/issues/255).
 
 ## The gap
 
-[#197](https://github.com/MBehtemam/Montaget/issues/197) made ADR-0004's, ADR-0006's and
+[#197](https://github.com/MBehtemam/Montagent/issues/197) made ADR-0004's, ADR-0006's and
 ADR-0020's structural time checks live and had to invent four stable codes to do it. Each
 ADR states the *condition* the check tests; none states a code, a class, or a repair
-class. `crates/montaget-core/src/registry.rs` argues all three from this repo's own
+class. `crates/montagent-core/src/registry.rs` argues all three from this repo's own
 rules — ADR-0043 fixes the repair class per code, ADR-0006 makes a code the handle an
 author suppresses and `compare` diffs on — but that argument, however correct, is the
 implementation choosing surface. ADR-0031: the ADR series is the specification, and a
@@ -56,7 +56,7 @@ instant,"* and the consequence at an instant is a fact about the whole frame —
 anything on another track fills it. One track's own traversal cannot see that, so a
 `review` from this check would be stating a measurement it did not take. The `review` for
 a gap that nothing else covers belongs to the check that can see the whole frame:
-`R-VISUAL-GAP` (ADR-0018, [#200](https://github.com/MBehtemam/Montaget/issues/200)).
+`R-VISUAL-GAP` (ADR-0018, [#200](https://github.com/MBehtemam/Montagent/issues/200)).
 
 One gap, two checks: `N-TRACK-GAP` reports the fact of the silence, uniformly, at `note`;
 `R-VISUAL-GAP` reports whether the silence is also a visual dropout, at whatever severity
@@ -69,7 +69,7 @@ accordingly, at `#197` — a consequence of shipping this behaviour, not a defec
 
 ### 2. A gap is bounded by two elements of the same track, never by the project's own ends
 
-Ratified as shipped. `Sequence::gaps` (`crates/montaget-core/src/track.rs`) opens the
+Ratified as shipped. `Sequence::gaps` (`crates/montagent-core/src/track.rs`) opens the
 first gap only after the track's first element and closes accounting at its last, tracking
 the furthest instant the track has reached rather than reading it off the previous
 element positionally — so an element nested wholly inside a longer one cannot manufacture

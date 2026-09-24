@@ -6,7 +6,7 @@ You will not see the other jurors' answers and they will not see yours.
 
 ## Background
 
-Montaget is a declarative, agent-authored video editor. A project file is a flat list of
+Montagent is a declarative, agent-authored video editor. A project file is a flat list of
 `elements` (image, video, audio, text, rect, ellipse) placed on named `tracks`. Every agent
 that has edited this file edits it by **exact-string replace** — find a unique substring,
 replace it. That convention only works if the file's layout is stable: a previously accepted

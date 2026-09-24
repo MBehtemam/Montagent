@@ -24,7 +24,7 @@ produced four different repairs. All four pass every existing check
 [ADR-0005](./0005-absolute-integer-milliseconds.md)): no overlaps, source
 ranges consistent, `duration` equal to the max end. They differ by up to
 920 ms of trailing silence in the rendered video —
-[#64](https://github.com/MBehtemam/Montaget/issues/64).
+[#64](https://github.com/MBehtemam/Montagent/issues/64).
 
 The file distinguishes elements from each other but says nothing about the
 space *between* them. A 520 ms gap between two sentences turned out to be
@@ -53,7 +53,7 @@ default the renderer supplies, but a number the file asserts and an edit
 must preserve unless it says otherwise.
 
 This inverts the polarity of the `sequence` label
-([#20](https://github.com/MBehtemam/Montaget/issues/20)) and the `kind`-field
+([#20](https://github.com/MBehtemam/Montagent/issues/20)) and the `kind`-field
 option ADR-0006 rejected: those failed because an *unmarked* item was
 indistinguishable from "not yet decided" and "deliberately free," so an
 optional marker manufactured false confidence for the majority case it never
@@ -119,7 +119,7 @@ to itself and to media on disk; it has no access to what the file used to
 say, so it cannot tell a slack that was always 600 ms from one that used to
 be 913 ms — both are, on their own, internally legal. The tool that compares
 against a prior version already exists for exactly this reason
-([#10](https://github.com/MBehtemam/Montaget/issues/10),
+([#10](https://github.com/MBehtemam/Montagent/issues/10),
 [ADR-0011](./0011-tool-surface-reads-checks-renders.md)): **`compare`
 reports a slack whose size changed between the two versions it was given**,
 the same way it reports any other timeline change. `validate` gains nothing

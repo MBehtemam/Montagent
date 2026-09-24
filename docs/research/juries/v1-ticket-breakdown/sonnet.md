@@ -58,7 +58,7 @@ failure.
 **13 → 10 (the author's stated low-confidence edge): mostly REFUTE.** Walking the five
 stories ticket 13 claims:
 - Story 26 (`R-CAPTION-PACE`, cps over grapheme clusters) — needs Unicode grapheme
-  segmentation, not font layout. No dependency on `measure`/`montaget-text`.
+  segmentation, not font layout. No dependency on `measure`/`montagent-text`.
 - Story 27 (`R-CAPTION-REPEAT-DURATION`) — string equality of run text + duration
   comparison. No text engine.
 - Story 28 (`R-CAPTION-NO-AUDIO`, `R-CAPTION-MIN-DURATION`) — pure temporal/track
@@ -82,7 +82,7 @@ four independent, cheaper checks behind the text-engine ticket. Counter-proposal
   model finished. I'd cut this edge to `probe: blocked by 1` and let it run in
   parallel with tickets 3–5.
 - **Ticket 2 (CI canary) → 1 is stricter than necessary.** The canary only needs a
-  `Cargo.toml` workspace with `montaget-render` depending on `skia-safe` — a few lines
+  `Cargo.toml` workspace with `montagent-render` depending on `skia-safe` — a few lines
   of ticket 1's scope, not the Finding type, the adapters, or the report format. Low
   cost to leave as-is, but worth naming: CI could start the moment the workspace
   skeleton exists, days before ticket 1 as a whole is "done."
@@ -128,8 +128,8 @@ later) — I'd apply it explicitly to ticket 3 as well.
   mappings + JSON-Schema-generation-with-drift-test (naturally the "contract" half of
   the expand–contract sequencing argued in Q2).
 - **Ticket 10 — too large, should split.** Bundles standing up an entirely new crate
-  (`montaget-text` over `parley`/`skrifa`) with a real UAX #14 line-partition algorithm
-  (story 51 — Montaget, not the renderer, owns line breaking per ADR-0008, which is
+  (`montagent-text` over `parley`/`skrifa`) with a real UAX #14 line-partition algorithm
+  (story 51 — Montagent, not the renderer, owns line breaking per ADR-0008, which is
   substantially more than a wrapper), exact-arithmetic block-height derivation (ADR-0028),
   fitted-extent-plus-driving-axis (story 52), closed-font-chain enforcement (story 53),
   and font-swap census (story 54). Split on: **10a** — crate integration + advance/
@@ -147,7 +147,7 @@ later) — I'd apply it explicitly to ticket 3 as well.
   ticket has rasterized a single pixel. As scoped it must deliver, in one context
   window: the full transform pipeline (x/y/origin/scale/rotation/opacity/clip), effects
   (`blur`/`shadow`/`mask` — ADR-0040/0049), shape rendering with stroke/fill, text
-  rendering via `montaget-text`'s output, PAR/rotation-corrected video frame decode
+  rendering via `montagent-text`'s output, PAR/rotation-corrected video frame decode
   (ADR-0023), the `frame` CLI/MCP surface with crop and the 500 ms budget, *and* the
   SSIM golden-frame harness with a stated threshold. Split: **15a** — core transform
   pipeline for image/shape elements only (first pixel on screen, no text/video/effects);

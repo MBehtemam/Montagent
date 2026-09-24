@@ -7,11 +7,11 @@ amends: 0020 (states the arithmetic its rounding invariant must be evaluated in)
 
 > **Amended by [ADR-0081](./0081-speed-literal-obligation-is-about-the-division-not-the-parser.md)**,
 > which settles that the string-carriage sentence below binds the division, not
-> `serde_json`'s own parse — closing [#256](https://github.com/MBehtemam/Montaget/issues/256).
+> `serde_json`'s own parse — closing [#256](https://github.com/MBehtemam/Montagent/issues/256).
 
 [ADR-0020](./0020-speed-overrun-hold-loop.md) defined `speed`'s invariant as
 `end - start == round((source_end - source_start) / speed)`, round-half-up, without
-saying what arithmetic evaluates the division. [#95](https://github.com/MBehtemam/Montaget/issues/95)
+saying what arithmetic evaluates the division. [#95](https://github.com/MBehtemam/Montagent/issues/95)
 measured the gap: naive IEEE-double evaluation diverges from the exact-decimal answer
 at a small but real and reproducible rate — 0.0041% of cases at `speed`'s current
 three-decimal precision (the fixture's own `0.645`), rising to 0.0302% at hundredths.

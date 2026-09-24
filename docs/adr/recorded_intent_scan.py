@@ -38,7 +38,7 @@ FIXTURE = os.path.join(
     "..",
     "fixtures",
     "en-halloween-decorating",
-    "en-halloween-decorating.montaget.json",
+    "en-halloween-decorating.montagent.json",
 )
 
 KEYFRAMED = ("scale", "rotation", "opacity", "x", "y")

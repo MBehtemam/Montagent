@@ -16,8 +16,8 @@ subtitle files either.
 ## Decision
 
 **Producing word-level timestamps is a forced-alignment step the agent runs entirely
-outside Montaget.** Montaget does not invoke, ship, or shell out to a forced aligner.
-**Montaget also provides no dedicated ingestion tool.** The agent normalizes whatever its
+outside Montagent.** Montagent does not invoke, ship, or shell out to a forced aligner.
+**Montagent also provides no dedicated ingestion tool.** The agent normalizes whatever its
 chosen aligner emits, merges it into matching runs itself using its own general-purpose
 tools, and submits the result as ordinary complete-element writes under the existing
 write-tool invariant. **`validate` gains two `error`-level checks on `highlight` windows,
@@ -27,11 +27,11 @@ hand-scripted merge can produce, now that nothing else in the pipeline catches t
 Decided by three rounds of `/court` (Opus, Haiku, Fable, 3 jurors per question, blind to
 each other) — **unanimous on every one of six questions across two rounds.**
 
-### Alignment stays outside Montaget entirely
+### Alignment stays outside Montagent entirely
 
 A forced aligner (Whisper-based, Montreal Forced Aligner, Gentle) is itself a model, with
 weights, versioning drift, and non-deterministic output across hardware and library
-versions. Shipping or invoking one inside Montaget's binary puts a model inside the tool
+versions. Shipping or invoking one inside Montagent's binary puts a model inside the tool
 CONTEXT.md says never contains one — *"if it did, renders would stop being reproducible
 and file-as-truth would die with them."* FFmpeg/ffprobe are not a counter-precedent:
 `ffprobe` is a deterministic reader whose output is a pure function of its input file, not
@@ -39,7 +39,7 @@ an ML model producing an estimate. ADR-0048's freeze pattern already resolves th
 architecturally — the timestamp is authored once, by whatever agency is willing to own the
 estimate, and becomes a durable literal the renderer merely obeys. Where the literal came
 from is authoring provenance, the same status a hand-scrubbed clip in-point already has;
-letting Montaget regenerate it on demand would make the freeze decorative.
+letting Montagent regenerate it on demand would make the freeze decorative.
 
 ### No ingestion tool: the agent scripts the merge itself
 
@@ -52,7 +52,7 @@ open-ended is the *matching* step (aligner tokens vs. run text: punctuation, con
 multi-word spans, repeated words), which is judgment, not transcription — exactly the kind
 of problem this project keeps refusing to freeze into a rigid tool ahead of evidence. A
 fixed tool would need to grow flags for tokenizer policy and fuzzy matching, which is the
-CRUD-surface creep the invariant exists to prevent. Montaget's leverage is validation, not
+CRUD-surface creep the invariant exists to prevent. Montagent's leverage is validation, not
 ingestion (see below). If practice later shows agents systematically mis-merging, the
 narrower fallback is a pure compute verb — text element and alignment data in, a
 proposed element out, nothing written — which stays inside the invariant; that door is
@@ -65,7 +65,7 @@ resource surface stands.
 ### A documented (unenforced) intermediate schema
 
 Different aligners emit different raw shapes and units (commonly seconds, as floats).
-Montaget's documentation states one canonical intermediate convention agents should
+Montagent's documentation states one canonical intermediate convention agents should
 normalize to before merging: **a list of `{word, start, end}` objects, `start`/`end` in
 absolute integer milliseconds** — the same unit and time-base every other literal time in
 the document already uses. Nothing parses or enforces this; it exists purely so the
@@ -128,7 +128,7 @@ for a future ticket, not folded into this decision.
 ## Consequences
 
 - The tool surface (ADR-0011) is unchanged: no alignment or ingestion verb is added.
-- Montaget's docs gain one stated, unenforced convention: `{word, start, end}` in absolute
+- Montagent's docs gain one stated, unenforced convention: `{word, start, end}` in absolute
   integer milliseconds as the normalization target for any aligner's raw output.
 - `validate` gains two `error` findings on `highlight`: out-of-parent-range, and
   sibling-window overlap.
