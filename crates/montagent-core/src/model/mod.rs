@@ -38,7 +38,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, MaskShape};
-pub use keyframe::{Animatable, Ease, EaseName, Keyframe};
+pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe};
 pub use playback::{AudioOverrun, Speed, Volume};
 pub use text::{Align, Dir, Highlight, Run};
 

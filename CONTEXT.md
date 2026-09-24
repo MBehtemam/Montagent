@@ -105,7 +105,8 @@ defaulted from the source file.
 _Avoid_: matrix, layout, placement (as a field), position (as a field name)
 
 **Keyframe**:
-One `{"t","v","ease"}` record in a list that makes a transform property change over time.
+One `{"t","t_from","v","ease"}` record in a list that makes a transform property change over
+time — `t_from` optional (see Recorded intent).
 Its `t` is written in timeline milliseconds but is **not a timeline time** — it is the
 element's own animation geometry, so `shift` moves elements and their keyframes are
 carried with them. A keyframe outside its element's range is legal and ordinary: it is how
@@ -120,6 +121,23 @@ it and carrying an `ease` there is an error, and every later record must carry o
 default published anywhere
 ([ADR-0038](docs/adr/0038-ease-is-required-on-every-non-first-keyframe-record.md)).
 _Avoid_: timing function, curve, interpolation (as the field name), tween
+
+**Recorded intent**:
+A declaration of where a literal came from, written beside it, that **no renderer reads** —
+the literal stays the sole author of what renders, and `validate` is the declaration's only
+consumer. One pattern, several fields; exactly one field exists today, and a new one is an
+ADR carrying a census rather than a convenience
+([ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md)).
+Every instance is optional, and its **absence is no claim** — never a claim that the value
+is independent. The time axis's instance is `t_from`, on a keyframe record, annotating that
+record's own `t`: `{"rule": "element-start"}` says the instant was derived as the element's
+own `start`, and `{"rule": "after-previous", "ms": 15000}` says it was derived as the
+previous record's `t` plus that offset. Direction lives in the rule's name, never in the
+sign of its argument, so `ms` is non-negative; rules do not compose, and no rule takes more
+than one argument. When the arithmetic stops holding, `validate` reports `R-DERIVED-T` and
+states the integer the rule now derives.
+_Avoid_: reference, link, binding, constraint, formula, expression; and do **not** call a
+`t_from` a *derived value* — the value is literal and the derivation is what is recorded
 
 **Clip**:
 The static frame-space rectangle an element is drawn through. It does not rotate and does

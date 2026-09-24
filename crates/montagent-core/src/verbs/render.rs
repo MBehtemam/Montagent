@@ -1036,6 +1036,9 @@ fn chain(
                         .into_iter()
                         .map(|record| Keyframe {
                             t: record.t,
+                            // Dropped, not carried: ADR-0086's declaration is
+                            // renderer-ignored by construction, and this is the renderer.
+                            t_from: None,
                             v: record.v.0,
                             ease: record.ease,
                         })
