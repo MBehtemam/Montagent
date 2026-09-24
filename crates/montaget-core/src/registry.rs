@@ -1106,6 +1106,29 @@ from t={from} to t={to}; ease={ease} describes no motion.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0084. `circle` is the one mask shape whose meaning *discards* part of its
+        // rect, so it is the one that gets a finding: `rect` is the rect and `ellipse`
+        // fills it, both total, and an oval in a non-square rect surprises nobody.
+        // `review` rather than `error` because the behaviour is determinate, ADR-0068
+        // ratified it, and the committed fixture legitimately relies on it.
+        code: "R-MASK-CIRCLE-NON-SQUARE",
+        classes: &[Review],
+        repair: None,
+        // Every deciding number is the document's own: the rect's two sides, written or
+        // inherited from the element. There is no borrowed constant here at all — the
+        // predicate is `width != height`.
+        threshold: Internal,
+        adr: "ADR-0084",
+        // Names both repairs, which is what makes the finding honest rather than noise:
+        // they exist only because ADR-0084 admits explicit geometry. Under a
+        // param-less-only vocabulary the single available move would have been "resize the
+        // element" — moving the picture to satisfy a checker.
+        template: "{element}: `effects[{index}]` is a `circle` mask on {rect_source}, \
+{width}×{height}, so its diameter is {diameter} and {discarded} px of the long axis fall \
+outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
+        status: Live,
+    },
+    CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],
         repair: None,

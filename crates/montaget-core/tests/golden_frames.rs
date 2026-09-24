@@ -273,3 +273,150 @@ fn the_paint_vocabulary_the_fixture_does_not_use_renders_the_same_way_too() {
         &rendered(&project, 750, /* full */ false),
     );
 }
+
+// ---------------------------------------------------------------------------
+// The mask rect under a transform (ADR-0084, #322)
+// ---------------------------------------------------------------------------
+
+/// One masked `image` on a 640×640 frame, carrying whatever element body is handed to it.
+///
+/// **Commissioned, not asserted.** Two of ADR-0084's three jurors independently warned that
+/// agreeing with the shipped renderer is weak corroboration given ADR-0075, and asked for
+/// measurement instead — ADR-0075 exists because ADR-0068 asserted a rendering fact that
+/// measurement later refuted. The committed fixture can produce none of the frames below:
+/// its one mask sits on an unrotated, unscaled, `top-left` 68×68 badge and carries no
+/// geometry at all.
+///
+/// A golden is regression-only (see this file's own opening), so what these do is hold the
+/// readings fixed: the day somebody moves the mask into frame space, or centres a `circle`
+/// on the element instead of on its rect, or stops the rect riding the transform, the
+/// picture changes and a reader can look at it.
+fn masked(dir: &Path, name: &str, element: &str) -> PathBuf {
+    write_project(
+        dir,
+        &format!("{name}.montaget.json"),
+        &canonical(&format!(
+            r##"{{"frame":{{"width":640,"height":640}},"fps":25,"background":"#1E344C",
+                "tracks":[{{"name":"masked","layer":0,"elements":[{element}]}}]}}"##
+        )),
+    )
+}
+
+/// The `brand/logo-en.png` the fixture already carries, as a `source` a temp project
+/// resolves.
+fn logo() -> String {
+    common::with_forward_slashes(
+        &fixture_dir()
+            .join("brand/logo-en.png")
+            .display()
+            .to_string(),
+    )
+}
+
+#[test]
+fn a_rotated_scaled_off_anchor_mask_rides_the_transform() {
+    // The first frame ADR-0084 commissions, and the one that "distinguishes every candidate
+    // answer to the coordinate-space and transform questions": rotated 32°, scaled 1.6×,
+    // anchored `bottom-right`. A `rect` mask here paints a **rotated** rounded rectangle; a
+    // frame-space mask would paint an upright one, an `origin`-relative one would put it
+    // somewhere else entirely, and a mask that refused the transform would paint it at the
+    // unscaled size.
+    let dir = tempdir(line!());
+    let project = masked(
+        &dir,
+        "mask-under-transform",
+        &format!(
+            r##"{{"id":"turned","type":"image","start":0,"end":2000,"x":420,"y":400,
+                "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
+                "rotation":32,"source":"{logo}","fit":"cover",
+                "effects":[{{"name":"mask","shape":"rect","x":20,"y":20,"width":120,
+                            "height":80,"radius":16}}]}}"##,
+            logo = logo()
+        ),
+    );
+    against_golden(
+        "mask-under-transform",
+        &rendered(&project, 500, /* full */ false),
+    );
+}
+
+#[test]
+fn an_explicit_mask_rect_that_is_not_the_elements_own_is_its_own_frame() {
+    // The second frame ADR-0084 commissions — "an explicit mask rect that differs from its
+    // element's rect" — with its own golden rather than a second element in the frame
+    // above, so a change to one reading cannot be read off a picture the other also moves.
+    //
+    // The `circle` sits in a 100×100 rect at the *right-hand* end of a 260×160 element, so
+    // it is nowhere near the 160 px circle the bare form would have inscribed in the
+    // element's own rect — which is the whole of what "the rect the shape is inscribed in"
+    // buys over ADR-0068's form.
+    let dir = tempdir(line!());
+    let project = masked(
+        &dir,
+        "mask-explicit-rect",
+        &format!(
+            r##"{{"id":"off-centre","type":"image","start":0,"end":2000,"x":190,"y":240,
+                "origin":"top-left","width":260,"height":160,
+                "source":"{logo}","fit":"cover",
+                "effects":[{{"name":"mask","shape":"circle","x":140,"y":20,
+                            "width":100,"height":100}}]}}"##,
+            logo = logo()
+        ),
+    );
+    against_golden(
+        "mask-explicit-rect",
+        &rendered(&project, 500, /* full */ false),
+    );
+}
+
+#[test]
+fn the_bare_form_and_the_elements_own_rect_written_out_are_the_same_frame() {
+    // Golden 3, which is an executable assertion rather than a picture: ADR-0084's central
+    // backward-compatibility claim is that the bare form is the *identity value* of the new
+    // parameter set — "reached by the same arithmetic" — and not a legacy form beside it.
+    // Stated as a sentence it is unfalsifiable; stated here, the day the fixture silently
+    // migrates this fails.
+    //
+    // Asserted on the transform-laden element rather than on a plain one, because the two
+    // arities could agree at rest and disagree once a rotation is in the matrix.
+    //
+    // **Byte equality, deliberately**, against this file's own rule for its goldens: the
+    // two renders come off one rasterizer in one process, so there is no platform
+    // difference for a threshold to absorb, and anything short of identical would mean the
+    // identity value is a second code path.
+    let dir = tempdir(line!());
+    let render = |name: &str, mask: &str| {
+        let project = masked(
+            &dir,
+            name,
+            &format!(
+                r##"{{"id":"turned","type":"image","start":0,"end":2000,"x":420,"y":400,
+                    "origin":"bottom-right","width":200,"height":120,"scale":[1.6,1.6],
+                    "rotation":32,"source":"{logo}","fit":"cover",
+                    "effects":[{mask}]}}"##,
+                logo = logo()
+            ),
+        );
+        rendered(&project, 500, /* full */ false)
+    };
+
+    for shape in ["circle", "rect", "ellipse"] {
+        let bare = render(
+            &format!("bare-{shape}"),
+            &format!(r##"{{"name":"mask","shape":"{shape}"}}"##),
+        );
+        let spelled_out = render(
+            &format!("explicit-{shape}"),
+            &format!(
+                r##"{{"name":"mask","shape":"{shape}","x":0,"y":0,"width":200,"height":120}}"##
+            ),
+        );
+        assert_eq!(
+            bare.as_raw(),
+            spelled_out.as_raw(),
+            "a bare `{shape}` mask and one spelling the element's own rect are one \
+             declaration (ADR-0084), so they must render byte-identically — and under a \
+             rotation and a scale, which is where a second code path would show"
+        );
+    }
+}

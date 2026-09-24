@@ -370,9 +370,9 @@ fn there_is_no_fifth_colour_member() {
         r##"{"name":"grayscale","amount":0}"##,
         r##"{"name":"sepia","amount":1}"##,
         r##"{"name":"invert"}"##,
-        // ADR-0068: the param-less form is the only `mask` spelling until the explicit
-        // geometry vocabulary lands (#185), so geometry parameters are not a member
-        // either.
+        // ADR-0084: `radius` is a field of `shape: "rect"` only, so on a circle it is an
+        // unknown key rather than a parameter that quietly does nothing. The geometry
+        // *rect* is now a member (below); this one field is not.
         r##"{"name":"mask","shape":"circle","radius":20}"##,
     ] {
         let parsed: Result<montaget_core::model::Effect, _> = serde_json::from_str(refused);
@@ -493,6 +493,280 @@ fn a_param_less_mask_is_the_inscribed_shape_of_the_elements_own_rect() {
         0,
         "a `rect` mask is the element's own rect, so it selects everything the element \
          already painted"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The mask rect: one shape-independent parameter set (ADR-0084)
+// ---------------------------------------------------------------------------
+
+/// The same 200×100 oblong the section above uses — rect spanning (100,150)..(300,250) on
+/// the 400×400 frame — carrying whatever `mask` member is handed to it.
+fn oblong_masked(mask: &str) -> String {
+    format!(
+        r##"{{"id":"oblong","type":"rect","start":0,"end":1000,"x":200,"y":200,
+            "origin":"center","width":200,"height":100,"fill":"#FFFFFF",
+            "effects":[{mask}]}}"##
+    )
+}
+
+// ADR-0084's identity claim — that a bare `mask` and one spelling the element's own rect
+// are **one declaration** rather than two — is asserted in `tests/golden_frames.rs`, on an
+// element carrying a rotation and a scale. It lives there rather than here because the two
+// arities could agree at rest and disagree once a rotation is in the matrix, and because
+// ADR-0084's Evidence commissions that frame specifically.
+
+#[test]
+fn an_explicit_mask_rect_is_element_local_and_is_not_the_elements_own_rect() {
+    // The second thing ADR-0084 added, and the one the bare form cannot express: a rect
+    // that is *not* the element's. `(0, 0)` is the element rect's top-left — here the
+    // frame point (100, 150) — so a 40×40 rect mask at (10, 10) selects the frame square
+    // (110, 160)..(150, 200) and nothing else.
+    let inset = painted(
+        line!(),
+        &oblong_masked(r##"{"name":"mask","shape":"rect","x":10,"y":10,"width":40,"height":40}"##),
+    );
+    assert_eq!(
+        rgb(&inset, 130, 180),
+        [0xFF, 0xFF, 0xFF],
+        "the middle of the declared rect is kept"
+    );
+    // Its four sides, each just outside, all erased — which is what says the rect is
+    // *placed* rather than merely sized.
+    for (x, y, side) in [
+        (105, 180, "left of it"),
+        (160, 180, "right of it"),
+        (130, 155, "above it"),
+        (130, 210, "below it"),
+    ] {
+        assert_eq!(
+            rgb(&inset, x, y),
+            BLACK,
+            "the element still paints {side}, so the mask rect is not where the document put it"
+        );
+    }
+
+    // And `origin` does not participate: the same mask on the same box anchored by a
+    // different corner selects the same part *of the element*, which moves with the
+    // element rather than staying put on the frame. Anchored `top-left` at (100, 150) the
+    // box lands in exactly the place `center` at (200, 200) put it, so the two pictures
+    // are identical — a mask that read `origin` would have shifted by half the box.
+    let anchored = painted(
+        line!(),
+        r##"{"id":"oblong","type":"rect","start":0,"end":1000,"x":100,"y":150,
+            "origin":"top-left","width":200,"height":100,"fill":"#FFFFFF",
+            "effects":[{"name":"mask","shape":"rect","x":10,"y":10,"width":40,
+            "height":40}]}"##,
+    );
+    assert_eq!(
+        differing(&inset, &anchored),
+        0,
+        "`origin` is a placement anchor, not a re-parameterisation of the box's interior: \
+         the mask rect is (0, 0, width, height) under every origin (ADR-0084)"
+    );
+}
+
+#[test]
+fn a_circle_is_inscribed_in_the_mask_rect_rather_than_in_the_element() {
+    // "circle stays min(width, height) centred **on the mask rect**, not on the element."
+    // A 60×60 rect in the oblong's left half: the circle's centre is the frame point
+    // (140, 190), well left of the element's own centre at (200, 200).
+    let left = painted(
+        line!(),
+        &oblong_masked(
+            r##"{"name":"mask","shape":"circle","x":10,"y":10,"width":60,"height":60}"##,
+        ),
+    );
+    assert_eq!(
+        rgb(&left, 140, 190),
+        [0xFF, 0xFF, 0xFF],
+        "the circle is centred on its own rect"
+    );
+    assert_eq!(
+        rgb(&left, 200, 200),
+        BLACK,
+        "the element's own centre is outside a circle the document put elsewhere"
+    );
+}
+
+#[test]
+fn radius_rounds_a_rect_masks_corners_and_zero_is_the_identity() {
+    // ADR-0014's rule for the same word on a drawn `rect`, applied to the mask rect: "a
+    // single integer, defaulting to 0 — one corner radius, not four".
+    let square =
+        oblong_masked(r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":100,"height":100}"##);
+    let rounded = painted(
+        line!(),
+        &oblong_masked(
+            r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":100,"height":100,"radius":40}"##,
+        ),
+    );
+    let sharp = painted(line!(), &square);
+
+    // The rect spans frame (100,150)..(200,250). Its top-left corner is inside the sharp
+    // mask and cut away by a radius of 40.
+    assert_eq!(rgb(&sharp, 103, 153), [0xFF, 0xFF, 0xFF], "a sharp corner");
+    assert_eq!(rgb(&rounded, 103, 153), BLACK, "and a rounded one is gone");
+    // The middle of an edge is unaffected, which is what says this is a corner radius
+    // rather than an inset.
+    assert_eq!(rgb(&rounded, 150, 153), [0xFF, 0xFF, 0xFF], "the top edge");
+
+    // Identity `0`: written out, it is the same picture as writing nothing.
+    let zero = painted(
+        line!(),
+        &oblong_masked(
+            r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":100,"height":100,"radius":0}"##,
+        ),
+    );
+    assert_eq!(
+        differing(&zero, &sharp),
+        0,
+        "`radius: 0` is the identity value, so it is the same declaration as omitting it"
+    );
+}
+
+#[test]
+fn the_mask_rects_four_fields_are_all_or_none() {
+    // ADR-0084: "Either all four are absent, or all four are present. A partial tuple —
+    // `x` without `width` — is a schema error naming the other three."
+    for (partial, named) in [
+        (
+            r##"{"name":"mask","shape":"rect","x":10}"##,
+            "`y`, `width`, `height`",
+        ),
+        (
+            r##"{"name":"mask","shape":"rect","width":10,"height":10}"##,
+            "`x`, `y`",
+        ),
+        (
+            r##"{"name":"mask","shape":"circle","x":0,"y":0,"width":10}"##,
+            "`height`",
+        ),
+    ] {
+        let refused = serde_json::from_str::<montaget_core::model::Effect>(partial)
+            .expect_err("a partial mask rect is a schema error");
+        let said = refused.to_string();
+        assert!(
+            said.contains(named),
+            "the error must name what is missing — {named} — and said: {said}"
+        );
+    }
+
+    // Both admitted arities, so the assertion above is about the relation rather than a
+    // deserializer that refuses geometry.
+    for admitted in [
+        r##"{"name":"mask","shape":"circle"}"##,
+        r##"{"name":"mask","shape":"circle","x":0,"y":0,"width":10,"height":10}"##,
+    ] {
+        serde_json::from_str::<montaget_core::model::Effect>(admitted)
+            .unwrap_or_else(|e| panic!("{admitted} is an admitted arity and did not parse: {e}"));
+    }
+}
+
+#[test]
+fn radius_is_a_field_of_rect_only_and_says_why_on_the_other_two() {
+    // ADR-0084: on `circle` or `ellipse` it is "an unknown key, with a message naming the
+    // reason rather than a field that quietly does nothing". The message is the point —
+    // ADR-0007 has ruled twice that "a field the renderer cannot honour is worse than no
+    // field", and a bare "unknown key `radius`" would leave the author guessing whether
+    // this Montaget is simply older than their document (ADR-0016).
+    for shape in ["circle", "ellipse"] {
+        let refused = serde_json::from_str::<montaget_core::model::Effect>(&format!(
+            r##"{{"name":"mask","shape":"{shape}","radius":8}}"##
+        ))
+        .expect_err("`radius` is not a key of this mask");
+        let said = refused.to_string();
+        assert!(
+            said.contains("corners to round") && said.contains(shape),
+            "the message must name the shape and the reason, and said: {said}"
+        );
+    }
+
+    serde_json::from_str::<montaget_core::model::Effect>(
+        r##"{"name":"mask","shape":"rect","radius":8}"##,
+    )
+    .expect("`radius` is a field of a `rect` mask");
+}
+
+#[test]
+fn the_word_a_mask_shape_is_named_by_is_the_word_the_document_spells() {
+    // `MaskShape::as_str` is the one place the three shape words are written by hand rather
+    // than derived by `rename_all = "lowercase"`, because the `radius` message has to name
+    // the shape and a serde round trip is not a thing to do inside a deserializer. That
+    // makes it a second listing, so it is tied to the first one here rather than trusted.
+    use montaget_core::model::MaskShape;
+    for shape in [MaskShape::Circle, MaskShape::Rect, MaskShape::Ellipse] {
+        assert_eq!(
+            serde_json::to_value(shape).expect("a shape serialises"),
+            serde_json::json!(shape.as_str())
+        );
+    }
+}
+
+#[test]
+fn a_mask_radius_on_the_wrong_shape_is_the_same_report_as_one_on_a_drawn_ellipse() {
+    // ADR-0084 does not merely call it an error — "on `circle`/`ellipse` it is an **unknown
+    // key** … following ADR-0014's rule for the same word on the drawn `shape` element" —
+    // and `CONTEXT.md` promises it behaves "exactly as it is on a drawn ellipse". That is a
+    // claim about the *report*, not only about the refusal: `E-SCHEMA-UNKNOWN-KEY` is what
+    // carries ADR-0016's guarantee text ("it may belong to a newer format revision … do not
+    // delete the key to make the file validate"), and `E-SCHEMA` carries none of it.
+    //
+    // Measured side by side, because the two travel through different code — the drawn
+    // ellipse's `radius` is refused by the derive, the mask's by a hand-written check — and
+    // agreeing today is the only way to know they agree.
+    let codes = |element: &str| {
+        let dir = tempdir(line!());
+        let path = write_project(&dir, "p.montaget.json", &one_track(element));
+        let document = montaget_core::parse::read(&path).expect("a Loose document");
+        let mut report =
+            montaget_core::report::Report::new("validate", Some(document.path().to_string()));
+        montaget_core::checks::schema::check(&document, &mut report);
+        report
+            .findings
+            .iter()
+            .map(|f| f.code.clone())
+            .collect::<Vec<_>>()
+    };
+
+    let drawn = codes(
+        r##"{"id":"oval","type":"ellipse","start":0,"end":1000,"x":200,"y":200,
+            "origin":"center","width":100,"height":100,"fill":"#FFFFFF","radius":8}"##,
+    );
+    assert_eq!(drawn, ["E-SCHEMA-UNKNOWN-KEY"], "ADR-0014's own case");
+
+    let masked = codes(
+        r##"{"id":"square","type":"rect","start":0,"end":1000,"x":200,"y":200,
+            "origin":"center","width":100,"height":100,"fill":"#FFFFFF",
+            "effects":[{"name":"mask","shape":"ellipse","radius":8}]}"##,
+    );
+    assert_eq!(
+        masked, drawn,
+        "a mask's `radius` on an inscribed ellipse must report as the same kind of fact as \
+         a drawn ellipse's does (ADR-0084, CONTEXT.md's Mask entry)"
+    );
+}
+
+#[test]
+fn the_mask_member_round_trips_in_adr_0084s_key_order() {
+    // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0084
+    // takes it explicitly: `name, shape, x, y, width, height, radius`. Asserted on the
+    // wire form rather than on the struct, because the wire form is the artifact `fmt` and
+    // `validate` read the order from.
+    let written = r##"{"name":"mask","shape":"rect","x":1,"y":2,"width":3,"height":4,"radius":5}"##;
+    let parsed: montaget_core::model::Effect = serde_json::from_str(written).expect("it parses");
+    assert_eq!(
+        serde_json::to_string(&parsed).expect("it serialises"),
+        written
+    );
+
+    // And the identity value is *omitted* rather than written out (ADR-0030: presence is
+    // content — the bare form says "follow the element's rect" and keeps saying it).
+    let bare: montaget_core::model::Effect =
+        serde_json::from_str(r##"{"name":"mask","shape":"circle"}"##).expect("it parses");
+    assert_eq!(
+        serde_json::to_string(&bare).expect("it serialises"),
+        r##"{"name":"mask","shape":"circle"}"##
     );
 }
 

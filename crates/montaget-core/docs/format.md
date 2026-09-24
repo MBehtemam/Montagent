@@ -136,6 +136,25 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
   different frame from shadow-then-blur. They attach to whole elements, never to a run, and
   no effect parameter is keyframable in v1.
+- **A `mask`'s `x`, `y`, `width`, `height` are element-local, and their identity value is the
+  element's own rect** (ADR-0084). `(0, 0)` is the element rect's top-left **whatever the
+  `origin` keyword is** — `origin` places the box, it does not re-parameterise the box's
+  interior — and they are unscaled element units, not frame pixels. Omit all four and the
+  rect is `(0, 0, width, height)`, which is what makes `{"name": "mask", "shape": "circle"}`
+  the largest circle inscribed in the element's rect. The two arities are two declarations,
+  not two spellings: the bare form re-derives when the element is resized, the explicit one
+  keeps saying the rect it names.
+- **A mask rides the element's transform** (ADR-0084). It is declared inside the box in
+  unscaled units, so `scale` grows it and `rotation` turns it — a rotated element's `rect`
+  mask paints a *rotated* rectangle. That is the rule a `blur` radius and a `stroke_width`
+  already follow, and it is not keyframing an effect parameter: the fields stay literal
+  integers on every frame. `clip` is the other thing — frame-space, static, never rotating —
+  and a *shaped* static porthole is not expressible in v1.
+- **`circle` is the one mask shape that discards part of its rect** (ADR-0084). Its diameter
+  is the short side, so on a non-square rect — derived or explicit — the difference is thrown
+  away without the author ever typing that number, and `validate` says so at `review`.
+  `ellipse` fills the rect and `rect` is the rect, so neither is ever reported. Writing a
+  square rect out is itself the acknowledgement; there is no suppression mechanism.
 
 ## Text
 

@@ -115,9 +115,98 @@ fn canonical_key_order_is_the_schemas_property_order() {
     );
 }
 
+/// The `mask` branch of the published `Effect` union.
+fn mask_member() -> serde_json::Value {
+    schema::generate()["$defs"]["Effect"]["oneOf"]
+        .as_array()
+        .expect("the effect vocabulary is a union")
+        .iter()
+        .find(|branch| branch.pointer("/properties/name/const") == Some(&serde_json::json!("mask")))
+        .expect("`mask` is a member of it")
+        .clone()
+}
+
+#[test]
+fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
+    // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0084
+    // takes it explicitly rather than leaving it to be read off a struct: `name, shape, x,
+    // y, width, height, radius`. The rect fields follow `shape` in the order ADR-0012 fixed
+    // for every other rect in the format, and `radius` trails them exactly as it trails the
+    // drawn `shape` element's own fields under ADR-0014.
+    //
+    // `name` is the union's own tag and the generator appends it, as it does for all seven
+    // members — so the order asserted here is the branch's declared fields, and `name`
+    // leads the member on the wire because serde writes the tag first.
+    let mask = mask_member();
+    let declared: Vec<&str> = mask["properties"]
+        .as_object()
+        .expect("an object shape")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        declared,
+        ["shape", "x", "y", "width", "height", "radius", "name"]
+    );
+}
+
+#[test]
+fn the_schema_states_the_two_mask_rules_the_types_can_only_enforce() {
+    // #168's two-artifact rule: the published schema must not admit files the binary
+    // refuses. Both of ADR-0084's relational rules are enforced in
+    // `crate::model::effects`, and both are said again here — the all-or-none rect as
+    // `dependentRequired`, and `radius`-on-`rect`-only as the one conditional.
+    let mask = mask_member();
+
+    for field in ["x", "y", "width", "height"] {
+        let siblings = mask["dependentRequired"][field]
+            .as_array()
+            .unwrap_or_else(|| panic!("`{field}` requires its siblings"));
+        assert_eq!(siblings.len(), 3, "`{field}` names the other three");
+        assert!(!siblings.contains(&serde_json::json!(field)));
+    }
+
+    assert_eq!(mask["if"]["properties"]["shape"]["const"], "rect");
+    assert_eq!(
+        mask["else"]["not"]["required"],
+        serde_json::json!(["radius"])
+    );
+    assert!(
+        mask["else"]["description"]
+            .as_str()
+            .is_some_and(|said| said.contains("corners to round")),
+        "the prohibition names its reason, as the deserializer's own message does"
+    );
+}
+
 #[test]
 fn a_type_the_schema_does_not_publish_has_no_key_order() {
     assert_eq!(canonical_order(Published::Element("scene")), None);
+}
+
+/// The one applicator keyword whose subschema constrains an instance some *enclosing*
+/// schema has already given a shape to, rather than declaring a shape of its own.
+///
+/// ADR-0017 closes every object shape the schema defines. An `if` is not one: ADR-0084's
+/// `radius` conditional tests `{"shape": {"const": "rect"}}` against the whole mask member,
+/// which also carries `name` and the rect fields — so closing it would not tighten the
+/// schema, it would stop the condition ever matching and quietly withdraw the rule. The
+/// shape those instances are held to is the branch's own `additionalProperties: false`,
+/// which this walk still requires.
+///
+/// `then`, `else` and `not` are deliberately **not** here. The same argument would extend
+/// to them, and nothing in this schema needs it yet — an exemption written before a schema
+/// needs it is a place a future open object hides. The walk below also keeps descending
+/// through an `if`, so a definition nested under one is still held to the rule; only the
+/// condition object itself is excused.
+const CONDITION: &str = "if";
+
+/// Is this pointer the `if` *keyword*, rather than a field that happens to be called one?
+///
+/// The walk spells a field's path `…/properties/<name>`, so the two are distinguishable and
+/// a format that one day publishes an `if` key does not silently lose its closure check.
+fn is_condition(path: &str) -> bool {
+    path.ends_with(&format!("/{CONDITION}")) && !path.ends_with(&format!("/properties/{CONDITION}"))
 }
 
 /// Every object schema that does not forbid unknown keys, by JSON pointer.
@@ -126,7 +215,11 @@ fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<St
         // A schema with `properties` is describing an object shape, and that is exactly the
         // kind of schema that must be closed. A branch of a discriminated union counts:
         // ADR-0017 closes "every object shape the schema defines … per discriminated type".
+        //
+        // A condition is the exception, and only the condition object itself: see
+        // `CONDITION` above. The walk still descends through it.
         if body.contains_key("properties")
+            && !is_condition(&path)
             && body.get("additionalProperties") != Some(&serde_json::Value::Bool(false))
             && body.get("unevaluatedProperties") != Some(&serde_json::Value::Bool(false))
         {
