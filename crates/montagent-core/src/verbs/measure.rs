@@ -40,12 +40,18 @@
 //! #204); what is missing is this verb's second input mode. An element whose `type` is not
 //! `text` is refused by name rather than measured as if it were text.
 //!
-//! ADR-0011 also names a **per-line ink box** beside the advance width. It is not here, and
-//! the reason is that it is not an extra field: an ink box is an absolute rect, so it needs
-//! the block's *horizontal* placement — `x`, `origin`'s horizontal component, and how
-//! `align`'s `start`/`end` resolve against a line's base direction under bidi. No ADR
-//! settles the last of those, and the same geometry is what `query --at`'s crop rectangle
-//! is blocked on. It belongs with that, decided once, rather than invented twice.
+//! ADR-0011 also names a **per-line ink box** beside the advance width. Its **vertical**
+//! half is here as of ADR-0087 — `ink_top`/`ink_bottom` per line, the block's own, and the
+//! seam between adjacent lines' ink — because that half needs only the baseline and the
+//! glyphs, both of which the engine already has, and because without it an author has no
+//! way at all to see a `line_height` that puts one line's marks through the next one's.
+//!
+//! Its **horizontal** half is still not here, and the reason is unchanged: a full ink box is
+//! an absolute rect, so it needs the block's horizontal placement — `x`, `origin`'s
+//! horizontal component, and how `align`'s `start`/`end` resolve against a line's base
+//! direction under bidi. No ADR settles the last of those, and the same geometry is what
+//! `query --at`'s crop rectangle is blocked on. It belongs with that, decided once, rather
+//! than invented twice.
 //!
 //! ADR-0035 gives `measure` a third answer that has nothing to do with text — *"the nearest
 //! sampled instant at-or-before a given time, for the project's own `fps`"*, so an author
@@ -89,7 +95,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use montagent_text::{
-    Extent, Fonts, MeasuredLine, Measurement, Run, Segmenter, Spec, VerticalOrigin,
+    Extent, Fonts, InkSeam, MeasuredLine, Measurement, Run, Segmenter, Spec, VerticalOrigin,
 };
 
 use crate::exact::{Decimal, block_height_of_tenths};
@@ -246,6 +252,18 @@ pub struct Text {
     pub block_bottom: f64,
     /// The **stroked** extent (ADR-0014) — what a box question is asked about.
     pub extent: Extent,
+    /// Where the block's ink actually is, and where each adjacent pair of inked lines meets
+    /// (ADR-0087) — the vertical half of ADR-0011's ink box.
+    ///
+    /// Stated beside the slot numbers above rather than instead of them, because the whole
+    /// point is the comparison: ADR-0007's slot is a function of `size` and `line_height`
+    /// and never of the font, and an author who can see only the slot cannot tell a
+    /// `line_height` that fits from one that collides. A positive `overlap` on any seam is
+    /// a collision; `validate`'s `R-LINE-INK-COLLISION` is what says so, because this verb
+    /// reaches no verdict (ADR-0024).
+    pub ink_top: Option<f64>,
+    pub ink_bottom: Option<f64>,
+    pub ink_seams: Vec<InkSeam>,
     pub lines: Vec<MeasuredLine>,
     /// Which segmenter produced every line's `break_opportunities` (ADR-0008). Two
     /// versions of this data legitimately disagree, so a set of offsets that did not name
@@ -369,7 +387,7 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
 /// One element's failure to measure, on its way to becoming either a whole-call refusal (the
 /// single-element path) or one [`SlotError`] (the batch path) — the same two causes
 /// [`unresolvable`] already distinguishes, held here so both callers read them once.
-enum ElementError {
+pub(crate) enum ElementError {
     /// The element itself is malformed, or names a font key the project does not declare —
     /// [`Measurable::of`]'s and [`register`]'s own invocation-shaped refusals.
     Invocation(String),
@@ -380,7 +398,7 @@ enum ElementError {
 /// The shared core of every measurement, batch or not: resolve the element's style, register
 /// every font key it and its runs name, and lay it out. One path, so `elements`/`all` cannot
 /// drift from what a single `element` call already does (#317).
-fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
+pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
     let spec = Measurable::of(element).map_err(ElementError::Invocation)?;
 
     // Every key the element names, the base and each run's override (ADR-0007), resolved
@@ -532,6 +550,9 @@ impl Text {
             block_top: measured.block_top,
             block_bottom: measured.block_bottom,
             extent: measured.extent,
+            ink_top: measured.ink_top,
+            ink_bottom: measured.ink_bottom,
+            ink_seams: measured.ink_seams,
             lines: measured.lines,
             segmenter: measured.segmenter,
         }

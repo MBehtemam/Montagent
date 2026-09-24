@@ -931,20 +931,36 @@ fn element_block(measure: &Value) -> String {
             pixels(&measure["block_bottom"])
         ),
     );
+    // ADR-0087. Printed beside the block above rather than instead of it, because the
+    // comparison is the point: the block is what the declared numbers reserve and this is
+    // what the font actually draws, and on a stacking script the second can exceed the
+    // first with every field in the document valid.
+    field(
+        "ink",
+        format!(
+            "y {} .. {} px  (what the glyphs actually cover — ADR-0087)",
+            pixels(&measure["ink_top"]),
+            pixels(&measure["ink_bottom"])
+        ),
+    );
 
     out.push_str("\n  LINES\n");
     for line in lines {
         out.push_str(&row(format!(
-            "  {:>3}  baseline_y {:>10}  advance {:>10}  size {:<4} slot {} .. {}  {:?}",
+            "  {:>3}  baseline_y {:>10}  advance {:>10}  size {:<4} slot {} .. {}  ink {} .. {}  {:?}",
             stated_number(&line["index"]),
             pixels(&line["baseline_y"]),
             pixels(&line["advance_width"]),
             stated_number(&line["size"]),
             pixels(&line["slot_top"]),
             pixels(&slot_bottom(line)),
+            pixels(&line["ink_top"]),
+            pixels(&line["ink_bottom"]),
             line["text"].as_str().unwrap_or_default(),
         )));
     }
+
+    out.push_str(&seams_block(measure));
 
     // ADR-0008: Montagent never places a line break itself, so these are offered and never
     // applied. The sentence says so, because a column of offsets does not.
@@ -972,6 +988,51 @@ fn element_block(measure: &Value) -> String {
         out.push_str(&row(format!(
             "  {:>3}  {offsets}",
             stated_number(&line["index"])
+        )));
+    }
+    out
+}
+
+/// Where each adjacent pair of inked lines meets (ADR-0087).
+///
+/// Omitted entirely for a block with no seam — a single line, or one that draws nothing.
+/// A heading over an empty column would read as *"checked, nothing found"*, which is a
+/// different fact from *"there was no pair to look at"*.
+///
+/// The collision marker is the one piece of emphasis in the block, and it is not a verdict:
+/// it marks the sign of a number the reader is scanning for, the way the `LINES` rows above
+/// mark nothing because every number there is ordinary. What the overlap *means* for the
+/// document is `validate`'s `R-LINE-INK-COLLISION` to say (ADR-0006), and the sentence
+/// under the heading points there rather than advising a `line_height`: ADR-0087 records
+/// that two repairs are legitimate — raise `line_height`, or set the text in a face whose
+/// marks fit — and the document does not determine which.
+fn seams_block(measure: &Value) -> String {
+    let seams = measure["ink_seams"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    if seams.is_empty() {
+        return String::new();
+    }
+
+    let mut out = String::new();
+    out.push_str(
+        "\n  INK SEAMS  between adjacent inked lines; a positive overlap is a collision\n",
+    );
+    out.push_str("             the slot each line reserves is `size × line_height` and never the ");
+    out.push_str("font's ink (ADR-0007)\n");
+    for seam in seams {
+        let overlap = seam["overlap"].as_f64();
+        out.push_str(&row(format!(
+            "  {:>3} / {:<3}  {:>10} px  {}",
+            stated_number(&seam["above"]),
+            stated_number(&seam["below"]),
+            pixels(&seam["overlap"]),
+            match overlap {
+                Some(overlap) if overlap > 0.0 => "overlap — the ink collides",
+                Some(_) => "clear",
+                None => "",
+            },
         )));
     }
     out

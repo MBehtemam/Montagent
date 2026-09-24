@@ -228,6 +228,16 @@ fn run_checks(
     // swapped in place — "a silent whole-project render change that no census sees" —
     // becomes visible at all.
     crate::checks::fonts::check(document, cache, report);
+    // ADR-0087's `R-LINE-INK-COLLISION` (#325): one line's real ink reaching past where the
+    // next line's begins. It opens the same font files the call above does — the ink is in
+    // them and nowhere else — and like that one it needs no subprocess, so it sits here
+    // rather than behind the session below.
+    //
+    // It shapes every text element in the project, which is the most expensive thing
+    // `validate` does without a subprocess. That buys it no place in this list — the
+    // findings are a set and nothing downstream reads their order — and it is named only so
+    // the next reader wondering where a slow run went does not have to measure to find out.
+    crate::checks::ink::check(document, report);
 
     // The two checks that need a subprocess, and the only ones that can fail rather than
     // find. Whether one needs to be opened at all is decided once, here, rather than per
