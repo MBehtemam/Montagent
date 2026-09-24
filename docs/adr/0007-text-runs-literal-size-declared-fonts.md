@@ -45,7 +45,7 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 > would have them naming something that does not exist. The argument for the box (it must be
 > *in the document* so the overflow check has an input) is unchanged and better served.
 > **`align` is now text-only**: on an image the same word meant which part of the source
-> survives the crop, which is `gravity`. **[#72](https://github.com/MBehtemam/Montaget/issues/72)
+> survives the crop, which is `gravity`. **[#72](https://github.com/MBehtemam/Montagent/issues/72)
 > updated the worked example below to the post-ADR-0012 shape** — `box` dropped, literal
 > `width`/`height`/`align` added, and `start` corrected to the committed fixture's value —
 > since the code block still carried the pre-ADR-0012 field a copy-paste would reintroduce.
@@ -110,7 +110,7 @@ killed the shorthand, and makes formatting non-idempotent — add three characte
 cross the threshold, and the next write reflows the element into eight lines with a
 diff that has nothing to do with the edit.
 
-**Literal `size`. No fit-to-box. No automatic wrapping.** This overturns [#9](https://github.com/MBehtemam/Montaget/issues/9)'s
+**Literal `size`. No fit-to-box. No automatic wrapping.** This overturns [#9](https://github.com/MBehtemam/Montagent/issues/9)'s
 conclusion that fit-to-box is "the format's first legitimate computed property", and
 the reason is that its premise is false: fit ships *some* of its inputs. The ones it
 does not ship — the shaper, the font binary, the UAX #14 line-break data — live in
@@ -182,7 +182,7 @@ writing code to disable capability already linked in.
 **Deferred but not precluded:** vertical writing modes, and dictionary segmentation
 for UAX #14 class `SA` — Thai, Lao, Khmer, Burmese — which the standard itself names
 as requiring morphological analysis "beyond the scope of the Unicode Standard".
-**The candidates fork here and it is a live input to [#7](https://github.com/MBehtemam/Montaget/issues/7):**
+**The candidates fork here and it is a live input to [#7](https://github.com/MBehtemam/Montagent/issues/7):**
 `unicode-linebreak` documents a tailoring resolving `SA` to ordinary alphabetic
 *regardless of General_Category*, so under `cosmic-text` Thai breaks at spaces only —
 silently and plausibly wrong. `parley` declares a `complex-scripts` feature, backed

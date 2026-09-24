@@ -1,7 +1,7 @@
-# Round 2 brief — Montaget issue #48, the `fit` vocabulary
+# Round 2 brief — Montagent issue #48, the `fit` vocabulary
 
-Repo: /Users/mohammedehtemam/projects/github/Montaget, branch `main`.
-Montaget is an agent-first declarative video editor: a JSON project file is the source of
+Repo: /Users/mohammedehtemam/projects/github/Montagent, branch `main`.
+Montagent is an agent-first declarative video editor: a JSON project file is the source of
 truth and an LLM agent authors it with ordinary file tools.
 
 ## Read first
@@ -17,7 +17,7 @@ truth and an LLM agent authors it with ordinary file tools.
    evidence a capability is NEEDED, never evidence one is UNNEEDED. "The fixture doesn't use it" is NOT
    an argument against a field.
 8. `CONTEXT.md` — the glossary and its recorded term collisions (`anchor`, `align`, `box`, `gravity`, `path`).
-9. `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` — all 8 `"type":"image"` elements.
+9. `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` — all 8 `"type":"image"` elements.
 10. Run `python3 docs/research/sample-project-migration/fit_rounding_scan.py`.
 
 ## Settled in round 1 — treat as established, do not re-litigate
@@ -75,7 +75,7 @@ Compare ADR-0005's `speed` divergence. Decide the normative definition, and deci
 `validate` must print the dimensions it used.
 
 **R2-Q5. Does this ADR cover `video` elements, or only `image`?** Every rule here was specced against
-8 `image` elements. ADR-0003 commits Montaget to video clips. Decide whether the rules are written
+8 `image` elements. ADR-0003 commits Montagent to video clips. Decide whether the rules are written
 type-generically now or scoped to `image` and extended later, and name any wrinkle video introduces
 that images do not.
 

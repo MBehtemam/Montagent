@@ -26,7 +26,7 @@ the convener, and round 2's verdicts move because of them.
 ## What the experiments measured
 
 **The gravity fork.** Six agents repaired a stale project file given only
-`montaget validate` output. The file is the real pre-ADR-0015 fixture with two of
+`montagent validate` output. The file is the real pre-ADR-0015 fixture with two of
 its eight `gravity` values flipped `top` -> `bottom`, which is what makes the
 trap detectable: on the six inert elements deleting the key is correct, and on
 the two non-inert ones the rect must move to `y = 1300 - 1912 = -612` or the
@@ -39,7 +39,7 @@ one of them computing `-612` explicitly before rejecting it on the entry's
 "copied, not authored" framing. The entry describes a retirement where the field
 *happened* to be inert and reads as a general rule that the value never mattered.
 
-**The three arms.** Nine agents, a stale binary (`montaget 0.9.2`) meeting the
+**The three arms.** Nine agents, a stale binary (`montagent 0.9.2`) meeting the
 current fixture, under deadline pressure with no network and nobody to ask. Arm A
 carried a version number and a "your file is newer, upgrade the binary" refusal;
 arm B had no number and an unknown-key error naming the binary as the suspect;
@@ -76,5 +76,5 @@ retyping one `height` (arm C). Arms B and C were indistinguishable.
 **3 of 9 three-arm agents pretty-printed the whole file** (154 lines -> 1146,
 1165, 1243), destroying the one-element-per-line convention ADR-0005 makes
 load-bearing for exact-string replace. Nothing forbids it. That is
-[#73](https://github.com/MBehtemam/Montaget/issues/73)'s premise, previously a
+[#73](https://github.com/MBehtemam/Montagent/issues/73)'s premise, previously a
 single incident in #12, now independently reproduced three times.

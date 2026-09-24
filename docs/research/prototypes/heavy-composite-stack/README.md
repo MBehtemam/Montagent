@@ -1,11 +1,11 @@
 # heavy-composite-stack — measuring `preview` under multiple simultaneous clips/effects
 
-Prototype for [#159](https://github.com/MBehtemam/Montaget/issues/159), graduated from
-[#87](https://github.com/MBehtemam/Montaget/issues/87), part of the map
-[#2](https://github.com/MBehtemam/Montaget/issues/2). **Throwaway. The answer is in
+Prototype for [#159](https://github.com/MBehtemam/Montagent/issues/159), graduated from
+[#87](https://github.com/MBehtemam/Montagent/issues/87), part of the map
+[#2](https://github.com/MBehtemam/Montagent/issues/2). **Throwaway. The answer is in
 [FINDINGS.md](FINDINGS.md).**
 
-Reuses [#34](https://github.com/MBehtemam/Montaget/issues/34)/[#87](https://github.com/MBehtemam/Montaget/issues/87)'s
+Reuses [#34](https://github.com/MBehtemam/Montagent/issues/34)/[#87](https://github.com/MBehtemam/Montagent/issues/87)'s
 `rast-bench` binary (`../rust-rasterizer/`) with one small, backward-compatible extension:
 a `Span` (Ken Burns still) may now carry an optional destination rect (`dx`/`dy`/`dw`/`dh`),
 and every span whose time window covers the current frame is drawn (previously only the

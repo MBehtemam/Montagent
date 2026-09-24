@@ -9,7 +9,7 @@ amends: 0050 (states where its floor binds, given 0065's ladder), 0065 (retires 
 [ADR-0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md) both
 landed on `main` as `status: accepted`, both using the word *floor*, with different
 numbers and neither amending the other — recorded as
-[#178](https://github.com/MBehtemam/Montaget/issues/178). This ADR resolves it.
+[#178](https://github.com/MBehtemam/Montagent/issues/178). This ADR resolves it.
 
 **Neither is overturned.** They are answering two different questions, and the word
 *floor* was doing double duty.
@@ -21,7 +21,7 @@ numbers and neither amending the other — recorded as
 | question | at what point does the **ladder give up** rather than degrade again? | below what resolution is a frame **not worth looking at**? |
 | number | 540p | 360p |
 | refusal is triggered by | a *time* miss that one degrade step could not rescue | a *resolution* that loses the picture |
-| evidence | [#87](https://github.com/MBehtemam/Montaget/issues/87)'s savings curve: `720p → 540p → 360p` buys under 1s combined at 4K, ~1.06s at 8K | [#117](https://github.com/MBehtemam/Montaget/issues/117)'s rendered legibility pass on the real fixture, unanimous 3-juror court |
+| evidence | [#87](https://github.com/MBehtemam/Montagent/issues/87)'s savings curve: `720p → 540p → 360p` buys under 1s combined at 4K, ~1.06s at 8K | [#117](https://github.com/MBehtemam/Montagent/issues/117)'s rendered legibility pass on the real fixture, unanimous 3-juror court |
 | kind of argument | wall-clock | perceptual |
 
 ADR-0065's is a **give-up point**: when a project's 8K render misses budget by more than
@@ -143,6 +143,6 @@ this shape visible before an ADR is read rather than after.
 - ADR-0065's "legibility is explicitly unmeasured" clause and its deferral of a sub-540p
   pass are both retired. Its wall-clock reasoning, its rejection of a third tier, and
   ADR-0021's mandatory disclosure all stand.
-- [#168](https://github.com/MBehtemam/Montaget/issues/168)'s user stories 61–63 are
+- [#168](https://github.com/MBehtemam/Montagent/issues/168)'s user stories 61–63 are
   unblocked and should be read against this ADR.
 - Nothing about `render` changes. Proxy degradation has never applied to it.

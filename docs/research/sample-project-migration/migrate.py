@@ -1,7 +1,7 @@
 """Migrate the #9 prototype project onto accepted ADRs 0001-0012.
 
 Reads the pre-migration file (committed on main at
-docs/research/sample-project/pre-migration.montaget.json) and emits the migrated
+docs/research/sample-project/pre-migration.montagent.json) and emits the migrated
 file. Every transformation below is traceable to a specific ADR; the script
 exists so the mapping is checkable rather than asserted.
 """
@@ -178,7 +178,7 @@ def migrate(el, ease):
 
 def main(ease):
     old = json.load(open(sys.argv[2] if len(sys.argv) > 2
-                         else "../sample-project/pre-migration.montaget.json"))
+                         else "../sample-project/pre-migration.montagent.json"))
     n = 0
     tracks = []
     for tr in old["tracks"]:

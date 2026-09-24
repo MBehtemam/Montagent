@@ -4,13 +4,13 @@ status: accepted
 
 # The font-swap census holds, and the reference frames' text mask is permanent
 
-**Ticket:** [#186](https://github.com/MBehtemam/Montaget/issues/186). Evidence:
-`crates/montaget-core/tests/font_swap_census.rs`, which re-derives every number below
+**Ticket:** [#186](https://github.com/MBehtemam/Montagent/issues/186). Evidence:
+`crates/montagent-core/tests/font_swap_census.rs`, which re-derives every number below
 through the `measure` verb and fails the suite the moment one stops reproducing; the
 census table is committed at
 [`docs/research/font-swap-census/`](../research/font-swap-census/README.md).
 
-[#143](https://github.com/MBehtemam/Montaget/issues/143) re-vendored the fixture's typeface
+[#143](https://github.com/MBehtemam/Montagent/issues/143) re-vendored the fixture's typeface
 from **SF Pro Rounded** to **Open Runde**, because SF Pro Rounded is not redistributable
 ([ADR-0057](0057-font-vendoring-licence-gate-and-path-keyed-attestation.md)). That was
 correct and the fixture was unrenderable without it. #143's own step 5 named the
@@ -75,7 +75,7 @@ Open Runde's advances run **2.0%–9.4% wider** than SF Pro Rounded's across the
 7.6%–9.4%. Every line in this fixture is centred or centre-left, so a line 8% narrower does
 not merely end sooner: every glyph on it lands somewhere else.
 
-`crates/montaget-core/tests/reference_frames.rs` already measures the consequence on every
+`crates/montagent-core/tests/reference_frames.rs` already measures the consequence on every
 run and reports it beside the gate rather than inside it:
 
 | frame | text region SSIM | drawn region beside it | text share |
@@ -100,7 +100,7 @@ is decided is its application:
 > in this repository capable of falsifying the format.
 
 That last clause is the point. The reference MP4's value comes from having been produced by
-a pipeline that knows nothing about Montaget. Re-typesetting it in Open Runde to make the
+a pipeline that knows nothing about Montagent. Re-typesetting it in Open Runde to make the
 gate green would be replacing the falsifier with a golden — the exact inversion
 `CONTEXT.md`'s Reference frame entry warns against in its own `_Avoid_` list.
 
@@ -123,7 +123,7 @@ gate green would be replacing the falsifier with a golden — the exact inversio
 
 ## Evidence
 
-- `crates/montaget-core/tests/font_swap_census.rs` — the census, asserted per element.
+- `crates/montagent-core/tests/font_swap_census.rs` — the census, asserted per element.
   Open Runde asserts unconditionally; the SF Pro Rounded delta asserts where the face is
   installed at `/Library/Fonts/SF-Pro-Rounded-Bold.otf` and **skips with a printed note**
   where it is not, which is what CI does. Vendoring the face to avoid the skip would be the
@@ -132,7 +132,7 @@ gate green would be replacing the falsifier with a golden — the exact inversio
 - It also asserts that measuring the fixture's elements in a synthesised project reproduces
   measuring the committed fixture directly — without which the census would be a statement
   about a document nobody ships.
-- `crates/montaget-core/tests/reference_frames.rs` — already the source of the two text
+- `crates/montagent-core/tests/reference_frames.rs` — already the source of the two text
   SSIM figures, unchanged by this ADR.
 - **A recorded near-miss, because it is the reason the tolerance is what it is.** This
   file's first draft carried several advances transcribed by hand from a two-decimal table

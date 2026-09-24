@@ -15,10 +15,10 @@ so `handle-logo`'s unrecoverable `"center"` never entered the repair. M2 names t
 *rollback*, which the project already pays with git. A3 then broke the same way: the
 element-type-removal residue is **not** a case with no replacement to name — `CONTEXT.md`
 already names one for the exactly-analogous `path`/`line`/`polygon` closure ("commit an SVG
-or a PNG instead"). What is true of it is worse for `montaget migrate`, not better: it is the
+or a PNG instead"). What is true of it is worse for `montagent migrate`, not better: it is the
 one migration in the chain that a **program cannot perform and an agent can**. The hard case
 is the case the tool cannot do. So: **no version number; a retired-spelling error table that
-is permanent and never pruned, living in `validate`; `montaget migrate` never ships.**
+is permanent and never pruned, living in `validate`; `montagent migrate` never ships.**
 
 ---
 
@@ -100,12 +100,12 @@ error  halo-ring: `ellipse` is not an element type of this format.
 ```
 
 An agent **can** repair from that: emit an SVG, write it beside the project, rewrite one
-line. A program **cannot** — Montaget has no authoring surface, *"contains no model and is
+line. A program **cannot** — Montagent has no authoring surface, *"contains no model and is
 never an agent"*, and nothing publishes the raster's dimensions, DPI or antialiasing.
 
 So the case is the same in kind and different in **executor**. Every migration so far is
 doable by a script or an agent; this one is agent-only. **The difficulty gradient runs the
-wrong way for `montaget migrate`**: the case invoked to justify the tool is the case the tool
+wrong way for `montagent migrate`**: the case invoked to justify the tool is the case the tool
 cannot do.
 
 Four costs remain, none of which a tool fixes: byte-determinism dies (two agents, two PNGs,
@@ -135,16 +135,16 @@ widths 1..10000. Right in kind, unreproducible in magnitude as described.
 
 **C2 is half false.** Its core claim is confirmed by `migrate.py`'s own docstring (cumulative
 regenerator from a fixed origin, never N→N+1). But *"a stranger has no `old.json`"* is wrong:
-`docs/research/sample-project/pre-migration.montaget.json` is committed on `main` and
+`docs/research/sample-project/pre-migration.montagent.json` is committed on `main` and
 `verify.py`'s docstring gives the re-run incantation. `verify.py` is a **differential** checker
 over two named files, not a legality predicate over arbitrary ones — which matters for Q7.
 
 **A4.** `reference/beats.json` shares `output` and `duration` with the project file; the
-`.montaget.json` suffix is used by both project files on `main` and is **published nowhere** —
+`.montagent.json` suffix is used by both project files on `main` and is **published nowhere** —
 zero hits across fifteen ADRs and `CONTEXT.md`. Identification today is an unpublished
 filename convention plus shape-sniffing. The failure it causes is real (a wall of schema
-errors instead of "this is not a Montaget project file") but is an error-message-quality
-failure, not a correctness one, because under file-as-truth Montaget sweeps no directory.
+errors instead of "this is not a Montagent project file") but is an error-message-quality
+failure, not a correctness one, because under file-as-truth Montagent sweeps no directory.
 
 ---
 
@@ -155,7 +155,7 @@ Identification and revision are two decisions with different referents and oppos
 behaviour, and A4 confirms they separate cleanly. The version dies. The marker survives
 weakly, and if taken it must **not** be an integer, because any integer in this file will be
 read as a revision by every agent that sees it. The cheapest sufficient fix to A4's failure is
-not a field at all: **publish the `*.montaget.json` convention in an ADR** — it already
+not a field at all: **publish the `*.montagent.json` convention in an ADR** — it already
 exists, is already used twice, and is currently held up by nothing but habit. If a field is
 wanted beyond that, `$schema` pointing at ADR-0011's already-scheduled schema resource is the
 honest shape: self-describing, not mistakable for a revision integer, and a stale value names
@@ -165,19 +165,19 @@ a real older schema, which is *true* information rather than a false claim.
 why in a way argument cannot. The repair succeeded because the validator reasoned from what
 the file *contains*. A number is a second, independent, hand-maintained claim about the same
 file, and fact 6 measures agents copying stale fields from examples at 8/8. A file saying
-`"montaget": 1` while containing no `gravity` and a required `fit` has a wrong number and
+`"montagent": 1` while containing no `gravity` and a required `fit` has a wrong number and
 right content; any tool dispatching on the number migrates a correct file. **New failure mode
 created, none removed.**
 
 **Strongest attack on my own answer.** My marker case is weaker than I first wrote it. I named
 a failure — `render reference/beats.json` emitting *"missing `frame`, missing `fps`"* instead
-of *"not a Montaget project file"* — and then had to concede it is cosmetic, because Montaget
+of *"not a Montagent project file"* — and then had to concede it is cosmetic, because Montagent
 holds no database and sweeps no directory, so every path it sees was handed to it by someone
 who already believed it was a project file. Under the brief's own rule (*name the failure it
 prevents*) a cosmetic failure does not buy a field, and adding `$schema` would be the
 second-ever byte change to the committed fixture, bought for error-message polish. Second
 attack: `$schema` conventionally means a **fetchable URL**, and ADR-0011 ships the schema as
-an MCP resource — a stranger's editor cannot dereference `montaget://…`, so the field promises
+an MCP resource — a stranger's editor cannot dereference `montagent://…`, so the field promises
 a capability it does not have.
 
 **Survives?** The *no-number* half survives intact and is my highest-confidence answer in this
@@ -228,7 +228,7 @@ would create exactly that; the project's own discipline currently forbids it.
 **Preferred answer. P8, and A2 corroborates it experimentally.** To run A2 I had to *invent*
 the validator: there is no `validate`, no schema artifact, and ADR-0013 explicitly leaves
 *"whether `fit` may be omitted"* undefined. A version number indexes a legality predicate, and
-Montaget does not yet have one over arbitrary files. All fifteen ADRs collapse into revision 1
+Montagent does not yet have one over arbitrary files. All fifteen ADRs collapse into revision 1
 and ADR-0016 carries no bump.
 
 **Strongest attack.** P8 conflates *unpublished* with *nonexistent*. `migrate.py` and
@@ -239,7 +239,7 @@ and P8's "no fact of the matter" collapses.
 **Survives — I checked the artifact rather than arguing.** `verify.py`'s signature is
 `verify.py <old.json> <new.json>`: it is a **differential** checker asserting the mapping
 between two specific named files, with the origin hard-committed at
-`docs/research/sample-project/pre-migration.montaget.json`. It cannot be handed a stranger's
+`docs/research/sample-project/pre-migration.montagent.json`. It cannot be handed a stranger's
 file and answer *legal / illegal*. `migrate.py` likewise is a regenerator, not a checker. So
 no legality predicate over arbitrary files has ever existed, and P8 stands as stated.
 
@@ -253,7 +253,7 @@ P8's event has not actually occurred and I would need to move the trigger.
 
 ---
 
-## Q8 — Does `montaget migrate` ever exist?
+## Q8 — Does `montagent migrate` ever exist?
 
 **Preferred answer. P10 — never — but stated more usefully than "never".** The migration
 *capability* must exist and it already has a home: **`validate`, carrying a permanently
@@ -317,7 +317,7 @@ currently written" without falsifying P10.
 
 **Preferred answer. Neither: zero fields in the document.** The shape version is the schema's
 job; the semantics version is a fact about **which binary you run**, so it belongs on the
-binary — `montaget --version`, stamped into the render output or a sidecar so a video can be
+binary — `montagent --version`, stamped into the render output or a sidecar so a video can be
 traced to the reading that produced it (the stamping is a cheap suggestion, flagged as
 speculation). The ADR trail is the human-readable record, as P13 correctly says.
 
@@ -425,14 +425,14 @@ worse than none.
   plus one committed pre-migration origin. Every strong result in this verdict — including my
   own byte-perfect diff — is one data point at a fixed point. The anti-drift rule cuts against
   me here as much as anyone.
-- **The `.montaget.json` convention has no author.** Two files use it, zero documents specify
+- **The `.montagent.json` convention has no author.** Two files use it, zero documents specify
   it. This is a documented gap and, I think, a one-paragraph ADR regardless of #14's outcome.
 - **`fmt` and #73 are upstream of any migration claim.** G2 shows byte-exact repair depends on
   an unpublished formatting convention. "The agent repairs and the result is canonical" is not
   yet true; it is true given #73.
 - **C1's 5.8%** is not reproducible from its own description. Someone should restate which box
   dimensions it scanned, or replace it with ADR-0013's 4.466%.
-- **C2's "a stranger has no `old.json`" is false** — `pre-migration.montaget.json` is on
+- **C2's "a stranger has no `old.json`" is false** — `pre-migration.montagent.json` is on
   `main`. C2's conclusion survives; its premise should be corrected before it is cited again.
 
 ---
@@ -453,4 +453,4 @@ worse than none.
 The result I would most want re-tested by someone else is **G1**, and the claim I would most
 want overturned if it is wrong is that **A3's element-type removal is agent-executable**. If
 someone shows an agent cannot reliably author the replacement asset, Q8 reopens — and it
-reopens toward *refusal*, not toward `montaget migrate`, because the tool cannot do it either.
+reopens toward *refusal*, not toward `montagent migrate`, because the tool cannot do it either.

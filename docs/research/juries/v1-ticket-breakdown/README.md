@@ -1,7 +1,7 @@
 # Jury: the v1 implementation ticket breakdown
 
-For [#168](https://github.com/MBehtemam/Montaget/issues/168), the v1 implementation spec, at the
-`/to-tickets` step of the map [#2](https://github.com/MBehtemam/Montaget/issues/2)'s hand-off.
+For [#168](https://github.com/MBehtemam/Montagent/issues/168), the v1 implementation spec, at the
+`/to-tickets` step of the map [#2](https://github.com/MBehtemam/Montagent/issues/2)'s hand-off.
 
 Three independent jurors (Opus, Sonnet, Fable), each given the same brief ([`BRIEF.md`](BRIEF.md)
 — the author's proposed 22-ticket breakdown plus the `/to-tickets` vertical-slice rules), blind to
@@ -114,7 +114,7 @@ schema clause. This is an ADR question, not a ticket question, and it is settled
 
 **2. The falsification test compares two typefaces** (Opus and Fable independently, verified by the
 author). `fixtures/en-halloween-decorating/README.md` records the reference MP4 as set in *"SF Pro
-Rounded, bold throughout"*. [#143](https://github.com/MBehtemam/Montaget/issues/143) re-vendored
+Rounded, bold throughout"*. [#143](https://github.com/MBehtemam/Montagent/issues/143) re-vendored
 `OpenRunde-Bold.otf` because SF Pro Rounded was never in the repo and is not redistributable, and
 its own step 5 flagged the consequence without resolving it: the fixture's hand-tuned sizes were
 measured against the old metrics. Twenty-two of sixty elements are text. No SSIM threshold both

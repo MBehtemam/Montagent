@@ -2,7 +2,7 @@
 
 ## What I changed, element by element, and why
 
-`montaget validate` reported the same error on 8 elements: `` `gravity` is not
+`montagent validate` reported the same error on 8 elements: `` `gravity` is not
 a field of this format. Which part of the source survives is determined by
 `x`, `y`, `origin` and `clip`. ``
 
@@ -110,7 +110,7 @@ changing the video rather than preserving it.
 High confidence that the file is now syntactically and structurally correct:
 it is valid JSON, keeps one element per line, keeps elements sorted by
 `start` within each track, and keeps stable key order everywhere except the
-removed key. I did not run `montaget validate` myself (I don't have the
+removed key. I did not run `montagent validate` myself (I don't have the
 binary), so I can't directly confirm the 8 errors are gone, but each removed
 key exactly matches the field name and location the validator complained
 about, and no other structural rule was touched.

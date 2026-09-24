@@ -14,7 +14,7 @@ amends: 0032 (states precisely where slack-drift's coverage of coincidence ends)
 > **Amended by [ADR-0066](0066-boundary-coincidence-cluster-drift-is-its-own-predicate.md).**
 > The new predicate is sibling to, not an extension of, the one shipped there.
 
-[Ticket #151](https://github.com/MBehtemam/Montaget/issues/151), graduated from the
+[Ticket #151](https://github.com/MBehtemam/Montagent/issues/151), graduated from the
 map's fog. [ADR-0036](./0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md)
 parked the **destroyed-coincidence** hazard on `compare` without designing it;
 [ADR-0039](./0039-group-keyframe-time-check-retracted-from-validate-reassigned-to-compare.md)
@@ -22,7 +22,7 @@ did the same for **coupled-motion-drift**, fixing only that it must be keyed
 per-property, not per-`group`. Neither designed mechanics. Resolved by a jury of
 three independent models (Opus, Sonnet, Haiku, Fable rotating across two rounds)
 against the real, currently-committed fixture
-(`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`).
+(`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`).
 
 ## The predicate
 

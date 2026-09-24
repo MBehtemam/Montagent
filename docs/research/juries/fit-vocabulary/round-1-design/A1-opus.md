@@ -34,7 +34,7 @@ plainly:
    uses your rect, unconditionally, for every value of `fit`. The escape value is a
    *declination to assert*, not a layout mode (Q4). This is why the naming candidates
    borrowed from CSS `object-fit` all mislead: every one of them names a resampling
-   behaviour that Montaget does not have.
+   behaviour that Montagent does not have.
 3. **The check can be promoted to `error` without touching the renderer** (Q6). Nothing
    about the drawn pixels changes; what changes is whether a document that contradicts its
    own stated premise is allowed to become a video.
@@ -230,14 +230,14 @@ naming `declared`**, on ADR-0013's `center-center` and ADR-0012's `anchor` patte
 - **`none`** — the CSS `object-fit` collision that would actually mislead an agent. In CSS,
   `none` means *use the source's intrinsic dimensions*, which is a genuine constraint on the
   drawn size. An agent writing `fit:"none"` from CSS habit means "don't touch my rect" and
-  gets, in CSS terms, something else entirely — and because Montaget honours the declared
+  gets, in CSS terms, something else entirely — and because Montagent honours the declared
   rect regardless, the file *appears* to work while its stated premise is wrong. Silent
   plausibility is this format's named failure class.
 - **`stretch`** / **`fill`** (CSS sense) — CSS `fill` means stretch-to-box ignoring aspect,
   which under declared-rect-authoritative is what the renderer *always* does, for `cover`
   too. So the name describes the universal behaviour and cannot distinguish anything.
 - **`scale-down`** — CSS's `min(contain, none)`; a derivation with an intrinsic-size term
-  Montaget does not have.
+  Montagent does not have.
 - **`crop`** — ADR-0012 rejected a source-space `crop` by name when it chose `clip`.
   Reviving the word as a `fit` value re-opens a closed decision by vocabulary.
 

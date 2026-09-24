@@ -1,10 +1,10 @@
 # Font-swap census: Open Runde against SF Pro Rounded
 
 Evidence for [ADR-0085](../../adr/0085-the-font-swap-census-holds-and-the-text-mask-is-permanent.md),
-resolving [#186](https://github.com/MBehtemam/Montaget/issues/186) and discharging the
-ADR-0007 census obligation [#143](https://github.com/MBehtemam/Montaget/issues/143) left open.
+resolving [#186](https://github.com/MBehtemam/Montagent/issues/186) and discharging the
+ADR-0007 census obligation [#143](https://github.com/MBehtemam/Montagent/issues/143) left open.
 
-**Re-executable:** `cargo test -p montaget-core --test font_swap_census -- --nocapture`.
+**Re-executable:** `cargo test -p montagent-core --test font_swap_census -- --nocapture`.
 Every number below is asserted there, so the census fails the suite the moment it stops
 reproducing. The SF Pro Rounded column needs that face installed at
 `/Library/Fonts/SF-Pro-Rounded-Bold.otf` (a stock macOS has it); where it is absent the
@@ -79,7 +79,7 @@ Open Runde's advances run **2.0%–9.4% wider** than SF Pro Rounded's across the
 7.6%–9.4%). Every line in this fixture is centred or centre-left, so a line 8% narrower is
 not merely shorter — every glyph on it lands somewhere else.
 
-`crates/montaget-core/tests/reference_frames.rs` already measures the consequence on every
+`crates/montagent-core/tests/reference_frames.rs` already measures the consequence on every
 run, and reports it without gating it:
 
 | frame | text region SSIM | drawn region beside it | text share of frame |

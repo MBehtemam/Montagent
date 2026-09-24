@@ -12,11 +12,11 @@ write"* — and nothing about what a predicate looks like. The question the mode
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)'s sibling census, one
 call rather than a script: *"Four of five are 1597, one is 1537 is inert data about the
 file: it carries the fix without proposing it."*
-[#196](https://github.com/MBehtemam/Montaget/issues/196) built the mode, so a grammar had
+[#196](https://github.com/MBehtemam/Montagent/issues/196) built the mode, so a grammar had
 to exist, and the one it shipped was argued in
-`crates/montaget-core/src/verbs/query/predicate.rs`.
-[#249](https://github.com/MBehtemam/Montaget/issues/249) raised that as the wrong place
-for it, in the same spirit as [#241](https://github.com/MBehtemam/Montaget/issues/241):
+`crates/montagent-core/src/verbs/query/predicate.rs`.
+[#249](https://github.com/MBehtemam/Montagent/issues/249) raised that as the wrong place
+for it, in the same spirit as [#241](https://github.com/MBehtemam/Montagent/issues/241):
 every decision in it is what an agent has to *learn*, and it is as good as permanent once
 an agent's prompts contain it. This ADR is where the argument is had.
 
@@ -126,10 +126,10 @@ one member of its census group, not two — the answer is a set. And an ordering
 between two values of different kinds (`<` against a string on one element and a number on
 another) is **no match** rather than an error. The reason is that a query is not read
 through the strict model: it reads the permissive tree, which exists because
-[ADR-0042](./0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md) refuses a
+[ADR-0042](./0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md) refuses a
 document only when it is *"missing the required top-level keys that make it recognizable as
 a project at all"*, since a `note`- or `review`-level finding *"does not make a file any
-less a legitimate, safely-formattable Montaget project"* — while
+less a legitimate, safely-formattable Montagent project"* — while
 [ADR-0017](./0017-closed-schema-no-escape-hatch.md) makes an unknown key an error. So a
 query routinely runs over a document holding an `fps` of `"25"`, and a verb that aborted on
 the first such element would answer nothing about the other fifty-nine.
@@ -220,7 +220,7 @@ the crop rectangle and the ink box. Until it ships, that question is asked as
   any-value reading — an agent that has to read this ADR to write a predicate has already
   paid the cost ADR-0011's `jq` argument was avoiding.
 - **`CONTEXT.md`'s *Predicate* entry loses its "not ratified" note** and cites this ADR.
-- **`schema/montaget.schema.json` acquires two standing constraints**: no element property
+- **`schema/montagent.schema.json` acquires two standing constraints**: no element property
   named `track`, and no declared property spelled in digits alone. Both are re-derivable by
   one command, which is what makes them constraints rather than a note — but **nothing runs
   it for you today**: GitHub Actions is disabled for this repository, so the step registered
@@ -239,11 +239,11 @@ re-executable:
 
 - `docs/adr/predicate_reserved_names_scan.py` — a check a reader runs, not one a robot
   runs for them (see the Consequences). It re-derives both against the committed
-  `schema/montaget.schema.json`, and exits non-zero the moment either stops holding: no
+  `schema/montagent.schema.json`, and exits non-zero the moment either stops holding: no
   element variant declares `track` (across all 7 variants), and no object property
   anywhere in the schema is spelled in digits alone. Each claim is checked and reported
   independently, so a schema that grows one of them is told which.
-- `crates/montaget-core/tests/query.rs` — the behaviour, at the verb's seam. #196 already
+- `crates/montagent-core/tests/query.rs` — the behaviour, at the verb's seam. #196 already
   pinned most of what is ratified here: the reserved `track` path, the wildcard and its
   census, `exists`/`missing` with the `!=`-does-not-mean-absent pin, numbers compared
   numerically and quoting forcing a string, and — the document-literal decision, at the

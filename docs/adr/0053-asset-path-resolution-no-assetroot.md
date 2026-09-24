@@ -15,7 +15,7 @@ or URL written inline on the element, with no asset table. It left four question
 unanswered: what a relative path resolves against, whether a top-level `assetRoot`
 field is adopted so a project can be relocated without touching every element,
 whether an absolute local path is permitted, and what `validate`/`render` do when
-a `source` file is simply missing. Graduated from [#4](https://github.com/MBehtemam/Montaget/issues/4)
+a `source` file is simply missing. Graduated from [#4](https://github.com/MBehtemam/Montagent/issues/4)
 via the map's "Asset resolution" fog entry.
 
 ## Decision
@@ -26,7 +26,7 @@ The only base a reader can resolve from the document plus its on-disk
 neighbours, with no dependency on where the tool happened to be invoked from.
 The one committed fixture already assumes this — `"images/05.png"`,
 `"audio/intro-2.mp3"` and `"brand/logo-en.png"` all sit as siblings of the
-`.montaget.json` file itself. Resolving against the process's current working
+`.montagent.json` file itself. Resolving against the process's current working
 directory was rejected: it makes the same file mean different things depending
 on invocation, which is a direct violation of file-as-truth. Requiring an
 explicit base on every project was rejected as ceremony forced on every author
@@ -102,7 +102,7 @@ Decided **unanimous 3/3** (Opus, Haiku, Fable).
 
 - No schema change: `source` keeps its ADR-0002 shape (a path or URL on the
   element), and no top-level `assetRoot` field is added.
-- A project is a movable unit: the `.montaget.json` file plus its relative
+- A project is a movable unit: the `.montagent.json` file plus its relative
   media siblings. Relocating to a remote store is a mechanical rewrite of
   `source` values to URLs, not a one-line edit.
 - `validate`'s existing `error`-class "every `source` must resolve" check
@@ -111,10 +111,10 @@ Decided **unanimous 3/3** (Opus, Haiku, Fable).
   code is introduced here.
 - Remote (URL) `source` failure modes — network timeouts, caching, probe
   cost for a non-local file — are explicitly out of scope for this decision
-  and remain [#127](https://github.com/MBehtemam/Montaget/issues/127)'s to
+  and remain [#127](https://github.com/MBehtemam/Montagent/issues/127)'s to
   design.
 - Font paths (the `fonts` table) are governed by ADR-0007's separate carve-out,
-  not by this decision; [#128](https://github.com/MBehtemam/Montaget/issues/128)
+  not by this decision; [#128](https://github.com/MBehtemam/Montagent/issues/128)
   should not assume `assetRoot` exists as a mechanism it can reuse.
 
 ## Evidence

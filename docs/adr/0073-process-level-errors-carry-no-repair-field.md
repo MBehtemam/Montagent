@@ -16,7 +16,7 @@ amends: 0043 (narrows "every `error`-class finding" to findings about a document
 > extended to the MCP transport's `isError` flag: every code declared `NotAboutDocument`
 > here now sets `isError` over MCP, not just an argument that failed to deserialise.
 
-**Ticket:** [#224](https://github.com/MBehtemam/Montaget/issues/224), resolved by a
+**Ticket:** [#224](https://github.com/MBehtemam/Montagent/issues/224), resolved by a
 three-model court (Opus, Haiku, Fable — reproduce with `/court`), unanimous.
 
 ## The conflict
@@ -25,10 +25,10 @@ three-model court (Opus, Haiku, Fable — reproduce with `/court`), unanimous.
 requires every `error`-class finding to carry a `repair` field: the literal string
 `"none"` (refuse) when the fix depends on author intent the document does not carry, or
 a structured value (advise) when the fix is fully determined by the document, the media
-on disk, and published rendering semantics. [#188](https://github.com/MBehtemam/Montaget/issues/188)
+on disk, and published rendering semantics. [#188](https://github.com/MBehtemam/Montagent/issues/188)
 registered four `error`-class codes that fire before, or entirely outside, that
 examination: `E-PARSE` (the file is not JSON), `E-READ` (the file would not open or
-decode), `E-INVOCATION` (the command was wrong), `E-INTERNAL` (Montaget itself broke).
+decode), `E-INVOCATION` (the command was wrong), `E-INTERNAL` (Montagent itself broke).
 
 Forcing a document-shaped answer onto them reads wrong on all four, worked in #224:
 
@@ -38,7 +38,7 @@ Forcing a document-shaped answer onto them reads wrong on all four, worked in #2
 - `E-READ` as advise promises a value shaped like a document edit; "re-save as UTF-8" is
   real advice, but it is not a change to a project file, which is what ADR-0043's
   advise-class shape (`{"value": …}`, applyable) is built around.
-- `E-INVOCATION` as advise names a repair to the invocation, not to anything Montaget can
+- `E-INVOCATION` as advise names a repair to the invocation, not to anything Montagent can
   write.
 - `E-INTERNAL` as refuse claims "no flag can lift it" of a condition a retry might clear.
 
@@ -56,7 +56,7 @@ repair class.
 
 The registry gains a third `RepairClass` arm, `NotAboutDocument`, alongside
 `Advise`/`Refuse`: a finding whose subject is the invocation, the raw bytes, or
-Montaget's own process rather than the document. The four codes above are reclassified
+Montagent's own process rather than the document. The four codes above are reclassified
 to it; no other registered code changes.
 
 `Report::push`'s invariant — *"every `error`-class finding carries a `repair` field"* —
@@ -70,7 +70,7 @@ value.
 
 ### The court
 
-[#224](https://github.com/MBehtemam/Montaget/issues/224) recorded the question, unresolved,
+[#224](https://github.com/MBehtemam/Montagent/issues/224) recorded the question, unresolved,
 and named three shapes an answer could take:
 
 **A.** The binary applies unchanged — cheapest, matches the code #188 shipped.
@@ -88,7 +88,7 @@ deliberately strong precisely because the gravity-fork evidence it is built on s
 of 4 agents that *noticed* a fork in required repairs shipped a guessed wrong one
 anyway — only refusal, not prose explanation or per-instance triage, stopped them. Two
 jurors (Opus, Fable) argued the erosion runs in the direction that matters most: `E-PARSE`
-is plausibly the single most frequent error an agent operating Montaget will ever see, so
+is plausibly the single most frequent error an agent operating Montagent will ever see, so
 printing the refuse sentence beneath its caret is not a neutral cost — it teaches the
 agent that "no flag can lift it" is sometimes routine, which is exactly the erosion that
 then misfires on the check the sentence exists to protect. Opus located the textual hook

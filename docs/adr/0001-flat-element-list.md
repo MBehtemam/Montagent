@@ -36,7 +36,7 @@ agent can run inside its own turn, without a tool call.
 of four shipping declarative video APIs found that *no* product uses a track as a
 pure stacking lane: in every one, a track constrains its contents to play in
 sequence without overlapping. "Track" therefore means *sequencing*, not
-*stacking*. Montaget imposes no such constraint, so adopting the word would
+*stacking*. Montagent imposes no such constraint, so adopting the word would
 promise behaviour it does not have — and a reader arriving from any of those
 tools would expect ripple edits and not get them.
 

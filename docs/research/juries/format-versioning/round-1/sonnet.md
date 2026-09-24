@@ -7,7 +7,7 @@ if one field could answer both "what does this document contain" and "under whic
 should it be interpreted," and A4 proves those are different questions with different
 answers on an already-accepted ADR (0013). My preferred design is: **no version field today**,
 a **pre-1.0 clause** that binds nothing until a stated release event, and when that event
-arrives, **two separate mechanisms** — a single top-level shape integer (`"montaget": N`)
+arrives, **two separate mechanisms** — a single top-level shape integer (`"montagent": N`)
 that a schema-diff can verify mechanically, plus an ordinary changelog/ADR trail (already
 half-built as the accepted ADRs) that is the only honest home for semantics-only revisions
 like ADR-0013. A tool can enforce the first; nothing can mechanically enforce the second,
@@ -40,7 +40,7 @@ single fact is why I did not converge on a single-field answer to Q1 — see bel
 ## Q1 — Is there a version in the file at all, and what is versioned?
 
 **Preferred answer:** yes, but *only one thing*: a single top-level integer,
-`"montaget": N`, naming a revision of the **document's shape** — the ADR-0014/0015 kind of
+`"montagent": N`, naming a revision of the **document's shape** — the ADR-0014/0015 kind of
 change (fields added/required/removed/renamed). It is explicitly **not** asked to capture
 ADR-0013-kind changes (interpretation-only, zero bytes). Per-object OTIO-style versions (b)
 are rejected: the brief's own health warning is correct to flag this as unratified, and A2
@@ -60,7 +60,7 @@ check," while a wrong number is legible as "known, and false."
 
 **Why it survives anyway:** the fix is not to drop the field but to make it advisory, never
 authoritative — `validate` must always independently re-check the document against the
-*current* schema regardless of what `montaget: N` claims, and must **flag** (not merely
+*current* schema regardless of what `montagent: N` claims, and must **flag** (not merely
 correct) a mismatch between the declared number and the shape actually observed, the same
 way a `Content-Length` header that lies about body size is a bug report, not instructions.
 Under that design, a stale copied version number is caught by the same validation pass that
@@ -85,7 +85,7 @@ re-runnable script beside the ADR that caused it (exactly #42 and #48's pattern,
 proven twice). The versioning machinery itself (Q1's integer, Q3's tooling) is specified now,
 in the same ADR that would ratify this ticket, but its *obligations* — "every ADR after this
 one must bump N and ship a migration" — do not bind until the trip event. The trip event I'd
-propose: **the first published release Montaget makes available for a consumer that is not
+propose: **the first published release Montagent makes available for a consumer that is not
 this repo's own fixture** (a tagged release, a package registry publish, or the first
 external user's project file existing) — because that is the first moment a file can exist
 that the ADR authors cannot simply re-migrate themselves. Who decides: whoever cuts that
@@ -99,7 +99,7 @@ no natural forcing function to become "this applies now."
 
 **Why it survives:** fact 8 is unambiguous — no renderer exists, no users, one project file,
 which the maintainer controls completely. Under file-as-truth (a standing principle, not
-reopenable here), Montaget never holds a database of files it must sweep; the *only* file at
+reopenable here), Montagent never holds a database of files it must sweep; the *only* file at
 risk today is the one committed fixture, which the domain doc's existing rule already
 protects. Building the machinery to protect zero real files, before the moment a real
 stranger's file could exist, spends effort on a threat that provably (fact 8) doesn't exist
@@ -117,10 +117,10 @@ publish," not "first release").
 ## Q3 — Whose files must survive N+1?
 
 **Preferred answer: (b), files within reach.** A migration is a script committed beside the
-ADR that caused it, exactly what #42 and #48 already did — and no, `montaget migrate` as a
-standalone shipped verb does not need to exist yet. Under file-as-truth, Montaget genuinely
+ADR that caused it, exactly what #42 and #48 already did — and no, `montagent migrate` as a
+standalone shipped verb does not need to exist yet. Under file-as-truth, Montagent genuinely
 never holds a database it can sweep (a standing principle, undisputed) — so "(a) files
-Montaget never wrote and cannot see" describes a class of files that, today, is empty by
+Montagent never wrote and cannot see" describes a class of files that, today, is empty by
 fact 8, and a general migration tool built for it would be validated against nothing.
 
 What a general migration tool buys over a per-change script, honestly assessed: **nothing
@@ -133,13 +133,13 @@ not easier, the more ADRs accumulate. That composition problem does not exist ye
 one migrated file and it has been migrated exactly twice, both times by the project's own
 author, both times by hand-invoking the right script). So: build per-change scripts now (Q2
 already requires this once the pre-1.0 clause is discharged); revisit whether a general
-`montaget migrate` verb is worth shipping once there are enough accumulated per-change
+`montagent migrate` verb is worth shipping once there are enough accumulated per-change
 scripts that a stranger would plausibly need to chain three or more of them — that's a
 measurable trigger ("N accumulated migrations"), not a vibe.
 
 **Strongest attack:** this is exactly the "ship it when you need it" argument that starves
 infrastructure until the pain is already expensive — by the time a stranger needs to chain
-five migrations, Montaget has shipped and lost the ability to make this decision for free.
+five migrations, Montagent has shipped and lost the ability to make this decision for free.
 Also, ADR-0011's tool surface already treats the CLI as the home for exactly this kind of
 batch/convenience operation (`fmt`, `timeline`, `probe` are all CLI-only), so there's a
 live precedent for adding low-stakes CLI verbs cheaply, and `migrate` composing already-

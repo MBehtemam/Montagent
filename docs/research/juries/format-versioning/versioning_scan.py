@@ -7,7 +7,7 @@ import json, math, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = subprocess.run(["git","rev-parse","--show-toplevel"],capture_output=True,text=True).stdout.strip()
-FIX  = "fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json"
+FIX  = "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"
 fails, checks = [], 0
 
 def check(label, got, want):
@@ -108,7 +108,7 @@ def arm(d):
     photos = [e for e in els if e["id"].startswith("photo-0")]
     rects  = [t["name"] for t in doc["tracks"]
               if re.search(r"photo-(mask|mat|crop)", t["name"])]
-    return dict(version=doc.get("montaget"),
+    return dict(version=doc.get("montagent"),
                 fit=sum(1 for e in els if "fit" in e),
                 clip=sum(1 for e in els if "clip" in e),
                 compensating_track=bool(rects),
@@ -151,7 +151,7 @@ check("occurrences across 15 ADRs + CONTEXT.md", len(hits), 0)
 
 print("\n[8] migrate.py regenerates the fixture from main alone")
 check("origin file is on main",
-      os.path.exists(os.path.join(ROOT,"docs/research/sample-project/pre-migration.montaget.json")), True)
+      os.path.exists(os.path.join(ROOT,"docs/research/sample-project/pre-migration.montagent.json")), True)
 check("migrate.py docstring still names the unmerged branch",
       "prototype/sample-project-file" in show("origin/main","docs/research/sample-project-migration/migrate.py"), True)
 

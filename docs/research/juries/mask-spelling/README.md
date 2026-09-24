@@ -11,7 +11,7 @@ The question: [ADR-0040](../../../adr/0040-effect-model-attachment-and-v1-vocabu
 masks inside `effects: [{name, ...params}]` in its schema clause, and says the committed
 fixture's bare `mask: "circle"` key needs *"no migration"* in its Consequences. Under
 ADR-0017's closed schema those cannot both hold. Surfaced while breaking
-[#168](https://github.com/MBehtemam/Montaget/issues/168) into tickets — it is the first
+[#168](https://github.com/MBehtemam/Montagent/issues/168) into tickets — it is the first
 ticket's demo that fails.
 
 ## Verdicts
@@ -72,7 +72,7 @@ the copied example and about regression coverage of a v1 effect.
 > *rendered* frame. The renderer minifies the badge 11.8× into its slot, so the mask trims a
 > rim the stored asset does not have — 112 pixels of the half-scale frame.
 > [ADR-0075](../../../adr/0075-the-badges-mask-changes-its-own-rim-and-nothing-else.md)
-> ([#279](https://github.com/MBehtemam/Montaget/issues/279)) retires the claim; the court's
+> ([#279](https://github.com/MBehtemam/Montagent/issues/279)) retires the claim; the court's
 > own finding, and every ballot below, is untouched.
 
 **The contradiction never survived a court, because it was never put to one.** The effect-model
@@ -107,7 +107,7 @@ despite four later ADRs amending it, and named that as the mechanism by which a
 self-contradiction goes unnoticed: nobody re-reads an ADR that looks unamended. Fable counted
 16 of 28 amended ADRs with no pointer; the author's count was 15 of 27, plus 6 more whose
 banners named only some of their amenders while reading as exhaustive. Discharged separately
-in [#183](https://github.com/MBehtemam/Montaget/pull/183), which also adds
+in [#183](https://github.com/MBehtemam/Montagent/pull/183), which also adds
 `docs/adr/check_amendment_banners.py` so the rule is enforced rather than merely written.
 
 ## Method note

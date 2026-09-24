@@ -1,7 +1,7 @@
 # Court: remote (URL) source probe/cache design
 
 One round, three jurors (Claude Opus 5, Claude Haiku 4.5, Claude Fable 5.1), independent,
-blind to each other's ballots. Convened for [#127](https://github.com/MBehtemam/Montaget/issues/127)
+blind to each other's ballots. Convened for [#127](https://github.com/MBehtemam/Montagent/issues/127)
 to answer five sub-questions on how `validate`/`render` handle a `source` that is a URL
 (permitted by ADR-0002), given ADR-0006's "always probe, no fast mode" policy was measured
 only against local files (~0.04s each) and ADR-0053 deferred all remote-specific failure

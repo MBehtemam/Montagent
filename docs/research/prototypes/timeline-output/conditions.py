@@ -7,7 +7,7 @@ only in whether those facts are laid out on an axis. That is the ablation.
 import json, sys
 from collections import defaultdict
 
-P = "fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json"
+P = "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"
 d = json.load(open(P)); DUR = d["duration"]; W = 120
 tracks = d["tracks"]
 els = [(t, e) for t in tracks for e in t["elements"]]

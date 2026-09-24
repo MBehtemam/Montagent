@@ -1,7 +1,7 @@
 # Answer D — text and shape primitives, from the authoring seat
 
 Everything below is argued from one seat: I am the agent that opens
-`en-halloween-decorating.montaget.json`, edits it with exact-string replace, and checks
+`en-halloween-decorating.montagent.json`, edits it with exact-string replace, and checks
 myself with `validate` / `frame` / `measure` / `query`. Settled documents relied on:
 CONTEXT.md, ADR-0007/0008/0012/0013, and the fixture itself (I re-read `card-05`,
 `sentence-05`, `handle-logo` from the committed file).

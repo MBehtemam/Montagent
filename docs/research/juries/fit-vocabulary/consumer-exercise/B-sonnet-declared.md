@@ -1,7 +1,7 @@
 # Worklog — B-sonnet-declared
 
 Source of truth used: `SPEC-declared.md` only. Did not read `docs/adr/`. Read the existing
-fixture `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` for context
+fixture `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` for context
 (read-only, not edited). Used `python3` to verify the integer arithmetic for every task.
 
 ---
@@ -235,7 +235,7 @@ integer-only, so two implementers working only from this spec should get bit-ide
 results, which is the main thing that matters for a validated format.
 
 **Single worst thing:** The spec and the actual fixture file disagree on vocabulary — every
-existing image element in `en-halloween-decorating.montaget.json` carries a `"gravity":"top"`
+existing image element in `en-halloween-decorating.montagent.json` carries a `"gravity":"top"`
 field that this spec explicitly lists under "Not fields" as not existing. If I'd used the
 fixture as my primary reference instead of cross-checking every field against the spec text,
 I would have propagated a field that (per this document) isn't real. A published spec that

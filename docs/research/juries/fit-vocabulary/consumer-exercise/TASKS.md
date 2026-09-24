@@ -1,11 +1,11 @@
 # Authoring tasks
 
-You are an agent authoring a Montaget project file. Work ONLY from `SPEC-<arm>.md`, given to
+You are an agent authoring a Montagent project file. Work ONLY from `SPEC-<arm>.md`, given to
 you. **Do not read anything under `docs/adr/`** — those are internal decision records, not
 published format documentation, and reading them invalidates this exercise.
 
 You may read the existing project file at
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` for context, and you
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` for context, and you
 may use `python3` to compute. Do not edit that file — write your answers in your worklog.
 
 The project frame is 1080x1920.

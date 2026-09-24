@@ -2,7 +2,7 @@
 
 ## Headline
 
-Add nothing to the file format now. Not a top-level `montaget` integer, not
+Add nothing to the file format now. Not a top-level `montagent` integer, not
 per-object versions, not a migration binary. Every real breaking change this
 project has made so far (0012's required fields, 0014's required text box,
 0015's required `fit` and retired `gravity`) is a *shape* change, and shape
@@ -88,7 +88,7 @@ ADRs behind, see the changelog" is faster to act on than reading eleven
 validate errors and reverse-engineering which of fifteen ADRs you're missing.
 That is a real, nameable failure — a stranger burning an hour reconstructing
 "what changed" from error text alone — but it is a UX/diagnosis convenience,
-not a correctness mechanism, and Montaget has never yet needed it (two real
+not a correctness mechanism, and Montagent has never yet needed it (two real
 migrations, both done same-day by the person who wrote the breaking ADR).
 I'm recording this as the one point in the whole brief where I concede the
 ticket found something real: **a version field's only defensible job is as a
@@ -98,7 +98,7 @@ actually occurs** — which it does not yet, on a project with one file, no
 users, and no releases.
 
 Also record fact 6's tension honestly: even that narrow job is undermined if
-the field is agent-hand-maintained (a stale, copied-forward "montaget: 3" on a
+the field is agent-hand-maintained (a stale, copied-forward "montagent: 3" on a
 file that's actually still shaped like 2 is worse than nothing, because it
 actively misdirects triage rather than leaving it undirected). This is
 survivable only if `fmt`/`create_project`/`render` — tools that already
@@ -111,7 +111,7 @@ hiding it.
 **What would falsify this:** a demonstrated case (real, not hypothetical)
 where a stranger's stale file causes a costly, hard-to-diagnose failure that
 a version integer — not better validate error messages — would have caught
-faster. I don't have one; Montaget has never shipped, so this can't be
+faster. I don't have one; Montagent has never shipped, so this can't be
 measured yet, only reasoned about.
 
 **Confidence: medium.** High on "not now, and not for the reason I expected
@@ -137,13 +137,13 @@ gate.
 
 **Why it survives anyway:** the two are not equally hard to pin down. "When
 do we ship" already has a natural, discrete, auditable answer independent of
-this ticket — the first time Montaget is installed and run by someone who is
+this ticket — the first time Montagent is installed and run by someone who is
 not the person who can also fix the format — because that is the literal
 transition described in fact 8 ("no users and exactly one project file") no
 longer holding. Tagging a release is a concrete git event with a timestamp;
 "is this decision good" is not. I'm not resolving what 1.0 *means* as a
 product milestone (out of scope, and genuinely not mine to decide) — only
-that "first external user holds a file Montaget's author can't reach to fix
+that "first external user holds a file Montagent's author can't reach to fix
 by hand" is a sharp, observable line, and it happens to be exactly the line
 Q3 also needs (see below). One pre-1.0 clause, one trigger, reused by both
 questions, is less machinery than two separately-justified ones.
@@ -175,14 +175,14 @@ that's a product decision I don't have standing to make.
 ## Q3 — Whose files must survive N+1?
 
 **Preferred answer: (b), files within reach — a script committed beside the
-ADR that caused the break, exactly as #42 and #48 already did. `montaget
+ADR that caused the break, exactly as #42 and #48 already did. `montagent
 migrate` as a standalone, general capability need not exist yet.**
 
-**Attack:** file-as-truth means Montaget can never sweep a database of files
+**Attack:** file-as-truth means Montagent can never sweep a database of files
 it doesn't know about — but that cuts *for* a general tool, not against one:
-if Montaget genuinely cannot see strangers' files, the *only* thing that can
+if Montagent genuinely cannot see strangers' files, the *only* thing that can
 ever fix them is something the stranger runs locally against their own copy,
-which is precisely what a general `montaget migrate` is for. Under this
+which is precisely what a general `montagent migrate` is for. Under this
 reading, "we can't reach the files" is an argument that a self-service tool
 is the *only* possible remedy, not that none is needed.
 
@@ -194,17 +194,17 @@ implies, but not nothing.
   correct as a general tool would be for that same change; a general tool's
   code path for ADR-0015 is not more correct, just packaged differently.
 - It buys nothing on *reachability*: neither approach can reach a file
-  Montaget's author has never seen; both require the stranger to run
+  Montagent's author has never seen; both require the stranger to run
   something locally.
 - **It does buy dispatch** — a stranger with an old file doesn't have to know
   which of fifteen ADR numbers, and which of however-many resulting scripts,
-  applies to their file; `montaget migrate` (or `fmt --upgrade`) could try
+  applies to their file; `montagent migrate` (or `fmt --upgrade`) could try
   each known idempotent transform in order and report what it did. This is
   the concession: **once there is more than a small, memorizable number of
   historical shape-breaks, "run the right numbered script" stops being a
   reasonable ask of a stranger**, and a rule-driven (not version-field-driven
   — A4 already ruled that out) auto-fixer earns its cost. I do not think
-  Montaget is there yet — fifteen ADRs produced exactly two fixture-touching
+  Montagent is there yet — fifteen ADRs produced exactly two fixture-touching
   migrations, both trivially nameable by the human doing it. I would revisit
   this once that count is meaningfully higher, or once there is a second
   real project file in the world that isn't the fixture.

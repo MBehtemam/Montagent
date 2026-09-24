@@ -20,7 +20,7 @@ when omitted — `x`/`y` to the frame centre, `origin` to `center`, `scale` to `
 defaults `line_height` to `1.2`. For each, an element can express the same effective value
 two ways: by omitting the field, or by writing it explicitly at its default. [ADR-0011](./0011-tool-surface-reads-checks-renders.md)
 defines `fmt` as rewriting the file "in the canonical convention" but never says whether it
-inserts or strips a defaulted field. [#61](https://github.com/MBehtemam/Montaget/issues/61)
+inserts or strips a defaulted field. [#61](https://github.com/MBehtemam/Montagent/issues/61)
 asked whether `fmt` should canonicalize toward one spelling, and if not, whether the schema
 should ban the other the way `center-center` is banned.
 
@@ -39,7 +39,7 @@ choice to pin a value against drift, or to leave it floating, is exactly the kin
 authorial intent ADR-0013 and ADR-0014 already protect as content, never a spelling `fmt`
 is free to normalize away.
 
-Both alternatives fail on the mechanism [#8](https://github.com/MBehtemam/Montaget/issues/8)
+Both alternatives fail on the mechanism [#8](https://github.com/MBehtemam/Montagent/issues/8)
 found is how every agent edits: stripping a written default silently deletes a line the
 agent just added; materializing an omitted field silently inserts up to seven lines into
 every element and invalidates any pending exact-string replace whose context window touched

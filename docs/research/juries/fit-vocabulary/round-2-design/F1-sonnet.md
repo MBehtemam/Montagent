@@ -21,7 +21,7 @@ Of the four given candidates: `none` is disqualified outright — CSS `object-fi
 means "ignore the box, show the source at its own natural size," which is a completely
 different operation (no distortion, but arbitrary crop/overflow) from "these are my
 final integers, resample to exactly them." An agent who knows CSS and reads `fit:"none"`
-in Montaget will import the wrong mental model. `stretch` names the effect, is
+in Montagent will import the wrong mental model. `stretch` names the effect, is
 frequently inaccurate (silent when aspect already matches), and isn't even the CSS term
 for anisotropic fill (`fill` is). `exact` collides *internally* — ADR-0013 uses "exact
 integer arithmetic" and "exact cover" pervasively for the rounding rule itself, which
@@ -75,7 +75,7 @@ the union of visual coverage is empty at that instant), not by the aperture chec
 I ship it rather than defer because ADR-0003's asymmetry rule cuts specifically against
 using "0 of 8 fixture elements use `contain`" as a reason to withhold it: letterboxing
 a portrait source into a landscape box (or vice versa) is a baseline CapCut/Premiere
-operation, and Montaget is committed to video clips, which make aspect mismatches
+operation, and Montagent is committed to video clips, which make aspect mismatches
 routine rather than exceptional. Deferring buys nothing here — the rounding rule and
 the check re-scope are both small, principled, and fully specified now; there is no
 unresolved research question the way there was for `gravity` or `skew`.
@@ -212,7 +212,7 @@ container technically permitting frame-to-frame resolution changes) would make "
 source's dimensions" a per-frame quantity rather than a fixed pair — this is exotic
 enough (not a shape any mainstream delivery codec exposes for standard playback) that
 it doesn't warrant a rule change, only a note that the rule assumes a constant-
-resolution stream, which is true of essentially all video Montaget will ever ingest.
+resolution stream, which is true of essentially all video Montagent will ever ingest.
 
 **Strongest counter:** This is generalization from a zero-instance case — the exact
 failure pattern the brief's own framing warns about in Q1, just aimed at a different

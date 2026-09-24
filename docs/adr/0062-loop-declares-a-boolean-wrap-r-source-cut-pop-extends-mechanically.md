@@ -37,11 +37,11 @@ already written (`loop: true` ≡ a future `loop: {"from": 0}`) if that need
 ever arrives with real evidence behind it.
 
 **`loop` affects nothing but this `validate` check.** It does not touch
-`render`, and Montaget writes no container-level loop metadata. Loop support
+`render`, and Montagent writes no container-level loop metadata. Loop support
 at the container level is not a stable cross-format fact to begin with — MP4
 has no standard loop atom, GIF/APNG do, HTML `<video loop>` is a player
 attribute, not a file property — so "write loop metadata" is really "pick a
-per-container heuristic Montaget cannot actually guarantee," exactly the kind
+per-container heuristic Montagent cannot actually guarantee," exactly the kind
 of judgment call ADR-0006 keeps out of the tools. Whether and how a hosting
 platform loops the rendered file is outside this boundary; `loop` states
 authorial intent for `validate` to act on, nothing more.

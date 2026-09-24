@@ -1,16 +1,16 @@
 # Preview floor resolution — findings
 
-Prototype for [#117](https://github.com/MBehtemam/Montaget/issues/117), graduated from
+Prototype for [#117](https://github.com/MBehtemam/Montagent/issues/117), graduated from
 [ADR-0046](../../../adr/0046-proxy-preview-target-is-720p-long-edge-capped.md), which fixed
 the proxy-preview target at 720p and deferred the hard-refuse floor to this ticket.
 
 ## Method
 
-No production Montaget renderer exists yet, so this prototype uses the committed fixture's
+No production Montagent renderer exists yet, so this prototype uses the committed fixture's
 own published reference render (`fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4`,
 1080×1920, 25fps) as ground truth for the exact project timeline — same frame, same text,
-same timing a real Montaget render would produce. Four timestamps were chosen from the
-fixture's own declared element sizes (`en-halloween-decorating.montaget.json`) to stress its
+same timing a real Montagent render would produce. Four timestamps were chosen from the
+fixture's own declared element sizes (`en-halloween-decorating.montagent.json`) to stress its
 smallest and densest text:
 
 | label | t | element(s) | size |

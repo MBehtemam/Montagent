@@ -21,9 +21,9 @@ amends: 0006 (states explicitly, as a named test plus a fenced exception, the
 answers one question — is this file internally legal, and does it agree with the
 media on disk — and never *"does this file say what you meant it to say."* Two
 tickets landed since and were read, on the surface, as pressure on that line:
-[#64](https://github.com/MBehtemam/Montaget/issues/64), which made certain
+[#64](https://github.com/MBehtemam/Montagent/issues/64), which made certain
 timeline intervals ("slack") invariant, and
-[#66](https://github.com/MBehtemam/Montaget/issues/66), which added
+[#66](https://github.com/MBehtemam/Montagent/issues/66), which added
 `R-CAPTION-PACE` and `R-CAPTION-REPEAT-DURATION` to `validate` via
 [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md). This ADR draws
 the boundary the two tickets left implicit.

@@ -10,7 +10,7 @@ amends: 0007 (`line_height`'s numeric domain), 0014 (states the arithmetic its `
 formula as `ceil(size × line_height × line_count)`, `size` and `line_count` both integers.
 It did not say what numeric domain `line_height` draws from or what arithmetic evaluates
 the product — and `line_height` is not the integer-pixel, integer-millisecond field almost
-everything else in this format is. [#58](https://github.com/MBehtemam/Montaget/issues/58)
+everything else in this format is. [#58](https://github.com/MBehtemam/Montagent/issues/58)
 found the gap has a measured cost: evaluated in IEEE double, `size × line_height ×
 line_count` disagrees with its exact-decimal value on **76 of 1197 sampled (size,
 line-count) combinations at `line_height = 1.1`** — 6.35% — always by one pixel, because
@@ -106,6 +106,6 @@ divergence itself was already measured and cited by `docs/research/juries/contai
   been measured. Scoped out of this ADR deliberately, unanimous 3/3: `speed`'s ADR is
   already closed and accepted, and reopening it on a structural hunch rather than a
   measurement would repeat the exact mistake ADR-0013 avoided by measuring first. Graduated
-  to [#95](https://github.com/MBehtemam/Montaget/issues/95), which must measure before
+  to [#95](https://github.com/MBehtemam/Montagent/issues/95), which must measure before
   proposing any fix and may need a different mechanism than tenths-restriction, since
   division doesn't degrade the same way multiplication does.

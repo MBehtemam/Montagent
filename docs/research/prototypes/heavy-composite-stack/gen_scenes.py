@@ -12,7 +12,7 @@ prototype's are read against the same window and the same budget.
 """
 import json
 
-REPO = "/Users/mohammedehtemam/projects/github/Montaget"
+REPO = "/Users/mohammedehtemam/projects/github/Montagent"
 BASE = f"{REPO}/docs/research/prototypes/heavy-composite-stack"
 BADGE = f"{REPO}/fixtures/en-halloween-decorating/brand/logo-en.png"
 

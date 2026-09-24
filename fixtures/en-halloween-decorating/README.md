@@ -1,10 +1,10 @@
 # Fixture: `en-halloween-decorating`
 
 The assets of one already-published short, collected so that every prototype and
-design ticket on [the map](https://github.com/MBehtemam/Montaget/issues/2) can be
+design ticket on [the map](https://github.com/MBehtemam/Montagent/issues/2) can be
 judged against real input instead of plausible-looking invented input.
 
-Resolves [Gather a real sample video as the project's test fixture](https://github.com/MBehtemam/Montaget/issues/3).
+Resolves [Gather a real sample video as the project's test fixture](https://github.com/MBehtemam/Montagent/issues/3).
 
 **Source:** `~/projects/github/youtube_language_learning/episodes/halloween`,
 short 2 of 3 (`ids: 05,06,07,08`), English edition. Copied verbatim — no
@@ -20,13 +20,13 @@ re-encoding, no downscaling.
 
 The reference material shows **what the output must contain**, not how to express it.
 The source project's JSON schema, its `.ass` subtitle files and its Python/FFmpeg
-driver are the problem Montaget exists to replace — read them as evidence of the
+driver are the problem Montagent exists to replace — read them as evidence of the
 required result, never as a format to carry over.
 
 ## Layout
 
 ```
-en-halloween-decorating.montaget.json           — the project file that composes all of it
+en-halloween-decorating.montagent.json           — the project file that composes all of it
 images/         05.png 06.png 07.png 08.png     — the source stills, one per item
 audio/          11 mp3 files                    — see below
 brand/          logo-en.png                     — the channel badge in the header
@@ -83,11 +83,11 @@ held for the viewer to repeat — the gaps are load-bearing content, not padding
 document declares `duration: 65216`, which is the **video stream** to the millisecond
 and the container to nothing — more than one frame at 25 fps away. This is the
 distinction [ADR-0011](../../docs/adr/0011-tool-surface-reads-checks-renders.md)'s probe
-quad exists for, and `crates/montaget-core/tests/reference_video.rs` asserts that reading
+quad exists for, and `crates/montagent-core/tests/reference_video.rs` asserts that reading
 the other number would move the answer before it compares anything against it.
 
 The frame rate is the awkward number `1390080/55651`, not a clean 25 — an artifact of
-the old pipeline concatenating separately-encoded segments. Montaget should produce a
+the old pipeline concatenating separately-encoded segments. Montagent should produce a
 clean constant rate; treat ≈25 fps as the intent. A render on the project's grid
 therefore carries **1631** frames against this file's 1629, and its stream runs 65.240 s
 because the last of those 1631 is held for its own 1/25 s. Both divergences are reported
@@ -96,7 +96,7 @@ as that arithmetic rather than absorbed by a tolerance.
 > **The published narration sits 42 ms later than the document says, and that is this
 > file's own first presentation timestamp.** Matched boundary by boundary with
 > `silencedetect`, the reference's 39 speech/silence transitions run a median of 43.0 ms
-> behind a Montaget render of the same project; the video stream's `start_time` is
+> behind a Montagent render of the same project; the video stream's `start_time` is
 > 42.031 ms. Take it off and every boundary agrees to inside one frame. It is a property
 > of the published encode rather than a disagreement about placement — which is why the
 > comparison removes it explicitly and asserts that the raw offset exceeds a frame, so the
@@ -107,7 +107,7 @@ as that arithmetic rather than absorbed by a tolerance.
 Four clips, each **1080 × 1920, 25 fps, 375 frames, exactly 15.000 s**, ~4.3 MB.
 
 These are *derived*: each is the matching still with a slow pan/zoom baked in. They are
-here as the target motion, not as input — Montaget should perform this move itself from
+here as the target motion, not as input — Montagent should perform this move itself from
 the PNG. Each is a fixed 15 s regardless of how long its item actually runs on screen
 (11.1 s to 14.5 s), so the old pipeline trimmed rather than fitted.
 
@@ -166,7 +166,7 @@ Two frames are included — `reference/frame-intro.png` and `reference/frame-05-
 
 > **The committed project's Ken Burns pivoted about a different point from the published
 > video's, and the file was the one that was wrong** —
-> [#276](https://github.com/MBehtemam/Montaget/issues/276), now fixed. Every photo element
+> [#276](https://github.com/MBehtemam/Montagent/issues/276), now fixed. Every photo element
 > declared `"origin": "top-left"` at `(0, 0)`; the published move is a **centre** pivot.
 > `docs/research/sample-project-migration/README.md` D3 measured that from
 > `reference/kenburns/06.mp4` when the file was written — *"the move is a centre-pivot
@@ -187,7 +187,7 @@ Two frames are included — `reference/frame-intro.png` and `reference/frame-05-
 > rectangle at scale 1.0, and the published one at every other scale. `handle-logo` carries
 > no transform and so has no observable pivot; it is unchanged. The correction is in
 > `migrate.py` rather than in this file by hand, because the file is regenerated by it and
-> byte-diffed by `verify.py`. `crates/montaget-core/tests/reference_frames.rs` now gates
+> byte-diffed by `verify.py`. `crates/montagent-core/tests/reference_frames.rs` now gates
 > the photograph at both reference frames instead of masking it out of the later one, and
 > `ci/reference_frame_instants.py` re-derives the finding against whatever pivot the file
 > declares.
@@ -198,7 +198,7 @@ Two frames are included — `reference/frame-intro.png` and `reference/frame-05-
 > fourteenth of the vertical one. D3 flagged the same thing from the other side (*"the pure
 > zoom model's fit quality falls with `t`"*). It is measured and reported on every run by
 > `reference_frames.rs`, and owned by
-> [#299](https://github.com/MBehtemam/Montaget/issues/299).
+> [#299](https://github.com/MBehtemam/Montagent/issues/299).
 
 The 1080 × 1920 frame is split. The **image occupies the top ~1300 px** (`card_h: 1300`
 in `beats.json`), cropped to the frame's width; below it is a flat **cream card**
@@ -234,11 +234,11 @@ In the lower card:
   its text centred at (540, 1537) at 55 px
 
 Typography is `SF Pro Rounded`, bold throughout — **in the published video only**.
-[#143](https://github.com/MBehtemam/Montaget/issues/143) re-vendored the project to Open
+[#143](https://github.com/MBehtemam/Montagent/issues/143) re-vendored the project to Open
 Runde, because SF Pro Rounded is not in this repository and is not redistributable
 ([ADR-0057](../../docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md)),
 so every text-bearing region of a render differs from the reference frames above for a
-reason that is not a defect. [#186](https://github.com/MBehtemam/Montaget/issues/186) owns
+reason that is not a defect. [#186](https://github.com/MBehtemam/Montagent/issues/186) owns
 quantifying it; the falsification suite masks text out of its gate and measures it beside
 it. Colours, converted from the ASS
 `&HBBGGRR` form: blue `#245C8C` for the word, chip and handle; cream `#FBF3E3` for the

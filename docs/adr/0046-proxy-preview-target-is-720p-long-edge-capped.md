@@ -24,8 +24,8 @@ amends: 0021 (states the deferred target resolution and ladder length; defers th
 mechanism for scrub `preview` above the render budget, deliberately deferring the specific
 target resolution, ladder length, and floor to a measurement ticket rather than guessing —
 this project has already had to walk back one unmeasured claim stated as fact (ADR-0005's
-frame-alignment instruction). [#87](https://github.com/MBehtemam/Montaget/issues/87)
-measured it: a harness extending [#34](https://github.com/MBehtemam/Montaget/issues/34)'s
+frame-alignment instruction). [#87](https://github.com/MBehtemam/Montagent/issues/87)
+measured it: a harness extending [#34](https://github.com/MBehtemam/Montagent/issues/34)'s
 rasterizer benchmark with synthetic 4K (2160×3840) and 8K (4320×7680) portrait sources,
 matching the fixture's own 1080×1920 aspect ratio.
 
@@ -47,7 +47,7 @@ honest fix is to re-measure and revise this ADR, not to have pre-baked rungs tod
 
 ## What "720p" means for an arbitrary aspect ratio
 
-Montaget is a general-purpose editor ([ADR-0003](./0003-general-video-editor-not-channel-tooling.md)),
+Montagent is a general-purpose editor ([ADR-0003](./0003-general-video-editor-not-channel-tooling.md)),
 not vertical-only, but "720p" is a landscape-era shorthand (conventionally 1280×720, height
 capped at 720) and the fixture — and #87's harness — is 9:16 portrait. Stated precisely:
 
@@ -87,7 +87,7 @@ benchmark like #87's can answer, and not something this ADR decides by argument.
 3/3: split it off as a `/prototype` ticket that renders real fixture content at a few
 candidate floor resolutions and makes the call by looking, the same discipline ADR-0021 used
 to defer the target itself to measurement rather than argument. Graduated to
-[#117](https://github.com/MBehtemam/Montaget/issues/117).
+[#117](https://github.com/MBehtemam/Montagent/issues/117).
 
 Until #117 resolves, `preview` has no defined floor: it attempts the 720p target or fails on
 budget, with no refuse path below it — stated here explicitly rather than left implicit.
@@ -102,4 +102,4 @@ budget, with no refuse path below it — stated here explicitly rather than left
 - `preview`'s target-resolution rule is stated as a fixed, orientation-independent cap
   (longer edge ≤ 1280px), not a landscape-convention height cap and not a scale factor.
 - The floor is explicitly undecided, not silently assumed: graduated to
-  [#117](https://github.com/MBehtemam/Montaget/issues/117).
+  [#117](https://github.com/MBehtemam/Montagent/issues/117).

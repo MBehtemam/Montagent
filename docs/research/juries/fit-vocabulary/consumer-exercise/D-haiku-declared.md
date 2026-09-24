@@ -1,4 +1,4 @@
-# Worklog: Montaget Declared Format Exercise
+# Worklog: Montagent Declared Format Exercise
 
 Model: claude-haiku-4-5-20251001
 

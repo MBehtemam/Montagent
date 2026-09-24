@@ -1,4 +1,4 @@
-# Where the glyph baseline sits inside a line's slot — [#59](https://github.com/MBehtemam/Montaget/issues/59)
+# Where the glyph baseline sits inside a line's slot — [#59](https://github.com/MBehtemam/Montagent/issues/59)
 
 **Outcome:** half-leading (`baseline_y = slot_centre_y + (ascent − descent) / 2`), read
 from the max ascent and max descent across every run on the line — see
@@ -75,7 +75,7 @@ dominant precedent an agent will already know.
 
 **Trade-offs:** (b) and (c) are simpler but each anchors to one edge and silently
 dumps the whole overflow on the opposite side. (b) has one genuine advantage — it
-matches "top-of-line = top-of-slot" mental models — but Montaget's runs-on-lines
+matches "top-of-line = top-of-slot" mental models — but Montagent's runs-on-lines
 model treats every line identically, so that advantage does not apply.
 
 **Verdict: 2–1 for (a) half-leading.**

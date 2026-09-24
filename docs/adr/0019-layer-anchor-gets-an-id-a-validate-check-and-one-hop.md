@@ -8,13 +8,13 @@ amends: 0004 (the anchor's target namespace, chaining and hardening), 0006 (two 
 [ADR-0004](./0004-tracks-as-constrained-lanes.md) gave an element the option of
 stating its stacking relative to another: `{"below": "title"}`. It never said
 what `"title"` names, whether the reference can chain, or what happens when it
-is wrong. All three agents in [#8](https://github.com/MBehtemam/Montaget/issues/8)'s
+is wrong. All three agents in [#8](https://github.com/MBehtemam/Montagent/issues/8)'s
 editing exercise wrote a defective anchor and nothing complained. This ADR closes
 those gaps.
 
 ## The anchor stays
 
-[#20](https://github.com/MBehtemam/Montaget/issues/20)'s eight agents asked for
+[#20](https://github.com/MBehtemam/Montagent/issues/20)'s eight agents asked for
 anchoring unanimously, despite ranking it worst to write — hand-maintaining
 `panel.layer = title.layer - 1` is an error they said they would make repeatedly
 and silently whenever the referenced element moves. One agent dissented after

@@ -7,8 +7,8 @@ amends: 0012 (a keyframe list gains an ordering constraint at the schema, not on
 
 # A keyframe list must be written in ascending `t`; `E-SCHEMA` names the first inversion
 
-**Ticket:** [#270](https://github.com/MBehtemam/Montaget/issues/270), found while
-implementing [#208](https://github.com/MBehtemam/Montaget/issues/208) (the keyframe
+**Ticket:** [#270](https://github.com/MBehtemam/Montagent/issues/270), found while
+implementing [#208](https://github.com/MBehtemam/Montagent/issues/208) (the keyframe
 resolver and `query --at`). Neither ADR-0012 nor ADR-0038 states whether a keyframe list
 must be written in the clock order its `t` values imply, and the two consumers that
 existed read the list two different ways — `Animatable`'s deserializer by array
@@ -66,7 +66,7 @@ the moment it is written, is the check that matches what an unordered list actua
   has already passed the schema check — the sort ADR-0012 implied for a general list
   becomes provably a no-op and may be removed or kept as a defensive assertion, at the
   implementer's discretion.
-- **`shift`'s SPLIT ([#220](https://github.com/MBehtemam/Montaget/issues/220)).** Step
+- **`shift`'s SPLIT ([#220](https://github.com/MBehtemam/Montagent/issues/220)).** Step
   7's "any run of three or more consecutive records" now unambiguously means consecutive
   in the array, because array order and clock order are the same order by construction.
 - **The committed fixture.** Every keyframe list in it is already ascending (#270 states

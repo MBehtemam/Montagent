@@ -1,6 +1,6 @@
 # Thai line breaking: cosmic-text vs parley
 
-Resolves [#27](https://github.com/MBehtemam/Montaget/issues/27). Read
+Resolves [#27](https://github.com/MBehtemam/Montagent/issues/27). Read
 [FINDINGS.md](FINDINGS.md) first — this file is only how to re-run it.
 
 ```sh

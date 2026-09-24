@@ -2,11 +2,11 @@
 
 ## Headline
 
-One top-level integer, `"montaget": <n>`, naming a revision of the **contract**
+One top-level integer, `"montagent": <n>`, naming a revision of the **contract**
 (shape *and* interpretation, so ADR-0013-class changes bump it), introduced from
 ADR-0016 onward under an explicit pre-1.0 clause: pre-release, bumps are free
 and the only obligation is the committed re-runnable script the repo already
-imposes; the *promise* — a shipped, idempotent `montaget migrate` built from the
+imposes; the *promise* — a shipped, idempotent `montagent migrate` built from the
 chain of those scripts — begins at the first tagged release and covers released
 revisions only. Per-object OTIO-style versions are rejected on this project's
 own invariants, and no-field shape inference is refuted by Part A: the committed
@@ -52,7 +52,7 @@ Full detail in `WORKLOG.md`; the four results that drive Part B:
 
 ## Q1 — Is there a version in the file, and what is versioned?
 
-**Preferred answer:** (a) one top-level integer, `"montaget": <n>`, versioning
+**Preferred answer:** (a) one top-level integer, `"montagent": <n>`, versioning
 the whole-format **contract** — the pair (schema shape, normative reading). One
 line, first key of the file, written by `create_project`, checked by
 `validate`.
@@ -60,7 +60,7 @@ line, first key of the file, written by `create_project`, checked by
 **Strongest attack:** fact 6, taken seriously. Agents hand-maintain this field
 and agents demonstrably copy stale fields — 8 of 8 reached for `gravity`,
 several straight from the fixture before reading the spec. A stale
-`"montaget": 3` in a world at 4 is worse than silence precisely in the one case
+`"montagent": 3` in a world at 4 is worse than silence precisely in the one case
 the field exists for: when 3→4 was semantic, the shape is consistent with
 either number, `validate` cannot catch the lie, and a migration tool will now
 *confidently* apply (or skip) a semantic rewrite. The field converts "unknown
@@ -86,7 +86,7 @@ currently lives in one repo the author controls.
   the field teaches agents to carry it.
 - *A wrong claim is more diagnosable than no claim.* The format already has a
   field that is purely an assertion checked by `validate` — `fit`, "a
-  derivation claim, not a layout mode" (ADR-0015). `"montaget"` is the same
+  derivation claim, not a layout mode" (ADR-0015). `"montagent"` is the same
   species: a claim about which reading the author worked under. When the claim
   contradicts the shape (`gravity` present in a file stamped 4), `validate`
   can say so *and say which side is probably lying* — an error class that
@@ -100,7 +100,7 @@ must be writable "by reading the schema alone"; per-object suffixes put a
 hand-maintained version on all 60 elements (multiplying fact 6's surface by
 60); and a bump would touch every line of a file deliberately formatted so that
 edits produce minimal diffs — destroying the "diff that proved 'and nothing
-else'" property ADR-0011 measured agents relying on. Montaget has one document
+else'" property ADR-0011 measured agents relying on. Montagent has one document
 type evolving in lockstep under one spec; per-object versioning solves a
 federation problem this project does not have.
 
@@ -125,7 +125,7 @@ spec. **Mechanics bind from ADR-0016**: the field exists, an accepted ADR that
 changes the contract bumps it, and the migration is a committed re-runnable
 script beside the ADR — which is only a one-integer extension of the rule
 `docs/agents/domain.md` already imposes and #42/#48 already obeyed. **The
-promise binds at the first tagged release**: from that event, `montaget
+promise binds at the first tagged release**: from that event, `montagent
 migrate` ships and released revisions stay migratable. The trip event is the
 release ADR — the same instrument every other decision here uses — and the
 maintainer decides, because pre-release there is no one else affected to
@@ -162,13 +162,13 @@ rehearsal bought nothing and the pure post-1.0 clause was equally safe.
 
 **Preferred answer:** (b) now, hardening into a narrow (a) at release:
 per-change scripts committed beside the ADR remain the unit of migration
-forever; at 1.0, `montaget migrate` ships as **the chain of those scripts made
+forever; at 1.0, `montagent migrate` ships as **the chain of those scripts made
 idempotent by the version stamp** (apply steps > stamp, in order, restamp) and
 covers released revisions only. Files in strangers' repos are the design
 target *from the release boundary forward*, not retroactively.
 
-**Strongest attack:** `montaget migrate` need not exist at all, even post-1.0
-— and the attack is native to this project, not generic. Every Montaget user
+**Strongest attack:** `montagent migrate` need not exist at all, even post-1.0
+— and the attack is native to this project, not generic. Every Montagent user
 has an agent by definition; ADR-0015's schema errors are deliberately
 pedagogical ("a schema error naming `x`/`y`/`origin` and `clip`"); so the
 migration story could simply be: `validate` names what is wrong and what
@@ -184,9 +184,9 @@ teaching moment the schema error was designed to produce.
    name a replacement key; it cannot re-derive `1919 → 1920` across an
    ADR-0013-class change (A4). That rewrite is exact integer arithmetic with a
    right answer — which is this project's own published criterion for what
-   Montaget does instead of the agent: CONTEXT.md defines `shift` as "the one
+   Montagent does instead of the agent: CONTEXT.md defines `shift` as "the one
    edit that is arithmetic rather than authorship, and therefore the one
-   Montaget performs instead of the agent." Migration is the second such edit.
+   Montagent performs instead of the agent." Migration is the second such edit.
    Leaving it to the agent reintroduces the exact failure ADR-0015 documented
    killing the loose rounding rule: eight agents, three tasks, two different
    legal files.

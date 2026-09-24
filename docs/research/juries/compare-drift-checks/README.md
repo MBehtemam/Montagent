@@ -1,7 +1,7 @@
 # Jury: `compare`'s mechanics for destroyed-coincidence and coupled-motion-drift
 
 Evidence backing [ADR-0063](../../adr/0063-compare-drift-checks-keyframe-instant-relationships.md),
-resolving [ticket #151](https://github.com/MBehtemam/Montaget/issues/151).
+resolving [ticket #151](https://github.com/MBehtemam/Montagent/issues/151).
 
 Two rounds, three independent models each (Opus, Sonnet — the judge/moderator,
 not a juror — Haiku, Fable), all blind to each other's ballots within a round.
@@ -21,7 +21,7 @@ not a juror — Haiku, Fable), all blind to each other's ballots within a round.
 
 `count_coincidences.py` regenerates every number both rounds cite against the
 real, currently-committed fixture
-(`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`):
+(`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`):
 
 ```
 $ python3 count_coincidences.py
@@ -36,7 +36,7 @@ total self-element keyframe-to-own-boundary coincidences: 7
 
 The 92/120 figure matches ADR-0036's original historical measurement exactly,
 confirming the pattern held unchanged through the file's later migration
-([#42](https://github.com/MBehtemam/Montaget/issues/42)). The 14 multi-partner
+([#42](https://github.com/MBehtemam/Montagent/issues/42)). The 14 multi-partner
 clusters is the concrete count behind round 2's key finding: slack-drift
 (ADR-0032) reports the *nearest*-partner distance, so a coincidence pairing can
 be destroyed inside one of these 14 clusters while another partner keeps the

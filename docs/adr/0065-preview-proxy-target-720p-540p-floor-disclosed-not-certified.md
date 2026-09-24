@@ -17,7 +17,7 @@ amends: 0021-preview-budget-and-graceful-degradation.md
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) adopted proxy-resolution
 preview as the mechanism for hitting the render/preview budget above 1080p, but
 deliberately left the target resolution, degradation ladder, and floor unstated pending
-measurement. [#87](https://github.com/MBehtemam/Montaget/issues/87) ran that measurement
+measurement. [#87](https://github.com/MBehtemam/Montagent/issues/87) ran that measurement
 (`docs/research/prototypes/proxy-preview-savings/FINDINGS.md`, on `main`); this ADR
 writes the numbers down. Settled by a 3-juror independent court (Opus, Sonnet, Fable),
 each given the same draft to attack, blind to the others
@@ -31,7 +31,7 @@ the source got bigger, exactly the failure mode ADR-0021 declined to guess at.
 
 **720p is the smallest single target that clears the `<5s` scrub-preview budget at both
 4K and 8K, on `skia-safe`** (2.68s/3.78s) — the load-bearing rasterizer per
-[ADR-0009](0009-rust-host.md)/[#34](https://github.com/MBehtemam/Montaget/issues/34). A
+[ADR-0009](0009-rust-host.md)/[#34](https://github.com/MBehtemam/Montagent/issues/34). A
 size-dependent target (e.g. 1080p below some resolution threshold) was considered and
 rejected: it would contradict ADR-0021's fixed-target shape for a quality gain that
 1080p's own single-run 8K margin doesn't support keeping around.
@@ -76,7 +76,7 @@ reasoning from "540p is 1.5x the linear scale of 360p" — an internal contradic
 independently caught by all three jurors. Corrected: `FINDINGS.md`'s fixture measured
 ~19–27px overlay text at 360p (from a 57–80px 1080p-equivalent card); at 1.5x linear
 scale, **540p yields ~28–40px, not ~38–54px**. Both figures are properties of #87's own
-synthetic fixture's overlay sizing, not a general claim about every Montaget project's
+synthetic fixture's overlay sizing, not a general claim about every Montagent project's
 caption size — a project with proportionally smaller captions reaches the
 `FINDINGS.md`-flagged risky range at a higher tier than this fixture did.
 
@@ -116,7 +116,7 @@ unmeasured *upside* lever nobody has promised — not measuring it can only mean
 system is faster than advertised. The composite-stack gap is unmeasured *risk* against
 an *enforced* budget that ADR-0021 itself already named as a trigger condition; treating
 it as equivalent to an optional future lever misstates what's actually unverified.
-Majority governs: **[#159](https://github.com/MBehtemam/Montaget/issues/159) is filed
+Majority governs: **[#159](https://github.com/MBehtemam/Montagent/issues/159) is filed
 as part of landing this decision**, not deferred until a real project is shown to miss
 the floor.
 
@@ -131,7 +131,7 @@ the floor.
 - `540p` is a wall-clock floor, disclosed like every other degraded tier per ADR-0021's
   existing mandatory-disclosure rule. Its legibility is explicitly unmeasured and not
   asserted as fact. No tier below `540p` may be added without a human-legibility pass.
-- [#159](https://github.com/MBehtemam/Montaget/issues/159) is graduated to measure the
+- [#159](https://github.com/MBehtemam/Montagent/issues/159) is graduated to measure the
   heavy-composite-stack case ADR-0021 named as a trigger and #87's harness did not
   cover — filed now, not deferred.
 - GPU rasterization remains, as ADR-0021 stated, an open and unmeasured lever for a

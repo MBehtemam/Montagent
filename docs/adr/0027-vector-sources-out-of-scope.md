@@ -7,10 +7,10 @@ amends: 0015 (discharges its "sources with no intrinsic pixel dimensions" deferr
 
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) parked, without
 deciding: *"sources with no intrinsic pixel dimensions (SVG-like) have no rule input and
-must use `literal`."* [#57](https://github.com/MBehtemam/Montaget/issues/57) asked whether
-Montaget accepts vector sources at all, and if so what `fit` should do about a source with
+must use `literal`."* [#57](https://github.com/MBehtemam/Montagent/issues/57) asked whether
+Montagent accepts vector sources at all, and if so what `fit` should do about a source with
 no decodable pixel size. Research findings, cited to primary sources, are in
-[`docs/research/vector-source-dimensions.md`](https://github.com/MBehtemam/Montaget/blob/research/vector-source-dimensions/docs/research/vector-source-dimensions.md)
+[`docs/research/vector-source-dimensions.md`](https://github.com/MBehtemam/Montagent/blob/research/vector-source-dimensions/docs/research/vector-source-dimensions.md)
 (branch `research/vector-source-dimensions`).
 
 ## Decision
@@ -61,7 +61,7 @@ avoids by not needing one.
 - No schema change: no vector-source element type is added, so `fit`'s value set (`cover` /
   `contain` / `literal`) and its required-on-raster-source rule (ADR-0015) are untouched.
   ADR-0015's `Not settled here` entry is discharged with "not applicable — out of scope."
-- `probe` need not define a "dimensionless source" report category; every source Montaget
+- `probe` need not define a "dimensionless source" report category; every source Montagent
   accepts has decodable pixel dimensions.
 - This is a v1 scope boundary, not a permanent rejection. If vector-source support is
   proposed later, it reopens as a fresh scope question weighing the same two costs named
@@ -70,7 +70,7 @@ avoids by not needing one.
 
 ## Not settled here
 
-- What policy Montaget would adopt for a vector source's fit-rule input, should vector
+- What policy Montagent would adopt for a vector source's fit-rule input, should vector
   sources ever be accepted. Every primary-source precedent found (Skia's zero-dimension,
   FFmpeg/librsvg's and usvg's 100×100 fallback) is a *different* policy; none is adopted or
   preferred here, since none is needed while vector sources remain unsupported.

@@ -1,4 +1,4 @@
-# Juror G1 — round 2 verdict, Montaget #48 (`fit` vocabulary)
+# Juror G1 — round 2 verdict, Montagent #48 (`fit` vocabulary)
 
 Premises taken as settled from round 1: `fit` is a derivation claim consumed by `validate`;
 the box is `clip`'s width/height; `fit` is required on raster-source elements; `gravity` is
@@ -198,7 +198,7 @@ element carrying a raster source* — `image` and `video` alike — not scoped t
 and extended later.
 
 **Why:** ADR-0003 is explicit that no primitive may be shaped so a general need becomes
-hard to add, and ADR-0003 commits Montaget to video clips by naming the reference class
+hard to add, and ADR-0003 commits Montagent to video clips by naming the reference class
 (CapCut, Premiere — editors that *edit video*). A video frame is a raster; nothing in
 the settled machinery is image-specific: the box is `clip`, the derivation is integer
 arithmetic on sample counts, `fit` is a derivation claim, the escape declines it.

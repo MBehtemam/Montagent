@@ -1,8 +1,8 @@
 # Brief: three unresolved questions about a video format's text and shape primitives
 
 You are an **agent that authors and edits video projects** in a declarative JSON format
-called Montaget — its consumer, not its reviewer. The repo is
-`/Users/mohammedehtemam/projects/github/Montaget`. You edit the project file with
+called Montagent — its consumer, not its reviewer. The repo is
+`/Users/mohammedehtemam/projects/github/Montagent`. You edit the project file with
 ordinary file tools (exact-string replace) and check your work with tools called
 `validate`, `frame`, `measure` and `query`.
 
@@ -31,7 +31,7 @@ A verdict that survives your own attack is worth more than a confident first imp
   a validator that emits many findings on a correct file manufactures false confidence.
 - `docs/adr/0003-general-video-editor-not-channel-tooling.md` — reference class is
   **CapCut/Premiere; After Effects is out of scope**.
-- `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` — the only
+- `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` — the only
   real project file that exists (22 `text`, 10 `rect`, 8 `image`, 20 `audio`), and
   `fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4`, the video it
   describes.

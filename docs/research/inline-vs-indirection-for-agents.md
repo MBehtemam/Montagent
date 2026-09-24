@@ -1,6 +1,6 @@
 # Inline values vs. declared-and-referenced values, for an LLM
 
-Gathered while resolving [Name the core domain model](https://github.com/MBehtemam/Montaget/issues/4),
+Gathered while resolving [Name the core domain model](https://github.com/MBehtemam/Montagent/issues/4),
 to decide whether an element names its file inline or refers to a declared asset
 table. Feeds [ADR 0002](../adr/0002-inline-source-no-asset-table.md).
 

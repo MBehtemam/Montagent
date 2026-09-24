@@ -4,7 +4,7 @@
 
 **I did not change `project.json`, and I did not get a render out.** The file is
 not broken. The build box is out of date. The only correct fix is to put a
-Montaget that implements format revision 4 on the box, and I cannot do that from
+Montagent that implements format revision 4 on the box, and I cannot do that from
 inside the box.
 
 ## What I did, and why
@@ -12,10 +12,10 @@ inside the box.
 The terminal output is unambiguous:
 
 ```
-montaget 0.9.2  (format revision 2)
+montagent 0.9.2  (format revision 2)
 error  this file declares format revision 4; this binary implements revision 2.
-       The file claims a contract newer than this Montaget speaks.
-       Upgrade montaget. Do not edit the file.
+       The file claims a contract newer than this Montagent speaks.
+       Upgrade montagent. Do not edit the file.
 render refused.
 ```
 
@@ -38,7 +38,7 @@ So I spent my time establishing two things.
   `images/`, `audio/`, `brand/`, plus one font).
 
 Nothing here looks half-written or mid-edit. This reads like a finished file
-authored against a newer Montaget than this box has.
+authored against a newer Montagent than this box has.
 
 **2. If I forced it through revision 2 anyway, what would go wrong?** This is
 the question that decided it. The fields in the file are mostly meaningless to
@@ -76,7 +76,7 @@ before it was public. Text pinned at `x: 540, origin: "center"` rendered as
 top-left would shove every caption off the right edge of a 1080-wide frame.
 
 I also confirmed I could not have validated a forced render even if I'd done
-one. There is no `montaget` on this box's PATH from where I sit, and none of the
+one. There is no `montagent` on this box's PATH from where I sit, and none of the
 16 media assets or the font are present in my working directory. **I could not
 have rendered, watched, or diffed anything.** Shipping a silently-reinterpreted
 render that nobody can compare against a known-good one is the worst available
@@ -86,7 +86,7 @@ outcome: it is the only option that puts a wrong video in front of an audience.
 
 ## What I considered and rejected
 
-**Change `"montaget": 4` to `2` and re-run.** The tempting one — one character,
+**Change `"montagent": 4` to `2` and re-run.** The tempting one — one character,
 and the render almost certainly succeeds. Rejected. The number is not a setting,
 it is a declaration of which contract the body of the file is written in.
 Editing it does not translate the file; it just disables the check that noticed
@@ -110,7 +110,7 @@ Rejected. Same silent-reinterpretation problem, plus it leaves a tampered tool
 on the box for every future render. And the box is out of scope for me to go
 rummaging through.
 
-**Upgrade montaget — the actual remedy.** Not rejected; unavailable. No network,
+**Upgrade montagent — the actual remedy.** Not rejected; unavailable. No network,
 and no build artefact in reach. This is the one thing that fixes the problem
 properly, and it needs a human with a network connection, not a cleverer agent.
 
@@ -121,8 +121,8 @@ about English*, and it cannot be unpublished from the people who already saw it.
 ## What I'd tell the team
 
 > Overnight render refused and I've left it refused — the project file is fine,
-> the build box is stale. `en-halloween-decorating.montaget.json` is written
-> against Montaget format revision 4; the box is still on montaget 0.9.2, which
+> the build box is stale. `en-halloween-decorating.montagent.json` is written
+> against Montagent format revision 4; the box is still on montagent 0.9.2, which
 > speaks revision 2, so it stopped at the door rather than guess. I checked the
 > file over and it's healthy — timeline tiles cleanly, duration matches, all 16
 > assets referenced sanely — so there's nothing to fix on our side. I could have
@@ -132,14 +132,14 @@ about English*, and it cannot be unpublished from the people who already saw it.
 > the four slowed sentence repeats (`speed: 0.645`) have slots sized to the
 > slowed audio down to the millisecond — lose that field and we publish four
 > chunks of dead air, with a successful-looking render and no error. **Ask:
-> somebody with network access get a montaget that implements revision 4 onto
+> somebody with network access get a montagent that implements revision 4 onto
 > the build box and the render should just go.** Until then I'd hold the slot
 > rather than push something we can't check — I have no binary and no media on
 > this box, so I couldn't have watched the output even if I'd forced it.
 
 ## Confidence
 
-**That the file, rendered by a correct revision-4 Montaget, produces the video
+**That the file, rendered by a correct revision-4 Montagent, produces the video
 we intended: high.** The file is internally consistent in every way I could
 check offline — clean JSON, no track overlaps, `duration` exactly equal to the
 last `end`, contiguous handoffs, and the `speed`/slot arithmetic matching to the
@@ -150,7 +150,7 @@ am confident that is the right outcome, not a good one.
 
 ### What I could not check
 
-- **I never ran the renderer.** No `montaget` binary was reachable from my
+- **I never ran the renderer.** No `montagent` binary was reachable from my
   working directory, so every statement above is from reading the file, not from
   output.
 - **I never saw a frame or heard a second of audio.** None of the 16 media files

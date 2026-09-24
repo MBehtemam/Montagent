@@ -1,10 +1,10 @@
-# Montaget
+# Montagent
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues live in this repo's GitHub Issues (`MBehtemam/Montaget`), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in this repo's GitHub Issues (`MBehtemam/Montagent`), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -2,13 +2,13 @@
 
 ## Headline
 
-The 16 errors are 8 image elements × 2 keys: `fit` and `clip`. montaget 0.9.2
+The 16 errors are 8 image elements × 2 keys: `fit` and `clip`. montagent 0.9.2
 does not know them. Deleting them makes the render pass — but `clip` on the
 photos is **load-bearing layout**, not decoration, so deleting it alone would
 have shipped a video that renders green and looks wrong. I removed the keys and
 rebuilt the one effect that mattered out of primitives this build box accepts.
 
-**I could not run the render.** `montaget` is not on the PATH in the environment
+**I could not run the render.** `montagent` is not on the PATH in the environment
 I was given, and `images/`, `audio/`, `fonts/` and `brand/` are not present
 either — the directory holds only `project.json` and `render-output.txt`. So
 everything below is reasoned from the project file, and nobody has yet seen a
@@ -71,8 +71,8 @@ in 0.9.2 — but the only value I have evidence for is `"circle"`. Guessing a
 rect mask syntax against a validator I cannot run is a coin flip, and a wrong
 guess is another refused render.
 
-**Upgrade montaget.** The shape of this bug is a stale build box: the file was
-almost certainly authored against a newer montaget where `fit` and `clip` are
+**Upgrade montagent.** The shape of this bug is a stale build box: the file was
+almost certainly authored against a newer montagent where `fit` and `clip` are
 real keys. `fit`+`clip` appear together on all 8 images, and on the logo `clip`
 is exactly the element box — a no-op default — which reads like keys emitted
 mechanically by a newer writer. Upgrading is the real fix. No network, so not
@@ -85,9 +85,9 @@ geometry, not guessed.
 ## What I would tell the team
 
 > Overnight render died on 16 validation errors: the project file uses `fit`
-> and `clip` on image elements and the build box is on montaget 0.9.2, which
+> and `clip` on image elements and the build box is on montagent 0.9.2, which
 > doesn't know those keys. Looks like the file was written against a newer
-> montaget than the box has — nobody's updated the box in months, and we have no
+> montagent than the box has — nobody's updated the box in months, and we have no
 > network today. I stripped both keys and rebuilt the part that mattered: the
 > `clip` was holding the photos out of the bottom third so the captions sit on
 > cream, so I put a cream rect on layer 15 over y1300–1920, which is
@@ -96,7 +96,7 @@ geometry, not guessed.
 > assets from where I was working, so this hasn't been eyeballed.** Someone
 > please scrub the output — especially the first second and the 42–54 s
 > "string of lights" section — before it goes out. Real fix is upgrading
-> montaget on the build box; filing that now.
+> montagent on the build box; filing that now.
 
 ## Confidence
 
@@ -115,7 +115,7 @@ renderer to test with, so I cannot close this. It is the single thing to look
 at first in the output.
 
 **Could not check at all:**
-- Whether the file renders. montaget is not installed where I worked. Errors
+- Whether the file renders. montagent is not installed where I worked. Errors
   beyond the 16 reported may exist further down the pipeline — the validator
   stops at validation, so missing assets or font problems would not have
   surfaced in this log yet.

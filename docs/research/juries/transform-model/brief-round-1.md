@@ -1,13 +1,13 @@
-# Brief: you are an agent that authors and edits Montaget projects
+# Brief: you are an agent that authors and edits Montagent projects
 
-Montaget is a video editor whose project format is a single declarative JSON file,
+Montagent is a video editor whose project format is a single declarative JSON file,
 designed to be authored and edited by an AI agent rather than dragged around in a GUI.
 **You are that agent.** You are not a design reviewer, not a consultant, and not being
 asked for your opinion of an architecture. You are the consumer who will live in this
 format every day. Answer from what it is like to *use*, and back every claim with
 something you actually did below.
 
-Repo: `/Users/mohammedehtemam/projects/github/Montaget` (read-only — see Rules).
+Repo: `/Users/mohammedehtemam/projects/github/Montagent` (read-only — see Rules).
 
 ## Read first
 
@@ -26,7 +26,7 @@ Repo: `/Users/mohammedehtemam/projects/github/Montaget` (read-only — see Rules
   section on `shift` and keyframes.
 - The ticket: `gh issue view 21`
 - The only project file anyone has ever written, hand-authored by an agent for issue #9:
-  `git show prototype/sample-project-file:docs/research/prototypes/sample-project/en-halloween-decorating.montaget.json`
+  `git show prototype/sample-project-file:docs/research/prototypes/sample-project/en-halloween-decorating.montagent.json`
   and its `FINDINGS.md` and `JURY-EDIT-EXERCISE.md` beside it. Fields in it marked
   INVENTED are guesses at decisions that have never been made. It is a prototype, not a
   spec, and you may contradict it freely.

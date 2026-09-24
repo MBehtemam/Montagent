@@ -101,7 +101,7 @@ repair for two of the elements.
   graveyard says it did not ("no freedom left to spend"), and I relied on
   that; I could not verify it independently without consulting the ADR, which
   the rules forbid.
-- **The `montaget validate` binary**, to re-run validation on the repaired
+- **The `montagent validate` binary**, to re-run validation on the repaired
   file. I verified JSON validity, the absence of `gravity`, and the writing
   conventions by hand instead.
 

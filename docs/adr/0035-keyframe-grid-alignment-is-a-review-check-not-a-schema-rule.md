@@ -11,8 +11,8 @@ amends: 0005 (publishes the sampling rule the frame-alignment paragraph promised
 > interpolated value can differ by under a millisecond of travel where the grid is not
 > millisecond-exact.
 
-[Ticket #67](https://github.com/MBehtemam/Montaget/issues/67), graduated from the map's
-*"Frame alignment and the rounding rule"* fog entry by [#12](https://github.com/MBehtemam/Montaget/issues/12).
+[Ticket #67](https://github.com/MBehtemam/Montagent/issues/67), graduated from the map's
+*"Frame alignment and the rounding rule"* fog entry by [#12](https://github.com/MBehtemam/Montagent/issues/12).
 Two measured facts started it: fading `opacity` 1 → 0 over `[end-300, end]`, with `end`
 off the project's 25fps/40ms grid, leaves **0.010–0.171 residual opacity** on the last
 sampled frame instead of reaching exactly 0 — the element visibly pops off rather than

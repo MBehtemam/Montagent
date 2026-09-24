@@ -1,7 +1,7 @@
 ---
 status: accepted
 amends: 0011 (names the two resource URIs, names and media types it publishes without
-  naming; places the format docs inside `montaget-core` rather than under `docs/`; replaces
+  naming; places the format docs inside `montagent-core` rather than under `docs/`; replaces
   `E-PROJECT-EXISTS`'s exit-1 reading with exit 3; fixes the CLI spelling of the one verb
   whose name is not a single word), 0030 (closes the question it leaves open — the scaffold
   writes no defaultable key it was not asked for, and the ticket's five-key enumeration is
@@ -17,16 +17,16 @@ amends: 0011 (names the two resource URIs, names and media types it publishes wi
 > `create_project`'s MCP handler now sets `isError` for `E-PROJECT-EXISTS`, matching the
 > CLI's exit-3 reading this ADR gives it.
 
-**Ticket:** [#246](https://github.com/MBehtemam/Montaget/issues/246), from
-[#194](https://github.com/MBehtemam/Montaget/issues/194).
+**Ticket:** [#246](https://github.com/MBehtemam/Montagent/issues/246), from
+[#194](https://github.com/MBehtemam/Montagent/issues/194).
 
 ## The gap
 
-[#194](https://github.com/MBehtemam/Montaget/issues/194) built `create_project` and the two
+[#194](https://github.com/MBehtemam/Montagent/issues/194) built `create_project` and the two
 MCP resources. Five things it had to decide had no ADR behind them, and #246 recorded each
-at its site — in `crates/montaget-core/src/verbs/create_project.rs`,
-`crates/montaget-core/src/resources.rs`, `crates/montaget-core/src/registry.rs` and
-`crates/montaget/src/mcp.rs` — rather than leaving them to be discovered from a struct.
+at its site — in `crates/montagent-core/src/verbs/create_project.rs`,
+`crates/montagent-core/src/resources.rs`, `crates/montagent-core/src/registry.rs` and
+`crates/montagent/src/mcp.rs` — rather than leaving them to be discovered from a struct.
 
 ADR-0031 makes the ADR series the specification. A refusal an author can hit, a URI an agent
 is told to cite, and an exit code a script branches on are all observable surface, so a
@@ -62,7 +62,7 @@ forbids from touching presence at all.
 **This departs from the ticket, and the departure is the reason this section exists.** #194
 says `create_project` *"scaffolds a legal project with `frame`, `fps`, `background`,
 `duration`, `output` and an empty `tracks` array"*, and story 1 of
-[#168](https://github.com/MBehtemam/Montaget/issues/168) says the same; read literally, all
+[#168](https://github.com/MBehtemam/Montagent/issues/168) says the same; read literally, all
 five keys are always present. The implementation's source comment originally claimed
 ADR-0031's tiebreak — *the ADR wins where the ticket disagrees* — and #246's own review
 correctly withdrew that: an ADR that says in as many words that a question **is left open**
@@ -73,7 +73,7 @@ on the merits, and the five-key sentence is re-read as naming **the header's sha
 is what story 1 actually asks for, *"so that I never start from a blank file and invent a
 shape"* — rather than the scaffold's output. The shape is delivered by the tool schema,
 which enumerates all five arguments whether or not they are passed, and by
-`montaget://schema.json`, which enumerates every key in the format.
+`montagent://schema.json`, which enumerates every key in the format.
 
 The cost is real and is accepted: an agent that passes `project`, `frame` and `fps` alone
 gets a three-key file, and learns about the other three from the tool schema rather than
@@ -160,14 +160,14 @@ neither. Ratified as shipped, and now fixed:
 
 | URI | Name | Media type |
 | --- | --- | --- |
-| `montaget://schema.json` | `montaget-schema` | `application/schema+json` |
-| `montaget://format.md` | `montaget-format` | `text/markdown` |
+| `montagent://schema.json` | `montagent-schema` | `application/schema+json` |
+| `montagent://format.md` | `montagent-format` | `text/markdown` |
 
 Listed in that order: the shape first, then the rules over it.
 
 They look like the files they serve because that is the only thing about them an agent can
 guess, and an agent that has read one will cite it to the next — in a commit message, in a
-comment, in a prompt. `montaget://` is an invented scheme, which is what a custom URI scheme
+comment, in a prompt. `montagent://` is an invented scheme, which is what a custom URI scheme
 always is; MCP resource URIs are opaque identifiers scoped to their server, so the
 alternative is not a standard scheme but a less legible invented one.
 
@@ -176,10 +176,10 @@ pins all six strings and their order, so a rename is a failing test rather than 
 break in a published surface — which is the gap that made this worth an ADR at all, since
 nothing in the suite asserted any of them before.
 
-### 4. The format docs live inside `montaget-core`
+### 4. The format docs live inside `montagent-core`
 
 Amends ADR-0011, on the constraint [ADR-0064](0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md)
-imposes. `crates/montaget-core/docs/format.md`, `include_str!`d, rather than a path resolved
+imposes. `crates/montagent-core/docs/format.md`, `include_str!`d, rather than a path resolved
 under the repository root: ADR-0064 ships `cargo install` and six release binaries, and a
 resource that resolved to a repo-relative path would be a resource that works only in a
 checkout — that is, a resource that fails for every user who did not clone.
@@ -224,7 +224,7 @@ the one constraint #194 names as its own point:
 The invariant is argued for elements and this verb writes a header, but the rule it protects
 — that the argument shape and the file shape are one thing an agent learns, not two —
 applies unchanged. So `create_project`'s arguments **are** the project header in the shape
-the agent has already read at `montaget://schema.json`, and the adapter invents no shape of
+the agent has already read at `montagent://schema.json`, and the adapter invents no shape of
 its own. `mcp_create_project_advertises_the_schema_it_enforces_and_returns_the_new_states_findings`
 checks every advertised header property against `schema::generate()`, so a future flattening
 fails a test rather than passing review.

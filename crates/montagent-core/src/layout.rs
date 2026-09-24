@@ -1,0 +1,271 @@
+//! Canonical key order: **one** predicate, one rewrite, and one place the rule lives.
+//!
+//! ADR-0041 fixed canonical key order as *"a universal prefix, then each type's property
+//! order in the published schema"*, and then said the thing this module exists to make
+//! true: `fmt` and `validate`'s `LAYOUT` check *"share one implementation of 'what does
+//! canonical form look like' … so there is exactly one place the rule lives, not two that
+//! can disagree."* The order itself is read out of [`crate::schema`] rather than written
+//! down again here, so the count of places it can go stale stays at one — the types.
+//!
+//! The two callers want opposite things from the same rule, and getting them from two
+//! functions is how they drift. So there is one function, [`reorder`], and the predicate
+//! [`is_canonical`] is *defined as* "reordering changes nothing". They cannot disagree,
+//! because one is the other.
+//!
+//! Three properties are structural rather than checked, and each discharges an ADR:
+//!
+//! - **No key is added and none is removed** (ADR-0030). [`reorder`] permutes the entries
+//!   it was handed; there is no path in it that inserts a default or drops a key written
+//!   at one.
+//! - **No value is touched** (ADR-0026). Both `cover` and `contain` are true at an exact
+//!   aspect match, and a formatter that picked one would be making a semantic decision it
+//!   has no basis for. This one moves keys.
+//! - **A shape it does not recognise is left exactly as written.** An element whose `type`
+//!   is absent or unknown — which is every element in a file mid-edit — has no published
+//!   order, so it keeps its own. A formatter that invented one would damage the file it
+//!   was pointed at to repair (ADR-0042).
+//!
+//! Keys the schema does not declare — an unknown key, which ADR-0017 makes an `error` and
+//! ADR-0042 nevertheless requires `fmt` to format around — have no canonical position, so
+//! they keep their relative order and follow the declared ones. Appending is the only
+//! choice that is stable under a second run.
+
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+use serde_json::{Map, Value};
+
+/// One structure the published schema declares a key order for.
+///
+/// Canonical key order is a property of *where* a value sits, not of what it contains: the
+/// same five keys mean different orders on an `image` and on an `audio`. Naming the
+/// structure at the call site is what keeps the rule readable off one table.
+///
+/// Deliberately **not** called `Shape`: `CONTEXT.md` spends that word on a drawn primitive
+/// — a `rect` or an `ellipse` — and `Shape::Element("rect")` would be a Shape holding a
+/// shape. The same near-miss `CONTEXT.md` records for `anchor` against `origin`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Published<'a> {
+    /// The document's own header — `frame, fps, background, …, tracks`.
+    Project,
+    /// One track — `name, layer, elements`.
+    Track,
+    /// One element, by its `type` string. ADR-0041's universal prefix is already the
+    /// front of every branch's property list in the published schema, so there is no
+    /// second rule here for it.
+    Element(&'a str),
+}
+
+impl Published<'_> {
+    /// The shape of one element, read off its own `type`.
+    ///
+    /// A value that is not an object, or carries no string `type`, still answers here —
+    /// [`canonical_order`] answers `None` for it and everything downstream leaves it
+    /// alone. That is the mid-edit file ADR-0042 insists stays formattable.
+    pub fn of_element(element: &Value) -> Published<'_> {
+        Published::Element(element.get("type").and_then(Value::as_str).unwrap_or(""))
+    }
+}
+
+/// The canonical key order for one shape, as the published schema declares it, or `None`
+/// where the schema declares none.
+///
+/// `None` is not a failure. It is "this is not a shape Montagent publishes an order for",
+/// and every caller's correct response to it is to leave the object as written.
+pub fn canonical_order(published: Published<'_>) -> Option<&'static [String]> {
+    let orders = orders();
+    match published {
+        Published::Project => Some(&orders.project),
+        Published::Track => Some(&orders.track),
+        Published::Element(type_name) => orders.elements.get(type_name).map(Vec::as_slice),
+    }
+}
+
+/// The same object, its keys in canonical order.
+///
+/// **The one implementation.** `fmt` writes what this returns; `validate`'s `LAYOUT` check
+/// asks [`is_canonical`], which is this function compared against its own input. Nothing
+/// else in the tree may re-derive the order.
+pub fn reorder(published: Published<'_>, object: &Map<String, Value>) -> Map<String, Value> {
+    let Some(order) = canonical_order(published) else {
+        return object.clone();
+    };
+
+    let mut out = Map::with_capacity(object.len());
+    for key in order {
+        // Present-only. ADR-0030: a key the document does not carry is a declaration —
+        // "give me whatever the default is" — and materialising it here would answer a
+        // question the author deliberately left open.
+        if let Some(value) = object.get(key) {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    // Whatever the schema does not declare, in the order the file wrote it. ADR-0017 makes
+    // an unknown key an `error`; ADR-0042 makes formatting the file around it `fmt`'s job
+    // anyway, and the two hold at once only if the key survives.
+    for (key, value) in object {
+        if !out.contains_key(key) {
+            out.insert(key.clone(), value.clone());
+        }
+    }
+    out
+}
+
+/// Is this object's key order canonical?
+///
+/// Defined as "[`reorder`] would change nothing", rather than as a second traversal that
+/// answers the same question — which is exactly the two-implementations-one-rule shape
+/// ADR-0041 was written against.
+pub fn is_canonical(published: Published<'_>, object: &Map<String, Value>) -> bool {
+    reorder(published, object).keys().eq(object.keys())
+}
+
+/// The whole document in canonical convention: every structure the schema publishes an
+/// order for reordered, every track's elements sorted by `start`, and everything else left
+/// exactly as it was written.
+///
+/// Three structures, because three is what the schema declares an order for: the header,
+/// each track, and each element. An object nested inside an element — a keyframe, a run, an
+/// effect — keeps the order it was written in: ADR-0041 states its rule for *"a universal
+/// prefix, then each type's property order"* and then scopes it, *"the universal prefix and
+/// per-type tail apply within an element only"*. Extending it downward would be this module
+/// inventing format, which is the ADR's own boundary.
+pub fn canonicalise(document: &Value) -> Value {
+    walk(document, Reach::WholeDocument)
+}
+
+/// The same, leaving each element's own key order as written — the header, the tracks, the
+/// element sort and the line layout canonical, each element's keys untouched.
+///
+/// Not a second convention. It exists so a report can subtract what `L-KEY-ORDER` already
+/// says: compared against the file as written, what is left is exactly the part of a
+/// rewrite that no element-level finding names. A caller told both would be reading one
+/// fact twice, and ADR-0006's noise budget is explicit that a check free to run and
+/// expensive to report is still expensive.
+pub fn canonicalise_except_elements(document: &Value) -> Value {
+    walk(document, Reach::ExceptElements)
+}
+
+/// How far a canonicalisation reaches. The header, the tracks and the layout are always
+/// made canonical; whether each element's own keys are is what varies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    WholeDocument,
+    ExceptElements,
+}
+
+fn walk(document: &Value, reach: Reach) -> Value {
+    let Some(root) = document.as_object() else {
+        return document.clone();
+    };
+
+    let mut out = reorder(Published::Project, root);
+    if let Some(Value::Array(tracks)) = out.get("tracks") {
+        let tracks: Vec<Value> = tracks
+            .iter()
+            .map(|track| walk_track(track, reach))
+            .collect();
+        out.insert("tracks".into(), Value::Array(tracks));
+    }
+    Value::Object(out)
+}
+
+fn walk_track(track: &Value, reach: Reach) -> Value {
+    let Some(object) = track.as_object() else {
+        return track.clone();
+    };
+
+    let mut out = reorder(Published::Track, object);
+    if let Some(Value::Array(elements)) = out.get("elements") {
+        let mut elements: Vec<Value> = match reach {
+            Reach::WholeDocument => elements.iter().map(canonical_element).collect(),
+            Reach::ExceptElements => elements.clone(),
+        };
+        sort_by_start(&mut elements);
+        out.insert("elements".into(), Value::Array(elements));
+    }
+    Value::Object(out)
+}
+
+/// One track's elements, sorted by `start`.
+///
+/// ADR-0005's writing convention in full: *"Elements are written sorted by `start` within a
+/// track, and formatted one element per line."* ADR-0041 restates it and says it *"does not
+/// reopen"* it, so the sort is as much the canonical convention as the key order is. Moving
+/// an element's line is safe in the one way that matters: the element's own text is
+/// unchanged, so an exact-string replace written against it still matches — and ADR-0060
+/// settled that array order carries no meaning, for timing or for stacking, so nothing
+/// downstream can read anything off the move.
+///
+/// **Stable, and by `start` alone.** Two elements starting at the same instant keep the
+/// order the file wrote them in, because the document says nothing about which comes first
+/// and a tie broken on any other field would make the sort's output depend on a value the
+/// author may edit next. An element whose `start` is absent or is not an integer — the
+/// mid-edit element ADR-0042 insists stays formattable — sorts last rather than first, so
+/// a half-typed element is never hoisted above a complete one.
+fn sort_by_start(elements: &mut [Value]) {
+    elements.sort_by_key(|element| {
+        let start = element.get("start").and_then(Value::as_i64);
+        (start.is_none(), start)
+    });
+}
+
+fn canonical_element(element: &Value) -> Value {
+    match element.as_object() {
+        Some(object) => Value::Object(reorder(Published::of_element(element), object)),
+        None => element.clone(),
+    }
+}
+
+/// Every published order, read once out of the generated schema.
+///
+/// Generating the schema costs real work and the answer cannot change within a process, so
+/// it is done once. The table is a cache of the schema, never a second statement of it.
+struct Orders {
+    project: Vec<String>,
+    track: Vec<String>,
+    elements: BTreeMap<String, Vec<String>>,
+}
+
+fn orders() -> &'static Orders {
+    static ORDERS: OnceLock<Orders> = OnceLock::new();
+    ORDERS.get_or_init(|| {
+        let schema = crate::schema::generate();
+        Orders {
+            project: keys_of(schema.get("properties")),
+            track: keys_of(schema.pointer("/$defs/Track/properties")),
+            elements: element_orders(&schema),
+        }
+    })
+}
+
+fn keys_of(properties: Option<&Value>) -> Vec<String> {
+    properties
+        .and_then(Value::as_object)
+        .map(|properties| properties.keys().cloned().collect())
+        .unwrap_or_default()
+}
+
+/// One entry per branch of the element union, keyed by that branch's `type` const.
+fn element_orders(schema: &Value) -> BTreeMap<String, Vec<String>> {
+    let mut orders = BTreeMap::new();
+    let branches = schema
+        .pointer("/$defs/Element/oneOf")
+        .and_then(Value::as_array)
+        .expect("the published element is a discriminated union");
+
+    for branch in branches {
+        let Some(properties) = branch.get("properties").and_then(Value::as_object) else {
+            continue;
+        };
+        let Some(type_name) = properties
+            .get("type")
+            .and_then(|tag| tag.get("const"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        orders.insert(type_name.to_string(), properties.keys().cloned().collect());
+    }
+    orders
+}

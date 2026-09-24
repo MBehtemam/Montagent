@@ -1,6 +1,6 @@
 # Rendering Thai through cosmic-text and parley
 
-Resolves [#27](https://github.com/MBehtemam/Montaget/issues/27). Everything
+Resolves [#27](https://github.com/MBehtemam/Montagent/issues/27). Everything
 below was run, not read off a manifest. `./run.sh` regenerates all of it.
 
 ---
@@ -88,7 +88,7 @@ dictionary data, and it is the real price.
 
 **Startup cost: none.** 86.3 ms vs 86.6 ms minimum over 40 interleaved runs —
 the data is `compiled_data`, static in the binary, so there is nothing to load.
-This matters given [#16](https://github.com/MBehtemam/Montaget/issues/16): the
+This matters given [#16](https://github.com/MBehtemam/Montagent/issues/16): the
 flag does not reopen the startup axis that ticket closed.
 
 **icu4x#7218 is not load-bearing.** The issue is open (`T-bug`,
@@ -160,7 +160,7 @@ looked at by someone who reads Thai before it is called correct.
 
 ---
 
-## What this settles for [#7](https://github.com/MBehtemam/Montaget/issues/7)
+## What this settles for [#7](https://github.com/MBehtemam/Montagent/issues/7)
 
 1. The discriminator survives contact. It is the first thing in
    [ADR-0007](../../../adr/0007-text-runs-literal-size-declared-fonts.md)'s
@@ -169,7 +169,7 @@ looked at by someone who reads Thai before it is called correct.
    Khmer and Lao all go from 0 opportunities to working. Myanmar is named in the
    feature and untested here.
 3. It costs **3.82 MB of binary and no startup time**. Against
-   [#16](https://github.com/MBehtemam/Montaget/issues/16)'s static-musl-binary
+   [#16](https://github.com/MBehtemam/Montagent/issues/16)'s static-musl-binary
    shape, that is a size question, not a performance one.
 4. **CJK is not part of it.** Any scoring that credits `complex-scripts` for CJK
    is double-counting.
@@ -185,26 +185,26 @@ looked at by someone who reads Thai before it is called correct.
 **"Literal `size`. No fit-to-box. No automatic wrapping"** — a line break is a
 `\n` the author placed, and the fixture is already this design (all seven
 subtitle files carry ASS `WrapStyle: 2`, *no word wrapping*, every break by
-hand). If nothing in Montaget ever wraps text, **the renderer never has to find
+hand). If nothing in Montagent ever wraps text, **the renderer never has to find
 a break opportunity in a Thai run, and everything measured above never reaches a
 frame.**
 
 That sits directly against the same ADR's other claim, two sections later, that
 **"v1 renders bidi reordering, complex-script shaping, per-character font
 fallback, and UAX #14 line breaking including CJK"** — and names this fork as
-"a live input to [#7](https://github.com/MBehtemam/Montaget/issues/7)". Both
+"a live input to [#7](https://github.com/MBehtemam/Montagent/issues/7)". Both
 statements are in the accepted ADR. They cannot both be operative.
 
 The measurements above are unaffected: what cosmic-text and parley do is what
 they do. What was open was whether it *counts* — and
-**[#28](https://github.com/MBehtemam/Montaget/issues/28) has now answered it.**
+**[#28](https://github.com/MBehtemam/Montagent/issues/28) has now answered it.**
 
 > **Resolution.** [ADR-0008](../../../adr/0008-line-breaks-belong-to-the-agent.md):
 > the renderer never consults a break opportunity; the agent always needs one; they
 > are not the same question. **The `SA` fork measured here is an authoring-tool
 > requirement, not a renderer criterion** — `measure` gains a break-opportunity
 > output, and `icu_segmenter` can be called directly whichever crate renders.
-> **For [#7](https://github.com/MBehtemam/Montaget/issues/7): do not weight the
+> **For [#7](https://github.com/MBehtemam/Montagent/issues/7): do not weight the
 > 3.82 MB discriminator as a renderer criterion.** See also
 > [HARD-BREAKS.md](HARD-BREAKS.md), which records a separate parley defect found
 > while resolving #28. Note

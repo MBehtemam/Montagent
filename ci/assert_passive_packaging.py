@@ -4,7 +4,7 @@ than trusting prose. Exits non-zero if any of them stop holding.
 
     python3 ci/assert_passive_packaging.py
 
-ADR-0064 settled the distribution story: `cargo install montaget` plus signed GitHub
+ADR-0064 settled the distribution story: `cargo install montagent` plus signed GitHub
 Release tarballs, no Homebrew tap for v1, and *no update-check code, no telemetry, no
 hardcoded "latest version" endpoint, ever*. ADR-0009 separately settled that FFmpeg is
 user-supplied, never bundled, because linking it would make the shipped binary a GPL
@@ -17,8 +17,8 @@ without anyone noticing:
   1. no Homebrew formula lives in the repo (a formula is a pointer at a release tarball,
      and ADR-0064 defers the tap itself past v1);
   2. `Cargo.lock` names no crate from the update-check/telemetry/HTTP-client families —
-     `montaget_core::media::probe::probe_remote`'s own doc comment is "the only function
-     in Montaget that can cause a network call", and that claim is false the moment an
+     `montagent_core::media::probe::probe_remote`'s own doc comment is "the only function
+     in Montagent that can cause a network call", and that claim is false the moment an
      HTTP client crate enters the dependency graph, self-reported network_attempts
      notwithstanding;
   3. `Cargo.lock` names no FFmpeg-linking crate (`ffmpeg-next`, `ffmpeg-sys*`,
@@ -34,7 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LOCKFILE = os.path.join(ROOT, "Cargo.lock")
 
-# Crates whose mere presence in the dependency graph would mean Montaget itself is
+# Crates whose mere presence in the dependency graph would mean Montagent itself is
 # capable of reaching the network — the invariant `probe_remote`'s doc comment states as
 # a fact about the source, checked here as a fact about the resolved graph.
 NETWORK_CLIENT_CRATES = [

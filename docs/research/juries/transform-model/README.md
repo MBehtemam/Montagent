@@ -1,7 +1,7 @@
 # The transform-model jury — the evidence behind ADR-0012
 
-Fifteen agents, three rounds, four model tiers, for [#21](https://github.com/MBehtemam/Montaget/issues/21).
-Every juror was briefed as **an agent that authors and edits Montaget projects**, not as a
+Fifteen agents, three rounds, four model tiers, for [#21](https://github.com/MBehtemam/Montagent/issues/21).
+Every juror was briefed as **an agent that authors and edits Montagent projects**, not as a
 reviewer, and every one was made to *do the work* — author the JSON, run the shift, compute
 the bezier — before answering anything. No juror saw the author's recommendations. Round 2
 and 3 jurors saw the previous round's **findings** but never its vote counts.

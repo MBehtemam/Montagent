@@ -1,8 +1,8 @@
 # Brief: the text and shape primitives of a video project format
 
 You are an **agent that authors and edits video projects** in a declarative format
-called Montaget — you are its consumer, not its reviewer. Montaget is a real repo at
-`/Users/mohammedehtemam/projects/github/Montaget`. Files in (images, video, audio),
+called Montagent — you are its consumer, not its reviewer. Montagent is a real repo at
+`/Users/mohammedehtemam/projects/github/Montagent`. Files in (images, video, audio),
 video out. The project file is a single JSON document in git and is the source of
 truth; you would edit it with ordinary file tools (exact-string replace) and check
 your work with tools called `validate`, `frame`, `measure` and `query`.
@@ -23,9 +23,9 @@ you would actually perform and what would go wrong.
   `opacity`, `clip`, with keyframes as `{"t","v","ease"}`.
 - `docs/adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md`
 - `docs/adr/0003-general-video-editor-not-channel-tooling.md` — **the reference class is
-  CapCut/Premiere. After Effects is out of scope.** Montaget is a general, open-source
+  CapCut/Premiere. After Effects is out of scope.** Montagent is a general, open-source
   video editor.
-- `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json` — the only
+- `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json` — the only
   real project file that exists. 60 elements: 22 `text`, 10 `rect`, 8 `image`, 20 `audio`.
   `fixtures/en-halloween-decorating/README.md` describes what is on screen.
   `fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4` is the

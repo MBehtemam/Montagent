@@ -80,7 +80,7 @@ ADR-0018 pairs, *per `group`*, the **time-union** of the group's audio members a
 
 ### B6. T26 puts `loop` in `render`; ADR-0062 says the opposite
 
-T26 lists *"the `loop` wrap"* under the audio mix and claims ADR-0062. ADR-0062's index row: *"purely `validate`-facing; the wrap seam reuses `R-SOURCE-CUT-POP` unchanged"*; its body: *"`render` and every other tool are unaffected"* and *"Montaget writes no container-level loop metadata."* A renderer that wraps audio at the seam is a format violation. `loop` is 4a (the field) and T21 (the check) and nowhere else. Similarly, T9 cites ADR-0062 for the structural time checks — nothing of 0062 is there.
+T26 lists *"the `loop` wrap"* under the audio mix and claims ADR-0062. ADR-0062's index row: *"purely `validate`-facing; the wrap seam reuses `R-SOURCE-CUT-POP` unchanged"*; its body: *"`render` and every other tool are unaffected"* and *"Montagent writes no container-level loop metadata."* A renderer that wraps audio at the seam is a format violation. `loop` is 4a (the field) and T21 (the check) and nowhere else. Similarly, T9 cites ADR-0062 for the structural time checks — nothing of 0062 is there.
 
 ### B7. T27 cites ADR-0021 for a budget ADR-0021 retired
 

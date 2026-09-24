@@ -1,12 +1,12 @@
 # Brief: the proposed v1 ticket breakdown
 
-The author has broken [#168](https://github.com/MBehtemam/Montaget/issues/168) — the Montaget
+The author has broken [#168](https://github.com/MBehtemam/Montagent/issues/168) — the Montagent
 v1 implementation spec, 83 user stories — into 22 tickets. **This draft has not been attacked.
 Your job is to attack it.**
 
 ## Context you must establish yourself
 
-- Read #168 in full: `gh issue view 168` in `/Users/mohammedehtemam/projects/github/Montaget`.
+- Read #168 in full: `gh issue view 168` in `/Users/mohammedehtemam/projects/github/Montagent`.
 - `docs/adr/README.md` is the index of all 67 ADRs, with an *Amended by* column. Read it before
   reading any single ADR — roughly a third of the series amends another.
 - `CONTEXT.md` is the domain glossary. `docs/agents/domain.md` carries the ADR conventions.
@@ -29,16 +29,16 @@ From the `/to-tickets` skill:
 ## The draft breakdown
 
 **1. Workspace skeleton, findings, and `validate` on a header-only project** — *blocked by: none*
-The four crates (`montaget-core`, `montaget-text`, `montaget-render`, `montaget`), the `Finding`
+The four crates (`montagent-core`, `montagent-text`, `montagent-render`, `montagent`), the `Finding`
 type (code, severity, location, inline numbers, sibling census, `repair`), JSON-canonical report
 with the text form generated from it, `NOT CHECKED` block, `E-PARSE` with line/column/byte
 offset/offending line/caret, exit codes 0/1/2/3/70, and both adapters (CLI + MCP) wired thin.
-Demo: `montaget validate` on a hand-written header-only project, over CLI and MCP.
+Demo: `montagent validate` on a hand-written header-only project, over CLI and MCP.
 Stories 35–37, 40–42, and the refuse-class rule from 38–39.
 
 **2. CI on six tier-1 targets with the Skia prebuilt canary** — *blocked by: 1*
 Story 83 / #36. Author's judgment call: this lands second, before any rasterizing, with
-`montaget-render` carrying the `skia-safe` dependency from day one even though nothing calls it —
+`montagent-render` carrying the `skia-safe` dependency from day one even though nothing calls it —
 on the argument that the canary is worthless if it only goes live at ticket 15, and ADR-0010's
 affordability argument is load-bearing for everything after.
 

@@ -12,7 +12,7 @@ stop closing itself — grayscale invites sepia invites duotone invites
 brightness/contrast/saturation invites curves invites LUTs. That ADR's own court was
 split 2-1 (Opus for deferring outright, Haiku/Fable for shipping a small closed list),
 resolved in favour of deferring until this ticket could state where the family actually
-stops. [#22](https://github.com/MBehtemam/Montaget/issues/22)'s fixture-absence warning
+stops. [#22](https://github.com/MBehtemam/Montagent/issues/22)'s fixture-absence warning
 applies again here — the committed fixture has zero colour-filter usage — and per
 [ADR-0003](./0003-general-video-editor-not-channel-tooling.md)'s asymmetry that absence
 is not evidence against shipping one, only an absence of a forcing case from the one
@@ -52,7 +52,7 @@ Decided 3/3 across two independent court rounds (Opus, Haiku, Fable), unanimous.
 
 `grayscale` and `sepia` are deliberately **not** separate members, and this reverses the
 6-member candidate list (`grayscale`, `sepia`, `tint`, `brightness`, `contrast`,
-`saturation`) an earlier court floated on [#22](https://github.com/MBehtemam/Montaget/issues/22)
+`saturation`) an earlier court floated on [#22](https://github.com/MBehtemam/Montagent/issues/22)
 as a starting point, not a settled answer:
 
 - **`grayscale` is not its own axis — it is `saturation{amount: 0}`.** The stopping rule

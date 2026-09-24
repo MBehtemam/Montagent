@@ -62,7 +62,7 @@ three-bucket decision that assumes some fonts are unknowable and treats that
 honestly:
 
 1. **Known non-redistributable → hard refuse, no override.** A font on
-   Montaget's own blocklist (below) is refused unconditionally. No flag lifts
+   Montagent's own blocklist (below) is refused unconditionally. No flag lifts
    this, because an override affordance is itself the thing that makes the
    project a knowing party to an illegal copy — the caller most likely to
    reach for `--yes-i-know` is exactly the caller the blocklist exists to
@@ -90,7 +90,7 @@ adopted from one juror's (Opus's) amendment, which the fsType/redistribution
 research made necessary rather than optional — a binary check has nothing
 reliable to test against for the common (bucket 3) case.
 
-### The blocklist (bucket 1) is small, hardcoded, shipped by Montaget, and not user-removable
+### The blocklist (bucket 1) is small, hardcoded, shipped by Montagent, and not user-removable
 
 The blocklist is a short, versioned, code-reviewed list of known-non-
 redistributable font families, seeded with the one confirmed case in hand —

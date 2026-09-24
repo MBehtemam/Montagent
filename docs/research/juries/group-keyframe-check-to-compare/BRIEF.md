@@ -7,7 +7,7 @@ given.
 
 ## Project context
 
-Montaget is a declarative, agent-authored video editor. A project file is a flat list of
+Montagent is a declarative, agent-authored video editor. A project file is a flat list of
 `elements` (image, video, audio, text, rect, ellipse) placed on `tracks` (named lanes with an
 integer `layer`; children of one track may not overlap in time). Every visual element carries
 a flat transform — `x`, `y`, `origin`, `scale`, `rotation`, `opacity` — in absolute integer
@@ -18,7 +18,7 @@ Elements may share an optional `group` string. `group` is **purely a vocabulary/
 label** — "this photo, its caption card, and its caption text are conceptually one item" — and
 is **render-inert**: nothing about layout, z-order, or timing derives from group membership.
 
-`montaget validate` answers exactly one question: **is this project file internally legal, and
+`montagent validate` answers exactly one question: **is this project file internally legal, and
 does it agree with the media on disk?** It runs unconditionally (no fast mode, nothing
 scoped out), with **no I/O beyond probing referenced media**, on a single document with no
 prior version to compare against. Its own governing principle, established for this project:
@@ -28,7 +28,7 @@ teaches false confidence (a clean run reads as "the file is right," which is a c
 never makes). Severity is `error` / `review` / `note`, and findings must never assert intent
 the document doesn't carry.
 
-`montaget compare` is a separate, already-accepted tool: it takes **two versions of a project**
+`montagent compare` is a separate, already-accepted tool: it takes **two versions of a project**
 (a before and an after — e.g. via git) and reports what changed between them. It is the
 project's designated place for anything that requires a *before/after*, i.e. detecting that a
 relationship **held and then stopped holding** — as opposed to `validate`, which only ever sees

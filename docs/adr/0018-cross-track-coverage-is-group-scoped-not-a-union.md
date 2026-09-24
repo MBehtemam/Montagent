@@ -9,7 +9,7 @@ status: accepted
 > union is `review`"* — is **withdrawn**, not merely superseded: [ADR-0011](./0011-tool-surface-reads-checks-renders.md)'s
 > final section found it fires on **zero** of the fixture's eleven real visual gaps,
 > across every one of the 2¹³ possible track subsets. This ADR is the resolution
-> ADR-0006 deferred to [#23](https://github.com/MBehtemam/Montaget/issues/23).
+> ADR-0006 deferred to [#23](https://github.com/MBehtemam/Montagent/issues/23).
 
 `validate` computes cross-track coverage by **pairing**, not by a project-wide union.
 For every `group` whose members include both an audio element and a visual element,
@@ -103,7 +103,7 @@ report does not claim to have evaluated ungrouped visual content against anythin
 ## Scope: two findings graduated out, not answered here
 
 Two related defects surfaced downstream of this ticket, from
-[#21](https://github.com/MBehtemam/Montaget/issues/21)'s work on the transform
+[#21](https://github.com/MBehtemam/Montagent/issues/21)'s work on the transform
 model. Both were considered for inclusion in this ADR and **excluded**:
 
 - **Group-shared keyframe-time disagreement** (the lower-third drift, evidence 3

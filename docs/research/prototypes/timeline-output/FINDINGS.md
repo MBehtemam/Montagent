@@ -1,4 +1,4 @@
-# #11 — what `montaget timeline` prints
+# #11 — what `montagent timeline` prints
 
 Two rounds. **The first was contaminated and its headline result is void.** It is
 kept here because the contamination is the finding most worth not repeating.
@@ -78,11 +78,11 @@ correctness, and agents do not over-trust it.
 **Not settled:** whether the overview must be *spatial*. The aggregation may be
 doing all the work. Deciding that needs more runs per arm than this.
 
-**Consequence for the ticket:** the question "what does `montaget timeline`
+**Consequence for the ticket:** the question "what does `montagent timeline`
 print" is the wrong question. The evidence supports *an overview*, is silent on
 *an axis*, and ADR-0011 already argues the agent reaches this through `query`.
 
-## Round 3 — raising n per arm ([#63](https://github.com/MBehtemam/Montaget/issues/63))
+## Round 3 — raising n per arm ([#63](https://github.com/MBehtemam/Montagent/issues/63))
 
 Three more runs per arm, same model (Sonnet), same blinding (no ADRs, no
 mention of `timeline` or an evaluation), same materials — `view-Y1.txt` and

@@ -5,8 +5,8 @@
 The render failed with 16 `unknown key` errors, all of the same two keys —
 `fit` and `clip` — on 8 elements (the 7 image elements on the `photo` track,
 plus `handle-logo`). Nothing else in the file was flagged. The binary reports
-`montaget 0.9.2`. My read: this is a schema/version skew, not a data bug —
-`project.json` was authored against a newer Montaget (one that understands
+`montagent 0.9.2`. My read: this is a schema/version skew, not a data bug —
+`project.json` was authored against a newer Montagent (one that understands
 `fit`/`clip` on image elements) than the version installed on this build box,
 which nobody has touched in months.
 
@@ -47,7 +47,7 @@ elements, durations, fonts) since none of it was implicated in the failure.
   `crop` instead of `clip`). Rejected — I have no docs or binary to verify
   against, and a wrong guess just trades one `unknown key` error for another.
   I only trust what the error list actually told me was invalid.
-- **Try to get/verify an installed Montaget version that supports the newer
+- **Try to get/verify an installed Montagent version that supports the newer
   schema.** Rejected — no network access, no way to check for other
   installed versions, and no one to ask.
 - **Leave the file untouched and just report it's blocked.** Rejected — the
@@ -58,12 +58,12 @@ elements, durations, fonts) since none of it was implicated in the failure.
 ## What I would tell the team
 
 The overnight render broke because `project.json` uses `fit`/`clip` on image
-elements — a schema feature the build box's pinned `montaget 0.9.2` doesn't
+elements — a schema feature the build box's pinned `montagent 0.9.2` doesn't
 know about — so this looks like the authoring/export tool and the render box
 have drifted apart in version. I patched around it by folding each image's
 `clip` rectangle into its own `width`/`height` (functionally the same crop,
 expressed the old way) so today's render goes out unblocked, but this is a
-band-aid: someone should pin the build box to whatever Montaget version this
+band-aid: someone should pin the build box to whatever Montagent version this
 project format actually targets, or downgrade the authoring pipeline to match
 it, so we're not hand-patching every export that uses the newer vocabulary.
 
@@ -78,7 +78,7 @@ the static framing should match. What I could **not** verify: whether `fit:
 "cover"` was doing more than the crop — e.g. scaling a source image of a
 different native resolution to fill the box before cropping. I don't have
 access to the actual PNG files (`images/05.png` etc.) to check their native
-dimensions, and I have no working `montaget` binary in this environment to
+dimensions, and I have no working `montagent` binary in this environment to
 actually run the render or compare output frames. If the source images are
 not already close to 1080x1912, the removal of `fit: "cover"` could mean this
 version's default scaling (possibly stretch-to-box rather than crop-to-fill)

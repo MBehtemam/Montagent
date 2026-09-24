@@ -33,7 +33,7 @@ The original budget — a 60 s render under 2 minutes, a 10 s preview under 5
 seconds — was written for 1080×1920/30 and never re-derived after
 [ADR-0003](0003-general-video-editor-not-channel-tooling.md) generalised the
 scope to a CapCut/Premiere-class editor, where 4K is ordinary.
-[#34](https://github.com/MBehtemam/Montaget/issues/34) measured what that
+[#34](https://github.com/MBehtemam/Montagent/issues/34) measured what that
 omission costs: at 2160×3840, a 10 s preview with a video clip on the timeline
 took **19.0 s (`skia-safe`) / 30.0 s (`tiny-skia`)** — both miss the < 5 s
 budget by 4–6×, decode only 3.2–3.8 s of it. Settled across three rounds of
@@ -44,7 +44,7 @@ time with no visibility into the others' ballots.
 
 `frame` (a single still, the agent's per-turn self-check) and render/preview
 time (a span of video) are tracked **separately**, never collapsed into one
-number. [#7](https://github.com/MBehtemam/Montaget/issues/7)'s reviewers
+number. [#7](https://github.com/MBehtemam/Montagent/issues/7)'s reviewers
 established that `render`-time is not a legitimate per-turn gate — the
 agent's dominant self-check is `frame`, untouched by the 4K blowup (28.76 ms
 warm at 2160×3840, 0.11–0.27 s cold at 1080p). The two numbers answer
@@ -79,7 +79,7 @@ silently downscaling the one tool built to be trusted.
 is what every measurement in this project has run against. A separate
 `ganesh`/`metal` prebuilt key exists but has never been measured or
 prototyped — no one knows the real speedup, the cost of wiring context/surface
-management, or whether it's even available in every environment Montaget
+management, or whether it's even available in every environment Montagent
 must run in (headless CI, remote agents with no GPU). v1's budget is decided
 on the CPU-only numbers that exist; GPU is recorded as a live, open lever
 for a future ticket, neither ruled out nor blocking this one. The CPU path

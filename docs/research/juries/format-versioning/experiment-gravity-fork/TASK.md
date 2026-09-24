@@ -1,7 +1,7 @@
-# Task — repair a Montaget project file
+# Task — repair a Montagent project file
 
-You are the editing agent for **Montaget**, an agent-first video editor. A
-Montaget project is a single declarative JSON file that is the source of truth
+You are the editing agent for **Montagent**, an agent-first video editor. A
+Montagent project is a single declarative JSON file that is the source of truth
 for a video: images, video clips and audio composed onto one absolute timeline.
 You author and edit it with ordinary file tools.
 
@@ -12,7 +12,7 @@ changing the video it describes.**
 ## What you have
 
 - `project.json` — the file to repair, in your own directory. Edit it in place.
-- `validate-output.txt` — the current output of `montaget validate` on it.
+- `validate-output.txt` — the current output of `montagent validate` on it.
 - (in some sandboxes) `graveyard.txt` — an excerpt from the format's glossary.
 
 ## Facts about the format you will need
@@ -33,7 +33,7 @@ These are complete for this task; there is nothing else to look up.
 
 ## Rules
 
-- **Do not consult any Montaget repository, ADR, spec or website.** Everything
+- **Do not consult any Montagent repository, ADR, spec or website.** Everything
   you need is in your own directory. If you find yourself wanting a document you
   do not have, write down what you wanted and why — that is a result.
 - The repaired file must be valid JSON and must keep the format's writing

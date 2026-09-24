@@ -39,7 +39,7 @@ FIXTURE = os.path.join(
     "..",
     "fixtures",
     "en-halloween-decorating",
-    "en-halloween-decorating.montaget.json",
+    "en-halloween-decorating.montagent.json",
 )
 
 # The figures ADR-0074's prose states. Changing one here without changing it there is the

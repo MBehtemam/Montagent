@@ -1,4 +1,4 @@
-# VERDICT-R2 — Montaget format versioning and migration
+# VERDICT-R2 — Montagent format versioning and migration
 
 ## Headline
 
@@ -20,13 +20,13 @@ What the agent had to guess: (1) The syntax of the key to remove (straightforwar
 If `ellipse` retires to `rect`, an error message can say "ellipse is retired; use rect" and the agent deletes one character (`e`). If no replacement exists, the message must say "ellipse is retired" with no guidance, and the agent cannot proceed without author judgment (like gravity — mechanical deletion, but must preserve intent in context). The error-message mechanism works for **any retirement that has a named alternative**. It works for **deletions with no alternative** only if deletion is purely mechanical (like gravity). It breaks for retirements requiring **author choice** (e.g., "this field could become feature A or feature B").
 
 **A4 — File is self-identifying; marker is redundant for ID alone:**
-The fixture directory contains 6 other artifacts (README, transcript, images, audio, brand, reference directories). The `.montaget.json` file itself — read as JSON — is immediately identifiable by its keys (`frame`, `fps`, `background`, `duration`, `output`, `fonts`, `tracks`) and nested element structure with Montaget-specific fields (`fit`, `clip`, `origin`). No tool needs a magic marker to distinguish this from generic JSON.
+The fixture directory contains 6 other artifacts (README, transcript, images, audio, brand, reference directories). The `.montagent.json` file itself — read as JSON — is immediately identifiable by its keys (`frame`, `fps`, `background`, `duration`, `output`, `fonts`, `tracks`) and nested element structure with Montagent-specific fields (`fit`, `clip`, `origin`). No tool needs a magic marker to distinguish this from generic JSON.
 
-**Consequence for Q5:** A marker (like `"montaget": 1`) is justified by file identification (A4 confirms the file is self-identifying) — but the identification is redundant with the file's own structure. The marker's real job is **not** identification; it is **versioning**. If a version number exists, it must serve versioning, not ID.
+**Consequence for Q5:** A marker (like `"montagent": 1`) is justified by file identification (A4 confirms the file is self-identifying) — but the identification is redundant with the file's own structure. The marker's real job is **not** identification; it is **versioning**. If a version number exists, it must serve versioning, not ID.
 
 ## Q5 — Does the project file carry a marker at all, and is it a version?
 
-**Preferred answer:** Yes, one top-level integer `"montaget": N`, naming a revision of the format's **renderer's reading** (not just shape). This is P1 modified by A4.
+**Preferred answer:** Yes, one top-level integer `"montagent": N`, naming a revision of the format's **renderer's reading** (not just shape). This is P1 modified by A4.
 
 **Strongest attack on this answer:**
 P3 is correct that the schema catches structural breaks and nothing can catch semantic breaks (C1 class). A file carrying a stale version number is misleading — it looks like versioning is working when it is not. Compare: "confidently wrong version number vs. no version number" — a confidently wrong number is **worse**, because agents copy the example file and propagate the stale number. (Fact 6 proves this; agents copied gravity out of the fixture. Fact 9 confirms the pattern: no default field ever existed, so agents have never seen a correct authoritative example.)
@@ -35,7 +35,7 @@ C1 is also concerning: if the version is equality-bound (Q6), then the 5.8% of f
 
 **Why the answer survives:**
 
-The attack conflates two different version semantics (P5 vs P6). Under **lower-bound semantics** (P5), a file declaring `"montaget": 1` in a world at revision 4 is not an error. The file was correct when authored; the world moved on. The version is **historical**, not a mandate. M1 is exactly the proof that this semantics is correct — files don't need rewriting when the world tightens.
+The attack conflates two different version semantics (P5 vs P6). Under **lower-bound semantics** (P5), a file declaring `"montagent": 1` in a world at revision 4 is not an error. The file was correct when authored; the world moved on. The version is **historical**, not a mandate. M1 is exactly the proof that this semantics is correct — files don't need rewriting when the world tightens.
 
 Under this reading, a stale number is not "confidently wrong" — it is "authored under an older spec, still correct if you run it against that older spec." The project must promise to support **migration from any declared version to the current code** (the binding is on the *tool*, not the file). Agents copying the fixture would copy a number that accurately describes the fixture's provenance.
 
@@ -53,13 +53,13 @@ Alternatively: if no migration tool exists and the project states versioning is 
 
 ## Q6 — If a number exists: lower bound, or equality?
 
-**Preferred answer:** Lower-bound (P5). The file declares the revision it was authored against. A file declaring `"montaget": 1` is legal and correct at revisions 1, 2, 3, 4, …; the current code must support it.
+**Preferred answer:** Lower-bound (P5). The file declares the revision it was authored against. A file declaring `"montagent": 1` is legal and correct at revisions 1, 2, 3, 4, …; the current code must support it.
 
 **Strongest attack on this answer:**
 
 A lower-bound version is useless for the primary goal: letting an agent know which rules to apply when rendering. If the agent runs the file against a current renderer and the renderer has moved on (ADRs 0016, 0017, …), the agent has no way to know whether the file is **stale and needs fixing** or **already correct**. A lower-bound version says "at minimum this old" — but the agent needs to know "what does this mean **now**?"
 
-Under equality (P6), the version is a sync point: `"montaget": 4` means "this file has been brought current with revision 4." When revision 5 lands, files declaring `4` are stale and require work. This is **accountability** — the version forces the author to decide: keep the file current, or accept that it is stale.
+Under equality (P6), the version is a sync point: `"montagent": 4` means "this file has been brought current with revision 4." When revision 5 lands, files declaring `4` are stale and require work. This is **accountability** — the version forces the author to decide: keep the file current, or accept that it is stale.
 
 P6's model: a stale number is a defect and `validate` will refuse the file. This has a cost (M1: ceremony rewrites on correct files) but buys a guarantee (stale number always means stale file).
 
@@ -91,13 +91,13 @@ Alternatively: if migration tooling does not exist and the file is just a versio
 
 This splits the difference and buys time at the cost of clarity. P7 (first release) is simpler: before release, break freely; after release, the spec is immutable. P8 (publication of schema) is also defensible: the spec is only legible when the schema is published; before publication, there is no machine-readable legality predicate.
 
-The attack on P9: **"When does a consumer need to know they are protected?"** If I am a user of Montaget, I need a **clear event** that tells me the format is stable. "Release" is clear. "After the next ADR" is not — I do not know when the next ADR lands. My position creates confusion.
+The attack on P9: **"When does a consumer need to know they are protected?"** If I am a user of Montagent, I need a **clear event** that tells me the format is stable. "Release" is clear. "After the next ADR" is not — I do not know when the next ADR lands. My position creates confusion.
 
 Also: P8's point is subtle and powerful. ADR-0013 explicitly left "whether `fit` may be omitted" undefined (fact from brief). That is not a version boundary; that is a **legality predicate that did not exist**. You cannot version what is undefined. The version is only useful once the schema is published and immutable.
 
 **Why the answer survives:**
 
-The attack assumes versioning is for **user protection**. But Montaget is agent-first: users do not read files; agents do. Agents are tools and can be updated. The project's primary obligation is to its own codebase.
+The attack assumes versioning is for **user protection**. But Montagent is agent-first: users do not read files; agents do. Agents are tools and can be updated. The project's primary obligation is to its own codebase.
 
 **Mechanics** (the ADRs) must be internally consistent immediately — ADR-0016 must not contradict itself or break closed files. This is a **correctness constraint** on the project, not a promise to strangers.
 
@@ -117,19 +117,19 @@ The brief does not state this constraint, so I assume ADRs can still correct the
 
 ---
 
-## Q8 — Does `montaget migrate` ever exist?
+## Q8 — Does `montagent migrate` ever exist?
 
-**Preferred answer:** Yes, at release (P11 modified). A `montaget migrate <version>` command exists and is idempotent: `migrate 1` on a file at version 1 is a no-op, `migrate 1` on a file at version 3 applies migrations 2→3 and 1→2. It dispatches per-change scripts committed with each breaking ADR (one script per ADR that breaks), runs them in reverse order, and stops at the declared version or at the target version.
+**Preferred answer:** Yes, at release (P11 modified). A `montagent migrate <version>` command exists and is idempotent: `migrate 1` on a file at version 1 is a no-op, `migrate 1` on a file at version 3 applies migrations 2→3 and 1→2. It dispatches per-change scripts committed with each breaking ADR (one script per ADR that breaks), runs them in reverse order, and stops at the declared version or at the target version.
 
 **Strongest attack on this answer:**
 
 P10 is correct that **synthesis is authorship**, not arithmetic. Gravity cannot be synthesized; it can only be deleted. The script `migrate.py` works because it **regenerates from a known-good prior** (the `old.json` fixture at ADR-0009). A stranger's file has no `old.json`. Worse: a script run on a file without the prior cannot know whether a deletion is **legitimate** (the user owns the element) or **lost** (the user intended it, but git didn't record it).
 
-Gravity retirement is **safe to delete** only because the data is inert — gravity does not compute anything, does not affect rendering, does not carry author intent. But if Montaget retires **an element type** (ellipse → rect), the deletion is not mechanical. An element counted as 8 ellipses might become 3 rects + 5 shapes, or might become 5 rectangles + 3 shapes + ???. No script can decide.
+Gravity retirement is **safe to delete** only because the data is inert — gravity does not compute anything, does not affect rendering, does not carry author intent. But if Montagent retires **an element type** (ellipse → rect), the deletion is not mechanical. An element counted as 8 ellipses might become 3 rects + 5 shapes, or might become 5 rectangles + 3 shapes + ???. No script can decide.
 
 A2 showed that gravity deletion works through error messages. That is the right model: **`validate` tells the agent the error, the agent reads the ADR and fixes it.** The agent is the repairing entity, and it is the right repairing entity — it understands context.
 
-P10's model: `montaget migrate` should never exist. Agents use `validate` errors + ADRs + context. This is clean and fits the "agent-first" principle.
+P10's model: `montagent migrate` should never exist. Agents use `validate` errors + ADRs + context. This is clean and fits the "agent-first" principle.
 
 **Why the answer survives:**
 
@@ -138,7 +138,7 @@ A3 showed that element-type retirement **with a named replacement** (ellipse →
 More importantly: P10 conflates **migration scripts with migration tools**. The current practice (C2 noted) is cumulative regeneration from `old.json`. That is neither per-change scripts nor a migration tool. A real migration tool would be:
 
 ```
-montaget migrate:
+montagent migrate:
   - read declared version N
   - for each breaking ADR from N+1 to current:
     - load the migration spec (which fields are deleted, which are renamed, which are synthesized)
@@ -160,15 +160,15 @@ P10 is correct that **agent repair is the primary repairing entity** and the too
 
 If A2 or A3 showed that error messages were **insufficient** — that the agent could not repair gravity deletion from the message alone — then P10 would be right. But A2 showed the opposite: the agent repaired perfectly using only error messages.
 
-If the project stated "we will never break Montaget after release; all breaking changes happen before 1.0" — then versioning and migration are moot. A tool exists if and only if the project commits to breaking changes after release.
+If the project stated "we will never break Montagent after release; all breaking changes happen before 1.0" — then versioning and migration are moot. A tool exists if and only if the project commits to breaking changes after release.
 
-**Confidence: 72%** — P11 is correct that a tool exists, but it is **not the tool Montaget currently uses**. C2 exposed that the current practice is cumulative regeneration from a fixed origin, which is not a migration tool — it is a one-off script. A real tool would need to be built. The question is whether the project wants to build it. I think yes (to support external users), but I could be wrong.
+**Confidence: 72%** — P11 is correct that a tool exists, but it is **not the tool Montagent currently uses**. C2 exposed that the current practice is cumulative regeneration from a fixed origin, which is not a migration tool — it is a one-off script. A real tool would need to be built. The question is whether the project wants to build it. I think yes (to support external users), but I could be wrong.
 
 ---
 
 ## Q9 — Is the version one field or two mechanisms?
 
-**Preferred answer:** One field `"montaget": N`, describing the revision of the renderer's reading (P12). Shape conformance is **purely mechanical** and a schema diff verifies it completely. Semantics are **only honest in the ADR narrative** (a schema cannot capture "what these bytes mean"). The version's exclusive job is to disambiguate: **same shape, different meaning → bump the version**. This one job requires one field naming the revision.
+**Preferred answer:** One field `"montagent": N`, describing the revision of the renderer's reading (P12). Shape conformance is **purely mechanical** and a schema diff verifies it completely. Semantics are **only honest in the ADR narrative** (a schema cannot capture "what these bytes mean"). The version's exclusive job is to disambiguate: **same shape, different meaning → bump the version**. This one job requires one field naming the revision.
 
 **Strongest attack on this answer:**
 
@@ -210,13 +210,13 @@ The project cannot decide versioning semantics without knowing which class defau
 
 **Strongest attack:**
 
-#61 is an implementation detail. Montaget is agent-first; agents write the file, and agents do not write defaults (fact 6: "no evaluated properties"). If `fmt` is a tool that the agent runs **after writing**, it is agent-controlled, not a contract. The format's semantics are unaffected by whether `fmt` emits defaults or not.
+#61 is an implementation detail. Montagent is agent-first; agents write the file, and agents do not write defaults (fact 6: "no evaluated properties"). If `fmt` is a tool that the agent runs **after writing**, it is agent-controlled, not a contract. The format's semantics are unaffected by whether `fmt` emits defaults or not.
 
 Versioning should not wait on an implementation detail. #14 is about the format contract; #61 is about tooling. Decouple them.
 
 **Why it survives:**
 
-The counter-argument misses the contract that matters: **between Montaget and a file written by someone else's tool**. If `fmt` materializes defaults, a file written by an older tool (without defaults) and a file written by a newer tool (with defaults) are **indistinguishable in bytes**. The version number on each cannot tell them apart. No problem: both versions are legal at the current code.
+The counter-argument misses the contract that matters: **between Montagent and a file written by someone else's tool**. If `fmt` materializes defaults, a file written by an older tool (without defaults) and a file written by a newer tool (with defaults) are **indistinguishable in bytes**. The version number on each cannot tell them apart. No problem: both versions are legal at the current code.
 
 If `fmt` **does not** materialize defaults, then a file without defaults carries information: "I was written by an old tool, before defaults were added." If `fmt` later changes the default for some field, the old file decodes differently. This is **silent byte semantics**, exactly C1's danger. The version must distinguish them.
 
@@ -246,7 +246,7 @@ The question of whether optional additions are breaking **depends entirely on th
 
 A separate ticket fragments the decision space. Adding the policy as a clause in #14's ADR keeps the versioning contract together in one place. The reader of the version ADR will see "optional fields are not breaking because additionalProperties: true" and understand the full scope.
 
-Also: the policy is not "new" — it is a clarification. Most modern formats (OpenAPI, JSON Schema) default to `additionalProperties: true`. Montaget may intend this as default and just never stated it. Stating it as a clause in #14 is faster than opening a new ticket.
+Also: the policy is not "new" — it is a clarification. Most modern formats (OpenAPI, JSON Schema) default to `additionalProperties: true`. Montagent may intend this as default and just never stated it. Stating it as a clause in #14 is faster than opening a new ticket.
 
 **Why a separate ticket survives:**
 
@@ -288,7 +288,7 @@ If the project states "versioning ADRs must be self-contained and list all preco
 
 - **Q7** (what event binds?): **68%** for P9 (split mechanics/promise). This is pragmatic but inelegant. P7 (release) is simpler; P8 (schema publication) is more principled.
 
-- **Q8** (montaget migrate?): **72%** for yes, P11 (at release, idempotent per-change scripts, tool dispatches + reports synthesis errors). Uncertainty is whether the project will build this.
+- **Q8** (montagent migrate?): **72%** for yes, P11 (at release, idempotent per-change scripts, tool dispatches + reports synthesis errors). Uncertainty is whether the project will build this.
 
 - **Q9** (one field or two?): **71%** for P12 (one field, renderer's reading). C1 is interesting but does not topple the argument.
 

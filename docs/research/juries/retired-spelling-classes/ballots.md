@@ -26,7 +26,7 @@ predict the consensus and argue against it before giving its own verdict):
 ## Juror A — Opus, briefed adversarial ("default to refuted")
 
 **Contamination note:** I read only ADRs 0007, 0012, 0014, 0016, 0043, 0068 and
-`migrate.py`/the fixture at `aef1cdcf`. I did not open `crates/montaget-core/src/checks/`,
+`migrate.py`/the fixture at `aef1cdcf`. I did not open `crates/montagent-core/src/checks/`,
 #192, #228, #229, or the working tree. I saw no other agent's argument.
 
 **Premise defects found first (these outrank my answers):**
@@ -291,6 +291,6 @@ conflated."* High confidence — this is the ADR explicitly disclaiming that the
 classification.
 
 **Contamination note:** I read only the specified ADRs and CONTEXT.md at `aef1cdcf`, via
-`git show`; I did not touch `crates/montaget-core/src/checks/`, issues #192/#228, PR #229,
+`git show`; I did not touch `crates/montagent-core/src/checks/`, issues #192/#228, PR #229,
 or the working tree, and encountered no argument for a particular answer from any
 contaminated source.

@@ -19,7 +19,7 @@ amends: 0005 (settles the `speed`/`fill` fields it named but left undefined)
 element to declare why its timeline range differs from its source range, and
 named the mechanism — `speed`, or an explicit `fill` of `hold`/`loop` — without
 settling either. The gap stopped being hypothetical once
-[#9](https://github.com/MBehtemam/Montaget/issues/9)'s fixture shipped with
+[#9](https://github.com/MBehtemam/Montagent/issues/9)'s fixture shipped with
 `speed: 0.645` on four narration elements (`vo-sentence-05-b` through `08-b`):
 every sentence in the published video is spoken twice, once at normal rate and
 once slowed for a language learner, and nothing said what `0.645` meant, what

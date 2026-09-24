@@ -8,7 +8,7 @@ amends: 0034 (settles the audio-backing and minimum-duration deferrals)
 [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md) named two defect
 classes it deliberately did not build — audio backing and an absolute duration
 floor — and parked both as map fog, graduated to
-[#124](https://github.com/MBehtemam/Montaget/issues/124). This ADR designs both,
+[#124](https://github.com/MBehtemam/Montagent/issues/124). This ADR designs both,
 resolves a wrong premise in each, and gives `validate` two more `R-CAPTION-*`
 checks.
 
@@ -17,7 +17,7 @@ checks.
 **The premise that this needs media analysis was wrong.** ADR-0034 recorded audio
 backing as needing "media analysis, and narration-vs-ambience discrimination to
 say more than raw presence." On the fixture, `hook-loop`
-(`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`,
+(`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`,
 64016–65216ms) is the actual defect this check exists for — and its
 `narration` track's last element ends at 63300ms. Whether any audio element
 overlaps a text element's time range is answerable from declared `start`/`end`
@@ -25,7 +25,7 @@ values alone. **No file is read; this is a pure document-level check**, the same
 "no I/O" shape as `R-CAPTION-PACE` and `R-CAPTION-REPEAT-DURATION`.
 
 **Narration-vs-ambience discrimination stays out of reach, categorically.**
-CONTEXT.md states Montaget "is deterministic and contains no model" — telling a
+CONTEXT.md states Montagent "is deterministic and contains no model" — telling a
 spoken voice apart from music or ambience in an audio file is a classification
 problem with no crisp deterministic boundary. This is a constitutional
 exclusion, not a cost or scheduling one: nothing about staging a lighter
@@ -57,7 +57,7 @@ file, corrupted encode, the same "truth changed on disk" class of defect
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) already
 established `validate` must catch elsewhere) requires reading the waveform —
 deterministic signal analysis (e.g. `ffmpeg silencedetect`, already used as a
-non-model technique in [#9](https://github.com/MBehtemam/Montaget/issues/9)'s
+non-model technique in [#9](https://github.com/MBehtemam/Montagent/issues/9)'s
 research), not a document query. It has different inputs, a different failure
 mode (a forgotten element vs. a correct element pointing at a bad file), and a
 different operational cost (I/O and a threshold constant of its own). Recorded
@@ -76,7 +76,7 @@ and keeps this check at the same severity as its three siblings.
 **The ticket's premise — "5-6 frames minimum" — does not survive its source.**
 Netflix's Timed Text Style Guide *General Requirements* page (script-agnostic,
 sitting above the per-language cps tables already surveyed for
-[#123](https://github.com/MBehtemam/Montaget/issues/123)) states a universal
+[#123](https://github.com/MBehtemam/Montagent/issues/123)) states a universal
 minimum caption duration of **5/6 second**, not a frame count. "5-6 frames" was
 a downstream, fps-specific approximation of that duration read back as if it
 were the primitive; at the fixture's 25fps, 5/6s is 20.83 frames — not an
@@ -108,7 +108,7 @@ rule keyed on track name, which is a free-text label with no semantics
 elsewhere in this domain model (an author could as easily name the track
 `subs` or `lower-third`).
 
-**The motivating case for [#135](https://github.com/MBehtemam/Montaget/issues/135):**
+**The motivating case for [#135](https://github.com/MBehtemam/Montagent/issues/135):**
 a persistent decorative element — a looping video's static logo overlay, on
 screen for the whole runtime — in a hypothetical project with no audio
 anywhere produces a spurious `R-CAPTION-NO-AUDIO` finding, because nothing in
@@ -136,6 +136,6 @@ needs to be unwound once it lands.
 - **One fog entry graduates into a named future ticket trigger**: an audio
   element role field, motivated specifically by the first project that pairs
   captions with a persistent non-narration audio track.
-- **[#135](https://github.com/MBehtemam/Montaget/issues/135) gets a concrete
+- **[#135](https://github.com/MBehtemam/Montagent/issues/135) gets a concrete
   motivating case** (the looping-logo scenario) rather than an abstract
   boundary question.

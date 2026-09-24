@@ -1,4 +1,4 @@
-# Repair report — en-halloween-decorating.montaget.json
+# Repair report — en-halloween-decorating.montagent.json
 
 ## What I changed, element by element, and why
 
@@ -96,7 +96,7 @@ above changed.
   before `gravity` was introduced, which would show whether `clip` was ever
   adjusted to compensate when `gravity` was added, or whether `clip` has been
   frame-space-correct for these elements all along. I was told not to consult
-  the Montaget repository or ADRs beyond the provided `graveyard.txt`
+  the Montagent repository or ADRs beyond the provided `graveyard.txt`
   excerpt, so I relied solely on that excerpt and the task's stated facts.
 
 ## Confidence
@@ -117,6 +117,6 @@ source image the way the author intended, especially for `photo-06` and
 shared clip window. I did not have the source images to check this, and per
 the task rules did not treat the mismatch as license to change `clip`, since
 doing so would be changing the video rather than repairing the format error.
-That question — is the crop itself correct — is outside what `montaget
+That question — is the crop itself correct — is outside what `montagent
 validate` can tell you and outside what I could verify from the materials
 provided.

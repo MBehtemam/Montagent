@@ -45,7 +45,7 @@ Its stated justification was wrong twice over, and both halves were checkable in
   otherwise"* is satisfied — an ADR says otherwise.
 
 Both errors came from one mistake: assuming *text metrics* means *font metrics*. Most of this
-format's text arithmetic is deliberately **declared**, not measured. [#186](https://github.com/MBehtemam/Montaget/issues/186)
+format's text arithmetic is deliberately **declared**, not measured. [#186](https://github.com/MBehtemam/Montagent/issues/186)
 was filed on the wrong premise and has been corrected rather than closed — the width term *is*
 font-dependent (ADR-0014 parks it `UNCHECKED`), and the falsification test genuinely cannot treat
 text as golden while the fixture and its reference are in different typefaces.

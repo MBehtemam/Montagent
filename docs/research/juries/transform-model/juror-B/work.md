@@ -99,7 +99,7 @@ property takes there or past the array's ends. Two different questions, both uns
 ## Exercise 3 — shift +2000ms at t=20000, photo-06
 
 Source data (from the actual sample project, `git show
-prototype/sample-project-file:.../en-halloween-decorating.montaget.json`):
+prototype/sample-project-file:.../en-halloween-decorating.montagent.json`):
 `photo-06`, start 17472, end 30603, `"scale": [[17472,1.0],[32472,1.08]]`.
 
 t=20000 is strictly inside photo-06's range (17472–30603) → photo-06 is a

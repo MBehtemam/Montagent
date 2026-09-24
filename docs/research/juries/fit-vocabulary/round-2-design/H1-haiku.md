@@ -38,7 +38,7 @@
 
 **Decision:** The rules apply type-generically to both `image` and `video` from v1. Write the rule as defined here; both are raster media with pixel dimensions, and `fit` operates on those dimensions, not on type.
 
-**Why:** The rule is spatial scaling of raster content, indifferent to source type. Both images and videos are placed by `x`, `y`, `origin`, `width`, `height` and `clip` (all settled in ADR-0012). Both can be scaled and rotated. The fit rule has no reference to image-specific properties. ADR-0003 commits Montaget to video; deferring this rule to later invites divergent implementations — someone will define `fit` for video differently in a future ADR, and files with both image and video elements become ambiguous. Better to settle it once.
+**Why:** The rule is spatial scaling of raster content, indifferent to source type. Both images and videos are placed by `x`, `y`, `origin`, `width`, `height` and `clip` (all settled in ADR-0012). Both can be scaled and rotated. The fit rule has no reference to image-specific properties. ADR-0003 commits Montagent to video; deferring this rule to later invites divergent implementations — someone will define `fit` for video differently in a future ADR, and files with both image and video elements become ambiguous. Better to settle it once.
 
 Wrinkle specific to video: **for video elements, the source dimensions are the encoded frame dimensions (typically constant). If a video has variable frame dimensions (exotic, rare), use the first frame and note the variance.** This is a clarification, not a new rule. The fit rule itself is unchanged.
 

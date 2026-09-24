@@ -5,7 +5,7 @@ scene design changes.
 """
 import json, os
 
-REPO = "/Users/mohammedehtemam/projects/github/Montaget"
+REPO = "/Users/mohammedehtemam/projects/github/Montagent"
 BASE = f"{REPO}/docs/research/prototypes/proxy-preview-savings"
 BADGE = f"{REPO}/fixtures/en-halloween-decorating/brand/logo-en.png"
 

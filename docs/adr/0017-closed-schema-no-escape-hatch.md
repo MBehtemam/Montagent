@@ -5,7 +5,7 @@ amends: 0016 (settles the unknown-key policy ADR-0016 requires and does not take
 
 # The project schema is closed everywhere, and there is no in-band escape hatch
 
-[#75](https://github.com/MBehtemam/Montaget/issues/75). ADR-0016 spends the format's entire
+[#75](https://github.com/MBehtemam/Montagent/issues/75). ADR-0016 spends the format's entire
 forward-compatibility budget on the unknown-key error, and states plainly that its mechanism
 "does not exist" unless the schema is closed to unknown keys — but no accepted document had
 taken that decision. This ADR takes it, at three levels: base policy, scope, and escape hatch.
@@ -23,7 +23,7 @@ named by all three jurors:
   optional, and an optional signal is indistinguishable from no signal: the same failure this
   project already rejected once, in ADR-0006, as "an omitted check is indistinguishable from a
   decision not to check."
-- **The typo case is the load-bearing scenario, not the edge case.** [#48](https://github.com/MBehtemam/Montaget/issues/48)
+- **The typo case is the load-bearing scenario, not the edge case.** [#48](https://github.com/MBehtemam/Montagent/issues/48)
   measured agents systematically mistyping fields copied from examples (`"gravty"` for
   `"gravity"`). Under an open or warn-and-proceed schema, that typo is silently accepted and
   the video renders wrong with no signal — worse than a blocked render, because a blocked
@@ -98,19 +98,19 @@ transfer to a versionless, hand-typo-prone format.
 - **`validate` and `render` enforce this uniformly.** An unknown key anywhere in the document —
   regardless of nesting level — is reported and blocks render exactly as ADR-0016's example
   message describes, with the newer-revision/retired-key distinction from ADR-0016 and
-  [#78](https://github.com/MBehtemam/Montaget/issues/78) applying equally at every level.
+  [#78](https://github.com/MBehtemam/Montagent/issues/78) applying equally at every level.
 
 ## Not settled here
 
 - **The sidecar file's format and element-reference convention.** Left open; a future ticket if
   third-party annotation becomes a real need rather than a hypothetical one.
-- **[#78](https://github.com/MBehtemam/Montaget/issues/78)** — the message-text distinction
+- **[#78](https://github.com/MBehtemam/Montagent/issues/78)** — the message-text distinction
   between a newer-revision key and a retired key — is unaffected by this ADR and proceeds on
   ADR-0016's terms.
 
 ## Evidence
 
-Grilled per [#75](https://github.com/MBehtemam/Montaget/issues/75); all three sub-decisions
+Grilled per [#75](https://github.com/MBehtemam/Montagent/issues/75); all three sub-decisions
 (base policy, scope, escape hatch) were each put to an independent three-model jury (Claude
 Opus, Sonnet, Haiku), jurors blocked from seeing each other's ballots. Base policy: unanimous
 for closed/error. Scope: 2–1 for uniform closure. Escape hatch: 2–1 against a reserved prefix,

@@ -5,7 +5,7 @@ amends: 0011 (the cut list's presence set is **every** element, audio included �
 
 # The cut list's presence set is every element — "on-screen" was ADR-0011 writing too fast
 
-**Ticket:** [#250](https://github.com/MBehtemam/Montaget/issues/250). Evidence:
+**Ticket:** [#250](https://github.com/MBehtemam/Montagent/issues/250). Evidence:
 `docs/adr/cut_presence_scan.py`, which re-derives every measured number below — the element
 counts, the boundary table, and the worked case's asymmetry — from the fixture, and exits
 non-zero the moment one stops reproducing. The one number below that the scan does *not*
@@ -19,11 +19,11 @@ illustration is hypothetical by construction.
 > **`query --from <a> --to <b>`** — the **cut list**: the intervals over which the set of
 > **on-screen** elements is constant.
 
-[#196](https://github.com/MBehtemam/Montaget/issues/196) built it over **every** element,
+[#196](https://github.com/MBehtemam/Montagent/issues/196) built it over **every** element,
 audio included, stating each member's `type` so that a caller wanting only the visual cut
 list filters one field. #196's own rule was *"where this ticket and an ADR disagree, the
 ADR wins and this ticket is wrong"*, so the implementation could not settle this by having
-shipped; `crates/montaget-core/src/verbs/query/cuts.rs` carried the departure as a module
+shipped; `crates/montagent-core/src/verbs/query/cuts.rs` carried the departure as a module
 comment pointing at #250, and this ADR is that pointer's destination.
 
 The word doing the damage is *on-screen*, and its cost is not stylistic: `presence set` is
@@ -62,7 +62,7 @@ other; nothing owns it"*. The flat element list is the population every verb dra
 and which lane an element sits in is a constraint on it
 ([ADR-0004](0004-tracks-as-constrained-lanes.md)), never a filter on whether it exists. A
 verb that dropped a third of the fixture's elements from *"the presence set"* would be the
-one place in Montaget where that phrase means something narrower than everywhere else — and
+one place in Montagent where that phrase means something narrower than everywhere else — and
 the reader who would be misled is the one who did the right thing and learned the term
 first.
 
@@ -132,7 +132,7 @@ about — ADR-0042.)
 It stops exactly there. **Which** way such an element is malformed is `validate`'s finding,
 not a view's — [ADR-0006](0006-validate-reports-facts-and-render-enforces.md)'s division of
 labour, applied to a verb that reads a permissive tree
-([ADR-0042](0042-montaget-json-is-a-convention-fmt-gets-a-shape-check.md)) precisely so it
+([ADR-0042](0042-montagent-json-is-a-convention-fmt-gets-a-shape-check.md)) precisely so it
 can still answer about a document `validate` would reject. The same restraint is why the
 mode does not judge an empty interval: that a stretch has nothing in it is a fact it
 reports, and whether that is a defect is someone else's question.

@@ -118,7 +118,7 @@ If this ADR ships without aperture:
 1. **The problem is present and concrete.** 7 elements in the fixture are broken. Not a hypothetical.
 2. **Genuinely inexpressible otherwise.** Unlike Ken Burns (which might be pure transform keyframes per #21), aperture cannot be emulated with settled properties.
 3. **Not explicitly in #22's scope.** Issue #22 does not list aperture as a candidate effect. It's a positioning primitive, not a visual effect.
-4. **Prevents silent render bugs.** Montaget's charter is no inert-data failures. An aperture omitted is data that should exist.
+4. **Prevents silent render bugs.** Montagent's charter is no inert-data failures. An aperture omitted is data that should exist.
 5. **Cleaner retrofit.** Add it now, in the ADR that owns positioning. Amending settled properties is low-friction here. Amending them later, after they're published and agents have learned them, is high-friction.
 
 **Arguments for deferring to #22 (losing):**

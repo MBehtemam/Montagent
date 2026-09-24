@@ -4,9 +4,9 @@
 
 The question is not malformed, but it is **two decisions wearing one name**.
 A4 shows the identification problem (does a bytes-blob announce itself as a
-Montaget project?) has almost no live consumer on this project's actual tool
+Montagent project?) has almost no live consumer on this project's actual tool
 surface today — every verb in ADR-0011 takes a filesystem path, and the
-`.montaget.json` extension already solves it there for free — while the
+`.montagent.json` extension already solves it there for free — while the
 versioning problem (does a document declare which reading of the format it
 trusts) is real and, per A2/A3, splits cleanly into two very different
 sub-problems the brief's Q8 already gestures at: changes that are
@@ -17,7 +17,7 @@ generalizing from a fixture). A2 found the first class needs no tool beyond
 `validate` printing a good message. A3 found the second class needs an agent
 and cannot be automated by any mechanism, ever, because what's missing is the
 author's unrecoverable intent, not a fact. That split, not a yes/no on "does
-`montaget migrate` exist," is what I think the ticket should actually decide.
+`montagent migrate` exist," is what I think the ticket should actually decide.
 
 ## Part A findings
 
@@ -38,8 +38,8 @@ original fact 5. Full detail in `WORKLOG-R2.md`.
 separable and each survives on different grounds. No *version integer* (P3's
 case survives fully — see below), but a frozen, content-level marker is
 cheap insurance for the one gap A4 could not close: paths without names. I
-would ship `"montaget": true` or a `$schema`-style URI-as-sentinel, not
-`"montaget": 1`.
+would ship `"montagent": true` or a `$schema`-style URI-as-sentinel, not
+`"montagent": 1`.
 
 **Attack:** This is exactly the "belt and suspenders nobody asked for"
 failure the anti-drift rule warns about. A4 also found **zero named
@@ -152,7 +152,7 @@ then P8's premise is false and P7 or P9 should win instead. I looked for
 this and did not find it; I flag it as the thing worth checking before
 trusting my answer.
 
-## Q8 — Does `montaget migrate` ever exist?
+## Q8 — Does `montagent migrate` ever exist?
 
 **This is where A2 and A3 change my answer most, and I want to be explicit
 that they point in different directions on the same question, which is
@@ -177,11 +177,11 @@ should not exist (and cannot honestly exist) for the authorship subclass,
 and the dividing line is not visible from the ADR number** — ADR-0015
 contains one deletion (arithmetic) and one strict-equality promotion
 (arithmetic, per C1) in the same accepted change; a hypothetical ADR-0016
-element-type retirement would be pure authorship. `montaget migrate` "exists"
+element-type retirement would be pure authorship. `montagent migrate` "exists"
 in the narrow sense of a `validate`-driven, per-change, arithmetic-only
 repair helper — closer to P11's "chain of per-change scripts" than to a
 general tool, but the thing it must never attempt is the authorship
-subclass, which P10's core argument (Montaget is agent-first; the repairing
+subclass, which P10's core argument (Montagent is agent-first; the repairing
 entity is always an LLM; a tool that writes authored content fabricates
 intent) is exactly right about *for that subclass only*.
 
@@ -336,7 +336,7 @@ ticket without weakening #14's answer.
 ## What I could not settle
 
 - Whether a concrete workflow exists (now or planned) where an MCP client
-  hands Montaget project bytes with no path — the one thing that would make
+  hands Montagent project bytes with no path — the one thing that would make
   Q5's marker case strong rather than weak. I searched ADR-0011's tool
   surface and found none, but "not designed yet" is not "will never exist."
 - Whether any of the fifteen ADRs contains a breaking change that is neither

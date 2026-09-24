@@ -5,8 +5,8 @@ amends: 0038 (designs the review-level lint ADR-0038 named but did not design), 
 
 # `validate` gains `R-EASE-INERT`: a review check for an `ease` that describes no motion
 
-[Ticket #122](https://github.com/MBehtemam/Montaget/issues/122), graduated from
-[#70](https://github.com/MBehtemam/Montaget/issues/70)/[ADR-0038](./0038-ease-is-required-on-every-non-first-keyframe-record.md).
+[Ticket #122](https://github.com/MBehtemam/Montagent/issues/122), graduated from
+[#70](https://github.com/MBehtemam/Montagent/issues/70)/[ADR-0038](./0038-ease-is-required-on-every-non-first-keyframe-record.md).
 ADR-0038 made `ease` required on every keyframe record but the first, closing a
 schema silence that had produced three different agent behaviors on the identical
 text. It also named, without designing, the acknowledged cost of that decision: a

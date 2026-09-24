@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PROTOTYPE — throwaway. Resolves #117: pick preview's hard-refuse floor resolution.
 #
-# No production Montaget renderer exists yet, so this prototype uses the fixture's own
+# No production Montagent renderer exists yet, so this prototype uses the fixture's own
 # published reference render (fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4)
 # as ground truth for the exact project — same 1080x1920 frame, same timeline, same text —
 # and simulates a proxy-resolution preview by downscaling native frames to each candidate
@@ -25,7 +25,7 @@ CROPS=crops
 mkdir -p "$FRAMES" "$CROPS"
 
 # timestamp (seconds) -> label. Chosen to stress the fixture's smallest text and densest
-# compositions (sizes from en-halloween-decorating.montaget.json):
+# compositions (sizes from en-halloween-decorating.montagent.json):
 #   t=0.5   intro-title (58px) + chip-text (52px) + handle-text (34px, on screen throughout)
 #   t=11.5  sentence-05 (55px) — matches the fixture's existing frame-05-at-11s.png reference
 #   t=45.0  word-08-target (49px) + word-08-bridge (35px, the smallest caption text in the file)

@@ -1,7 +1,7 @@
 # Worklog — arm: literal — agent G (fable)
 
 Frame 1080x1920. Spec: SPEC-literal.md only. Fixture read for context:
-`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`.
+`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`.
 
 **Immediate observation:** every photo element in the fixture carries `"gravity":"top"`,
 but the spec's "Not fields" section says there is no `gravity` field. The published
@@ -161,7 +161,7 @@ math, with a floor/ceil ambiguity, and re-run it every time a source is re-expor
 
 **One concrete change:** make `width`/`height` optional when `fit` is `cover`/`contain` —
 the rule plus source plus clip fully determines them; let validate/render fill them in
-(or a `montaget fmt` write them back). Keep them required only under `literal`, where the
+(or a `montagent fmt` write them back). Keep them required only under `literal`, where the
 integers genuinely are the author's. That deletes the whole class of stale-integer errors
 and the EXIF trap in one move. (Runner-up: reconcile the spec with the fixture on
 `gravity`, and give images an alignment vocabulary so Task 3's centering isn't manual

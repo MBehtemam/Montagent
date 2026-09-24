@@ -1,4 +1,4 @@
-# Jury 2 verdict — Montaget issue #48, the `fit` vocabulary
+# Jury 2 verdict — Montagent issue #48, the `fit` vocabulary
 
 Juror: H2 (Haiku 4.5)
 
@@ -80,7 +80,7 @@ Specifically:
 
 1. **Precision requirement from ADR-0005.** The `speed` divergence (3368/0.645 → 5222 vs 5220) showed that rounding rules diverge when input dimensions are ambiguous. The integer-arithmetic fit rule's entire purpose is that independent implementers land on the same integer. Ambiguity in input dimensions defeats that goal completely.
 
-2. **Visual dimensions are the reference.** A user looks at their image in a media player or file explorer; that is the dimensions they author for. EXIF Orientation is transparent: a portrait image with a 90° rotation tag appears as portrait in the player and should be treated as portrait in Montaget. Ignoring EXIF creates a silent mismatch where the author's declared rect contradicts the visual appearance of the source.
+2. **Visual dimensions are the reference.** A user looks at their image in a media player or file explorer; that is the dimensions they author for. EXIF Orientation is transparent: a portrait image with a 90° rotation tag appears as portrait in the player and should be treated as portrait in Montagent. Ignoring EXIF creates a silent mismatch where the author's declared rect contradicts the visual appearance of the source.
 
 3. **Pixel aspect ratio normalization is standard.** Video streams can carry non-square PAR (e.g., 1.2:1). But that is a display-time correction, not a geometry of the source. The fit rule works on pixel dimensions, not display dimensions. Normalizing PAR to 1:1 means independent implementers agree on the raw pixel count, not the display scaling.
 
@@ -111,7 +111,7 @@ The normative definition of "source dimensions" (R2-Q4) must clarify: for video,
 
 1. **The rule is about spatial fitting, not temporal properties.** `fit` describes how source spatial dimensions map to a declared rect. A video's frame dimensions fit into a clip the same way an image's pixel dimensions do. The source-range (start/end of playback) is a separate concern, governed by ADR-0005, not by the fit rule.
 
-2. **ADR-0003 commits Montaget to general video editing.** The architecture must accept video clips, not just images. If the fit rule is scoped to image only, video elements cannot use `clip` for aperture, and the scaling/Ken Burns geometry breaks. That is unacceptable for v1.
+2. **ADR-0003 commits Montagent to general video editing.** The architecture must accept video clips, not just images. If the fit rule is scoped to image only, video elements cannot use `clip` for aperture, and the scaling/Ken Burns geometry breaks. That is unacceptable for v1.
 
 3. **The fixture doesn't test video, but the absence is not evidence.** All 8 elements are images; zero are video. By ADR-0003, this is evidence that images must work; it is not evidence that video cannot or should not.
 

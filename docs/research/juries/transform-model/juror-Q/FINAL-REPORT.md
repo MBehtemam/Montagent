@@ -67,7 +67,7 @@ The format's core principle is: *by reading the document, you can answer what is
 - Problem is present and concrete (not hypothetical)
 - Inexpressible by other means (unlike Ken Burns, which might be pure keyframes)
 - Not explicitly in #22's scope
-- Prevents silent render bugs (Montaget's core principle)
+- Prevents silent render bugs (Montagent's core principle)
 - Avoids retroactive schema changes
 
 ---

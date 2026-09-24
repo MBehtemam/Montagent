@@ -2,7 +2,7 @@
 
 **Status:** accepted
 **Date:** 2026-09-04
-**Resolves:** [#28](https://github.com/MBehtemam/Montaget/issues/28)
+**Resolves:** [#28](https://github.com/MBehtemam/Montagent/issues/28)
 **Supersedes:** the "Text and internationalisation" paragraph of
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md). Everything else in
 ADR-0007 stands.
@@ -27,11 +27,11 @@ and then files the Thai fork as a renderer question:
 > Thai breaks at spaces only — silently and plausibly wrong. `parley` declares a
 > `complex-scripts` feature … Neither has been run.
 
-[#27](https://github.com/MBehtemam/Montaget/issues/27) ran it. The fork is real and
+[#27](https://github.com/MBehtemam/Montagent/issues/27) ran it. The fork is real and
 large: cosmic-text offers **zero** break opportunities in Thai, Khmer and Lao, parley
 with the flag off is byte-for-byte identical, and the flag costs 3.82 MB of binary and
 no startup time. That measurement made the contradiction load-bearing, because a
-discriminator worth 3.82 MB is about to be weighted into [#7](https://github.com/MBehtemam/Montaget/issues/7).
+discriminator worth 3.82 MB is about to be weighted into [#7](https://github.com/MBehtemam/Montagent/issues/7).
 
 ## Decision
 
@@ -63,7 +63,7 @@ shipped video — the same argument that admits `measure` at all.
 
 **The `SA` dictionary fork is therefore an authoring-tool requirement, not a renderer
 requirement.** `icu_segmenter` can be called directly by `measure` whichever crate
-renders. [#7](https://github.com/MBehtemam/Montaget/issues/7) must not weight #27's
+renders. [#7](https://github.com/MBehtemam/Montagent/issues/7) must not weight #27's
 3.82 MB discriminator as a renderer criterion.
 
 ### `\n` stays the only break mechanism, and no wrap policy field is ever added
@@ -77,15 +77,15 @@ own named failure: *"a field the renderer cannot honour is worse than no field."
 `box` remains a **check input**, not behaviour. `validate` states overflow as a fact;
 the renderer never clips, shrinks or wraps it away.
 
-### Montaget owns the line partition. It splits on mandatory breaks itself.
+### Montagent owns the line partition. It splits on mandatory breaks itself.
 
-**Montaget splits the text into lines and hands each line to the layout stack as its
+**Montagent splits the text into lines and hands each line to the layout stack as its
 own paragraph.** It does not delegate the partition.
 
 Three independent reasons, and it is required by ADR-0007 regardless of any defect:
 
 1. **ADR-0007's own line-height rule forces it.** *"A line's height is the largest
-   `size` among the runs on that line × `line_height`."* Montaget must know which runs
+   `size` among the runs on that line × `line_height`."* Montagent must know which runs
    are on which line before it can place anything; it cannot learn the partition from a
    shaper it then has to feed per-line metrics to.
 2. **It is semantics-preserving.** Under no-auto-wrap, a mandatory break is the only
@@ -111,7 +111,7 @@ break" obscured it.
 
 - **`measure` grows a break-opportunity output**, dictionary-backed for class `SA`,
   reporting the segmenter and data version alongside the offsets. It is the only place
-  in Montaget that needs a Thai dictionary.
+  in Montagent that needs a Thai dictionary.
 - **A conformance test is part of the renderer contract**, not a nicety: for every
   script in the fixture matrix, `lines == mandatory breaks + 1`, split at exactly the
   authored offsets. It is cheap and it catches the defect below.

@@ -10,7 +10,7 @@ The contradiction in ADR-0040 is real and requires amendment. The bare `mask: "c
 
 Verified against the repository:
 
-1. **The fixture contains the bare key.** Line extracted from `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`:
+1. **The fixture contains the bare key.** Line extracted from `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`:
    ```json
    {"id":"handle-logo","type":"image","group":"header","start":0,"end":65216,
     "source":"brand/logo-en.png","x":478,"y":96,"origin":"top-left","width":68,

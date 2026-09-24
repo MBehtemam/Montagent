@@ -10,13 +10,13 @@ revisions in the window I tested and carries **zero** distinguishing signal; the
 genuine pre-ADR-0015 file narrows only to a **three**-revision window that contains
 two breaking changes; and ADR-0013 changed what a legal file means while changing zero
 bytes, which defeats shape inference by construction. My answer is therefore (a): **one
-top-level integer, `"montaget": N`, which is a claim the author makes about the spec
+top-level integer, `"montagent": N`, which is a claim the author makes about the spec
 they wrote against — a lower bound, never an equality — checked by `validate` against
 shape and obeyed by no renderer, ever.** It is the same species of field ADR-0015
 invented for `fit`: a provenance tag whose only consumer is `validate`. It should not
 exist until the JSON Schema resource exists, because a version number names a legality
-predicate and Montaget currently has none (fact 2). And there should be **no
-`montaget migrate` verb**: migration that is arithmetic can ship as a script beside its
+predicate and Montagent currently has none (fact 2). And there should be **no
+`montagent migrate` verb**: migration that is arithmetic can ship as a script beside its
 ADR, as #42 and #48 already did, and migration that requires deciding what the author
 meant is authorship, which in this project is the agent's job and not the tool's.
 
@@ -91,7 +91,7 @@ and A3 removed the fallback; A4 removed "the integer equals the revision."
 
 **(a), with three qualifications that do most of the work.**
 
-One top-level key, first in the file, `"montaget": 1`. And:
+One top-level key, first in the file, `"montagent": 1`. And:
 
 1. **It is a lower bound, not an equality.** It states *the revision of the spec this
    file was authored against*. A file saying `1` in a world at revision 4 is **not an
@@ -139,7 +139,7 @@ survives on a different, nameable failure that **does not require versioning at 
 > hypothetical. The fixture's own directory ships `reference/beats.json` and
 > `transcript.json` — real JSON files sitting beside the real project file — and the
 > tool surface (ADR-0011) is a CLI plus an MCP server taking file paths. A
-> `.montaget.json` file with no marker is indistinguishable from any other JSON object
+> `.montagent.json` file with no marker is indistinguishable from any other JSON object
 > with a `tracks` key.
 
 So a magic key is warranted on its own. **Given that the key is there, making its value
@@ -153,7 +153,7 @@ On the brief's direct question — **is a confidently wrong version number worse
 version number?** Under qualification (2) it is **not**, and that is the design's main
 load. Both error directions are safe:
 
-- **Wrong-low** (an agent copies `"montaget": 1` into a file it wrote at revision 4):
+- **Wrong-low** (an agent copies `"montagent": 1` into a file it wrote at revision 4):
   a false but *conservative* claim. Validate finds no revision-1-to-4 discrepancies in
   the shape and can say so: *"declares 1; no discrepancy found; you may raise this."*
 - **Wrong-high** (claiming 4 while writing revision-1 shapes): **detected**, because
@@ -170,7 +170,7 @@ reading — is unreachable, because nothing reads it. Under (b) it is the normal
 - Measure the error-message claim: run #48's consumer-exercise design on a stale file
   with dated versus undated `validate` output. If dated messages produce no better
   repair rate, the versioning half of this answer collapses to a bare magic marker —
-  and I would accept `"montaget": 1` frozen at 1 forever, which is a real and
+  and I would accept `"montagent": 1` frozen at 1 forever, which is a real and
   defensible outcome.
 - If, once the schema resource exists, a released revision can be found that changes
   the rendered output of a byte-identical legal file **and** whose effect is detectable
@@ -187,7 +187,7 @@ reading — is unreachable, because nothing reads it. Under (b) it is the normal
 number, it is the publication of the JSON Schema resource.**
 
 The reason is fact 2, and it is harder than "we haven't shipped". **A version number
-names a legality predicate, and Montaget has none.** The format is fifteen ADRs of
+names a legality predicate, and Montagent has none.** The format is fifteen ADRs of
 prose. ADR-0013 explicitly left *"whether `fit` may be omitted, and what omission
 means"* undefined — so at revision 0013 there was **no fact of the matter** about
 whether my `amb-B` file was legal. You cannot bump a number that indexes a predicate
@@ -251,11 +251,11 @@ committed byte-diff, which is stricter than most post-1.0 projects manage.
 ### Preferred answer
 
 **(b) now, and after the trip it becomes (a) *as a design target* without becoming a
-general migration tool.** Concretely: **`montaget migrate` should not exist.**
+general migration tool.** Concretely: **`montagent migrate` should not exist.**
 
 The line I propose is one the project already owns. `shift` is in the tool surface
 because it is *"the one edit that is arithmetic rather than authorship, and therefore
-the one Montaget performs instead of the agent."* Apply the same test to migrations:
+the one Montagent performs instead of the agent."* Apply the same test to migrations:
 
 - **Arithmetic migrations** — a deletion (`gravity`), a rename, a mechanical
   restructure — are total functions of the document. They may ship as a committed,
@@ -293,7 +293,7 @@ justify it, and that its first version should be the arithmetic subset only.
 least equipped to do it.** Someone with a 200-element project and six revisions of drift
 will not hand-repair it from error messages. Two supporting jabs: (i) a shipped migrator
 *could* get out-of-document input — #42's script needed source dimensions, and a
-released Montaget has `probe` and `measure`, so "it needs to look at the disk" is not
+released Montagent has `probe` and `measure`, so "it needs to look at the disk" is not
 the barrier I implied; (ii) my `update_element` analogy is weaker than it sounds. The
 banned family takes a *field name from the caller*; a migrator takes none — the field
 names are baked in. The letter of the write-tool invariant does not forbid `migrate`,
@@ -305,15 +305,15 @@ The concession first: **the invariant argument is an analogy, not a derivation**
 the "needs the disk" argument is wrong. The load-bearing argument is arithmetic versus
 authorship, and it stands on its own.
 
-On the main attack: the person is not the one doing it. **Montaget is an agent-first
+On the main attack: the person is not the one doing it. **Montagent is an agent-first
 editor with no GUI** — the file is always in the hands of an LLM that authors and edits
 by exact-string replace. A migration performed by an agent against precise,
 replacement-naming error messages is the *same act* as the authoring the format already
 assumes, on a file laid out (one element per line, stable key order, sorted by `start`)
-precisely to make that act reliable. A general migrator would be Montaget doing, worse
+precisely to make that act reliable. A general migrator would be Montagent doing, worse
 and speculatively, the one thing it can count on the agent doing well.
 
-And under file-as-truth the sweep a migrator wants to perform does not exist: Montaget
+And under file-as-truth the sweep a migrator wants to perform does not exist: Montagent
 never holds a database, and the old revision of any file is already recoverable — A1's
 `gravity:"center"` survived only in git, which is where file-as-truth says it should be.
 
@@ -419,7 +419,7 @@ left to convention.
 - #61 or #73 resolving in a way that makes "optional field" unobservable in a formatted
   file would collapse the exempt row and mean **every** change bumps — at which point
   the number's information content is zero and Q1's fallback (a frozen magic marker,
-  `"montaget": 1` forever) becomes the right answer.
+  `"montagent": 1` forever) becomes the right answer.
 
 ---
 
@@ -432,7 +432,7 @@ left to convention.
   brief asked me to classify it; it did not ask how it is repaired, and I do not have an
   answer I believe.
 - **Whether the declared integer should also appear in `create_project`'s scaffold.**
-  ADR-0011 gives Montaget a tool that writes a legal file from nothing. If the scaffold
+  ADR-0011 gives Montagent a tool that writes a legal file from nothing. If the scaffold
   emits the current revision, then most files carry a *correct* integer with no agent
   effort and fact 6's hazard mostly evaporates — the stale-copy path only bites files
   copied from older files. I think this is the strongest practical argument for the
@@ -453,7 +453,7 @@ left to convention.
 2. **Multi-revision repair by agent.** Give agents a file two or three revisions stale
    and the current spec; count how far they get from error messages alone. This is the
    measurement that decides Q3.
-3. **Stale-integer copy rate.** Ship a fixture carrying `"montaget": 1`, bump the
+3. **Stale-integer copy rate.** Ship a fixture carrying `"montagent": 1`, bump the
    revision, and measure whether agents authoring new files copy the stale integer. Fact
    6 predicts they will; my answer predicts it is harmless because wrong-low is
    conservative and wrong-high is detected. Both halves are testable.
@@ -464,7 +464,7 @@ left to convention.
 
 | | confidence | where it is low |
 | --- | --- | --- |
-| **Q1** — one integer, lower-bound, validate-only | **moderate** | The *marker* is well justified by a named failure; the *versioning* half rests on an unmeasured ergonomic claim I have labelled as such. If measurement 1 comes back null, I would accept a frozen `"montaget": 1` and call the versioning question closed. The refutation of (b) and (c) I hold at **high** confidence — (c) is measured. |
+| **Q1** — one integer, lower-bound, validate-only | **moderate** | The *marker* is well justified by a named failure; the *versioning* half rests on an unmeasured ergonomic claim I have labelled as such. If measurement 1 comes back null, I would accept a frozen `"montagent": 1` and call the versioning question closed. The refutation of (b) and (c) I hold at **high** confidence — (c) is measured. |
 | **Q2** — pre-1.0 clause; trip is the schema resource | **high** | The fact-2 argument (you cannot index a legality predicate that does not exist) is the one I would defend hardest, and ADR-0013's own undefined `fit` omission is direct evidence for it. Low confidence only on whether schema and renderer ship together. |
-| **Q3** — no `montaget migrate`; scripts beside ADRs | **moderate-high pre-1.0, moderate after** | The pre-1.0 half is nearly free: it is current practice, discharged twice. The post-1.0 half is a prediction about an agent population I have not measured, and I conceded two of my own supporting arguments (the `update_element` analogy, the "needs the disk" claim) are weak or wrong. |
+| **Q3** — no `montagent migrate`; scripts beside ADRs | **moderate-high pre-1.0, moderate after** | The pre-1.0 half is nearly free: it is current practice, discharged twice. The post-1.0 half is a prediction about an agent population I have not measured, and I conceded two of my own supporting arguments (the `update_element` analogy, the "needs the disk" claim) are weak or wrong. |
 | **Q4** — the predicate and its table | **high on the table, moderate on "reading not shape"** | The table follows mechanically from the predicate. The reading-not-shape conclusion is an elimination argument that assumes the schema will be published and complete; if the schema is partial, a shape-version briefly has a job again. It is also exposed to #61 and #73, which are open and which I was told not to assume. |

@@ -5,12 +5,12 @@ amends: 0032 (closes the pairwise gap named but not mechanized there), 0063 (the
 
 # Boundary-coincidence-cluster drift is its own `compare` predicate, scoped to all N≥2 and suppressing slack-drift's zero-distance case
 
-[Ticket #162](https://github.com/MBehtemam/Montaget/issues/162), graduated from
+[Ticket #162](https://github.com/MBehtemam/Montagent/issues/162), graduated from
 the map's fog, originally named as unmechanized residue in
 [ADR-0063](./0063-compare-drift-checks-keyframe-instant-relationships.md).
 Resolved by a jury of three independent models (Opus, Sonnet, Haiku) plus a
 fixture measurement pass against the real, currently-committed fixture
-(`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`).
+(`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`).
 Evidence in
 [`docs/research/juries/boundary-coincidence-cluster-drift/`](../research/juries/boundary-coincidence-cluster-drift/).
 
@@ -134,5 +134,5 @@ see.
   "at least one keyframe" scope; the new predicate is a sibling, not an
   extension.
 - **The map's Not yet specified entry for this gap is resolved**, recorded
-  in [#162](https://github.com/MBehtemam/Montaget/issues/162).
+  in [#162](https://github.com/MBehtemam/Montagent/issues/162).
 - **No schema change, no renderer change.**

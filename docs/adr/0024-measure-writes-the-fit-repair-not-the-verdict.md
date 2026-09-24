@@ -9,9 +9,9 @@ amends: 0011 (`measure` gains a fitted-extent output), 0015 (discharges its "no 
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) promoted fit deviation to
 an `error` at strict equality but shipped no tool that produces the integer the error names.
 The author must recompute `(s_slack * b_driving) // s_driving` by hand, in exact integer
-arithmetic, against source dimensions they must probe themselves — [#48](https://github.com/MBehtemam/Montaget/issues/48)'s
+arithmetic, against source dimensions they must probe themselves — [#48](https://github.com/MBehtemam/Montagent/issues/48)'s
 consumer exercise found a re-exported source forcing this was the single most common edit.
-[#54](https://github.com/MBehtemam/Montaget/issues/54) asked what closes that gap, and raised
+[#54](https://github.com/MBehtemam/Montagent/issues/54) asked what closes that gap, and raised
 a larger question underneath it: should `width`/`height` even stay author-written, or should
 they become tool-derived and optional under `cover`/`contain`, dissolving the strict-equality
 rule ADR-0015 stated is conditional on authors typing the integer?

@@ -12,7 +12,7 @@ joins the properties SPLIT must handle and the 0.000 px result must be re-run ov
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) then made `clip`'s
 width/height the box a `fit` rule (`cover`/`contain`) derives an element's declared
 `width`/`height` against, checked at strict integer equality — which only has a well-defined
-predicate if `clip` has one value, not one per instant. [#55](https://github.com/MBehtemam/Montaget/issues/55)
+predicate if `clip` has one value, not one per instant. [#55](https://github.com/MBehtemam/Montagent/issues/55)
 asked whether that tension should be resolved by making `clip` keyframable (and picking an
 instant for the fit check) or by keeping it static.
 
@@ -36,7 +36,7 @@ model of motion is *a static aperture with content moving behind it*: `scale`/`x
 moving, `clip` does not need to. A wipe or reveal in the CapCut/Premiere reference class
 (ADR-0003) is almost never authored as an animated source crop; it is a transition or a mask
 applied *over* an already-fitted element — a **visibility-over-time** concept, not a
-**source-selection** one. Montaget's `clip` is the latter. Forcing a reveal through it would
+**source-selection** one. Montagent's `clip` is the latter. Forcing a reveal through it would
 buy only the weakest version of the feature (a hard-edged rectangular wipe, no direction, no
 softness) at the cost of reopening SPLIT — verified to 0.000 px for its current property
 set — for a property zero of the eight elements in the only real project file use.

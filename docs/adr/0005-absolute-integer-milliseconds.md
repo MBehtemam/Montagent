@@ -43,7 +43,7 @@ starting at 7500 is.
 There is no relative or sequential authoring mode, and no materialised second
 representation of the same fact.
 
-Because absolute times make structural edits O(n), **Montaget supplies a `shift`
+Because absolute times make structural edits O(n), **Montagent supplies a `shift`
 tool** and the two decisions stand or fall together.
 
 ## Why absolute, and why the pairing is not optional
@@ -54,7 +54,7 @@ that choice rather than inheriting it.
 
 Three agents authored a real project and performed four edits on it. The result
 splits cleanly and reproduces the finding from
-[#20](https://github.com/MBehtemam/Montaget/issues/20):
+[#20](https://github.com/MBehtemam/Montagent/issues/20):
 
 **Reading is free.** All three answered "what is on screen at 6.2s" correctly and
 immediately, by comparison, with no arithmetic. This is the operation the whole
@@ -156,7 +156,7 @@ agents independently shipped a project whose narration outran its last visual, a
 in all three cases it survived every check they ran. It is neither a gap nor an
 overlap — both are within-track predicates — but a divergence *between* tracks, to
 which a per-track validator is structurally blind. That is
-[#23](https://github.com/MBehtemam/Montaget/issues/23), not this decision.
+[#23](https://github.com/MBehtemam/Montagent/issues/23), not this decision.
 
 ## Timeline range against the source
 

@@ -31,7 +31,7 @@ names what the other two name: where the integers came from. Here, from the decl
 
 *`none` is the one candidate that is actively dangerous, and it is dangerous in the
 format's own preferred failure mode — quietly.* CSS `object-fit: none` means **use the
-source's intrinsic pixel size and crop to the box — do not resample**. Montaget's escape
+source's intrinsic pixel size and crop to the box — do not resample**. Montagent's escape
 means the exact opposite: **do resample, to my integers, anisotropically if that is what
 the numbers say.** Same word, inverted behaviour, and an agent arriving from CSS — which
 is the population this format keeps designing against (ADR-0013 reached for
@@ -45,7 +45,7 @@ A value whose spelling is a synonym for the illegal state is a trap.
 *`exact` is spent inside this repo's own prose.* ADR-0013 uses "exact" throughout as a
 term of art for *the unrounded real value*: "exact cover here is **1912.5** px", "exact
 integer arithmetic", "it is exact by construction". `fit:"exact"` therefore reads to a
-Montaget-native reader as *"do the cover computation exactly, don't floor it"* — which is
+Montagent-native reader as *"do the cover computation exactly, don't floor it"* — which is
 not an escape, it is a fourth rounding mode, and it is unrepresentable (extents are
 integers). The word is unavailable.
 
@@ -59,7 +59,7 @@ honour.
 
 *There is no CSS-native name available anyway, which is itself the argument against
 reaching for one.* CSS's word for this concept is `object-fit: fill`, and `fill` is
-**doubly spent** in Montaget: ADR-0005 spends it on the time axis (`fill: hold|loop`) and
+**doubly spent** in Montagent: ADR-0005 spends it on the time axis (`fill: hold|loop`) and
 ADR-0014 spends it on shape paint (all 10 `rect` elements carry `fill`). So any
 CSS-shaped name we choose will necessarily be the *wrong* CSS word. Better to choose a
 word CSS does not have at all: an agent from CSS meets an unfamiliar token, must look it
@@ -374,10 +374,10 @@ handling has changed across major versions). Coded dimensions are the one number
 decoder on earth reads identically from the header. So a rule saying *"use what your
 decoder presents"* may have **imported** the divergence it was written to eliminate,
 defining the answer in terms of the very thing that varies. The counter is serious, and the
-principled answer is that Montaget must then pin the *behaviour* rather than delegate it —
+principled answer is that Montagent must then pin the *behaviour* rather than delegate it —
 normatively enumerate the eight EXIF orientation values and their width/height transposition,
 require the `eXIf` chunk to be honoured for PNG, and require clean aperture to be applied —
-so that "presentation dimensions" is a Montaget definition and not a deference to whatever
+so that "presentation dimensions" is a Montagent definition and not a deference to whatever
 library is linked. That is more specification than this ADR may want to carry. But the
 alternative — coded dimensions — guarantees that validate and render disagree on any
 rotated JPEG, which is a **certainty** rather than a risk, and I take a specified risk over

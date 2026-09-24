@@ -92,7 +92,7 @@ reason. It is recorded because it is interesting, not because it decides anythin
 
 `stroke` (a colour) and `stroke_width` (an integer) on shapes; on text, additionally
 available as a **run** style delta. The boundary against
-[#22](https://github.com/MBehtemam/Montaget/issues/22)'s effect vocabulary is:
+[#22](https://github.com/MBehtemam/Montagent/issues/22)'s effect vocabulary is:
 
 > A stroke is a second paint on the same outline, run-addressable, that never enlarges
 > the declared rect.
@@ -154,7 +154,7 @@ eight-digit forms. This is ADR-0013's clause for declared extents, extended: und
 declared-authoritative, the spelling is content.
 
 The ASS `&HAABBGGRR` convention — byte-reversed, with alpha *inverted* so `00` is opaque
-— is documented here as the trap it is. Montaget's spelling is RGB order with `FF`
+— is documented here as the trap it is. Montagent's spelling is RGB order with `FF`
 opaque. Every colour in the fixture was converted out of the ASS form by hand.
 
 ### `radius` is a field on `rect`; `fill` becomes optional once `stroke` exists
@@ -177,7 +177,7 @@ it will be a named entry in a closed vocabulary, not an open syntax.
 ### `gravity` is not decided here
 
 It is *which part of the source survives the crop*, meaningless except as a modifier of a
-fit rule whose vocabulary [#48](https://github.com/MBehtemam/Montaget/issues/48) owns and
+fit rule whose vocabulary [#48](https://github.com/MBehtemam/Montagent/issues/48) owns and
 which ADR-0013 deliberately scoped to `cover` alone. Deciding it here would create a
 schema value by implication — the refusal ADR-0013 made by name. Unanimous across all
 eight sessions.
@@ -250,7 +250,7 @@ goes stale silently whenever a font or a string changes, and it belongs in ADR-0
 - **Recorded residual, inherited:** the 7 container-copied heights are *copies, not
   bindings*. Resize `card-05` and `validate` stays green on a now-stale caption height —
   the placement-drift failure ADR-0012 named when it retired `box:"<id>"`, which
-  [#24](https://github.com/MBehtemam/Montaget/issues/24) owns.
+  [#24](https://github.com/MBehtemam/Montagent/issues/24) owns.
 - `#22` loses a candidate: **"text background box" should be struck from its list**, since
   the fixture's navy card is already a `rect` and needs nothing from the effect
   vocabulary. `mask` — the fixture's undeclared `mask:"circle"` — stays #22's.
@@ -267,7 +267,7 @@ preferred answer before endorsing it. Briefs and all eight answers are in
 `docs/research/juries/text-shape-primitives/`; `verify_facts.py` re-derives every factual
 claim above and exits non-zero if one stops reproducing.
 
-**State plainly what this is not: none of it has been rendered.** No Montaget renderer
+**State plainly what this is not: none of it has been rendered.** No Montagent renderer
 exists, so not one of these decisions has been tested against a frame. Eight agreeing
 sessions are eight arguments from the ADRs, the fixture and the published MP4 — not a
 measurement. The first render is where the stroke geometry and the `2 × stroke_width`

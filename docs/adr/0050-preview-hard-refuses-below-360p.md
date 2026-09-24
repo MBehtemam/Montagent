@@ -25,7 +25,7 @@ amends: 0021 (states the deferred floor), 0046 (adopts a floor below the 720p ta
 below which `preview` hard-refuses rather than return something "too degraded to make a
 decision from," and deferred the number to measurement.
 [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md) fixed the proxy-preview
-*target* at 720p and graduated the floor to [#117](https://github.com/MBehtemam/Montaget/issues/117)
+*target* at 720p and graduated the floor to [#117](https://github.com/MBehtemam/Montagent/issues/117)
 as a `/prototype` ticket, on the same discipline: this is a visual-legibility judgment, not
 one a wall-clock benchmark can answer.
 

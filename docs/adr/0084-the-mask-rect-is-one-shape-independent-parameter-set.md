@@ -5,7 +5,7 @@ amends: 0040 (writes the `...shape params` ellipsis it left unwritten, and state
 
 # The mask rect is one shape-independent parameter set, element-local, and it rides the transform
 
-**Ticket:** [#185](https://github.com/MBehtemam/Montaget/issues/185), graduated from
+**Ticket:** [#185](https://github.com/MBehtemam/Montagent/issues/185), graduated from
 [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md).
 
 [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) wrote the mask union member as

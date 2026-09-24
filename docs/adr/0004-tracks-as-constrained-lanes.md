@@ -12,7 +12,7 @@ supersedes: partially supersedes 0001
 > the project's ends: a track holding one element inside a longer project reports no gap.
 
 > **Amended by [ADR-0031](./0031-timeline-overview-is-not-required-to-be-spatial.md)**:
-> the "`montaget timeline` output must make absolute times unmissable" duty below is
+> the "`montagent timeline` output must make absolute times unmissable" duty below is
 > satisfied by a flat listing exactly as well as a spatial axis — measurement found no
 > agent-facing benefit to the axis, and the requirement's own text never named the
 > mechanism, only the goal.
@@ -41,7 +41,7 @@ A project holds a `tracks` array. Each track is a named container with an intege
 their own absolute `start` and `end`; **array order carries no timing meaning**.
 
 **Children of one track may not overlap in time.** That is a validation error, not
-a storage rule — the file can express it, `montaget validate` refuses it.
+a storage rule — the file can express it, `montagent validate` refuses it.
 
 An element may **override its stacking** with its own integer `layer`, or with an
 **anchor** naming another element: `"layer": {"below": "title"}` resolves to that
@@ -54,13 +54,13 @@ element, no per-kind collections, inline `source`.
 ## Why
 
 **The reference class stores exactly this.** [ADR-0003](./0003-general-video-editor-not-channel-tooling.md)
-settled that Montaget is a general video editor in the CapCut/Premiere class.
+settled that Montagent is a general video editor in the CapCut/Premiere class.
 Premiere's `getStartTime`, Resolve's `GetStart()` and CapCut's `target_timerange`
 each pair a track with an **absolute time range per item** and a separate source
 range ([research](../research/track-vs-layer.md) §2.2–§2.4). Field for field, that
 is this decision. The shipping editors never made tracks and absolute times
 alternatives; only the interchange formats — OTIO's `Track`, FCPXML's `spine` —
-derive position from order, and Montaget is not an interchange format.
+derive position from order, and Montagent is not an interchange format.
 
 **ADR-0001 rejected the wrong thing.** Its objection was that "track" promises
 sequencing it would not deliver. The research confirmed that premise five for five
@@ -116,7 +116,7 @@ position. **The `scene` rejection in ADR-0001 stands unchanged.**
 The risk is real and must be defended in the schema, not just in prose: a reader
 who assumes array order means sequence will be wrong. One agent named exactly this
 — a track array *"looks sequential"*, tempting an "eyeball confirmation" that is
-invalid. The published schema and `montaget timeline` output must both make
+invalid. The published schema and `montagent timeline` output must both make
 absolute times unmissable.
 
 ## What this costs

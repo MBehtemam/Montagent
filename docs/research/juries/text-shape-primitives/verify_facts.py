@@ -18,7 +18,7 @@ import json, math, pathlib, re, struct, sys, zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 FIX = ROOT / "fixtures" / "en-halloween-decorating"
-PROJECT = FIX / "en-halloween-decorating.montaget.json"
+PROJECT = FIX / "en-halloween-decorating.montagent.json"
 SUBS = sorted((FIX / "reference" / "subtitles").glob("*.ass"))
 
 failures = []

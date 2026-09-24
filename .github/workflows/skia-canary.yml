@@ -33,7 +33,7 @@ on:
   pull_request:
     paths:
       - "Cargo.toml"
-      - "crates/montaget-render/Cargo.toml"
+      - "crates/montagent-render/Cargo.toml"
       - "ci/assert_prebuilt_key.py"
       - ".github/workflows/skia-canary.yml"
 
@@ -95,7 +95,7 @@ jobs:
           echo "CARGO_TARGET_DIR=${{ runner.temp }}/cold-target" >> "$GITHUB_ENV"
           echo "${{ runner.temp }}/cold-cargo-home/bin" >> "$GITHUB_PATH"
 
-      # `montaget-render` declares `skia-safe` before anything calls it (#189),
+      # `montagent-render` declares `skia-safe` before anything calls it (#189),
       # precisely so this builds something. `-vv` is what surfaces the build
       # script's stdout, which is the only place the resolved key is stated.
       #
@@ -103,11 +103,11 @@ jobs:
       # `no-compile`: a prebuilt miss panics the build instead of spending forty
       # minutes compiling Skia. It is a build-machinery switch rather than a Skia
       # feature, so it does not move the key.
-      - name: Cold build of montaget-render
+      - name: Cold build of montagent-render
         shell: bash
         run: |
           set -o pipefail
-          cargo build -vv -p montaget-render --target ${{ matrix.target }} \
+          cargo build -vv -p montagent-render --target ${{ matrix.target }} \
             2>&1 | tee "${{ runner.temp }}/skia-build.log"
 
       # Stricter than "the build succeeded": the resolved feature set must be

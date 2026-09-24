@@ -10,7 +10,7 @@ amends: 0007 (states the baseline rule the slot definition never gave), 0011
 *the largest `size` among the runs on that line* × `line_height` — and a worked
 example that places the block (size 55, `line_height` 1.1, centred on 1537 →
 1506.75–1567.25). It never says where the glyph baseline sits **inside** that slot.
-[#59](https://github.com/MBehtemam/Montaget/issues/59) measured why that gap is
+[#59](https://github.com/MBehtemam/Montagent/issues/59) measured why that gap is
 live, not academic: against the fixture's actual font at size 55, ascent + descent
 **exceeds** the 60.5 px slot (negative leading), so the three candidate conventions
 — CSS half-leading, ascent-anchored-to-top, descent-anchored-to-bottom — disagree by
@@ -104,7 +104,7 @@ keyframe, ADR-0014's paint-versus-pixels line). Full ballots: `docs/research/jur
 - The existing (undocumented) prototype at `docs/research/prototypes/rust-rasterizer/src/text.rs`
   already implements half-leading for the single-run case — this ADR gives it
   documentary authority and does not change its output there.
-- **Untested by the fixture.** `fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`
+- **Untested by the fixture.** `fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`
   contains zero multi-run text elements with differing run sizes, so the
   max-across-all-runs rule has no worked example to check against and changes zero
   committed bytes. This is the same shape of gap ADR-0022's effect-vocabulary entry

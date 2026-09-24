@@ -5,7 +5,7 @@ amends: 0015 (discharges the deferred "PAR and video source dimensions" clause; 
 
 # Source dimensions generalise to video: rotation resolves, then PAR, then one integer
 
-> **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montaget-observed.md)**,
+> **Amended by [ADR-0069](./0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montagent-observed.md)**,
 > which answers the *"PAR provenance for the probe sidecar"* sub-question parked
 > under **Not settled here** below: **yes** — the resolved rotation-applied
 > dimensions and the file's own probed `par` are both stored in the sidecar. The
@@ -18,14 +18,14 @@ dimensions" — the input to `fit`'s `cover`/`contain` arithmetic — as *decode
 orientation-applied integer pixel dimensions*, and explicitly deferred non-square pixel
 aspect ratio (PAR): "Raster images are square-pixel; a PAR rule written now would be
 untestable speculation with no element to exercise it." [ADR-0003](./0003-general-video-editor-not-channel-tooling.md)
-commits Montaget to video clips, so that deferral's own stated condition has lapsed —
-[#53](https://github.com/MBehtemam/Montaget/issues/53) asks the question the deferral
+commits Montagent to video clips, so that deferral's own stated condition has lapsed —
+[#53](https://github.com/MBehtemam/Montagent/issues/53) asks the question the deferral
 postponed.
 
 Decided by a three-question, three-model independent court (Opus, Haiku, Fable — one
 juror per model per question, no persona, no assigned stance), following an interview
 round that produced the same recommendations the court then cross-examined. Full ballots
-in [#53](https://github.com/MBehtemam/Montaget/issues/53).
+in [#53](https://github.com/MBehtemam/Montagent/issues/53).
 
 ## Source dimensions are one definition, not two
 
@@ -125,7 +125,7 @@ to suppress.
 
 - **PAR provenance for the probe sidecar.** Whether `par` (and the resolved
   rotation-applied dimensions) belong in the gitignored probe sidecar at zero extra I/O is
-  a mechanical fact ([#4](https://github.com/MBehtemam/Montaget/issues/4)'s sidecar
+  a mechanical fact ([#4](https://github.com/MBehtemam/Montagent/issues/4)'s sidecar
   design), not decided here — this ADR only fixes what the *element* declares and what
   `fit`'s arithmetic consumes.
 - **A real PAR/rotation-bearing video fixture.** As ADR-0015 recorded for EXIF

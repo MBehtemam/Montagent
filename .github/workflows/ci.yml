@@ -72,7 +72,7 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      # Montaget spawns an `ffmpeg` the user supplies rather than bundling one
+      # Montagent spawns an `ffmpeg` the user supplies rather than bundling one
       # (ADR-0009: `libx264` is GPL and linking `libavcodec` would make the
       # shipped binary a GPL combined work), so CI supplies one the same way a
       # user would.
@@ -84,7 +84,7 @@ jobs:
       #
       # `embed-freetype` would remove the freetype half — and it is one of the
       # features `skia-bindings` keys its prebuilt on, so turning it on moves
-      # Montaget off `jpegd-jpege-pdf`. That is its own ticket that re-verifies
+      # Montagent off `jpegd-jpege-pdf`. That is its own ticket that re-verifies
       # all six targets (#189), not a thing to do while chasing a red build.
       - name: Install ffmpeg and Skia's Linux link dependencies
         if: runner.os == 'Linux'
@@ -135,7 +135,7 @@ jobs:
         run: cargo test -p rast-bench --release --target ${{ matrix.target }} -- --nocapture
 
       # `--all-targets` skips doctests, which is where several of the ADR
-      # citations in `montaget-core` live.
+      # citations in `montagent-core` live.
       - name: Doctests
         run: cargo test --workspace --doc --release --target ${{ matrix.target }}
 
@@ -144,7 +144,7 @@ jobs:
       # render of the fixture and checked against whatever pivot the project
       # file declares, so reverting the fixture fails here. It lives here
       # rather than in `committed
-      # checks` because it needs a built `montaget` and that job deliberately
+      # checks` because it needs a built `montagent` and that job deliberately
       # has no Skia in it; it is pinned to one leg because the answer is a fact
       # about the published video, not about the target, and running it six
       # times would be six copies of one measurement.
@@ -157,7 +157,7 @@ jobs:
         run: |
           python3 -m pip install --break-system-packages pillow
           python3 ci/reference_frame_instants.py \
-            --binary target/${{ matrix.target }}/release/montaget
+            --binary target/${{ matrix.target }}/release/montagent
 
   checks:
     # Formatting and the committed re-executable checks `docs/agents/domain.md`

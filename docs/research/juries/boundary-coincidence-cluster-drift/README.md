@@ -1,6 +1,6 @@
 # Court: closing the boundary-coincidence-cluster gap in `compare`'s drift checks
 
-Evidence backing [ticket #162](https://github.com/MBehtemam/Montaget/issues/162),
+Evidence backing [ticket #162](https://github.com/MBehtemam/Montagent/issues/162),
 graduated from the map's ("Not yet specified") fog, originally named in
 [ADR-0063](../../adr/0063-compare-drift-checks-keyframe-instant-relationships.md).
 
@@ -14,7 +14,7 @@ suppressing slack-drift's zero-distance report, unanimous for running a
 measurement pass before finalizing.
 
 `measure_cluster_drift.py` runs that pass against the real, currently-committed
-fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json`),
+fixture (`fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json`),
 extending `count_coincidences.py`'s cluster count with a "one partner moves"
 simulation to compare pairwise (`C(N,2)`) vs. cluster-level fact volume:
 
@@ -48,5 +48,5 @@ coincidences (not just 3+) closes the correctness gap one juror raised
 against suppression — the new predicate then fully subsumes slack-drift's
 zero-distance case, so suppressing it introduces no reporting hole.
 
-See [ticket #162](https://github.com/MBehtemam/Montaget/issues/162) for the
+See [ticket #162](https://github.com/MBehtemam/Montagent/issues/162) for the
 full ballots and the resulting design.

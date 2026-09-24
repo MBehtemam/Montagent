@@ -2,7 +2,7 @@
 
 ## What I did, and why
 
-**Diagnosis.** `montaget 0.9.2` on this box rejected the file with 16 errors:
+**Diagnosis.** `montagent 0.9.2` on this box rejected the file with 16 errors:
 unknown key `fit` and unknown key `clip` on exactly 8 elements (the 7
 full-frame photo elements and `handle-logo`). Everything else in the file —
 `mask`, `speed`, keyframed `scale`, `runs` — validated, so the binary is only
@@ -53,7 +53,7 @@ The original file is preserved unmodified as `project.json.orig`.
   published video has blue-on-cream. That video would validate, render, and be
   wrong. Rejected — what I did instead replaces the semantics with an
   equivalent construction, not a deletion of meaning.
-- **Upgrading montaget.** No network on the build box, and no other montaget
+- **Upgrading montagent.** No network on the build box, and no other montagent
   binary or package found on disk. Rejected as impossible today.
 - **Guessing the retired/older spellings of `fit`/`clip`** and hoping 0.9.2
   accepts them. Without the spec I would be inventing keys; a wrong guess
@@ -67,13 +67,13 @@ The original file is preserved unmodified as `project.json.orig`.
 ## What I would tell the team
 
 Overnight render of en-halloween-decorating failed: the project file uses the
-newer `fit`/`clip` keys but the build box is still on montaget 0.9.2, which
+newer `fit`/`clip` keys but the build box is still on montagent 0.9.2, which
 predates them. I shipped today's video by rewriting the file in 0.9.2
 vocabulary — removed the 16 offending keys and replaced the photo clip with an
 equivalent background-colored mask rect on layer 11; output should be
 pixel-identical, but please eyeball the caption band and the circular logo
 before publishing. Root cause is version skew between whatever now generates
-our project files and the build box binary — we should upgrade montaget on the
+our project files and the build box binary — we should upgrade montagent on the
 box (and pin generator and renderer versions together), then revert to the
 original file, kept here as `project.json.orig`.
 
@@ -92,7 +92,7 @@ these caveats I could not check:
    undocumented to me; it only matters in the aspect-mismatch case above.
 3. **I could not run a verification render** — the working directory I was
    given contains neither the binary nor the assets, so I validated the JSON
-   structurally but not through `montaget render`. Whoever runs the render
+   structurally but not through `montagent render`. Whoever runs the render
    next should confirm zero errors and visually compare a frame around ~12s
    (caption band + sentence card) and the header logo against the last
    published video before it goes out.

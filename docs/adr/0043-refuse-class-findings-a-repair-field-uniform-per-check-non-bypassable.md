@@ -18,7 +18,7 @@ status: accepted
 > all — neither `"none"` nor a structured value — with any remedy stated as ordinary
 > message text instead. The refuse/advise binary below is otherwise unchanged.
 
-**Ticket:** [#78](https://github.com/MBehtemam/Montaget/issues/78)
+**Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this
 design as required and does not take it)
@@ -55,7 +55,7 @@ tool may lift. The absence of an escape hatch is what makes "refuse" mean refuse
 
 **What the agent is told to do:** stop, do not attempt a repair via ordinary file
 edit, and surface the finding verbatim to whoever is operating it — outside
-Montaget's software boundary entirely, the same posture ADR-0006's `NOT CHECKED`
+Montagent's software boundary entirely, the same posture ADR-0006's `NOT CHECKED`
 block already takes toward what the tool cannot know. No in-file escalation field is
 introduced. Severity stays at the three levels ADR-0006 already closed; `repair` is
 orthogonal to `error`/`review`/`note`, not a fourth level.
@@ -207,7 +207,7 @@ computable from the document alone (i.e. the discriminating fact the gravity cas
 lacked is present for some other retired or refuse-class check), and show agents
 using it produce fewer defects than uniform refusal. Alternatively, exhibit a
 refuse-class finding that genuinely has no legitimate consumer able to supply the
-missing intent even outside Montaget's boundary, which would argue for the in-file
+missing intent even outside Montagent's boundary, which would argue for the in-file
 escalation mechanism rejected above.
 
 ## Not settled here

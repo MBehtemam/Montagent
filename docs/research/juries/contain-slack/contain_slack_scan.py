@@ -14,8 +14,8 @@ from collections import Counter
 from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 
-FIXTURE = Path("fixtures/en-halloween-decorating/en-halloween-decorating.montaget.json")
-IDIOM_EXAMPLE = Path("docs/research/juries/contain-slack/badge-idiom-example.montaget.json")
+FIXTURE = Path("fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json")
+IDIOM_EXAMPLE = Path("docs/research/juries/contain-slack/badge-idiom-example.montagent.json")
 
 failures = []
 
@@ -61,7 +61,7 @@ def main():
     check("center  spelling y = clip.y + clip.h//2", 1700 + 160 // 2, 1780)
     check("both spellings denote one rect (top edge)", 1780 - h // 2, 1747)
 
-    print("\n== the idiom, committed: badge-idiom-example.montaget.json ==")
+    print("\n== the idiom, committed: badge-idiom-example.montagent.json ==")
     # #74 item 4: the real fixture is all `cover`, so this idiom was unexercised by any
     # committed file. This is a synthetic single-element project, not production evidence --
     # it exists only so a regression in the arithmetic fails a check instead of passing one.

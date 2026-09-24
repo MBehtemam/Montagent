@@ -142,7 +142,7 @@ def main():
           "little past the circle the stored one keeps to, and the mask trims that rim:\n"
           "ADR-0075 retires ADR-0068's 'the rendered frame is unchanged' on the strength\n"
           "of it. The frame-level measurement lives in the test suite, where a renderer\n"
-          "is available -- montaget-core, tests/effects.rs.")
+          "is available -- montagent-core, tests/effects.rs.")
     return 0
 
 

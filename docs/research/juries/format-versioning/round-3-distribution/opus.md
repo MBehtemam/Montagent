@@ -4,7 +4,7 @@
 
 **The distribution fact is decided, and it decides *for* the argument's premise.**
 The stale-binary population is non-empty, and not as an open guess: an
-MCP-hosted-only, always-current Montaget is *excluded* by four accepted ADRs
+MCP-hosted-only, always-current Montagent is *excluded* by four accepted ADRs
 acting together, not merely unchosen. So the argument's own stated falsifier does
 not fire, and the argument does not collapse where it said it would.
 
@@ -87,7 +87,7 @@ is that they
 
 > "remain one `Bash` call away, since the agent already carries a shell."
 
-That is `montaget probe …` on the agent's PATH. An MCP-hosted-only Montaget
+That is `montagent probe …` on the agent's PATH. An MCP-hosted-only Montagent
 *cannot* deliver `fmt`, `probe` or `timeline` at all. ADR-0011 also fixes the
 artifact shape: "**One binary, one core library.** The MCP server wraps the
 library, never the CLI — a subprocess per tool call would pay the startup
@@ -110,28 +110,28 @@ element's `source` is "a relative path today". ADR-0007: fonts are files the
 project declares by path — and the fixture's `SF Pro Rounded` "resolves on its
 author's machine only because it was hand-installed". A remote server cannot see
 the user's media, cannot see their fonts, and cannot resolve a relative path in
-their git repo. Note ADR-0002 explicitly contrasts Montaget with the four
+their git repo. Note ADR-0002 explicitly contrasts Montagent with the four
 surveyed products *because* "All four are HTTP services".
 
-Add the project-level frame from the map: Montaget "will be **open source and
+Add the project-level frame from the map: Montagent "will be **open source and
 used by people other than its author**".
 
 ## 2. The map's "Packaging and distribution" fog entry, and what GPL implies
 
 Quoted in full from issue #2, section *Not yet specified*:
 
-> **Packaging and distribution** — how Montaget is installed and run. **Narrowed
+> **Packaging and distribution** — how Montagent is installed and run. **Narrowed
 > hard by ADR-0009, and not in the direction #7 expected.** The host is Rust, so
 > #15's three shapes collapse to one — a compiled binary, no interpreter, no
 > `node_modules`. But the *self-contained* half of that claim is gone: `libx264`
-> is GPL and FFmpeg's legal page states it covers all of FFmpeg, so Montaget
+> is GPL and FFmpeg's legal page states it covers all of FFmpeg, so Montagent
 > spawns an `ffmpeg` **the user supplies**, and bundling one instead makes this
 > project a distributor of GPL software owing source-offer duties under GPL
 > §3/§6. **There is no option that is both self-contained and obligation-free** —
 > what is left here is choosing between those two, plus the container question
 > and the asset-path story.
 
-Read this precisely. The fog entry's own framing is *"how Montaget is **installed**
+Read this precisely. The fog entry's own framing is *"how Montagent is **installed**
 and run"*, and the residual choice it names is **which of two installed shapes**:
 bundle ffmpeg (and owe §3/§6) or require the user to supply one. Neither branch
 is a hosted service. The entry has already spent the question the argument's
@@ -142,13 +142,13 @@ attaches to **conveying** — handing a copy of the covered work to someone else
 Plain GPL-2.0/3.0 has no network-use clause (that is the AGPL, and no document
 here mentions it). Therefore:
 
-- If Montaget were hosted and never downloaded, bundling ffmpeg server-side would
+- If Montagent were hosted and never downloaded, bundling ffmpeg server-side would
   trigger **no** §3/§6 duty whatsoever. The ASP gap covers it completely.
 - ADR-0009 and the map both treat the §3/§6 duty as a **live, unavoidable cost**
   that constrains the design ("no option that is both self-contained and
   obligation-free").
 
-Those two are only consistent if Montaget is **conveyed to users as a
+Those two are only consistent if Montagent is **conveyed to users as a
 downloadable artifact**. The licensing analysis presupposes distribution to
 users; under hosted-only it would be moot, and the paragraph would not have been
 written. *(Inference, not a quotation — but a tight one: the ADR spends real
@@ -166,7 +166,7 @@ about a component in the same process tree.
 
 **Decided, and non-empty.** Sharply, per the brief's instruction:
 
-**The ADRs decide this.** To get an MCP-hosted-only, guaranteed-current Montaget
+**The ADRs decide this.** To get an MCP-hosted-only, guaranteed-current Montagent
 you must overturn: ADR-0009's stdio reasoning (which is the reason its own
 headline measurement is discardable), ADR-0011's CLI-only verbs and its
 "one binary, one core library", ADR-0002's relative source paths, and ADR-0007's
@@ -216,7 +216,7 @@ old binary needs exactly two things, both of which it has:
 - a **promise of monotonicity** on the declared number.
 
 Then `declared > R_self` ⇒ newer than me. No knowledge of the current revision is
-required. This is why the number must be a bare monotone integer (`"montaget": 4`)
+required. This is why the number must be a bare monotone integer (`"montagent": 4`)
 rather than a date, a hash, or a semver with independent components: the predicate
 must remain computable by a binary with no network and no clock.
 
@@ -250,7 +250,7 @@ came along with the copied example, the sibling project, or the fixture.
 
 Trace one through the stale binary at `R_self = N`:
 
-1. Binary reads `"montaget": N`. `N > N` is false. **The guard does not fire.**
+1. Binary reads `"montagent": N`. `N > N` is false. **The guard does not fire.**
 2. Binary validates the shape. Finds `fit`.
 3. Emits "unknown key `fit`".
 4. Agent deletes `fit` to make the file pass. The future is deleted.
@@ -269,9 +269,9 @@ This is the load-bearing claim of the stale-binary argument inverted, not dented
 This one is specific to the stale-binary population and is, I think, the sharpest
 thing in this verdict.
 
-A **current** binary that reads `"montaget": 1` on a file full of revision-4
+A **current** binary that reads `"montagent": 1` on a file full of revision-4
 fields can notice the contradiction — it knows revision 4 and can see the file is
-not revision 1. A **stale** binary at `R_self = 1` reading `"montaget": 1` sees no
+not revision 1. A **stale** binary at `R_self = 1` reading `"montagent": 1` sees no
 contradiction available to it. It has been handed an authoritative, in-band
 statement that this file is revision 1, and it will act on it with full
 confidence.
@@ -296,8 +296,8 @@ case, and (iv) never itself stale. Pointing the repair at the binary is a proper
 of the **message text**, not of a field in the document:
 
 > `E-UNKNOWN-KEY`: unknown key `fit` on element `photo-03`. This is not a key
-> this Montaget knows, and not one it has retired. It may belong to a **newer
-> format revision than this binary implements** — check your Montaget version
+> this Montagent knows, and not one it has retired. It may belong to a **newer
+> format revision than this binary implements** — check your Montagent version
 > before removing it. Do not delete the key to make the file validate.
 
 C4 established that **nothing in this project states an unknown-key policy**. That
@@ -311,7 +311,7 @@ when that channel fails.
 The argument names two failure modes. The **lenient reader** is largely already
 off the table: ADR-0006 commits to `validate` reporting and `render` enforcing and
 refusing on error; ADR-0011 makes every write tool return findings so the check is
-structural rather than opt-in. Montaget's readers are not lenient about anything
+structural rather than opt-in. Montagent's readers are not lenient about anything
 they understand.
 
 The precise residue — and it is exactly C4's gap — is leniency about keys the
@@ -380,7 +380,7 @@ deciding. See below.
 
 ## Verdict, stated plainly
 
-1. **The distribution fact is settled by the accepted ADRs: Montaget is a binary
+1. **The distribution fact is settled by the accepted ADRs: Montagent is a binary
    a user installs and runs on their own machine, over stdio, against their own
    disk, spawning an ffmpeg they supply.** MCP-hosted-only is excluded, not
    merely unchosen. Still open, and separate: install channel, container, asset
@@ -402,14 +402,14 @@ deciding. See below.
    agent care.
 5. **The marker question (P2) is untouched by this and remains separable.** If a
    top-level marker is warranted on identification alone, it also sharpens the
-   message in (4) — "this is a Montaget project *and* I do not know this key"
+   message in (4) — "this is a Montagent project *and* I do not know this key"
    removes "wrong file type" from the causes. That is an argument for a marker,
    and still not one for a number.
 
 ## Falsifiers
 
 - **On the distribution fact.** Falsified by any accepted decision record
-  committing Montaget to a hosted-only transport, removing the CLI, or replacing
+  committing Montagent to a hosted-only transport, removing the CLI, or replacing
   relative disk paths with URLs the server fetches. I grepped all fifteen ADRs and
   `CONTEXT.md` for install / distribut / packag / hosted / binary / release /
   docker / auto-update; none does. Also falsified if the project both adopts a
@@ -421,7 +421,7 @@ deciding. See below.
   binary; (C) bare "unknown key `fit`". My claim is that B ≈ A and both ≫ C. I am
   falsified if A repairs the binary and B still deletes the field.
 - **On 4b, the load-bearing generalisation.** Give agents an example file carrying
-  `"montaget": 1` and a task requiring a revision-4 field. If they update the
+  `"montagent": 1` and a task requiring a revision-4 field. If they update the
   integer at a high rate, my attack fails and the number earns its place. #48's
   8/8 exercise shows this method is already in this project's hands.
 - **On 4c.** Falsified if a stale binary given a wrong-but-plausible number
@@ -442,7 +442,7 @@ deciding. See below.
   binary upgrade. Not settled; relevant only if a number is adopted anyway.
 - **The stale *ffmpeg* population.** The design already accepts an
   uncontrolled-version dependency on the user's machine, and no project-file field
-  can address it. Nobody has written down what Montaget does when the user's
+  can address it. Nobody has written down what Montagent does when the user's
   ffmpeg is too old. Probably a separate ticket.
 
 ## Confidence
