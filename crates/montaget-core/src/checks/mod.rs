@@ -19,6 +19,7 @@ pub mod canvas;
 pub mod caption;
 pub mod coverage;
 pub mod cut;
+pub mod derived;
 pub mod ease;
 pub mod fit;
 pub mod fonts;
@@ -133,10 +134,11 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
 
 /// **Every property a keyframe list may be written on** (ADR-0012).
 ///
-/// One list, because two checks read it and each would otherwise carry its own copy:
-/// [`ease`] asks whether a record's `ease` describes any travel, and [`unreached`] whether
-/// a declared endpoint is ever sampled. `crate::verbs::timeline` keeps a third copy for a
-/// third question and is not folded in here — it asks *"is this element animated at all"*
+/// One list, because three checks read it and each would otherwise carry its own copy:
+/// [`ease`] asks whether a record's `ease` describes any travel, [`unreached`] whether a
+/// declared endpoint is ever sampled, and [`derived`] whether a record's declared `t_from`
+/// still re-derives its `t`. `crate::verbs::timeline` keeps a fourth copy for a
+/// fourth question and is not folded in here — it asks *"is this element animated at all"*
 /// of a `Value` with no check machinery around it.
 pub(crate) const ANIMATABLE: [&str; 6] = ["x", "y", "scale", "rotation", "opacity", "volume"];
 
@@ -144,8 +146,8 @@ pub(crate) const ANIMATABLE: [&str; 6] = ["x", "y", "scale", "rotation", "opacit
 ///
 /// **ADR-0012's own shape test, as `Animatable` applies it on the way in**: a keyframe
 /// record is an object, so an array *of objects* is a keyframe list and every other array
-/// — `scale`'s own `[sx, sy]` — is a static value. Shared by [`ease`] and [`unreached`],
-/// which would otherwise each carry the rule and the sentence explaining it.
+/// — `scale`'s own `[sx, sy]` — is a static value. Shared by [`ease`], [`unreached`] and
+/// [`derived`], which would otherwise each carry the rule and the sentence explaining it.
 pub(crate) fn keyframe_records<'a>(
     element: &'a serde_json::Value,
     property: &str,

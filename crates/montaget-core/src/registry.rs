@@ -1106,6 +1106,38 @@ from t={from} to t={to}; ease={ease} describes no motion.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0086's one instance of the recorded-intent pattern: a `t_from` whose rule
+        // re-derives an instant that is not the `t` written beside it. The declaration is
+        // renderer-ignored, so this finding is never about a frame — it is about a
+        // relationship the document asserts and the document no longer satisfies.
+        //
+        // **`error`, which is the overturn ADR-0086's second jury round adopted**: a
+        // violated declaration has already told you it was not meant, and `review` means
+        // "you must look at a frame to know whether it was meant". No frame can say which of
+        // two numbers is stale.
+        code: "R-DERIVED-T",
+        classes: &[Error],
+        // Advise, and ADR-0086 decides it rather than this table: both v1 rules are
+        // **directional** — the document names which value is the source — so the author
+        // supplied the missing determinant and exactly one integer is legal. That is
+        // `E-FIT-DEVIATION`'s logic transplanted off the raster axis. The ADR's symmetric
+        // row, which would be refuse-class, has no v1 member to declare.
+        repair: Some(Advise),
+        // Every deciding number is the document's own: the element's `start`, the previous
+        // record's `t`, and the `ms` the author wrote. There is no borrowed constant, and
+        // no disk.
+        threshold: Internal,
+        adr: "ADR-0086",
+        // Names the derivation as well as the number, because the number alone is a fact the
+        // reader cannot check. Both repairs are stated: ADR-0086 makes the declaration
+        // optional and its absence *no claim*, so dropping it is a real move and not a way
+        // of silencing a checker.
+        template: "`{element}`.{property}: the keyframe at t={declared_t} declares \
+`t_from` `{rule}`, and {derivation}, which derives {derived}. Write {derived}, or drop the \
+`t_from`.",
+        status: Live,
+    },
+    CheckSpec {
         // ADR-0084. `circle` is the one mask shape whose meaning *discards* part of its
         // rect, so it is the one that gets a finding: `rect` is the rect and `ellipse`
         // fills it, both total, and an oval in a non-square rect surprises nobody.
