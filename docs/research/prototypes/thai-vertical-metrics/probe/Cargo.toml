@@ -1,0 +1,19 @@
+[package]
+name = "vertical-metrics-probe"
+version = "0.1.0"
+edition = "2021"
+
+# Versions match the workspace pins in ../../../../Cargo.toml so the probe
+# measures the same stack `render` does: parley =0.11.1 with complex-scripts,
+# skrifa =0.46.2. (parley pulls skrifa 0.44.0 transitively; its metrics.rs is
+# byte-identical to 0.46.2's, so both arbitrate metrics the same way.)
+[dependencies]
+skrifa = "=0.46.2"
+tiny-skia = "0.11"
+parley = { version = "=0.11.1", features = ["complex-scripts"] }
+
+[profile.release]
+opt-level = 3
+
+# Standalone: not a member of the repo workspace (ADR-era prototypes build alone).
+[workspace]

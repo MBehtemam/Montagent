@@ -1,0 +1,250 @@
+# Part 1 -- what the font binaries say
+
+Candidate 1 asks whether reading OS/2 sTypo* instead of hhea would
+change anything. These are the numbers that decide it.
+
+### face Noto Sans Thai (../fonts/NotoSansThai-Regular.ttf)
+unitsPerEm = 1000
+hhea:  ascender=1061 descender=-450 lineGap=0  -> sum=1511 em=1.5110  => at size 55: 83.11px
+OS/2 version = 4
+OS/2 sTypo: ascender=1061 descender=-450 lineGap=0  -> sum=1511 em=1.5110  => at size 55: 83.11px
+OS/2 usWin: ascent=1061 descent=450  -> sum=1511 em=1.5110  => at size 55: 83.11px
+OS/2 fsSelection = 0b111000000   USE_TYPO_METRICS (bit 7) = true
+hhea == sTypo ?  ascender true  descender true  lineGap true
+skrifa Metrics::new(size=55) -> ascent=58.35 descent=-24.75 leading=0.00  (ascent-descent+leading = 83.10px, = line_height 1.5110 at size 55)
+
+### face Sarabun (../fonts/Sarabun-Regular.ttf)
+unitsPerEm = 1000
+hhea:  ascender=1068 descender=-232 lineGap=0  -> sum=1300 em=1.3000  => at size 55: 71.50px
+OS/2 version = 4
+OS/2 sTypo: ascender=1068 descender=-232 lineGap=0  -> sum=1300 em=1.3000  => at size 55: 71.50px
+OS/2 usWin: ascent=1286 descent=567  -> sum=1853 em=1.8530  => at size 55: 101.92px
+OS/2 fsSelection = 0b11000000   USE_TYPO_METRICS (bit 7) = true
+hhea == sTypo ?  ascender true  descender true  lineGap true
+skrifa Metrics::new(size=55) -> ascent=58.74 descent=-12.76 leading=0.00  (ascent-descent+leading = 71.50px, = line_height 1.3000 at size 55)
+
+# Part 2 -- real ink vs the declared slot, swept over ADR-0028's tenths
+
+## noto-thai-2line (family Noto Sans Thai, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=+15.08 COLLIDES  block top escape=+11.20 ESCAPES  block bottom escape=-10.15
+line_height=1.1  slot=60.50  worst ink-to-ink seam=+9.58 COLLIDES  block top escape=+8.45 ESCAPES  block bottom escape=-12.90
+line_height=1.2  slot=66.00  worst ink-to-ink seam=+4.08 COLLIDES  block top escape=+5.70 ESCAPES  block bottom escape=-15.65
+line_height=1.3  slot=71.50  worst ink-to-ink seam=-1.42  block top escape=+2.95 ESCAPES  block bottom escape=-18.40
+line_height=1.4  slot=77.00  worst ink-to-ink seam=-6.92  block top escape=+0.20 ESCAPES  block bottom escape=-21.15
+line_height=1.5  slot=82.50  worst ink-to-ink seam=-12.42  block top escape=-2.55  block bottom escape=-23.90
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-17.92  block top escape=-5.30  block bottom escape=-26.65
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-23.42  block top escape=-8.05  block bottom escape=-29.40
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-28.92  block top escape=-10.80  block bottom escape=-32.15
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-34.42  block top escape=-13.55  block bottom escape=-34.90
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-39.92  block top escape=-16.30  block bottom escape=-37.65
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-45.42  block top escape=-19.05  block bottom escape=-40.40
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-50.92  block top escape=-21.80  block bottom escape=-43.15
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-56.42  block top escape=-24.55  block bottom escape=-45.90
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-61.92  block top escape=-27.30  block bottom escape=-48.65
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-67.42  block top escape=-30.05  block bottom escape=-51.40
+-> first tenth with no ink-to-ink collision: line_height=1.3  (1.1 is BELOW it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=47.05 ascent=58.35 descent=24.75  real ink=[-8.45,61.63]
+   line 1: slot=[60.50,121.00] baseline_y=107.55 ascent=58.35 descent=24.75  real ink=[52.05,108.10]
+   seam 0/1: ink-to-ink overlap=+9.58  <-- COLLIDES
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=49.80 ascent=58.35 descent=24.75  real ink=[-5.70,64.38]
+   line 1: slot=[66.00,132.00] baseline_y=115.80 ascent=58.35 descent=24.75  real ink=[60.30,116.35]
+   seam 0/1: ink-to-ink overlap=+4.08  <-- COLLIDES
+   -- detail at line_height=1.3 --
+   line 0: slot=[0.00,71.50] baseline_y=52.55 ascent=58.35 descent=24.75  real ink=[-2.95,67.13]
+   line 1: slot=[71.50,143.00] baseline_y=124.05 ascent=58.35 descent=24.75  real ink=[68.55,124.60]
+   seam 0/1: ink-to-ink overlap=-1.42
+
+## noto-thai-3line (family Noto Sans Thai, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=+15.08 COLLIDES  block top escape=+11.20 ESCAPES  block bottom escape=-10.15
+line_height=1.1  slot=60.50  worst ink-to-ink seam=+9.58 COLLIDES  block top escape=+8.45 ESCAPES  block bottom escape=-13.40
+line_height=1.2  slot=66.00  worst ink-to-ink seam=+4.08 COLLIDES  block top escape=+5.70 ESCAPES  block bottom escape=-15.65
+line_height=1.3  slot=71.50  worst ink-to-ink seam=-1.42  block top escape=+2.95 ESCAPES  block bottom escape=-18.90
+line_height=1.4  slot=77.00  worst ink-to-ink seam=-6.92  block top escape=+0.20 ESCAPES  block bottom escape=-21.15
+line_height=1.5  slot=82.50  worst ink-to-ink seam=-12.42  block top escape=-2.55  block bottom escape=-24.40
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-17.92  block top escape=-5.30  block bottom escape=-26.65
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-23.42  block top escape=-8.05  block bottom escape=-29.90
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-28.92  block top escape=-10.80  block bottom escape=-32.15
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-34.42  block top escape=-13.55  block bottom escape=-35.40
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-39.92  block top escape=-16.30  block bottom escape=-37.65
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-45.42  block top escape=-19.05  block bottom escape=-40.90
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-50.92  block top escape=-21.80  block bottom escape=-43.15
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-56.42  block top escape=-24.55  block bottom escape=-46.40
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-61.92  block top escape=-27.30  block bottom escape=-48.65
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-67.42  block top escape=-30.05  block bottom escape=-51.90
+-> first tenth with no ink-to-ink collision: line_height=1.3  (1.1 is BELOW it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=47.05 ascent=58.35 descent=24.75  real ink=[-8.45,61.63]
+   line 1: slot=[60.50,121.00] baseline_y=107.55 ascent=58.35 descent=24.75  real ink=[52.05,108.10]
+   line 2: slot=[121.00,181.50] baseline_y=168.05 ascent=58.35 descent=24.75  real ink=[112.55,168.60]
+   seam 0/1: ink-to-ink overlap=+9.58  <-- COLLIDES
+   seam 1/2: ink-to-ink overlap=-4.45
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=49.80 ascent=58.35 descent=24.75  real ink=[-5.70,64.38]
+   line 1: slot=[66.00,132.00] baseline_y=115.80 ascent=58.35 descent=24.75  real ink=[60.30,116.35]
+   line 2: slot=[132.00,198.00] baseline_y=181.80 ascent=58.35 descent=24.75  real ink=[126.30,182.35]
+   seam 0/1: ink-to-ink overlap=+4.08  <-- COLLIDES
+   seam 1/2: ink-to-ink overlap=-9.95
+   -- detail at line_height=1.3 --
+   line 0: slot=[0.00,71.50] baseline_y=52.55 ascent=58.35 descent=24.75  real ink=[-2.95,67.13]
+   line 1: slot=[71.50,143.00] baseline_y=124.05 ascent=58.35 descent=24.75  real ink=[68.55,124.60]
+   line 2: slot=[143.00,214.50] baseline_y=195.55 ascent=58.35 descent=24.75  real ink=[140.05,196.10]
+   seam 0/1: ink-to-ink overlap=-1.42
+   seam 1/2: ink-to-ink overlap=-15.45
+
+## noto-thai-fullstack (family Noto Sans Thai, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=+15.08 COLLIDES  block top escape=+11.20 ESCAPES  block bottom escape=+3.88 ESCAPES
+line_height=1.1  slot=60.50  worst ink-to-ink seam=+9.58 COLLIDES  block top escape=+8.45 ESCAPES  block bottom escape=+1.13 ESCAPES
+line_height=1.2  slot=66.00  worst ink-to-ink seam=+4.08 COLLIDES  block top escape=+5.70 ESCAPES  block bottom escape=-1.62
+line_height=1.3  slot=71.50  worst ink-to-ink seam=-1.42  block top escape=+2.95 ESCAPES  block bottom escape=-4.37
+line_height=1.4  slot=77.00  worst ink-to-ink seam=-6.92  block top escape=+0.20 ESCAPES  block bottom escape=-7.12
+line_height=1.5  slot=82.50  worst ink-to-ink seam=-12.42  block top escape=-2.55  block bottom escape=-9.87
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-17.92  block top escape=-5.30  block bottom escape=-12.62
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-23.42  block top escape=-8.05  block bottom escape=-15.37
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-28.92  block top escape=-10.80  block bottom escape=-18.12
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-34.42  block top escape=-13.55  block bottom escape=-20.87
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-39.92  block top escape=-16.30  block bottom escape=-23.62
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-45.42  block top escape=-19.05  block bottom escape=-26.37
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-50.92  block top escape=-21.80  block bottom escape=-29.12
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-56.42  block top escape=-24.55  block bottom escape=-31.87
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-61.92  block top escape=-27.30  block bottom escape=-34.62
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-67.42  block top escape=-30.05  block bottom escape=-37.37
+-> first tenth with no ink-to-ink collision: line_height=1.3  (1.1 is BELOW it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=47.05 ascent=58.35 descent=24.75  real ink=[-8.45,61.63]
+   line 1: slot=[60.50,121.00] baseline_y=107.55 ascent=58.35 descent=24.75  real ink=[52.05,122.13]
+   seam 0/1: ink-to-ink overlap=+9.58  <-- COLLIDES
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=49.80 ascent=58.35 descent=24.75  real ink=[-5.70,64.38]
+   line 1: slot=[66.00,132.00] baseline_y=115.80 ascent=58.35 descent=24.75  real ink=[60.30,130.38]
+   seam 0/1: ink-to-ink overlap=+4.08  <-- COLLIDES
+   -- detail at line_height=1.3 --
+   line 0: slot=[0.00,71.50] baseline_y=52.55 ascent=58.35 descent=24.75  real ink=[-2.95,67.13]
+   line 1: slot=[71.50,143.00] baseline_y=124.05 ascent=58.35 descent=24.75  real ink=[68.55,138.63]
+   seam 0/1: ink-to-ink overlap=-1.42
+
+## noto-latin-control (family Noto Sans Thai, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=-3.19  block top escape=-4.72  block bottom escape=+1.47 ESCAPES
+line_height=1.1  slot=60.50  worst ink-to-ink seam=-8.69  block top escape=-7.47  block bottom escape=-1.28
+line_height=1.2  slot=66.00  worst ink-to-ink seam=-14.19  block top escape=-10.22  block bottom escape=-4.03
+line_height=1.3  slot=71.50  worst ink-to-ink seam=-19.69  block top escape=-12.97  block bottom escape=-6.78
+line_height=1.4  slot=77.00  worst ink-to-ink seam=-25.19  block top escape=-15.72  block bottom escape=-9.53
+line_height=1.5  slot=82.50  worst ink-to-ink seam=-30.69  block top escape=-18.47  block bottom escape=-12.28
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-36.19  block top escape=-21.22  block bottom escape=-15.03
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-41.69  block top escape=-23.97  block bottom escape=-17.78
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-47.19  block top escape=-26.72  block bottom escape=-20.53
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-52.69  block top escape=-29.47  block bottom escape=-23.28
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-58.19  block top escape=-32.22  block bottom escape=-26.03
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-63.69  block top escape=-34.97  block bottom escape=-28.78
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-69.19  block top escape=-37.72  block bottom escape=-31.53
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-74.69  block top escape=-40.47  block bottom escape=-34.28
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-80.19  block top escape=-43.22  block bottom escape=-37.03
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-85.69  block top escape=-45.97  block bottom escape=-39.78
+-> first tenth with no ink-to-ink collision: line_height=1.0  (1.1 is at or above it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=47.05 ascent=58.35 descent=24.75  real ink=[7.47,58.85]
+   line 1: slot=[60.50,121.00] baseline_y=107.55 ascent=58.35 descent=24.75  real ink=[67.54,119.72]
+   seam 0/1: ink-to-ink overlap=-8.69
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=49.80 ascent=58.35 descent=24.75  real ink=[10.22,61.60]
+   line 1: slot=[66.00,132.00] baseline_y=115.80 ascent=58.35 descent=24.75  real ink=[75.79,127.97]
+   seam 0/1: ink-to-ink overlap=-14.19
+   -- detail at line_height=1.0 --
+   line 0: slot=[0.00,55.00] baseline_y=44.30 ascent=58.35 descent=24.75  real ink=[4.72,56.10]
+   line 1: slot=[55.00,110.00] baseline_y=99.30 ascent=58.35 descent=24.75  real ink=[59.29,111.47]
+   seam 0/1: ink-to-ink overlap=-3.19
+
+## sarabun-thai-2line (family Sarabun, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=+29.27 COLLIDES  block top escape=+15.51 ESCAPES  block bottom escape=-3.96
+line_height=1.1  slot=60.50  worst ink-to-ink seam=+23.77 COLLIDES  block top escape=+12.76 ESCAPES  block bottom escape=-6.71
+line_height=1.2  slot=66.00  worst ink-to-ink seam=+18.27 COLLIDES  block top escape=+10.01 ESCAPES  block bottom escape=-9.46
+line_height=1.3  slot=71.50  worst ink-to-ink seam=+12.77 COLLIDES  block top escape=+7.26 ESCAPES  block bottom escape=-12.21
+line_height=1.4  slot=77.00  worst ink-to-ink seam=+7.27 COLLIDES  block top escape=+4.51 ESCAPES  block bottom escape=-14.96
+line_height=1.5  slot=82.50  worst ink-to-ink seam=+1.77 COLLIDES  block top escape=+1.76 ESCAPES  block bottom escape=-17.71
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-3.73  block top escape=-0.99  block bottom escape=-20.46
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-9.23  block top escape=-3.74  block bottom escape=-23.21
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-14.73  block top escape=-6.49  block bottom escape=-25.96
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-20.23  block top escape=-9.24  block bottom escape=-28.71
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-25.73  block top escape=-11.99  block bottom escape=-31.46
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-31.23  block top escape=-14.74  block bottom escape=-34.21
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-36.73  block top escape=-17.49  block bottom escape=-36.96
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-42.23  block top escape=-20.24  block bottom escape=-39.71
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-47.73  block top escape=-22.99  block bottom escape=-42.46
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-53.23  block top escape=-25.74  block bottom escape=-45.21
+-> first tenth with no ink-to-ink collision: line_height=1.6  (1.1 is BELOW it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=53.24 ascent=58.74 descent=12.76  real ink=[-12.76,71.51]
+   line 1: slot=[60.50,121.00] baseline_y=113.74 ascent=58.74 descent=12.76  real ink=[47.74,114.29]
+   seam 0/1: ink-to-ink overlap=+23.77  <-- COLLIDES
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=55.99 ascent=58.74 descent=12.76  real ink=[-10.01,74.26]
+   line 1: slot=[66.00,132.00] baseline_y=121.99 ascent=58.74 descent=12.76  real ink=[55.99,122.54]
+   seam 0/1: ink-to-ink overlap=+18.27  <-- COLLIDES
+   -- detail at line_height=1.6 --
+   line 0: slot=[0.00,88.00] baseline_y=66.99 ascent=58.74 descent=12.76  real ink=[0.99,85.26]
+   line 1: slot=[88.00,176.00] baseline_y=154.99 ascent=58.74 descent=12.76  real ink=[88.99,155.54]
+   seam 0/1: ink-to-ink overlap=-3.73
+
+## sarabun-thai-fullstack (family Sarabun, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=+32.02 COLLIDES  block top escape=+18.26 ESCAPES  block bottom escape=+13.76 ESCAPES
+line_height=1.1  slot=60.50  worst ink-to-ink seam=+26.52 COLLIDES  block top escape=+15.51 ESCAPES  block bottom escape=+11.01 ESCAPES
+line_height=1.2  slot=66.00  worst ink-to-ink seam=+21.02 COLLIDES  block top escape=+12.76 ESCAPES  block bottom escape=+8.26 ESCAPES
+line_height=1.3  slot=71.50  worst ink-to-ink seam=+15.52 COLLIDES  block top escape=+10.01 ESCAPES  block bottom escape=+5.51 ESCAPES
+line_height=1.4  slot=77.00  worst ink-to-ink seam=+10.02 COLLIDES  block top escape=+7.26 ESCAPES  block bottom escape=+2.76 ESCAPES
+line_height=1.5  slot=82.50  worst ink-to-ink seam=+4.52 COLLIDES  block top escape=+4.51 ESCAPES  block bottom escape=+0.01 ESCAPES
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-0.98  block top escape=+1.76 ESCAPES  block bottom escape=-2.74
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-6.48  block top escape=-0.99  block bottom escape=-5.49
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-11.98  block top escape=-3.74  block bottom escape=-8.24
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-17.48  block top escape=-6.49  block bottom escape=-10.99
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-22.98  block top escape=-9.24  block bottom escape=-13.74
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-28.48  block top escape=-11.99  block bottom escape=-16.49
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-33.98  block top escape=-14.74  block bottom escape=-19.24
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-39.48  block top escape=-17.49  block bottom escape=-21.99
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-44.98  block top escape=-20.24  block bottom escape=-24.74
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-50.48  block top escape=-22.99  block bottom escape=-27.49
+-> first tenth with no ink-to-ink collision: line_height=1.6  (1.1 is BELOW it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=53.24 ascent=58.74 descent=12.76  real ink=[-15.51,71.51]
+   line 1: slot=[60.50,121.00] baseline_y=113.74 ascent=58.74 descent=12.76  real ink=[44.99,132.01]
+   seam 0/1: ink-to-ink overlap=+26.52  <-- COLLIDES
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=55.99 ascent=58.74 descent=12.76  real ink=[-12.76,74.26]
+   line 1: slot=[66.00,132.00] baseline_y=121.99 ascent=58.74 descent=12.76  real ink=[53.24,140.26]
+   seam 0/1: ink-to-ink overlap=+21.02  <-- COLLIDES
+   -- detail at line_height=1.6 --
+   line 0: slot=[0.00,88.00] baseline_y=66.99 ascent=58.74 descent=12.76  real ink=[-1.76,85.26]
+   line 1: slot=[88.00,176.00] baseline_y=154.99 ascent=58.74 descent=12.76  real ink=[86.24,173.26]
+   seam 0/1: ink-to-ink overlap=-0.98
+
+## sarabun-latin-control (family Sarabun, size 55)
+line_height=1.0  slot=55.00  worst ink-to-ink seam=-0.88  block top escape=-9.68  block bottom escape=+8.80 ESCAPES
+line_height=1.1  slot=60.50  worst ink-to-ink seam=-6.38  block top escape=-12.43  block bottom escape=+6.05 ESCAPES
+line_height=1.2  slot=66.00  worst ink-to-ink seam=-11.88  block top escape=-15.18  block bottom escape=+3.30 ESCAPES
+line_height=1.3  slot=71.50  worst ink-to-ink seam=-17.37  block top escape=-17.93  block bottom escape=+0.55 ESCAPES
+line_height=1.4  slot=77.00  worst ink-to-ink seam=-22.87  block top escape=-20.68  block bottom escape=-2.20
+line_height=1.5  slot=82.50  worst ink-to-ink seam=-28.37  block top escape=-23.43  block bottom escape=-4.95
+line_height=1.6  slot=88.00  worst ink-to-ink seam=-33.87  block top escape=-26.18  block bottom escape=-7.70
+line_height=1.7  slot=93.50  worst ink-to-ink seam=-39.37  block top escape=-28.93  block bottom escape=-10.45
+line_height=1.8  slot=99.00  worst ink-to-ink seam=-44.87  block top escape=-31.68  block bottom escape=-13.20
+line_height=1.9  slot=104.50  worst ink-to-ink seam=-50.37  block top escape=-34.43  block bottom escape=-15.95
+line_height=2.0  slot=110.00  worst ink-to-ink seam=-55.87  block top escape=-37.18  block bottom escape=-18.70
+line_height=2.1  slot=115.50  worst ink-to-ink seam=-61.38  block top escape=-39.93  block bottom escape=-21.45
+line_height=2.2  slot=121.00  worst ink-to-ink seam=-66.87  block top escape=-42.68  block bottom escape=-24.20
+line_height=2.3  slot=126.50  worst ink-to-ink seam=-72.37  block top escape=-45.43  block bottom escape=-26.95
+line_height=2.4  slot=132.00  worst ink-to-ink seam=-77.87  block top escape=-48.18  block bottom escape=-29.70
+line_height=2.5  slot=137.50  worst ink-to-ink seam=-83.37  block top escape=-50.93  block bottom escape=-32.45
+-> first tenth with no ink-to-ink collision: line_height=1.0  (1.1 is at or above it)
+   -- detail at line_height=1.1 --
+   line 0: slot=[0.00,60.50] baseline_y=53.24 ascent=58.74 descent=12.76  real ink=[12.43,66.55]
+   line 1: slot=[60.50,121.00] baseline_y=113.74 ascent=58.74 descent=12.76  real ink=[72.93,127.05]
+   seam 0/1: ink-to-ink overlap=-6.38
+   -- detail at line_height=1.2 --
+   line 0: slot=[0.00,66.00] baseline_y=55.99 ascent=58.74 descent=12.76  real ink=[15.18,69.30]
+   line 1: slot=[66.00,132.00] baseline_y=121.99 ascent=58.74 descent=12.76  real ink=[81.18,135.30]
+   seam 0/1: ink-to-ink overlap=-11.88
+   -- detail at line_height=1.0 --
+   line 0: slot=[0.00,55.00] baseline_y=50.49 ascent=58.74 descent=12.76  real ink=[9.68,63.80]
+   line 1: slot=[55.00,110.00] baseline_y=105.49 ascent=58.74 descent=12.76  real ink=[64.68,118.80]
+   seam 0/1: ink-to-ink overlap=-0.88
+
