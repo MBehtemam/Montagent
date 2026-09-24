@@ -100,8 +100,10 @@ use montagent_render::canvas::{
     Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskRect, MaskShape, PathEl, Raster,
     Region, Rgba, Scale, Shape, Transform,
 };
+use montagent_render::decode::Decoder;
 
 use crate::finding::Finding;
+use crate::media::session::Session;
 use crate::media::{Source, tools};
 use crate::model::{self, Colour, Origin};
 use crate::parse;
@@ -637,6 +639,13 @@ pub(crate) struct Painter<'a> {
     /// a `render` paints the fixture's 6 MB PNGs on 1631 consecutive frames and would
     /// otherwise decode each of them 1631 times.
     stills: std::collections::HashMap<PathBuf, Raster>,
+    /// Which decoder each video source needs (ADR-0089), by path.
+    ///
+    /// Memoised for [`Painter::stills`]'s reason, one axis over: the answer is a probe,
+    /// and a `render` that asked it per frame would `ffprobe` the same clip once for every
+    /// frame the clip appears on. It cannot change within a frame, and a source that
+    /// changed mid-`render` is ADR-0069's cache-miss story rather than this map's.
+    decoders: std::collections::HashMap<PathBuf, Decoder>,
 }
 
 impl<'a> Painter<'a> {
@@ -660,6 +669,7 @@ impl<'a> Painter<'a> {
             registry: montagent_text::Fonts::new(),
             ffmpeg: None,
             stills: std::collections::HashMap::new(),
+            decoders: std::collections::HashMap::new(),
         }
     }
 
@@ -1079,12 +1089,14 @@ impl<'a> Painter<'a> {
         let offset = source_offset
             .ok_or("its offset into the source did not resolve; the caption says why")?;
         let ffmpeg = self.ffmpeg()?;
+        let decoder = self.decoder(path);
         // Decoded straight to the declared box: ADR-0013 settled that a source is resampled
         // to exactly `width`x`height`, so asking `ffmpeg` for that size is the resample
         // rather than a second one on top of it.
         let decoded = montagent_render::decode::frame_at(
             &ffmpeg,
             &path.to_string_lossy(),
+            decoder,
             offset,
             extent.width as u32,
             extent.height as u32,
@@ -1095,6 +1107,24 @@ impl<'a> Painter<'a> {
                 path.display()
             )
         })
+    }
+
+    /// Which decoder this source needs, probed once per path (ADR-0089).
+    ///
+    /// A source whose probe fails decodes with [`Decoder::Auto`], which is what every
+    /// source did before ADR-0089. The picture is not the place to report an unprobeable
+    /// source — `validate` is — and a frame that refused to paint over it would be this
+    /// path inventing a finding of its own.
+    fn decoder(&mut self, path: &FilePath) -> Decoder {
+        if let Some(decoder) = self.decoders.get(path) {
+            return *decoder;
+        }
+        let decoder = Session::open()
+            .ok()
+            .and_then(|mut session| session.decoder_for(&Source::Local(path.to_path_buf())).ok())
+            .unwrap_or_default();
+        self.decoders.insert(path.to_path_buf(), decoder);
+        decoder
     }
 
     /// `ffmpeg`, resolved once per run and only where a video element needs one.

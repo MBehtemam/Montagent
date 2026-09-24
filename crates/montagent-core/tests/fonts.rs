@@ -843,7 +843,7 @@ fn the_sidecar_records_the_chain_beside_the_probes_and_not_instead_of_them() {
     let cache = cache(&dir);
     std::fs::write(
         &cache,
-        r#"{"version": 1, "entries": {"/clips/take3.mov": {"size": 12, "mtime_ns": 7, "last_used_ns": 7, "probe": {"source": "/clips/take3.mov", "quad": {}, "dimensions": null, "alpha": null, "audio": null}}}}"#,
+        r#"{"version": 2, "entries": {"/clips/take3.mov": {"size": 12, "mtime_ns": 7, "last_used_ns": 7, "probe": {"source": "/clips/take3.mov", "quad": {}, "dimensions": null, "alpha": null, "codec_name": null, "audio": null}}}}"#,
     )
     .unwrap();
 

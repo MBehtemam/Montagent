@@ -43,6 +43,7 @@ use montagent_render::canvas::{Canvas, Extent, Raster, Rgba, Transform};
 use montagent_render::decode;
 
 use crate::exact::{self, Decimal};
+use crate::media::session::Session;
 use crate::media::{Source, tools};
 use crate::model;
 use crate::permissive::Loose;
@@ -179,10 +180,22 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, St
         .map(|tools| tools.ffmpeg)
         .map_err(|missing| missing.reason())?;
 
+    // ADR-0089: which decoder this source needs is the probe's reading, not this
+    // reading's. A keyed-alpha coverage measurement over a VP9 cutout decoded by the
+    // native `vp9` decoder would measure a fully opaque frame and report 0.0 coverage —
+    // a number, confidently wrong, about a source that is keyed perfectly well.
+    let decoder = {
+        let mut session = Session::open().map_err(|missing| missing.reason())?;
+        session
+            .decoder_for(&Source::Local(path.clone()))
+            .map_err(|missing| missing.reason())?
+    };
+
     let run = run_of(element, declared, fps)?;
     let mut frames = decode::frames_from(
         &ffmpeg,
         &path.to_string_lossy(),
+        decoder,
         run.from_ms,
         run.source_fps,
         width as u32,

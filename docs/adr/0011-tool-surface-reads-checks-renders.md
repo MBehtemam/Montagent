@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by twenty-one later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -78,6 +78,11 @@ status: accepted
 >   the **vertical half** of the per-line ink box this ADR names: `measure` reports each
 >   line's real ink extent and the seam between adjacent lines. The horizontal half stays
 >   unbuilt, blocked on the same bidi-resolved geometry `query --at`'s crop rectangle is
+> - [ADR-0089](0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md) —
+>   **redefines the `alpha` this ADR's quad-and-the-rest returns**: it is the file's
+>   reading, from the pixel format *or* the container's declaration, and it carries which
+>   signal settled it. Adds `codec_name` to the returned facts, because the decode path is
+>   in a crate that cannot probe
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

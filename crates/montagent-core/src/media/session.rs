@@ -33,10 +33,11 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use montagent_render::decode::Decoder;
 use serde::{Deserialize, Serialize};
 
 use super::Source;
-use super::probe::{self, LocalKey, Outcome, ProcessRunner, Runner};
+use super::probe::{self, LocalKey, Outcome, Probe, ProcessRunner, Runner};
 use super::sidecar::{self, Entry, Sidecar};
 use super::tools::{self, Missing, Tools};
 
@@ -199,6 +200,24 @@ impl Session {
             Source::Local(path) => self.probe_local(path),
             Source::Remote(url) => self.probe_remote(url),
         }
+    }
+
+    /// The decoder a source needs, off the same probe every other reading comes from.
+    ///
+    /// ADR-0089 puts the decode decision behind the probe, and this is where the two meet:
+    /// the answer is [`Probe::decoder`]'s, and going through the session means the
+    /// `ffprobe` it rests on is the one this run already paid for rather than a second one
+    /// at the spawn.
+    ///
+    /// A source that could not be probed decodes with [`Decoder::Auto`] — the behaviour
+    /// every source had before ADR-0089. An unprobeable source is `validate`'s finding to
+    /// report, and refusing to decode here would be this reading inventing a second one.
+    pub fn decoder_for(&mut self, source: &Source) -> Result<Decoder, Box<Missing>> {
+        Ok(self
+            .probe(source)?
+            .probe()
+            .map(Probe::decoder)
+            .unwrap_or_default())
     }
 
     fn probe_local(&mut self, path: &Path) -> Result<Outcome, Box<Missing>> {

@@ -5,6 +5,14 @@ amends: 0006 (designs the "gitignored sidecar" consequence it stated and left un
 
 # The probe sidecar is a per-user JSON cache, keyed on what Montagent observed, and a failure in it is always silence
 
+> **Amended by [ADR-0089](0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).**
+> The sidecar is at **version 2**. `Probe::alpha` changed shape and meaning, and a
+> version-1 entry holds an answer ADR-0089 establishes is wrong for VP9-alpha sources — so
+> the new field is carried by a version bump rather than by a `#[serde(default)]`, which is
+> the opposite call from #206's font half and for the opposite reason. This ADR's own rule
+> is what makes that cheap: an unrecognised version reads as an empty cache, so the cost is
+> one re-probe per machine.
+
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) settled the local probe
 cache as `(path, size, mtime) → duration` and stated in its consequences that *"the probe
 cache is a gitignored sidecar, consistent with

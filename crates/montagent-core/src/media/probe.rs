@@ -30,6 +30,7 @@
 
 use std::path::{Path, PathBuf};
 
+use montagent_render::decode::Decoder;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -87,9 +88,87 @@ pub struct Probe {
     pub quad: Quad,
     /// ADR-0023's resolved source dimensions, with the inputs that produced them.
     pub dimensions: Option<SourceDimensions>,
-    /// Whether the decoded pixel format carries an alpha channel.
-    pub alpha: Option<bool>,
+    /// Whether the source carries an alpha channel, with the signal that settled it.
+    pub alpha: Option<SourceAlpha>,
+    /// The video stream's codec, as `ffprobe` names it — `vp9`, `prores`, `h264`.
+    ///
+    /// Not a decorative fact. VP9-in-WebM alpha only survives a decode that selects
+    /// `libvpx-vp9`, and the decode path is in `montagent-render`, which cannot probe:
+    /// this crate depends on it, not the other way round. So the codec has to travel out
+    /// of the one authority that reads it rather than being re-derived at the spawn.
+    pub codec_name: Option<String>,
     pub audio: Option<Audio>,
+}
+
+/// Whether a source carries alpha, and which signal said so.
+///
+/// ADR-0089. The pair rather than a bare `bool`, for [`Rotation`](super::dimensions::Rotation)'s
+/// reason: two signals of unequal strength answer this question — a pixel format is a
+/// property of the decoded stream, a container declaration is the muxer's word about a
+/// side stream — and a reading cached to the ADR-0069 sidecar under a version number is
+/// one a later binary cannot re-derive. So the answer travels with its source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceAlpha {
+    /// Whether the source carries an alpha channel at all. The question every consumer
+    /// has actually asked.
+    pub carries: bool,
+    /// Which signal settled it.
+    pub source: AlphaSource,
+}
+
+/// Where an alpha answer came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AlphaSource {
+    /// Neither the pixel format nor the container declares one.
+    None,
+    /// The decoded pixel format carries an alpha channel — `yuva444p10le`, `rgba`, `ya8`.
+    /// The stronger of the two signals: it is what the decoder will actually hand over.
+    PixelFormat,
+    /// The pixel format carries none and the container declares one beside it. VP9-in-WebM
+    /// is the case this exists for: `ffprobe` reports `pix_fmt=yuv420p` and an
+    /// `alpha_mode=1` stream tag, because the alpha is a side stream the pixel format
+    /// cannot describe.
+    ContainerDeclaration,
+}
+
+impl SourceAlpha {
+    /// The reading where no signal says alpha.
+    pub const ABSENT: Self = Self {
+        carries: false,
+        source: AlphaSource::None,
+    };
+
+    /// Whether the decode needs a codec-specific decoder to surface this alpha.
+    ///
+    /// True exactly for the side-stream case: a pixel format that carries alpha is
+    /// surfaced by whichever decoder `ffmpeg` picks, and a source with no alpha has
+    /// nothing to surface.
+    pub fn is_side_stream(self) -> bool {
+        self.carries && self.source == AlphaSource::ContainerDeclaration
+    }
+}
+
+impl Probe {
+    /// The decoder this source needs for its pixels to arrive intact.
+    ///
+    /// ADR-0089. [`Decoder::LibVpxVp9`] for exactly one shape — VP9 whose alpha is a side
+    /// stream — and [`Decoder::Auto`] for everything else, including VP9 with no alpha and
+    /// VP9 whose alpha the pixel format already declares. The narrowness is the point: see
+    /// [`Decoder::LibVpxVp9`] for why an `ffmpeg` without libvpx makes the broad version of
+    /// this rule a regression.
+    ///
+    /// The codec test is on `ffprobe`'s own `codec_name` spelling, which is `vp9` for both
+    /// the native decoder and libvpx's — it names the codec, never the decoder that would
+    /// be chosen for it.
+    pub fn decoder(&self) -> Decoder {
+        match self.codec_name.as_deref() {
+            Some("vp9") if self.alpha.is_some_and(SourceAlpha::is_side_stream) => {
+                Decoder::LibVpxVp9
+            }
+            _ => Decoder::Auto,
+        }
+    }
 }
 
 /// What a probe attempt established. ADR-0056 requires these to stay distinct: *"an
@@ -533,12 +612,11 @@ fn read(source: &str, value: &Value) -> Option<Probe> {
     };
 
     let dimensions = video.and_then(source_dimensions);
-    let alpha = video.map(|stream| {
-        stream
-            .get("pix_fmt")
-            .and_then(Value::as_str)
-            .is_some_and(pix_fmt_has_alpha)
-    });
+    let alpha = video.map(source_alpha);
+    let codec_name = video
+        .and_then(|stream| stream.get("codec_name"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let audio = audio.map(|stream| Audio {
         sample_rate: stream
             .get("sample_rate")
@@ -556,6 +634,7 @@ fn read(source: &str, value: &Value) -> Option<Probe> {
         quad,
         dimensions,
         alpha,
+        codec_name,
         audio,
     })
 }
@@ -632,6 +711,52 @@ fn ms_at(value: &Value, key: &str) -> Option<i64> {
 
 fn rational_at(value: &Value, key: &str) -> Option<Rational> {
     Rational::parse(value.get(key)?.as_str()?)
+}
+
+/// Whether one video stream carries alpha, and which signal said so.
+///
+/// The pixel format is consulted first because it is the stronger claim — it describes
+/// what the decoder hands over — and the container declaration is the fallback for the
+/// codecs whose pixel format provably cannot answer. Asking them the other way round
+/// would let a muxer's tag overrule the stream itself.
+fn source_alpha(stream: &Value) -> SourceAlpha {
+    if stream
+        .get("pix_fmt")
+        .and_then(Value::as_str)
+        .is_some_and(pix_fmt_has_alpha)
+    {
+        return SourceAlpha {
+            carries: true,
+            source: AlphaSource::PixelFormat,
+        };
+    }
+    if declares_alpha(stream) {
+        return SourceAlpha {
+            carries: true,
+            source: AlphaSource::ContainerDeclaration,
+        };
+    }
+    SourceAlpha::ABSENT
+}
+
+/// Whether the container declares an alpha side stream beside the pixel format.
+///
+/// Matroska's `AlphaMode` element, which `ffprobe` surfaces as an `alpha_mode` stream tag.
+/// The lookup is case-insensitive because Matroska tag casing is a muxer's choice and this
+/// is the same element either way.
+fn declares_alpha(stream: &Value) -> bool {
+    stream
+        .get("tags")
+        .and_then(Value::as_object)
+        .into_iter()
+        .flatten()
+        .any(|(key, value)| {
+            key.eq_ignore_ascii_case("alpha_mode")
+                && match value {
+                    Value::String(text) => text.trim() != "0" && !text.trim().is_empty(),
+                    other => other.as_i64().is_some_and(|n| n != 0),
+                }
+        })
 }
 
 /// Whether a pixel format carries an alpha channel.
@@ -841,5 +966,135 @@ mod tests {
         assert!(!pix_fmt_has_alpha("rgb24"));
         assert!(!pix_fmt_has_alpha("yuv420p"));
         assert!(!pix_fmt_has_alpha("gray"));
+    }
+
+    /// One video stream as `ffprobe` prints it, trimmed to the keys the alpha reading
+    /// touches. The real JSON for each of these is in `docs/research/alpha-decode/`.
+    fn stream(codec: &str, pix_fmt: &str, tags: Value) -> Value {
+        json!({
+            "codec_type": "video",
+            "codec_name": codec,
+            "pix_fmt": pix_fmt,
+            "tags": tags,
+        })
+    }
+
+    #[test]
+    fn a_pixel_format_that_carries_alpha_settles_it_and_says_so() {
+        // ProRes 4444, which declares its alpha honestly and needs nothing special.
+        let alpha = source_alpha(&stream(
+            "prores",
+            "yuva444p12le",
+            json!({ "handler_name": "VideoHandler" }),
+        ));
+        assert_eq!(
+            alpha,
+            SourceAlpha {
+                carries: true,
+                source: AlphaSource::PixelFormat
+            }
+        );
+        assert!(
+            !alpha.is_side_stream(),
+            "nothing to recover: it is in the pixels"
+        );
+    }
+
+    #[test]
+    fn a_vp9_side_stream_alpha_is_found_where_the_pixel_format_cannot_state_it() {
+        // The whole of #339: `pix_fmt` says `yuv420p` and the file carries alpha anyway.
+        let alpha = source_alpha(&stream("vp9", "yuv420p", json!({ "alpha_mode": "1" })));
+        assert_eq!(
+            alpha,
+            SourceAlpha {
+                carries: true,
+                source: AlphaSource::ContainerDeclaration
+            }
+        );
+        assert!(alpha.is_side_stream());
+    }
+
+    #[test]
+    fn a_vp9_with_no_alpha_mode_tag_carries_none() {
+        let alpha = source_alpha(&stream(
+            "vp9",
+            "yuv420p",
+            json!({ "ENCODER": "libvpx-vp9" }),
+        ));
+        assert_eq!(alpha, SourceAlpha::ABSENT);
+        assert!(!alpha.carries);
+    }
+
+    #[test]
+    fn an_alpha_mode_of_zero_is_a_declaration_of_no_alpha() {
+        // The element is present and says *no*. Reading the key's existence rather than
+        // its value would turn that into a yes.
+        assert_eq!(
+            source_alpha(&stream("vp9", "yuv420p", json!({ "alpha_mode": "0" }))),
+            SourceAlpha::ABSENT
+        );
+        // Muxer casing is not the muxer's to decide the reading with.
+        assert!(source_alpha(&stream("vp9", "yuv420p", json!({ "ALPHA_MODE": "1" }))).carries);
+        // Some builds print it as a number rather than a string.
+        assert!(source_alpha(&stream("vp9", "yuv420p", json!({ "alpha_mode": 1 }))).carries);
+    }
+
+    #[test]
+    fn the_pixel_format_outranks_the_container_where_both_speak() {
+        // A file whose pixel format already carries alpha is settled by the stronger
+        // signal, so the reading never reports a declaration it did not need.
+        assert_eq!(
+            source_alpha(&stream("vp9", "yuva420p", json!({ "alpha_mode": "1" }))).source,
+            AlphaSource::PixelFormat
+        );
+    }
+
+    fn probe_of(stream: Value) -> Probe {
+        read("clip", &json!({ "streams": [stream] })).expect("one video stream")
+    }
+
+    #[test]
+    fn only_vp9_with_side_stream_alpha_asks_for_libvpx() {
+        // #338's fix, and the narrowness that keeps it from being a regression: an
+        // `ffmpeg` without libvpx must still decode every one of the `Auto` rows.
+        assert_eq!(
+            probe_of(stream("vp9", "yuv420p", json!({ "alpha_mode": "1" }))).decoder(),
+            Decoder::LibVpxVp9
+        );
+        assert_eq!(
+            probe_of(stream("vp9", "yuv420p", json!({}))).decoder(),
+            Decoder::Auto,
+            "VP9 with no alpha has nothing for libvpx to recover"
+        );
+        assert_eq!(
+            probe_of(stream("vp9", "yuva420p", json!({}))).decoder(),
+            Decoder::Auto,
+            "alpha already in the pixel format survives whichever decoder is picked"
+        );
+        assert_eq!(
+            probe_of(stream("prores", "yuva444p12le", json!({}))).decoder(),
+            Decoder::Auto,
+            "the case that already worked, which the fix must not touch"
+        );
+        assert_eq!(
+            probe_of(stream("h264", "yuv420p", json!({}))).decoder(),
+            Decoder::Auto
+        );
+    }
+
+    #[test]
+    fn the_codec_travels_out_of_the_probe_because_the_decoder_cannot_ask() {
+        assert_eq!(
+            probe_of(stream("vp9", "yuv420p", json!({})))
+                .codec_name
+                .as_deref(),
+            Some("vp9")
+        );
+    }
+
+    #[test]
+    fn a_stream_with_no_tags_at_all_reads_as_no_declaration() {
+        let bare = json!({ "codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p" });
+        assert_eq!(source_alpha(&bare), SourceAlpha::ABSENT);
     }
 }

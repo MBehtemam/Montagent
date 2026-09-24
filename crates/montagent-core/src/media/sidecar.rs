@@ -59,7 +59,14 @@ use super::probe::Probe;
 /// every media probe on the machine. The cost runs the other way too, and is the same size:
 /// an *older* binary reading a file this one wrote drops the font section on its next write,
 /// so alternating between versions costs one silent run each time it swaps back.
-const VERSION: u64 = 1;
+///
+/// **Bumped to 2 by ADR-0089**, which is the other kind of change and needs the other
+/// answer. `Probe::alpha` went from a bool to a reading with its own source, and every
+/// entry written at version 1 holds the old shape — including, for a VP9-in-WebM source,
+/// an `alpha` of `false` that ADR-0089 establishes is wrong. A `#[serde(default)]` would
+/// keep those entries and keep serving that answer, so the version carries it instead:
+/// every machine re-probes once, and no cached wrong answer outlives the fix.
+const VERSION: u64 = 2;
 
 /// The file's name inside the cache directory.
 const FILE: &str = "probe-cache.json";
@@ -388,6 +395,7 @@ mod tests {
                 quad: Default::default(),
                 dimensions: None,
                 alpha: None,
+                codec_name: None,
                 audio: None,
             },
         }
