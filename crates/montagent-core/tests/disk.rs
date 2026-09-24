@@ -544,7 +544,8 @@ fn the_facts_print_under_verbose_and_stay_in_the_json_either_way() {
     );
     let report = validate(&path);
 
-    let quiet = montagent_core::wire::render(&report, montagent_core::Wire::Text { verbose: false });
+    let quiet =
+        montagent_core::wire::render(&report, montagent_core::Wire::Text { verbose: false });
     assert!(!quiet.contains("MEDIA"), "{quiet}");
 
     let loud = montagent_core::wire::render(&report, montagent_core::Wire::Text { verbose: true });

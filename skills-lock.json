@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "court": {
+      "source": "MBehtemam/the-court-of-justice-skills",
+      "sourceType": "github",
+      "skillPath": "skills/court/SKILL.md",
+      "computedHash": "e8d44988e1241fdfeff96cfc6dc25565e72356b97e0c19a7769175113724c1e5"
+    }
+  }
+}

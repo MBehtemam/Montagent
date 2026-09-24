@@ -207,7 +207,9 @@ fn every_class_has_a_home_in_the_summary() {
         ("L-KEY-ORDER", Class::Layout),
     ] {
         assert_eq!(
-            montagent_core::registry::spec(code).unwrap().default_class(),
+            montagent_core::registry::spec(code)
+                .unwrap()
+                .default_class(),
             class,
             "{code} is registered as {class:?}"
         );
