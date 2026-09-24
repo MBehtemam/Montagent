@@ -49,6 +49,20 @@ fn font_file() -> PathBuf {
 /// caller writes a real `\n` and `serde_json` escapes it on the way to the file. ADR-0008
 /// makes that character the format's only line break.
 fn text(id: &str, size: i64, line_height: &str, text: &str) -> Value {
+    aligned(id, size, line_height, text, None)
+}
+
+/// The same, stating an `align` — which the seam needs, because two lines' ink can only be
+/// compared once they are in one horizontal frame (ADR-0087, second court).
+fn aligned(id: &str, size: i64, line_height: &str, text: &str, align: Option<&str>) -> Value {
+    let mut element = base(id, size, line_height, text);
+    if let Some(align) = align {
+        element["align"] = json!(align);
+    }
+    element
+}
+
+fn base(id: &str, size: i64, line_height: &str, text: &str) -> Value {
     json!({
         "id": id,
         "type": "text",
@@ -357,4 +371,98 @@ fn validate_runs_the_check_as_part_of_the_whole_engine() {
         "{:?}",
         report.findings.iter().map(|f| &f.code).collect::<Vec<_>>()
     );
+}
+
+// ---------------------------------------------------------------------------
+// The seam is two-dimensional (ADR-0087, second court).
+//
+// The first version of this compared whole-line extents, so a descender at one end of a
+// line "collided" with a mark at the other. These are the cases that were wrong.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn lines_whose_ink_shares_no_horizontal_space_have_no_seam_and_cannot_fire() {
+    // Leading spaces carry no ink, so line 1's glyphs sit far to the right of line 0's.
+    // Vertically they are on top of each other; horizontally they never meet. The whole-line
+    // seam called this a collision. It is not one, at any `line_height`.
+    let element = text("body", 55, "0.4", "H\n                    H");
+    let measured = measure_one(element.clone());
+    assert!(
+        measured["ink_seams"][0]["overlap"].is_null(),
+        "expected no measurable seam, got {}",
+        measured["ink_seams"][0]
+    );
+    assert!(findings_for(&[element]).is_empty());
+}
+
+#[test]
+fn align_moves_the_lines_into_one_frame_and_changes_the_seam() {
+    // A long line over a short one. Aligned `start` they overlap horizontally and the seam
+    // is real; aligned `end` the short line sits under the long one's far end — a different
+    // pair of glyphs meet, and the answer must differ. A seam that ignored `align` would
+    // report one number for both, which is the bug this test exists to catch.
+    let at = |align: &str| {
+        measure_one(aligned(
+            "body",
+            55,
+            "0.6",
+            "Hamburgefonstiv Hamburgefonstiv\ngg",
+            Some(align),
+        ))["ink_seams"][0]["overlap"]
+            .clone()
+    };
+    let start = at("start");
+    let end = at("end");
+    assert_ne!(start, end, "align did not reach the seam: {start} == {end}");
+}
+
+#[test]
+fn the_seam_reports_the_worst_pair_that_shares_space_not_the_worst_pair() {
+    // `g` descends and `l` ascends. Put them so that the descender and the ascender are at
+    // opposite ends of their lines: vertically they conflict, horizontally they do not, and
+    // the reported seam must come from some pair that actually shares space — or be absent.
+    let measured = measure_one(text("body", 55, "1.0", "g         x\nx         l"));
+    let overlap = measured["ink_seams"][0]["overlap"].clone();
+    // Whatever it reports, it must not be the g-to-l figure, which is what a whole-line
+    // comparison would have returned.
+    let whole_line = measured["lines"][0]["ink_bottom"].as_f64().unwrap()
+        - measured["lines"][1]["ink_top"].as_f64().unwrap();
+    if let Some(overlap) = overlap.as_f64() {
+        assert!(
+            overlap < whole_line,
+            "seam {overlap} is the whole-line figure {whole_line}"
+        );
+    }
+}
+
+#[test]
+fn a_stroke_tightens_the_seam_because_it_falls_outside_the_contour() {
+    // ADR-0014: on text the stroke is painted outside the glyph contour, so two outlined
+    // lines have `2 x stroke_width` less clearance than their contours claim. Without this
+    // the instrument would over-report on plain text and *under*-report on stroked text,
+    // which is the one direction it must never fail in.
+    let mut plain = text("body", 55, "1.2", "Hamburgefonstiv\nHamburgefonstiv");
+    let bare = measure_one(plain.clone())["ink_seams"][0]["overlap"]
+        .as_f64()
+        .expect("a seam");
+    plain["stroke_width"] = json!(8);
+    let stroked = measure_one(plain)["ink_seams"][0]["overlap"]
+        .as_f64()
+        .expect("a seam");
+    // At least `2 x stroke_width`, and legitimately more: the dilation grows the boxes on
+    // every side, so a pair of glyphs that shared no horizontal space before may share some
+    // once both are outlined — and that pair can be the tighter one. A test pinning the
+    // figure to exactly 16 would be asserting that the instrument is one-dimensional, which
+    // is the thing this rewrite stopped being true.
+    assert!(
+        stroked >= bare + 16.0 - 1e-6,
+        "a stroke of 8 must tighten the seam by at least 16 px: {bare} -> {stroked}"
+    );
+}
+
+#[test]
+fn a_comfortable_block_that_a_whole_line_seam_would_have_flagged_is_silent() {
+    // The regression this whole rewrite is for. `g` and `l` at opposite ends again, at an
+    // ordinary `line_height` no author would question.
+    assert!(findings_for(&[text("body", 55, "1.2", "g        x\nx        l")]).is_empty());
 }

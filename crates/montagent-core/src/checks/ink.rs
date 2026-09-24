@@ -97,17 +97,19 @@ pub fn check(document: &Loose, report: &mut Report) {
 /// the first did not. The count travels in a field so the report still says how much of
 /// the element is affected.
 fn candidate(measured: &crate::verbs::measure::Text) -> Option<Finding> {
+    // A seam with no `overlap` is one where no glyph of either line shares horizontal space
+    // with the other's — they cannot meet at any `line_height`, which is not the same fact
+    // as meeting by a negative amount, and is why the field is nullable.
     let colliding: Vec<_> = measured
         .ink_seams
         .iter()
-        .filter(|seam| seam.overlap > 0.0)
+        .filter_map(|seam| Some((seam, seam.overlap?)))
+        .filter(|(_, overlap)| *overlap > 0.0)
         .collect();
     // The worst, by overlap. `f64::total_cmp` rather than `partial_cmp`: an overlap is
     // derived from font coordinates and a NaN would silently make `max_by` return the
     // wrong seam rather than panic.
-    let worst = colliding
-        .iter()
-        .max_by(|a, b| a.overlap.total_cmp(&b.overlap))?;
+    let (worst, worst_overlap) = colliding.iter().max_by(|(_, a), (_, b)| a.total_cmp(b))?;
 
     let subject = measured
         .asked
@@ -131,7 +133,7 @@ fn candidate(measured: &crate::verbs::measure::Text) -> Option<Finding> {
             )
             .field("above", json!(worst.above))
             .field("below", json!(worst.below))
-            .field("overlap", json!(px(worst.overlap)))
+            .field("overlap", json!(px(*worst_overlap)))
             .field("slot", json!(slot.map(px)))
             .field(
                 "ink_bottom",

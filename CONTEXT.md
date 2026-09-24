@@ -188,8 +188,11 @@ Three things a line of text has, and the reason they are three words. A line's
 **slot** is the space it reserves — the largest `size` among its runs ×
 `line_height` — a function of two numbers the document declares and never of the
 font. Its **ink** is where the glyphs actually are, read from their outlines. A
-**seam** is what lies between one line's ink and the next line's, stated as an
-overlap: positive means they collide.
+**seam** is what lies between one line's ink and the next line's, compared **per
+glyph, where two glyphs share horizontal space**, and stated as an overlap:
+positive means they collide. A seam is *absent* — not zero, not clear — when no
+glyph of either line shares horizontal space with the other's, because those two
+lines cannot meet at any `line_height`.
 The three are not interchangeable, and that is the point. On Latin they agree
 closely enough that one word would have done; on a script whose marks stack —
 Thai's base plus upper vowel plus tone mark plus lower vowel — the ink runs past
@@ -200,7 +203,8 @@ positive seam and never says which of the two legitimate repairs was meant.
 [ADR-0087](docs/adr/0087-thai-line-height-collision-is-a-font-selection-problem.md))
 _Avoid_: line box (conflates the slot with the ink — the collision is exactly the
 case where they differ), bounding box (unqualified: an advance box knows nothing
-about a stacked mark), gap (a seam's ordinary sign is negative; see also Gap,
+about a stacked mark, and a *whole-line* box was measured to be a false-positive
+generator — ADR-0087), gap (a seam's ordinary sign is negative; see also Gap,
 which is a fact about the *clock*)
 
 **Shape**:

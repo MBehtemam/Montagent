@@ -422,6 +422,7 @@ pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<T
             stroke_width: spec.asked.stroke_width,
             y: spec.asked.y,
             vertical_origin: spec.vertical_origin,
+            align: align_of(element),
         },
     )
     // Unreachable while every key above registered, and reported rather than `expect`ed
@@ -681,6 +682,27 @@ pub(crate) fn runs_of(element: &Value) -> Vec<Run<'_>> {
             stroke_width: run.get("stroke_width").and_then(Value::as_i64),
         })
         .collect()
+}
+
+/// `align` — how the lines sit against each other (ADR-0007), never how the box is placed.
+///
+/// **An absent `align` is `start`.** No ADR states a default. `start` is the one that
+/// changes nothing for a single-line element — every text element in the fixture that
+/// omits it has one line — and it is the value that reads correctly in both directions,
+/// which is the reason ADR-0007 spells the vocabulary `start`/`end` in the first place.
+/// A string the schema does not admit is `validate`'s to name and is read as `start` here,
+/// on the same rule the renderer reads a malformed `origin` by.
+///
+/// Here rather than in `crate::verbs::frame`, where it used to live, because three callers
+/// now need it: the renderer, this verb, and `crate::checks::ink`. ADR-0087's seam is
+/// compared in the block's own horizontal frame, and `align` is what puts two lines into
+/// one — so a second reading of the default would be a second answer to where a line starts.
+pub(crate) fn align_of(element: &Value) -> montagent_text::Align {
+    match element.get("align").and_then(Value::as_str) {
+        Some("center") => montagent_text::Align::Center,
+        Some("end") => montagent_text::Align::End,
+        _ => montagent_text::Align::Start,
+    }
 }
 
 /// `origin`'s vertical component — the half that places the block (ADR-0013).

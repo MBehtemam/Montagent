@@ -24,6 +24,19 @@ auto-wrap is settled by [ADR-0008](../adr/0008-line-breaks-belong-to-the-agent.m
 
 ---
 
+> **Amended by two courts — read this first.** Every number below is a **whole-line** ink
+> seam: the lowest ink anywhere on one line against the highest ink anywhere on the next.
+> That instrument was later measured to over-report by 1–4 tenths of `line_height`, because
+> it counts a descender at one end of a line as colliding with a mark at the other. The
+> floors in §5 are therefore **1–4 tenths too high**, and the "+9.58 px" headline is a
+> bounding-box figure whose x-aware value is +0.61 px. What this document was written to
+> establish — that candidate 1 moves nothing and candidate 2 has no constant to carry — is
+> unaffected and was confirmed 3/3. See
+> [`juries/thai-vertical-metrics/`](juries/thai-vertical-metrics/README.md),
+> [`juries/thai-ink-seam-x-aware/`](juries/thai-ink-seam-x-aware/README.md), and
+> [ADR-0087](../adr/0087-thai-line-height-collision-is-a-font-selection-problem.md) for what
+> shipped.
+
 ## 1. Summary
 
 1. **Candidate 1 is already implemented, and it changes nothing.** `skrifa` — the only

@@ -54,13 +54,27 @@ it. That last number is the defect this ADR exists to fix.
 
 ### 1. Read `OS/2` typo metrics instead of `hhea` — rejected, because it is already done and moves nothing
 
-This candidate assumed the stack reads `hhea`. It does not.
+**It cannot work, on any face, and that is stronger than the measurement.** The seam is a
+difference between two baselines, and ADR-0029's half-leading term appears in both:
+
+```
+baseline_y  = slot_centre + (ascent − descent)/2
+overlap     = ink_bottom(above) − ink_top(below)
+            = ink.bottom − ink.top − slot
+```
+
+Ascent and descent **cancel exactly** for lines of equal style. No choice of metric table can
+move a line seam. The court that found this did not stop at the algebra: it patched Sarabun's
+`hhea` to its `usWin` values and cleared bit 7, moving skrifa's reported ascent by +11.99 px
+and its descent by +18.43 px at size 55, and every seam and every floor came back
+bit-identical.
+
+The measurement is true as well, and now secondary. The stack does not read `hhea`:
 `skrifa-0.46.2`'s `Metrics::new` (`src/metrics.rs:139–191`) checks `fsSelection` bit 7 and
 prefers `sTypoAscender`/`sTypoDescender`/`sTypoLineGap` when it is set; `parley-0.11.1`
-(`layout/data.rs:411–415`) calls that function and adds no logic of its own. Both faces set
-bit 7, so the typo metrics are already what Montagent lays out with. **And on both faces
-the two tables are field-for-field identical**, so the question is moot twice over: the
-change would move zero pixels.
+(`layout/data.rs:411–415`) calls it and adds no logic of its own. Both faces set bit 7, so
+the typo metrics are already what Montagent lays out with — and on both, the two tables are
+field-for-field identical anyway.
 
 Read generously — derive the slot from the `sTypo` baseline-to-baseline sum rather than from
 `size × line_height` at all — it clears Noto Sans Thai (1.511 em > the 1.3 floor) and
@@ -73,8 +87,17 @@ enough precisely because they are not line spacing.
 
 ### 2. A script-aware `line_height` floor — rejected, because the measurements say the sentence is false
 
-The floor is **1.3 on Noto Sans Thai and 1.6 on Sarabun**. It is a property of the *face*,
-not of the *script*, and two faces bound nothing — a third could need more.
+The floor is a property of the *face* **and of the string**, not of the *script*. An
+exhaustive sweep of Thai consonants × above-marks × below-marks × tones puts Sarabun's worst
+orthographic cluster (`ฏ็์`) a full tenth above this ADR's own sample:
+
+| | this ADR's sample | worst cluster `ฏ็์` |
+| --- | --- | --- |
+| Noto Sans Thai | 1.3 | 1.3 |
+| Sarabun | 1.6 | **1.7** |
+
+Two faces bound nothing, and a constant that varies by string within one face is not a
+constant at any granularity a schema could carry.
 
 A schema field carrying that number would also be the thing
 [ADR-0029](./0029-line-baseline-half-leading.md) already refused for `ascent`/`descent`, on
@@ -112,10 +135,47 @@ is called `line_height`.
 
 ### `validate` gains `R-LINE-INK-COLLISION`, `review`-class
 
-For every multi-line text element, the real ink extents of adjacent lines are compared, and
-a seam where line *i*'s ink passes line *i+1*'s ink top is reported. The renderer already
-opens the font, already shapes the runs and already has every glyph's bounds, so this needs
-no new machinery and no new input.
+For every multi-line text element, the ink of adjacent lines is compared **per glyph, where
+two glyphs share horizontal space**, and a seam where the upper line's ink passes the lower
+line's is reported. The renderer already opens the font, already shapes the runs and already
+has every glyph's bounds, so this needs no new machinery and no new input.
+
+**Per glyph, and not per line — the first draft of this ADR shipped the per-line version and
+it was a false-positive generator.** A whole-line comparison puts a descender at one end of a
+line against a tone mark at the other, which never touch. Measured on #130's own Thai prose
+at the format's *default* `line_height` of 1.2, it claimed +4.07 px (Noto Sans Thai) and
++18.26 px (Sarabun) of overlap on renders sharing **zero** pixels, and it fired 1–4 tenths
+above the real floor on every string tested — ADR-0011's *"false-positive generator, three
+out of five"* reproduced one level down. It was also nearly **document-blind**: a whole-line
+maximum is reached by *any* deep below-mark and *any* tall above-mark, so it returned the
+same number for ordinary prose as for a string of pure worst-case stacks. A number that
+cannot tell two documents apart is not a fact about the file — it is the face's own floor
+recomputed at runtime, which is the thing this ADR rejects as candidate 2.
+
+The x-aware floors, which are the real ones:
+
+| size 55 | whole-line (wrong) | per-glyph |
+| --- | --- | --- |
+| Noto Sans Thai, worst-case stacks | 1.3 | **1.2** |
+| Noto Sans Thai, ordinary prose | 1.3 | **1.1** |
+| Sarabun, worst-case stacks | 1.6 | **1.3** |
+| Sarabun, ordinary prose | 1.6 | **1.3** |
+
+**Rasterised coverage was considered and rejected.** Counting pixels imports an
+anti-aliasing coverage threshold, a resolution and a rasterizer dependency into `validate`,
+and that threshold is an external constant of exactly the kind ADR-0061 fences — the same
+objection that sinks candidate 2. Contour bounds are the tightest instrument that is still a
+strict upper bound on painted overlap and needs no such choice; measured, they agree with
+rasterised coverage on the clearing tenth in every case tested.
+
+**The stroke is in the seam**, and in no other ink number. ADR-0014 puts a text stroke
+outside the glyph contour, so two outlined lines have `2 × stroke_width` less clearance than
+their contours show. Each glyph box is dilated by its line's `stroke_width`; without it,
+*"over-reports but never misses"* would hold only for text nobody outlined.
+
+A seam may have **no number at all**, where no glyph of either line shares horizontal space
+with the other's. Those lines cannot meet at any `line_height`, and reporting a large
+negative clearance would state a measurement nobody took.
 
 It is a **fact about the file and the fonts on disk**, which is exactly what
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) says `validate` reports.
@@ -146,11 +206,20 @@ inked lines. This is the **vertical half** of the per-line ink box
 [ADR-0011](./0011-tool-surface-reads-checks-renders.md) names and
 [ADR-0024](./0024-measure-writes-the-fit-repair-not-the-verdict.md)'s verb did not build.
 
-The horizontal half stays unbuilt, for the reason already recorded: a full ink box is an
-absolute rect, so it needs the block's horizontal placement — `x`, `origin`'s horizontal
-component, and how `align`'s `start`/`end` resolve against a line's base direction under
-bidi — and no ADR settles the last of those. **The vertical half was never blocked on any
-of that**, which is why it is separable and why it is built here.
+**The separability claim holds only in a narrowed form, and the first draft of this ADR got
+it wrong.** Each line's `ink_top`/`ink_bottom` genuinely need nothing horizontal. A **seam**
+does: it is a two-dimensional intersection and has no vertical-only reading, so it needs
+`align` to put two lines' glyphs into one horizontal frame. What it still does not need is
+anything about *where the block sits* — `x`, `origin` and the declared `width` all cancel,
+because a seam is a difference between two lines of one block and moving the block moves
+both equally.
+
+The bidi objection was also **already stale** when this ADR first cited it:
+`crate::verbs::query::geometry::ink_box` ships today with `align` resolved into absolute
+horizontal placement and a named narrow refusal on a run declaring `dir:"rtl"`. That is the
+pattern the seam copies.
+
+A full absolute ink *box* is still unbuilt, and still needs `x` and `origin`.
 
 Still no verdict (ADR-0024): `measure` reports the seam and never judges it. What makes
 this worth adding is that it turns the authoring loop ADR-0007 already makes mandatory into
@@ -170,9 +239,31 @@ re-adjudicate anything at `validate` time.
 - `validate` now shapes every text element. That is the most expensive thing it does
   without a subprocess, and it is the price of reading ink rather than declared numbers.
 - `measure`'s answer grows three keys. The canonical JSON is additive; no existing key
-  changes meaning.
+  changes meaning. `ink_seams[].overlap` is nullable, and null means *"these two lines
+  cannot meet"* rather than *"they clear"*.
+- The text `Spec` grows `align`, and `place` reads it from there instead of taking it as an
+  argument. One reading of the default (`start`) now serves the renderer, `measure` and this
+  check.
 - A face whose marks fit its own default `line_height` produces nothing, which is every Latin
   project in this repo — including the committed fixture, asserted.
+
+## Two courts sat on this
+
+Both are committed, ballots and all, under `docs/research/juries/`.
+
+- [`thai-vertical-metrics/`](../research/juries/thai-vertical-metrics/README.md) — three
+  blind jurors on the three candidates. Both rejections held 3/3 and the `review` class held
+  2–1. It produced the cancellation proof above, the 1.6→1.7 correction, and the first
+  sighting of the over-reporting defect. **Its own README records that the court was not as
+  blind as it was meant to be**, and why.
+- [`thai-ink-seam-x-aware/`](../research/juries/thai-ink-seam-x-aware/README.md) — three
+  jurors, not blind, on what to do about the over-report. **Unanimous** that the seam had to
+  become x-aware before shipping, against the alternatives of holding the check or shipping
+  it with a recorded residual.
+
+The design in this ADR is the second court's, not the author's first draft. That is recorded
+here rather than tidied away, because the first draft's numbers were quoted in a merge
+request and one of them is now wrong.
 
 ## What is still not measured
 

@@ -1002,10 +1002,15 @@ fn element_block(measure: &Value) -> String {
 /// The collision marker is the one piece of emphasis in the block, and it is not a verdict:
 /// it marks the sign of a number the reader is scanning for, the way the `LINES` rows above
 /// mark nothing because every number there is ordinary. What the overlap *means* for the
-/// document is `validate`'s `R-LINE-INK-COLLISION` to say (ADR-0006), and the sentence
-/// under the heading points there rather than advising a `line_height`: ADR-0087 records
-/// that two repairs are legitimate — raise `line_height`, or set the text in a face whose
-/// marks fit — and the document does not determine which.
+/// document is `validate`'s `R-LINE-INK-COLLISION` to say (ADR-0006), and nothing here
+/// advises a `line_height`: ADR-0087 records that two repairs are legitimate — raise
+/// `line_height`, or set the text in a face whose marks fit — and the document does not
+/// determine which.
+///
+/// **A seam with no number is not a clear one**, and the row says so in words rather than
+/// printing a dash: it means no glyph of either line shares horizontal space with the
+/// other's, so the two cannot meet however tight the `line_height` gets. A large negative
+/// number there would read as a clearance somebody measured.
 fn seams_block(measure: &Value) -> String {
     let seams = measure["ink_seams"]
         .as_array()
@@ -1019,8 +1024,7 @@ fn seams_block(measure: &Value) -> String {
     out.push_str(
         "\n  INK SEAMS  between adjacent inked lines; a positive overlap is a collision\n",
     );
-    out.push_str("             the slot each line reserves is `size × line_height` and never the ");
-    out.push_str("font's ink (ADR-0007)\n");
+    out.push_str("             compared per glyph, where two glyphs share horizontal space\n");
     for seam in seams {
         let overlap = seam["overlap"].as_f64();
         out.push_str(&row(format!(
@@ -1031,7 +1035,10 @@ fn seams_block(measure: &Value) -> String {
             match overlap {
                 Some(overlap) if overlap > 0.0 => "overlap — the ink collides",
                 Some(_) => "clear",
-                None => "",
+                // Not "clear": nothing was measured. No glyph of either line shares
+                // horizontal space with the other's, so they cannot meet at any
+                // `line_height` and there is no clearance to state.
+                None => "no glyph of these two lines shares horizontal space",
             },
         )));
     }
