@@ -22,7 +22,7 @@ pub const PUBLISHED: &str = "schema/montaget.schema.json";
 pub fn generate() -> Value {
     let mut schema = schemars::schema_for!(Project).to_value();
     deny_null(&mut schema);
-    publish_positional_ease(&mut schema);
+    publish_positional_rules(&mut schema);
     publish_bezier_bounds(&mut schema);
     publish_mask_rect(&mut schema);
     header_first(schema)
@@ -101,13 +101,13 @@ fn publish_mask_rect(schema: &mut Value) {
     *mask = ordered;
 }
 
-/// Say ADR-0038's positional `ease` rule in the schema, where the types can only say it in
-/// their deserializer.
+/// Say the schema's two **positional** keyframe rules, which the types can only say in
+/// their deserializer: ADR-0038's `ease`, and ADR-0086's `after-previous`.
 ///
-/// Named for the publishing rather than for the rule, so that it and
-/// `crate::model::keyframe`'s enforcement of the same rule do not read as one function in
-/// two places. They are two statements of one rule, in the two artifacts #168 requires to
-/// agree.
+/// Named for the publishing rather than for either rule, so that it and
+/// `crate::model::keyframe`'s enforcement of the same rules do not read as one function in
+/// two places. They are two statements of one pair of rules, in the two artifacts #168
+/// requires to agree.
 ///
 /// *"`ease` is required on every keyframe record except the first, where it remains a schema
 /// error. Presence is a pure function of position in the list."* A Rust struct has no way to
@@ -117,26 +117,41 @@ fn publish_mask_rect(schema: &mut Value) {
 /// admit files the binary refuses: the two-artifact divergence ADR-0041 and #168 both name,
 /// arriving through under-statement rather than through drift.
 ///
+/// ADR-0086's rule is the same shape of statement about the same index: `after-previous`
+/// names the record before this one, and before the first there is none — so the first
+/// record's `t_from` is the rule set minus that member. It rides along here rather than in a
+/// pass of its own precisely because it is positional: this is the one place that knows what
+/// "the first record" is in the schema.
+///
 /// So this pass derives the first-record shape from the record shape mechanically — the same
 /// arrangement, and the same reason, as [`deny_null`] above. There is no second hand-written
-/// record definition to keep in step.
-fn publish_positional_ease(schema: &mut Value) {
+/// record definition, and no second hand-written rule set, to keep in step.
+fn publish_positional_rules(schema: &mut Value) {
     let Some(Value::Object(defs)) = schema.get_mut("$defs") else {
         return;
     };
 
-    // Recognised by shape rather than by name: a definition carrying exactly `t`, `v` and
-    // `ease` is a keyframe record whatever the generator decided to call this instantiation
-    // of it (`Keyframe`, `Keyframe2`, …).
+    // Recognised by shape rather than by name: a definition carrying exactly the four
+    // record keys is a keyframe record whatever the generator decided to call this
+    // instantiation of it (`Keyframe`, `Keyframe2`, …).
     let records: Vec<String> = defs
         .iter()
         .filter(|(_, def)| is_keyframe_record(def))
         .map(|(name, _)| name.clone())
         .collect();
 
+    let rule_set = rule_set_def_name();
     let mut rebuilt = serde_json::Map::new();
     for (name, mut def) in std::mem::take(defs) {
         if !records.contains(&name) {
+            // The rule set a *first* record may declare: ADR-0086's two, minus
+            // `after-previous`. One definition rather than one per record instantiation,
+            // because `t_from` is not generic in the record's value type and the generator
+            // emits a single `$def` for it — and written here, so it reads immediately
+            // before the set it narrows, as every other `First…` definition does.
+            if name == rule_set {
+                rebuilt.insert(first_name(&name), first_rule_set(&def));
+            }
             rebuilt.insert(name, def);
             continue;
         }
@@ -155,15 +170,51 @@ fn publish_positional_ease(schema: &mut Value) {
     }
 }
 
-/// Is this definition one `{"t","v","ease"}` record?
+/// The four keys one keyframe record publishes, in ADR-0086's order.
+const RECORD: [&str; 4] = ["t", "t_from", "v", "ease"];
+
+/// The `$def` name the generator gives ADR-0086's closed rule set, asked of the type rather
+/// than spelled here — a literal would be a second name for it, and the drift this module
+/// exists to prevent is exactly a second copy of something the types already say.
+fn rule_set_def_name() -> String {
+    <crate::model::Derivation as schemars::JsonSchema>::schema_name().into_owned()
+}
+
+/// Is this definition one `{"t","t_from","v","ease"}` record?
 fn is_keyframe_record(def: &Value) -> bool {
     let Some(Value::Object(properties)) = def.get("properties") else {
         return false;
     };
-    properties.len() == 3
-        && ["t", "v", "ease"]
-            .iter()
-            .all(|key| properties.contains_key(*key))
+    properties.len() == RECORD.len() && RECORD.iter().all(|key| properties.contains_key(*key))
+}
+
+/// The rule set a first record may declare: the published one with `after-previous` removed.
+///
+/// Derived by filtering the generated union rather than by listing the survivors, so a third
+/// rule that one day ships is admitted on the first record unless its own ADR removes it
+/// here — the rule set stays declared once, in `crate::model::keyframe`.
+fn first_rule_set(rules: &Value) -> Value {
+    let mut first = rules.clone();
+    if let Some(Value::Array(branches)) = first.get_mut("oneOf") {
+        branches.retain(|branch| {
+            branch.pointer("/properties/rule/const")
+                != Some(&Value::String(
+                    crate::model::keyframe::AFTER_PREVIOUS.into(),
+                ))
+        });
+    }
+    if let Value::Object(body) = &mut first {
+        body.insert(
+            "description".into(),
+            Value::String(format!(
+                "The rules the **first** record of a keyframe list may derive its `t` \
+                 by. `{}` is not among them: it names the record before this one, and \
+                 nothing comes before the first (ADR-0086).",
+                crate::model::keyframe::AFTER_PREVIOUS
+            )),
+        );
+    }
+    first
 }
 
 /// What the first record's definition is called, given the record definition's own name.
@@ -180,6 +231,15 @@ fn first_record(def: &Value) -> Value {
     let mut first = def.clone();
     if let Some(Value::Object(properties)) = first.get_mut("properties") {
         properties.remove("ease");
+        // The one property whose *value* narrows at index 0 rather than disappearing: a
+        // first record may still record where its `t` came from, just not from a record
+        // that does not exist (ADR-0086).
+        if let Some(Value::Object(t_from)) = properties.get_mut("t_from") {
+            t_from.insert(
+                "$ref".into(),
+                Value::String(format!("#/$defs/{}", first_name(&rule_set_def_name()))),
+            );
+        }
     }
     if let Value::Object(body) = &mut first {
         body.insert(
@@ -188,7 +248,8 @@ fn first_record(def: &Value) -> Value {
                 "The first record of a keyframe list, which carries no `ease`: `ease` \
                  describes the segment *arriving at* a record, and nothing arrives at the \
                  first one. Writing one here is a schema error naming the convention, never \
-                 an ignored field (ADR-0012, ADR-0038)."
+                 an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, \
+                 is narrowed for the same reason (ADR-0086)."
                     .into(),
             ),
         );

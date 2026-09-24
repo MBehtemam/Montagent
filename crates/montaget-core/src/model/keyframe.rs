@@ -4,6 +4,11 @@
 //! records on the project's one absolute clock."* A keyframe's `t` is written in timeline
 //! milliseconds but **is not a timeline time** — `shift` moves elements and their
 //! keyframes are carried.
+//!
+//! ADR-0086 adds one optional key beside that `t`: [`Derivation`], the recorded-intent
+//! declaration saying which rule the author derived the instant by. No renderer reads it
+//! and `validate` is its only consumer, so the literal `t` beside it remains the sole
+//! author of what renders.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -55,6 +60,7 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
         if keyed {
             let records = read_records(value).map_err(D::Error::custom)?;
             positional_ease(&records).map_err(D::Error::custom)?;
+            positional_t_from(&records).map_err(D::Error::custom)?;
             ascending_t(&records).map_err(D::Error::custom)?;
             Ok(Animatable::Keyed(records))
         } else {
@@ -138,6 +144,31 @@ fn positional_ease<T>(records: &[Keyframe<T>]) -> Result<(), String> {
     Ok(())
 }
 
+/// ADR-0086's one positional rule about `t_from`: `after-previous` may not sit on the
+/// **first** record of a list, where there is no previous record for it to name.
+///
+/// Here rather than in a check for [`positional_ease`]'s reason — it is a schema fact about
+/// a position, which no field's own type can carry, and this is the one place a keyframe
+/// list is read. `element-start` is legal at every position including the first, which is
+/// where the fixture's seven ramps carry it.
+///
+/// `ms` is *not* re-derived here and no arithmetic is checked: a declaration that names a
+/// previous record which exists is well-formed whatever integer it states, and whether the
+/// arithmetic still holds is `R-DERIVED-T`'s finding (`crate::checks::derived`) rather than
+/// a refusal to read the file. ADR-0086 puts it at `error` with an advise-class repair,
+/// which a parse failure has no way to carry.
+fn positional_t_from<T>(records: &[Keyframe<T>]) -> Result<(), String> {
+    match records.first().map(|record| (record.t, record.t_from)) {
+        Some((t, Some(Derivation::AfterPrevious { ms }))) => Err(format!(
+            "the first keyframe record (`t` {t}) declares `t_from` \
+             `{AFTER_PREVIOUS}` (`ms` {ms}): it names the record before it, and nothing \
+             comes before the first one \u{2014} `{{\"rule\": \"{ELEMENT_START}\"}}` is the \
+             rule a first record can carry"
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// ADR-0082: a keyframe list's records must be written with strictly increasing `t`. Enforced
 /// here rather than in a check, for the same reason [`positional_ease`] is: it is a schema
 /// fact, this is the one place a keyframe list is read, and `#E-SCHEMA` reports schema facts
@@ -168,7 +199,7 @@ fn ascending_t<T>(records: &[Keyframe<T>]) -> Result<(), String> {
     Ok(())
 }
 
-/// One `{"t","v","ease"}` record.
+/// One `{"t","t_from","v","ease"}` record — `t_from` optional (ADR-0086).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Keyframe<T> {
@@ -176,6 +207,19 @@ pub struct Keyframe<T> {
     /// range — that is how a trimmed move is spelled, and seven of the fixture's photo
     /// elements carry one.
     pub t: i64,
+    /// What this record's own `t` was derived from, where the author recorded it
+    /// (ADR-0086).
+    ///
+    /// **Immediately after `t`**, which is the whole of ADR-0086's key-order
+    /// specification: ADR-0041 derives canonical order from schema order, and schema order
+    /// is this struct's declaration order, so adjacency to the annotated value costs
+    /// nothing to state twice and cannot drift.
+    ///
+    /// Optional, and its absence means *no claim* — never a claim of independence
+    /// (ADR-0086's sixth condition of admission). Required was measured and rejected: on
+    /// the committed fixture it would put an escape value on 121 instants to check 14.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub t_from: Option<Derivation>,
     pub v: T,
     /// The shape of the interpolation **arriving at** this record from the previous one.
     ///
@@ -185,6 +229,179 @@ pub struct Keyframe<T> {
     /// `Option` here carries that positional rule, not a default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ease: Option<Ease>,
+}
+
+/// The name of ADR-0086's no-argument rule, as a document spells it.
+///
+/// The two spellings are consts because four messages and the schema pass
+/// (`crate::schema`) all have to name them, and a rule set that is *"finite and
+/// published"* (ADR-0086's third condition of admission) is undone by a second answer to
+/// what it is called.
+pub(crate) const ELEMENT_START: &str = "element-start";
+
+/// The name of ADR-0086's one-argument rule.
+pub(crate) const AFTER_PREVIOUS: &str = "after-previous";
+
+/// Both rule names, in schema order — what a message listing the legal set prints.
+pub(crate) const RULES: [&str; 2] = [ELEMENT_START, AFTER_PREVIOUS];
+
+/// `` `element-start`, `after-previous` `` — the closed rule set, for a sentence.
+fn rules() -> String {
+    RULES
+        .iter()
+        .map(|name| format!("`{name}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// A recorded-intent declaration on a keyframe record's own `t`: the rule the author
+/// derived that instant by (ADR-0086).
+///
+/// **No renderer reads it and `validate` is its only consumer.** The literal `t` beside it
+/// remains the sole author of what renders, so a declaration that has gone stale is a
+/// finding (`R-DERIVED-T`) and never a different frame.
+///
+/// The rule set is closed and both members were measured 7-of-7 on the committed fixture
+/// before they shipped. Both are **directional** — the document names which value is the
+/// source and which the derived one — so every violation is `error` with an advise-class
+/// repair stating the re-derived integer. A rule takes at most one argument, whose type is
+/// fixed per rule by the schema; rules do not compose, and direction is carried in the rule
+/// *name* (`after-`) rather than in the sign of the argument, so no rule needs signed
+/// arithmetic.
+///
+/// The step this type refuses, named so it cannot be taken by drift: a second argument, a
+/// signed argument, or a rule whose argument is another rule. Any of those is a new ADR.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "rule", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum Derivation {
+    /// This `t` was derived as the element's own `start`. No argument.
+    ElementStart,
+    /// This `t` was derived as the previous record's `t` plus `ms`.
+    ///
+    /// The **rate** spelling the evidence forced: it says how far a ramp runs, not where it
+    /// stops, which is what the fixture's seven Ken Burns ramps do — every one overruns its
+    /// element's `end` and none lands on it. *"Previous"* is positional and not a reference,
+    /// well-defined because ADR-0082 requires a keyframe list to be written in ascending
+    /// `t`.
+    AfterPrevious {
+        /// A **non-negative** integer offset in milliseconds. Published as an unsigned
+        /// integer, which is where the schema states the bound; the deserializer states it
+        /// again in words, because *"invalid value"* tells an agent only that it must guess
+        /// again.
+        ms: u64,
+    },
+}
+
+impl Derivation {
+    /// The word a document spells this rule with — the one a finding has to print.
+    ///
+    /// Here rather than at the check that prints it, so the rule set keeps one name apiece:
+    /// `crate::checks::derived` reads a declaration back through this type's own
+    /// deserializer and then asks it what it is called, instead of matching the string a
+    /// second time.
+    pub fn rule(self) -> &'static str {
+        match self {
+            Derivation::ElementStart => ELEMENT_START,
+            Derivation::AfterPrevious { .. } => AFTER_PREVIOUS,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Derivation {
+    /// Read as a tree and then dispatched on `rule`, rather than by the derive — for the
+    /// reason [`Animatable`] and [`Ease`] are: the error text is the mechanism, and ADR-0086
+    /// asks for schema errors *"each naming the legal form"*. An internally-tagged derive
+    /// answers an unknown rule with `unknown variant`, a missing `ms` with `missing field`,
+    /// and a negative one with `invalid value: integer` — three sentences that name the
+    /// fault and never the form.
+    ///
+    /// **Only a genuinely unpublished key is phrased as `serde`'s own unknown field.** That
+    /// phrasing is what `crate::checks::schema` classifies as `E-SCHEMA-UNKNOWN-KEY`, which
+    /// carries ADR-0016's *"it may belong to a newer format revision — do not delete the key
+    /// to make the file validate"*. That is the right thing to say about a key this binary
+    /// has never heard of, and the wrong thing to say about an `ms` on `element-start`,
+    /// where deleting the key **is** the fix — so that one is an ordinary `E-SCHEMA` naming
+    /// the two legal forms.
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error as _;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let serde_json::Value::Object(mut body) = value else {
+            return Err(D::Error::custom(format!("a `t_from` is {}", legal_forms())));
+        };
+
+        let rule = match body.remove("rule") {
+            Some(serde_json::Value::String(rule)) => rule,
+            Some(other) => {
+                return Err(D::Error::custom(format!(
+                    "a `t_from`'s `rule` is {other}: it is one of {}, and a `t_from` is {}",
+                    rules(),
+                    legal_forms()
+                )));
+            }
+            None => {
+                return Err(D::Error::custom(format!(
+                    "a `t_from` states no `rule`: it is {}",
+                    legal_forms()
+                )));
+            }
+        };
+        let ms = body.remove("ms");
+
+        // Whatever is left is a key the format does not publish inside a `t_from`, and the
+        // two names it *does* publish are already out of the map — so the list this names is
+        // the whole of the legal set rather than a per-rule subset.
+        if let Some((key, _)) = body.into_iter().next() {
+            return Err(D::Error::custom(format!(
+                "unknown field `{key}` in a `t_from`, expected one of `rule`, `ms`"
+            )));
+        }
+
+        match (rule.as_str(), ms) {
+            (ELEMENT_START, None) => Ok(Derivation::ElementStart),
+            (ELEMENT_START, Some(ms)) => Err(D::Error::custom(format!(
+                "a `t_from` declares `{ELEMENT_START}` and an `ms` of {ms}: \
+                 `{ELEMENT_START}` derives the instant from the element's own `start` and \
+                 takes no argument — drop the `ms`, or state `{AFTER_PREVIOUS}`, which is \
+                 the rule that takes one"
+            ))),
+            (AFTER_PREVIOUS, None) => Err(D::Error::custom(format!(
+                "a `t_from` declares `{AFTER_PREVIOUS}` and no `ms`: the offset from the \
+                 previous record is the rule's one argument and has no default — state it \
+                 as a non-negative integer of milliseconds"
+            ))),
+            (AFTER_PREVIOUS, Some(ms)) => Ok(Derivation::AfterPrevious { ms: offset(ms)? }),
+            (rule, _) => Err(D::Error::custom(format!(
+                "a `t_from`'s `rule` is `{rule}`: the rule set is closed and published, and \
+                 its two members are {} \u{2014} a new rule is an ADR carrying a census, \
+                 never a convenience",
+                rules()
+            ))),
+        }
+    }
+}
+
+/// `after-previous`'s one argument, as a non-negative integer of milliseconds.
+///
+/// Negative is refused in the rule's own words rather than `u64`'s: direction is carried in
+/// the rule *name*, so a sign here is not a rule pointing the other way — it is a rule with
+/// no meaning at all, and the message has to say which of the two it should have been.
+fn offset<E: serde::de::Error>(ms: serde_json::Value) -> Result<u64, E> {
+    ms.as_u64().ok_or_else(|| {
+        E::custom(format!(
+            "a `t_from`'s `ms` is {ms}: it is a non-negative integer of milliseconds \u{2014} \
+             direction is carried in the rule name (`{AFTER_PREVIOUS}`), so there is no \
+             signed arithmetic for a negative offset to mean"
+        ))
+    })
+}
+
+/// The two legal shapes, spelled out — the second half of every message above.
+fn legal_forms() -> String {
+    format!(
+        "an object naming one rule: `{{\"rule\": \"{ELEMENT_START}\"}}`, or \
+         `{{\"rule\": \"{AFTER_PREVIOUS}\", \"ms\": <a non-negative integer>}}`"
+    )
 }
 
 /// The closed easing set: a published name, or the four control points directly.

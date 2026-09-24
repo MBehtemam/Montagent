@@ -200,6 +200,18 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`ease` is required on every keyframe record except the first, and forbidden on the
   first** (ADR-0038). Easing describes the interpolation *arriving at* a keyframe, and nothing arrives
   at the first one. Presence is a pure function of position.
+- **`t_from` records where a keyframe's `t` came from, and no renderer reads it** (ADR-0086).
+  It is optional, it sits immediately after the `t` it annotates, and it is the one field
+  whose only consumer is `validate`: the literal `t` beside it stays the sole author of what
+  renders. Two rules, and the set is closed —
+  `{"rule": "element-start"}`, which takes no argument, and
+  `{"rule": "after-previous", "ms": <non-negative integer>}`, which means *the previous
+  record's `t` plus `ms`*. `after-previous` on the **first** record of a list is a schema
+  error, because nothing comes before it. Writing a rule the schema does not publish, an `ms`
+  on `element-start`, no `ms` on `after-previous`, or a negative one, are schema errors too.
+  If the arithmetic stops holding, `validate` says so as `R-DERIVED-T` — an `error` stating
+  the integer the rule now derives. **Omitting `t_from` is not a claim that a value is
+  independent**; it is no claim at all, and nothing infers one for you.
 
 ## Sources
 

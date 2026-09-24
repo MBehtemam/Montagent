@@ -200,6 +200,11 @@ fn run_checks(
     crate::checks::unreached::check(document, report);
     crate::checks::canvas::check(document, report);
     crate::checks::ease::check(document, report);
+    // ADR-0086's `R-DERIVED-T` (#328): a keyframe's declared `t_from` re-derives an instant
+    // that is not the `t` beside it. Both sides of a declared derivation sit in this one
+    // document, which is why the check is here and not in `compare` — that verb is defined
+    // by having an input this one lacks, and a declared relationship needs none.
+    crate::checks::derived::check(document, report);
     // ADR-0084's non-square circle mask: also document-only, and also derived arithmetic
     // rather than written numbers — the rect it measures is usually the one nobody wrote.
     crate::checks::mask::check(document, report);

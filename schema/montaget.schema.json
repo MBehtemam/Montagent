@@ -747,6 +747,10 @@
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
         },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
         "v": {
           "type": "integer",
           "format": "int64"
@@ -756,7 +760,7 @@
         "t",
         "v"
       ],
-      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
     "Keyframe": {
       "type": "object",
@@ -766,6 +770,10 @@
           "type": "integer",
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
         },
         "v": {
           "type": "integer",
@@ -781,7 +789,66 @@
         "v",
         "ease"
       ],
-      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "FirstDerivation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "const": "element-start"
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false,
+          "description": "This `t` was derived as the element's own `start`. No argument."
+        }
+      ],
+      "description": "The rules the **first** record of a keyframe list may derive its `t` by. `after-previous` is not among them: it names the record before this one, and nothing comes before the first (ADR-0086)."
+    },
+    "Derivation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "const": "element-start"
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false,
+          "description": "This `t` was derived as the element's own `start`. No argument."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ms": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0,
+              "description": "A **non-negative** integer offset in milliseconds. Published as an unsigned\ninteger, which is where the schema states the bound; the deserializer states it\nagain in words, because *\"invalid value\"* tells an agent only that it must guess\nagain."
+            },
+            "rule": {
+              "type": "string",
+              "const": "after-previous"
+            }
+          },
+          "required": [
+            "rule",
+            "ms"
+          ],
+          "description": "This `t` was derived as the previous record's `t` plus `ms`.\n\nThe **rate** spelling the evidence forced: it says how far a ramp runs, not where it\nstops, which is what the fixture's seven Ken Burns ramps do — every one overruns its\nelement's `end` and none lands on it. *\"Previous\"* is positional and not a reference,\nwell-defined because ADR-0082 requires a keyframe list to be written in ascending\n`t`."
+        }
+      ],
+      "description": "A recorded-intent declaration on a keyframe record's own `t`: the rule the author\nderived that instant by (ADR-0086).\n\n**No renderer reads it and `validate` is its only consumer.** The literal `t` beside it\nremains the sole author of what renders, so a declaration that has gone stale is a\nfinding (`R-DERIVED-T`) and never a different frame.\n\nThe rule set is closed and both members were measured 7-of-7 on the committed fixture\nbefore they shipped. Both are **directional** — the document names which value is the\nsource and which the derived one — so every violation is `error` with an advise-class\nrepair stating the re-derived integer. A rule takes at most one argument, whose type is\nfixed per rule by the schema; rules do not compose, and direction is carried in the rule\n*name* (`after-`) rather than in the sign of the argument, so no rule needs signed\narithmetic.\n\nThe step this type refuses, named so it cannot be taken by drift: a second argument, a\nsigned argument, or a rule whose argument is another rule. Any of those is a new ADR."
     },
     "Ease": {
       "anyOf": [
@@ -934,6 +1001,10 @@
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
         },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
         "v": {
           "type": "array",
           "items": {
@@ -948,7 +1019,7 @@
         "t",
         "v"
       ],
-      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
     "Keyframe2": {
       "type": "object",
@@ -958,6 +1029,10 @@
           "type": "integer",
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
         },
         "v": {
           "type": "array",
@@ -978,7 +1053,7 @@
         "v",
         "ease"
       ],
-      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "Animatable3": {
       "anyOf": [
@@ -1012,6 +1087,10 @@
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
         },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
         "v": {
           "type": "number",
           "format": "double"
@@ -1021,7 +1100,7 @@
         "t",
         "v"
       ],
-      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
     "Keyframe3": {
       "type": "object",
@@ -1031,6 +1110,10 @@
           "type": "integer",
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
         },
         "v": {
           "type": "number",
@@ -1046,7 +1129,7 @@
         "v",
         "ease"
       ],
-      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "Effect": {
       "oneOf": [
@@ -1335,6 +1418,10 @@
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
         },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
         "v": {
           "$ref": "#/$defs/Volume"
         }
@@ -1343,7 +1430,7 @@
         "t",
         "v"
       ],
-      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038)."
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
     "Keyframe4": {
       "type": "object",
@@ -1353,6 +1440,10 @@
           "type": "integer",
           "format": "int64",
           "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
         },
         "v": {
           "$ref": "#/$defs/Volume"
@@ -1367,7 +1458,7 @@
         "v",
         "ease"
       ],
-      "description": "One `{\"t\",\"v\",\"ease\"}` record."
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "Align": {
       "type": "string",

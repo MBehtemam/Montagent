@@ -683,11 +683,18 @@ fn split_keyed<T>(
                 index,
                 Keyframe {
                     t: at,
+                    // The same instant as the record that was there, so it keeps that
+                    // record's own claim about where the instant came from (ADR-0086).
+                    t_from: existing.t_from,
                     v: existing.v.clone(),
                     ease: existing.ease.clone(),
                 },
                 Keyframe {
                     t: at + delta,
+                    // A record this verb synthesised, at an instant no author wrote. An
+                    // absent `t_from` means *no claim*, which is the honest thing for
+                    // `shift` to say about its own arithmetic (ADR-0086).
+                    t_from: None,
                     v: existing.v,
                     ease: Some(Ease::Named(EaseName::Step)),
                 },
@@ -698,6 +705,17 @@ fn split_keyed<T>(
         {
             // Step 4/6: cut an existing segment. `b`'s ease (the segment entering it) is
             // what describes the cut; `a` is untouched.
+            //
+            // **`b`'s own `t_from` is left exactly as written, and where it declares
+            // `after-previous` this cut makes it stale** — two records are spliced in ahead
+            // of it, so "the previous record" is now one of them and no longer `a`. That is
+            // reported rather than repaired: `validate` answers with `R-DERIVED-T` and the
+            // integer the rule now derives (ADR-0086), and every write tool hands back the
+            // new state's findings (ADR-0011), so the agent is told. Silently rewriting the
+            // `ms` would make `shift` the second author of a claim only the author can make,
+            // and silently dropping the key would discard that claim without saying so —
+            // ADR-0086 makes an absent declaration mean *no claim*, which is not what
+            // happened here.
             let a = records[segment].clone();
             let b_ease = records[segment + 1]
                 .ease
@@ -711,11 +729,15 @@ fn split_keyed<T>(
                 segment + 1,
                 Keyframe {
                     t: at,
+                    // Both records are this verb's own, at instants no author wrote, so
+                    // neither carries a claim (ADR-0086).
+                    t_from: None,
                     v: v.clone(),
                     ease: Some(left),
                 },
                 Keyframe {
                     t: at + delta,
+                    t_from: None,
                     v,
                     ease: Some(Ease::Named(EaseName::Step)),
                 },
