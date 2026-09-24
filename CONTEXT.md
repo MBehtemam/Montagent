@@ -183,6 +183,26 @@ when omitted.
 ([ADR-0028](docs/adr/0028-text-block-arithmetic-is-exact-tenths.md))
 _Avoid_: leading, line spacing (implies an additive gap, not a multiplier)
 
+**Slot** / **Ink** / **Seam**:
+Three things a line of text has, and the reason they are three words. A line's
+**slot** is the space it reserves — the largest `size` among its runs ×
+`line_height` — a function of two numbers the document declares and never of the
+font. Its **ink** is where the glyphs actually are, read from their outlines. A
+**seam** is what lies between one line's ink and the next line's, stated as an
+overlap: positive means they collide.
+The three are not interchangeable, and that is the point. On Latin they agree
+closely enough that one word would have done; on a script whose marks stack —
+Thai's base plus upper vowel plus tone mark plus lower vowel — the ink runs past
+the slot and through the next line's, with every field in the document valid.
+`measure` reports all three; `validate`'s `R-LINE-INK-COLLISION` reports a
+positive seam and never says which of the two legitimate repairs was meant.
+([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md),
+[ADR-0087](docs/adr/0087-thai-line-height-collision-is-a-font-selection-problem.md))
+_Avoid_: line box (conflates the slot with the ink — the collision is exactly the
+case where they differ), bounding box (unqualified: an advance box knows nothing
+about a stacked mark), gap (a seam's ordinary sign is negative; see also Gap,
+which is a fact about the *clock*)
+
 **Shape**:
 A drawn primitive with no source file — `rect` or `ellipse`, each its own element type,
 never a `shape` field inside a shared one. An ellipse inscribes its declared rect, so

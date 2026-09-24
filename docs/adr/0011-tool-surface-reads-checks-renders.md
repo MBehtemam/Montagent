@@ -4,7 +4,7 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
-> **Amended by twenty later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-one later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -74,6 +74,10 @@ status: accepted
 >   invariant's scope**: "the return value is the findings" was reasoned about findings
 >   about the document. MCP's `isError` now sets exactly on `RepairClass::NotAboutDocument`
 >   (exit 2/3/70), leaving `success` where this ADR's exit 0/1 already do
+> - [ADR-0087](0087-thai-line-height-collision-is-a-font-selection-problem.md) — builds
+>   the **vertical half** of the per-line ink box this ADR names: `measure` reports each
+>   line's real ink extent and the seam between adjacent lines. The horizontal half stays
+>   unbuilt, blocked on the same bidi-resolved geometry `query --at`'s crop rectangle is
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

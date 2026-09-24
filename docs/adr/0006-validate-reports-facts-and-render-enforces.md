@@ -135,6 +135,10 @@ status: accepted
 >   — report format: the `repair` field, uniform per check, non-bypassable
 > - [ADR-0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md) —
 >   adds `R-OFF-CANVAS` to the check list
+> - [ADR-0087](0087-thai-line-height-collision-is-a-font-selection-problem.md) — adds
+>   `R-LINE-INK-COLLISION` to the check list: one line's real ink reaching past the next
+>   line's, measured from the font rather than from the declared numbers this ADR's
+>   overflow check compares against each other
 
 `montagent validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file
