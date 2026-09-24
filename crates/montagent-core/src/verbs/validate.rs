@@ -208,6 +208,12 @@ fn run_checks(
     // ADR-0084's non-square circle mask: also document-only, and also derived arithmetic
     // rather than written numbers — the rect it measures is usually the one nobody wrote.
     crate::checks::mask::check(document, report);
+    // ADR-0088's three document-only `chroma` findings (#342): a colour operation ahead of
+    // the key in the same ordered list, a key on pixels the format itself authored, and a
+    // `tolerance` sitting on its identity value. Its fourth finding needs the probe and is
+    // in `run_disk_checks` below — one module, two call sites, because what a check *reads*
+    // is what decides where it runs, not which ADR it comes from.
+    crate::checks::chroma::check(document, report);
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);
@@ -268,5 +274,9 @@ fn run_disk_checks(
     report: &mut Report,
 ) -> Result<(), Box<Missing>> {
     crate::checks::source::check(document, session, report)?;
-    crate::checks::fit::check(document, session, report)
+    crate::checks::fit::check(document, session, report)?;
+    // `R-CHROMA-ON-ALPHA-SOURCE` (ADR-0088): one `ffprobe` field, off a probe the call
+    // above has already cached. Last for the same reason `fit` follows `source` — every
+    // probe it needs is a cache hit by the time it runs, so it adds no subprocess.
+    crate::checks::chroma::on_disk(document, session, report)
 }

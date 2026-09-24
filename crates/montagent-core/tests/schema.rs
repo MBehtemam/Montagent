@@ -179,6 +179,70 @@ fn the_schema_states_the_two_mask_rules_the_types_can_only_enforce() {
     );
 }
 
+/// The `chroma` branch of the published `Effect` union.
+fn chroma_member() -> serde_json::Value {
+    schema::generate()["$defs"]["Effect"]["oneOf"]
+        .as_array()
+        .expect("the effect vocabulary is a union")
+        .iter()
+        .find(|branch| {
+            branch.pointer("/properties/name/const") == Some(&serde_json::json!("chroma"))
+        })
+        .expect("`chroma` is a member of it")
+        .clone()
+}
+
+#[test]
+fn the_schema_states_chromas_bounds_the_types_can_only_enforce() {
+    // #168's two-artifact rule again, on ADR-0088's four narrowings: three scalars bounded
+    // to `[0, 1]`, and a `color` narrowed to `#RRGGBB` with no alpha. All four are
+    // enforced in `crate::model::effects`, and a schema silent about them would admit
+    // files the binary refuses.
+    //
+    // They are also what makes the member *learnable by reading* (ADR-0017): the identity
+    // value is one end of a stated range, and `{"type": "number"}` does not have an end.
+    let chroma = chroma_member();
+
+    for field in ["tolerance", "softness", "spill"] {
+        assert_eq!(
+            chroma["properties"][field]["minimum"],
+            serde_json::json!(0.0),
+            "`{field}` states its lower bound"
+        );
+        assert_eq!(
+            chroma["properties"][field]["maximum"],
+            serde_json::json!(1.0),
+            "`{field}` states its upper bound"
+        );
+    }
+
+    let color = &chroma["properties"]["color"];
+    assert_eq!(color["pattern"], "^#[0-9A-F]{6}$");
+    assert_eq!(
+        color["allOf"][0]["$ref"], "#/$defs/Colour",
+        "narrowed, not replaced: the value is still the format's one colour"
+    );
+}
+
+#[test]
+fn the_chroma_members_key_order_is_the_one_adr_0088_takes() {
+    // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0088
+    // spells the member `chroma{color, tolerance, softness, spill}` in its own decision
+    // section and in its one worked example. `name` is the union's own tag, which the
+    // generator appends and serde writes first, exactly as it does for the other seven.
+    let chroma = chroma_member();
+    let declared: Vec<&str> = chroma["properties"]
+        .as_object()
+        .expect("an object shape")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        declared,
+        ["color", "tolerance", "softness", "spill", "name"]
+    );
+}
+
 #[test]
 fn a_type_the_schema_does_not_publish_has_no_key_order() {
     assert_eq!(canonical_order(Published::Element("scene")), None);

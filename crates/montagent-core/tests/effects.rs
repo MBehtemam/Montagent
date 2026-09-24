@@ -134,6 +134,168 @@ fn differing(a: &image::RgbaImage, b: &image::RgbaImage) -> usize {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn a_colour_scalar_ahead_of_the_key_changes_what_the_key_finds() {
+    // ADR-0088's `R-CHROMA-AFTER-COLOUR`, as the picture the finding is about: "`effects`
+    // is ordered and order is semantically real (ADR-0040), so a colour scalar ahead of the
+    // key changes the pixels the key is measured against, and the author's `color` no
+    // longer names what is in the frame."
+    //
+    // The two orders are not merely unequal here, they are opposite pictures — keyed to
+    // the black background, or left standing and brightened — which is what makes this an
+    // assertion about the ordering rule rather than about a few pixels on an edge.
+    const SCREEN: &str =
+        r##"{"name":"chroma","color":"#00CD00","tolerance":0.05,"softness":0,"spill":0}"##;
+    // `saturation: 0` rather than a `brightness` lift, and the choice is the point rather
+    // than a convenience: the key is measured in the **chroma plane**, so a scalar that
+    // moves only luma barely moves it at all — a +0.25 brightness leaves this green 0.02
+    // from its own key, well inside any usable tolerance. Desaturation is the colour
+    // operation that genuinely relocates a pixel in the plane the key reads.
+    const LIFT: &str = r##"{"name":"saturation","amount":0}"##;
+
+    let green = r##"{"id":"square","type":"rect","start":0,"end":1000,"x":200,"y":200,
+        "origin":"center","width":100,"height":100,"fill":"#00CD00","effects":[EFFECTS]}"##;
+
+    let keyed = painted(line!(), &green.replace("EFFECTS", SCREEN));
+    assert_eq!(
+        rgb(&keyed, 200, 200),
+        BLACK,
+        "the key takes the square out and the background shows through"
+    );
+
+    let keyed_then_lifted = painted(
+        line!(),
+        &green.replace("EFFECTS", &format!("{SCREEN},{LIFT}")),
+    );
+    assert_eq!(
+        rgb(&keyed_then_lifted, 200, 200),
+        BLACK,
+        "grading what the key kept leaves nothing there to grade"
+    );
+
+    let lifted_then_keyed = painted(
+        line!(),
+        &green.replace("EFFECTS", &format!("{LIFT},{SCREEN}")),
+    );
+    let standing = rgb(&lifted_then_keyed, 200, 200);
+    assert_ne!(
+        standing, BLACK,
+        "the lift moved the pixels off the author's `color`, so the key no longer finds them"
+    );
+    assert!(
+        standing[0] == standing[1] && standing[1] == standing[2] && standing[0] > 0,
+        "and what is standing there is the *desaturated* square, which is no longer green \
+         and so is no longer the colour the key was told to find: {standing:?}"
+    );
+}
+
+#[test]
+fn the_key_is_a_matte_and_keeps_the_rgb_it_was_given() {
+    // CONTEXT.md's Matte operation, on a frame: "it decides which pixels survive, and the
+    // RGB it keeps is the RGB it was given". Both directions in one picture — the screen
+    // goes, the subject stays, and the subject's colour is untouched.
+    const SCREEN: &str =
+        r##"{"name":"chroma","color":"#00CD00","tolerance":0.05,"softness":0,"spill":0}"##;
+    let painted = painted(
+        line!(),
+        &format!(
+            r##"{{"id":"screen","type":"rect","start":0,"end":1000,"x":200,"y":200,
+                "origin":"center","width":200,"height":200,"fill":"#00CD00",
+                "effects":[{SCREEN}]}},
+               {{"id":"subject","type":"rect","start":0,"end":1000,"x":200,"y":200,
+                "origin":"center","width":40,"height":40,"fill":"#0000FF",
+                "effects":[{SCREEN}]}}"##
+        ),
+    );
+    assert_eq!(rgb(&painted, 130, 200), BLACK, "the screen keyed out");
+    assert_eq!(
+        rgb(&painted, 200, 200),
+        BLUE,
+        "the subject survived its own key, in the colour it was declared"
+    );
+}
+
+#[test]
+fn a_key_after_a_shadow_keys_the_shadow_too_and_before_it_does_not() {
+    // The other half of #342's ordering requirement — "where the key sits relative to
+    // `blur`/`shadow`/the colour scalars is observable and needs a test". A `shadow` is a
+    // *paint*, laid down behind the element in its own colour, so a key that runs after it
+    // is measured against a picture that now contains that colour too. Here the shadow is
+    // painted in the very colour being keyed, which makes the two orders opposite pictures
+    // rather than merely unequal ones.
+    const SCREEN: &str =
+        r##"{"name":"chroma","color":"#00CD00","tolerance":0.05,"softness":0,"spill":0}"##;
+    const CAST: &str =
+        r##"{"name":"shadow","dx":40,"dy":0,"radius":0,"color":"#00CD00","opacity":1}"##;
+
+    let blue = r##"{"id":"square","type":"rect","start":0,"end":1000,"x":200,"y":200,
+        "origin":"center","width":100,"height":100,"fill":"#0000FF","effects":[EFFECTS]}"##;
+
+    // (270, 200) is 20 px past the square's right edge and inside the shadow it casts.
+    let keyed_first = painted(
+        line!(),
+        &blue.replace("EFFECTS", &format!("{SCREEN},{CAST}")),
+    );
+    assert_eq!(
+        rgb(&keyed_first, 270, 200),
+        [0x00, 0xCD, 0x00],
+        "the shadow was laid down after the key, so nothing ever keyed it"
+    );
+
+    let shadowed_first = painted(
+        line!(),
+        &blue.replace("EFFECTS", &format!("{CAST},{SCREEN}")),
+    );
+    assert_eq!(
+        rgb(&shadowed_first, 270, 200),
+        BLACK,
+        "the key ran over a picture that already had the shadow in it, and took it"
+    );
+    assert_eq!(
+        rgb(&shadowed_first, 200, 200),
+        BLUE,
+        "and left the square, which is not the colour it was told to find"
+    );
+}
+
+#[test]
+fn two_keys_in_one_list_are_legal_and_apply_in_order() {
+    // ADR-0088: "Two `chroma` members in one list are legal and apply in order, consistent
+    // with ADR-0040's rule that two effects of the same name are ordinary." Two screens on
+    // one element is the case that needs two of them — a single member has one `color`, and
+    // nothing in the vocabulary composes colours.
+    const GREEN: &str =
+        r##"{"name":"chroma","color":"#00CD00","tolerance":0.05,"softness":0,"spill":0}"##;
+    const BLUE_KEY: &str =
+        r##"{"name":"chroma","color":"#0000FF","tolerance":0.05,"softness":0,"spill":0}"##;
+
+    let painted = painted(
+        line!(),
+        &format!(
+            r##"{{"id":"green","type":"rect","start":0,"end":1000,"x":120,"y":200,
+                "origin":"center","width":80,"height":80,"fill":"#00CD00",
+                "effects":[{GREEN},{BLUE_KEY}]}},
+               {{"id":"blue","type":"rect","start":0,"end":1000,"x":220,"y":200,
+                "origin":"center","width":80,"height":80,"fill":"#0000FF",
+                "effects":[{GREEN},{BLUE_KEY}]}},
+               {{"id":"red","type":"rect","start":0,"end":1000,"x":320,"y":200,
+                "origin":"center","width":80,"height":80,"fill":"#FF0000",
+                "effects":[{GREEN},{BLUE_KEY}]}}"##
+        ),
+    );
+    assert_eq!(
+        rgb(&painted, 120, 200),
+        BLACK,
+        "the first key took the green"
+    );
+    assert_eq!(rgb(&painted, 220, 200), BLACK, "the second took the blue");
+    assert_eq!(
+        rgb(&painted, 320, 200),
+        RED,
+        "and neither was told to find red, so it is still there"
+    );
+}
+
+#[test]
 fn blur_then_shadow_is_a_different_frame_from_shadow_then_blur() {
     // ADR-0040's own sentence, and the reason `effects` is a list rather than a map:
     // "order is semantically real — blur-then-shadow is a different frame from

@@ -1347,6 +1347,51 @@
             "amount"
           ],
           "description": "Signed offset from unchanged at `0`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/Colour"
+                }
+              ],
+              "pattern": "^#[0-9A-F]{6}$",
+              "description": "The screen colour, `#RRGGBB`. Not `#RRGGBBAA`: an alpha on the key colour is meaningless and would be a second way to say nothing — a key colour names a colour to find in the frame, never one to composite (ADR-0088, ADR-0014)."
+            },
+            "tolerance": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "softness": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "spill": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "name": {
+              "type": "string",
+              "const": "chroma"
+            }
+          },
+          "required": [
+            "name",
+            "color",
+            "tolerance",
+            "softness",
+            "spill"
+          ],
+          "description": "Key a screen colour out of the element's pixels (ADR-0088).\n\n**A matte operation, not a colour one.** Its output is transparency: it decides\nwhich pixels survive, and the RGB it keeps is the RGB it was given. That is why\nADR-0049's stopping rule — which opens *\"a **colour operation** is admissible in v1\nonly if…\"* — does not reach the keying, and why `color` is a literal `#RRGGBB`\nrather than `tint.color`'s closed exception being cited a second time.\n\n`color` is the screen colour, in the one spelling ADR-0014 fixes for every colour in\nthe format. Not `#RRGGBBAA`: an alpha on the key colour is meaningless and would be\na second way to say nothing — [`Effect::checked`] refuses one.\n\n`tolerance` is the normalised distance in the chroma plane within which a pixel is\nkeyed out, identity `0` — which keys **nothing**, and makes the whole member a\nno-op. `softness` is the width of the partial-alpha band at the edge of the key,\nidentity `0` — a hard, binary matte. `spill` suppresses screen colour reflected onto\nthe subject, identity `0`; it is the one parameter that changes RGB, and ADR-0088\nadmits it on ADR-0049's four clauses directly rather than by any exception.\n\nAll three are `0.0`–`1.0`, which the derive cannot state and [`Effect::checked`]\ndoes.\n\nStatic, like every effect parameter (ADR-0012). So the member keys a screen that is\nuniform **in time**: footage whose lighting drifts mid-take needs the element cut at\nthe drift boundaries, and `measure`'s per-frame coverage reading is how those\nboundaries are found. That is a stated limitation of ADR-0088, not a gap."
         }
       ],
       "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."

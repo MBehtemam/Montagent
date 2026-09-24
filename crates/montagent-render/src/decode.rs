@@ -160,6 +160,146 @@ pub fn frame_at(
     })
 }
 
+/// A **run** of frames out of one `ffmpeg`, starting at `from_ms` into the source and
+/// sampled at `per_second` source frames per second of source time.
+///
+/// [`frame_at`]'s sibling, and the reason it exists is a measurement rather than a
+/// preference: on ADR-0088's 140-frame forcing case, one spawn per frame costs ~13 s and
+/// one spawn for the whole run costs ~0.4 s at full 1080p. `measure`'s keyed-alpha
+/// coverage reading is defined as a *series* — ADR-0088 is explicit that a single frame
+/// answers *"did this key at all"* while the series answers *"did this key **stay**"* — so
+/// a series costing 30x what it needs to would be a reading nobody runs, which is the same
+/// as not having one.
+///
+/// **Streamed, one frame at a time, and that is not an optimisation either.** The same run
+/// materialised as a `Vec` is 1.16 GB of RGBA at 1080p, which is not a buffer a reading
+/// about *fractions* may demand of the machine it runs on.
+///
+/// `per_second` is the rate in **source** time, so an element played at `speed: 2` asks for
+/// twice the project's `fps` and lands on the frames the timeline actually shows. A float,
+/// because that product is one: `fps` is an integer and `speed` is not.
+pub fn frames_from(
+    ffmpeg: &Path,
+    source: &str,
+    from_ms: i64,
+    per_second: f64,
+    width: u32,
+    height: u32,
+) -> Result<Frames, String> {
+    if width == 0 || height == 0 {
+        return Err(format!(
+            "{source}: frames were asked for at {width}x{height}, which is no frame at all"
+        ));
+    }
+    if !per_second.is_finite() || per_second <= 0.0 {
+        return Err(format!(
+            "{source}: a run of frames needs a positive sampling rate, not {per_second}"
+        ));
+    }
+
+    // [`frame_at`]'s conversion, for [`frame_at`]'s reason: integer milliseconds to
+    // `ffmpeg`'s decimal seconds through the string, never through a float.
+    let seconds = format!("{}.{:03}", from_ms.max(0) / 1000, from_ms.max(0) % 1000);
+
+    let mut child = Command::new(ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            &seconds,
+            "-i",
+            source,
+            "-vf",
+            &format!("fps={per_second},scale={width}:{height}"),
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgba",
+            "-",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| format!("{source}: ffmpeg's output could not be read"))?;
+
+    Ok(Frames {
+        child,
+        stdout,
+        source: source.to_string(),
+        width,
+        height,
+    })
+}
+
+/// A run of decoded frames, still arriving.
+///
+/// Not an `Iterator`, because a frame that could not be read is a sentence rather than an
+/// end of stream, and `Option<Result<_>>` puts the two states a caller must tell apart into
+/// the shape most likely to collapse them. [`Frames::next_frame`] answers with all three:
+/// a frame, the end of the run, or what went wrong.
+pub struct Frames {
+    child: std::process::Child,
+    stdout: std::process::ChildStdout,
+    source: String,
+    width: u32,
+    height: u32,
+}
+
+impl Frames {
+    /// The next frame, or `None` where the run has ended.
+    ///
+    /// **A short run is an end, not an error.** Asking past the end of a source is how a
+    /// caller finds out where the end is; whether the source is shorter than the document
+    /// says it is is `validate`'s finding (`E-SOURCE-OVERRUN`) and not this type's to
+    /// re-derive. A run that ends mid-frame is the one genuine failure, because those bytes
+    /// are not a picture.
+    pub fn next_frame(&mut self) -> Result<Option<DecodedFrame>, String> {
+        use std::io::Read;
+
+        let stride = (self.width as usize) * (self.height as usize) * 4;
+        let mut rgba = vec![0u8; stride];
+        let mut filled = 0;
+        while filled < stride {
+            match self.stdout.read(&mut rgba[filled..]) {
+                Ok(0) => break,
+                Ok(read) => filled += read,
+                Err(e) => return Err(format!("{}: its frames stopped arriving: {e}", self.source)),
+            }
+        }
+        if filled == 0 {
+            return Ok(None);
+        }
+        if filled < stride {
+            return Err(format!(
+                "{}: ffmpeg wrote {filled} bytes for a {}x{} RGBA frame, which needs {stride}",
+                self.source, self.width, self.height
+            ));
+        }
+        Ok(Some(DecodedFrame {
+            rgba,
+            width: self.width,
+            height: self.height,
+        }))
+    }
+}
+
+impl Drop for Frames {
+    /// The child is killed rather than waited on, because a caller that stopped reading
+    /// stopped for a reason and the rest of a 1080p run is gigabytes it no longer wants.
+    /// `ffmpeg` would otherwise sit blocked on a pipe nobody is draining.
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

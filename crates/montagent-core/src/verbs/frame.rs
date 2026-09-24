@@ -1477,7 +1477,7 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
-fn effect_of(declared: &model::Effect) -> Option<Effect> {
+pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
     Some(match declared {
         model::Effect::Blur { radius } => Effect::Blur { radius: *radius },
         model::Effect::Shadow {
@@ -1528,6 +1528,21 @@ fn effect_of(declared: &model::Effect) -> Option<Effect> {
         model::Effect::Saturation { amount } => Effect::Saturation { amount: *amount },
         model::Effect::Brightness { amount } => Effect::Brightness { amount: *amount },
         model::Effect::Contrast { amount } => Effect::Contrast { amount: *amount },
+        model::Effect::Chroma {
+            color,
+            tolerance,
+            softness,
+            spill,
+        } => Effect::Chroma {
+            // The model refuses `#RRGGBBAA` on this member (ADR-0088), so the alpha byte
+            // reaching the rasterizer is always `0xFF` — and the keyer reads only the three
+            // colour channels, because a key colour names a colour to *find* in the frame
+            // rather than one to composite.
+            colour: rgba_of(color)?,
+            tolerance: *tolerance,
+            softness: *softness,
+            spill: *spill,
+        },
     })
 }
 
