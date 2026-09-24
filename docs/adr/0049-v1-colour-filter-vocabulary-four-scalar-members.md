@@ -5,6 +5,14 @@ amends: 0040 (settles the colour-filter deferral that ADR named and excluded fro
 
 # The v1 colour-filter vocabulary: four flat scalar effects, and a mechanical stopping rule
 
+> **Amended by [ADR-0088](./0088-chroma-is-a-matte-operation-and-color-stays-literal.md)**,
+> which states that the stopping rule below and its closed `tint.color` exception are scoped
+> — in their own words — to **colour operations**, and so do not reach a matte operation.
+> `shadow{…, color, …}` is named there as the non-scalar colour parameter that already sat
+> outside them, predating this ADR. The keyer's `spill`, which *does* change pixel colour, is
+> admitted on clauses (a)-(d) below rather than by citing `tint` as precedent, so the
+> exception stays closed exactly as written.
+
 [ADR-0040](./0040-effect-model-attachment-and-v1-vocabulary.md) deferred colour filters
 entirely from v1's effect vocabulary, on a closed-vocabulary-erosion argument rather than
 a difficulty one: "tint/grayscale/duotone/etc." is the shape of a family that does not

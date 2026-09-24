@@ -12,6 +12,12 @@ amends: 0011 (`measure` gains a fitted-extent output), 0015 (discharges its "no 
 > no-verdict rule below is untouched and is what shapes the addition — `measure` states the
 > seam and never judges it, and the judgment lives in `validate`'s `R-LINE-INK-COLLISION`.
 
+> **Also amended by [ADR-0088](./0088-chroma-is-a-matte-operation-and-color-stays-literal.md)**,
+> which gives `measure` a keyed-alpha coverage derivation for an element carrying a `chroma`
+> effect — opaque, transparent and partial fractions, **sampled per frame** so the series
+> shows where a static tolerance stops holding. The no-verdict rule is untouched: `measure`
+> states the coverage and never judges it.
+
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) promoted fit deviation to
 an `error` at strict equality but shipped no tool that produces the integer the error names.
 The author must recompute `(s_slack * b_driving) // s_driving` by hand, in exact integer

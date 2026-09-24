@@ -240,15 +240,17 @@ A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
 element — never an open plugin architecture. A list, not a map or a single field,
 because application order is semantically real: blur-then-shadow is a different
 frame from shadow-then-drop, and two effects of the same name are ordinary rather
-than forbidden. v1's vocabulary is seven members — `blur`, `shadow`, `mask`
-(shape-only), and the four Colour filter scalars below. Effects attach to whole
+than forbidden. v1's vocabulary is eight members — `blur`, `shadow`, `mask`
+(shape-only), `chroma` (the Matte operation below), and the four Colour filter
+scalars below. Effects attach to whole
 elements, never to a run — that boundary is what excludes `stroke` (a
 run-addressable paint field) from this vocabulary, and what excluded per-word
 Highlight, which needed run addressing and a timing model keyframes don't provide
 and got its own construct instead. Static in v1: no effect parameter is
 keyframable.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
-[ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md))
+[ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md),
+[ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md))
 _Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack
 
 **Colour filter**:
@@ -266,6 +268,31 @@ grandfathered exception to "parameters are bounded scalars", and the exception i
 closed.
 ([ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md))
 _Avoid_: grayscale, sepia, duotone, LUT, curve
+
+**Matte operation**:
+An `effects` member whose output is **transparency** rather than colour: it decides
+which pixels survive, and the RGB it keeps is the RGB it was given. `mask` and
+`chroma` are the two. The distinction is load-bearing rather than descriptive —
+Colour filter's four-clause admissibility rule is scoped, in its own words, to a
+*colour operation*, so it governs neither of them. `chroma`'s `spill` is the one
+parameter that crosses back: it suppresses screen colour reflected onto retained
+pixels, and it is admitted on the four clauses directly rather than by any
+exception.
+([ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md))
+_Avoid_: key (for the whole concept — a key is what `chroma` computes), cutout
+
+**Chroma**:
+The `effects` member that keys a screen colour out of a source:
+`chroma{color, tolerance, softness, spill}`. `color` is a literal `#RRGGBB` and not
+a hue angle — a bare hue **inverts the key**, and supplying the missing saturation
+and value is the colour restated in three fields. Serves a screen that is uniform
+in time: `tolerance` is static like every effect parameter, so footage whose
+lighting drifts mid-take needs the element cut at the drift boundaries, or a
+source keyed upstream. `measure` reports the resulting alpha coverage per frame,
+which is how that drift is found.
+([ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md))
+_Avoid_: greenscreen (the technique, not the member), chromakey, despill (that is
+`spill`, one parameter of this member)
 
 **Mask**:
 An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) that
