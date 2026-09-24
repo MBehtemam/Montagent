@@ -40,6 +40,47 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+/// Which decoder `ffmpeg` is told to use, where the default one gets it wrong.
+///
+/// ADR-0089. `ffmpeg` picks a decoder per codec and is right almost always; the exception
+/// is VP9-in-WebM carrying alpha, where the native `vp9` decoder does not surface the
+/// alpha side stream and every pixel decodes opaque — silently, which is the class
+/// ADR-0006 exists to prevent.
+///
+/// **The caller decides, and that is a dependency direction rather than a preference.**
+/// Answering "does this source need `libvpx-vp9`" means knowing its codec and whether its
+/// alpha is a side stream, which is `montagent_core::media::probe`'s reading — and this
+/// crate cannot ask, because core depends on render and not the reverse. A second codec
+/// authority spawning its own `ffprobe` here is the thing ADR-0011 spent itself removing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Decoder {
+    /// Whatever `ffmpeg` selects for the codec. Right for everything but the case below.
+    #[default]
+    Auto,
+    /// `libvpx-vp9`, which surfaces VP9's alpha side stream where the native decoder
+    /// drops it.
+    ///
+    /// Asked for **only** where the source is VP9 *and* carries alpha, never for VP9 at
+    /// large: ADR-0009 ships Montagent against *"an `ffmpeg` the user supplies"*, and an
+    /// `ffmpeg` built without libvpx has no such decoder. Forcing it on every VP9 source
+    /// would turn renders that work today into hard failures for those users. Narrowed to
+    /// the alpha case it can only fail where the alternative was a silently wrong picture,
+    /// and ADR-0006 prefers the loud error to that.
+    LibVpxVp9,
+}
+
+impl Decoder {
+    /// The input-side arguments this choice adds, which is nothing at all for [`Auto`].
+    ///
+    /// [`Auto`]: Decoder::Auto
+    fn args(self) -> &'static [&'static str] {
+        match self {
+            Decoder::Auto => &[],
+            Decoder::LibVpxVp9 => &["-c:v", "libvpx-vp9"],
+        }
+    }
+}
+
 /// One decoded frame, as RGBA8 at the size it was asked for.
 #[derive(Clone, PartialEq, Eq)]
 pub struct DecodedFrame {
@@ -83,6 +124,7 @@ impl std::fmt::Debug for DecodedFrame {
 pub fn frame_at(
     ffmpeg: &Path,
     source: &str,
+    decoder: Decoder,
     at_ms: i64,
     width: u32,
     height: u32,
@@ -98,11 +140,13 @@ pub fn frame_at(
     // in the one place the whole surface treats as authoritative.
     let seconds = format!("{}.{:03}", at_ms.max(0) / 1000, at_ms.max(0) % 1000);
 
+    let scale = format!("scale={width}:{height}");
     let output = Command::new(ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error"])
+        // Before `-i`, because a decoder choice is an option about the *input* — after it,
+        // `ffmpeg` reads it as an encoder for the output and the decode is unchanged.
+        .args(decoder.args())
         .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
             "-ss",
             &seconds,
             "-i",
@@ -110,7 +154,7 @@ pub fn frame_at(
             "-frames:v",
             "1",
             "-vf",
-            &format!("scale={width}:{height}"),
+            &scale,
             "-f",
             "rawvideo",
             "-pix_fmt",
@@ -181,6 +225,7 @@ pub fn frame_at(
 pub fn frames_from(
     ffmpeg: &Path,
     source: &str,
+    decoder: Decoder,
     from_ms: i64,
     per_second: f64,
     width: u32,
@@ -201,21 +246,14 @@ pub fn frames_from(
     // `ffmpeg`'s decimal seconds through the string, never through a float.
     let seconds = format!("{}.{:03}", from_ms.max(0) / 1000, from_ms.max(0) % 1000);
 
+    let filter = format!("fps={per_second},scale={width}:{height}");
     let mut child = Command::new(ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error"])
+        // [`frame_at`]'s placement, for [`frame_at`]'s reason: an input option goes before
+        // the input it is about.
+        .args(decoder.args())
         .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-ss",
-            &seconds,
-            "-i",
-            source,
-            "-vf",
-            &format!("fps={per_second},scale={width}:{height}"),
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
+            "-ss", &seconds, "-i", source, "-vf", &filter, "-f", "rawvideo", "-pix_fmt", "rgba",
             "-",
         ])
         .stdin(Stdio::null())
@@ -306,15 +344,39 @@ mod tests {
 
     #[test]
     fn a_zero_sized_frame_is_refused_before_anything_is_spawned() {
-        let e = frame_at(Path::new("/nowhere/ffmpeg"), "clip.mov", 0, 0, 100)
-            .expect_err("no frame has zero width");
+        let e = frame_at(
+            Path::new("/nowhere/ffmpeg"),
+            "clip.mov",
+            Decoder::Auto,
+            0,
+            0,
+            100,
+        )
+        .expect_err("no frame has zero width");
         assert!(e.contains("clip.mov"), "{e}");
     }
 
     #[test]
+    fn the_default_decoder_adds_no_arguments_at_all() {
+        // The whole safety of the conditional rests on this: every source that is not
+        // VP9-with-alpha must reach `ffmpeg` with exactly the command line it reached
+        // before ADR-0089, or the fix has broken the cases that already worked.
+        assert!(Decoder::Auto.args().is_empty());
+        assert_eq!(Decoder::default(), Decoder::Auto);
+        assert_eq!(Decoder::LibVpxVp9.args(), &["-c:v", "libvpx-vp9"]);
+    }
+
+    #[test]
     fn an_unrunnable_ffmpeg_names_the_path_it_tried() {
-        let e = frame_at(Path::new("/nowhere/ffmpeg"), "clip.mov", 0, 16, 16)
-            .expect_err("nothing to run");
+        let e = frame_at(
+            Path::new("/nowhere/ffmpeg"),
+            "clip.mov",
+            Decoder::Auto,
+            0,
+            16,
+            16,
+        )
+        .expect_err("nothing to run");
         assert!(e.contains("/nowhere/ffmpeg"), "{e}");
         assert!(e.contains("clip.mov"), "{e}");
     }

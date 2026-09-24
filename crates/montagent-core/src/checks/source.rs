@@ -235,6 +235,7 @@ mod tests {
             quad,
             dimensions: None,
             alpha: None,
+            codec_name: None,
             audio,
         }
     }

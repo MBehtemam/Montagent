@@ -5,6 +5,12 @@ amends: 0040 (overturns its chroma-key out-of-scope entry, replaces that entry's
 
 # Chroma key is a matte operation, not a colour one: it is admitted, and `color` stays literal
 
+> **Amended by [ADR-0089](0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).**
+> `R-CHROMA-ON-ALPHA-SOURCE` reaches further than it did here. Its reading was the *pixel
+> format's* alpha, which silently skipped every source carrying alpha in a side stream — so
+> an agent keying an already-keyed VP9 cutout was told nothing. The check is unchanged; the
+> reading under it now answers the file-level question.
+
 > **One row of the evidence table below does not describe the shipped keyer**, and the
 > decision does not rest on it. *"Tolerance keying nothing — 0.01 (100% opaque)"* is a
 > reading of `ffmpeg`'s `chromakey`, not of the member this ADR specifies:

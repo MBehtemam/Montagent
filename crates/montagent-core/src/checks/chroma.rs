@@ -92,9 +92,17 @@ pub fn on_disk(
 
         let outcome = session.probe(&Source::resolve(source, &base))?;
         // Existence-only, a confirmed miss, or genuinely unprobeable: nothing about the
-        // source's pixel format was established, so the question is unanswered rather than
+        // source's alpha was established, so the question is unanswered rather than
         // answered "no" — and `crate::checks::source` reports that as its own finding.
-        if outcome.probe().and_then(|probe| probe.alpha) != Some(true) {
+        //
+        // ADR-0089: the reading is the file's, not the pixel format's, so a pre-keyed
+        // VP9-in-WebM cutout now reaches this finding. It did not before, and the agent
+        // was told to key a source that was already keyed.
+        if !outcome
+            .probe()
+            .and_then(|probe| probe.alpha)
+            .is_some_and(|alpha| alpha.carries)
+        {
             continue;
         }
 

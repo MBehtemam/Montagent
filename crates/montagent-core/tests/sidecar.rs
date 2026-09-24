@@ -289,7 +289,7 @@ fn a_sidecar_that_cannot_be_read_is_a_cache_miss_and_never_a_finding_about_the_p
     #[cfg(unix)]
     {
         let forbidden = dir.join("forbidden.json");
-        std::fs::write(&forbidden, br#"{"version": 1, "entries": {}}"#).unwrap();
+        std::fs::write(&forbidden, br#"{"version": 2, "entries": {}}"#).unwrap();
         let mut mode = std::fs::metadata(&forbidden).unwrap().permissions();
         std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o000);
         std::fs::set_permissions(&forbidden, mode).unwrap();
@@ -361,7 +361,7 @@ fn a_source_whose_filesystem_will_not_state_an_mtime_is_never_persisted() {
     // Written by hand, because no filesystem to hand withholds an mtime: this is the entry
     // such a filesystem would produce, and the question is whether a later run trusts it.
     let entry = serde_json::json!({
-        "version": 1,
+        "version": 2,
         "entries": {
             media.canonicalize().unwrap().display().to_string(): {
                 "size": 3,
@@ -371,7 +371,7 @@ fn a_source_whose_filesystem_will_not_state_an_mtime_is_never_persisted() {
                     "source": media.display().to_string(),
                     "quad": {"video_stream_ms": null, "container_ms": 9999,
                              "start_time_ms": null, "r_frame_rate": null, "avg_frame_rate": null},
-                    "dimensions": null, "alpha": null, "audio": null
+                    "dimensions": null, "alpha": null, "codec_name": null, "audio": null
                 }
             }
         }

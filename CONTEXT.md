@@ -951,6 +951,20 @@ degenerate case — PAR is `1:1` and EXIF orientation is the only rotation signa
 this is the same rule ADR-0015 stated for images, generalised, not replaced.
 Defined in [ADR-0023](docs/adr/0023-video-source-dimensions-par-and-rotation.md).
 
+**Source alpha**:
+Whether a source carries an alpha channel — a fact about the **file**, not about its
+pixel format, and the two are not the same question. ProRes 4444 declares its alpha in
+the pixel format (`yuva444p10le`); VP9-in-WebM keeps it in a **side stream** and reports
+`pix_fmt=yuv420p` with an `alpha_mode` tag beside it, so a reading taken off the pixel
+format alone answers `false` for a file that carries one. The probe answers from either
+signal and reports which settled it (`pixel_format` or `container_declaration`), for the
+reason rotation names its own source: two signals of unequal strength, one cached answer.
+The side-stream case is also the only one that constrains the **decoder** — `libvpx-vp9`
+is forced for it and for nothing else, since a user-supplied `ffmpeg` may have no libvpx.
+Defined in [ADR-0089](docs/adr/0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).
+_Avoid_: transparency, alpha channel (the file carries one; this term is the reading),
+pix_fmt alpha
+
 **PAR (pixel aspect ratio)**:
 Applied, not ignored — silence here would repeat the EXIF-orientation divergence ADR-0015
 already legislated against, and would leave `validate` disagreeing with any renderer whose
