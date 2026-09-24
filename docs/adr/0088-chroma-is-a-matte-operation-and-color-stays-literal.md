@@ -5,6 +5,16 @@ amends: 0040 (overturns its chroma-key out-of-scope entry, replaces that entry's
 
 # Chroma key is a matte operation, not a colour one: it is admitted, and `color` stays literal
 
+> **One row of the evidence table below does not describe the shipped keyer**, and the
+> decision does not rest on it. *"Tolerance keying nothing — 0.01 (100% opaque)"* is a
+> reading of `ffmpeg`'s `chromakey`, not of the member this ADR specifies:
+> [#342](https://github.com/MBehtemam/Montagent/issues/342) measured Montagent keying
+> **87.5%** of the same clip at the same tolerance. The cliff itself is real and is
+> asserted on a pixel genuinely off the key; what does not carry across is this clip's
+> number. See *The `0.01` row is `ffmpeg`'s, and the shipped keyer does not reproduce it*
+> below. Nothing else in the table moved: the plateau, the coverage and the 140-frame
+> flatness all reproduce against the implementation.
+
 [ADR-0040](./0040-effect-model-attachment-and-v1-vocabulary.md) put chroma key on its
 *"Out of scope for a read-not-executed, agent-first format"* list, beside LUTs, with a
 one-sentence reason. [#340](https://github.com/MBehtemam/Montagent/issues/340) reopened it.
@@ -33,10 +43,51 @@ this ADR decides against the first court's unanimous verdict and characterises b
 | --- | --- |
 | screen colour, 5 timestamps x 5 points | **`(0, 205, 0)` at every one** |
 | `chromakey` tolerance keying the subject correctly | **0.05 – 0.30, all identical** |
-| tolerance keying *nothing* | 0.01 (100% opaque) |
+| tolerance keying *nothing* | 0.01 (100% opaque) — **`ffmpeg`'s reading only, see below** |
 | border-band contamination, all 140 frames, tolerance `0.10` | **min 0, max 0 px** |
 
 The hue-spelling measurements are in *Why `color` and not a hue angle*, below.
+
+### The `0.01` row is `ffmpeg`'s, and the shipped keyer does not reproduce it
+
+Written after the fact, by the ticket that implemented this ADR
+([#342](https://github.com/MBehtemam/Montagent/issues/342)). It corrects the table above
+rather than the decision below, which never rested on this row.
+
+Every number in that table was measured through `ffmpeg`'s `chromakey`, because that is
+what existed when this ADR was written. Three of the four describe the member as shipped.
+The fourth does not:
+
+| `tolerance: 0.01` on the forcing case | transparent |
+| --- | --- |
+| `ffmpeg`'s `chromakey` | 0.00% |
+| Montagent's `chroma` | **87.5%** |
+
+**Both are correct readings of what they measure.** `chromakey` compares the *stream's*
+subsampled, limited-range 8-bit `(U, V)` against a key converted from RGB with the CCIR
+coefficients; the two sit in different ranges, so an exactly-uniform screen still lands a
+unit or two off its own key and a tolerance of 0.01 cannot reach it. Montagent puts the
+decoded pixel and the declared `color` through the **same** conversion, so a screen that
+really is `#00CD00` is at distance **0** from `#00CD00` — and the first row of the table
+above is the measurement that it really is, at all 25 points.
+
+So the two disagree exactly where this clip is *perfect*, which is the one condition a CGI
+forcing case guarantees and real footage never will. The explanation is inferred from the
+two measurements rather than read out of `ffmpeg`; what is measured is that the row does
+not transfer.
+
+**What this costs the ADR: nothing, and the reason is worth stating.** The row was cited as
+the lower cliff of the plateau — evidence that `tolerance` has a real off-ramp rather than
+keying whatever it is handed. That property holds and is asserted, in
+`crates/montagent-render/src/canvas.rs`'s
+`the_tolerance_plateau_adr_0088_measured_is_flat_here_too`, against a screen pixel carrying
+ordinary h264 noise: keyed from 0.05, untouched at 0.01. The cliff is a fact about the
+parameter. The `0.00%` was a fact about one clip in one filter.
+
+`chroma_key_scan.sh` is unchanged and still passes: it asserts `ffmpeg`'s behaviour, which
+is still `ffmpeg`'s behaviour. The implementation's own regression guard is
+`crates/montagent-core/tests/chroma_coverage.rs`, which reproduces the other three rows
+against the shipped keyer and records this divergence in its own module doc.
 
 ## ADR-0040's stated reason does not survive, and should not be left standing
 
