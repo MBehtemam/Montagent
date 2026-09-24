@@ -1546,7 +1546,11 @@ fn the_glyphs_sit_on_the_baselines_measure_reports() {
         "runs": [{"text": "Hxg\nHxg"}],
     });
     let dir = tempdir(line!());
-    let project = write_project(&dir, "p.montagent.json", &text_project(&element.to_string()));
+    let project = write_project(
+        &dir,
+        "p.montagent.json",
+        &text_project(&element.to_string()),
+    );
 
     let measured = montagent_core::verbs::measure::measure(
         &project,
