@@ -140,6 +140,13 @@ status: accepted
 >   line's, measured from the font rather than from the declared numbers this ADR's
 >   overflow check compares against each other
 
+> **Amended by [ADR-0088](./0088-chroma-is-a-matte-operation-and-color-stays-literal.md)**,
+> which adds `R-CHROMA-AFTER-COLOUR`, `R-CHROMA-ON-AUTHORED-ELEMENT`,
+> `R-CHROMA-ON-ALPHA-SOURCE` and `N-CHROMA-INERT`. All four are derived from the document
+> plus the probe and **never from a render**, which is what keeps them on this ADR's side of
+> the *"does it say what you meant"* line — a check that had to key frames to form an opinion
+> would be the verb this ADR refuses to be.
+
 `montagent validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file
 say what you meant it to say."* That boundary is printed in the report itself.

@@ -5,7 +5,7 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
-> **Amended by six later ADRs.** Read them before relying on anything below.
+> **Amended by seven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
 >   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
@@ -26,6 +26,13 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 >   one shape-independent rect, and per-shape field sets are refused as ADR-0049's two-level
 >   lookup. Also states the coordinate space and transform behaviour this ADR's effect model
 >   implied but never said
+> - [ADR-0088](0088-chroma-is-a-matte-operation-and-color-stays-literal.md) — **overturns
+>   this ADR's chroma-key out-of-scope entry** and admits `chroma` as an eighth member. The
+>   entry's stated reason ("not readable from the schema alone") is falsified: it would
+>   equally exclude `blur`, and `frame`/`preview` already existed when it was written. The
+>   reason that survives — a keyer's `tolerance` is the one effect parameter that must drift
+>   with source lighting, which ADR-0012's static parameters forbid — is adopted there as a
+>   stated boundary, not a refusal
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a
