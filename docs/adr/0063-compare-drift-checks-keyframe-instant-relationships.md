@@ -5,6 +5,12 @@ amends: 0032 (states precisely where slack-drift's coverage of coincidence ends)
 
 # `compare` gets one drift predicate over keyframe-involving instant pairs; boundary-vs-boundary residue is named, not solved here
 
+> **Also amended by [ADR-0086](0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md) — narrowed, not reversed.** Its exact-equality
+> scoping is withdrawn **only for declared offsets**, whose population is exactly the
+> declarations an author wrote rather than every pair that happened not to move. The
+> reasoning here remains entirely correct for **inferred** offsets, and `compare` may not
+> infer them. The declared case is `validate`'s, not `compare`'s.
+
 > **Amended by [ADR-0066](0066-boundary-coincidence-cluster-drift-is-its-own-predicate.md).**
 > The new predicate is sibling to, not an extension of, the one shipped there.
 

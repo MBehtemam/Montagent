@@ -5,6 +5,17 @@ amends: 0011 (no tenth verb; the nine-tool surface holds), 0012 (derived keyfram
 
 # Derived times carry no signature, but that is a provenance gap, not a tool gap — none ships
 
+> **Amended by [ADR-0086](0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md) — its evidence is withdrawn as unreproducible.**
+> The *"52 hand-typed absolute timestamps"* of which four (`8000`, `16800`, `25700`,
+> `35300`, each `end − 300`) carry no signature **do not exist**: those values appear in
+> no committed version of the fixture, which carries 135 timeline instants and no
+> `highlight` at all. **This ADR's disposition stands** — no tool ships, the
+> input-the-agent-lacks discriminator is untouched, and the re-diagnosis of the problem as
+> *provenance, not computation* is correct and is ADR-0086's premise. Only the census is
+> withdrawn; ADR-0086 replaces it with a re-executable one
+> ([`recorded_intent_scan.py`](recorded_intent_scan.py)). The **"inert provenance"** need
+> this ADR deferred to the map's fog is designed there.
+
 [Ticket #68](https://github.com/MBehtemam/Montaget/issues/68), re-scoped from
 [#12](https://github.com/MBehtemam/Montaget/issues/12) after the preset-catalog framing was
 measured and killed. What survived that kill was a discriminator — *"does the tool have an

@@ -829,6 +829,44 @@ only the ones where it happened not to matter.
 ([#76](https://github.com/MBehtemam/Montaget/issues/76),
 [`docs/research/juries/format-versioning/experiment-gravity-fork/`](https://github.com/MBehtemam/Montaget/tree/main/docs/research/juries/format-versioning/experiment-gravity-fork))
 
+**Derivation claim**:
+A **renderer-ignored declaration recording how the author computed a literal**, whose only
+consumer is `validate`. `fit` is the first one (see **Fit** below); ADR-0086 generalises the shape into a
+pattern with six conditions of admission — no renderer reads it, `validate` is the only
+consumer, the rule set is finite and published, at most one argument with its type fixed
+per rule, rules do not compose, and the declaration is optional with absence meaning *no
+claim*. A violated claim is **always `error`**; only the repair varies (advise-class when
+the claim names a direction, refuse-class `"none"` when it is symmetric). A claim with no
+arithmetic to re-derive cannot be violated at all.
+([ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md),
+[ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md))
+_Avoid_: provenance (unqualified — already spoken for), annotation, hint, metadata
+
+**`t_from`**:
+The time axis's derivation claim: an optional member of a keyframe record annotating that
+record's own `t`, always an object. Two rules, both measured 7 of 7 on the fixture —
+`element-start` (no argument) and `after-previous` (one non-negative integer `ms`).
+Direction is carried in the rule **name**, never in the sign of the argument, so no rule
+needs signed arithmetic. *"Previous"* is positional and well-defined because ADR-0082
+requires ascending `t`; it is not a reference. Key order is `t`, `t_from`, `v`, `ease`.
+Defined in [ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md).
+_Avoid_: derivedFrom, anchor, t_rule
+
+**Live versus recorded reference**:
+The format has **zero *live* element-to-element references** — the restatement ADR-0086
+makes of ADR-0012's invariant. A *live* reference is one the **renderer** resolves, and it
+stays rejected: it breaks read-by-reading, degrades to a stale literal on the first shift,
+and gives one element's geometry a silent second author. A *recorded* reference is read
+only by `validate`; it does not degrade on a shift, it **detects** one. The permission to
+name an id is **per-axis and earned**, granted only by an ADR carrying a measurement that
+inference fails — and ADR-0086 grants it to no axis. A dangling recorded reference is an
+`error` with a refuse-class repair, on referential integrity: a closed schema that admits a
+reference type must require it to resolve.
+([ADR-0086](docs/adr/0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md),
+[ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md),
+[ADR-0036](docs/adr/0036-shift-preambles-coincident-instants-validate-and-compare-stay-out.md))
+_Avoid_: pointer, link, binding (a recorded reference binds nothing)
+
 **Fit**:
 A **derivation claim, not a layout mode**. `fit` records the rule by which the author computed
 `width`/`height` from the source and the aperture; no renderer reads it, because the declared

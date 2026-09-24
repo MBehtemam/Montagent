@@ -5,6 +5,12 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0086](0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md)**: the zero-element-to-element-references invariant
+> this ADR established is restated as zero ***live*** references. A recorded,
+> renderer-ignored reference is a different object, spendable **per axis** only on a
+> measured proof that inference fails. ADR-0086 fixes those terms and grants the
+> permission to no axis.
+
 > **Amended by [ADR-0082](./0082-a-keyframe-list-must-be-written-in-ascending-t.md)**:
 > a keyframe list must be written with strictly ascending `t` — new schema law closing
 > [#270](https://github.com/MBehtemam/Montaget/issues/270).
