@@ -6,6 +6,12 @@ amends: 0011 (`measure` gains a fitted-extent output), 0015 (discharges its "no 
 
 # `measure` writes the fit repair, not the verdict
 
+> **Amended by [ADR-0087](./0087-thai-line-height-collision-is-a-font-selection-problem.md)**,
+> which gives `measure` a third thing to report: each line's real **ink** extent and the
+> seam between adjacent lines' ink, beside the slot numbers it already answers with. The
+> no-verdict rule below is untouched and is what shapes the addition — `measure` states the
+> seam and never judges it, and the judgment lives in `validate`'s `R-LINE-INK-COLLISION`.
+
 [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md) promoted fit deviation to
 an `error` at strict equality but shipped no tool that produces the integer the error names.
 The author must recompute `(s_slack * b_driving) // s_driving` by hand, in exact integer

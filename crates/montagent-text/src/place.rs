@@ -112,11 +112,12 @@ pub struct Placement {
     pub outlines: Vec<Vec<PathEl>>,
 }
 
-/// Place one text element's glyphs.
+/// Place one text element's glyphs, aligned as [`Spec::align`] says.
 ///
 /// The failure is the same one [`crate::measure`] has and the only one there is: a font
 /// the project does not declare, or one that cannot be opened.
-pub fn place(fonts: &mut Fonts, spec: &Spec<'_>, align: Align) -> Result<Placement, FontError> {
+pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError> {
+    let align = spec.align;
     let (measurement, layouts) = measured(fonts, spec)?;
 
     // The block the lines align inside is the block the lines make (ADR-0007), so its
@@ -192,7 +193,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>, align: Align) -> Result<Placeme
 /// readings disagree by half a space and only one of them is the number `measure` already
 /// published. No fixture text ends in a space; named so the next reader does not have to
 /// discover it from a half-space offset.
-fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {
+pub(crate) fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {
     let free = (block_width - advance).max(0.0);
     match (align, rtl) {
         (Align::Start, false) | (Align::End, true) => 0.0,

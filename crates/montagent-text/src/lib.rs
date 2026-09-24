@@ -13,6 +13,9 @@
 //!   Montagent never places a line break itself. See [`breaks`].
 //! - **Each line's resolved `baseline_y`** (ADR-0029), and the **stroked** extent rather
 //!   than the typographic one (ADR-0014). See [`engine`].
+//! - **Where each line's ink actually is**, and the seam between adjacent lines' ink
+//!   (ADR-0087) — the measurement ADR-0007's declared-numbers slot rule cannot see. See
+//!   [`ink`]. A measurement only: whether a seam is acceptable is `validate`'s.
 //! - **Where every glyph goes**, as outlines in the block's own coordinates, off the same
 //!   shaping pass the measurement came from — never a second layout (#213). See [`place`].
 //! - **What a font file can draw** — the `cmap` of one face, so ADR-0007's glyph-coverage
@@ -36,6 +39,7 @@ pub mod breaks;
 pub mod engine;
 pub mod fonts;
 pub mod glyphs;
+pub mod ink;
 pub mod lines;
 pub mod names;
 pub mod place;
@@ -44,5 +48,6 @@ pub use breaks::{SEGMENTER, Segmenter};
 pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
 pub use fonts::{FontError, FontFile, Fonts};
 pub use glyphs::Charmap;
+pub use ink::InkSeam;
 pub use names::FaceNames;
 pub use place::{Align, Glyph, PathEl, Placement, place};

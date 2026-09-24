@@ -421,6 +421,12 @@ pub fn ink_box(
             stroke_width: spec.asked.stroke_width,
             y: resolved_y,
             vertical_origin: spec.vertical_origin,
+            // This function resolves `align` itself, below, into the absolute rectangle it
+            // answers with — so the measurement it takes here needs it only for the ink
+            // seam it does not read. Set from the same element all the same: a `Spec` that
+            // said `start` about an element aligned `end` would be a lie the next reader of
+            // this call site has to discover.
+            align: crate::verbs::measure::align_of(element),
         },
     )
     .map_err(|e| e.to_string())?;

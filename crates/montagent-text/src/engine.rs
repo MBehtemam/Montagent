@@ -16,6 +16,12 @@
 //!   *"every author adds `2 × stroke_width` by hand and they diverge"*.
 //! - **Break opportunities** come back per line, from [`crate::breaks`], with the segmenter
 //!   named (ADR-0008).
+//! - **Each line's real inked extent**, and the seam between adjacent lines' ink, from
+//!   [`crate::ink`] (ADR-0087). The slot above is a function of two declared numbers and
+//!   never of the font's ink; this is the ink, stated beside it so the two can be compared
+//!   at all. It changes no slot and moves no baseline. **The seam is compared per glyph,
+//!   where two glyphs share horizontal space** — a whole-line comparison is a
+//!   false-positive generator, and [`crate::ink`] records what it cost to learn that.
 //!
 //! # No verdict, ever
 //!
@@ -46,7 +52,9 @@ use serde::Serialize;
 
 use crate::breaks::{SEGMENTER, Segmenter, opportunities};
 use crate::fonts::{FontError, Fonts};
+use crate::ink::{InkSeam, LineInk, line_ink, placed, seam_between};
 use crate::lines::partition;
+use crate::place::{Align, offset};
 
 /// One stretch of a text element's content, with its style deltas over the base
 /// (ADR-0007).
@@ -98,6 +106,14 @@ pub struct Spec<'a> {
     /// The `y` the block is placed at, through [`Spec::vertical_origin`].
     pub y: i64,
     pub vertical_origin: VerticalOrigin,
+    /// How the lines sit against each other (ADR-0007) — never how the block is placed.
+    ///
+    /// Here rather than only on [`crate::place`] because **the ink seam needs it**
+    /// (ADR-0087, second court): two lines' glyphs must be in one horizontal frame before
+    /// their ink can be compared, and `align` is what puts them there. `x`, `origin` and the
+    /// declared `width` are still absent and still cancel — the seam is a difference between
+    /// two lines of one block, so where that block sits moves both of them equally.
+    pub align: Align,
 }
 
 /// One line's measurement.
@@ -129,6 +145,14 @@ pub struct MeasuredLine {
     /// `advance_width + 2 × stroke_width` — the stroked width, which is the one an
     /// overflow question is asked about (ADR-0014).
     pub extent_width: f64,
+    /// Where this line's glyphs **actually** start and end vertically, in the block's own
+    /// coordinates — the real ink, not the slot (ADR-0087).
+    ///
+    /// `null` for a line that draws nothing: an empty line, or a line of spaces. A blank
+    /// line reserves its slot exactly as before and simply has no ink to report, which is
+    /// a different fact from having ink of zero height at the baseline.
+    pub ink_top: Option<f64>,
+    pub ink_bottom: Option<f64>,
     /// Every byte offset, into the element's whole text, at which this line may legally
     /// break (ADR-0008). Never a place Montagent would break it: nothing wraps.
     pub break_opportunities: Vec<usize>,
@@ -159,6 +183,18 @@ pub struct Measurement {
     pub block_bottom: f64,
     /// The **stroked** extent (ADR-0014), which is what an author compares a box against.
     pub extent: Extent,
+    /// The topmost and bottommost ink anywhere in the block, for a caller asking about the
+    /// block rather than about a line. `null` where the block draws nothing at all.
+    ///
+    /// **Not clamped to the block**, and that is the point: ADR-0087 records that on the
+    /// Thai faces it measured, the first line's ink escapes `block_top` by 8.45 px at
+    /// `line_height` 1.1 — a number that would be invisible if this were reported as the
+    /// intersection of the ink with the slots rather than as the ink.
+    pub ink_top: Option<f64>,
+    pub ink_bottom: Option<f64>,
+    /// The seam between each adjacent pair of **inked** lines (ADR-0087). Empty for a block
+    /// of one line, and for one whose lines draw nothing.
+    pub ink_seams: Vec<InkSeam>,
     pub lines: Vec<MeasuredLine>,
     /// Which segmenter produced every `break_opportunities` above (ADR-0008).
     pub segmenter: Segmenter,
@@ -326,6 +362,13 @@ pub(crate) fn measured(
             descent,
             size,
             stroke_width,
+            // Read off the layout rather than guessed from the characters, so a `dir`
+            // override reaches the seam the same way it reaches shaping and the renderer.
+            rtl: layout.is_rtl(),
+            // Read off the layout this pass just built, for [`crate::place`]'s reason: the
+            // glyphs whose ink is being measured must be the glyphs that will be drawn, and
+            // a second shaping pass to find them would be a second answer to where they are.
+            ink: line_ink(&layout),
         });
         layouts.push(layout);
     }
@@ -351,6 +394,7 @@ pub(crate) fn measured(
         // The slot's own centre, exactly: `slot / 2` is `size × line_height × 10`, an
         // integer by construction.
         let centre = slot_top + slots[index];
+        let baseline_y = pixels(centre) + (shaped.ascent - shaped.descent) / 2.0;
         measured.push(MeasuredLine {
             index,
             text: line.text.to_string(),
@@ -361,8 +405,12 @@ pub(crate) fn measured(
             size: shaped.size,
             slot_top: pixels(slot_top),
             slot_height: pixels(slot),
-            baseline_y: pixels(centre) + (shaped.ascent - shaped.descent) / 2.0,
+            baseline_y,
             stroke_width: shaped.stroke_width,
+            // ADR-0029's baseline plus the line's own ink offsets — the one place the two
+            // halves meet, so there is no second derivation of either.
+            ink_top: shaped.ink.as_ref().map(|ink| baseline_y + ink.top),
+            ink_bottom: shaped.ink.as_ref().map(|ink| baseline_y + ink.bottom),
             extent_width: shaped.advance + 2.0 * shaped.stroke_width as f64,
             break_opportunities: opportunities(line.text)
                 .into_iter()
@@ -377,6 +425,45 @@ pub(crate) fn measured(
         .map(|line| line.stroke_width)
         .max()
         .unwrap_or(spec.stroke_width);
+
+    let ink_top = measured
+        .iter()
+        .filter_map(|line| line.ink_top)
+        .reduce(f64::min);
+    let ink_bottom = measured
+        .iter()
+        .filter_map(|line| line.ink_bottom)
+        .reduce(f64::max);
+
+    // The seam, per glyph and in the block's own horizontal frame (ADR-0087, second court).
+    //
+    // The alignment offset needs the block's width, which is the widest line's advance and
+    // is not known until every line is shaped — so this sits here, after pass two, rather
+    // than beside the vertical coordinates it is reported next to.
+    let block_width = greatest(&measured, |line| line.advance_width);
+    let inked: Vec<(usize, Vec<crate::ink::GlyphInk>)> = measured
+        .iter()
+        .zip(&shaped)
+        .filter_map(|(line, shaped)| {
+            let ink = shaped.ink.as_ref()?;
+            // `crate::place::offset`'s, never a second copy: the glyphs a seam is measured
+            // between must be the glyphs the renderer draws, at the same offsets.
+            let dx = offset(spec.align, shaped.rtl, block_width, shaped.advance);
+            Some((
+                line.index,
+                placed(ink, dx, line.baseline_y, line.stroke_width),
+            ))
+        })
+        .collect();
+    let ink_seams: Vec<InkSeam> = inked
+        .windows(2)
+        .map(|pair| InkSeam {
+            above: pair[0].0,
+            below: pair[1].0,
+            overlap: seam_between(&pair[0].1, &pair[1].1),
+        })
+        .collect();
+
     Ok((
         Measurement {
             line_count: measured.len(),
@@ -391,6 +478,9 @@ pub(crate) fn measured(
                 height: pixels(block) + 2.0 * stroke_width as f64,
                 stroke_width,
             },
+            ink_top,
+            ink_bottom,
+            ink_seams,
             lines: measured,
             segmenter: SEGMENTER,
         },
@@ -405,6 +495,11 @@ struct LineMetrics {
     descent: f64,
     size: i64,
     stroke_width: i64,
+    /// This line's own base direction, for the alignment offset (ADR-0007's `start`/`end`).
+    rtl: bool,
+    /// Relative to this line's own origin and baseline; the block's coordinates are added in
+    /// pass two, which is where both the baseline and the block's width are known.
+    ink: Option<LineInk>,
 }
 
 /// A coordinate in twentieths, as pixels.

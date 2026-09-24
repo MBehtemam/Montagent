@@ -24,6 +24,7 @@ pub mod ease;
 pub mod fit;
 pub mod fonts;
 pub mod highlight;
+pub mod ink;
 pub mod layout;
 pub mod mask;
 pub mod quantization;

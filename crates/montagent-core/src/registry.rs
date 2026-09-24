@@ -604,6 +604,44 @@ while {elements} plays on {active}.",
 {computed_height} ({derivation}) — slack {slack} ({slack_percent}%).",
         status: Live,
     },
+    CheckSpec {
+        // ADR-0087's ink seam (#325). ADR-0007 makes a line's slot *"the largest `size`
+        // among the runs on that line × `line_height`"* — two numbers the document
+        // declares, never the font's ink — and ADR-0058's `R-BOX-SLACK` above inherits the
+        // same blindness, because it compares declared numbers against each other. On a
+        // script whose marks stack, the two readings come apart: Thai's base + upper vowel
+        // + tone mark + lower vowel put one line's ink through the next line's at a
+        // `line_height` of 1.1 that is correct for Latin in the same face, with every field
+        // individually valid and nothing in the tool able to say so.
+        //
+        // `review`, which is ADR-0006's definition read literally: it is legal, it renders,
+        // and you must look at a frame to know whether it was meant — deliberate tight
+        // tight `line_height` is a real typographic choice, and ADR-0087 is explicit that this may
+        // never be an `error`, which is reserved for *guaranteed wrong*.
+        code: "R-LINE-INK-COLLISION",
+        classes: &[Review],
+        repair: None,
+        // Internal. The deciding number is **zero** — one line's ink reaching past where
+        // the next line's begins — and both sides of that comparison are derived from the
+        // document and the font files it declares. Nothing here is borrowed from outside
+        // the format: ADR-0087 rejected a script-aware `line_height` floor precisely
+        // *because* it would have been an external constant, and one the measurements show
+        // is a property of the face (1.3 on Noto Sans Thai, 1.6 on Sarabun) rather than of
+        // the script.
+        threshold: Internal,
+        adr: "ADR-0087",
+        // **No sibling census**, on `E-RUN-SPLIT-CLUSTER`'s reasoning that a census attaches
+        // where a real sibling group exists. One could be built here — the other elements
+        // set in this same chain — but it would not be inert: ADR-0087 records that two
+        // repairs are legitimate and that the document does not determine which, and a
+        // census grouping by `font` reads as an argument for the one that changes the face.
+        template: "{element}: at line_height {line_height} in `{font}` at size {size}, line \
+{above}'s ink reaches {overlap} px past where line {below}'s begins ({collisions} here). Each \
+line reserves {slot} px — `size × line_height`, which is not a function of the font's ink \
+(ADR-0007) — so every field is individually valid. Look at a frame: ADR-0087 leaves two \
+repairs open and the document does not say which was meant.",
+        status: Live,
+    },
     // ---- The `highlight` and transition document checks (#202). --------------------
     CheckSpec {
         // ADR-0051's containment check. Refuse, on `E-TRACK-OVERLAP`'s reasoning: the

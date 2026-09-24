@@ -1187,8 +1187,8 @@ impl<'a> Painter<'a> {
                 // The block's own frame: the canvas places it.
                 y: 0,
                 vertical_origin: montagent_text::VerticalOrigin::Top,
+                align: crate::verbs::measure::align_of(element),
             },
-            align_of(element),
         );
         let placement = match placement {
             Ok(placement) => placement,
@@ -1426,22 +1426,6 @@ fn runs_with(element: &Value, key: &str) -> bool {
     crate::verbs::measure::runs_array(element)
         .iter()
         .any(|run| run.get(key).is_some_and(|value| !value.is_null()))
-}
-
-/// `align` — how the lines sit against each other (ADR-0007), never how the box is placed.
-///
-/// **An absent `align` is `start`.** No ADR states a default. `start` is the one that
-/// changes nothing for a single-line element — every text element in the fixture that
-/// omits it has one line — and it is the value that reads correctly in both directions,
-/// which is the reason ADR-0007 spells the vocabulary `start`/`end` in the first place.
-/// A string the schema does not admit is `validate`'s to name and is read as `start` here,
-/// on the same rule the renderer reads a malformed `origin` by.
-fn align_of(element: &Value) -> montagent_text::Align {
-    match element.get("align").and_then(Value::as_str) {
-        Some("center") => montagent_text::Align::Center,
-        Some("end") => montagent_text::Align::End,
-        _ => montagent_text::Align::Start,
-    }
 }
 
 /// The rasterizer's spelling of one outline segment.
