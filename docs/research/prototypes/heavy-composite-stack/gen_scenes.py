@@ -10,11 +10,14 @@ clips (main full-card + a PiP inset), and TWO simultaneous overlay blocks
 [10, 20) window that run.sh benchmarks -- so #87's numbers and this
 prototype's are read against the same window and the same budget.
 """
-import json
+import json, os
 
-REPO = "/Users/mohammedehtemam/projects/github/Montagent"
-BASE = f"{REPO}/docs/research/prototypes/heavy-composite-stack"
-BADGE = f"{REPO}/fixtures/en-halloween-decorating/brand/logo-en.png"
+# Asset paths in a scene file are repository-relative -- `repo::resolve` in the
+# rust-rasterizer harness makes them absolute against whatever checkout it is in.
+BASE = "docs/research/prototypes/heavy-composite-stack"
+BADGE = "fixtures/en-halloween-decorating/brand/logo-en.png"
+# Where this script writes, which is its own directory, not a scene path.
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # One translation-card overlay block (rect x3 + text x2), the same shape
 # #87 measured once. Positioned by (x0, y0) so two can be placed without
@@ -131,7 +134,7 @@ def make_scene(name, canvas_w, canvas_h, card_h, factor, a_video, a_still, b_vid
             },
         ],
     }
-    out = f"{BASE}/{name}"
+    out = f"{OUT_DIR}/{name}"
     with open(out, "w") as f:
         json.dump(scene, f, indent=1)
     print(f"wrote {out}: {len(scene['spans'])} spans, {len(scene['clips'])} clips, {len(scene['events'])} events")

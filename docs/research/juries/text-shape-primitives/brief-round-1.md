@@ -2,7 +2,7 @@
 
 You are an **agent that authors and edits video projects** in a declarative format
 called Montagent — you are its consumer, not its reviewer. Montagent is a real repo at
-`/Users/mohammedehtemam/projects/github/Montagent`. Files in (images, video, audio),
+`MBehtemam/Montagent`. Files in (images, video, audio),
 video out. The project file is a single JSON document in git and is the source of
 truth; you would edit it with ordinary file tools (exact-string replace) and check
 your work with tools called `validate`, `frame`, `measure` and `query`.

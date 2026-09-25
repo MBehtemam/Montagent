@@ -4,7 +4,7 @@ You are an agent that authors and edits Montagent projects — a video editor wh
 format is one declarative JSON file, authored by an AI agent rather than a GUI. You are
 the consumer who will live in this format. Not a reviewer.
 
-Repo: `/Users/mohammedehtemam/projects/github/Montagent` (read-only).
+Repo: `MBehtemam/Montagent` (read-only).
 
 **You must return a decision on BOTH questions. "It depends", "either is defensible", and
 "the panel should choose" are not answers. If it is close, say it is close, then decide.**
