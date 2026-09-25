@@ -1,0 +1,16 @@
+The pictures in frames/ are NOT under the repository's MIT licence.
+===================================================================
+
+The four files under frames/ composite their main media from ffmpeg's synthetic testsrc2
+filter, not from the channel's photography -- but they also draw
+fixtures/en-halloween-decorating/brand/logo-en.png and the channel handle, which this
+prototype's scene files name by path. That logo is "all rights reserved", and a render
+containing it is a derivative of it, so these four carry the same terms:
+
+    Copyright (c) 2026 Mohammad Bagher Ehtemam. All rights reserved. Permission is
+    granted to use these files ONLY to build, test, benchmark and study this repository.
+    Any other use requires the copyright holder's written permission.
+
+The scene files, the generator scripts, README.md and FINDINGS.md are MIT with the rest
+of the repository (../../../../LICENSE). The canonical list of every carved-out path in
+the tree is ../../../../LICENSE-MEDIA.md.

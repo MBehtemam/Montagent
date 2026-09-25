@@ -1,0 +1,35 @@
+green-screen-trex.mp4 is not ours, and is not under the repository's MIT licence.
+=================================================================================
+
+BALLOTS.md and chroma_key_scan.sh are MIT with the rest of the repository (../../../LICENSE).
+The video is not.
+
+    green-screen-trex.mp4
+
+    Downloaded from Pixabay. By Exceptional_3D, under the Pixabay Content License.
+
+      source:  https://pixabay.com/videos/dinosaur-trex-reptile-roar-extinct-170831/
+      licence: https://pixabay.com/service/license-summary/
+
+The Pixabay Content License grants free commercial and non-commercial use and requires no
+attribution. The attribution above is given anyway, because a reader of this repository
+needs to know the file did not come from here -- the maintainer can neither place it
+under MIT nor reserve rights over it.
+
+It is committed as the forcing case ADR-0088 measures its keyer against: 1920x1080, h264,
+24 fps, 140 frames. chroma_key_scan.sh beside it re-derives every number in that ADR from
+this file and exits non-zero the moment one stops reproducing.
+
+
+One question this file does not settle
+--------------------------------------
+
+The clip is committed verbatim as downloaded -- no trim, no edit. The Pixabay terms
+forbid distributing Content "on a Standalone basis", defined as "where no creative effort
+has been applied to the Content and it remains in substantially the same form as it
+exists on the Service". Every example those terms give of the prohibition is a resale:
+prints, wallpapers, posters, NFTs, merchandise. A test fixture inside a source repository
+is plainly not one of those -- and it is equally plainly an unedited copy being
+redistributed.
+
+The question is open, it is tracked as its own issue, and nothing here resolves it.

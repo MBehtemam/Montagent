@@ -19,3 +19,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+The licence above covers the code and the documentation. It does NOT cover the images,
+audio and video committed as test fixtures and research evidence: the assets of a
+published short from the maintainer's own language channel, and the renders derived from
+them, are "all rights reserved" and usable only to build, test and study this repository;
+two files belong to third parties under their own licences. LICENSE-MEDIA.md is the
+canonical list of every affected path.

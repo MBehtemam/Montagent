@@ -1,0 +1,16 @@
+The pictures in frames/ are NOT under the repository's MIT licence.
+===================================================================
+
+All 11 files under frames/, including frames/oracle/, are renders of
+fixtures/en-halloween-decorating/ -- scene.json and scene-video.json name its stills, its
+logo and its published MP4 by path -- so each composites the channel's photography, its
+logo, or both. That media is "all rights reserved", and a render of copyrighted media is
+a derivative of it, so these carry the same terms:
+
+    Copyright (c) 2026 Mohammad Bagher Ehtemam. All rights reserved. Permission is
+    granted to use these files ONLY to build, test, benchmark and study this repository.
+    Any other use requires the copyright holder's written permission.
+
+The Rust source, the scene files, README.md and FINDINGS.md are MIT with the rest of the
+repository (../../../../LICENSE). The canonical list of every carved-out path in the tree
+is ../../../../LICENSE-MEDIA.md.

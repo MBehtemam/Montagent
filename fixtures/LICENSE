@@ -1,0 +1,48 @@
+The media in this directory is NOT under the repository's MIT licence.
+=====================================================================
+
+The repository's code and documentation are MIT (see ../LICENSE). The images, audio and
+video here are not, and this file says so where a reader will actually find it. The
+canonical, tree-wide list of every carved-out path is ../LICENSE-MEDIA.md.
+
+
+Rights reserved
+---------------
+
+Copyright (c) 2026 Mohammad Bagher Ehtemam. All rights reserved.
+
+Every file under fixtures/en-halloween-decorating/ EXCEPT the two files named under
+"Third party" below. These are the real assets of an already-published short from the
+maintainer's own language channel: four source stills, eleven voice-over recordings, the
+channel logo, the finished MP4, four derived Ken Burns clips, two extracted frames, the
+subtitle files, and the JSON that composes them.
+
+They are committed so that this repository's tests and research can be judged against
+real input instead of plausible invented input, and that is the only use granted:
+
+    Permission is granted to use these files ONLY to build, test, benchmark and study
+    this repository -- including in a fork of it, and including running the repository's
+    test suite and research harnesses. Any other use, and in particular any commercial
+    use, any redistribution apart from this repository, any use of the channel's logo,
+    photography or recorded voice in another work, and any use to train a generative
+    model, requires the copyright holder's written permission.
+
+fixtures/video-decode/ holds no media of its own -- its source is the published MP4
+above, reached by a relative path -- but anything rendered from it is derived from that
+MP4 and carries the same terms.
+
+Renders of this media are derivatives of it and carry the same terms wherever they live
+in the tree. ../LICENSE-MEDIA.md lists them; they are the golden frames under
+crates/montagent-core/tests/golden/ and the committed frames of four prototypes under
+docs/research/prototypes/.
+
+
+Third party
+-----------
+
+fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf
+fixtures/en-halloween-decorating/fonts/OpenRunde-LICENSE.txt
+
+    Open Runde, derived from Inter. Copyright (c) 2016 The Inter Project Authors, under
+    the SIL Open Font License, Version 1.1. The full licence ships beside the font in
+    OpenRunde-LICENSE.txt. Neither the MIT grant nor the reservation above applies to it.
