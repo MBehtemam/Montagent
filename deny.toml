@@ -1,0 +1,110 @@
+# `cargo deny`'s job here is the gate `about.toml` cannot be: `THIRD-PARTY.md` *records* what
+# the binary links, and this file *refuses* the thing that must never enter it (#359).
+#
+# ADR-0009 turns on one invariant — FFmpeg is spawned from the user's `PATH`, never linked,
+# because `libx264` is GPL and linking `libavcodec` would make the shipped binary a GPL
+# combined work. That invariant is not enforced by anyone noticing. A copyleft crate entering
+# the graph is a quiet event, and the cost of finding out late is a release that has to be
+# withdrawn rather than amended.
+#
+# `ci/assert_passive_packaging.py` is the neighbouring check and deliberately not duplicated
+# here: it names the specific FFmpeg-linking, HTTP-client and telemetry crates as *crates*,
+# which is a different question from what licence they carry.
+
+[graph]
+# ADR-0064's six desktop tier-1 targets. Without this, cargo-deny walks every target the
+# standard library supports, and the answer stops being about anything Montagent ships:
+# `r-efi` is LGPL-2.1-or-later and exists only for UEFI, so an unscoped run reports a
+# copyleft crate that no release archive can possibly contain.
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+]
+
+# Dev-dependencies are the golden-frame oracle, the independent decoders and the fuzz
+# harness. None of them is distributed, and a licence they carry creates no obligation for
+# anyone who downloads a tarball. `about.toml` scopes the *attribution* the same way, and for
+# the same reason; the two files agreeing is not a coincidence to be tidied away.
+exclude-dev = true
+all-features = false
+
+[licenses]
+# The permissive set, and only the permissive set. This is an allowlist, not a denylist: a
+# licence nobody has considered fails, rather than passing because no rule happened to name
+# it. `deny.toml` and `about.toml` carry the same list for the distributed graph — the
+# difference is that this one also covers the in-tree harness's own dependencies, which
+# `about.toml` deliberately excludes.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "CC0-1.0",
+    # ADR-0008's break oracle. `icu_segmenter`'s `compiled_data` puts the Unicode character
+    # database in the binary, so this is a licence Montagent genuinely distributes under.
+    "Unicode-3.0",
+    # `libfuzzer-sys`, which is dev-only and reaches no archive, but is in the workspace
+    # graph and has to be named for the run to be clean.
+    "NCSA",
+]
+
+# Confidence in a *detected* licence text, for a crate that declares none in its manifest.
+# The default; stated so that lowering it is a visible act.
+confidence-threshold = 0.8
+
+# Nothing is excepted. An entry here would be a crate allowed to carry a licence the list
+# above refuses, which for a binary that must stay non-copyleft is a decision that belongs
+# in an ADR rather than in a config file.
+exceptions = []
+
+[licenses.private]
+# Skips crates marked `publish = false`, which in this workspace is exactly one: `rast-bench`,
+# the in-tree golden-frame harness ADR-0010 requires. It declares no `license` and should not
+# have to — it is never published and never distributed, and a licence field on it would be a
+# claim about an artifact that does not exist.
+#
+# This does *not* wave through the four published crates. They have no `publish` key, so they
+# are still checked, and a typo in `license.workspace` still fails here.
+ignore = true
+
+[bans]
+# Two copies of a crate is a build-size and a correctness annoyance, not a licence problem,
+# and this workspace has several through `skia-safe` and `parley` (`read-fonts` and `skrifa`
+# each appear twice). Warn, so the count is visible in a log without failing a release.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[advisories]
+# The security half. `cargo deny` fails on a crate with a filed advisory. Every entry below
+# is a deliberate, dated, reasoned exception rather than a way to get a green run.
+yanked = "deny"
+ignore = [
+    # `paste` is unmaintained and has no safe upgrade. It reaches this workspace only through
+    # `image`, and `image` only through `rast-bench` — the golden-frame harness — and
+    # `montagent-core`'s dev-dependencies, where it is the independent decoder that reads
+    # frames back. Neither path reaches the `montagent` binary: `cargo tree -p montagent
+    # -e normal` does not name `image`, and nor does THIRD-PARTY.md, which is generated from
+    # that same graph. An unmaintained proc-macro in a test oracle is a maintenance fact, not
+    # a property of anything Montagent distributes.
+    #
+    # Revisit if `image` ever becomes a normal dependency of a published crate, at which point
+    # this line should fail loudly instead of being extended.
+    "RUSTSEC-2024-0436",
+]
+
+[sources]
+# Everything comes from crates.io. A git dependency would be a supply-chain change and a
+# thing that cannot be published to crates.io anyway, so it should fail rather than warn.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

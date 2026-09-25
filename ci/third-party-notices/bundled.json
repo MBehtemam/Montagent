@@ -1,0 +1,180 @@
+{
+  "_comment": [
+    "What the `skia-safe` prebuilt actually carries, and the notices Montagent owes for it.",
+    "",
+    "This file exists because `cargo about` cannot see any of it. `skia-bindings`' manifest says",
+    "`license = \"MIT\"` — that is the licence of the *Rust binding code*. The thing that reaches a",
+    "release archive is a prebuilt static library (`libskia.a` / `skia.lib`) downloaded from",
+    "`rust-skia/skia-binaries`, and inside it are Skia itself under BSD-3-Clause plus five",
+    "third-party C/C++ libraries Skia vendors. A manifest-reading tool reports none of them.",
+    "",
+    "`bundled` is derived rather than asserted: `ci/assert_third_party_attribution.py` reads the",
+    "member names out of whichever prebuilt is present in `target/` and checks that the set here",
+    "is exactly the set in the archive, in both directions. The MSVC `.lib` members carry their",
+    "full source paths (`obj/third_party/externals/<name>/...`), which is what makes the",
+    "derivation a measurement and not a guess; the Unix `.a` members carry bare gn target names,",
+    "so `gn_targets` below is the mapping back.",
+    "",
+    "Deliberately absent, and verified absent in all six archives: FreeType, fontconfig, ICU and",
+    "HarfBuzz. The feature pin in the root `Cargo.toml` leaves `textlayout` off, so",
+    "`skia_use_icu` and `skia_use_harfbuzz` are both `false` and `embed-icudtl` is inert — the",
+    "prebuilt key `jpegd-jpege-pdf` has no icu component in it. FreeType and fontconfig appear on",
+    "Linux only as Skia's own ports (`typeface_freetype`, `fontmgr_fontconfig`) linking the",
+    "*system* libraries; their code is not in the archive and not in the release tarball."
+  ],
+
+  "prebuilt": {
+    "crate": "skia-bindings",
+    "crate_version": "0.153.2",
+    "url_template": "https://github.com/rust-skia/skia-binaries/releases/download/{tag}/skia-binaries-{key}.tar.gz",
+    "tag": "0.153.2",
+    "key_suffix": "jpegd-jpege-pdf",
+    "skia_revision": "m153-0.101.1",
+    "skia_deps": "https://raw.githubusercontent.com/rust-skia/skia/m153-0.101.1/DEPS",
+    "license_file_in_archive": "LICENSE_SKIA",
+    "license_file_sha256": "5f787c1dee3c56547f09ccc2906ab5f5293c4d8dd6c8654e573216c38e908dbd",
+    "license_file_sha256_comment": "Over the file with CRLF normalised to LF: the Windows archives ship the same text with CRLF line endings."
+  },
+
+  "skia": {
+    "name": "Skia",
+    "spdx": "BSD-3-Clause",
+    "url": "https://skia.org",
+    "revision": "m153-0.101.1",
+    "notices": ["skia.LICENSE"],
+    "covers": [
+      "Skia itself, and `modules/skcms`, whose `README.chromium` records `License: BSD` and whose sources defer to Skia's root LICENSE."
+    ]
+  },
+
+  "skia_own_gn_targets_comment": [
+    "Every gn target in the six archives that is Skia's own code rather than something it",
+    "vendors. This list is what gives the four Unix legs the same strength the two Windows",
+    "legs get for free: an MSVC `.lib` member names its full source path, so a newly vendored",
+    "library announces itself as `third_party/externals/<something-new>`, but a Unix `.a`",
+    "member is a bare gn target name that says nothing about where it came from. Checking",
+    "every bare name against this list is what turns an unrecognised one into a failure",
+    "instead of a silent pass.",
+    "",
+    "A Skia bump that adds a target will fail here. That is the intent: the failure is a",
+    "prompt to look at what moved and decide whether it is Skia's or somebody else's, which",
+    "is a judgment, not something a script can make. Note `wuffs`, `xml`, `jpeg_*` and",
+    "`png_*` — those are Skia's *codecs*, distinct from the `libwuffs`, `libexpat`,",
+    "`libjpeg*` and `libpng` targets that are the vendored libraries themselves."
+  ],
+  "skia_own_gn_targets": [
+      "clipstack_utils",
+      "core",
+      "fontmgr_FontConfigInterface",
+      "fontmgr_android",
+      "fontmgr_android_parser",
+      "fontmgr_custom",
+      "fontmgr_custom_directory",
+      "fontmgr_custom_embedded",
+      "fontmgr_custom_empty",
+      "fontmgr_fontconfig",
+      "fontmgr_mac_ct",
+      "jpeg_decode",
+      "jpeg_encode",
+      "libskcms",
+      "libskia",
+      "ml3",
+      "ml4",
+      "pathops",
+      "pdf",
+      "png_decode_common",
+      "png_decode_libpng",
+      "png_encode_common",
+      "png_encode_libpng",
+      "skcms_TransformHsw",
+      "skcms_TransformSkx",
+      "typeface_freetype",
+      "typeface_proxy",
+      "wuffs",
+      "xml"
+  ],
+
+  "bundled": [
+    {
+      "name": "Expat",
+      "spdx": "MIT",
+      "url": "https://github.com/libexpat/libexpat",
+      "revision": "6154446fccefbf3ca644894f598969113b0c7bcd",
+      "externals_dir": "expat",
+      "gn_targets": ["libexpat"],
+      "notices": ["expat.COPYING"],
+      "why": "`skia_use_expat` is unconditionally `true` in `skia-bindings`' gn args — Skia's XML parser, which the PDF backend's metadata path and `SkXmp` reach."
+    },
+    {
+      "name": "libjpeg-turbo",
+      "spdx": "IJG AND BSD-3-Clause AND Zlib",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "revision": "e14cbfaa85529d47f9f55b0f104a579c1061f9ad",
+      "externals_dir": "libjpeg-turbo",
+      "gn_targets": ["libjpeg", "libjpeg12", "libjpeg16"],
+      "notices": ["libjpeg-turbo.LICENSE.md", "libjpeg-turbo.README.ijg"],
+      "why": "The `jpeg` feature in the root `Cargo.toml`'s Skia pin — `skia_use_libjpeg_turbo_decode` and `_encode`, the `jpegd-jpege` half of the prebuilt key.",
+      "obligation": "The IJG License, clause (2): a distribution of executable code only must state in its accompanying documentation that \"this software is based in part on the work of the Independent JPEG Group\". THIRD-PARTY.md is that documentation and carries the sentence."
+    },
+    {
+      "name": "libpng",
+      "spdx": "libpng-2.0",
+      "url": "https://github.com/pnggroup/libpng",
+      "revision": "d5515b5b8be3901aac04e5bd8bd5c89f287bcd33",
+      "externals_dir": "libpng",
+      "gn_targets": ["libpng"],
+      "notices": ["libpng.LICENSE"],
+      "why": "Not feature-gated: `skia_use_system_libpng` is false, so Skia's PNG codec — the one `render` writes frames with — links the vendored copy."
+    },
+    {
+      "name": "Wuffs",
+      "spdx": "Apache-2.0",
+      "url": "https://github.com/google/wuffs-mirror-release-c",
+      "revision": "e3f919ccfe3ef542cfc983a82146070258fb57f8",
+      "externals_dir": "wuffs",
+      "gn_targets": ["libwuffs"],
+      "notices": ["wuffs.LICENSE"],
+      "why": "Skia's GIF decoder. Not feature-gated; present in all six archives."
+    },
+    {
+      "name": "zlib",
+      "spdx": "Zlib",
+      "url": "https://github.com/madler/zlib",
+      "revision": "646b7f569718921d7d4b5b8e22572ff6c76f2596",
+      "revision_comment": "Chromium's zlib fork, which is what Skia's DEPS pins; the SIMD targets below are that fork's additions.",
+      "externals_dir": "zlib",
+      "gn_targets": [
+        "libzlib",
+        "zlib_adler32_simd",
+        "zlib_crc32_simd",
+        "zlib_arm_crc32",
+        "zlib_inflate_chunk_simd"
+      ],
+      "notices": ["zlib.LICENSE"],
+      "why": "PNG's deflate, and the PDF backend's stream compression. `skia_use_system_zlib` is false."
+    }
+  ],
+
+  "system_libraries": [
+    {
+      "name": "FreeType",
+      "targets": ["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"],
+      "note": "Dynamically linked from the system (`-lfreetype`). Skia's `typeface_freetype` port is in the archive; FreeType's own code is not, and no release tarball contains it."
+    },
+    {
+      "name": "fontconfig",
+      "targets": ["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"],
+      "note": "Dynamically linked from the system (`-lfontconfig`), reached by Skia's `fontmgr_fontconfig` port. Montagent never asks it to resolve a family — `parley` is built without `fontique`'s `system` feature (see the root `Cargo.toml`) — but Skia's Linux link line requires the library present."
+    },
+    {
+      "name": "CoreText, CoreGraphics, CoreFoundation",
+      "targets": ["aarch64-apple-darwin", "x86_64-apple-darwin"],
+      "note": "Apple system frameworks, reached by Skia's `fontmgr_mac_ct` port."
+    },
+    {
+      "name": "GDI, DirectWrite, USP10",
+      "targets": ["aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc"],
+      "note": "Windows system libraries, reached by Skia's `fontmgr_win` and `fontmgr_win_gdi` ports."
+    }
+  ]
+}

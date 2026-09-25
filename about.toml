@@ -1,0 +1,78 @@
+# `cargo about`'s input: which dependency graph THIRD-PARTY.md is an attribution for, and
+# which licence expressions are allowed to appear in it.
+#
+# Attribution is owed by the thing that is **distributed** (#359). That is the `montagent`
+# binary in each release archive, so the scope here is `crates/montagent`'s *normal*
+# dependency graph over ADR-0064's six targets — not the workspace. The difference is not
+# cosmetic: `image`, `tiny-skia`, `skrifa`-as-an-oracle and the `rust-rasterizer` harness
+# are test-only, and a workspace-scoped listing would attribute `rav1e`, `exr`, `ravif` and
+# `libfuzzer-sys` to a binary that links none of them.
+#
+# Regenerate with `python3 ci/assert_third_party_attribution.py --write`; CI runs the same
+# script without `--write` and fails if the committed file has drifted.
+
+# ADR-0064's six desktop tier-1 targets, and nothing else. Without this, cargo-about walks
+# every target `std` supports and reports crates no release archive can contain — `r-efi`
+# is the one that matters, because it is LGPL-2.1-or-later and exists only for UEFI.
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+]
+
+# A build-dependency's code does not reach the shipping binary, and a dev-dependency's is
+# not in the archive at all. `syn`, `bindgen` and the oracle crates are owed nothing by a
+# user who downloads a tarball.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+ignore-transitive-dependencies = false
+
+# The four workspace crates are the thing being licensed, not a third party to it.
+private = { ignore = true }
+
+# The licence expressions permitted in the distributed binary. Order is the resolution
+# preference for an `OR` expression, so permissive-and-short comes first.
+#
+# **Nothing copyleft is on this list, deliberately.** `cargo deny`'s `deny` list names the
+# copyleft families explicitly (see `deny.toml`); this list is the other direction — a
+# licence that is not here fails the gate whether or not anyone thought to name it. ADR-0009
+# turns on FFmpeg's GPL never entering the binary, and that invariant is worth a gate that
+# fails closed.
+accepted = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "CC0-1.0",
+    # ICU4X and its `zerovec`/`tinystr` family. `icu_segmenter` is ADR-0008's break
+    # oracle and `compiled_data` puts the Unicode tables in the binary, so the
+    # Unicode licence is attribution this binary genuinely owes.
+    "Unicode-3.0",
+]
+
+# --- Clarifications -----------------------------------------------------------------
+#
+# `cargo about` crawls a crate's whole tree for licence texts, so a source file carrying
+# an MIT header in a comment is a match. `schemars` vendors one function from
+# `regex_syntax` in `src/_private/regex_syntax.rs` with the Rust Project's MIT notice
+# above it, which made `schemars` show up under two different MIT texts — its own and
+# that one. A clarification pins the crate to the file that is actually its licence.
+#
+# The `checksum` is the assertion: if `schemars` ever ships a LICENSE whose bytes differ,
+# it stops matching and the generation fails rather than quietly picking a file again.
+[schemars.clarify]
+license = "MIT"
+
+[[schemars.clarify.files]]
+path = "LICENSE"
+checksum = "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+license = "MIT"
