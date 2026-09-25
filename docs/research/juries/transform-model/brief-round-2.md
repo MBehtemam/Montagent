@@ -5,7 +5,7 @@ authored and edited by an AI agent rather than dragged around in a GUI. **You ar
 agent** — the consumer who will live in this format daily. Not a reviewer. Answer from
 what it is like to use, and back every claim with something you actually did.
 
-Repo: `/Users/mohammedehtemam/projects/github/Montagent` (read-only — see Rules).
+Repo: `MBehtemam/Montagent` (read-only — see Rules).
 
 ## Read first
 

@@ -7,7 +7,7 @@ asked for your opinion of an architecture. You are the consumer who will live in
 format every day. Answer from what it is like to *use*, and back every claim with
 something you actually did below.
 
-Repo: `/Users/mohammedehtemam/projects/github/Montagent` (read-only — see Rules).
+Repo: `MBehtemam/Montagent` (read-only — see Rules).
 
 ## Read first
 

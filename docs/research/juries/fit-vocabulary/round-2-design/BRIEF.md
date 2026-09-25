@@ -1,6 +1,6 @@
 # Round 2 brief — Montagent issue #48, the `fit` vocabulary
 
-Repo: /Users/mohammedehtemam/projects/github/Montagent, branch `main`.
+Repo: MBehtemam/Montagent, branch `main`.
 Montagent is an agent-first declarative video editor: a JSON project file is the source of
 truth and an LLM agent authors it with ordinary file tools.
 

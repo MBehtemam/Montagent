@@ -5,9 +5,12 @@ scene design changes.
 """
 import json, os
 
-REPO = "/Users/mohammedehtemam/projects/github/Montagent"
-BASE = f"{REPO}/docs/research/prototypes/proxy-preview-savings"
-BADGE = f"{REPO}/fixtures/en-halloween-decorating/brand/logo-en.png"
+# Asset paths in a scene file are repository-relative -- `repo::resolve` in the
+# rust-rasterizer harness makes them absolute against whatever checkout it is in.
+BASE = "docs/research/prototypes/proxy-preview-savings"
+BADGE = "fixtures/en-halloween-decorating/brand/logo-en.png"
+# Where this script writes, which is its own directory, not a scene path.
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # events lifted from rust-rasterizer/scene-video.json's t=[30.6,42.76] block
 # (title-card-style badges + a big bottom caption), times shifted to our
@@ -75,7 +78,7 @@ def make_scene(name, canvas_w, canvas_h, card_h, factor, video_src, still_src, d
             }
         ],
     }
-    out = f"{BASE}/{name}"
+    out = f"{OUT_DIR}/{name}"
     with open(out, "w") as f:
         json.dump(scene, f, indent=1)
     print("wrote", out)

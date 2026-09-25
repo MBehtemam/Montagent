@@ -39,7 +39,7 @@ Standing principles, all settled and **not** up for reopening in this exercise:
 
 ## Where to read
 
-Repo: `/Users/mohammedehtemam/projects/github/Montagent`, branch `origin/main`.
+Repo: `MBehtemam/Montagent`, branch `origin/main`.
 
 - `CONTEXT.md` — the settled domain vocabulary. Read it.
 - `docs/adr/0001` … `docs/adr/0015` — fifteen accepted decisions. Skim all the

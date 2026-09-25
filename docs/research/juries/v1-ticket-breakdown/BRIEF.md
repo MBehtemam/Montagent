@@ -6,7 +6,7 @@ Your job is to attack it.**
 
 ## Context you must establish yourself
 
-- Read #168 in full: `gh issue view 168` in `/Users/mohammedehtemam/projects/github/Montagent`.
+- Read #168 in full: `gh issue view 168` in a checkout of `MBehtemam/Montagent`.
 - `docs/adr/README.md` is the index of all 67 ADRs, with an *Amended by* column. Read it before
   reading any single ADR — roughly a third of the series amends another.
 - `CONTEXT.md` is the domain glossary. `docs/agents/domain.md` carries the ADR conventions.

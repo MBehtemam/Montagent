@@ -6,7 +6,7 @@ judged against real input instead of plausible-looking invented input.
 
 Resolves [Gather a real sample video as the project's test fixture](https://github.com/MBehtemam/Montagent/issues/3).
 
-**Source:** `~/projects/github/youtube_language_learning/episodes/halloween`,
+**Source:** the `youtube_language_learning` project (ADR-0003), `episodes/halloween`,
 short 2 of 3 (`ids: 05,06,07,08`), English edition. Copied verbatim — no
 re-encoding, no downscaling.
 
