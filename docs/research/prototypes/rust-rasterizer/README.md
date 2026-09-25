@@ -59,3 +59,10 @@ ADR-0010 actually asserts: the arms still agree to **mean Δ 0.054 at `t=0` and 
 regression and can never falsify the format. Only
 `fixtures/en-halloween-decorating/reference/frame-*.png`, extracted from the published
 video, can do that, and that is `frame`'s ticket rather than this one.
+
+## Licence
+
+The committed pictures under `frames/` are **not** MIT — they are renders containing the
+fixture's media, and are rights-reserved. See [`LICENSE`](LICENSE) beside this file, and
+[`LICENSE-MEDIA.md`](../../../../LICENSE-MEDIA.md) for the tree-wide list. Everything else
+in this directory is MIT.

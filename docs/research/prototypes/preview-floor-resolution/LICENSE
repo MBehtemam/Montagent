@@ -1,0 +1,19 @@
+The pictures in this directory are NOT under the repository's MIT licence.
+==========================================================================
+
+    frames/   36 files
+    crops/    24 files
+    thumbs/    4 files
+
+All 64 are renders of fixtures/en-halloween-decorating/ -- run.sh regenerates every one
+of them from the committed fixture -- so each composites the channel's photography, its
+logo, or both. That media is "all rights reserved", and a render of copyrighted media is
+a derivative of it, so these carry the same terms:
+
+    Copyright (c) 2026 Mohammad Bagher Ehtemam. All rights reserved. Permission is
+    granted to use these files ONLY to build, test, benchmark and study this repository.
+    Any other use requires the copyright holder's written permission.
+
+FINDINGS.md, artifact.html, run.sh and everything else here is MIT with the rest of the
+repository (../../../../LICENSE). The canonical list of every carved-out path in the tree
+is ../../../../LICENSE-MEDIA.md.

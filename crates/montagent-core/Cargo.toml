@@ -6,6 +6,19 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+# Five of the six goldens composite the fixture's photography and channel logo, which are
+# rights-reserved rather than MIT (see ../../LICENSE-MEDIA.md). `license = "MIT"` is a
+# machine-readable claim over every byte in the tarball, so they must not be in it.
+# Nothing is lost: the tests reading them also read `../../fixtures/`, outside the crate,
+# so they already cannot run from a published tarball. `text-features.png` draws only text
+# and stays. A new golden drawing fixture media belongs on this list and in LICENSE-MEDIA.md.
+exclude = [
+    "tests/golden/fixture-intro.png",
+    "tests/golden/fixture-sentence.png",
+    "tests/golden/paint-vocabulary.png",
+    "tests/golden/mask-under-transform.png",
+    "tests/golden/mask-explicit-rect.png",
+]
 
 [dependencies]
 montagent-render.workspace = true

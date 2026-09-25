@@ -1,5 +1,10 @@
 # Fixture: `en-halloween-decorating`
 
+> **This media is not MIT.** The stills, the voice-over, the logo and the published MP4
+> here are the maintainer's own, **all rights reserved**, and may be used only to build,
+> test and study this repository — see [`../LICENSE`](../LICENSE). The font is third-party
+> and carries its own. The repository's *code* is MIT, unchanged.
+
 The assets of one already-published short, collected so that every prototype and
 design ticket on [the map](https://github.com/MBehtemam/Montagent/issues/2) can be
 judged against real input instead of plausible-looking invented input.
