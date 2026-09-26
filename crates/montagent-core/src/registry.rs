@@ -894,7 +894,9 @@ liability, recorded in the file.",
         threshold: Internal,
         adr: "ADR-0057",
         template: "`{file}` is in the `fonts` table and has no `fontVendor` entry: nothing \
-records its licence or the bytes that were vendored. Run `montagent fonts vendor` on it.",
+records its licence or the bytes that were vendored. Run `montagent fonts vendor <path to \
+the font> --as {file}` — `--as` must match `{file}` exactly, or the table still won't \
+resolve to an attestation.",
         status: Live,
     },
     CheckSpec {
