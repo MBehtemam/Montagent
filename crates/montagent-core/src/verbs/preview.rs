@@ -367,7 +367,7 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
     let ffmpeg = match tools::resolve() {
         Ok(tools) => tools.ffmpeg,
         Err(missing) => {
-            report.fail_internally(missing.reason());
+            missing.fail(&mut report);
             return refused(report);
         }
     };

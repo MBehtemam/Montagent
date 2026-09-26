@@ -212,6 +212,27 @@ impl Report {
         }
     }
 
+    /// `ffmpeg` or `ffprobe` was never on `PATH`. ADR-0009 makes supplying one the user's
+    /// own job, so this is an unconfigured environment, not Montagent breaking — distinct
+    /// from [`Report::internal_failure`], which stays for a resolved binary that would
+    /// not run (ADR-0091).
+    pub fn tool_missing(reason: impl Into<String>) -> Self {
+        Report {
+            tool: "montagent".into(),
+            project: None,
+            findings: vec![
+                // ADR-0073: `NotAboutDocument` comes from the registry; nothing here
+                // asks for a repair.
+                Finding::new("E-TOOL-MISSING").field("reason", Value::String(reason.into())),
+            ],
+            misses: Vec::new(),
+            media: Vec::new(),
+            // Same exit code as `E-INTERNAL` (ADR-0011, unchanged by ADR-0091): the run
+            // did not finish either way.
+            terminal: Some(Terminal::Internal),
+        }
+    }
+
     /// Montagent failed part-way through a run that had already established facts.
     ///
     /// The findings already in the report stay in it. A run that read the document, found
@@ -223,6 +244,15 @@ impl Report {
     pub fn fail_internally(&mut self, reason: impl Into<String>) {
         self.findings
             .push(Finding::new("E-INTERNAL").field("reason", Value::String(reason.into())));
+        self.terminal = Some(Terminal::Internal);
+    }
+
+    /// The same, for a run that discovers a missing `ffmpeg`/`ffprobe` after it has
+    /// already established facts. See [`Report::tool_missing`] for why this is not
+    /// `E-INTERNAL` (ADR-0091).
+    pub fn fail_tool_missing(&mut self, reason: impl Into<String>) {
+        self.findings
+            .push(Finding::new("E-TOOL-MISSING").field("reason", Value::String(reason.into())));
         self.terminal = Some(Terminal::Internal);
     }
 

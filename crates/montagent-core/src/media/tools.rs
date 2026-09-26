@@ -73,8 +73,27 @@ impl Missing {
     }
 
     /// ADR-0011's exit 70, as the report every adapter already knows how to print.
+    ///
+    /// ADR-0091: never found on `PATH` at all is `E-TOOL-MISSING` — the shape ADR-0009
+    /// chose ("a binary, plus an `ffmpeg` the user supplies"), not a break in Montagent.
+    /// Resolved and then unable to run — a corrupt or incompatible binary — stays
+    /// `E-INTERNAL`, which is the narrower thing that name should mean.
     pub fn into_report(self) -> Report {
-        Report::internal_failure(self.reason())
+        if self.resolved.is_none() {
+            Report::tool_missing(self.reason())
+        } else {
+            Report::internal_failure(self.reason())
+        }
+    }
+
+    /// The same distinction, for a run that already has a report open and has found more
+    /// to say than this one failure (`render`, `preview`, `validate`'s probe half).
+    pub fn fail(&self, report: &mut Report) {
+        if self.resolved.is_none() {
+            report.fail_tool_missing(self.reason());
+        } else {
+            report.fail_internally(self.reason());
+        }
     }
 }
 

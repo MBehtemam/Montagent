@@ -127,7 +127,7 @@ pub(crate) fn checked(
         // a retired spelling and *then* discovered there is no `ffprobe` has learned two
         // things, and an agent told only the second would fix its `PATH`, re-run, and only
         // then hear about the key it could have fixed in the same turn.
-        report.fail_internally(missing.reason());
+        missing.fail(&mut report);
     }
     Ok((document, report))
 }
