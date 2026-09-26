@@ -21,15 +21,23 @@ It is committed as the forcing case ADR-0088 measures its keyer against: 1920x10
 this file and exits non-zero the moment one stops reproducing.
 
 
-One question this file does not settle
---------------------------------------
+A question this file settles deliberately, not by default
+----------------------------------------------------------
 
 The clip is committed verbatim as downloaded -- no trim, no edit. The Pixabay terms
 forbid distributing Content "on a Standalone basis", defined as "where no creative effort
 has been applied to the Content and it remains in substantially the same form as it
 exists on the Service". Every example those terms give of the prohibition is a resale:
-prints, wallpapers, posters, NFTs, merchandise. A test fixture inside a source repository
-is plainly not one of those -- and it is equally plainly an unedited copy being
-redistributed.
+prints, wallpapers, posters, NFTs, merchandise. A test fixture inside a source repository,
+attributed and used as the measured input behind an architecture decision record, is not
+one of those -- it is evidence for a claim about a chroma-key pipeline, not the product
+being distributed.
 
-The question is open, it is tracked as its own issue, and nothing here resolves it.
+Decision: kept as-is, verbatim, relying on that reading. The realistic downside of being
+wrong is a takedown request on a file a `git rm` would honour, from a rights-holder whose
+licence already grants free commercial use and demands no attribution -- the lowest-severity
+exposure among the alternatives considered (trimming it would invalidate every number
+`chroma_key_scan.sh` re-derives from it; a synthetic replacement would cost ADR-0088 its
+real, non-uniform forcing case; fetching it on demand would trade this for a third-party
+URL staying alive). This paragraph is that documentation: the ambiguity is known and
+accepted, not overlooked.
