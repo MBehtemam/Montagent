@@ -119,6 +119,9 @@ jobs:
           # them. The pointer at the foot of `LICENSE` names it, and the repository is where it
           # lives.
           cp LICENSE THIRD-PARTY.md "$stage/"
+          # #369/#379: a stranger's whole path to a first rendered frame, without an MCP
+          # client — `fonts vendor` then `render`, both against the copy in the archive.
+          cp -r examples "$stage/"
           pushd "$(dirname "$stage")" >/dev/null
           if [ "${{ matrix.archive }}" = "zip" ]; then
             archive="${name}.zip"
