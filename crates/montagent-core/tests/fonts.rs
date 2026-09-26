@@ -398,6 +398,45 @@ fn vendor_never_edits_the_fonts_table_and_a_referenced_font_then_validates_clean
 }
 
 #[test]
+fn the_advised_repair_converges_when_the_fonts_table_names_a_path_vendor_would_not_default_to() {
+    // #367: a chain entry that names a path other than `fonts/<name>` (vendor's default
+    // destination) previously looped `E-FONT-UNATTESTED` forever, because the advised
+    // repair never told the caller to target that exact path. The fix is `--as <file>`,
+    // named in the repair text itself — proven here by parsing it out and following it.
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("body.otf")).unwrap();
+    let project = project_with(&dir, r#""fonts": {"body": [{"file": "body.otf"}]},"#, "");
+
+    let report = montagent_core::validate(&project);
+    assert_eq!(codes(&report), vec!["E-FONT-UNATTESTED"]);
+    let repair = match &report.findings[0].repair {
+        Some(Repair::Advise(v)) => v["value"].as_str().unwrap().to_string(),
+        other => panic!("expected an advise-class repair, got {other:?}"),
+    };
+    assert!(
+        repair.contains("--as body.otf"),
+        "the repair must name the exact fonts-table path: {repair}"
+    );
+
+    let answer = vendor(
+        &project,
+        &Vendor {
+            destination: Some("body.otf".into()),
+            ..ask(open_runde(), Some("OFL-1.1"))
+        },
+    );
+    assert_eq!(answer.view().unwrap().file, "body.otf");
+
+    let report = montagent_core::validate(&project);
+    assert_eq!(
+        codes(&report),
+        Vec::<&str>::new(),
+        "following the advised repair once must converge: {:?}",
+        report.findings
+    );
+}
+
+#[test]
 fn vendor_refuses_a_file_that_is_not_a_project_and_a_malformed_one() {
     let dir = common::tempdir(line!());
     let not_a_project = common::write_project(&dir, "t.json", "{\"segments\": []}\n");

@@ -134,7 +134,10 @@ fn unattested(document: &Loose, file: &str) -> Finding {
         .at_file(document.path())
         .field("file", json!(file))
         .repair_value(json!({
-            "value": format!("montagent fonts vendor {} <path to the font> [--licence <identifier>]", document.path())
+            "value": format!(
+                "montagent fonts vendor {} <path to the font> --as {file} [--licence <identifier>]",
+                document.path()
+            )
         }))
 }
 
