@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Generates and re-checks `THIRD-PARTY.md` — the attribution Montagent owes for the
-code it ships inside the `montagent` binary (#359).
+code it ships inside the `montagent` binary (#359), in **two** places: the repository
+root, and `crates/montagent/THIRD-PARTY.md`, which rides along in the crates.io tarball
+(#366) because `include` cannot reach a file outside its own package the way `license-file`
+and `readme` can — confirmed by testing, not assumed.
 
-    python3 ci/assert_third_party_attribution.py --write          # regenerate the file
+    python3 ci/assert_third_party_attribution.py --write          # regenerate both copies
     python3 ci/assert_third_party_attribution.py --skip-prebuilt  # drift check, no Skia needed
     python3 ci/assert_third_party_attribution.py --prebuilt-only  # archive check, no cargo-about
 
@@ -46,6 +49,15 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 NOTICES = os.path.join(HERE, "third-party-notices")
 MANIFEST = os.path.join(NOTICES, "bundled.json")
 OUTPUT = os.path.join(ROOT, "THIRD-PARTY.md")
+# `montagent`'s own copy, physically in-tree rather than referenced. `include`/`exclude`
+# only see inside a package directory — confirmed by testing (#366): an `include` entry
+# pointing at `../../THIRD-PARTY.md` is silently dropped, unlike the special-cased
+# `license-file`/`readme` path fields, which Cargo resolves and copies in from outside.
+# So the only way this reaches the crates.io tarball — which ADR-0090 says it must,
+# since `cargo install montagent` is a distribution channel with the same linked code as
+# the GitHub Release binary — is an ordinary tracked file inside the package, generated
+# and checked exactly like the root copy.
+CRATE_COPY = os.path.join(ROOT, "crates", "montagent", "THIRD-PARTY.md")
 BINARY_MANIFEST = os.path.join(ROOT, "crates", "montagent", "Cargo.toml")
 
 # The four crates in this workspace. They are the thing being licensed, not a third party
@@ -454,23 +466,30 @@ def main():
 
     if not args.prebuilt_only:
         generated = render(manifest)
-        if args.write:
-            with open(OUTPUT, "w", encoding="utf-8", newline="") as f:
-                f.write(generated)
-            print(f"wrote {os.path.relpath(OUTPUT, ROOT)} ({len(generated.splitlines())} lines)")
-        elif not os.path.exists(OUTPUT):
-            failures.append(f"{os.path.relpath(OUTPUT, ROOT)} does not exist — run with --write")
-        else:
-            with open(OUTPUT, encoding="utf-8", newline="") as f:
-                committed = f.read()
-            if committed != generated:
-                failures.append(
-                    f"{os.path.relpath(OUTPUT, ROOT)} is not what the dependency graph generates. "
-                    f"A dependency was added, removed, or changed licence. Re-run with --write and "
-                    f"commit the result."
-                )
+        # Two copies of the same generated text: the root, for a reader of the repository or
+        # the GitHub Release archive, and `crates/montagent/`'s, so the same attribution rides
+        # along in the crates.io tarball `cargo install montagent` builds from (#366). One
+        # `render()` call, checked against both paths, so they cannot drift from each other —
+        # only from the dependency graph, the same way the root copy always has.
+        for output in (OUTPUT, CRATE_COPY):
+            where = os.path.relpath(output, ROOT)
+            if args.write:
+                with open(output, "w", encoding="utf-8", newline="") as f:
+                    f.write(generated)
+                print(f"wrote {where} ({len(generated.splitlines())} lines)")
+            elif not os.path.exists(output):
+                failures.append(f"{where} does not exist — run with --write")
             else:
-                print(f"{os.path.relpath(OUTPUT, ROOT)} matches the dependency graph")
+                with open(output, encoding="utf-8", newline="") as f:
+                    committed = f.read()
+                if committed != generated:
+                    failures.append(
+                        f"{where} is not what the dependency graph generates. A dependency was "
+                        f"added, removed, or changed licence. Re-run with --write and commit the "
+                        f"result."
+                    )
+                else:
+                    print(f"{where} matches the dependency graph")
 
     if not args.skip_prebuilt:
         prebuilts = [args.prebuilt] if args.prebuilt else find_prebuilts()

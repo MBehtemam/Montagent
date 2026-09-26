@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords = ["text-layout", "text-shaping", "unicode"]
+categories = ["text-processing", "internationalization"]
 
 [dependencies]
 parley = { workspace = true, features = ["complex-scripts"] }

@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords = ["skia", "rasterizer", "video-encoding"]
+categories = ["rendering", "multimedia::video", "graphics"]
 
 [dependencies]
 # Declared before anything calls it, deliberately (#189). Cargo builds a
