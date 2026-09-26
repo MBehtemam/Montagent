@@ -1,0 +1,17 @@
+{
+  "frame": {"width": 960, "height": 540},
+  "fps": 30,
+  "background": "#101418",
+  "duration": 3000,
+  "output": "out/hello-text.mp4",
+  "fonts": {"body": [{"file": "fonts/OpenRunde-Bold.otf"}]},
+  "tracks": [
+    {
+      "name": "greeting",
+      "layer": 0,
+      "elements": [
+        {"id":"hello","type":"text","start":0,"end":3000,"x":480,"y":270,"origin":"center","width":800,"height":120,"font":"body","size":64,"line_height":1.1,"color":"#F5F0E6","align":"center","runs":[{"text":"Hello, Montagent"}]}
+      ]
+    }
+  ]
+}
