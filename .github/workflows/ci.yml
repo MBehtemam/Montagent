@@ -168,6 +168,23 @@ jobs:
           python3 ci/reference_frame_instants.py \
             --binary target/${{ matrix.target }}/release/montagent
 
+      # The publish path itself, run cold on every push (#361, #366). `release.yml`'s
+      # `publish-crates` job had never run before #361 found it broken on a first
+      # publish — `cargo publish -p montagent-core` fails outright because
+      # `montagent-render` is not yet in the crates.io index, and no `sleep` fixes
+      # that. This is the check that would have caught it, and it now runs on every
+      # push instead of on the day of the first tag. Pinned to one leg: the answer is
+      # a fact about the manifests and the dependency graph, not about the target,
+      # and six copies of it would be six copies of one measurement — same reasoning
+      # as the Ken Burns check above.
+      #
+      # `--dry-run` only: nothing here ever uploads. `--allow-dirty` is not passed —
+      # a real CI checkout has nothing uncommitted, and if it ever did, that is
+      # exactly the case this check should refuse rather than paper over.
+      - name: cargo publish --workspace still dry-runs clean (#361, #366)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo publish --workspace --dry-run --locked
+
   checks:
     # Formatting and the committed re-executable checks `docs/agents/domain.md`
     # requires. All of it is platform-independent, so one runner is enough —
@@ -223,6 +240,15 @@ jobs:
       # Skia in it; the matrix legs above run the prebuilt half.
       - name: THIRD-PARTY.md still matches the dependency graph
         run: python3 ci/assert_third_party_attribution.py --skip-prebuilt
+
+      # Every published crate's tarball ships the licence text `license = "MIT"` claims
+      # (#361, #366). `license.workspace = true` satisfies crates.io's own requirement; this
+      # is the separate question of whether the text sits behind it, which #361 found it did
+      # not — the four tarballs shipped no `LICENSE` at all. Toolchain-light, same reason as
+      # the other checks in this job: it is a byte comparison against the root file, nothing
+      # to build.
+      - name: Every crate ships the licence text it claims (#361, #366)
+        run: python3 ci/assert_crate_licenses.py
 
       # Which frame of the published MP4 each committed reference PNG is —
       # numbers `tests/reference_frames.rs` and the fixture README both state,

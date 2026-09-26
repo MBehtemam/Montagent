@@ -6,19 +6,23 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-# Five of the six goldens composite the fixture's photography and channel logo, which are
-# rights-reserved rather than MIT (see ../../LICENSE-MEDIA.md). `license = "MIT"` is a
-# machine-readable claim over every byte in the tarball, so they must not be in it.
-# Nothing is lost: the tests reading them also read `../../fixtures/`, outside the crate,
-# so they already cannot run from a published tarball. `text-features.png` draws only text
-# and stays. A new golden drawing fixture media belongs on this list and in LICENSE-MEDIA.md.
-exclude = [
-    "tests/golden/fixture-intro.png",
-    "tests/golden/fixture-sentence.png",
-    "tests/golden/paint-vocabulary.png",
-    "tests/golden/mask-under-transform.png",
-    "tests/golden/mask-explicit-rect.png",
-]
+homepage.workspace = true
+keywords = ["video-editing", "validation", "video"]
+categories = ["multimedia::video", "parsing"]
+# #358 excluded five specific goldens by name — the ones compositing the fixture's
+# photography and channel logo, rights-reserved rather than MIT (../../LICENSE-MEDIA.md) —
+# and deliberately kept `text-features.png` in the tarball because it draws only text and
+# has nothing to hide. #366 widens this to the whole directory, which **supersedes** that
+# one line: none of `tests/` can run downstream regardless of rights, since ~140 files
+# reach `../../fixtures/` outside the package (`cargo publish`'s verification only builds
+# the package; it never runs its tests, which is why every prior dry-run was green anyway).
+# A tarball that ships tests nobody downstream can run is incoherent whether or not any one
+# of them happens to be rights-clean, so the golden PNGs go with the rest of the directory
+# rather than being carved out file-by-file a second time. Nothing is lost: `cargo test
+# --workspace` reads the source tree, not the tarball. A new golden drawing fixture media
+# still belongs in LICENSE-MEDIA.md if it composites anything rights-reserved — this
+# exclude means that decision no longer also has to be repeated here.
+exclude = ["tests/**"]
 
 [dependencies]
 montagent-render.workspace = true

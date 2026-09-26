@@ -160,10 +160,28 @@ jobs:
             dist/*
           fail_on_unmatched_files: true
 
-  # `cargo publish` of the four workspace crates, in the only order their path
-  # dependencies allow: the two leaves first, then the crate that depends on both, then
-  # the binary. Skipped entirely — not failed — when no token is configured, so a fork or
-  # an early tag can still cut a GitHub Release without crates.io in the loop.
+  # `cargo publish --workspace` of the four workspace crates (#361, #366). Skipped
+  # entirely — not failed — when no token is configured, so a fork or an early tag can
+  # still cut a GitHub Release without crates.io in the loop.
+  #
+  # This used to publish crate-by-crate in dependency order with a `sleep 30` between
+  # each, betting on crates.io index propagation. That bet cannot be won on a first
+  # publish: `cargo publish -p montagent-core` fails outright with "no matching package
+  # named `montagent-render` found" because the dependency does not exist in the
+  # registry yet, and no amount of sleeping creates it (#361 reproduced this with
+  # `--dry-run`). The dependency order itself was always correct — the order was never
+  # the bug.
+  #
+  # `--workspace` resolves this by standing up a temporary local registry and publishing
+  # each crate into it before the next one's registry dependency is resolved, which
+  # removes both the ordering burden and the propagation race. Dry-runs clean for all
+  # four (#361, #366); `--workspace` is confirmed present on the pinned 1.90 toolchain
+  # (`cargo +1.90 publish --help` lists it), so the pin does not need to move.
+  #
+  # What this does **not** fix: `--workspace` is not atomic. A mid-run server error
+  # leaves the workspace partially published, and a published version can only be
+  # yanked, never replaced. Strictly better than the loop — it cannot fail on
+  # ordering — but the first publish is still not risk-free.
   publish-crates:
     name: cargo publish
     needs: build
@@ -188,16 +206,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
 
-      - name: Publish in dependency order
+      - name: Publish the workspace
         if: steps.gate.outputs.configured == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set -euo pipefail
-          for crate in montagent-text montagent-render montagent-core montagent; do
-            echo "publishing ${crate}"
-            cargo publish -p "${crate}" --locked
-            # crates.io needs a moment before the next crate's path dependency resolves
-            # against it as a registry dependency.
-            sleep 30
-          done
+        run: cargo publish --workspace --locked
