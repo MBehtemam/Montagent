@@ -877,7 +877,9 @@ fn cli_validate_that_loses_its_ffprobe_keeps_what_it_had_already_learned() {
         stdout.contains("E-RETIRED-KEY"),
         "what the document half learned survives: {stdout}"
     );
-    assert!(stdout.contains("E-INTERNAL"), "{stdout}");
+    // ADR-0091 (#368): never found on `PATH` is `E-TOOL-MISSING`, not `E-INTERNAL` — an
+    // unconfigured environment (ADR-0009), not Montagent breaking.
+    assert!(stdout.contains("E-TOOL-MISSING"), "{stdout}");
     assert!(stdout.contains("ffmpeg"), "{stdout}");
 }
 

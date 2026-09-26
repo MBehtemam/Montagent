@@ -179,10 +179,30 @@ scaffold somewhere else.",
         // ADR-0073 (#224): not about a document — Montagent itself broke. Refuse's "no
         // flag can lift it" doesn't fit a condition a retry might clear, and there is no
         // document for a repair to be determined from either way.
+        //
+        // Narrowed by ADR-0091 (#368): a program that was resolved and then would not
+        // run — a corrupt or incompatible binary — is still this code. A program never
+        // found on `PATH` at all is `E-TOOL-MISSING` instead.
         repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0011",
         template: "Montagent failed internally: {reason}",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0091 (#368): a missing `ffmpeg`/`ffprobe` is `E-INTERNAL` today, and reads
+        // as "Montagent broke" on the single most likely first-run failure there is.
+        // ADR-0009 makes "bring your own `ffmpeg`" a deliberate, documented part of the
+        // shape — a user with no `ffmpeg` on `PATH` has an unconfigured environment, not
+        // a broken tool. Same exit code (70, unchanged by ADR-0011), same
+        // `NotAboutDocument` class (ADR-0073) — a distinguishable code, so an agent (or
+        // `compare`) can tell "you don't have this installed" apart from "it crashed."
+        code: "E-TOOL-MISSING",
+        classes: &[Error],
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0091",
+        template: "{reason}",
         status: Live,
     },
     // ---- The disk half of `validate`: the probe's findings (#190) and the check that

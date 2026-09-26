@@ -651,6 +651,25 @@ fn a_missing_ffmpeg_is_exit_70_naming_what_was_looked_for() {
 }
 
 #[test]
+fn a_missing_ffmpeg_is_e_tool_missing_not_e_internal() {
+    // ADR-0091 (#368): a program never found on `PATH` at all is the shape ADR-0009
+    // chose — "bring your own `ffmpeg`" — not Montagent breaking. Exit 70 is unchanged;
+    // the code an agent reads is not.
+    let empty = std::env::temp_dir().join("montagent-empty-path-e-tool-missing");
+    std::fs::create_dir_all(&empty).unwrap();
+
+    let missing = tools::resolve_in(Some(empty.as_os_str())).expect_err("nothing to find");
+    let report = missing.into_report();
+
+    assert_eq!(report.findings.len(), 1);
+    assert_eq!(report.findings[0].code, "E-TOOL-MISSING");
+    assert_eq!(
+        report.exit_code(),
+        montagent_core::report::ExitCode::Internal
+    );
+}
+
+#[test]
 fn a_local_file_that_is_not_there_is_answered_without_spawning_anything() {
     // ADR-0053's confirmed absence is a fact about the filesystem, not something to infer
     // from a decoder's prose — so no subprocess runs to establish it.
@@ -700,6 +719,7 @@ fn an_ffprobe_that_rejects_our_invocation_is_exit_70_and_never_a_finding() {
         "{}",
         missing.reason()
     );
+    assert_eq!(missing.clone().into_report().findings[0].code, "E-INTERNAL");
     assert_eq!(
         missing.into_report().exit_code(),
         montagent_core::report::ExitCode::Internal
