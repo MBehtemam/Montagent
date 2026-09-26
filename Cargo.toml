@@ -22,14 +22,10 @@ repository = "https://github.com/MBehtemam/Montagent"
 # No separate site; the repository *is* the homepage. crates.io only enforces `description`
 # and `license`, so this is a permanent-record nicety rather than a publish gate (#366).
 homepage = "https://github.com/MBehtemam/Montagent"
-# Not yet set: `readme`, once #363 lands a root `README.md`, becomes one line here
-# (`readme = "README.md"`) plus `readme.workspace = true` per crate. Confirmed by testing
-# (#366) that a workspace-inherited path field resolves against *this* file — the workspace
-# root — even though every consumer is a crate one directory down, and gets copied into the
-# tarball on both the local toolchain and the pinned 1.90; this corrects #361's research
-# doc, which had assumed the opposite. Not wired in yet only because there is nothing at
-# that path for `cargo package` to find — it fails **hard**, not silently, on a readme path
-# that does not exist, which would break every dry-run and the real publish.
+# Resolves against *this* file — the workspace root — even though every consumer crate
+# lives one directory down (#366 confirmed this on both the local toolchain and the
+# pinned 1.90, correcting #361's research doc, which had assumed the opposite).
+readme = "README.md"
 #
 # `license-file` was tried the same way and reverted: it packages fine, but triggers
 # `warning: only one of license or license-file is necessary` on every build once `license`
