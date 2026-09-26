@@ -87,6 +87,13 @@ jobs:
       - name: Build montagent
         run: cargo build --release --locked --target ${{ matrix.target }} -p montagent
 
+      # The prebuilt Skia the build just linked carries five vendored C/C++ libraries whose
+      # notices `cargo about` cannot see, so the archive's `THIRD-PARTY.md` is only honest if
+      # what it names is what this leg actually linked. Checked here, per target, against the
+      # prebuilt now sitting in `target/` — the same script `ci.yml` runs.
+      - name: THIRD-PARTY.md still describes what this binary links (#359)
+        run: python3 ci/assert_third_party_attribution.py --prebuilt-only
+
       - name: Package
         id: package
         shell: bash
@@ -101,6 +108,17 @@ jobs:
           else
             cp "target/${{ matrix.target }}/release/montagent" "$stage/"
           fi
+          # The archive used to be the binary and nothing else (#362 measured it: two entries,
+          # one of them the directory), which meant the distributed artifact carried no licence
+          # text at all — neither Montagent's own nor the notices owed for the Skia prebuilt's
+          # vendored libraries nor those of the Rust crates linked into it (#359).
+          #
+          # `LICENSE-MEDIA.md` deliberately does not ride along. It is the canonical list of the
+          # rights-reserved fixture media, and not one of those paths is in this archive; adding
+          # it would put ninety filenames in front of a reader whose tarball contains none of
+          # them. The pointer at the foot of `LICENSE` names it, and the repository is where it
+          # lives.
+          cp LICENSE THIRD-PARTY.md "$stage/"
           pushd "$(dirname "$stage")" >/dev/null
           if [ "${{ matrix.archive }}" = "zip" ]; then
             archive="${name}.zip"

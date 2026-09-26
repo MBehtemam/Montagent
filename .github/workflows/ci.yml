@@ -139,6 +139,15 @@ jobs:
       - name: Doctests
         run: cargo test --workspace --doc --release --target ${{ matrix.target }}
 
+      # What the Skia prebuilt vendors, read out of the archive this leg just downloaded
+      # (#359). It lives in the matrix rather than in `committed checks` for the same reason
+      # the Ken Burns check does — it needs something the build produced — but unlike that
+      # one it runs on *every* leg, because the answer is a fact about the target: the six
+      # archives differ in their font-manager ports, and a future one could differ in what
+      # it vendors. `committed checks` runs the other half, which needs no Skia at all.
+      - name: THIRD-PARTY.md still describes what the prebuilt vendors (#359)
+        run: python3 ci/assert_third_party_attribution.py --prebuilt-only
+
       # The other half of `ci/reference_frame_instants.py` — the Ken Burns pivot
       # #276 corrected, re-derived by searching scale and offset against a
       # render of the fixture and checked against whatever pivot the project
@@ -194,6 +203,26 @@ jobs:
 
       - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
         run: python3 ci/assert_passive_packaging.py
+
+      # The licence gate (#359). `assert_passive_packaging.py` above names the specific crates
+      # that must never enter the graph; this asks the complementary question — whether
+      # anything in it carries a licence nobody has accepted. `deny.toml` is an allowlist, so a
+      # copyleft dependency fails whether or not somebody thought to name it, which is what
+      # ADR-0009's "never a GPL combined work" needs in order to be an invariant rather than a
+      # thing people remember.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-about
+
+      - name: No dependency carries a licence this binary cannot ship
+        run: cargo deny check
+
+      # The other half of the #359 check: `THIRD-PARTY.md` is generated from the dependency
+      # graph, so regenerating it and diffing is what makes a new dependency fail a build
+      # rather than ship unattributed. `--skip-prebuilt` because this job deliberately has no
+      # Skia in it; the matrix legs above run the prebuilt half.
+      - name: THIRD-PARTY.md still matches the dependency graph
+        run: python3 ci/assert_third_party_attribution.py --skip-prebuilt
 
       # Which frame of the published MP4 each committed reference PNG is —
       # numbers `tests/reference_frames.rs` and the fixture README both state,

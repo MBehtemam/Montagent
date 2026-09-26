@@ -28,3 +28,8 @@ published short from the maintainer's own language channel, and the renders deri
 them, are "all rights reserved" and usable only to build, test and study this repository;
 two files belong to third parties under their own licences. LICENSE-MEDIA.md is the
 canonical list of every affected path.
+
+The licence above is also not the whole story for the compiled `montagent` binary, which
+statically links other people's code: Skia and the five C/C++ libraries it vendors, and the
+Rust crates in its dependency graph. THIRD-PARTY.md reproduces their notices, and ships in
+the release archive beside this file.
