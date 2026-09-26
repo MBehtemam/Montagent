@@ -44,6 +44,7 @@ use montagent_render::decode;
 
 use crate::exact::{self, Decimal};
 use crate::media::session::Session;
+use crate::media::tools::Missing;
 use crate::media::{Source, tools};
 use crate::model;
 use crate::permissive::Loose;
@@ -124,18 +125,39 @@ pub(crate) fn is_keyed(element: &Value) -> bool {
             })
 }
 
-/// The series, or the one sentence saying why there is none.
+/// Why [`coverage`] produced no series.
 ///
-/// The error is invocation-shaped throughout: every refusal below is about the element the
-/// caller passed, and `measure` turns it into the same `E-INVOCATION` its text half already
-/// answers a malformed element with (ADR-0011's exit 3).
-pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, String> {
+/// Most refusals below are about the element the caller passed, and `measure` turns those
+/// into the same `E-INVOCATION` its text half already answers a malformed element with
+/// (ADR-0011's exit 3). `ffmpeg`/`ffprobe` being unresolvable is not one of those — it is a
+/// fact about the machine, not the element — so it carries the [`Missing`] `render`,
+/// `preview` and `validate` already turn into ADR-0091's `E-TOOL-MISSING`/`E-INTERNAL` at
+/// exit 70, rather than collapsing into the same string as an `E-INVOCATION` (#377).
+pub(crate) enum CoverageError {
+    Invocation(String),
+    Missing(Missing),
+}
+
+impl From<String> for CoverageError {
+    fn from(reason: String) -> Self {
+        CoverageError::Invocation(reason)
+    }
+}
+
+impl From<&str> for CoverageError {
+    fn from(reason: &str) -> Self {
+        CoverageError::Invocation(reason.to_string())
+    }
+}
+
+/// The series, or the reason there is none.
+pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, CoverageError> {
     let fps = match document.value().get("fps").and_then(Value::as_i64) {
         Some(fps) if fps > 0 => fps,
         _ => {
             return Err(
                 "the project has no positive `fps`, and a per-frame series has no grid to sit on"
-                    .to_string(),
+                    .into(),
             );
         }
     };
@@ -159,7 +181,7 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, St
             return Err(
                 "the element states no positive `width`/`height`, which is the box the key \
                  is computed in"
-                    .to_string(),
+                    .into(),
             );
         }
     };
@@ -171,24 +193,24 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, St
         // session, which fetches ranges rather than whole files. Decoding one here would be
         // the unsolicited network call this surface promises not to make.
         Source::Remote(url) => {
-            return Err(format!(
-                "`{url}` is remote; `measure` reads coverage off local sources"
-            ));
+            return Err(
+                format!("`{url}` is remote; `measure` reads coverage off local sources").into(),
+            );
         }
     };
     let ffmpeg = tools::resolve()
         .map(|tools| tools.ffmpeg)
-        .map_err(|missing| missing.reason())?;
+        .map_err(CoverageError::Missing)?;
 
     // ADR-0089: which decoder this source needs is the probe's reading, not this
     // reading's. A keyed-alpha coverage measurement over a VP9 cutout decoded by the
     // native `vp9` decoder would measure a fully opaque frame and report 0.0 coverage —
     // a number, confidently wrong, about a source that is keyed perfectly well.
     let decoder = {
-        let mut session = Session::open().map_err(|missing| missing.reason())?;
+        let mut session = Session::open().map_err(CoverageError::Missing)?;
         session
             .decoder_for(&Source::Local(path.clone()))
-            .map_err(|missing| missing.reason())?
+            .map_err(|missing| CoverageError::Missing(*missing))?
     };
 
     let run = run_of(element, declared, fps)?;

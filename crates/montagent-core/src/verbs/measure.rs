@@ -398,7 +398,16 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
                 view: Some(View::Coverage(coverage)),
                 report: Report::new(TOOL, project),
             },
-            Err(reason) => rejected(project, reason),
+            Err(crate::verbs::keyed::CoverageError::Invocation(reason)) => {
+                rejected(project, reason)
+            }
+            // #377: a missing `ffmpeg`/`ffprobe` is a fact about the machine, not this
+            // element — ADR-0091's exit 70, not `E-INVOCATION`'s exit 3.
+            Err(crate::verbs::keyed::CoverageError::Missing(missing)) => {
+                let mut report = Report::new(TOOL, project);
+                missing.fail(&mut report);
+                Answer { view: None, report }
+            }
         };
     }
 
