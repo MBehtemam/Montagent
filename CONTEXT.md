@@ -593,7 +593,27 @@ about pixels; each says which it is in its own words. Because the ladder stops a
 legibility floor is unreachable by degradation today — it is kept as a guard on any future
 rung and on any caller-specified proxy resolution, and the fact that it does not currently
 fire is stated rather than tidied away.
-_Avoid_: *the* floor (there are two), minimum resolution, cutoff
+**The legibility floor governs a standalone proxy *frame*, and not a contact-sheet tile**
+([ADR-0095](docs/adr/0095-the-sheets-budget-is-served-tile-width-and-overflow-refuses.md)):
+360p was measured on a frame judged alone in a viewport, while a tile is judged in a grid
+beside its neighbours and under a label, and no tile count clears a 640 px long edge. The
+sheet has its own pair of limits, below.
+_Avoid_: *the* floor (there are three across these two entries), minimum resolution, cutoff
+
+**Tile-width target** / **tile-width refusal**:
+The contact sheet's own two limits, denominated in **served tile width** — the width in
+pixels a tile is actually looked at, after the API downscales the whole sheet to its tier
+([ADR-0095](docs/adr/0095-the-sheets-budget-is-served-tile-width-and-overflow-refuses.md)).
+Not the width it was authored at, which overstates legibility by 5–6×. The **tile-width
+target** is 180 px: what every range gets by default, 18 tiles for a 9:16 project. The
+**tile-width refusal** is 140 px: the measured cliff past which fine detail stops being
+visible, 30 tiles, reached by exactly one degrade step — and where the sheet **refuses,
+naming sub-ranges that would fit**, rather than drawing more tiles than it can show a defect
+in. Tile **count is derived** from the width and the tile's aspect, never set by the caller:
+a cropped 3:1 band clears 180 px at 112 tiles where whole 9:16 frames manage 18. Visual
+tokens are *not* the currency — a sheet spends 1518–1568 of the tier's 1568 at every count
+from 4 to 48, so a token cap never fires.
+_Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution
 
 ## Findings and reports
 

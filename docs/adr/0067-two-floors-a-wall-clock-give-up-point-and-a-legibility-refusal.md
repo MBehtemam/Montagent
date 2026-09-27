@@ -5,6 +5,20 @@ amends: 0050 (states where its floor binds, given 0065's ladder), 0065 (retires 
 
 # `preview` has two floors, not one: a wall-clock give-up point at 540p and a legibility refusal at 360p
 
+> **Amended by [ADR-0095](./0095-the-sheets-budget-is-served-tile-width-and-overflow-refuses.md)**,
+> which **narrows the 360p legibility floor below to a standalone proxy frame.** This ADR
+> keeps the floor as *"a guard on the ladder's future, and on any caller-specified proxy
+> resolution"* — and `frame`'s contact-sheet range mode is the first thing that clause
+> reaches for by name. It does **not** govern a sheet tile: an 18-tile sheet's tile is
+> 184×328, so no tile count clears a 640 px long edge, and if the floor applied the feature
+> could not exist. The reason it does not is that the two numbers measure different things —
+> ADR-0050 judged a frame *standing alone in a viewport*, while the sheet's own measurement
+> judged a tile *in a grid, beside its neighbours, under a label*, which is why absence-of-text
+> survived to 92 px tiles. The sheet carries **its own two limits in its own currency**
+> (served tile width: a 180 px target and a 140 px floor), so *floor* now names **three**
+> things across the two ADRs and all three are spelled out in `CONTEXT.md`. Everything about
+> the `preview` ladder here is untouched, and 360p remains unreachable by degradation.
+
 [ADR-0050](0050-preview-hard-refuses-below-360p.md) and
 [ADR-0065](0065-preview-proxy-target-720p-540p-floor-disclosed-not-certified.md) both
 landed on `main` as `status: accepted`, both using the word *floor*, with different
