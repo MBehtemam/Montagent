@@ -5,6 +5,14 @@ amends: 0011 (the cut list's presence set is **every** element, audio included �
 
 # The cut list's presence set is every element — "on-screen" was ADR-0011 writing too fast
 
+> **Amended by [ADR-0094](./0094-the-sheets-instants-are-visual-states-sampled-at-the-first-painted-frame.md)**,
+> which names `frame`'s contact-sheet range mode as the caller the `type` filter below
+> anticipated, specifies the **re-merge** of intervals that become identical once audio is
+> filtered out (the filter alone changes nothing — the merge is what turns 46 intervals into
+> ~18), and turns the 28-boundary loss measured below into a **mandatory disclosure**: a sheet
+> that narrows to the visual view must name the audio-only boundaries it dropped. Nothing in
+> this ADR's own decision changes.
+
 **Ticket:** [#250](https://github.com/MBehtemam/Montagent/issues/250). Evidence:
 `docs/adr/cut_presence_scan.py`, which re-derives every measured number below — the element
 counts, the boundary table, and the worked case's asymmetry — from the fixture, and exits
