@@ -579,20 +579,34 @@ fn an_effect_the_vocabulary_does_not_admit_is_named_beside_the_picture() {
         [0xFF, 0x00, 0x00],
         "the members that *are* admitted still painted"
     );
+    // ADR-0093: the row carries `E-EFFECT-UNKNOWN` and the finding carries which member it
+    // was. The element *was* drawn, minus one thing it asked for, so this is
+    // `painted_partially` and not `not_painted`.
     let said = json["frame"]["painted_partially"]
         .as_array()
         .map(|rows| {
-            rows.iter().any(|row| {
-                row["reason"]
-                    .as_str()
-                    .is_some_and(|r| r.contains("effects[0]"))
-            })
+            rows.iter()
+                .any(|row| row["code"].as_str() == Some("E-EFFECT-UNKNOWN"))
         })
         .unwrap_or(false);
     assert!(
         said,
         "nothing beside the picture said the first effect was not painted: {}",
         serde_json::to_string_pretty(&json["frame"]).unwrap_or_default()
+    );
+    let named = json["findings"]
+        .as_array()
+        .map(|findings| {
+            findings.iter().any(|finding| {
+                finding["code"].as_str() == Some("E-EFFECT-UNKNOWN")
+                    && finding["fields"]["index"].as_i64() == Some(0)
+            })
+        })
+        .unwrap_or(false);
+    assert!(
+        named,
+        "the finding did not say which member was dropped: {}",
+        serde_json::to_string_pretty(&json["findings"]).unwrap_or_default()
     );
 }
 
@@ -1562,43 +1576,74 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
                 ..at(1500)
             },
         );
-        json["frame"]["not_painted"]
+        // ADR-0093: the row carries the *code*, and the sentence naming the offending
+        // value is the finding's. Both are read, because "named rather than silently
+        // inert" is a claim about the pair — a code with no detail names the condition
+        // and not the instance.
+        let codes: Vec<String> = json["frame"]["not_painted"]
             .as_array()
             .map(|rows| {
                 rows.iter()
-                    .filter_map(|row| row["reason"].as_str().map(str::to_string))
-                    .collect::<Vec<_>>()
+                    .filter_map(|row| row["code"].as_str().map(str::to_string))
+                    .collect()
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let details: Vec<String> = json["findings"]
+            .as_array()
+            .map(|findings| {
+                findings
+                    .iter()
+                    .filter_map(|finding| finding["fields"]["detail"].as_str())
+                    .chain(
+                        findings
+                            .iter()
+                            .filter_map(|finding| finding["fields"]["from"].as_str()),
+                    )
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        (codes, details)
     };
 
     // A `kind` outside v1's one-member vocabulary (ADR-0059 defers wipe, slide and push).
-    let said = unusable(
+    let (codes, details) = unusable(
         r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"wipe",
              "from":"first","to":"second"}"##,
     );
     assert!(
-        said.iter().any(|reason| reason.contains("wipe")),
-        "a deferred `kind` was silently inert: {said:?}"
+        codes.iter().any(|code| code == "E-NOT-PAINTED-UNDRAWABLE"),
+        "a deferred `kind` was silently inert: {codes:?}"
+    );
+    assert!(
+        details.iter().any(|detail| detail.contains("wipe")),
+        "the finding did not name the `kind` it could not draw: {details:?}"
     );
 
-    // A `from` naming nothing in the document.
-    let said = unusable(
+    // A `from` naming nothing in the document. ADR-0093 gives it its own code: it is the
+    // one transition fault no `validate` check ever claimed.
+    let (codes, details) = unusable(
         r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"crossfade",
              "from":"nobody","to":"second"}"##,
     );
     assert!(
-        said.iter().any(|reason| reason.contains("nobody")),
-        "a dangling reference was silently inert: {said:?}"
+        codes
+            .iter()
+            .any(|code| code == "E-NOT-PAINTED-UNRESOLVED-REF"),
+        "a dangling reference was silently inert: {codes:?}"
+    );
+    assert!(
+        details.iter().any(|detail| detail.contains("nobody")),
+        "the finding did not name the reference it could not resolve: {details:?}"
     );
 
     // A pair that never coexist, which is `E-TRANSITION-NO-OVERLAP` in `validate` and no
     // window at all here.
-    let said = unusable(
+    let (codes, _) = unusable(
         r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"crossfade",
              "from":"first","to":"first"}"##,
     );
-    assert!(said.is_empty() || said.iter().all(|reason| !reason.is_empty()));
+    assert!(codes.is_empty() || codes.iter().all(|code| !code.is_empty()));
 
     // And the other half of the rule: a transition that is simply outside its own window
     // is *not* listed, because nothing about the picture is missing.

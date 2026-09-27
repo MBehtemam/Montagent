@@ -71,11 +71,12 @@ fn probe_every_source(
         };
         let id = element["id"].as_str().unwrap_or("<no id>");
 
-        let outcome = session.probe(&Source::resolve(source, &base))?;
+        let resolved = Source::resolve(source, &base);
+        let outcome = session.probe(&resolved)?;
         let before = report.findings.len();
-        // The four outcomes ADR-0053 and ADR-0056 fix, and the facts where there is no
-        // defect — one mapping, shared with the `probe` verb.
-        crate::media::probe::record(&outcome, source, report);
+        // The four outcomes ADR-0053 and ADR-0056 fix, ADR-0093's fifth, and the facts
+        // where there is no defect — one mapping, shared with the `probe` verb.
+        crate::media::probe::record(&outcome, source, &resolved, report);
         locate(report, before, document.path(), id);
 
         // Only a source that actually answered can be overrun.

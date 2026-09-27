@@ -18,6 +18,13 @@ status: accepted
 > all — neither `"none"` nor a structured value — with any remedy stated as ordinary
 > message text instead. The refuse/advise binary below is otherwise unchanged.
 
+> **Amended by [ADR-0093](./0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md)**,
+> which adds sixteen codes for `render`'s world-effects and records that **this ADR is what
+> forces one code per reason** rather than one per family. Repair form is decided once when
+> the check is written and holds for every instance, so a single code cannot be a `note` for
+> *"its source carries no audio stream"* and refuse-class for *"the engine established nothing
+> about its source"*. ADR-0006's per-instance freedom governs class, not repair form.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

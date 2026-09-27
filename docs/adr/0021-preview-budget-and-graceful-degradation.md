@@ -27,6 +27,15 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 >   **odd frame dimension**, which this ADR's *"never silently"* rule forbids one answer to
 >   without choosing among the rest: padded to even, right and bottom, in the project's
 >   background colour, and disclosed beside the declared frame
+> **Amended by [ADR-0093](./0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md)**,
+> which reads this ADR's *"never silently"* at the level of the **deliverable** rather than
+> the prose: any `error`-class finding withholds the file, so **a file at the output path is a
+> render with zero errors.** `render` can now spend wall clock and produce nothing where it
+> used to produce a file. What shipped an eleven-minute silent cut was not an unread report —
+> it was a plausible file existing, which is what a human uploads and what an MCP agent
+> `stat`s. Proxy degradation is untouched: a preview is not a deliverable and publishes as it
+> always has.
+
 # target with a deferred number, and `preview` degrades gracefully
 
 The original budget — a 60 s render under 2 minutes, a 10 s preview under 5

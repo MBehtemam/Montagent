@@ -411,7 +411,7 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
 
         let span = Span {
             document: &document,
-            report: &report,
+            established: crate::media::established::Established::of(&report),
             project_dir: &project_dir,
             ffmpeg: &ffmpeg,
             background,
@@ -449,12 +449,37 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
                         // was asked for. That a preview is never the deliverable is not
                         // that field's job here: it is true of every preview, range or
                         // none, and the tier disclosure is where it is said.
-                        video: painted.into_video(&span, partial, wall_ms),
+                        // ADR-0093 ruling 6 is about *the deliverable*, and a proxy is
+                        // not one — ADR-0065 discloses it as a proxy and ADR-0021 keeps
+                        // `render` the only verb that writes the declared `output`. So a
+                        // preview publishes what it encoded, as it always has.
+                        video: match painted.into_video(&span, partial, wall_ms) {
+                            Ok(video) => video,
+                            Err(reason) => {
+                                report.fail_internally(reason);
+                                return refused(report);
+                            }
+                        },
                         tier: Disclosure::of(tier, frame, (width, height), budget(rung), &attempts),
                         attempts,
                     }),
                     report,
                 };
+            }
+            // ADR-0093: the mix's pre-flight refused, before any encoder was spawned. A
+            // preview of a project whose audio cannot be mixed is not a cheaper picture of
+            // it — the span decided this without touching the clock, so the ladder has
+            // nothing cheaper to try and stops here.
+            Err(Stop::Refused(findings)) => {
+                for finding in findings {
+                    report.push(finding);
+                }
+                return refused(report);
+            }
+            // ADR-0091: an unconfigured environment, not a broken project.
+            Err(Stop::ToolMissing(reason)) => {
+                report.fail_tool_missing(reason);
+                return refused(report);
             }
             Err(Stop::Internal(reason)) => {
                 report.fail_internally(reason);

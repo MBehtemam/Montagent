@@ -1238,10 +1238,13 @@ fn frame_block(frame: &Value) -> String {
         ("not_painted", "not painted"),
     ] {
         for entry in frame[key].as_array().into_iter().flatten() {
+            // ADR-0093: the code, not a sentence. The sentence is the finding's, rendered
+            // above with its class — this row is the index into it, so one reason cannot be
+            // worded two ways in one report.
             out.push_str(&row(format!(
                 "{label} {} — {}",
                 named(&entry["element"]),
-                entry["reason"].as_str().unwrap_or("(no reason given)"),
+                entry["code"].as_str().unwrap_or("(no code given)"),
             )));
         }
     }
@@ -1360,7 +1363,10 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
             out.push_str(&row(format!(
                 "{label} {} — {}",
                 named(&entry["element"]),
-                entry["reason"].as_str().unwrap_or("(no reason given)"),
+                // ADR-0093: the code. The sentence is the finding's, printed above with
+                // its class — the same rule the `frame` block follows, and the reason
+                // `reason_words` is not reached here.
+                entry["code"].as_str().unwrap_or("(no code given)"),
             )));
         }
     }

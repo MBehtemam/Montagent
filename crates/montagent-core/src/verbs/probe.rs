@@ -71,7 +71,7 @@ pub fn probe_with(
     for source in sources {
         let resolved = Source::resolve(source, base);
         match session.probe(&resolved) {
-            Ok(outcome) => crate::media::probe::record(&outcome, source, &mut report),
+            Ok(outcome) => crate::media::probe::record(&outcome, source, &resolved, &mut report),
             // The tool is broken, so nothing after this point can be established — and
             // the facts gathered before it are not an answer to what was asked. This
             // leaves by the same door a bad invocation does: one report, exit 70, and no
