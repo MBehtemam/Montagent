@@ -16,7 +16,7 @@ use std::path::Path;
 
 use montagent_core::finding::Class;
 use montagent_core::report::ExitCode;
-use montagent_core::verbs::render::{Ask, Answer, Progress, render};
+use montagent_core::verbs::render::{Answer, Ask, Progress, render};
 
 mod common;
 use common::{fixture_dir, has_ffprobe, tempdir, write_project};
@@ -158,7 +158,10 @@ fn a_render_with_no_world_effect_still_publishes_its_deliverable() {
         "{:?}",
         answer.report().findings
     );
-    assert!(answer.video().is_some(), "a clean render described no video");
+    assert!(
+        answer.video().is_some(),
+        "a clean render described no video"
+    );
     assert!(
         dir.join("out/p.mp4").exists(),
         "a clean render published nothing"

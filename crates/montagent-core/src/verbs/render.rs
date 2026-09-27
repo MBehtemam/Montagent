@@ -1022,7 +1022,7 @@ impl Mix {
                 &name,
                 kind,
                 project_dir,
-                &established,
+                established,
                 fps,
                 from,
                 to,
@@ -1039,11 +1039,9 @@ impl Mix {
                 // ADR-0093: located here rather than at the emission site, because the
                 // element that declared the source is what an agent has to edit, and the
                 // arms deep in `chain` have no business knowing which document they are in.
-                Err(Declined::Finding(finding)) => declined.push(
-                    finding
-                        .at_file(document.path())
-                        .at_element(name.clone()),
-                ),
+                Err(Declined::Finding(finding)) => {
+                    declined.push(finding.at_file(document.path()).at_element(name.clone()))
+                }
                 Err(Declined::Internal(reason)) => internal = internal.or(Some(reason)),
                 // The mix spawns nothing — `Encoder::start` is the caller's — so no arm of
                 // `chain` can reach for a tool. Folded into the invariant channel rather
@@ -1249,8 +1247,13 @@ fn chain(
             // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
             // waveform at full level. The check engine has already refused the render for
             // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
-            let volume: Animatable<Volume> = serde_json::from_value(written.clone())
-                .map_err(|e| Declined::internal(name, &format!("a `volume` that does not fit the schema: {e}")))?;
+            let volume: Animatable<Volume> =
+                serde_json::from_value(written.clone()).map_err(|e| {
+                    Declined::internal(
+                        name,
+                        &format!("a `volume` that does not fit the schema: {e}"),
+                    )
+                })?;
             let volume = match volume {
                 Animatable::Static(Volume(v)) => Animatable::Static(v),
                 Animatable::Keyed(records) => Animatable::Keyed(
@@ -1471,7 +1474,8 @@ mod tests {
 
     #[test]
     fn two_spellings_of_one_path_are_one_path() {
-        let dir = std::env::temp_dir().join(format!("montagent-render-same-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("montagent-render-same-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::create_dir_all(dir.join("out"));
         assert!(same_path(

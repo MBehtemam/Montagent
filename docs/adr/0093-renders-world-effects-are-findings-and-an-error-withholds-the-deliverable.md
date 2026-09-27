@@ -283,7 +283,44 @@ Two neighbours this ADR deliberately does not settle:
 ## Evidence
 
 Argued from committed source — `CONTEXT.md`'s class definitions, ADR-0043's uniformity rule,
-the model's own `Deserialize` impls, `checks/transition.rs`'s declined question — and pinned
-by re-executable tests rather than by the lost session the ticket describes.
+the model's own `Deserialize` impls, `checks/transition.rs`'s declined question — and pinned by
+re-executable checks rather than by the lost session the ticket describes.
 
-<!-- EVIDENCE: completed below before `status: accepted` was written. -->
+- `crates/montagent-core/tests/world_effects.rs` — an unmixable audible element exits 1, is a
+  counted `error` at its own code, and leaves nothing at the output path *or beside it*; a clean
+  render still publishes; an empty range is `E-EMPTY-RANGE`; an ordinary silent video is a `note`
+  that does **not** withhold the file. The last of these is the other direction, without which
+  every assertion above is satisfied by a `render` that has simply stopped working.
+- `crates/montagent-core/tests/cross_verb.rs` — ruling 3's containment, over both verbs. It
+  asserts that `render` declined *something* before asserting the containment over it, so the
+  property cannot pass vacuously on an empty set.
+- `crates/montagent-core/tests/effects.rs`, `tests/frame.rs` — the six *"named rather than
+  silent"* tests, rewritten to read the code from the row and the offending value from the
+  finding. They are the reason the painter's class is `review` rather than `error`: two of them
+  failed against a uniform `error` and were right to.
+
+- **`docs/adr/world_effects_withhold_the_deliverable_check.sh`** — this ADR's claims asserted end
+  to end against a built binary, exiting non-zero the moment one stops holding. A test at the
+  verb seam can assert the report; only a run of the real binary can assert what is on disk
+  afterwards, and what is on disk is the thing that actually misled someone. Checked in **both**
+  directions before `status: accepted` was written:
+
+  | run against | result |
+  | --- | --- |
+  | this branch | `ADR-0093 holds` — 11 assertions, exit 0 |
+  | `bb26c062` (the commit before it) | **7 failures**, exit 1 |
+
+  The base-commit run is the reproduction of MONTAGENT-1 that the ticket could not supply — the
+  original session is gone — and it is reproducible rather than recounted. On an audible element
+  whose source is present and unopenable, `bb26c062` reports:
+
+  ```
+  0 errors, 0 reviews, 0 notes, 1 unchecked, 1 layout, 0 drift
+  RENDER  …/out/p.mp4 — 1000 ms, 25 frames at 25 fps, 200x200
+  ```
+
+  exit 0 — and `ffprobe` on the published file answers `video`, with no audio stream. That is
+  the eleven-minute silent cut in miniature: **`0 errors`, a plausible file, and nothing in it.**
+  Note the `1 unchecked`: `validate` had already said it could not read that source, in the same
+  session, and `render` published over the top of it anyway. A counted finding is necessary and
+  not sufficient, which is ruling 6's whole argument.

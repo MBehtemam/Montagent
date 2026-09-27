@@ -1199,10 +1199,7 @@ fn a_font_chain_that_does_not_resolve_is_named_beside_the_picture() {
         .iter()
         .filter_map(|entry| entry["code"].as_str())
         .collect();
-    assert!(
-        codes.contains(&"E-NOT-PAINTED-FONT-CHAIN"),
-        "{codes:?}"
-    );
+    assert!(codes.contains(&"E-NOT-PAINTED-FONT-CHAIN"), "{codes:?}");
     let details: Vec<&str> = json["findings"]
         .as_array()
         .expect("a findings list")

@@ -198,7 +198,9 @@ pub enum UncheckedReason {
     Timeout,
     Dns,
     Unreachable,
-    Http { status: u16 },
+    Http {
+        status: u16,
+    },
     /// ADR-0093, and the one member of this enum that is not about a network: a **local**
     /// source `ffprobe` answered for, whose canonical path the run could not observe.
     ///

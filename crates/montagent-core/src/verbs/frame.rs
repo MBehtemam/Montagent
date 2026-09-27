@@ -776,12 +776,7 @@ impl<'a> Painter<'a> {
         Painter::at_class(document, instant, frame, Class::Error)
     }
 
-    fn at_class(
-        document: &'a Loose,
-        instant: i64,
-        frame: (i64, i64),
-        class: Class,
-    ) -> Painter<'a> {
+    fn at_class(document: &'a Loose, instant: i64, frame: (i64, i64), class: Class) -> Painter<'a> {
         Painter {
             document,
             elements: document
@@ -903,9 +898,10 @@ impl<'a> Painter<'a> {
             }
             // Reachable, because `frame` reads the document permissively and never calls
             // `document.strict()` — see `E-NOT-PAINTED-UNDRAWABLE`.
-            Some(other) => {
-                self.defer(name, undrawable(format!("this build draws no `{other}` element")))
-            }
+            Some(other) => self.defer(
+                name,
+                undrawable(format!("this build draws no `{other}` element")),
+            ),
             None => self.defer(name, undrawable("it states no `type`")),
         }
     }
@@ -1309,7 +1305,10 @@ impl<'a> Painter<'a> {
                 Declined::Finding(
                     Finding::new("E-NOT-PAINTED-UNDECODABLE")
                         .field("resolved", json!(crate::media::display_local(path)))
-                        .field("detail", json!("it is not an image format this build decodes")),
+                        .field(
+                            "detail",
+                            json!("it is not an image format this build decodes"),
+                        ),
                 )
             })?;
             self.stills.insert(path.to_path_buf(), still.clone());
@@ -1357,9 +1356,8 @@ impl<'a> Painter<'a> {
             extent.height as u32,
         )
         .map_err(&undecodable)?;
-        Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
-            undecodable("its decoded frame was not the size asked for".to_string())
-        })
+        Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height)
+            .ok_or_else(|| undecodable("its decoded frame was not the size asked for".to_string()))
     }
 
     /// Which decoder this source needs, probed once per path (ADR-0089).
@@ -1487,8 +1485,7 @@ impl<'a> Painter<'a> {
             Err(e) => {
                 self.defer(
                     name,
-                    Finding::new("E-NOT-PAINTED-TEXT-LAYOUT")
-                        .field("detail", json!(e.to_string())),
+                    Finding::new("E-NOT-PAINTED-TEXT-LAYOUT").field("detail", json!(e.to_string())),
                 );
                 return;
             }
