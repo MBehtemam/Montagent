@@ -5,6 +5,18 @@ amends: 0006 (designs the "gitignored sidecar" consequence it stated and left un
 
 # The probe sidecar is a per-user JSON cache, keyed on what Montagent observed, and a failure in it is always silence
 
+> **Amended by [ADR-0092](0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md).**
+> Two things this ADR left implicit no longer hold. **The key is not the whole guard**: an
+> entry now also carries a `content` fingerprint, checked on every hit, because
+> `(path, size, mtime)` cannot see a renumbering shuffle that moves one file's content onto
+> another's name with mtime preserved — #385's silent cut. And **"every failure here is
+> silence" has exactly one exception**: `montagent cache clear` reports a delete it could
+> not perform, since there the delete *is* the request rather than something done in
+> passing. The `version` is still 2 — ADR-0092's fields are derived or optional, so no
+> machine re-probes. Separately, this ADR's storing of the probe's *original spelling*
+> alongside a canonical key is what `Mix::of` misused; `Probe::identity` now carries the
+> observed identity and the spelling is documented as a label.
+
 > **Amended by [ADR-0089](0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).**
 > The sidecar is at **version 2**. `Probe::alpha` changed shape and meaning, and a
 > version-1 entry holds an answer ADR-0089 establishes is wrong for VP9-alpha sources — so

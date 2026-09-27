@@ -476,3 +476,154 @@ fn the_default_sidecar_is_never_inside_a_project() {
         "the default path is namespaced to Montagent: {path:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0092: the identity a probe observed, and the content guard.
+// ---------------------------------------------------------------------------
+
+/// Restore a file's modification time, so a rewrite is invisible to ADR-0006's key.
+///
+/// This is what `mv` does for free, and it is the whole reason the renumbering shuffle
+/// below cannot be caught by `(path, size, mtime)`.
+fn rewrite_preserving_mtime(path: &Path, bytes: &[u8]) {
+    let was = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .expect("the filesystem states an mtime");
+    std::fs::write(path, bytes).expect("rewrite the source");
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .expect("reopen to set times");
+    file.set_modified(was).expect("restore the mtime");
+}
+
+#[test]
+fn a_renumbering_shuffle_that_preserves_size_and_mtime_is_a_rewritten_miss() {
+    // #385's mechanism, reduced to its mechanics: different bytes arrive at a path whose
+    // `(size, mtime)` did not move, which is what renaming `line-01.wav`…`line-19.wav` onto
+    // each other's names does. Every component of ADR-0006's key still matches.
+    let dir = scratch("renumbering-shuffle");
+    let sidecar = dir.join("probe-cache.json");
+    let media = dir.join("line-07.wav");
+    std::fs::write(&media, b"take one").unwrap();
+    let source = Source::Local(media.clone());
+
+    {
+        let (_recorder, mut first) = session(&sidecar, vec![ok(AUDIO)]);
+        first.begin_run();
+        first.probe(&source).unwrap();
+        assert_eq!(first.misses()[0].kind, MissKind::First);
+    }
+
+    rewrite_preserving_mtime(&media, b"take two");
+
+    let (recorder, mut second) = session(&sidecar, vec![ok(AUDIO)]);
+    second.begin_run();
+    second.probe(&source).unwrap();
+
+    match second.misses().last().map(|miss| &miss.kind) {
+        Some(MissKind::Rewritten { size, .. }) => assert_eq!(*size, 8),
+        other => panic!(
+            "a file rewritten under an unchanged key must announce itself as rewritten, \
+             got {other:?}"
+        ),
+    }
+    // And it actually re-probed, rather than merely saying so.
+    assert_eq!(*recorder.calls.lock().unwrap(), 1);
+}
+
+#[test]
+fn an_entry_written_before_the_content_guard_is_still_trusted_on_its_key() {
+    // The guard is `serde(default)`, so an entry from an older binary has none. It must read
+    // as "unguarded" and keep answering — ADR-0092 bumps no `VERSION` precisely so that no
+    // machine throws its probes away, and that is worth nothing if an unguarded entry misses.
+    let dir = scratch("unguarded-entry");
+    let sidecar = dir.join("probe-cache.json");
+    let media = dir.join("vo.wav");
+    std::fs::write(&media, b"one").unwrap();
+    let source = Source::Local(media.clone());
+
+    {
+        let (_recorder, mut first) = session(&sidecar, vec![ok(AUDIO)]);
+        first.begin_run();
+        first.probe(&source).unwrap();
+    }
+
+    // Strip the guard, leaving exactly the file an older binary would have written.
+    let text = std::fs::read_to_string(&sidecar).unwrap();
+    assert!(
+        text.contains("\"content\""),
+        "the guard was recorded at all"
+    );
+    let mut document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for entry in document["entries"].as_object_mut().unwrap().values_mut() {
+        entry.as_object_mut().unwrap().remove("content");
+    }
+    std::fs::write(&sidecar, serde_json::to_string_pretty(&document).unwrap()).unwrap();
+
+    let (recorder, mut second) = session(&sidecar, vec![ok(AUDIO)]);
+    second.begin_run();
+    second.probe(&source).unwrap();
+
+    assert!(
+        second.misses().is_empty(),
+        "an unguarded entry still answers: {:?}",
+        second.misses()
+    );
+    assert_eq!(*recorder.calls.lock().unwrap(), 0);
+}
+
+#[test]
+fn a_probe_read_back_from_the_sidecar_carries_the_identity_the_key_states() {
+    // The silent-audio-drop criterion, at the seam that can state it cheaply.
+    //
+    // `Probe::source` holds whatever spelling first cached the probe. `Mix::of` used to
+    // canonicalise *that*, against the calling process's working directory — so a relative
+    // spelling cached by one run was unresolvable in a run started elsewhere, the entry was
+    // dropped, and `render` emitted a silent video at exit 0. What a consumer matches on now
+    // is `Probe::identity`, which comes off the canonical key and so cannot depend on where
+    // anybody stood.
+    let dir = scratch("identity-off-the-key");
+    let sidecar = dir.join("probe-cache.json");
+    let media = dir.join("vo.wav");
+    std::fs::write(&media, b"one").unwrap();
+    let source = Source::Local(media.clone());
+
+    {
+        let (_recorder, mut first) = session(&sidecar, vec![ok(AUDIO)]);
+        first.begin_run();
+        first.probe(&source).unwrap();
+    }
+
+    // Rewrite the stored spelling to a relative one that resolves nowhere from here, which
+    // is the state a run started in the project directory leaves behind.
+    let text = std::fs::read_to_string(&sidecar).unwrap();
+    let mut document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    for entry in document["entries"].as_object_mut().unwrap().values_mut() {
+        entry["probe"]["source"] = serde_json::json!("assets/vo.wav");
+    }
+    std::fs::write(&sidecar, serde_json::to_string_pretty(&document).unwrap()).unwrap();
+    assert!(
+        std::fs::canonicalize("assets/vo.wav").is_err(),
+        "the spelling really is unresolvable from this working directory"
+    );
+
+    let (_recorder, mut second) = session(&sidecar, vec![ok(AUDIO)]);
+    second.begin_run();
+    let probe = second
+        .probe(&source)
+        .unwrap()
+        .probe()
+        .cloned()
+        .expect("the cache answered");
+
+    assert_eq!(
+        probe.source, "assets/vo.wav",
+        "the spelling is untouched — it is what the report names"
+    );
+    assert_eq!(
+        probe.identity,
+        Some(std::fs::canonicalize(&media).unwrap()),
+        "and the identity is the canonical file, off the key rather than off the spelling"
+    );
+}

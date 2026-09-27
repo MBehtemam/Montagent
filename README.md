@@ -90,6 +90,19 @@ verified the licence of, even the Open Runde font shipped alongside this example
 `--licence OFL-1.1` is you confirming what `OpenRunde-LICENSE.txt` (also in that
 directory) already says. See `examples/hello-text/README.md` for why.
 
+## If a source looks stale
+
+Montagent remembers what it probed about each media file in a per-user cache, so an
+unchanged file costs no `ffprobe`. It notices a file that changed on disk, including one
+rewritten in place under an unchanged size and timestamp. If you ever need to start from
+the disk again:
+
+```
+montagent cache clear
+```
+
+It prints the path it removed, which is platform-specific and not worth memorising.
+
 ## Learn more
 
 `CONTEXT.md` and `docs/adr/` hold the reasoning behind the format and every non-obvious

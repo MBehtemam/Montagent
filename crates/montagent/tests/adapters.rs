@@ -704,6 +704,48 @@ fn cli_the_probe_cache_never_lands_beside_the_project() {
 }
 
 #[test]
+fn cli_cache_clear_removes_the_sidecar_and_its_temporaries_and_states_the_path() {
+    // ADR-0092 / #385: the recovery step that previously required knowing
+    // `~/Library/Caches/montagent/probe-cache.json` by heart.
+    let dir = scratch_dir("cli-cache-clear");
+    let cache = dir.join("cache");
+    let media = dir.join("take3.mp3");
+    std::fs::copy(fixture_dir().join("audio/05-cobweb.mp3"), &media).expect("copy a real mp3");
+
+    let out = montagent_caching(&["probe", media.to_str().unwrap()], &cache);
+    if out.code == Some(70) {
+        eprintln!("skipping: {}", out.stderr.trim());
+        return;
+    }
+    let sidecar = cache.join("probe-cache.json");
+    assert!(sidecar.exists(), "there is a cache to clear");
+
+    // A run killed between `write_atomically`'s write and its rename leaves one of these,
+    // and a clear that left it would leave the directory it claims to have emptied non-empty.
+    let temporary = cache.join("probe-cache.json.99999.tmp");
+    std::fs::write(&temporary, b"half a write").unwrap();
+
+    let out = montagent_caching(&["cache", "clear"], &cache);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(!sidecar.exists(), "the sidecar is gone");
+    assert!(!temporary.exists(), "and so is the temporary beside it");
+    assert!(
+        out.stdout.contains(sidecar.to_str().unwrap()),
+        "it states the path it removed: {}",
+        out.stdout
+    );
+
+    // Clearing an absent cache is the state the caller asked for, so it succeeds.
+    let out = montagent_caching(&["cache", "clear"], &cache);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stdout.contains("no probe cache to clear"),
+        "and says there was nothing there: {}",
+        out.stdout
+    );
+}
+
+#[test]
 fn cli_probe_reaches_the_probe_verb_and_exits_0() {
     let fixture = fixture_dir();
     let out = montagent(&["probe", fixture.join("images/06.png").to_str().unwrap()]);

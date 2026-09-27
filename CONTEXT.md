@@ -718,11 +718,41 @@ announcing a source that grew on disk can only fire twice within one process, an
 `probe` is CLI-only. Everything that can go wrong with it — absent, corrupt, an
 unknown version, unwritable — is a cache miss and never a finding, because a
 cache directory is not the project. Nothing about a **remote** source is ever
-stored in it.
+stored in it. Each entry also carries a **content guard**, and `montagent cache
+clear` deletes the whole file — the one operation on it that reports a failure,
+because there the delete *is* the request rather than something done in passing.
 ([ADR-0069](docs/adr/0069-probe-sidecar-is-a-per-user-json-cache-keyed-on-what-montagent-observed.md),
 [ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
-[ADR-0056](docs/adr/0056-remote-source-probe-session-scoped-no-persistent-cache.md))
+[ADR-0056](docs/adr/0056-remote-source-probe-session-scoped-no-persistent-cache.md),
+[ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
 _Avoid_: index, database, manifest, cache file (unqualified)
+
+**Content guard**:
+The cheap content fingerprint a probe-sidecar entry carries beside its key —
+sha256 over the size, the first 64 KiB and the last 64 KiB — checked on every
+cache **hit**. A **value**, never part of the key: the key decides whether the
+bytes are worth looking at, and the guard decides whether anything actually
+changed. It exists for the one invalidation `(path, size, mtime)` cannot see, a
+**renumbering shuffle** — renaming files so each one's content lands on a
+neighbour's existing name, which leaves every path present and, because `mv`
+preserves mtime, leaves `size` as the only discriminator between two takes. A
+mismatch is a `rewritten` miss, distinct from `changed` because both sides of the
+key are identical. A guard that established nothing never invalidates anything.
+([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
+_Avoid_: checksum key, content key, hash key
+
+**Observed identity**:
+The canonical path a probe recorded at the moment it ran (`Probe::identity`), and
+the only thing a consumer may use to ask *"is this the same file?"*. It is
+distinct from the probe's **source**, which is a *label* — whichever spelling the
+run that first cached the probe happened to use, kept because it is what the
+report names. Re-resolving that label is how the working directory became a third
+input to `render`: a relative spelling cached by one run resolved nowhere in a run
+started elsewhere, every audible element was declined, and the encoder emitted a
+silent video at exit 0. `None` means *"do not know"* — a remote source, or no
+local observation — and never a match.
+([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
+_Avoid_: path (unqualified), source path, resolved source
 
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this

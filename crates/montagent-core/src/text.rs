@@ -206,6 +206,14 @@ fn miss_line(miss: &Value) -> String {
             mtime(&miss["previous_mtime_ns"]),
             mtime(&miss["mtime_ns"])
         ),
+        // The key matched and the bytes did not, so there is no "before" number to print —
+        // that is the whole content of the line. #385's renumbering shuffle reads here.
+        Some("rewritten") => format!(
+            "{source} — REWRITTEN IN PLACE since it was last probed: {} bytes and mtime {} \
+             both unchanged, contents different",
+            miss["size"],
+            mtime(&miss["mtime_ns"])
+        ),
         Some("remote") => {
             format!("{source} — fetched (remote sources are never cached across runs)")
         }

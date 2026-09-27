@@ -56,6 +56,17 @@ pub enum MissKind {
         previous_mtime_ns: Option<i128>,
         mtime_ns: Option<i128>,
     },
+    /// The key matched an entry — same canonical path, same size, same mtime — and the
+    /// **bytes did not**. #385: a renumbering shuffle that moves one take's content onto
+    /// another take's name changes nothing `(path, size, mtime)` can see, because `mv`
+    /// preserves mtime and two dialogue lines can be the same length. The content guard
+    /// caught it.
+    ///
+    /// Its own kind rather than a [`MissKind::Changed`], because `Changed` exists to print
+    /// both sides of the key and here both sides are identical: a line reading
+    /// `1024 bytes → 1024 bytes, mtime 17… → 17…` states a change while showing none, which
+    /// is a worse report than no line at all.
+    Rewritten { size: u64, mtime_ns: Option<i128> },
     /// A remote URL, which has no persistent cache to miss (ADR-0056). Recorded so the
     /// round trip is visible rather than implied.
     Remote,
@@ -88,6 +99,11 @@ pub struct Session {
     remote: BTreeMap<String, Outcome>,
     misses: Vec<CacheMiss>,
     network_attempts: usize,
+    /// The content fingerprint recorded for each cached path — #385's guard against a key
+    /// that matches bytes it was not read from. Seeded from the sidecar and updated for
+    /// every path this session probed; a path absent here is unguarded and is trusted on
+    /// its key alone.
+    content: BTreeMap<PathBuf, String>,
     /// Where the local half persists, or `None` for an in-process-only session.
     sidecar: Option<Sidecar>,
     /// When each cached path was last used, which is what the sidecar evicts by. Seeded
@@ -133,6 +149,7 @@ impl Session {
             remote: BTreeMap::new(),
             misses: Vec::new(),
             network_attempts: 0,
+            content: BTreeMap::new(),
             sidecar: None,
             recency: BTreeMap::new(),
         }
@@ -167,9 +184,18 @@ impl Session {
                 size: entry.size,
                 mtime_ns: entry.mtime_ns,
             };
-            self.local.insert(key, Outcome::Probed(entry.probe.clone()));
+            // Re-stamped from the key, which is where ADR-0069 already keeps the canonical
+            // path. `Probe::identity` is `serde(skip)`, so a probe read back from the
+            // sidecar arrives with none — and a consumer that had to fall back to
+            // re-resolving `Probe::source` is #385's silent audio drop.
+            let mut probe = entry.probe.clone();
+            probe.identity = Some(path.clone());
+            self.local.insert(key, Outcome::Probed(probe));
             self.seen.insert(path.clone(), (entry.size, entry.mtime_ns));
             self.recency.insert(path.clone(), entry.last_used_ns);
+            if let Some(content) = &entry.content {
+                self.content.insert(path.clone(), content.clone());
+            }
         }
         self.sidecar = Some(sidecar);
     }
@@ -233,25 +259,51 @@ impl Session {
         // another. The *report* still names the source the way the caller spelled it.
         self.recency.insert(key.path.clone(), sidecar::now_ns());
 
-        if let Some(cached) = self.local.get(&key) {
+        // #385's content guard, and the only place it runs: a key that matches still has to
+        // agree about the bytes. `None` from either side means the guard established
+        // nothing — an unguarded entry written before #385, or a file that would not read
+        // this instant — and an unestablished guard never invalidates anything.
+        let rewritten = self.local.contains_key(&key)
+            && match (self.content.get(&key.path), sidecar::fingerprint(&key.path)) {
+                (Some(recorded), Some(actual)) => recorded != &actual,
+                _ => false,
+            };
+
+        if let Some(cached) = self.local.get(&key).filter(|_| !rewritten) {
             return Ok(cached.clone());
         }
 
         self.misses.push(CacheMiss {
             source: super::display_local(path),
-            kind: match self.seen.get(&key.path) {
-                Some(&(previous_size, previous_mtime_ns)) => MissKind::Changed {
+            kind: match (rewritten, self.seen.get(&key.path)) {
+                (true, _) => MissKind::Rewritten {
+                    size: key.size,
+                    mtime_ns: key.mtime_ns,
+                },
+                (false, Some(&(previous_size, previous_mtime_ns))) => MissKind::Changed {
                     previous_size,
                     size: key.size,
                     previous_mtime_ns,
                     mtime_ns: key.mtime_ns,
                 },
-                None => MissKind::First,
+                (false, None) => MissKind::First,
             },
         });
 
         let outcome = probe::probe_local(self.runner.as_ref(), &self.tools, path)?;
         self.seen.insert(key.path.clone(), (key.size, key.mtime_ns));
+        // Recorded after the probe, so what is persisted is a fingerprint of the bytes this
+        // probe actually read rather than of whatever was there before it ran.
+        match sidecar::fingerprint(&key.path) {
+            Some(content) => {
+                self.content.insert(key.path.clone(), content);
+            }
+            // A file that would not read leaves no guard rather than a stale one: the entry
+            // falls back to its key, which is exactly where it was before #385.
+            None => {
+                self.content.remove(&key.path);
+            }
+        }
         self.local.insert(key, outcome.clone());
         Ok(outcome)
     }
@@ -330,6 +382,7 @@ impl Session {
                     Entry {
                         size,
                         mtime_ns,
+                        content: self.content.get(path).cloned(),
                         last_used_ns: self.recency.get(path).copied().unwrap_or(now),
                         probe: probe.clone(),
                     },
