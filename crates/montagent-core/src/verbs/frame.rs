@@ -94,7 +94,7 @@
 use std::path::{Path as FilePath, PathBuf};
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use montagent_render::canvas::{
     Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskRect, MaskShape, PathEl, Raster,
@@ -102,7 +102,7 @@ use montagent_render::canvas::{
 };
 use montagent_render::decode::Decoder;
 
-use crate::finding::Finding;
+use crate::finding::{Class, Finding};
 use crate::media::session::Session;
 use crate::media::{Source, tools};
 use crate::model::{self, Colour, Origin};
@@ -273,13 +273,66 @@ pub struct Rasterized {
 }
 
 /// The one reason two element types give in the same words, so they give it in one place.
-const NO_EXTENT: &str = "it states no positive integer `width`/`height`";
+///
+/// A function rather than a `const` since ADR-0093: the sentence is now a registered
+/// template and what varies is the finding, not the prose.
+/// *"This element cannot be drawn as declared"*, at ADR-0093's one code for it.
+fn undrawable(detail: impl Into<String>) -> Finding {
+    Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
+}
 
-/// One present element the picture does not show, and the reason.
+fn no_extent() -> Finding {
+    Finding::new("E-NOT-PAINTED-NO-EXTENT").field(
+        "detail",
+        json!("it states no positive integer `width`/`height`, and none could be fitted"),
+    )
+}
+
+/// Why one element is not in the output — ADR-0093's closed reason set, in two kinds.
+///
+/// The split is the whole of ruling 2's argument. A reason that says something about the
+/// *project* is a finding with a code and a class. A reason that can only fire if the check
+/// engine and the renderer disagree about one document is not a fact about the project at
+/// all: `render` reaches [`crate::verbs::render::chain`] only after `Report::exit_code` came back `Ok` **and**
+/// `document.strict()` succeeded, so every type-level arm below is unreachable — `Speed`'s
+/// `Deserialize` refuses `<= 0`, `Volume`'s refuses negatives, `AudioOverrun` has no `hold`
+/// variant, and every field the arm reads is a required, typed one. Reaching one is
+/// ADR-0073's `E-INTERNAL`, and exit 70 rather than exit 1.
+pub(crate) enum Declined {
+    /// A fact about the project, at its own code.
+    Finding(Finding),
+    /// Montagent contradicting itself, as the sentence the report fails internally with.
+    Internal(String),
+    /// ADR-0091: `ffmpeg` is not on `PATH`. Neither a fact about the project nor Montagent
+    /// contradicting itself — an unconfigured environment, at exit 70 and its own code, so
+    /// that *"you don't have this installed"* never reads as *"your source is broken"*.
+    Tool(String),
+}
+
+impl Declined {
+    /// The invariant arm, with the sentence spelling out what has to have gone wrong.
+    pub(crate) fn internal(element: &str, what: &str) -> Declined {
+        Declined::Internal(format!(
+            "`{element}` reached the mix with {what}, which the check engine refuses and \
+             `document.strict()` cannot represent — the two halves of `render` disagree \
+             about this document (ADR-0093)"
+        ))
+    }
+}
+
+/// One present element the picture does not show, and the code of the reason.
+///
+/// **ADR-0093 replaced the free-text `reason` with the finding's `code`, which is a
+/// breaking change to machine-readable output.** The sentence has not moved far: it is the
+/// registered template for that code, rendered into the report's own findings list, where
+/// it now arrives with a class attached and counted in the one-line summary every report
+/// starts with. Ruling 2's reason for closing the set is exactly that the prose was
+/// unassertable and untestable — a `String` here could say anything, and nothing could
+/// check that it said the same thing twice.
 #[derive(Debug, Clone, Serialize)]
 pub struct NotPainted {
     pub element: String,
-    pub reason: String,
+    pub code: String,
 }
 
 /// One `crossfade` in effect at the instant drawn (ADR-0059).
@@ -439,6 +492,37 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
 
     let mut painter = Painter::new(&document, instant, (frame_width, frame_height));
     painter.paint(&mut canvas, &view);
+
+    // ADR-0093: the picture's `not_painted`/`painted_partially` rows carry a code, and the
+    // sentence naming *which* value could not be drawn is the finding's. So the findings have
+    // to reach the report, or `frame` would state a condition and never the instance — which
+    // is strictly less than the prose it replaced.
+    //
+    // Pushed before the encode so that a frame that then fails to encode still says what it
+    // could not draw. `frame` is a read-only verb and these findings do not gate it: it is
+    // reporting on the picture it drew, not refusing to draw one.
+    if let Some(reason) = painter.tool_missing.take() {
+        // ADR-0091: exit 70 and its own code, never a claim about the source.
+        report.fail_tool_missing(reason);
+        return Answer {
+            picture: None,
+            view: Some(view),
+            image: None,
+            report,
+        };
+    }
+    if let Some(reason) = painter.internal.take() {
+        report.fail_internally(reason);
+        return Answer {
+            picture: None,
+            view: Some(view),
+            image: None,
+            report,
+        };
+    }
+    for finding in std::mem::take(&mut painter.declined) {
+        report.push(finding);
+    }
 
     let encoding = if ask.png {
         Encoding::Png
@@ -607,9 +691,37 @@ pub(crate) struct Painter<'a> {
     instant: i64,
     frame: (i64, i64),
     project_dir: PathBuf,
+    /// The class this painter's world-effect findings take — ADR-0093, and ADR-0006's
+    /// *"computed from the consequence at an instant"* read across verbs rather than across
+    /// instants.
+    ///
+    /// `Class::Error` for `render` and `preview`, where an element the painter declined means
+    /// the deliverable is guaranteed wrong and must not be promoted. `Class::Review` for
+    /// `frame`, where the consequence is *"look at this frame — the element you asked about is
+    /// not in it"*: `frame` runs no checks (ADR-0006 gives `render` the enforcement) and
+    /// **still answers with a picture**, which is the contract an agent inspecting a
+    /// half-written document depends on. Raising its exit code would be a change to a verb
+    /// this ADR is not about.
+    ///
+    /// Repair form does not vary with it. ADR-0043 fixes that per code, and it stays fixed.
+    class: Class,
     pub(crate) painted: Vec<String>,
     pub(crate) not_painted: Vec<NotPainted>,
     pub(crate) painted_partially: Vec<NotPainted>,
+    /// ADR-0093: the findings behind [`Painter::not_painted`] and
+    /// [`Painter::painted_partially`] — one per reason, with a class and a location, so a
+    /// drop lands in the one-line summary every report starts with instead of in prose
+    /// nothing counts. Cleared per frame with the two lists it explains.
+    pub(crate) declined: Vec<Finding>,
+    /// Montagent contradicting itself, as the sentence the report fails internally with.
+    ///
+    /// **Not cleared by [`Painter::begin`]**, unlike everything else per-frame: an
+    /// invariant violation on frame 0 is not undone by frame 1 painting cleanly, and the
+    /// run it belongs to is the whole span.
+    pub(crate) internal: Option<String>,
+    /// ADR-0091's missing `ffmpeg`, kept apart from both of the above so it keeps its own
+    /// code and exit 70. Not cleared per frame, for [`Painter::internal`]'s reason.
+    pub(crate) tool_missing: Option<String>,
     /// Every crossfade running at this instant, in document order.
     pub(crate) crossfades: Vec<Crossfade>,
     /// Each bridged element's id and the factor its `opacity` is multiplied by — the one
@@ -649,7 +761,27 @@ pub(crate) struct Painter<'a> {
 }
 
 impl<'a> Painter<'a> {
+    /// A painter for `frame`: its findings are `review`, and it answers with a picture.
     pub(crate) fn new(document: &'a Loose, instant: i64, frame: (i64, i64)) -> Painter<'a> {
+        Painter::at_class(document, instant, frame, Class::Review)
+    }
+
+    /// A painter for a verb that is producing a file — `render` and `preview`, whose
+    /// findings are `error` because the file would be wrong (ADR-0093 ruling 6).
+    pub(crate) fn for_a_deliverable(
+        document: &'a Loose,
+        instant: i64,
+        frame: (i64, i64),
+    ) -> Painter<'a> {
+        Painter::at_class(document, instant, frame, Class::Error)
+    }
+
+    fn at_class(
+        document: &'a Loose,
+        instant: i64,
+        frame: (i64, i64),
+        class: Class,
+    ) -> Painter<'a> {
         Painter {
             document,
             elements: document
@@ -659,9 +791,13 @@ impl<'a> Painter<'a> {
             instant,
             frame,
             project_dir: crate::checks::project_dir(document),
+            class,
             painted: Vec::new(),
             not_painted: Vec::new(),
             painted_partially: Vec::new(),
+            declined: Vec::new(),
+            internal: None,
+            tool_missing: None,
             crossfades: Vec::new(),
             fades: Vec::new(),
             sources: Vec::new(),
@@ -684,6 +820,7 @@ impl<'a> Painter<'a> {
         self.painted.clear();
         self.not_painted.clear();
         self.painted_partially.clear();
+        self.declined.clear();
         self.crossfades.clear();
         self.fades.clear();
     }
@@ -710,9 +847,9 @@ impl<'a> Painter<'a> {
                 // A caption row with no element behind it means this pass and the view
                 // disagree about the document, which is a bug in Montagent rather than a
                 // fact about the project — but the picture still owes the row an answer.
-                self.defer(
+                self.contradiction(
                     &name,
-                    "this build could not find the element the caption names",
+                    "a name the caption produced and the document does not hold",
                 );
                 continue;
             };
@@ -764,8 +901,12 @@ impl<'a> Painter<'a> {
             Some("image") | Some("video") => {
                 self.raster(canvas, name, element, kind, source_offset)
             }
-            Some(other) => self.defer(name, format!("this build draws no `{other}` element")),
-            None => self.defer(name, "the element states no `type`"),
+            // Reachable, because `frame` reads the document permissively and never calls
+            // `document.strict()` — see `E-NOT-PAINTED-UNDRAWABLE`.
+            Some(other) => {
+                self.defer(name, undrawable(format!("this build draws no `{other}` element")))
+            }
+            None => self.defer(name, undrawable("it states no `type`")),
         }
     }
 
@@ -791,12 +932,23 @@ impl<'a> Painter<'a> {
                 .and_then(effect_of)
             {
                 Some(effect) => effects.push(effect),
+                // Drawn, minus one thing it asked for — the `painted_partially` list, so
+                // its own code (ADR-0093).
                 None => self.partially(
                     name,
-                    format!(
-                        "`effects[{i}]` is not a member of the effect vocabulary, and is \
-                         painted as though it were not there"
-                    ),
+                    Finding::new("E-EFFECT-UNKNOWN")
+                        .field("index", json!(i))
+                        // The declared spelling, so the message names what the author
+                        // wrote rather than the vocabulary they missed.
+                        .field(
+                            "effect",
+                            json!(
+                                value
+                                    .get("kind")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("(no `kind`)")
+                            ),
+                        ),
                 ),
             }
         }
@@ -843,10 +995,10 @@ impl<'a> Painter<'a> {
                 // other element in this verb is: an agent that cannot tell "the fade has
                 // not started" from "the fade could not be read" will go looking for the
                 // defect in the wrong place.
-                Err(reason) => {
+                Err(declined) => {
                     if self.present(element) {
                         let name = name_of(element);
-                        self.defer(&name, reason);
+                        self.record(&name, declined);
                     }
                 }
             }
@@ -859,7 +1011,7 @@ impl<'a> Painter<'a> {
         &self,
         stack: &crate::stack::Stack<'_>,
         element: &Value,
-    ) -> Result<Option<Crossfade>, String> {
+    ) -> Result<Option<Crossfade>, Declined> {
         // `crossfade` is the whole v1 vocabulary (ADR-0059): "wipe, slide and push are
         // deferred", and freezing a closed-vocabulary member on a guess is the trap that
         // ADR avoided. A `kind` the format does not have is `validate`'s schema error, and
@@ -867,18 +1019,20 @@ impl<'a> Painter<'a> {
         match element.get("kind").and_then(Value::as_str) {
             Some("crossfade") => {}
             Some(other) => {
-                return Err(format!(
-                    "`crossfade` is the whole of v1's transition vocabulary, and this one \
-                     is a `{other}`"
-                ));
+                return Err(Declined::Finding(undrawable(format!(
+                    "`crossfade` is the whole of v1's transition vocabulary, and this one is \
+                     a `{other}`"
+                ))));
             }
-            None => return Err("it states no `kind`".to_string()),
+            None => return Err(Declined::Finding(undrawable("it states no `kind`"))),
         }
         let (Some(from), Some(to)) = (
             element.get("from").and_then(Value::as_str),
             element.get("to").and_then(Value::as_str),
         ) else {
-            return Err("it does not name both the elements it bridges".to_string());
+            return Err(Declined::Finding(undrawable(
+                "it does not name both the elements it bridges",
+            )));
         };
         // A `from`/`to` naming nothing in the document is a dangling reference, which is
         // `validate`'s to classify — but it is also the reason this frame shows no fade,
@@ -887,17 +1041,27 @@ impl<'a> Painter<'a> {
             stack.placement(from).and_then(|placement| placement.range),
             stack.placement(to).and_then(|placement| placement.range),
         ) else {
-            return Err(format!(
-                "`{from}` and `{to}` do not both resolve to an element with a range"
+            // The one transition fault no check owns: `checks::transition` says in as many
+            // words that a dangling `from`/`to` is *"a different question this check
+            // declines to answer"*, and nothing else claimed it. So it is genuinely
+            // reachable, and ADR-0093 gives it a code.
+            return Err(Declined::Finding(
+                Finding::new("E-NOT-PAINTED-UNRESOLVED-REF")
+                    .field("from", json!(from))
+                    .field("to", json!(to)),
             ));
         };
 
         let start = from_range.start.max(to_range.start);
         let end = from_range.end.min(to_range.end);
         if end <= start {
-            return Err(format!(
+            // `E-TRANSITION-NO-OVERLAP` is what `validate` calls this, and it is a live
+            // refuse-class error — so a render never reaches here and only `frame` does. The
+            // picture states the consequence it can see rather than borrowing that code,
+            // which is about the document's own arithmetic.
+            return Err(Declined::Finding(undrawable(format!(
                 "`{from}` and `{to}` share no instant, so there is no window to cross over"
-            ));
+            ))));
         }
         if self.instant < start || self.instant >= end {
             return Ok(None);
@@ -942,26 +1106,88 @@ impl<'a> Painter<'a> {
             .product()
     }
 
-    fn defer(&mut self, name: &str, reason: impl Into<String>) {
+    /// Not drawn, at the code for the reason (ADR-0093).
+    fn defer(&mut self, name: &str, finding: Finding) {
+        let finding = self.classed(finding);
         self.not_painted.push(NotPainted {
             element: name.to_string(),
-            reason: reason.into(),
+            code: finding.code.clone(),
         });
+        self.declined
+            .push(finding.at_file(self.document.path()).at_element(name));
+    }
+
+    /// The same finding at the class this painter's verb computes for it.
+    ///
+    /// Built at `error` by the emission sites, because that is the usual case and the one the
+    /// registry defaults to; moved here rather than threaded through twenty call sites, none
+    /// of which knows or should know which verb is asking.
+    fn classed(&self, finding: Finding) -> Finding {
+        if self.class == Class::Error {
+            return finding;
+        }
+        let mut moved = Finding::at_class(&finding.code, self.class);
+        for (name, value) in finding.fields {
+            moved = moved.field(name, value);
+        }
+        moved
     }
 
     /// Drawn, but not in full — the other list, kept apart for the reason
     /// [`Picture::painted_partially`] gives.
-    fn partially(&mut self, name: &str, reason: impl Into<String>) {
+    fn partially(&mut self, name: &str, finding: Finding) {
+        let finding = self.classed(finding);
         self.painted_partially.push(NotPainted {
             element: name.to_string(),
-            reason: reason.into(),
+            code: finding.code.clone(),
         });
+        self.declined
+            .push(finding.at_file(self.document.path()).at_element(name));
+    }
+
+    /// One [`Declined`], onto whichever of the three channels it belongs to.
+    ///
+    /// The three are kept apart because they leave by different doors: a finding is exit 1
+    /// and names an element, a contradiction is exit 70 and names Montagent, and a missing
+    /// tool is exit 70 and names the environment (ADR-0091). A single channel would have to
+    /// pick one of those, and every choice is wrong for the other two.
+    fn record(&mut self, name: &str, declined: Declined) {
+        match declined {
+            Declined::Finding(finding) => self.defer(name, finding),
+            Declined::Internal(reason) => {
+                if self.internal.is_none() {
+                    self.internal = Some(reason);
+                }
+            }
+            Declined::Tool(reason) => {
+                if self.tool_missing.is_none() {
+                    self.tool_missing = Some(reason);
+                }
+            }
+        }
+    }
+
+    /// The render contradicting itself about one document, kept to the first occurrence.
+    ///
+    /// ADR-0093 ruling 2's other arm: `render` paints only after `Report::exit_code` came
+    /// back `Ok` and `document.strict()` succeeded, so an arm that the schema, the model or
+    /// a live check already forbids is not a fact about the project. It is ADR-0073's
+    /// `E-INTERNAL` and exit 70, and reporting it as a finding about the document would send
+    /// an agent to edit a file that is not wrong.
+    fn contradiction(&mut self, name: &str, what: &str) {
+        if self.internal.is_none() {
+            self.internal = Some(format!(
+                "`{name}` reached the painter with {what}, which the check engine refuses \
+                 and `document.strict()` cannot represent — the two halves of `render` \
+                 disagree about this document (ADR-0093)"
+            ));
+        }
     }
 
     /// `rect` and `ellipse` — fill, inside stroke and `radius` (ADR-0014).
     fn shape(&mut self, canvas: &mut Canvas, name: &str, element: &Value, kind: Option<&str>) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, NO_EXTENT);
+            self.defer(name, no_extent());
             return;
         };
         let paint = Fill {
@@ -977,10 +1203,7 @@ impl<'a> Painter<'a> {
             // "because an element that deliberately renders nothing and an element that
             // forgot its paint must not look alike". Saying so here is the same rule at the
             // surface an agent is looking at.
-            self.defer(
-                name,
-                "it carries neither a `fill` nor a `stroke` to paint with",
-            );
+            self.defer(name, Finding::new("E-NOT-PAINTED-NO-PAINT"));
             return;
         }
         let shape = match kind {
@@ -1019,11 +1242,11 @@ impl<'a> Painter<'a> {
         source_offset: Option<i64>,
     ) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, NO_EXTENT);
+            self.defer(name, no_extent());
             return;
         };
         let Some(source) = element.get("source").and_then(Value::as_str) else {
-            self.defer(name, "it states no `source`");
+            self.defer(name, undrawable("it states no `source`"));
             return;
         };
         let path = match Source::resolve(source, &self.project_dir) {
@@ -1034,7 +1257,7 @@ impl<'a> Painter<'a> {
             Source::Remote(url) => {
                 self.defer(
                     name,
-                    format!("`{url}` is remote; `frame` draws local sources"),
+                    Finding::new("E-NOT-PAINTED-REMOTE").field("source", json!(url)),
                 );
                 return;
             }
@@ -1042,8 +1265,8 @@ impl<'a> Painter<'a> {
 
         let raster = match self.decoded(&path, kind, extent, source_offset) {
             Ok(raster) => raster,
-            Err(reason) => {
-                self.defer(name, reason);
+            Err(declined) => {
+                self.record(name, declined);
                 return;
             }
         };
@@ -1070,15 +1293,25 @@ impl<'a> Painter<'a> {
         kind: Option<&str>,
         extent: Extent,
         source_offset: Option<i64>,
-    ) -> Result<Raster, String> {
+    ) -> Result<Raster, Declined> {
         if kind != Some("video") {
             if let Some(still) = self.stills.get(path) {
                 return Ok(still.clone());
             }
-            let bytes = std::fs::read(path)
-                .map_err(|e| format!("{} could not be read: {e}", path.display()))?;
-            let still = Raster::decode(&bytes)
-                .ok_or_else(|| format!("{} did not decode as an image", path.display()))?;
+            let bytes = std::fs::read(path).map_err(|e| {
+                Declined::Finding(
+                    Finding::new("E-NOT-PAINTED-UNREADABLE")
+                        .field("resolved", json!(crate::media::display_local(path)))
+                        .field("detail", json!(e.to_string())),
+                )
+            })?;
+            let still = Raster::decode(&bytes).ok_or_else(|| {
+                Declined::Finding(
+                    Finding::new("E-NOT-PAINTED-UNDECODABLE")
+                        .field("resolved", json!(crate::media::display_local(path)))
+                        .field("detail", json!("it is not an image format this build decodes")),
+                )
+            })?;
             self.stills.insert(path.to_path_buf(), still.clone());
             return Ok(still);
         }
@@ -1086,13 +1319,35 @@ impl<'a> Painter<'a> {
         // The caption already said *why* an offset did not resolve —
         // `source_offset_unresolved` carries that sentence — so this one names the
         // consequence rather than repeating it.
-        let offset = source_offset
-            .ok_or("its offset into the source did not resolve; the caption says why")?;
-        let ffmpeg = self.ffmpeg()?;
+        // Unreachable in a `render`: every in-range audible element goes through the mix
+        // first, and an offset that does not resolve is an empty source range or a
+        // type-level fault, either of which stops the span before the frame loop
+        // (ADR-0093 ruling 6, condition 1).
+        // The caption already said *why* it did not resolve, so this names the consequence
+        // rather than repeating it. Unreachable from `render`, whose mix pre-flight refuses
+        // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
+        // which draws what it is given.
+        let offset = source_offset.ok_or_else(|| {
+            Declined::Finding(undrawable(
+                "its offset into the source did not resolve; the caption says why",
+            ))
+        })?;
+        let ffmpeg = self.ffmpeg().map_err(Declined::Tool)?;
         let decoder = self.decoder(path);
         // Decoded straight to the declared box: ADR-0013 settled that a source is resampled
         // to exactly `width`x`height`, so asking `ffmpeg` for that size is the resample
         // rather than a second one on top of it.
+        let undecodable = |detail: String| {
+            Declined::Finding(
+                Finding::new("E-NOT-PAINTED-UNDECODABLE")
+                    .field("resolved", json!(crate::media::display_local(path)))
+                    .field("detail", json!(detail)),
+            )
+        };
+        // MONTAGENT-2's failed seek arrives here: `ffmpeg` exits cleanly having written
+        // nothing, and this is where that becomes an `error` rather than a line of prose.
+        // #387 removes the case by clamping the seek, which is ADR-0093 ruling 6's own
+        // condition 1 — the predicate is computable before the frame loop.
         let decoded = montagent_render::decode::frame_at(
             &ffmpeg,
             &path.to_string_lossy(),
@@ -1100,12 +1355,10 @@ impl<'a> Painter<'a> {
             offset,
             extent.width as u32,
             extent.height as u32,
-        )?;
+        )
+        .map_err(&undecodable)?;
         Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
-            format!(
-                "{}'s decoded frame was not the size asked for",
-                path.display()
-            )
+            undecodable("its decoded frame was not the size asked for".to_string())
         })
     }
 
@@ -1158,7 +1411,10 @@ impl<'a> Painter<'a> {
         {
             if let Err(e) = crate::verbs::measure::register(self.document, &key, &mut self.registry)
             {
-                self.defer(name, format!("its font chain did not resolve: {e}"));
+                self.defer(
+                    name,
+                    Finding::new("E-NOT-PAINTED-FONT-CHAIN").field("detail", json!(e.to_string())),
+                );
                 resolved = false;
             }
         }
@@ -1200,7 +1456,10 @@ impl<'a> Painter<'a> {
         let style = match crate::verbs::measure::Measurable::of(element) {
             Ok(style) => style,
             Err(reason) => {
-                self.defer(name, reason);
+                self.defer(
+                    name,
+                    Finding::new("E-NOT-PAINTED-TEXT-LAYOUT").field("detail", json!(reason)),
+                );
                 return;
             }
         };
@@ -1226,7 +1485,11 @@ impl<'a> Painter<'a> {
             // `expect`ed: "unreachable" is a claim about this function's control flow that
             // a later edit can falsify in silence.
             Err(e) => {
-                self.defer(name, format!("its text could not be laid out: {e}"));
+                self.defer(
+                    name,
+                    Finding::new("E-NOT-PAINTED-TEXT-LAYOUT")
+                        .field("detail", json!(e.to_string())),
+                );
                 return;
             }
         };
@@ -1274,10 +1537,12 @@ impl<'a> Painter<'a> {
         // layout yet, which changes what the picture shows, so an agent comparing this
         // frame against the document is owed the sentence.
         if runs_with(element, "dir") {
+            // ADR-0093 ruling 1 names this shape directly — a field *"parsed, validated,
+            // and then discarded"* is an `error`, because the picture is not what the
+            // document declares. It was a sentence in a list nothing counted.
             self.partially(
                 name,
-                "a run's `dir` override is not applied yet; the line's base direction is \
-                 the one the text itself implies",
+                Finding::new("E-FIELD-UNHONOURED").field("field", json!("runs[].dir")),
             );
         }
     }

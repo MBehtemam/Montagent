@@ -112,17 +112,18 @@
 //!   (`montagent_render::budget::RENDER_REFERENCES`), so what a spawn per frame costs a
 //!   project that does is unmeasured and the saving would be invented.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path as FilePath, PathBuf};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use montagent_render::canvas::{Canvas, Rgba};
 use montagent_render::encode::{self, Encoder, Spec};
 
 use crate::exact::{self, Decimal};
+use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
 use crate::media::{Source, display_local, tools};
@@ -130,7 +131,7 @@ use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
 use crate::resolve;
-use crate::verbs::frame::{NotPainted, Painter};
+use crate::verbs::frame::{Declined, NotPainted, Painter};
 use crate::verbs::query::at;
 
 const TOOL: &str = "render";
@@ -362,7 +363,7 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
     // (ADR-0021). The one call site that passes anything smaller is `preview`.
     let span = Span {
         document: &document,
-        report: &report,
+        established: Established::of(&report),
         project_dir: &project_dir,
         ffmpeg: &ffmpeg,
         background,
@@ -383,6 +384,20 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
             report.fail_internally(reason);
             return refused(report);
         }
+        // ADR-0093 ruling 6, condition 1: the mix is decided before the encoder is spawned,
+        // so this refusal costs no wall clock and there is no temp file to withhold. Nothing
+        // has been written at any path.
+        Err(Stop::Refused(findings)) => {
+            for finding in findings {
+                report.push(finding);
+            }
+            return refused(report);
+        }
+        // ADR-0091: an unconfigured environment, not a broken project.
+        Err(Stop::ToolMissing(reason)) => {
+            report.fail_tool_missing(reason);
+            return refused(report);
+        }
         // `render` passes no deadline, so there is no clock for a span of its to run past.
         Err(Stop::Missed { .. }) => {
             report.fail_internally(
@@ -395,9 +410,34 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
     };
     let wall_ms = started.elapsed().as_millis() as u64;
 
-    Answer {
-        video: Some(painted.into_video(&span, partial, wall_ms)),
-        report,
+    // ADR-0093 ruling 6. Every world-effect the frame loop discovered goes onto the report
+    // first, and *then* the report decides whether the file may exist.
+    //
+    // The invariant this buys is the one MONTAGENT-1 broke: **a file at the output path is a
+    // render with zero errors.** What shipped the mute cut was not an unread report — it was
+    // a plausible file existing, which is what a human uploads and what an MCP agent `stat`s.
+    // A counted finding is necessary and not sufficient.
+    //
+    // Named plainly because it is a behaviour change beyond the reporting fix: `render` can
+    // now spend wall clock and produce nothing where it used to produce a file.
+    for finding in painted.declined().to_vec() {
+        report.push(finding);
+    }
+    if report.exit_code() != ExitCode::Ok {
+        painted.withhold();
+        return refused(report);
+    }
+
+    match painted.into_video(&span, partial, wall_ms) {
+        Ok(video) => Answer {
+            video: Some(video),
+            report,
+        },
+        // The encode was whole and the rename was not. Nothing is at the declared path.
+        Err(reason) => {
+            report.fail_internally(reason);
+            refused(report)
+        }
     }
 }
 
@@ -410,9 +450,11 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
 /// than derived in here: [`Span::surface`] and [`Span::deadline`].
 pub(crate) struct Span<'a> {
     pub document: &'a Loose,
-    /// The check engine's report, read for what it established about each media file —
-    /// never written to. A stop is returned as a value and the caller records it.
-    pub report: &'a Report,
+    /// What the check engine established about each media file (ADR-0093) — the one
+    /// structure both verbs read, taken by value so the span holds no borrow of the report
+    /// it came from. The caller has to be able to push this span's own findings onto that
+    /// report while still holding the span.
+    pub established: Established,
     pub project_dir: &'a FilePath,
     pub ffmpeg: &'a FilePath,
     pub background: Rgba,
@@ -470,6 +512,19 @@ impl Surface {
 pub(crate) enum Stop {
     /// Montagent's own failure, as the sentence the report fails internally with.
     Internal(String),
+    /// ADR-0093 ruling 6, condition 1: *"everything pre-flightable is pre-flighted."* The
+    /// mix is a pure function of the document, the report and the range, so every reason an
+    /// audible element is not in the output is known before the encoder is spawned. Where
+    /// one of them is an `error`, the span stops here — no subprocess, no temp file, no wall
+    /// clock — and the findings are the caller's to report.
+    ///
+    /// The set is closed at what a span can decide *before* it starts. A reason discovered
+    /// mid-loop cannot come back through here, and does not: it travels on
+    /// [`Painted::declined`] and is caught by the non-promotion rule instead.
+    Refused(Vec<Finding>),
+    /// ADR-0091: `ffmpeg` is not on `PATH`, so exit 70 and `E-TOOL-MISSING` rather than a
+    /// finding about the project.
+    ToolMissing(String),
     /// The span ran past [`Span::deadline`] and was abandoned where it stood. The temp
     /// file goes with the dropped encoder; nothing was written.
     Missed {
@@ -481,12 +536,19 @@ pub(crate) enum Stop {
 
 /// What one span produced: the file, and the record of what of the document reached it.
 pub(crate) struct Painted {
-    finished: encode::Finished,
+    /// The whole span, encoded and **not published**. ADR-0093 ruling 6: whether this
+    /// becomes the deliverable is decided by the caller that holds the report, because the
+    /// invariant being bought is *a file at the output path is a render with zero errors*.
+    sealed: encode::Sealed,
     mixed: Vec<String>,
     not_mixed: Vec<NotPainted>,
     painted: Vec<String>,
     not_painted: Vec<NotPainted>,
     painted_partially: Vec<NotPainted>,
+    /// ADR-0093: every world-effect the span discovered, as findings the caller pushes onto
+    /// its report. The mid-loop half of the set — the pre-flightable half never gets this
+    /// far, having stopped the span at [`Stop::Refused`].
+    declined: Vec<Finding>,
     sources: Vec<String>,
     fonts: Vec<String>,
 }
@@ -494,23 +556,34 @@ pub(crate) struct Painted {
 impl Painted {
     /// The machine-readable block, which is the same shape for both verbs: `preview`
     /// adds its tier beside this rather than a second spelling of it.
-    pub(crate) fn into_video(self, span: &Span<'_>, partial: bool, wall_ms: u64) -> Video {
+    /// Publish the sealed file and describe it.
+    ///
+    /// ADR-0093 ruling 6 is the reason this is one step and not two: a caller that has
+    /// decided to publish gets the numbers *about the published file*, and a caller that has
+    /// decided not to never reaches a `Video` at all — see [`Painted::withhold`].
+    pub(crate) fn into_video(
+        self,
+        span: &Span<'_>,
+        partial: bool,
+        wall_ms: u64,
+    ) -> Result<Video, String> {
         let duration_ms = span.to - span.from;
-        Video {
-            path: self.finished.path.display().to_string(),
+        let finished = self.sealed.publish()?;
+        Ok(Video {
+            path: finished.path.display().to_string(),
             from: span.from,
             to: span.to,
             partial,
             duration_ms,
-            frames: self.finished.frames,
+            frames: finished.frames,
             fps: span.fps,
             width: span.surface.width,
             height: span.surface.height,
-            encoded: self.finished.encoded.map(|e| Encoded {
+            encoded: finished.encoded.map(|e| Encoded {
                 width: i64::from(e.width),
                 height: i64::from(e.height),
             }),
-            bytes: self.finished.bytes,
+            bytes: finished.bytes,
             wall_ms,
             realtime: if wall_ms == 0 {
                 f64::INFINITY
@@ -524,7 +597,19 @@ impl Painted {
             painted_partially: self.painted_partially,
             sources: self.sources,
             fonts: self.fonts,
-        }
+        })
+    }
+
+    /// Every world-effect the span discovered, for a caller deciding whether to publish.
+    pub(crate) fn declined(&self) -> &[Finding] {
+        &self.declined
+    }
+
+    /// ADR-0093 ruling 6: walk away. The temp file goes with the sealed encode and the
+    /// declared path was never touched — *"declining to promote is the absence of a
+    /// promotion, not destruction."*
+    pub(crate) fn withhold(self) {
+        self.sealed.withhold();
     }
 }
 
@@ -544,11 +629,27 @@ pub(crate) fn encode_span(
     let mix = Mix::of(
         span.document,
         span.project_dir,
-        span.report,
+        &span.established,
         span.fps,
         span.from,
         span.to,
     );
+
+    // ADR-0093 ruling 6, condition 1. The mix is decided before the encoder is spawned, so
+    // the span refuses here at no wall-clock cost and with no temp file to withhold. The
+    // invariant violation goes first: it is not a fact about the project, so it must not be
+    // reported as one alongside findings that are.
+    if let Some(reason) = mix.internal {
+        return Err(Stop::Internal(reason));
+    }
+    if mix.refuses() {
+        return Err(Stop::Refused(mix.declined));
+    }
+    // Read out before the encoder starts, so the pre-flight's `mix` is not still alive
+    // across the frame loop.
+    let not_mixed = mix.not_mixed();
+    let mixed = mix.mixed;
+    let mix_declined = mix.declined;
 
     let mut encoder = match Encoder::start(
         span.ffmpeg,
@@ -575,10 +676,15 @@ pub(crate) fn encode_span(
             span.surface.width, span.surface.height
         )));
     };
-    let mut painter = Painter::new(span.document, span.from, (width, height));
+    let mut painter = Painter::for_a_deliverable(span.document, span.from, (width, height));
     let mut painted: Vec<String> = Vec::new();
     let mut not_painted: BTreeSet<(String, String)> = BTreeSet::new();
     let mut painted_partially: BTreeSet<(String, String)> = BTreeSet::new();
+    // ADR-0093: one finding per `(element, code)` over the whole span, not one per frame.
+    // The same element declining for the same reason on 1631 consecutive frames is one fact
+    // about the project, and the two lists above already dedupe on exactly this key — so
+    // they and the findings cannot come out naming different sets.
+    let mut declined: BTreeMap<(String, String), Finding> = BTreeMap::new();
 
     progress(Progress {
         done: 0,
@@ -597,10 +703,23 @@ pub(crate) fn encode_span(
             }
         }
         for entry in &painter.not_painted {
-            not_painted.insert((entry.element.clone(), entry.reason.clone()));
+            not_painted.insert((entry.element.clone(), entry.code.clone()));
         }
         for entry in &painter.painted_partially {
-            painted_partially.insert((entry.element.clone(), entry.reason.clone()));
+            painted_partially.insert((entry.element.clone(), entry.code.clone()));
+        }
+        for finding in &painter.declined {
+            let key = (
+                finding.location.element.clone().unwrap_or_default(),
+                finding.code.clone(),
+            );
+            declined.entry(key).or_insert_with(|| finding.clone());
+        }
+        if let Some(reason) = painter.internal.take() {
+            return Err(Stop::Internal(reason));
+        }
+        if let Some(reason) = painter.tool_missing.take() {
+            return Err(Stop::ToolMissing(reason));
         }
 
         let Some(rgb) = canvas.rgb() else {
@@ -634,8 +753,10 @@ pub(crate) fn encode_span(
         }
     }
 
-    let finished = match encoder.finish() {
-        Ok(finished) => finished,
+    // Sealed, not published: the whole span is in the temp file and whether it becomes the
+    // deliverable is ADR-0093 ruling 6's question, which only the caller's report can answer.
+    let sealed = match encoder.seal() {
+        Ok(sealed) => sealed,
         Err(reason) => {
             return Err(Stop::Internal(format!(
                 "the encoder did not finish: {reason}"
@@ -648,26 +769,30 @@ pub(crate) fn encode_span(
     if let Some(deadline) = span.deadline {
         let elapsed = started.elapsed();
         if elapsed > deadline {
-            let _ = std::fs::remove_file(&finished.path);
-            return Err(Stop::Missed {
-                elapsed,
-                done: finished.frames,
-            });
+            // Unpublished, so there is no file at the declared path to remove — walking
+            // away takes the temp file with it (ADR-0093 ruling 6).
+            let done = sealed.frames();
+            sealed.withhold();
+            return Err(Stop::Missed { elapsed, done });
         }
     }
 
     let entries = |set: BTreeSet<(String, String)>| -> Vec<NotPainted> {
         set.into_iter()
-            .map(|(element, reason)| NotPainted { element, reason })
+            .map(|(element, code)| NotPainted { element, code })
             .collect()
     };
     Ok(Painted {
-        finished,
-        mixed: mix.mixed,
-        not_mixed: mix.not_mixed,
+        sealed,
+        mixed,
+        not_mixed,
         painted,
         not_painted: entries(not_painted),
         painted_partially: entries(painted_partially),
+        declined: mix_declined
+            .into_iter()
+            .chain(declined.into_values())
+            .collect(),
         sources: painter.sources,
         fonts: painter.fonts,
     })
@@ -815,7 +940,35 @@ pub(crate) fn same_path(a: &FilePath, b: &FilePath) -> bool {
 struct Mix {
     audio: Option<encode::Audio>,
     mixed: Vec<String>,
-    not_mixed: Vec<NotPainted>,
+    /// ADR-0093: every audible element not in the mix, as its finding — already located on
+    /// the element that declared it, ready to be pushed onto the report.
+    declined: Vec<Finding>,
+    /// Montagent contradicting itself. The first one is enough: the render is over.
+    internal: Option<String>,
+}
+
+impl Mix {
+    /// The answer block's own list, derived from the findings rather than written beside
+    /// them, so the two can never name different sets.
+    fn not_mixed(&self) -> Vec<NotPainted> {
+        self.declined
+            .iter()
+            .map(|finding| NotPainted {
+                element: finding.location.element.clone().unwrap_or_default(),
+                code: finding.code.clone(),
+            })
+            .collect()
+    }
+
+    /// Did anything the render cannot deliver over happen? ADR-0093 ruling 6's test, asked
+    /// of the mix alone, before a frame is encoded.
+    fn refuses(&self) -> bool {
+        self.internal.is_some()
+            || self
+                .declined
+                .iter()
+                .any(|finding| finding.class == Class::Error)
+    }
 }
 
 impl Mix {
@@ -823,7 +976,7 @@ impl Mix {
     fn of(
         document: &Loose,
         project_dir: &FilePath,
-        report: &Report,
+        established: &Established,
         fps: i64,
         from: i64,
         to: i64,
@@ -831,7 +984,8 @@ impl Mix {
         let mut inputs: Vec<PathBuf> = Vec::new();
         let mut chains: Vec<String> = Vec::new();
         let mut mixed = Vec::new();
-        let mut not_mixed = Vec::new();
+        let mut declined: Vec<Finding> = Vec::new();
+        let mut internal: Option<String> = None;
 
         // What `validate` established about each file, under ADR-0092's observed identity
         // — never under `Probe::source`, which is a label.
@@ -852,7 +1006,6 @@ impl Mix {
         // encoder took its `-an` branch: a complete, entirely silent video at exit 0. The
         // working directory had become a third input to a render that `CONTEXT.md` promises
         // is a function of the project and its files.)
-        let established = Established::of(report);
 
         for (index, element) in document.elements().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
@@ -866,6 +1019,7 @@ impl Mix {
                 .unwrap_or_else(|| format!("(element {index} with no id)"));
             match chain(
                 element,
+                &name,
                 kind,
                 project_dir,
                 &established,
@@ -882,10 +1036,20 @@ impl Mix {
                 // Outside the range, or silent by declaration: not a thing the output is
                 // missing.
                 Ok(None) => {}
-                Err(reason) => not_mixed.push(NotPainted {
-                    element: name,
-                    reason,
-                }),
+                // ADR-0093: located here rather than at the emission site, because the
+                // element that declared the source is what an agent has to edit, and the
+                // arms deep in `chain` have no business knowing which document they are in.
+                Err(Declined::Finding(finding)) => declined.push(
+                    finding
+                        .at_file(document.path())
+                        .at_element(name.clone()),
+                ),
+                Err(Declined::Internal(reason)) => internal = internal.or(Some(reason)),
+                // The mix spawns nothing — `Encoder::start` is the caller's — so no arm of
+                // `chain` can reach for a tool. Folded into the invariant channel rather
+                // than given one of its own, because reaching it would itself be the
+                // invariant violation.
+                Err(Declined::Tool(reason)) => internal = internal.or(Some(reason)),
             }
         }
 
@@ -893,7 +1057,8 @@ impl Mix {
             return Mix {
                 audio: None,
                 mixed,
-                not_mixed,
+                declined,
+                internal,
             };
         }
         let mut graph = String::new();
@@ -913,7 +1078,8 @@ impl Mix {
         Mix {
             audio: Some(encode::Audio { inputs, graph }),
             mixed,
-            not_mixed,
+            declined,
+            internal,
         }
     }
 }
@@ -923,6 +1089,7 @@ impl Mix {
 #[allow(clippy::too_many_arguments)]
 fn chain(
     element: &Value,
+    name: &str,
     kind: Option<&str>,
     project_dir: &FilePath,
     established: &Established,
@@ -930,15 +1097,23 @@ fn chain(
     from: i64,
     to: i64,
     input: usize,
-) -> Result<Option<(PathBuf, String)>, String> {
+) -> Result<Option<(PathBuf, String)>, Declined> {
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
         element.get("end").and_then(Value::as_i64),
     ) else {
-        return Err("it states no integer `start`/`end`".to_string());
+        return Err(Declined::internal(name, "no integer `start`/`end`"));
     };
+    // Not an invariant violation: this is the one cross-field fact the schema cannot
+    // express and no `validate` check states, so the render genuinely reaches it
+    // (ADR-0093, `E-EMPTY-RANGE`).
     if end <= start {
-        return Err("its `end` does not exceed its `start`".to_string());
+        return Err(Declined::Finding(
+            Finding::new("E-EMPTY-RANGE")
+                .field("field", json!("`start`..`end`"))
+                .field("from", json!(start))
+                .field("to", json!(end)),
+        ));
     }
     // The part of the element inside the render's range, in the element's own time.
     let window_start = from.max(start) - start;
@@ -948,22 +1123,32 @@ fn chain(
     }
 
     let Some(source) = element.get("source").and_then(Value::as_str) else {
-        return Err("it states no `source`".to_string());
+        return Err(Declined::internal(name, "no `source`"));
     };
     let path = match Source::resolve(source, project_dir) {
         Source::Local(path) => path,
         Source::Remote(url) => {
-            return Err(format!("`{url}` is remote; `render` mixes local sources"));
+            return Err(Declined::Finding(
+                Finding::new("E-NOT-MIXED-REMOTE").field("source", json!(url)),
+            ));
         }
     };
     // What `validate` established about the file, on the report this run carries. A
     // video with no audio stream is an ordinary video, not a defect — but it is still not
     // in the mix, and the answer says so.
-    let identity = std::fs::canonicalize(&path)
-        .map_err(|e| format!("{} could not be opened: {e}", display_local(&path)))?;
+    let identity = std::fs::canonicalize(&path).map_err(|e| {
+        Declined::Finding(
+            Finding::new("E-NOT-MIXED-UNREADABLE")
+                .field("resolved", json!(display_local(&path)))
+                .field("detail", json!(e.to_string())),
+        )
+    })?;
     match established.about(&identity) {
         Some(facts) if !facts.audio => {
-            return Err("its source carries no audio stream".to_string());
+            return Err(Declined::Finding(
+                Finding::at_class("N-NO-AUDIO-STREAM", Class::Note)
+                    .field("resolved", json!(display_local(&identity))),
+            ));
         }
         Some(_) => {}
         // #385's first ask: an entry the engine declines to use must say *why*.
@@ -972,11 +1157,15 @@ fn chain(
         // point at the line that holds the reason. Reaching this arm now means the check
         // engine genuinely recorded no probe for this file, rather than meaning it recorded
         // one under a spelling this process could not resolve.
+        // ADR-0093's own finding, and the MONTAGENT-1 defect: this was one line of prose
+        // in the render block, with no class attached and nothing counting it, while the
+        // deliverable came out silent at exit 0. Ruling 3 is what makes the sentence below
+        // true — `validate` now reports the same file `UNCHECKED` in the same session, so
+        // *"the findings above say why"* is a pointer at something that is actually there.
         None => {
-            return Err(format!(
-                "the check engine recorded no probe for {}, so it is not mixed — \
-                 the source findings above say why it could not be probed",
-                display_local(&identity)
+            return Err(Declined::Finding(
+                Finding::new("E-NOT-MIXED-UNESTABLISHED")
+                    .field("resolved", json!(display_local(&identity))),
             ));
         }
     }
@@ -985,20 +1174,29 @@ fn chain(
         element.get("source_start").and_then(Value::as_i64),
         element.get("source_end").and_then(Value::as_i64),
     ) else {
-        return Err("it states no integer `source_start`/`source_end`".to_string());
+        return Err(Declined::internal(
+            name,
+            "no integer `source_start`/`source_end`",
+        ));
     };
     let source_span = source_end - source_start;
     if source_span <= 0 {
-        return Err("its `source_end` does not exceed its `source_start`".to_string());
+        return Err(Declined::Finding(
+            Finding::new("E-EMPTY-RANGE")
+                .field("field", json!("`source_start`..`source_end`"))
+                .field("from", json!(source_start))
+                .field("to", json!(source_end)),
+        ));
     }
     let speed = match element.get("speed") {
         None | Some(Value::Null) => Decimal::of(&serde_json::Number::from(1)),
         Some(value) => value.as_number().and_then(Decimal::of),
     }
     .filter(|speed| speed.is_positive())
-    .ok_or("its `speed` is not a positive number")?;
-    let played = exact::played_ms(source_span, speed)
-        .ok_or("its as-played duration could not be computed")?;
+    .ok_or_else(|| Declined::internal(name, "a `speed` that is not a positive number"))?;
+    let played = exact::played_ms(source_span, speed).ok_or_else(|| {
+        Declined::internal(name, "a source span and `speed` whose product overflowed")
+    })?;
 
     let mut filter = format!(
         "[{input}:a]aformat=sample_rates={MIX_RATE}:channel_layouts=stereo,\
@@ -1023,8 +1221,14 @@ fn chain(
         // `audio` element the same field is a schema error, which the check engine has
         // already refused the render for; it is named here only so a document that
         // reaches this point malformed says why it was not mixed.
+        // ADR-0093 ruling 2 called this `E-INTERNAL`-adjacent and left the call to this
+        // ticket. It is not adjacent: `AudioOverrun` has no `hold` variant, so
+        // `document.strict()` cannot produce a document that reaches here.
         Some("hold") if kind == Some("audio") => {
-            return Err("`overrun: \"hold\"` has no meaning on audio (ADR-0020)".to_string());
+            return Err(Declined::internal(
+                name,
+                "`overrun: \"hold\"` on an audio element (ADR-0020)",
+            ));
         }
         _ => {}
     }
@@ -1046,7 +1250,7 @@ fn chain(
             // waveform at full level. The check engine has already refused the render for
             // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
             let volume: Animatable<Volume> = serde_json::from_value(written.clone())
-                .map_err(|e| format!("its `volume` does not fit the schema: {e}"))?;
+                .map_err(|e| Declined::internal(name, &format!("a `volume` that does not fit the schema: {e}")))?;
             let volume = match volume {
                 Animatable::Static(Volume(v)) => Animatable::Static(v),
                 Animatable::Keyed(records) => Animatable::Keyed(
@@ -1071,14 +1275,17 @@ fn chain(
                 }
                 keyed => {
                     let at = |t: i64| {
-                        resolve::at(&keyed, t)
-                            .map_err(|_| "its `volume` keyframes do not resolve".to_string())
+                        resolve::at(&keyed, t).map_err(|_| {
+                            Declined::internal(name, "`volume` keyframes that do not resolve")
+                        })
                     };
                     let initial = at(start)?;
                     let mut commands = String::new();
                     let mut last = initial;
                     let Some(first) = exact::frame_at_or_after(start, fps) else {
-                        return Err(format!("{fps} fps is not a rate"));
+                        return Err(Declined::Internal(format!(
+                            "the mix was asked for {fps} fps, which is not a rate (ADR-0093)"
+                        )));
                     };
                     let mut n = first.frame;
                     loop {

@@ -147,6 +147,16 @@ status: accepted
 > the *"does it say what you meant"* line — a check that had to key frames to form an opinion
 > would be the verb this ADR refuses to be.
 
+> **Amended by [ADR-0093](./0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md)**,
+> which closes the gap between this ADR's classes and `render`'s prose. The
+> `validate`/`render` split designed here held for the **document** and not for the disk: the
+> two verbs answered *"what did the engine establish about this file?"* from two data
+> structures, so `validate` reported `0 unchecked` on a source `render` then declined to mix
+> 134 elements of, in the same session. They now read one structure, and every world-effect
+> `render` used to report as uncounted prose — an element not mixed, not painted, or a field
+> parsed and discarded — is a finding with a code and a class, so it reaches the one-line
+> summary this ADR requires every report to start with.
+
 `montagent validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file
 say what you meant it to say."* That boundary is printed in the report itself.

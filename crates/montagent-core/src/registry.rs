@@ -1411,7 +1411,13 @@ is nothing to render for it.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-REMOTE",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse, exactly as its audio sibling: the missing fact is a local path.
         repair: Some(Refuse),
         threshold: Internal,
@@ -1422,7 +1428,13 @@ local sources.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNREADABLE",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
@@ -1431,7 +1443,13 @@ local sources.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNDECODABLE",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse. A source that will not decode might want a different file, a different
         // codec or a different range, and the document does not say which.
         repair: Some(Refuse),
@@ -1447,7 +1465,13 @@ local sources.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-NO-EXTENT",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse: an element with no resolvable box could be missing a `width`, a `height`,
         // a `fit` or a probe, and ADR-0013's fitted extents make which one a question about
         // intent.
@@ -1459,7 +1483,13 @@ local sources.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-NO-PAINT",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse. ADR-0007's *"a field that is honoured sometimes is worse than no field"*
         // reasoning applies to the absence too: which of `fill` and `stroke` the author
         // meant, and in what colour, is not in the document.
@@ -1472,7 +1502,13 @@ to paint with.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-FONT-CHAIN",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse. ADR-0007 puts the declared chain in charge of what the renderer may open,
         // so a chain that will not resolve is not something the picture may substitute its
         // way out of — which is the whole point of `R-FONT-SWAP` being a separate,
@@ -1485,7 +1521,13 @@ to paint with.",
     },
     CheckSpec {
         code: "E-NOT-PAINTED-TEXT-LAYOUT",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
@@ -1493,8 +1535,88 @@ to paint with.",
         status: Live,
     },
     CheckSpec {
+        code: "E-NOT-PAINTED-UNDRAWABLE",
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
+        // Refuse: what the author meant by a member the format does not have is exactly the
+        // thing not in the document.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0093",
+        // **The painter's arms are reachable where the mix's are not, and the asymmetry is
+        // the whole reason this code exists.** `render` and `preview` refuse before painting
+        // and then call `document.strict()`, so no document that reaches `Mix::of` can carry
+        // a closed-vocabulary member the model lacks. `frame` does neither: it reads the
+        // document *permissively* and draws it, which is its job — an agent asks `frame` what
+        // a picture looks like precisely when the document is not yet right.
+        //
+        // So a `type` the format does not have, a `transition` with no `kind`, and a source
+        // offset that would not resolve all genuinely arrive here, and in `frame` they are
+        // facts about the project rather than Montagent contradicting itself. One code:
+        // the *condition* is one condition — the element cannot be drawn as declared — and
+        // which key carries the undrawable value is a field, on `E-FIELD-UNHONOURED`'s
+        // reasoning.
+        template: "`{element}` was not painted: {detail}",
+        status: Live,
+    },
+    CheckSpec {
+        code: "E-EFFECT-UNKNOWN",
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0093",
+        // Its own code and not `E-NOT-PAINTED-UNDRAWABLE`, because the consequence is
+        // different in the way the report is organised around: the element *was* drawn, and
+        // one thing it asked for was not done. That is `painted_partially`, the list
+        // `Picture` keeps apart from `not_painted` — and ADR-0043 would not let one code
+        // cover both if their repair forms ever diverged.
+        template: "`{element}` was painted without `effects[{index}]`: `{effect}` is not a \
+member of the effect vocabulary, and it was drawn as though it were not there.",
+        status: Live,
+    },
+    CheckSpec {
+        code: "E-NOT-PAINTED-UNRESOLVED-REF",
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
+        // Refuse: whether the author meant to rename the reference, restore the element or
+        // delete the transition is not in the document — `E-TRANSITION-NO-OVERLAP`'s own
+        // reasoning, which this is the dangling-reference sibling of.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0093",
+        // `checks::transition` declines this question in as many words — *"a `from`/`to`
+        // naming an element that is not in the project at all is a dangling reference, not a
+        // drifted one ... leaving an unresolved reference to whichever check owns that
+        // question"* — and no check ever claimed it. So the render is where it surfaces, and
+        // until ADR-0093 it surfaced as a line of prose: the crossfade simply did not happen.
+        template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the crossfade was not applied.",
+        status: Live,
+    },
+    CheckSpec {
         code: "E-FIELD-UNHONOURED",
-        classes: &[Error],
+        // ADR-0093: `error` from `render`, where the deliverable is guaranteed wrong, and
+        // `review` from `frame`, where the consequence is *"look at this frame — the element
+        // you asked about is not in it."* One code, two consequences, which is exactly what
+        // ADR-0006 means by computing class from the consequence at an instant rather than
+        // from the check. Repair form stays fixed per code (ADR-0043), because that is the
+        // axis that may not vary.
+        classes: &[Error, Review],
         // Refuse. ADR-0093 ruling 1 names this case directly — *"an `index` parsed and
         // discarded"* is `error` — and the fix is not in the document: an author who wrote
         // the field meant something by it, and deleting it and waiting for the build to

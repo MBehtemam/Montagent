@@ -640,14 +640,16 @@ reader does rather than for how bad it is: `error` (the render is refused or is
 guaranteed wrong), `review` (legal, renders, and you must look at a frame to
 know if it was meant), `note` (a fact you may want and will not act on today).
 Two are not severities at all: `UNCHECKED` (the question was unanswerable — an
-unprobeable source; `validate`-only, because `render` must decode the source
-anyway) and `LAYOUT` (canonical key order; `validate`-only, and never a reason
+unprobeable source, or one no observed identity can be matched to; `validate`-only,
+because `render` must decode the source anyway, and `validate`'s unchecked set
+therefore contains every source `render` declines to use) and `LAYOUT` (canonical key order; `validate`-only, and never a reason
 to refuse a render). A class is computed from the consequence at an instant, not
 fixed per check: the same gap is `review` when nothing else covers it and a
 `note` when something does.
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
 [ADR-0013](docs/adr/0013-fitted-extents-floor-and-the-nine-origin-keywords.md),
-[ADR-0041](docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md))
+[ADR-0041](docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md),
+[ADR-0093](docs/adr/0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md))
 _Avoid_: severity (only three of the five are), level (the three-way ladder
 only), category, priority
 
@@ -753,6 +755,35 @@ silent video at exit 0. `None` means *"do not know"* — a remote source, or no
 local observation — and never a match.
 ([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
 _Avoid_: path (unqualified), source path, resolved source
+
+**World-effect**:
+Something the render did to the world that the document did not ask for and cannot
+be read off the document alone: an element not mixed, an element not painted, a
+field parsed and then drawn without. It is an ordinary **finding** at an ordinary
+class — `error`, because *"the render is refused **or is guaranteed wrong"*, with
+nothing left over. The name is for the *signature*, not a sixth class: legal,
+wrong, and `0 errors` anyway. There is one **code** per reason and the reason set
+is closed, because a check's repair form is fixed when the check is written and one
+code cannot be a `note` for one reason and refuse-class for another.
+([ADR-0093](docs/adr/0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md),
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
+_Avoid_: render warning, soft failure, degradation (the render did not degrade — it
+was wrong), silent drop (it is no longer silent, which is the point)
+
+**Promotion**:
+The one rename that publishes a **deliverable**: until it happens the render's
+output lives at a temp sibling and the declared `output` path does not exist. An
+`error`-class finding **withholds** it — exit 1, and no file where one was asked
+for — which is what makes the invariant *a file at the output path is a render with
+zero errors* true. Declining to promote is the absence of a promotion, never
+destruction. What is pre-flightable is decided before the encoder is spawned, so
+wall clock is only ever spent on an error that is genuinely mid-loop; the audio mix
+is wholly pre-flighted. A **preview** is not a deliverable and is not subject to
+the rule.
+([ADR-0093](docs/adr/0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md),
+[ADR-0021](docs/adr/0021-preview-budget-and-graceful-degradation.md))
+_Avoid_: commit (spoken for by git), publish step, finalize, atomic write (that is
+the mechanism, not the decision)
 
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this

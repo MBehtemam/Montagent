@@ -482,7 +482,9 @@ fn an_element_this_build_cannot_draw_is_named_rather_than_silently_missing() {
             .as_array()
             .expect("a list")
             .iter()
-            .all(|entry| entry["reason"].as_str().is_some_and(|r| !r.is_empty())),
+            // ADR-0093: every row states a registered code, which is what makes "states
+            // why" checkable — a free-text reason could be any string at all.
+            .all(|entry| entry["code"].as_str().is_some_and(|c| !c.is_empty())),
         "every entry states why"
     );
 
@@ -908,11 +910,14 @@ fn a_shape_with_neither_fill_nor_stroke_is_named_rather_than_invisible() {
             .expect("a list")
             .is_empty()
     );
-    let reason = json["frame"]["not_painted"][0]["reason"]
-        .as_str()
-        .expect("a reason");
-    assert!(reason.contains("fill"), "{reason}");
-    assert!(reason.contains("stroke"), "{reason}");
+    // ADR-0093: the condition has its own code, and `fill`/`stroke` are named by that
+    // code's registered template rather than by a sentence assembled here.
+    assert_eq!(
+        json["frame"]["not_painted"][0]["code"].as_str(),
+        Some("E-NOT-PAINTED-NO-PAINT"),
+        "{}",
+        json["frame"]["not_painted"]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1186,15 +1191,27 @@ fn a_font_chain_that_does_not_resolve_is_named_beside_the_picture() {
             .expect("a list")
             .is_empty()
     );
-    let reasons: Vec<&str> = json["frame"]["not_painted"]
+    // ADR-0093: the row states the code; which file the chain wanted is the finding's
+    // `detail`, so the pair is what carries "named beside the picture".
+    let codes: Vec<&str> = json["frame"]["not_painted"]
         .as_array()
         .expect("a list")
         .iter()
-        .filter_map(|entry| entry["reason"].as_str())
+        .filter_map(|entry| entry["code"].as_str())
         .collect();
     assert!(
-        reasons.iter().any(|reason| reason.contains("not-here.otf")),
-        "{reasons:?}"
+        codes.contains(&"E-NOT-PAINTED-FONT-CHAIN"),
+        "{codes:?}"
+    );
+    let details: Vec<&str> = json["findings"]
+        .as_array()
+        .expect("a findings list")
+        .iter()
+        .filter_map(|finding| finding["fields"]["detail"].as_str())
+        .collect();
+    assert!(
+        details.iter().any(|detail| detail.contains("not-here.otf")),
+        "the finding must name the file the chain wanted: {details:?}"
     );
 }
 
@@ -1803,11 +1820,10 @@ fn a_text_element_whose_chain_does_not_resolve_is_named_rather_than_drawn_in_any
 
     let deferred = &json["frame"]["not_painted"][0];
     assert_eq!(deferred["element"], "nope");
-    assert!(
-        deferred["reason"]
-            .as_str()
-            .is_some_and(|reason| reason.contains("font chain")),
-        "the reason must name the chain: {deferred}"
+    assert_eq!(
+        deferred["code"].as_str(),
+        Some("E-NOT-PAINTED-FONT-CHAIN"),
+        "the row must name the condition: {deferred}"
     );
     assert!(
         json["frame"]["fonts"]
