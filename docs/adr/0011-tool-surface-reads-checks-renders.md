@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by twenty-five later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-six later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -124,6 +124,9 @@ status: accepted
 > keys (`tracks`/`fps`/`frame`), sharing the same structural predicate `validate`'s schema
 > layer uses. It stays unconditional on `error`/`review`/`note` findings otherwise; the eight
 > MCP / eleven CLI counts below are unchanged.
+> - [ADR-0096](0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md) — records what the probe quad does **not** establish: neither
+>   `r_frame_rate` nor `avg_frame_rate` is the source's frame grid, and on this repository's
+>   own reference MP4 neither is close to it
 
 
 Montagent exposes **nine verbs and two resources**. The surface's job is not to

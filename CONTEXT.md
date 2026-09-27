@@ -1046,6 +1046,26 @@ Defined in [ADR-0089](docs/adr/0089-source-alpha-is-a-file-level-reading-and-vp9
 _Avoid_: transparency, alpha channel (the file carries one; this term is the reading),
 pix_fmt alpha
 
+**Sampled frame**:
+Which frame of a source a given instant shows: the **last frame whose start is at or before
+it**, never the next one. The distinction is not pedantry — `ffmpeg`'s own seek answers the
+opposite question, the first frame at or *after* the instant, so an element whose `start` is
+off its source's frame grid used to draw every frame one early and to draw nothing at all at
+the end of its range. The frame grid is a property of the **timestamps a source carries**, not
+of the frame rate it declares: the repository's own reference MP4 runs at 25 fps from a
+42.031 ms origin with four dropped frames, while its container reports `50/1` and its average
+reports `24.9785`. So Montagent does not compute the grid — it asks the decoder for the frame
+at or before the instant, over a bounded backward window, which is exact for constant,
+fractional, dropped-frame and variable rates alike. The clamp is symmetric at both ends: an instant past the end of the
+source resolves to its final frame, which is what `overrun: "hold"` means, and an instant
+*before* the first frame — a source whose own origin is late, as the reference MP4's is by
+42 ms — resolves to that first frame rather than refusing. An instant further outside the
+source than the window reaches is an `error`, because then the source really does not cover
+the range the document declares.
+Defined in [ADR-0096](docs/adr/0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md).
+_Avoid_: nearest frame (it is not the nearest — it is the one at or before), seek target,
+current frame
+
 **PAR (pixel aspect ratio)**:
 Applied, not ignored — silence here would repeat the EXIF-orientation divergence ADR-0015
 already legislated against, and would leave `validate` disagreeing with any renderer whose

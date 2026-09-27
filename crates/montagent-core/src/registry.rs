@@ -1455,11 +1455,14 @@ local sources.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
-        // MONTAGENT-2's failed seek surfaces here until #387 clamps it: `ffmpeg` exits
-        // cleanly having written nothing, and `{detail}` carries what it said. ADR-0093
-        // ruling 6 condition 1 is what makes that acceptable as an interim — the seek
-        // predicate is computable before the frame loop, so #387 removes the case rather
-        // than leaving it to be discovered mid-render.
+        // MONTAGENT-2's failed seek no longer surfaces here: ADR-0096 made `frame_at`
+        // answer with the frame the source is showing at the instant, so an off-grid
+        // instant inside the last frame paints it rather than decoding nothing. ADR-0093
+        // ruling 6 condition 1 held that the seek predicate was computable before the frame
+        // loop; it is not, because the frame grid is a property of the source's timestamps
+        // and not of either frame rate `probe` reports (ADR-0096 §2). What remains
+        // computable — and so still pre-flightable — is the coarser question the clamp
+        // leaves: whether the source ends more than a window before the declared range.
         template: "`{element}` was not painted: {resolved} did not decode — {detail}.",
         status: Live,
     },
