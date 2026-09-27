@@ -7,6 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme.workspace = true
 keywords = ["video-editing", "video", "mcp", "ai-agent"]
 categories = ["command-line-utilities", "multimedia::video"]
 
