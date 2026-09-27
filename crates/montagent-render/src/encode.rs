@@ -93,12 +93,62 @@ pub struct Finished {
     pub encoded: Option<Encoded>,
 }
 
+/// A complete encode that has not been published.
+///
+/// Every number the answer needs is already known — the whole span is in the temp file —
+/// and the one thing left undecided is whether that file becomes the deliverable. ADR-0093
+/// ruling 6 puts that decision with the caller that holds the report.
+///
+/// Dropping a `Sealed` without publishing removes the temp file and leaves the declared
+/// path untouched, which is [`Deliverable`]'s own `Drop` and not a second implementation of
+/// it: *declining to promote is the absence of a promotion, not destruction.*
+pub struct Sealed {
+    deliverable: Deliverable,
+    frames: u64,
+    bytes: u64,
+    encoded: Option<Encoded>,
+}
+
+impl Sealed {
+    /// How many frames are in the file, for a caller reporting on a span it will not publish.
+    pub fn frames(&self) -> u64 {
+        self.frames
+    }
+
+    /// The path the file *would* land at. It does not exist yet.
+    pub fn target(&self) -> &Path {
+        self.deliverable.target()
+    }
+
+    pub fn encoded(&self) -> Option<Encoded> {
+        self.encoded
+    }
+
+    /// One rename, and the declared path exists for the first time — complete.
+    pub fn publish(mut self) -> Result<Finished, String> {
+        let path = self.deliverable.commit()?;
+        Ok(Finished {
+            path,
+            frames: self.frames,
+            bytes: self.bytes,
+            encoded: self.encoded,
+        })
+    }
+
+    /// Walk away: the temp file goes, and the declared path was never touched.
+    pub fn withhold(self) {
+        // `Deliverable`'s `Drop` does the work, so there is exactly one implementation.
+    }
+}
+
 /// A running `ffmpeg`, fed one raw RGB8 frame at a time.
 pub struct Encoder {
     child: Child,
     stdin: Option<ChildStdin>,
     stderr: Option<std::thread::JoinHandle<String>>,
-    deliverable: Deliverable,
+    /// `None` once [`Encoder::seal`] has handed it to a [`Sealed`], which is then the
+    /// thing that decides whether it is published.
+    deliverable: Option<Deliverable>,
     script: Option<PathBuf>,
     frame_bytes: usize,
     frames: u64,
@@ -222,7 +272,7 @@ impl Encoder {
             child,
             stdin,
             stderr,
-            deliverable,
+            deliverable: Some(deliverable),
             script,
             frame_bytes: spec.width as usize * spec.height as usize * 3,
             frames: 0,
@@ -260,7 +310,22 @@ impl Encoder {
     }
 
     /// Close the input, wait for the encoder, and publish the file.
-    pub fn finish(mut self) -> Result<Finished, String> {
+    ///
+    /// [`Encoder::seal`] then [`Sealed::publish`], so that a caller who has to decide
+    /// *whether* to publish and a caller who does not share one implementation of the
+    /// encode's ending.
+    pub fn finish(self) -> Result<Finished, String> {
+        self.seal()?.publish()
+    }
+
+    /// Close the input and wait for the encoder, stopping **short of publishing**.
+    ///
+    /// ADR-0093 ruling 6: `render` does not promote the deliverable when any `error`-class
+    /// finding fired, and the invariant it buys is that *a file at the output path is a
+    /// render with zero errors.* That decision is the caller's — it is the one holding the
+    /// report — so the encode's ending is two steps, and the temp file is still
+    /// [`Deliverable`]'s to remove if the caller walks away from it.
+    pub fn seal(mut self) -> Result<Sealed, String> {
         drop(self.stdin.take());
         let status = self.child.wait();
         let said = self.said();
@@ -281,12 +346,15 @@ impl Encoder {
             }
             Err(e) => return Err(format!("ffmpeg could not be waited for: {e}")),
         }
-        let bytes = std::fs::metadata(self.deliverable.temp())
+        let deliverable = self
+            .deliverable
+            .take()
+            .ok_or("the encode was already sealed")?;
+        let bytes = std::fs::metadata(deliverable.temp())
             .map(|m| m.len())
             .unwrap_or(0);
-        let path = self.deliverable.commit()?;
-        Ok(Finished {
-            path,
+        Ok(Sealed {
+            deliverable,
             frames: self.frames,
             bytes,
             encoded: self.encoded,
@@ -361,6 +429,11 @@ impl Deliverable {
     }
 
     /// Where the bytes are going for now.
+    /// Where the file lands once it is published.
+    pub fn target(&self) -> &Path {
+        &self.target
+    }
+
     pub fn temp(&self) -> &Path {
         &self.temp
     }

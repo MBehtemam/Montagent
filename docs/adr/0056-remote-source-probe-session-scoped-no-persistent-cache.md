@@ -5,6 +5,14 @@ amends: 0053 (discharges the four remote-specific questions ADR-0053 deferred: p
 
 # Remote sources are probed fresh every session, deduplicated by URL, with no persistent cache; a network failure is `UNCHECKED`, never a confirmed defect, and `render` verifies independently rather than trusting `validate`
 
+> **Amended by [ADR-0093](./0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md)**,
+> which amends this ADR's `UncheckedReason` enumeration with its **first non-network member**,
+> `Unidentified`: a local source `ffprobe` answered for whose canonical path the run could not
+> observe, so ADR-0092 leaves every consumer with no admissible answer to *"is this the same
+> file?"* and `render` must decline it. It was the last route by which a source could be a
+> clean pass to `validate` and a silent drop in `render`. This ADR's deliberately absent
+> `missing` variant is not violated — the file exists; what is unknown is which file it is.
+
 [ADR-0002](./0002-inline-source-no-asset-table.md) permits `source` to be a URL.
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) settled that
 `validate` probes every local media file on every run — no fast mode, no
