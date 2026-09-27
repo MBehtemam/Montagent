@@ -16,6 +16,9 @@
 //! - [`probe`] runs `ffprobe` and turns its output into [`probe::Probe`] — the quad, the
 //!   dimensions, alpha, sample rate and channels, in integer milliseconds and exact
 //!   rationals.
+//! - [`established`] is the one structure every verb reads to ask *"what did the engine
+//!   establish about this file?"* — ADR-0093, and the fix for `validate` and `render`
+//!   answering that question from two data structures that could disagree.
 //! - [`dimensions`] is ADR-0023's one type-generic pipeline: decode, resolve rotation,
 //!   apply PAR as an exact rational, round once. Images are the degenerate case.
 //! - [`session`] holds the caches — `(path, size, mtime)` for local files, URL-keyed
@@ -26,6 +29,7 @@
 //!   boundary (ADR-0069). The remote half never reaches it.
 
 pub mod dimensions;
+pub mod established;
 pub mod probe;
 pub mod session;
 pub mod sidecar;

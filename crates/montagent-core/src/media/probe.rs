@@ -36,7 +36,7 @@ use serde_json::{Value, json};
 
 use super::dimensions::{self, Decoded, Rotation, RotationSource, SourceDimensions};
 use super::tools::{Missing, Tools};
-use super::{Rational, milliseconds};
+use super::{Rational, Source, milliseconds};
 use crate::finding::{Finding, UncheckedReason};
 
 /// ADR-0011's quad, which is the whole reason `probe` exists.
@@ -852,19 +852,53 @@ pub fn finding_for(outcome: &Outcome, declared: &str) -> Option<Finding> {
 ///
 /// `declared` is the spelling the document used, which is the string an agent has to edit;
 /// every finding carries it, and the resolved path travels beside it rather than in its
-/// place.
-pub fn record(outcome: &Outcome, declared: &str, report: &mut crate::report::Report) {
-    match finding_for(outcome, declared) {
-        Some(finding) => report.push(finding),
-        None => {
-            if let Some(probe) = outcome.probe() {
-                // One entry per distinct source: the same file referenced by four elements
-                // is one fact about the disk, not four.
-                if !report.media.iter().any(|seen| seen.source == probe.source) {
-                    report.media.push(probe.clone());
-                }
-            }
-        }
+/// place. `resolved` is what that spelling classified as, and it is here for one reason
+/// only: a probe with no observed identity is an ordinary remote probe and a defect on a
+/// local file, and nothing in the [`Probe`] itself tells the two apart.
+pub fn record(
+    outcome: &Outcome,
+    declared: &str,
+    resolved: &Source,
+    report: &mut crate::report::Report,
+) {
+    if let Some(finding) = finding_for(outcome, declared) {
+        report.push(finding);
+        return;
+    }
+    let Some(probe) = outcome.probe() else {
+        return;
+    };
+
+    // ADR-0093, ruling 3. The one state in which a source is a clean pass to `validate`
+    // and unusable to `render`: `ffprobe` answered — the content facts below are real —
+    // and the run could not observe the file's canonical path, so ADR-0092 leaves every
+    // consumer that has to ask *"is this the same file?"* with no admissible answer.
+    // `render` therefore declines it, and before this the report said nothing at all.
+    //
+    // Local only. A remote probe has no path on this machine and carries `None` by
+    // construction (ADR-0056 stores nothing about one), so reading its missing identity as
+    // a defect would report every URL in the document as unchecked.
+    if probe.identity.is_none() && matches!(resolved, Source::Local(_)) {
+        report.push(
+            Finding::new("U-SOURCE-UNPROBEABLE")
+                .field("source", json!(declared))
+                .field("resolved", json!(probe.source))
+                .field(
+                    "detail",
+                    json!(
+                        "`ffprobe` answered for this file and its canonical path could not \
+                         be observed, so nothing may match a probe to it"
+                    ),
+                )
+                .unchecked_because(UncheckedReason::Unidentified),
+        );
+    }
+
+    // One entry per distinct source: the same file referenced by four elements is one fact
+    // about the disk, not four. Pushed for an unidentified probe too — the facts it
+    // established are true, and the finding above is why nobody may act on them.
+    if !report.media.iter().any(|seen| seen.source == probe.source) {
+        report.media.push(probe.clone());
     }
 }
 

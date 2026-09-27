@@ -123,6 +123,7 @@ use montagent_render::canvas::{Canvas, Rgba};
 use montagent_render::encode::{self, Encoder, Spec};
 
 use crate::exact::{self, Decimal};
+use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
 use crate::media::{Source, display_local, tools};
 use crate::model::{Animatable, Keyframe, Volume};
@@ -832,28 +833,26 @@ impl Mix {
         let mut mixed = Vec::new();
         let mut not_mixed = Vec::new();
 
-        // What `validate` established about each file, under the identity the probe itself
-        // observed — never under `Probe::source`, which is a label.
+        // What `validate` established about each file, under ADR-0092's observed identity
+        // — never under `Probe::source`, which is a label.
         //
-        // #385: this used to be `canonicalize(&probe.source)`. `probe.source` holds
-        // whichever spelling first cached the probe, and a *relative* spelling resolves
-        // against the calling process's working directory — so a sidecar written by a CLI
-        // run inside the project directory was unreadable to an MCP render started
-        // anywhere else. `canonicalize` failed, `.ok()?` dropped the entry silently, every
-        // audible element fell through to the `None` arm below, `chains` came out empty,
-        // and the encoder took its `-an` branch: a complete, entirely silent video at exit
-        // 0. The working directory had become a third input to a render that `CONTEXT.md`
-        // promises is a function of the project and its files.
+        // ADR-0093, ruling 3: read through `Established`, the one structure both verbs ask.
+        // This block used to derive the same answer inline from `report.media`, which is
+        // how `validate` and `render` came to answer one question from two data structures
+        // and disagree about one file in one session. A consumer that re-derives usability
+        // here has forked the data path again.
         //
-        // `Probe::identity` is canonical at the moment of observation, so this comparison
-        // no longer depends on where anybody stood when they ran it. A probe with no
-        // identity — a remote source, or one no local observation stands behind — is not a
-        // claim about a file on this disk and cannot match one.
-        let probed: Vec<(PathBuf, bool)> = report
-            .media
-            .iter()
-            .filter_map(|probe| Some((probe.identity.clone()?, probe.audio.is_some())))
-            .collect();
+        // (#385, for the record on why the identity is the thing compared: this once read
+        // `canonicalize(&probe.source)`. `probe.source` holds whichever spelling first
+        // cached the probe, and a *relative* spelling resolves against the calling
+        // process's working directory — so a sidecar written by a CLI run inside the
+        // project directory was unreadable to an MCP render started anywhere else.
+        // `canonicalize` failed, `.ok()?` dropped the entry silently, every audible element
+        // fell through to the "established nothing" arm, `chains` came out empty, and the
+        // encoder took its `-an` branch: a complete, entirely silent video at exit 0. The
+        // working directory had become a third input to a render that `CONTEXT.md` promises
+        // is a function of the project and its files.)
+        let established = Established::of(report);
 
         for (index, element) in document.elements().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
@@ -869,7 +868,7 @@ impl Mix {
                 element,
                 kind,
                 project_dir,
-                &probed,
+                &established,
                 fps,
                 from,
                 to,
@@ -926,7 +925,7 @@ fn chain(
     element: &Value,
     kind: Option<&str>,
     project_dir: &FilePath,
-    probed: &[(PathBuf, bool)],
+    established: &Established,
     fps: i64,
     from: i64,
     to: i64,
@@ -962,9 +961,11 @@ fn chain(
     // in the mix, and the answer says so.
     let identity = std::fs::canonicalize(&path)
         .map_err(|e| format!("{} could not be opened: {e}", display_local(&path)))?;
-    match probed.iter().find(|(known, _)| *known == identity) {
-        Some((_, false)) => return Err("its source carries no audio stream".to_string()),
-        Some((_, true)) => {}
+    match established.about(&identity) {
+        Some(facts) if !facts.audio => {
+            return Err("its source carries no audio stream".to_string());
+        }
+        Some(_) => {}
         // #385's first ask: an entry the engine declines to use must say *why*.
         // "established nothing" about a file that is sitting right there, readable, is the
         // least actionable sentence in the tool — so name the file that was looked for and

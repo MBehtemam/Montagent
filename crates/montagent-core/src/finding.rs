@@ -183,11 +183,15 @@ pub struct Citation {
 /// unknown is distinguishable from an unattempted one without promoting either into its
 /// own severity.
 ///
-/// Exactly ADR-0056's enumeration — `timeout` / `dns` / `unreachable` / an HTTP status —
-/// and no more. A `missing` variant is deliberately absent: ADR-0013 calls a missing file
+/// ADR-0056's four **network** reasons — `timeout` / `dns` / `unreachable` / an HTTP
+/// status — and, since ADR-0093 amended that enumeration, exactly one that is not a
+/// network reason at all: [`UncheckedReason::Unidentified`].
+///
+/// A `missing` variant is still deliberately absent: ADR-0013 calls a missing file
 /// `UNCHECKED` and ADR-0053/ADR-0056 call a *confirmed* absence "the plain `error`", and
 /// which of those a local missing source is belongs to the probe ticket that implements
-/// the check, not to the ticket that builds the type it will use.
+/// the check, not to the ticket that builds the type it will use. `Unidentified` does not
+/// violate that: the file exists, and what is unknown is which file it was.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum UncheckedReason {
@@ -195,6 +199,22 @@ pub enum UncheckedReason {
     Dns,
     Unreachable,
     Http { status: u16 },
+    /// ADR-0093, and the one member of this enum that is not about a network: a **local**
+    /// source `ffprobe` answered for, whose canonical path the run could not observe.
+    ///
+    /// The content facts are real — this is not "nothing was learned about the bytes" —
+    /// but ADR-0092 makes [`Probe::identity`](crate::media::probe::Probe::identity) the
+    /// only admissible answer to *"is this the same file?"*, and a probe with none cannot
+    /// be matched to anything. So every consumer that has to tie a probe to a file on this
+    /// disk must decline it, `render` included, and the question *this* source was probed
+    /// to answer is therefore unanswered.
+    ///
+    /// It exists because of the cross-verb invariant ADR-0093 states: `validate`'s
+    /// unchecked set must contain every source `render` declines to use. Before it,
+    /// a probe with no identity was a clean pass to `validate` and a silent drop to
+    /// `render` — the two verbs disagreeing about one file in one session, which is the
+    /// MONTAGENT-1 defect.
+    Unidentified,
 }
 
 /// One fact about the project, with a stable code and every relevant number inline.
