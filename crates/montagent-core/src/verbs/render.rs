@@ -832,17 +832,27 @@ impl Mix {
         let mut mixed = Vec::new();
         let mut not_mixed = Vec::new();
 
-        // What `validate` established about each file, by the file's one identity rather
-        // than by spelling: the report names a probed source as it was first cached —
-        // which may be an earlier run's spelling of the same path — so two spellings of
-        // one file are collapsed the way the filesystem collapses them.
+        // What `validate` established about each file, under the identity the probe itself
+        // observed — never under `Probe::source`, which is a label.
+        //
+        // #385: this used to be `canonicalize(&probe.source)`. `probe.source` holds
+        // whichever spelling first cached the probe, and a *relative* spelling resolves
+        // against the calling process's working directory — so a sidecar written by a CLI
+        // run inside the project directory was unreadable to an MCP render started
+        // anywhere else. `canonicalize` failed, `.ok()?` dropped the entry silently, every
+        // audible element fell through to the `None` arm below, `chains` came out empty,
+        // and the encoder took its `-an` branch: a complete, entirely silent video at exit
+        // 0. The working directory had become a third input to a render that `CONTEXT.md`
+        // promises is a function of the project and its files.
+        //
+        // `Probe::identity` is canonical at the moment of observation, so this comparison
+        // no longer depends on where anybody stood when they ran it. A probe with no
+        // identity — a remote source, or one no local observation stands behind — is not a
+        // claim about a file on this disk and cannot match one.
         let probed: Vec<(PathBuf, bool)> = report
             .media
             .iter()
-            .filter_map(|probe| {
-                let path = std::fs::canonicalize(&probe.source).ok()?;
-                Some((path, probe.audio.is_some()))
-            })
+            .filter_map(|probe| Some((probe.identity.clone()?, probe.audio.is_some())))
             .collect();
 
         for (index, element) in document.elements().enumerate() {
@@ -955,11 +965,18 @@ fn chain(
     match probed.iter().find(|(known, _)| *known == identity) {
         Some((_, false)) => return Err("its source carries no audio stream".to_string()),
         Some((_, true)) => {}
+        // #385's first ask: an entry the engine declines to use must say *why*.
+        // "established nothing" about a file that is sitting right there, readable, is the
+        // least actionable sentence in the tool — so name the file that was looked for and
+        // point at the line that holds the reason. Reaching this arm now means the check
+        // engine genuinely recorded no probe for this file, rather than meaning it recorded
+        // one under a spelling this process could not resolve.
         None => {
-            return Err(
-                "the check engine established nothing about its source, so it is not mixed"
-                    .to_string(),
-            );
+            return Err(format!(
+                "the check engine recorded no probe for {}, so it is not mixed — \
+                 the source findings above say why it could not be probed",
+                display_local(&identity)
+            ));
         }
     }
 

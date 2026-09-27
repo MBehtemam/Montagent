@@ -84,7 +84,28 @@ pub struct Audio {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Probe {
     /// The source as the document spells it, or as it resolved on disk.
+    ///
+    /// **A label, never an identity.** It holds whichever spelling the run that first
+    /// cached this probe happened to use, so a consumer that re-resolves it is resolving a
+    /// string against its own working directory rather than asking about a file. That is
+    /// exactly the defect #385 is about: `Mix::of` canonicalised this field, a relative
+    /// spelling cached by one run failed to resolve in a run started elsewhere, every
+    /// audible element fell through to *"established nothing"*, and the encoder emitted a
+    /// silent video at exit 0. Match on [`Probe::identity`] instead.
     pub source: String,
+    /// The file's canonical path as the probe observed it, for a local source — the one
+    /// thing in here that answers *"is this the same file?"*.
+    ///
+    /// `None` for a remote source, which has no path on this machine, and for a probe no
+    /// local observation stands behind. A consumer comparing identities must treat `None`
+    /// as *"do not know"* and never as a match.
+    ///
+    /// **Not persisted** (`serde(skip)`): ADR-0069 already keys the sidecar on the
+    /// canonical path, so writing it again inside the value would store one fact twice and
+    /// let the copies disagree. It is re-stamped from that key when a session attaches the
+    /// sidecar, which is why this costs no version bump and so no re-probe on any machine.
+    #[serde(skip)]
+    pub identity: Option<PathBuf>,
     pub quad: Quad,
     /// ADR-0023's resolved source dimensions, with the inputs that produced them.
     pub dimensions: Option<SourceDimensions>,
@@ -329,7 +350,13 @@ pub fn probe_local(
     args.push(opened);
 
     let execution = execute(runner, tools, &args)?;
-    interpret(tools, &display, execution, false)
+    let mut outcome = interpret(tools, &display, execution, false)?;
+    // The one place a local probe and a real path are both in scope, so the one place the
+    // identity can be observed rather than reconstructed from a string later.
+    if let Outcome::Probed(probe) = &mut outcome {
+        probe.identity = std::fs::canonicalize(path).ok();
+    }
+    Ok(outcome)
 }
 
 /// Probe a remote URL. **The only function in Montagent that can cause a network call.**
@@ -631,6 +658,8 @@ fn read(source: &str, value: &Value) -> Option<Probe> {
 
     Some(Probe {
         source: source.to_string(),
+        // Stamped by the caller that holds a path; this one is handed a display string.
+        identity: None,
         quad,
         dimensions,
         alpha,

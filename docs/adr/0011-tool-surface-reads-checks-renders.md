@@ -4,6 +4,11 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Amended by [ADR-0092](0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md).**
+> One CLI-only **non-verb** is added, `montagent cache clear`, on this ADR's own cost model
+> (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
+> about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
+
 > **Amended by twenty-five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop

@@ -92,6 +92,27 @@ pub struct Entry {
     /// Modification time in nanoseconds since the epoch, or absent on a filesystem that
     /// will not say — in which case the entry can never match again and is re-probed.
     pub mtime_ns: Option<i128>,
+    /// A cheap content fingerprint of the bytes this entry's [`Probe`] was read from, and
+    /// the guard that catches the one change `(path, size, mtime)` cannot see.
+    ///
+    /// **A value-side check, not part of the key** — the same split [`FontEntry::sha256`]
+    /// already uses, and #385 chose it here for the same reason: the key decides whether
+    /// the bytes are worth looking at, and the fingerprint decides whether anything
+    /// actually changed.
+    ///
+    /// The hole it closes is a **renumbering shuffle**, which is how #385's eleven-minute
+    /// silent cut happened. A plain rename moves the canonical path and so changes the key
+    /// outright — that case was never the bug, whatever the ticket said. But renaming
+    /// `line-01.wav`…`line-19.wav` so each file's content lands on a *neighbour's* name
+    /// leaves every path in the cache still present, and `mv` preserves mtime, so the only
+    /// thing left discriminating two different takes is `size`. Two dialogue lines of the
+    /// same length then serve each other's probe with a straight face.
+    ///
+    /// Absent in an entry written before #385, which reads as "unguarded" and is trusted on
+    /// its key alone — one silent run per pre-existing entry, on the same reasoning that
+    /// keeps the font section `serde(default)` rather than bumping [`VERSION`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
     /// When a run last read or wrote this entry, for the eviction order. Not a fact about
     /// the media, and nothing reads it but [`Sidecar::save`].
     pub last_used_ns: i128,
@@ -272,6 +293,67 @@ impl Sidecar {
     }
 }
 
+/// What a `cache clear` did, so the caller can report it rather than guess.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cleared {
+    /// The sidecar file, whether or not it was there.
+    pub path: PathBuf,
+    /// Whether a sidecar was actually removed. `false` means there was nothing to remove,
+    /// which is a successful clear and not a failure.
+    pub removed: bool,
+    /// Temporaries removed beside it — one is left behind by a run killed between
+    /// [`write_atomically`]'s write and its rename, and a `clear` that left them would
+    /// leave the directory it claims to have emptied non-empty.
+    pub temporaries: usize,
+}
+
+/// Delete the sidecar at `path`, and any temporary left beside it.
+///
+/// #385's third ask. Every other way out of a bad cache requires knowing where the file
+/// lives — `~/Library/Caches/montagent/probe-cache.json` on macOS, somewhere else on every
+/// other platform — which is a path a user has no reason to have memorised and that the
+/// tool was the only one in a position to state.
+///
+/// **This is the one operation on the cache that reports a failure.** ADR-0069's
+/// every-failure-is-silence rule is about a cache consulted *in passing*, where inventing a
+/// finding would be a claim `validate` cannot substantiate. Here deleting the file is the
+/// entire request: a `clear` that could not delete and said nothing would report success
+/// for work it did not do, and the user would go on believing a cache they are debugging
+/// against is gone.
+pub fn clear(path: &Path) -> std::io::Result<Cleared> {
+    let removed = match std::fs::remove_file(path) {
+        Ok(()) => true,
+        // Nothing to remove is the state the caller asked for, so it is not an error.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) => return Err(e),
+    };
+
+    // Swept by the same name-plus-suffix rule `write_atomically` writes them under, so the
+    // two stay in step: anything starting with the sidecar's own file name and not equal to
+    // it is one of ours.
+    let mut temporaries = 0;
+    if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+        // A directory that will not list is nothing to sweep, which is the silence rule.
+        for entry in std::fs::read_dir(parent).into_iter().flatten().flatten() {
+            let found = entry.file_name();
+            if found != *name
+                && found
+                    .to_string_lossy()
+                    .starts_with(&*name.to_string_lossy())
+                && std::fs::remove_file(entry.path()).is_ok()
+            {
+                temporaries += 1;
+            }
+        }
+    }
+
+    Ok(Cleared {
+        path: path.to_path_buf(),
+        removed,
+        temporaries,
+    })
+}
+
 /// The file as it is on disk right now, or an empty document.
 ///
 /// Everything that could go wrong here is a cache miss: missing, corrupt, or of a version
@@ -341,6 +423,51 @@ fn write_atomically(path: &Path, text: &str) -> std::io::Result<()> {
     }
 }
 
+/// How much of a file's head and tail the content guard reads. 64 KiB from each end.
+///
+/// Not the whole file, deliberately. The guard runs on every cache *hit*, so its cost is
+/// paid by the case ADR-0069 promises costs nothing but an `ffprobe` — and hashing a 2 GB
+/// ProRes master to confirm it is unchanged would spend more than the probe it saves. Head
+/// and tail together cover what distinguishes two media files of equal length: the head
+/// carries the container header, the codec configuration and the stream metadata, and the
+/// tail carries the trailing index — `moov` in a faststart MP4, the cues in a WebM. Two
+/// different takes of the same byte length agreeing on both is the residual blind spot, and
+/// it is smaller than the one this closes by the size of the guard.
+const GUARD_BYTES: u64 = 64 * 1024;
+
+/// A cheap content fingerprint of the file at `path`, or `None` where it cannot be read.
+///
+/// `None` is not a mismatch. It means the guard established nothing, and a guard that
+/// established nothing must not be allowed to invalidate an entry — that would turn an
+/// unreadable moment into a re-probe storm, and ADR-0069's rule is that every failure in
+/// this module is silence.
+pub fn fingerprint(path: &Path) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+
+    // The size goes into the hash as well as keying the entry, so a head and tail that
+    // happen to coincide across two different lengths still fingerprint differently.
+    let mut hasher = <sha2::Sha256 as sha2::Digest>::new();
+    sha2::Digest::update(&mut hasher, size.to_le_bytes());
+
+    let mut head = vec![0u8; size.min(GUARD_BYTES) as usize];
+    file.read_exact(&mut head).ok()?;
+    sha2::Digest::update(&mut hasher, &head);
+
+    // Only where the file is long enough for the tail to be bytes the head did not already
+    // cover; below that the head is the whole file and reading it twice says nothing new.
+    if size > GUARD_BYTES * 2 {
+        file.seek(SeekFrom::End(-(GUARD_BYTES as i64))).ok()?;
+        let mut tail = vec![0u8; GUARD_BYTES as usize];
+        file.read_exact(&mut tail).ok()?;
+        sha2::Digest::update(&mut hasher, &tail);
+    }
+
+    Some(format!("{:x}", sha2::Digest::finalize(hasher)))
+}
+
 /// Now, in nanoseconds since the epoch. Only ever compared against itself.
 pub fn now_ns() -> i128 {
     std::time::SystemTime::now()
@@ -389,9 +516,11 @@ mod tests {
         Entry {
             size: 1,
             mtime_ns: Some(0),
+            content: None,
             last_used_ns,
             probe: Probe {
                 source: "x".into(),
+                identity: None,
                 quad: Default::default(),
                 dimensions: None,
                 alpha: None,

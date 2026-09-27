@@ -232,6 +232,7 @@ mod tests {
     fn probe(quad: Quad, audio: Option<Audio>) -> Probe {
         Probe {
             source: "s".into(),
+            identity: None,
             quad,
             dimensions: None,
             alpha: None,

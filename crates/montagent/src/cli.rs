@@ -87,6 +87,13 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Maintain the per-user probe cache.
+    ///
+    /// CLI-only, on ADR-0011's own cost model: *"a CLI subcommand costs nothing until
+    /// invoked"*, and an agent has no reason to carry a schema slot for a recovery step it
+    /// takes once. Not a verb either — it reads no project and makes no claim about one.
+    #[command(subcommand)]
+    Cache(CacheCommand),
     /// What are this media file's numbers?
     ///
     /// CLI-only (ADR-0011): an MCP tool schema costs the agent context on every turn,
@@ -398,6 +405,21 @@ enum Command {
     /// Not one of ADR-0011's nine verbs: the verbs are what an agent calls, and this is
     /// how the agent's client starts the process that offers them.
     Mcp,
+}
+
+/// The probe cache's own subcommands (#385).
+#[derive(Subcommand)]
+enum CacheCommand {
+    /// Delete the probe cache, so the next run starts from the disk.
+    ///
+    /// The recovery step #385 had no spelling for. It states the path it removed, because
+    /// the path is platform-specific and the user needing this command is exactly the user
+    /// who does not know it.
+    Clear {
+        /// Print the canonical JSON *instead of* the text line, never alongside it.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -869,6 +891,49 @@ where
                 Err(report) => {
                     eprint!("{}", montagent_core::wire::render(&report, PLAIN));
                     exit_code(&report)
+                }
+            }
+        }
+        Command::Cache(CacheCommand::Clear { json }) => {
+            // `MONTAGENT_CACHE_DIR=""` turns persistence off, in which case there is no file
+            // to clear and saying so is the whole answer.
+            let Some(path) = montagent_core::media::sidecar::Sidecar::default_path() else {
+                let message = "no probe cache on this machine: persistence is off";
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({ "cleared": false, "reason": message })
+                    );
+                } else {
+                    println!("{message}");
+                }
+                return ExitCode::SUCCESS;
+            };
+
+            match montagent_core::media::sidecar::clear(&path) {
+                Ok(cleared) => {
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "path": cleared.path.display().to_string(),
+                                "cleared": cleared.removed,
+                                "temporaries": cleared.temporaries,
+                            })
+                        );
+                    } else if cleared.removed {
+                        println!("cleared the probe cache at {}", cleared.path.display());
+                    } else {
+                        // Not a failure: the requested state is the state it is in.
+                        println!("no probe cache to clear at {}", cleared.path.display());
+                    }
+                    ExitCode::SUCCESS
+                }
+                // The one cache failure that is not silence: deleting the file *was* the
+                // request, so a clear that could not delete must not report success.
+                Err(e) => {
+                    eprintln!("could not clear the probe cache at {}: {e}", path.display());
+                    ExitCode::from(74)
                 }
             }
         }

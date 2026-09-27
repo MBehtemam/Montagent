@@ -1,5 +1,17 @@
 # The silent audio drop, re-derived from source
 
+> **Resolved by [ADR-0092](../../adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md)**
+> (#385). The mechanism below is no longer reachable: `Mix::of` matches on
+> `Probe::identity` — the canonical path observed at probe time — instead of
+> canonicalising `Probe::source`, so the working directory is no longer an input
+> to the mix bus. The `None` arm now names the file it looked for and points at
+> the finding holding the reason. **The two other routes named below are
+> untouched** and remain open: an `Unchecked`/`ExistenceOnly` probe still drops
+> its audio at exit 0, which is the severity half of MONTAGENT-1 and belongs to
+> [#384](https://github.com/MBehtemam/Montagent/issues/384)'s decision, not to
+> this one. Read the trace as the diagnosis it was; the citations are to the
+> commit it landed on.
+
 The [field report](FIELD-REPORT.md) describes a render that emitted a complete
 video with every audio element missing, at exit 0, over MCP — while the CLI
 rendered the same file correctly. That session is gone, so the report grounds
