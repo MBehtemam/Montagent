@@ -35,6 +35,20 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 > it was a plausible file existing, which is what a human uploads and what an MCP agent
 > `stat`s. Proxy degradation is untouched: a preview is not a deliverable and publishes as it
 > always has.
+>
+> **Amended by [ADR-0095](./0095-the-sheets-budget-is-served-tile-width-and-overflow-refuses.md)**,
+> which states that the **`<500 ms` `frame` budget below does not bind `frame`'s contact-sheet
+> range mode**, and adds a third budget to the two this ADR defines. A sheet rasterizes ~18
+> frames at ~80 ms each, so one costs ~1.4 s — 2.9× the budget — and inheriting it would put
+> the verb in permanent violation. The third number is **observational**, on this ADR's own
+> reasoning for full-resolution `preview`: the sheet's tile-width floor already caps the tile
+> count, which bounds the time at ~2.4 s without anything enforcing it, and a time miss has no
+> remedy left — dropping tiles is forbidden by ADR-0094 and rasterizing smaller saves only
+> 6–12%, because decode dominates. **The two-budgets rule below is thereby confirmed rather
+> than broken**: this is a third question (*can I see a span at once*), not the same one, and
+> the numbers do not move together. `frame`'s `<500 ms` for a single still stands unchanged,
+> as does its true-pixel guarantee — sheet tiles are rasterized at true project pixels and
+> composited down, so **no proxy ladder enters `frame`.**
 
 # target with a deferred number, and `preview` degrades gracefully
 
