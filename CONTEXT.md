@@ -438,6 +438,18 @@ silence between two narration lines is a gap. A gap is never an error, which is
 why it is reported apart from an overlap rather than alongside one.
 _Avoid_: hole, blank, silence (as a name for the general case)
 
+**Knot**:
+One connected group of elements of a single track that overlap each other — a
+connected component of the overlap relation and deliberately not a clique, so
+three elements where the first and third are disjoint but both meet the second
+are **one** knot. It is the unit an author untangles, which is why the track's
+one overlap finding carries a census whose groups are its knots and whose count
+is the number of things to fix. It is never reduced to a single offending pair:
+which member is misplaced is not readable off the document.
+([ADR-0100](docs/adr/0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md),
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
+_Avoid_: cluster, pile, collision, offending pair
+
 **Slack**:
 The timeline distance from one element's boundary to the nearest thing that
 follows or precedes it — a neighbouring element's boundary in the same track

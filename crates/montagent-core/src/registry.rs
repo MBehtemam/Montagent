@@ -521,8 +521,14 @@ do not repair it by ordinary file edit.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0004",
-        template: "`{element}` ({start}..{end}) and `{other}` ({other_start}..{other_end}) \
-are both in track `{track}` and overlap by {overlap} ms.",
+        // **One finding per track, not per overlapping pair** (ADR-0100). Per-pair
+        // emission was quadratic in one authorial mistake — fifteen elements on one track
+        // printed 105 sentences — and the census under this one carries the member set
+        // that those 105 sentences spelled out pairwise. `overlap` survives the collapse
+        // as contended track time, which is the per-pair field's own quantity summed over
+        // the track rather than over a pair.
+        template: "{count} elements in track `{track}` overlap, in {sets}; {overlap} ms \
+of the track is covered more than once.",
         status: Live,
     },
     CheckSpec {

@@ -25,6 +25,15 @@ status: accepted
 > *"its source carries no audio stream"* and refuse-class for *"the engine established nothing
 > about its source"*. ADR-0006's per-instance freedom governs class, not repair form.
 
+> **Amended by [ADR-0100](./0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md)**,
+> which gives `E-TRACK-OVERLAP` the census this ADR says a refuse-class finding carries
+> **instead of** a repair. It shipped with `repair: "none"` and no census at all — half of
+> the rule below — and instead emitted one finding per overlapping pair, which is the
+> *"first offending pair"* ranking this ADR forbids, distributed over 105 sentences. The
+> census groups the offenders by the stretch of track they contend for, ordered by the clock
+> and never by size, because sorting by size is this ADR's forbidden wording written into
+> the ordering.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this
