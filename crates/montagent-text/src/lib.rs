@@ -43,6 +43,7 @@ pub mod ink;
 pub mod lines;
 pub mod names;
 pub mod place;
+pub mod sfnt;
 
 pub use breaks::{SEGMENTER, Segmenter};
 pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};

@@ -164,6 +164,20 @@ is an entry in a table you cannot read, cannot commit, and that differs per mach
 The renderer opens nothing outside the chain.
 _Avoid_: typeface, family, font stack
 
+**Face**:
+The one set of outlines and metrics a chain entry resolves to. A file is not a face: a
+`.ttc` collection carries several, and the entry's `index` says which — *"defaulting to
+0. 49 of the fonts in a stock macOS `/System/Library/Fonts` are collections; this is the
+normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)). The
+face is **cut out of the collection into a file of its own before it is registered**, so
+that an entry naming one resolves to it and to nothing else
+([ADR-0102](docs/adr/0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)).
+The distinction is load-bearing rather than pedantic: a chain entry, an attestation and
+a font-swap census are all about the *file*, while shaping, coverage and every measured
+width are about the *face*, and the period when one word covered both is the period when
+a declared `index` reached no code that chose one.
+_Avoid_: weight, style, variant, font (for a face)
+
 **Attestation**:
 What `fonts vendor` learned about one font file, recorded in the project's `fontVendor`
 table under the file's path: the licence identifier it recognised or the author declared,
