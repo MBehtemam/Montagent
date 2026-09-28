@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by twenty-five later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-six later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -88,6 +88,13 @@ status: accepted
 >   reading, from the pixel format *or* the container's declaration, and it carries which
 >   signal settled it. Adds `codec_name` to the returned facts, because the decode path is
 >   in a crate that cannot probe
+> - [ADR-0099](./0099-the-report-is-bounded-by-distinct-finding-code-not-by-a-token-budget.md) —
+>   **bounds what a verb answers with**, on every surface: a finding code prints in full to
+>   three instances and collapses beyond it, and `render`'s verb block stops naming every
+>   element under `audio`, `painted` and each reason group. Every count and total survives at
+>   every verbosity. The `CACHE` block this ADR calls the sole mechanism announcing a changed
+>   source is **exempt and stays unbounded**, so the token error can recur. The MCP
+>   `json: true` parameter is recorded there as a **known open defect**
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
