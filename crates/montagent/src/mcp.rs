@@ -152,13 +152,17 @@ pub struct FrameParams {
     pub project: String,
     /// The instant to draw, in absolute milliseconds on the project's one clock.
     pub at: i64,
-    /// Return just this region, as `x,y,w,h` in whole frame-space pixels at true scale —
-    /// so you can look closely at one card without paying for the whole canvas.
+    /// Return just this region, as `x,y,w,h` in whole frame-space pixels, and at true scale
+    /// — so you can look closely at one card without paying for the whole canvas. The region
+    /// is served at true scale on its own; `full` adds nothing to it. Add `png` for pixel
+    /// work: JPEG invents colour at any scale (14,090 distinct values over one card against
+    /// PNG's 523).
     #[serde(default)]
     pub crop: Option<String>,
-    /// Return the frame at the project's true pixel dimensions instead of half of them.
-    /// A 1080x1920 frame costs 2691 visual tokens at full scale and 700 at half; this flag
-    /// is you choosing to spend the difference.
+    /// Return the whole frame at the project's true pixel dimensions instead of half of them.
+    /// A 1080x1920 frame costs 2691 visual tokens at full scale on a high-resolution model
+    /// and 1560 on a standard one — which serves it as 819x1456 — against 700 at half scale
+    /// on either; this flag is you choosing to spend the difference. Redundant with `crop`.
     #[serde(default)]
     pub full: bool,
     /// Return PNG instead of JPEG. It costs the same tokens — they are a function of
@@ -492,11 +496,14 @@ impl Montagent {
         description = "What does it look like right now? Rasterizes one instant at the \
                        project's true pixel dimensions and hands back the picture — JPEG at \
                        half the frame size by default, because an image costs \
-                       ceil(w/28) x ceil(h/28) visual tokens whatever it is encoded as, and \
-                       that is 2691 at 1080x1920 against 700 at 540x960. Ask for `full` when \
-                       you need true pixels and `png` when you need lossless ones. `crop` \
-                       returns one region of the frame, so you can look closely at a single \
-                       card. The resolved stack at that instant comes back alongside the \
+                       ceil(w/28) x ceil(h/28) visual tokens on the dimensions it is served: \
+                       700 at 540x960 on every tier, and at 1080x1920 either 2691 \
+                       (high-resolution) or 1560 (standard, which downscales it to 819x1456 \
+                       first). Ask for `full` when you need true pixels over the whole frame \
+                       and `png` when you need lossless ones. `crop` returns one region of \
+                       the frame, so you can look closely at a single card — and a region is \
+                       served at true scale on its own, so `full` adds nothing to it. For \
+                       pixel work pass `png` too: JPEG invents colour whatever the scale. The resolved stack at that instant comes back alongside the \
                        image, always: looking at a frame without knowing which elements \
                        produced it is how a defect gets attributed to the wrong one. It \
                        reaches no verdict and measures nothing — it is how you *believe* a \
