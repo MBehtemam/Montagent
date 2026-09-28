@@ -615,6 +615,26 @@ tokens are *not* the currency — a sheet spends 1518–1568 of the tier's 1568 
 from 4 to 48, so a token cap never fires.
 _Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution
 
+**Attribution obligation**:
+What `frame` owes the agent alongside every picture: **the agent must be able to attribute
+what it sees to what produced it, without a second call**
+([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md),
+amending [ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)). It is discharged
+differently at the two scales. When the image is **one frame**, it is the `query --at` block
+printed unconditionally beside it — unchanged, and still with no flag that suppresses it. When
+the image is a **contact sheet**, eighteen such blocks would cost 28,410 characters against a
+whole sheet answer's 1,413, so it is discharged instead by the fitted per-tile label
+**together with** a range-level provenance list: one line per tile carrying the sampled
+instant, the run boundary and the presence set as element ids. Both halves are required —
+a label fitted to a 140 px tile can carry an instant and little else, so it **cannot** name
+the presence set on its own. The **resolved** stack (geometry, resolved keyframe values) stays
+one call away by design, which ADR-0094's refusal of a synthetic midpoint is what makes
+possible: every tile's instant is one the document itself produces, so `query --at <that
+instant>` reproduces the tile exactly. The obligation is about attribution, never measurement —
+ADR-0011 demotes `frame` from measuring and that is unchanged.
+_Avoid_: the caption (ADR-0011's older word, and it now reads as the single-frame case only),
+the `--describe` block, suppressing the stack
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montagent has
@@ -854,9 +874,17 @@ spell it differently: the MCP tool is `create_project`, the CLI command is
 `create-project` with the underscore kept as a permanent alias, because
 ADR-0011's write-tool invariant binds the MCP surface and not argv
 ([ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)).)
+**The nine and the twelve survive `frame`'s range mode**
+([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md)):
+that amendment gives the `frame` row arguments and adds no row, because **a range is arguments,
+not a verb** — the same distinction ADR-0037 drew when it refused a tenth verb for a new
+*capability*. A contact sheet was argued for as an extension of `frame` rather than a tenth
+verb precisely on this surface's own cost model: an MCP schema costs context on every turn,
+and *what does it look like* is the question `frame` already answers.
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
 [ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md),
-[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md))
+[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md),
+[ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md))
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 

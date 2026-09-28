@@ -5,6 +5,16 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 
 # The sheet's instants are the document's visual states, sampled at the first frame the grid paints
 
+> **Amended by [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md).**
+> Decision 6's *"unconditional structured disclosure... plus one sentence of prose restating
+> it"* is specified: **the plain-text form carries the disclosure's full content**, not a prose
+> summary of it, because the no-`--json` path is the one an agent reaching for pixels actually
+> takes and hiding the disclosure there would make the default answer the untrustworthy one.
+> `--json` changes the disclosure's form, never its presence. The **per-tile provenance** this
+> decision mandates is also named as what discharges ADR-0011's amended attribution
+> obligation, jointly with the fitted label — because a label fitted to a 140 px tile cannot
+> name the presence set.
+
 [#398](https://github.com/MBehtemam/Montagent/issues/398), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to six sub-questions; ballots verbatim
