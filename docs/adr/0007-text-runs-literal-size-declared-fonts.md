@@ -8,6 +8,20 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0102](./0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)**,
+> which implements this ADR's `index` bullet rather than changing it. The field was
+> parsed, range-checked, hashed and dropped: `fontique` registers every face of a
+> collection into one family and `parley` picks between them by the width/style/weight
+> query this ADR deliberately refuses to carry, so the face that won was a property of
+> the file's *other* faces — on a stock `Avenir Next.ttc`, face 7 for every declared
+> index, never face 0. That is exactly the state the *"a field the renderer cannot
+> honour is worse than no field"* bullet three lines above it forbids. The face is now
+> cut out of the collection into a standalone sfnt before registration, because
+> `unregister_font` addresses a face by attributes and not by index, and on that same
+> collection the attribute triple is not unique. **The default is restated as an
+> *applied* default**: an omitted `index` was not face 0 either, and is now. Every other
+> decision below stands.
+
 > **Amended by [ADR-0057](./0057-font-vendoring-licence-gate-and-path-keyed-attestation.md)**,
 > which discharges this ADR's open *"font licensing is a first-class outcome"*
 > item: `fonts vendor` is a local-only copy gated by a three-bucket licence
