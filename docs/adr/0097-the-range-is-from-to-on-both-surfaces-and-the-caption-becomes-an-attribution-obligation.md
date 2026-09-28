@@ -11,6 +11,18 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
 
 # The range is `--from`/`--to` on both surfaces, and `frame`'s caption obligation becomes an attribution obligation
 
+> **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** Section 7 left the attribution guarantee discharged
+> *jointly* by a fitted label and the range-level provenance list, and warned that *"a
+> guarantee with two owners is weaker than one with a single owner, and #400 must be read as
+> binding."* ADR-0098 completes the label half and **makes the guarantee width-proof rather
+> than width-dependent**: the label's type size is **floored at 8 px served**, and content
+> gives way instead of type, sheet-wide. So the label is legible at every width by
+> construction, and what degrades is how much identity it carries. Section 7's prediction that
+> a fitted label *"cannot name the presence set"* at the 140 px floor is confirmed and
+> strengthened by measurement — the set does not fit at the **180 px target** either
+> (2.67 px typical, 1.83 px busiest), so the routing this ADR chose on a prediction now rests
+> on a number.
+
 [#401](https://github.com/MBehtemam/Montagent/issues/401), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to seven sub-questions; ballots verbatim
