@@ -591,6 +591,11 @@ impl Montagent {
                 from: params.from,
                 to: params.to,
                 output: params.output.map(PathBuf::from),
+                // ADR-0104: CLI-only, for ADR-0011's reason that kept `probe` off this
+                // surface — a tool schema costs context on every turn, and the case the
+                // flag exists for is a batch script. The MCP caller still gets the whole
+                // default rule: a foreign deliverable is refused, an unattested one reviewed.
+                no_clobber: false,
             },
             &mut progress,
         );

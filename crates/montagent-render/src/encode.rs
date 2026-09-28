@@ -57,6 +57,10 @@ pub struct Spec {
     pub background: Rgba,
     /// The audio mix, where the project has anything audible.
     pub audio: Option<Audio>,
+    /// What to stamp the container with, so a later run can tell whose file this is
+    /// (ADR-0104). `None` writes no stamp: a **preview** is not a deliverable and must not
+    /// leave an attestation a later `render` would read as its own.
+    pub stamp: Option<String>,
 }
 
 /// One audio mix: the files to open, in input order, and the filter graph that turns
@@ -238,6 +242,12 @@ impl Encoder {
             command.args(["-map", "[mix]", "-c:a", "aac", "-b:a", "160k"]);
         } else {
             command.arg("-an");
+        }
+        // ADR-0104: the attestation, written at the moment of the act. It is what makes
+        // *"did this project produce the file already at the output path?"* a question a
+        // later run reads an answer to instead of guessing one from duration or frame count.
+        if let Some(stamp) = &spec.stamp {
+            command.arg("-metadata").arg(format!("comment={stamp}"));
         }
         command.args(["-movflags", "+faststart", "-f", "mp4"]);
         command.arg(deliverable.temp());
@@ -565,6 +575,7 @@ mod tests {
                 fps: 25,
                 background: Rgba::BLACK,
                 audio: None,
+                stamp: None,
             },
         )
         .err()
@@ -595,6 +606,7 @@ mod tests {
                 fps: 25,
                 background: Rgba::BLACK,
                 audio: None,
+                stamp: None,
             },
         )
         .expect("spawned");
@@ -640,6 +652,7 @@ mod tests {
                 fps: 25,
                 background: Rgba::BLACK,
                 audio: None,
+                stamp: None,
             },
         )
         .expect("spawned");

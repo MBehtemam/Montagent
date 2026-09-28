@@ -5,6 +5,15 @@ amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: 
 
 # `render`'s world-effects are findings, and an `error` withholds the deliverable
 
+> **Amended by [ADR-0104](0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md)**,
+> which extends ruling 6 outward. This ADR made *a file at the output path a render with zero
+> errors* — a statement about the file the render **produces**, silent about the file it
+> **replaces**. The invariant now also carries *and the promotion destroyed nothing this
+> project did not write*: `render` stamps what it publishes and reads that stamp back before
+> writing again, refusing at `E-OUTPUT-FOREIGN` before the encoder is spawned. It also gives
+> this ADR's `preview` exemption a boundary — exempt from *withholding*, never licensed to
+> clobber, which `preview --output` had left open.
+
 [#386](https://github.com/MBehtemam/Montagent/issues/386) applies
 [#384](https://github.com/MBehtemam/Montagent/issues/384)'s six rulings to the case they were
 decided for. Both arrive from the same place ADR-0092 did: the first real end-to-end build

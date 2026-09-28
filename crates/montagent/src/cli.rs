@@ -303,6 +303,14 @@ enum Command {
         /// it names the project's own `output`.
         #[arg(long, value_name = "PATH")]
         output: Option<PathBuf>,
+        /// Refuse rather than replace a file at `output` that this project did not produce.
+        ///
+        /// A file another project's render wrote is refused with or without this flag
+        /// (ADR-0104). What the flag changes is the *unattested* case — a file Montagent has
+        /// no evidence about — which is a `review` by default and a refusal with it. There
+        /// is no flag in the other direction.
+        #[arg(long)]
+        no_clobber: bool,
         /// Print the canonical JSON *instead of* the text result, never alongside it.
         #[arg(long)]
         json: bool,
@@ -767,6 +775,7 @@ where
             from,
             to,
             output,
+            no_clobber,
             json,
             verbose,
         } => {
@@ -774,7 +783,12 @@ where
             // Which combinations of `--from`/`--to`/`--output` are legal is the verb's rule
             // and not argv's: the MCP surface takes the same arguments with no `clap` to
             // arrange them (ADR-0011).
-            let ask = montagent_core::verbs::render::Ask { from, to, output };
+            let ask = montagent_core::verbs::render::Ask {
+                from,
+                to,
+                output,
+                no_clobber,
+            };
             // ADR-0011's split, made here: the result is stdout's and progress is
             // stderr's, coarse — a tenth at a time, with the wall clock beside it so the
             // caller can budget the next call.
