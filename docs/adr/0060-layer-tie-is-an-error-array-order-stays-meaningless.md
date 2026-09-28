@@ -5,6 +5,17 @@ amends: 0004 (array order carries no meaning is extended from timing to stacking
 
 # A geometry-overlapping layer tie is an error, not a fallback order; array order stays meaningless
 
+> **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** This ADR's words stand; what it records is a consequence
+> it did not spell out. Because a tie is an error **only when the boxes overlap in time and
+> space**, a tie between non-overlapping elements is *legal* — so **resolved `layer` is not a
+> total order on a legal document**, and any downstream rule that ranks elements by layer
+> needs a third key. The fixture proves the case is live rather than theoretical: tracks
+> `chip-panel`/`handle-panel` both declare layer 30, and `flag-field`/`handle-logo`/`handle-text`
+> all declare 31 — the same *"two tied clusters happen not to occupy the same pixels"*
+> coincidence this ADR names. ADR-0098's tile-label selector breaks the remainder on **element
+> id**, which is unique by schema and total; this ADR's rule that **array order is never
+> promoted to mean stacking** is what rules out the obvious alternative.
+
 Two elements can end up at the same resolved integer `layer` — most commonly two
 different tracks both declaring `layer: 30`. Nothing in the format says which one
 draws in front. The fixture has stayed benign so far only by coincidence (its two

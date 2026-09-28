@@ -1,0 +1,69 @@
+font: OpenRunde-Bold.otf   authored tile 1080x1920  label strip 211px (11%)  fitted() cap 164.6px  fit target 94% of tile
+fixture: 18 visual states, 19 visual boundary points, presence-set sizes 10-13 (8 always-on header elements)
+
+--- served tile width 180 px (ADR-0095 target) ---
+candidate                        chars authored served px  vs 6.3 px*chars
+1 index + instant                    9      164     27.33   above    246.0
+2 + run boundary (ADR-0094)         16      103     17.17   above    274.7
+3 #396 baseline (hand gist)         22       81      13.5   above    297.0
+4 + one element id                  25       69      11.5   above    287.5
+5 + group id                        24       72      12.0   above    288.0
+6 + typical presence set (10)      122       16      2.67   BELOW    325.7
+7 + busiest presence set (13)      167       11      1.83   BELOW    305.6
+
+--- served tile width 140 px (ADR-0095 floor) ---
+candidate                        chars authored served px  vs 6.3 px*chars
+1 index + instant                    9      164     21.26   above    191.3
+2 + run boundary (ADR-0094)         16      103     13.35   above    213.6
+3 #396 baseline (hand gist)         22       81      10.5   above    231.0
+4 + one element id                  25       69      8.94   above    223.5
+5 + group id                        24       72      9.33   above    223.9
+6 + typical presence set (10)      122       16      2.07   BELOW    252.5
+7 + busiest presence set (13)      167       11      1.43   BELOW    238.8
+
+--- served tile width 184.5 px (real 6x3, n=18) ---
+candidate                        chars authored served px  vs 6.3 px*chars
+1 index + instant                    9      164     28.02   above    252.2
+2 + run boundary (ADR-0094)         16      103      17.6   above    281.6
+3 #396 baseline (hand gist)         22       81     13.84   above    304.5
+4 + one element id                  25       69     11.79   above    294.8
+5 + group id                        24       72      12.3   above    295.2
+6 + typical presence set (10)      122       16      2.73   BELOW    333.1
+7 + busiest presence set (13)      167       11      1.88   BELOW    314.0
+
+--- served tile width 141.9 px (real 10x3, n=30) ---
+candidate                        chars authored served px  vs 6.3 px*chars
+1 index + instant                    9      164     21.55   above    194.0
+2 + run boundary (ADR-0094)         16      103     13.53   above    216.5
+3 #396 baseline (hand gist)         22       81     10.64   above    234.1
+4 + one element id                  25       69      9.07   above    226.8
+5 + group id                        24       72      9.46   above    227.0
+6 + typical presence set (10)      122       16       2.1   BELOW    256.2
+7 + busiest presence set (13)      167       11      1.45   BELOW    242.2
+
+--- served tile width 92.2 px (n=72, #396 calibration) ---
+candidate                        chars authored served px  vs 6.3 px*chars
+1 index + instant                    9      164     14.01   above    126.1
+2 + run boundary (ADR-0094)         16      103       8.8   above    140.8
+3 #396 baseline (hand gist)         22       81      6.92   above    152.2
+4 + one element id                  25       69      5.89   BELOW    147.2
+5 + group id                        24       72      6.15   BELOW    147.6
+6 + typical presence set (10)      122       16      1.37   BELOW    167.1
+7 + busiest presence set (13)      167       11      0.94   BELOW    157.0
+
+candidate strings, verbatim:
+  1 index + instant                (  9) 9 42800ms
+  2 + run boundary (ADR-0094)      ( 16) 9 42800ms b42763
+  3 #396 baseline (hand gist)      ( 22) 9 42763ms item-08 word
+  4 + one element id               ( 25) 9 42800ms b42763 photo-08
+  5 + group id                     ( 24) 9 42800ms b42763 item-08
+  6 + typical presence set (10)    (122) 3 5320ms b5316 chip-panel chip-text flag-bar-h flag-bar-v flag-field handle-logo handle-panel handle-text photo-05 word-05
+  7 + busiest presence set (13)    (167) 10 47360ms b47343 card-08 chip-panel chip-text flag-bar-h flag-bar-v flag-field handle-logo handle-panel handle-text photo-08 sentence-08 word-08-bridge word-08-target
+
+--- per-tile spread, full presence set on every one of the 18 real states ---
+180 px (ADR-0095 target)         served 1.83-2.67 px   smallest type = tile 10 (167 chars, authored 11px); largest = tile 1 (126 chars, authored 16px)
+140 px (ADR-0095 floor)          served 1.43-2.07 px   smallest type = tile 10 (167 chars, authored 11px); largest = tile 1 (126 chars, authored 16px)
+184.5 px (real 6x3, n=18)        served 1.88-2.73 px   smallest type = tile 10 (167 chars, authored 11px); largest = tile 1 (126 chars, authored 16px)
+141.9 px (real 10x3, n=30)       served 1.45-2.1 px   smallest type = tile 10 (167 chars, authored 11px); largest = tile 1 (126 chars, authored 16px)
+
+all checks pass

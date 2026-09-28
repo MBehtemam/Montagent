@@ -1,0 +1,29 @@
+[
+ {
+  "name": "S1-run-start-18",
+  "n": 18,
+  "cols": 6,
+  "rows": 3,
+  "tile_w": 184,
+  "tokens": 1560,
+  "type_px": 11.3
+ },
+ {
+  "name": "S2-keyframe-22",
+  "n": 22,
+  "cols": 8,
+  "rows": 3,
+  "tile_w": 161,
+  "tokens": 1564,
+  "type_px": 9.8
+ },
+ {
+  "name": "S3-keyframe-31",
+  "n": 31,
+  "cols": 8,
+  "rows": 4,
+  "tile_w": 138,
+  "tokens": 1560,
+  "type_px": 7.9
+ }
+]
