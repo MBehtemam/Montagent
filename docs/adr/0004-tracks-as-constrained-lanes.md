@@ -28,6 +28,13 @@ supersedes: partially supersedes 0001
 > elements' boxes overlap in time and space is `error`, not silently rendered; a tie that
 > never overlaps stays undefined and unchecked, since nothing on screen depends on it.
 >
+> **Amended by [ADR-0100](./0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md)**:
+> the overlap finding this ADR's *"must distinguish overlap from gap"* consequence requires
+> reports the offending **set**, not a pair — one finding per track, located at the file and
+> the track, naming no element, and carrying a census of the elements grouped by the stretch
+> of track they contend for. The constraint this ADR bought knowingly is unchanged; what
+> changed is that breaking it fifteen times over now reads as one mistake.
+>
 > **Also amended by this, not summarised above** —
 > `docs/adr/README.md` carries the full *Amended by* view:
 >
