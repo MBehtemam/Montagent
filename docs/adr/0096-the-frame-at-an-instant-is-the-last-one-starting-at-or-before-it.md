@@ -5,6 +5,11 @@ amends: 0093 (corrects ruling 6 condition 1: the failed-seek predicate is **not*
 
 # The frame at an instant is the last one starting at or before it
 
+> **Amended by [ADR-0113](0113-a-seek-whose-ffmpeg-failed-is-refused-never-read-as-no-frame.md).**
+> §5's fallback is reached only by a `select` run that *succeeded* and wrote no frame. A run
+> that exited non-zero is a refusal. On ffmpeg 9, which removed `-vsync`, reading the failure as
+> *"no frame"* painted every instant up to a window early with `0 errors`.
+
 [#387](https://github.com/MBehtemam/Montagent/issues/387) (MONTAGENT-2), the second of the
 nine findings from the first real end-to-end build through this tool. The reported symptom
 was small and the cause was not:

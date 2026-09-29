@@ -288,3 +288,92 @@ fn a_source_whose_frames_start_after_zero_paints_its_first_frame_and_does_not_re
         "and the grid carries on from there"
     );
 }
+
+/// An `ffmpeg` that refuses any run whose arguments include `refused`, the way ffmpeg 9
+/// refuses `-vsync`, and hands every other run to the real one.
+///
+/// A stub rather than a real old or new `ffmpeg`, because the claim under test is about
+/// what `frame_at` does with a *failed* spawn, and the only way to hold that on every
+/// machine is to make the failure rather than hope the installed build has one.
+#[cfg(unix)]
+fn refusing(dir: &Path, refused: &str) -> PathBuf {
+    let path = dir.join("ffmpeg");
+    std::fs::write(
+        &path,
+        format!(
+            "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in *{refused}*) \
+             echo \"Unrecognized option '{refused}'.\" >&2; exit 8;; esac; done\n\
+             exec \"{}\" \"$@\"\n",
+            ffmpeg().display()
+        ),
+    )
+    .expect("write the stub");
+    let mut mode = std::fs::metadata(&path).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+    std::fs::set_permissions(&path, mode).expect("make the stub executable");
+    path
+}
+
+#[cfg(unix)]
+#[test]
+fn a_seek_whose_ffmpeg_failed_is_refused_and_never_painted_from_the_fallback() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode(&dir, "numbered.mkv", "25") else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // ADR-0113, and the shape ffmpeg 9 actually had: the `select` run exits 8 on an argument
+    // it no longer knows, and the fallback run — which does not pass it — succeeds. Reading
+    // the failure as *"no frame at or before"* painted frame 26 here, the earliest in the
+    // window, for an instant inside frame 30, and said nothing.
+    let stub = refusing(&dir, "select=");
+    let refused = decode::frame_at(
+        &stub,
+        &path.to_string_lossy(),
+        Decoder::Auto,
+        1234,
+        SIZE,
+        SIZE,
+    )
+    .map(|frame| index_of(&frame));
+    let e = refused.expect_err("a failed seek is a refusal, not frame 26");
+    assert!(e.contains("numbered.mkv"), "it names the source: {e}");
+    assert!(
+        e.contains("Unrecognized option"),
+        "and what ffmpeg said, because exit 70 is retry-or-report: {e}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_run_whose_ffmpeg_failed_is_an_error_and_not_an_empty_series() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode(&dir, "numbered.mkv", "25") else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // `frames_from`'s end of run is how `measure`'s coverage series finds a source's end, so a
+    // failed `ffmpeg` read as an end is a series of no frames about a source that has 82.
+    let stub = refusing(&dir, "fps=");
+    let mut frames = decode::frames_from(
+        &stub,
+        &path.to_string_lossy(),
+        Decoder::Auto,
+        0,
+        25.0,
+        SIZE,
+        SIZE,
+    )
+    .expect("the stub runs");
+    let e = frames
+        .next_frame()
+        .expect_err("a failed run is an error, not an end");
+    assert!(e.contains("numbered.mkv"), "it names the source: {e}");
+    assert!(e.contains("Unrecognized option"), "{e}");
+}

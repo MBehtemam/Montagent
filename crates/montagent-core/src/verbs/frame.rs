@@ -1380,6 +1380,9 @@ impl<'a> Painter<'a> {
         // What still arrives here is a source that ends more than a window before the
         // instant the document asked for, which is a real disagreement between the
         // document and the file rather than a rounding artefact.
+        // So does an `ffmpeg` that failed outright (ADR-0113): a refusal that blames the
+        // source for the tool, which is loud where it used to paint a frame up to a window
+        // early, and which #477's up-front check is to name correctly.
         let decoded = montagent_render::decode::frame_at(
             &ffmpeg,
             &path.to_string_lossy(),
