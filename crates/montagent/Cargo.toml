@@ -19,7 +19,7 @@ serde_json.workspace = true
 clap = { version = "4", features = ["derive"] }
 rmcp = { version = "3.4", features = ["server", "macros", "schemars", "transport-io"] }
 schemars.workspace = true
-tokio = { version = "1", features = ["rt", "macros", "io-std"] }
+tokio = { version = "1", features = ["rt", "macros", "io-std", "sync", "time"] }
 
 [dev-dependencies]
 serde_json.workspace = true
