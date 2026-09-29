@@ -1,0 +1,18 @@
+1 4680ms +29 -photo-07
+2 6600ms +19 +vo-word-07-b
+3 20360ms +0
+4 21200ms +0 -chip-text
+5 21480ms +0 +word-08-bridge
+6 22880ms +23 -word-05
+7 24560ms +30 +flag-field
+8 26840ms +17 +chip-panel
+9 28000ms +0
+10 32000ms +11 +vo-word-05-a
+11 38480ms +0 -vo-word-05-b
+12 38520ms +0 +quiz-question
+13 46280ms +0 +flag-field
+14 48000ms +23 -card-05
+15 53480ms +0 -word-quiz
+16 56760ms +0 -chip-text
+17 62840ms +0 +photo-05-intro
+18 63400ms +32 +intro-title
