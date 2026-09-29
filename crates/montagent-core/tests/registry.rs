@@ -1,7 +1,7 @@
 //! The check registry: the thing every check ticket needs and none should own.
 
 use montagent_core::finding::Class;
-use montagent_core::registry::{self, ThresholdProvenance};
+use montagent_core::registry::{self, CensusMode, ThresholdProvenance};
 
 #[test]
 fn every_registered_error_class_code_has_a_declared_refuse_class() {
@@ -231,4 +231,89 @@ fn a_not_about_document_finding_reaches_the_report_with_no_repair_at_all() {
         json.get("repair").is_none(),
         "the field is absent, not `null` and not `\"none\"`: {json}"
     );
+}
+
+/// Every code whose `Finding::new(..)` is followed by a `.census(..)` before the next
+/// `Finding::new`, read off the crate's own source. A source scan and not a list, so that a
+/// check which starts carrying a census cannot do it without this test seeing it.
+fn codes_that_attach_a_census() -> Vec<String> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("src/ reads") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let source = std::fs::read_to_string(&path).expect("a source file reads");
+                for segment in source.split("Finding::new(\"").skip(1) {
+                    let code = &segment[..segment.find('"').expect("a code literal")];
+                    if segment.contains(".census(") && !out.iter().any(|c| c == code) {
+                        out.push(code.to_string());
+                    }
+                }
+            }
+        }
+    }
+    let mut codes = Vec::new();
+    walk(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut codes,
+    );
+    codes.sort();
+    codes
+}
+
+#[test]
+fn every_code_that_carries_a_census_declares_how_it_renders() {
+    // ADR-0111: whether a census names its members in the text form is decided per code,
+    // in the registry, by whoever authors the check. A census-bearing code with no mode is
+    // one whose author skipped that decision.
+    //
+    // `E-FONT-NO-GLYPH` is the one exception, and declares **no** mode: all its groups hold
+    // the same codepoints, so its grouping partitions nothing and is not a census (#427
+    // ruling 6, and the glossary's **Census**).
+    let emitting = codes_that_attach_a_census();
+    assert!(
+        emitting.iter().any(|c| c == "E-FONT-NO-GLYPH"),
+        "the scan finds the exception, so it is reading the source: {emitting:?}"
+    );
+    for code in &emitting {
+        let spec = registry::spec(code).expect("a registered code");
+        match code.as_str() {
+            "E-FONT-NO-GLYPH" => assert_eq!(spec.census, None, "{code} is not a census"),
+            _ => assert!(spec.census.is_some(), "{code} carries a census and no mode"),
+        }
+    }
+
+    // And the other way: a mode on a code that never carries a census is a declaration
+    // about nothing.
+    for spec in registry::all().iter().filter(|s| s.census.is_some()) {
+        assert!(
+            emitting.iter().any(|c| c == spec.code),
+            "{} declares a census mode and never attaches a census",
+            spec.code
+        );
+    }
+}
+
+#[test]
+fn the_codes_whose_value_cannot_be_searched_for_are_named() {
+    // #427 ruling 3's classification, pinned: a move between the two lists is an ADR-0111
+    // amendment, not an edit.
+    let mode = |code: &str| registry::spec(code).expect("registered").census;
+    for code in [
+        "N-TEXT-INVISIBLE",
+        "N-TEXT-MIXED-NORMALIZATION",
+        "E-TRACK-OVERLAP",
+        "E-RETIRED-KEY",
+    ] {
+        assert_eq!(mode(code), Some(CensusMode::Named), "{code}");
+    }
+    for code in [
+        "R-BOX-SLACK",
+        "N-FONT-CENSUS",
+        "R-FONT-SWAP",
+        "D-BOUNDARY-CLUSTER-DRIFT",
+    ] {
+        assert_eq!(mode(code), Some(CensusMode::Counted), "{code}");
+    }
 }

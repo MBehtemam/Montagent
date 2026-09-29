@@ -34,6 +34,13 @@ status: accepted
 > and never by size, because sorting by size is this ADR's forbidden wording written into
 > the ordering.
 
+> **Amended by [ADR-0111](./0111-a-census-names-its-members-where-its-value-cannot-be-searched-for.md)**, which decides per code, in
+> the registry beside the repair form, whether a census **names its members** in the text
+> form. A census whose value can be searched for in the document stays counted; one whose
+> value cannot — an invisible codepoint, a normalization form, a stretch of the clock, an
+> object — prints up to three member ids per group, in the group's own order and never
+> sorted, then `+K more — see --json`. The census itself and the canonical JSON are unchanged.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

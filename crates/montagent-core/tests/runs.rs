@@ -199,6 +199,24 @@ fn two_canonically_equivalent_spellings_of_one_caption_are_named() {
 }
 
 #[test]
+fn mixed_normalization_names_an_element_in_each_form_under_verbose() {
+    // ADR-0111: this census is Named, because NFC and NFD bytes look identical and no
+    // search the reader can type finds one form and not the other. So the expanded note
+    // names the members of each group, and "1 at NFC" is no longer the whole of it.
+    let report = report_on(&[
+        text("composed", &run("caf\u{00E9}")),
+        text("decomposed", &run("cafe\u{0301}")),
+    ]);
+    let rendered =
+        montagent_core::text::render(&report.to_json(), montagent_core::text::Options::verbose())
+            .expect("the report renders");
+    assert!(
+        rendered.contains("census normalization: 1 at NFC (composed), 1 at NFD (decomposed)\n"),
+        "{rendered}"
+    );
+}
+
+#[test]
 fn one_spelling_used_twice_is_not_mixed_normalization() {
     // The must-not-fire half, in the two shapes that matter: the same bytes twice, and a
     // decomposed string with no composed twin. Neither is two spellings of anything —

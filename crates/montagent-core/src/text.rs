@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::fmt;
 
 use crate::finding::Class;
-use crate::registry;
+use crate::registry::{self, CensusMode};
 
 /// The reserved field rendered as an indented block rather than interpolated: the
 /// offending line and its caret, which ADR-0011 requires of every tool's parse failure.
@@ -35,6 +35,15 @@ const EXCERPT: &str = "excerpt";
 /// "roughly one screen" argument for a larger N does not apply: the reader is an agent
 /// over MCP and has no screen.
 const FULL_INSTANCES: usize = 3;
+
+/// How many members a `Named` census group prints before the rest are counted. ADR-0111.
+///
+/// **The number is not measured**, and it **coincides with [`FULL_INSTANCES`] without
+/// inheriting it**: #388 ruling 3 made the census and the repetition collapse two
+/// mechanisms, so neither number moves when the other does. It is 3 because three is the
+/// fewest members that can show what a group's members share — a track, an id prefix —
+/// where one reads as a representative pick, the ranking ADR-0043 forbids.
+const NAMED_MEMBERS: usize = 3;
 
 /// The verbs with no `--verbose` on any surface — deliberately, each one's adapter says
 /// why — keyed by the report's `tool`. A collapsed line on one of these cannot tell its
@@ -527,8 +536,14 @@ fn full(finding: &Value) -> Result<String, RenderError> {
                 groups
                     .iter()
                     .map(|g| {
-                        let members = g["members"].as_array().map_or(0, |m| m.len());
-                        format!("{members} at {}", compact(&g["value"]))
+                        let members = g["members"].as_array().map_or(&[][..], Vec::as_slice);
+                        let counted = format!("{} at {}", members.len(), compact(&g["value"]));
+                        match spec.census {
+                            Some(CensusMode::Named) => {
+                                format!("{counted} ({})", named_members(members))
+                            }
+                            _ => counted,
+                        }
                     })
                     .collect()
             })
@@ -552,6 +567,29 @@ fn full(finding: &Value) -> Result<String, RenderError> {
     }
 
     Ok(out)
+}
+
+/// A `Named` census group's members, at most [`NAMED_MEMBERS`] of them. ADR-0111.
+///
+/// They print in the group's own order — declaration or clock order, as the check built
+/// it — and are **never sorted**: a sorted prefix would be a pick, and ADR-0043 forbids a
+/// census that ranks its members. A group of exactly `NAMED_MEMBERS + 1` names them all,
+/// because `+1 more` hides one id and saves nothing, so the marker appears only at two or
+/// more. The rest are in the canonical JSON, and `--verbose` does not reach them, so the
+/// marker names `--json` on every verb.
+fn named_members(members: &[Value]) -> String {
+    let shown = match members.len() > NAMED_MEMBERS + 1 {
+        true => NAMED_MEMBERS,
+        false => members.len(),
+    };
+    let mut names: Vec<String> = members[..shown]
+        .iter()
+        .map(|m| m.as_str().map_or_else(|| compact(m), str::to_string))
+        .collect();
+    if shown < members.len() {
+        names.push(format!("+{} more — see --json", members.len() - shown));
+    }
+    names.join(", ")
 }
 
 fn reason_words(reason: &Value) -> String {
