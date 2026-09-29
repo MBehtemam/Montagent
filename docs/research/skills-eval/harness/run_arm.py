@@ -190,17 +190,25 @@ def keep_workspace(work: Path, pack: Path, dest: Path, deliverable: str) -> list
 
 
 def final_project(work: Path, deliverable: str) -> Path | None:
-    """The project that renders the deliverable, else the one written last."""
-    projects = [p for p in work.rglob("*.montagent.json")
-                if not any(part in SKIP_DIRS for part in p.relative_to(work).parts)]
-    for p in projects:
-        try:
-            out = json.loads(p.read_text()).get("output")
-        except (json.JSONDecodeError, AttributeError):
+    """The project that renders the deliverable, else the one written last.
+
+    A project is any JSON object with `frame` and `fps`, whatever its name: agents do not
+    all use the `.montagent.json` suffix."""
+    projects = []
+    for p in work.rglob("*.json"):
+        if any(part in SKIP_DIRS for part in p.relative_to(work).parts):
             continue
-        if out and (p.parent / out).resolve() == (work / deliverable).resolve():
+        try:
+            doc = json.loads(p.read_text())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if isinstance(doc, dict) and "frame" in doc and "fps" in doc:
+            projects.append((p, doc))
+    for p, doc in projects:
+        out = doc.get("output")
+        if isinstance(out, str) and (p.parent / out).resolve() == (work / deliverable).resolve():
             return p
-    return max(projects, key=lambda p: p.stat().st_mtime, default=None)
+    return max((p for p, _ in projects), key=lambda p: p.stat().st_mtime, default=None)
 
 
 def next_index(parent: Path, arm: str) -> int:

@@ -198,7 +198,7 @@ def montagent_verb(block: dict) -> str | None:
     if name.startswith(MCP_PREFIX):
         return name[len(MCP_PREFIX):]
     if name == "Bash":
-        m = re.search(r"(?:^|[\s;&|(/])montagent\s+([a-z-]+)", block.get("input", {}).get("command", ""))
+        m = re.search(r"(?:^|[\s;&|(/])montagent\s+([a-z][a-z-]*)", block.get("input", {}).get("command", ""))
         if m:
             return m.group(1)
     return None
