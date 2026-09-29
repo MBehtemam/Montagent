@@ -9,6 +9,12 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
   mandates is named as what discharges ADR-0011's amended obligation)
 ---
 
+> **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** **Exit 3 for the overflow refusal is ratified, not inherited**,
+> on ADR-0011's own test — and the refusal is `E-SHEET-OVERFLOW`. `--at`, `--full` and `--crop` with
+> a range are bare `E-INVOCATION`, which is the code section 7's not-yet-legal refusal (made
+> permanent by ADR-0103) carries. Section 5's prose-renderable constraint is met by finding fields
+> rendered through templates and by `blind_to` tokens each bound to one fixed sentence.
+
 # The range is `--from`/`--to` on both surfaces, and `frame`'s caption obligation becomes an attribution obligation
 
 > **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** Section 7 left the attribution guarantee discharged
