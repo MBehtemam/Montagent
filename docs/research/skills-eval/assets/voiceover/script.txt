@@ -1,0 +1,1 @@
+Montagent is a video editor built for agents. Your whole video is one plain file. Check it, look at any frame, then render. Same file, same video, every time.
