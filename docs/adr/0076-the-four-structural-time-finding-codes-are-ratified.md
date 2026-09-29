@@ -5,6 +5,15 @@ amends: 0004 (names `E-TRACK-OVERLAP` and `N-TRACK-GAP` as the two findings its 
 
 # The four structural-time finding codes are ratified: `E-TRACK-OVERLAP`, `N-TRACK-GAP`, `E-SPEED-MISMATCH`, `E-OVERRUN-UNNEEDED`
 
+> **Amended by [ADR-0100](./0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md)**,
+> which changes how the `E-TRACK-OVERLAP` ratified below is **emitted**: once per track
+> carrying a census of the overlapping elements, never once per overlapping pair. Fifteen
+> elements on one track printed 105 findings for one authorial mistake, so the count that
+> was meant to be *"the number of things to fix"* was not. The code, the `error` class and
+> the refuse-class repair this ADR ratified are all unchanged; the registered template and
+> field set are replaced, and the finding now names a track and no element — the shape
+> `N-TRACK-GAP` already had.
+
 **Ticket:** [#255](https://github.com/MBehtemam/Montagent/issues/255).
 
 ## The gap

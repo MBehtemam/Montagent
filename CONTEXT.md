@@ -164,6 +164,20 @@ is an entry in a table you cannot read, cannot commit, and that differs per mach
 The renderer opens nothing outside the chain.
 _Avoid_: typeface, family, font stack
 
+**Face**:
+The one set of outlines and metrics a chain entry resolves to. A file is not a face: a
+`.ttc` collection carries several, and the entry's `index` says which — *"defaulting to
+0. 49 of the fonts in a stock macOS `/System/Library/Fonts` are collections; this is the
+normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)). The
+face is **cut out of the collection into a file of its own before it is registered**, so
+that an entry naming one resolves to it and to nothing else
+([ADR-0102](docs/adr/0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)).
+The distinction is load-bearing rather than pedantic: a chain entry, an attestation and
+a font-swap census are all about the *file*, while shaping, coverage and every measured
+width are about the *face*, and the period when one word covered both is the period when
+a declared `index` reached no code that chose one.
+_Avoid_: weight, style, variant, font (for a face)
+
 **Attestation**:
 What `fonts vendor` learned about one font file, recorded in the project's `fontVendor`
 table under the file's path: the licence identifier it recognised or the author declared,
@@ -438,6 +452,18 @@ silence between two narration lines is a gap. A gap is never an error, which is
 why it is reported apart from an overlap rather than alongside one.
 _Avoid_: hole, blank, silence (as a name for the general case)
 
+**Knot**:
+One connected group of elements of a single track that overlap each other — a
+connected component of the overlap relation and deliberately not a clique, so
+three elements where the first and third are disjoint but both meet the second
+are **one** knot. It is the unit an author untangles, which is why the track's
+one overlap finding carries a census whose groups are its knots and whose count
+is the number of things to fix. It is never reduced to a single offending pair:
+which member is misplaced is not readable off the document.
+([ADR-0100](docs/adr/0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md),
+[ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
+_Avoid_: cluster, pile, collision, offending pair
+
 **Slack**:
 The timeline distance from one element's boundary to the nearest thing that
 follows or precedes it — a neighbouring element's boundary in the same track
@@ -610,10 +636,87 @@ target** is 180 px: what every range gets by default, 18 tiles for a 9:16 projec
 visible, 30 tiles, reached by exactly one degrade step — and where the sheet **refuses,
 naming sub-ranges that would fit**, rather than drawing more tiles than it can show a defect
 in. Tile **count is derived** from the width and the tile's aspect, never set by the caller:
-a cropped 3:1 band clears 180 px at 112 tiles where whole 9:16 frames manage 18. Visual
+a cropped 3:1 band clears 180 px at 98 tiles where whole 9:16 frames manage 18. That
+comparison is a **hypothetical** that shows why the currency is width and not count: **a
+contact sheet is always whole frames**, and a per-tile crop is refused
+([ADR-0103](docs/adr/0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md)),
+because a band removes the only view in which a wrong-photo defect is a defect at all, and its
+blindness is authored by the caller rather than fixed by the rule. A **crop is a single-frame
+instrument**: `--crop` composes with `--at`, never with a range. Visual
 tokens are *not* the currency — a sheet spends 1518–1568 of the tier's 1568 at every count
 from 4 to 48, so a token cap never fires.
-_Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution
+_Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution, cropped
+sheet / banded sheet / region sheet (no such artifact exists — a sheet is whole frames)
+
+**Attribution obligation**:
+What `frame` owes the agent alongside every picture: **the agent must be able to attribute
+what it sees to what produced it, without a second call**
+([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md),
+amending [ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md)). It is discharged
+differently at the two scales. When the image is **one frame**, it is the `query --at` block
+printed unconditionally beside it — unchanged, and still with no flag that suppresses it. When
+the image is a **contact sheet**, eighteen such blocks would cost 28,410 characters against a
+whole sheet answer's 1,413, so it is discharged instead by the fitted per-tile label
+**together with** a range-level provenance list: one line per tile carrying the sampled
+instant, the run boundary and the presence set as element ids. Both halves are required —
+a label fitted to a 140 px tile can carry an instant and little else, so it **cannot** name
+the presence set on its own — measurement later showed it cannot name it at the **180 px
+target** either ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)), so the split rests on a number rather than a prediction.
+What the label half carries is the **tile label**, below. The **resolved** stack (geometry, resolved keyframe values) stays
+one call away by design, which ADR-0094's refusal of a synthetic midpoint is what makes
+possible: every tile's instant is one the document itself produces, so `query --at <that
+instant>` reproduces the tile exactly. The obligation is about attribution, never measurement —
+ADR-0011 demotes `frame` from measuring and that is unchanged.
+_Avoid_: the caption (ADR-0011's older word, and it now reads as the single-frame case only),
+the `--describe` block, suppressing the stack
+
+**Tile label**:
+The one line beneath each tile on a contact sheet — in a **gutter strip** of 11% of tile
+height, never burned over the tile's own pixels, because an overlay's legibility would depend
+on the content it describes and the tile would stop being a faithful crop of what `frame --at`
+returns ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). Five fields in a **fixed order on every tile**: index, class
+sigil, sampled instant, **signed boundary offset**, and a **signed element id**. Fixed arity is
+load-bearing — a field that is sometimes absent is ambiguous between *"this tile has no such
+element"* and *"the label ran out of room"*, and a variable-length field spreads served type
+1.46× across one sheet with the smallest type landing on the busiest tile. The boundary is an
+**offset from the instant, not a second absolute millisecond**: the two always differ by less
+than one frame period, so three characters carry both losslessly, and `+0` prints so an on-grid
+boundary is an assertion rather than an absence. The identifying field is **causal, not
+discriminating** — the element whose presence *changed at this run's own boundary*, `+` entered
+and `-` departed, highest layer, tie-broken on element id, whole-document-span elements
+excluded. "Not present in every tile of this sheet" is rejected because it is
+**range-dependent**: the same instant would label differently depending on the range asked for.
+The label is a **pointer, not a census** — one id cannot name both planted defects, and the
+provenance list is the census.
+_Avoid_: caption (that is the single-frame block), tile title, gist, gutter text, the
+discriminating element
+
+**Served type floor**:
+The minimum size, **8 px of served type**, below which a tile label is never drawn
+([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)). Fitting a label to tile width has **no lower bound** — it is how a label
+carrying a full presence set reaches 1.4 px, satisfies every geometric definition of fitting,
+and cannot be read, which is the trial's silence-as-coverage failure rebuilt inside the label.
+So the floor is on the **type**, and **content is what gives way**: the identifying field elides
+**sheet-wide, never per-tile**, so the busiest tile is never the one silently thinned, and if
+the numeric core still will not fit the sheet **refuses**. Deliberately *not* 6.3 px, the figure
+#396 read: that came from one primed observer who knew the defects, making it a ceiling on what
+was ever read rather than a floor on what can be read cold. It is this spec's one
+non-re-derivable constant, flagged as ADR-0095 flagged its 140 px cousin, and
+[#422](https://github.com/MBehtemam/Montagent/issues/422) owns re-measuring both.
+_Avoid_: the 6.3 px figure as a limit, minimum font size, *the* floor (there are now four),
+shrink-to-fit
+
+**Vendored UI face**:
+The font Montagent draws its **own chrome** with — the tile label — as against the fonts a
+*project* declares for its content ([ADR-0098](docs/adr/0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md) §9,
+[#421](https://github.com/MBehtemam/Montagent/issues/421)). Never the project's declared font: it
+may be Thai-only or carry no digits while the label is mostly digits, and this repo's own fixture
+declares a path that does not exist, so chrome built on it fails hardest on the projects most
+likely to be broken. Never a system font either — across ADR-0064's six targets the fitted type
+size, and so the served type floor and the measured `295/chars` law, would mean a different thing
+per platform. Tabular figures, and the build fails loudly rather than falling back.
+_Avoid_: the label font (ambiguous with a project's declared fonts), a fallback font, the
+system face
 
 ## Findings and reports
 
@@ -805,6 +908,27 @@ the rule.
 _Avoid_: commit (spoken for by git), publish step, finalize, atomic write (that is
 the mechanism, not the decision)
 
+**Attestation**:
+What a **deliverable** carries saying which project wrote it — a `comment` tag on
+the container holding the project file's **observed identity**, stamped at the
+moment `render` encodes. It exists so that *"did this project produce the file
+already at the output path?"* is a question Montagent **reads an answer to** rather
+than infers: the cheap alternative, comparing the existing file's duration or frame
+count against the document, is a re-derived label of exactly the kind
+[ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md)
+ruled is not an identity, and it fails in both directions — silent on two language
+cuts of one timeline, loud on a project's own second render. A file bearing another
+project's attestation is refused **before the encoder is spawned**; one bearing none
+is a `review`, because *no evidence* is weaker than *evidence of someone else* and
+`error` means the render is refused or **guaranteed** wrong. A **preview** never
+attests: it is not a deliverable, and a stamp would hand the next `render` a forged
+licence to clobber.
+([ADR-0104](docs/adr/0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md),
+[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md))
+_Avoid_: watermark (it is metadata, not pixels), signature (nothing is verified
+cryptographically and nothing is meant to resist forgery), ownership, provenance
+(too broad — this is one question, not a history)
+
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
 file was not compared against any prior version or instruction, and Montagent
@@ -854,9 +978,17 @@ spell it differently: the MCP tool is `create_project`, the CLI command is
 `create-project` with the underscore kept as a permanent alias, because
 ADR-0011's write-tool invariant binds the MCP surface and not argv
 ([ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)).)
+**The nine and the twelve survive `frame`'s range mode**
+([ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md)):
+that amendment gives the `frame` row arguments and adds no row, because **a range is arguments,
+not a verb** — the same distinction ADR-0037 drew when it refused a tenth verb for a new
+*capability*. A contact sheet was argued for as an extension of `frame` rather than a tenth
+verb precisely on this surface's own cost model: an MCP schema costs context on every turn,
+and *what does it look like* is the question `frame` already answers.
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
 [ADR-0078](docs/adr/0078-preview-is-the-ninth-mcp-verb-and-its-unstated-readings-are-ratified.md),
-[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md))
+[ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md),
+[ADR-0097](docs/adr/0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md))
 _Avoid_: command (the CLI spelling only), tool (the MCP spelling only),
 endpoint, action
 

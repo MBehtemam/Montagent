@@ -1,0 +1,53 @@
+  ok   element ids are unique: 40 visual elements
+  ok   visual runs on the fixture: 18
+  ok   visual boundary points: 19
+  ok   every run paints a frame
+  ok   first three sampled instants: [0, 3040, 5320]
+  ok   instant-boundary offset is sub-frame: max 37 ms, frame is 40.0 ms
+  ok   offsets needing more than 2 digits: []
+  ok   always-on elements across all runs: 8
+  ok   always-on set equals the whole-document-span set: ['chip-panel', 'chip-text', 'flag-bar-h', 'flag-bar-v', 'flag-field', 'handle-logo', 'handle-panel', 'handle-text']
+  ok   presence set sizes: (10, 13)
+  ok   chrome never enters after the first run: so after tile 1 the causal rule excludes chrome with no special case
+  ok   but on the FIRST run every chrome element enters: which is why whole-document-span elements are excluded from candidacy
+
+  runs with no entering element: []
+  runs that are departure-only:   []
+  ok   this fixture's candidate sets never tie on layer: 0 of 18 runs tie
+  ok   the fixture itself declares tied track layers: {30: ['chip-panel', 'handle-panel'], 31: ['flag-field', 'handle-logo', 'handle-text']}
+
+  run  instant  offset  topmost-layer pick        lowest-layer pick
+    1        0       0  +intro-title              +photo-05-intro
+    2     3040      22  +hook-05                  +photo-05
+    3     5320       4  +word-05                  +word-05
+    4    10480      12  +sentence-05              +card-05
+    5    17480       8  +word-06                  +photo-06
+    6    22640      18  +sentence-06              +card-06
+    7    30640      37  +word-07                  +photo-07
+    8    35760       7  +sentence-07              +card-07
+    9    42800      37  +word-08-bridge           +photo-08
+   10    47360      17  +sentence-08              +card-08
+   11    53880      24  +quiz-question            +photo-05-quiz
+   12    56120       4  +count-5                  +count-5
+   13    57120       4  +count-4                  +count-4
+   14    58120       4  +count-3                  +count-3
+   15    59120       4  +count-2                  +count-2
+   16    60120       4  +count-1                  +count-1
+   17    61120       4  +word-quiz                +card-quiz
+   18    64040      24  +hook-loop                +photo-05-loop
+  ok   topmost-layer never names always-on chrome: []
+  ok   lowest-layer never names always-on chrome: []
+
+  tracks named by topmost-layer: ['caption', 'caption-overflow', 'sentence-text']
+  tracks named by lowest-layer:  ['caption', 'photo', 'sentence-card']
+  sentence-08  named by topmost on tiles [10], by lowest on tiles []
+  ok   sentence-08 is named by exactly one direction on its own tile: topmost=[10] lowest=[]
+  photo-07     named by topmost on tiles [], by lowest on tiles [7]
+  ok   photo-07 is named by exactly one direction on its own tile: topmost=[] lowest=[7]
+
+  longest label on the fixture: '9 42800ms +37 +word-08-bridge' (29 chars)
+  ok   the longest fixture label clears the 8 px floor at the 180 px target: 10.17 px
+  ok   the longest fixture label FALLS BELOW the 8 px floor at the 140 px floor: 7.93 px -- so the identifying field elides sheet-wide at the floor, exactly as ADR-0098 decision 5 requires
+  ok   the mandatory numeric core clears the floor at 140 px: '9 42800ms +37' = 13 chars, 17.69 px
+
+all claims hold

@@ -173,8 +173,14 @@ enum Command {
     ///
     /// One instant, rasterized at the project's true pixel dimensions and answered as
     /// **JPEG at half that size** — full scale and PNG are behind flags, because an image
-    /// costs an agent `⌈w/28⌉ × ⌈h/28⌉` visual tokens whatever it is encoded as: 2691 at
-    /// 1080×1920 against 700 at 540×960 (ADR-0011).
+    /// costs an agent `⌈w/28⌉ × ⌈h/28⌉` visual tokens on the dimensions it is *served*: 700
+    /// at 540×960 on every tier, and at 1080×1920 either 2691 (high-resolution tier) or 1560
+    /// (standard tier, which downscales to 819×1456 first) — ADR-0011 as ADR-0097 corrected
+    /// it.
+    ///
+    /// **A `--crop` is the exception: it comes back at true scale without `--full`**
+    /// (ADR-0101), because a region has already spent the budget the half-scale default
+    /// exists to spend.
     ///
     /// The `query --at` block prints alongside the picture **unconditionally** — there is no
     /// flag that suppresses it, because looking at a frame without knowing which elements
@@ -196,13 +202,18 @@ enum Command {
         /// back in the answer.
         #[arg(long, value_name = "PATH")]
         out: PathBuf,
-        /// Return just this region of the frame, as `x,y,w,h` in whole frame-space pixels
-        /// at true scale — so you can look closely at one card without paying for the
-        /// whole canvas.
+        /// Return just this region of the frame, as `x,y,w,h` in whole frame-space pixels,
+        /// and at true scale — so you can look closely at one card without paying for the
+        /// whole canvas. The region is true scale on its own; `--full` adds nothing to it.
+        ///
+        /// For *pixel* work add `--png`: JPEG invents colour, 14,090 distinct values over
+        /// one card against PNG's 523, which no scale fixes.
         #[arg(long, value_name = "X,Y,W,H")]
         crop: Option<String>,
-        /// True pixel dimensions instead of half scale. You are asking for 2691 tokens
-        /// rather than 700, and that is the whole of what this flag does.
+        /// True pixel dimensions instead of half scale, over the whole frame. You are asking
+        /// for 2691 tokens rather than 700 on a high-resolution model, or 1560 rather than
+        /// 700 on a standard one — which serves a 1080×1920 frame as 819×1456, so the thin
+        /// stroke you paid to inspect may not reach the model at all. Redundant with `--crop`.
         #[arg(long)]
         full: bool,
         /// PNG instead of JPEG. Costs the same tokens (they are a function of decoded
@@ -292,6 +303,14 @@ enum Command {
         /// it names the project's own `output`.
         #[arg(long, value_name = "PATH")]
         output: Option<PathBuf>,
+        /// Refuse rather than replace a file at `output` that this project did not produce.
+        ///
+        /// A file another project's render wrote is refused with or without this flag
+        /// (ADR-0104). What the flag changes is the *unattested* case — a file Montagent has
+        /// no evidence about — which is a `review` by default and a refusal with it. There
+        /// is no flag in the other direction.
+        #[arg(long)]
+        no_clobber: bool,
         /// Print the canonical JSON *instead of* the text result, never alongside it.
         #[arg(long)]
         json: bool,
@@ -756,6 +775,7 @@ where
             from,
             to,
             output,
+            no_clobber,
             json,
             verbose,
         } => {
@@ -763,7 +783,12 @@ where
             // Which combinations of `--from`/`--to`/`--output` are legal is the verb's rule
             // and not argv's: the MCP surface takes the same arguments with no `clap` to
             // arrange them (ADR-0011).
-            let ask = montagent_core::verbs::render::Ask { from, to, output };
+            let ask = montagent_core::verbs::render::Ask {
+                from,
+                to,
+                output,
+                no_clobber,
+            };
             // ADR-0011's split, made here: the result is stdout's and progress is
             // stderr's, coarse — a tenth at a time, with the wall clock beside it so the
             // caller can budget the next call.

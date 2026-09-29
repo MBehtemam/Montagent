@@ -6,12 +6,21 @@
 //!
 //! ## Three decisions this verb is built on, all ADR-0011's
 //!
-//! **JPEG at half the project's frame size by default, full scale and PNG behind flags.**
-//! Not because full scale is redundant — it is not, and the reasoning that said so was
-//! wrong in both directions — but because an image costs an agent
-//! `⌈width/28⌉ × ⌈height/28⌉` visual tokens whatever it is encoded as: 2691 at 1080×1920
-//! against 700 at 540×960, every single time it looks. The encoding is a latency-and-disk
-//! choice and nothing more.
+//! **JPEG at half the project's frame size by default, full scale and PNG behind flags —
+//! except that a `--crop` is served at true scale on its own** (ADR-0101). Half scale is the
+//! default not because full scale is redundant — it is not, and the reasoning that said so
+//! was wrong in both directions — but because an image costs an agent
+//! `⌈width/28⌉ × ⌈height/28⌉` visual tokens **on the dimensions it is served**, every single
+//! time it looks: 700 at 540×960 on every tier, and at 1080×1920 either 2691 (the
+//! high-resolution tier, Claude 4.7+) or 1560 (the standard tier, which downscales it to
+//! 819×1456 first). So `--full` is 3.84× on one tier and 2.23× on the other, and a caller
+//! paying for it to inspect a thin stroke may not be served those pixels at all — the
+//! two-tier correction ADR-0097 made to ADR-0011's flat `2691`, applied here at the code
+//! site it was published from ([#405](https://github.com/MBehtemam/Montagent/issues/405)).
+//! The encoding is a latency-and-disk choice and nothing more, which is *not* the same as
+//! saying it costs nothing: JPEG fabricates colour freely, so a crop taken for pixel
+//! analysis wants `--png` as well as its true scale (ADR-0101 measured 14,090 distinct
+//! colours against PNG's 523 over one card).
 //!
 //! **The `query --at` block prints alongside the image, unconditionally.** *"Looking at a
 //! picture without knowing which elements produced it is how a defect gets attributed to
@@ -127,9 +136,18 @@ pub struct Ask {
     pub at: Option<i64>,
     /// `x,y,w,h` in frame space at true pixels, as the caller wrote it. Parsed here rather
     /// than in an adapter, so the MCP surface and argv reject the same strings.
+    ///
+    /// **Both the coordinates and the answer are true scale** (ADR-0101). Before that they
+    /// disagreed: the coordinates were read at true pixels and the picture came back halved,
+    /// so a 984×340 region was answered as 492×170 while the caption said so in a line the
+    /// reporting agent read past.
     pub crop: Option<String>,
-    /// True pixels instead of half scale. ADR-0011's escape hatch: the caller asked for
-    /// 2691 tokens and is paying for them.
+    /// True pixels instead of half scale, over the whole frame. ADR-0011's escape hatch: the
+    /// caller asked for the larger count and is paying for it.
+    ///
+    /// **Redundant with [`Ask::crop`] rather than illegal** (ADR-0101) — a region is already
+    /// served at true scale, and refusing the pair would break the only spelling that reaches
+    /// true scale today.
     pub full: bool,
     /// PNG instead of JPEG.
     pub png: bool,
@@ -529,7 +547,19 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     } else {
         Encoding::Jpeg
     };
-    let scale = if ask.full { Scale::Full } else { Scale::Half };
+    // **A region is served at true scale, whether or not `--full` was written** (ADR-0101).
+    // The half-scale default is a token discipline over the *whole canvas* — ADR-0011 adopted
+    // it because "full scale genuinely costs 2691 tokens every time the agent looks". A crop
+    // has already paid that discipline by asking for less of the frame, so halving it again
+    // applies one budget twice and leaves the flag unable to do the single thing its own doc
+    // string offers it for: looking closely at one card. `--full` with a region is therefore
+    // redundant rather than illegal, and stays legal — it is how every caller reaches true
+    // scale today, including this repo's own research scripts.
+    let scale = if ask.full || region.is_some() {
+        Scale::Full
+    } else {
+        Scale::Half
+    };
     let Some(encoded) = canvas.encode(region.map(region_of), scale, encoding) else {
         // The region is already known to overlap the frame, so the only failure left is the
         // encoder's — which is Montagent failing, and is exit 70.

@@ -36,6 +36,13 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 > `stat`s. Proxy degradation is untouched: a preview is not a deliverable and publishes as it
 > always has.
 >
+> **Amended by [ADR-0104](./0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md)**,
+> which keeps `render` the only verb that writes the declared `output` and states what happens
+> when something else already has: a file another project attested to is refused before the
+> encoder runs. `preview`'s own refusal of the previewing project's `output` is unchanged and
+> is now joined by a narrower one — a preview may not land on *any* project's attested
+> deliverable.
+>
 > **Amended by [ADR-0095](./0095-the-sheets-budget-is-served-tile-width-and-overflow-refuses.md)**,
 > which states that the **`<500 ms` `frame` budget below does not bind `frame`'s contact-sheet
 > range mode**, and adds a third budget to the two this ADR defines. A sheet rasterizes ~18

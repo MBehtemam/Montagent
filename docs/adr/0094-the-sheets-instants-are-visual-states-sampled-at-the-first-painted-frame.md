@@ -5,6 +5,29 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 
 # The sheet's instants are the document's visual states, sampled at the first frame the grid paints
 
+> **Amended by [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md).**
+> Decision 6's *"unconditional structured disclosure... plus one sentence of prose restating
+> it"* is specified: **the plain-text form carries the disclosure's full content**, not a prose
+> summary of it, because the no-`--json` path is the one an agent reaching for pixels actually
+> takes and hiding the disclosure there would make the default answer the untrustworthy one.
+> `--json` changes the disclosure's form, never its presence. The **per-tile provenance** this
+> decision mandates is also named as what discharges ADR-0011's amended attribution
+> obligation, jointly with the fitted label — because a label fitted to a 140 px tile cannot
+> name the presence set.
+>
+> **Also amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** Three of this ADR's clauses are specified rather
+> than changed. Decision 2's *"the label prints both the sampled instant and the run's
+> boundary"* is satisfied by a **signed offset** from the instant, not a second absolute
+> millisecond — the two always differ by less than one frame period (37 ms against a 40 ms
+> frame on the fixture), so the offset is lossless at three characters instead of seven, and
+> `+0` prints so an on-grid boundary is an assertion rather than an absence. Decision 5's
+> *"labelled in a different register"* is a **visual mark on the sheet plus an unabbreviated
+> class token on the provenance line**, with document-derived tiles unmarked **and the zero
+> counts asserted**. Decision 6's per-tile provenance **repeats its full presence set on
+> every line** — no delta — because a delta would force the reader to reconstruct state by
+> accumulation, which is where misattribution enters. This ADR's open question *"what the
+> label carries"* is closed there.
+
 [#398](https://github.com/MBehtemam/Montagent/issues/398), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to six sub-questions; ballots verbatim

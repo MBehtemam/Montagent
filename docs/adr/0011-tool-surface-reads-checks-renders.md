@@ -88,6 +88,29 @@ status: accepted
 >   reading, from the pixel format *or* the container's declaration, and it carries which
 >   signal settled it. Adds `codec_name` to the returned facts, because the decode path is
 >   in a crate that cannot probe
+> - [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md)
+>   — **the `frame` row gains range arguments, and two of this ADR's statements about `frame`
+>   no longer hold as written.** (1) *"`frame` must print the `query --at` block alongside the
+>   image, unconditionally"* is restated as an **attribution** obligation — the agent must be
+>   able to attribute what it sees to what produced it, without a second call — discharged by
+>   the `query --at` block when the image is one frame, and by the fitted per-tile label plus a
+>   range-level provenance list when it is a contact sheet; eighteen such blocks measured
+>   28,410 characters against a whole sheet answer's 1,413. (2) *"1080x1920 -> 2691"* holds
+>   only on the high-resolution tier; the standard tier serves that frame as 819x1456 =
+>   **1560**, so `--full` is 3.84x on one tier and 2.23x on the other. The counts are
+>   **unchanged** — nine MCP tools, twelve CLI commands — because a range is arguments, not a
+>   verb
+> - [ADR-0101](0101-a-crop-is-served-at-true-scale.md) — **`--crop` is exempted from the
+>   half-scale default, which now governs the whole canvas and nothing else.** A region is
+>   served at the project's true pixel dimensions with or without `--full`, because this ADR's
+>   own justification for half scale is a token discipline over the whole canvas and a crop has
+>   already paid it; halving it twice left the flag unable to *"look closely at one card"*, its
+>   stated purpose. `--full` with a region is redundant and stays legal. This ADR's flat
+>   `2691` is also corrected **at the four code sites that published it** to the two-tier fact
+>   ADR-0097 established above ([#405](https://github.com/MBehtemam/Montagent/issues/405)), and
+>   the doc strings now name `--png` alongside the crop: measured over one card, JPEG holds
+>   **14,090** distinct colours against PNG's **523**, so scale alone does not make a crop fit
+>   for pixel work
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
