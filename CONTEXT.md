@@ -743,6 +743,35 @@ neighbours only in audio is not a visual state at all — the fixture's 4 ms int
 56112–56116 is one such, absorbed into a run that paints once audio is set aside.
 _Avoid_: short run, sub-frame run, dropped state
 
+**Keyframe change point**:
+One keyframe's `t` as the contact sheet sees it — the other kind of boundary the document states,
+beside a visual state's own ([ADR-0106](docs/adr/0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md)). The sheet counts only change
+points **interior to a visual state, on an element visible there**: one on a run boundary is
+already that run's tile, and one outside its element's lifetime (a trimmed move) is never on
+screen — the fixture declares 14 keyframes and has **zero** such change points. Membership is read
+off the document; whether one is **tiled** is a fact about the sheet. It is sampled, like a run,
+at **the first frame the grid paints at or after it** — the only frame that shows a `step` at
+all — so several may share one tile, one may land on a run's own tile and add nothing, and one
+with no frame left in its run lands on the next run's tile. Every answer reports `tiled` and
+`untiled`; `--keyframes` asks for the untiled ones to get tiles of their own. Never an easing
+midpoint or a curve's extremum: those are computed, not stated.
+_Avoid_: keyframe (the record, not the instant), keyframe tile (the picture, not the instant),
+animation point
+
+**Infill ceiling**:
+The longest span, in painted time, that a contact sheet may leave between two consecutive
+tiles **of any class** — document-derived, keyframe or infill alike — asked for with
+`--infill-ceiling <MS>` ([ADR-0106](docs/adr/0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md)). It is a
+**bound, not a count and not a period**: infill tiles are inserted only where the tiles the
+document already produced sit further apart than the ceiling, so a busy range may gain none and
+an empty one many. Infill is what closes the span; the span itself is measured across every
+tile. Infill is fitted into the slots left at the rung the other tiles fixed and never degrades
+the sheet, so a request may be honoured only coarser than asked — and then the answer states the
+**achieved** ceiling beside the requested one, uniform across the whole sheet, never a ceiling
+that holds in some stretches and not others.
+_Avoid_: gap ceiling (**Gap** is a stretch of a track with no element — a different thing),
+max gap, infill count, infill interval / period
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montagent has

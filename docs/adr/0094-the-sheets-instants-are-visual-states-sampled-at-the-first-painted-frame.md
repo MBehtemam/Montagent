@@ -3,6 +3,19 @@ status: accepted
 amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticipated, specifies the re-merge that filter implies, and turns the audio-only boundary loss it measured into a mandatory disclosure on the sheet)
 ---
 
+> **Also amended by [ADR-0106](0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md).** Decision 3's default **stands and its "absence of
+> evidence" caveat is retired**: #407 measured the fixture's keyframe population at zero and
+> found the flag's thirteenth tile on an 18-state document turns a working call into a refusal.
+> The flag is `--keyframes`. The disclosed count is **redefined**: it covers keyframe change
+> points *interior to a run on an element visible there* — read against the declared list it
+> printed 14 where the honest count is 0 — and is reported as `tiled` and `untiled` on every
+> answer. A keyframe tile is sampled at **the first painted frame at or after its change**, this
+> ADR's decision 2 applied to the other boundary the document states. Decision 5's **"gap
+> ceiling" is renamed the infill ceiling** (Gap is a glossary term for a track stretch with no
+> element), spelled `--infill-ceiling <MS>`, fitted only into slots left at the rung the other
+> tiles fixed, and honoured **uniformly** at the smallest ceiling that fits, with requested and
+> achieved both disclosed.
+
 > **Also amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** Section 4's **example is corrected, not its rule**: the
 > 4 ms interval at 56112–56116 is a pre-merge artifact — the change at 56112 is `vo-quiz`, audio,
 > so the re-merge section 1 mandates absorbs it into the visual run 53856–56116, which paints. The

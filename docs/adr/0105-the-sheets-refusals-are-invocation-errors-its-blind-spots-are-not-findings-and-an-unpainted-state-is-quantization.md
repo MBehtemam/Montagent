@@ -3,6 +3,13 @@ status: accepted
 amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a visual state the grid never paints — beside an element rounding out of existence and a rounding that manufactures an overlap or gap), 0094 (section 4's worked example is corrected — the fixture has no unpainted visual state; section 6's `skipped` is specified as a disclosure field of which only `no-grid-frame` entries raise a finding, and `blind_to` as a fixed token list in the NOT CHECKED block's shape), 0095 (the refusal it left uncoded is `E-SHEET-OVERFLOW`), 0097 (exit 3 for that refusal is ratified rather than inherited; section 7's not-yet-legal code, closed by 0103, is `E-INVOCATION`), 0103 (the refusal's "stable code" is `E-INVOCATION`; the sheet's own disclosure points at `frame --crop --at`, settling the juror request that ADR left open)
 ---
 
+> **Amended by [ADR-0106](0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md).** `E-SHEET-OVERFLOW` gains two finding fields —
+> `fits_without_keyframes` and `keyframe_tiles_admitted` — rendered only when `--keyframes` was
+> passed, because a refusal the flag caused has a cheaper remedy than a narrower range and the
+> sub-ranges alone cannot say so. The `between-keyframes` sentence gains where a keyframe tile is
+> sampled: the first painted frame at or after the change. `untiled` keyframe change points carry
+> reason `no-grid-frame` and, like `infill-evicted`, raise no finding.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map
