@@ -19,6 +19,38 @@ use crate::registry;
 /// offending line and its caret, which ADR-0011 requires of every tool's parse failure.
 const EXCERPT: &str = "excerpt";
 
+/// How many instances of one finding code print in full before the rest of them collapse
+/// to a single counted line.
+///
+/// ADR-0099. This bounds **repetition**, and sits on top of [`Class::prints_in_full`]'s
+/// separate bound on **inertness** — so a `note` still collapses at one instance, and a
+/// `review` still prints in full until there are four of it. Report size is thereby
+/// O(distinct finding codes) rather than O(elements).
+///
+/// **The number is not measured.** On every project available when it was chosen, every N
+/// from 1 to 25 produced a byte-identical report, because the codes fire at 1, 26, 72, 86
+/// and 214 instances. It is 3 because three is the fewest instances that can show a
+/// reader that the prose *varies*, and because N bounds the worst case multiplicatively —
+/// at ~40 registered codes, N = 10 admits 400 full findings where 3 admits 120. The
+/// "roughly one screen" argument for a larger N does not apply: the reader is an agent
+/// over MCP and has no screen.
+const FULL_INSTANCES: usize = 3;
+
+/// The verbs with no `--verbose` on any surface — deliberately, each one's adapter says
+/// why — keyed by the report's `tool`. A collapsed line on one of these cannot tell its
+/// reader to expand with a flag the verb rejects, so it names the route the verb does have.
+/// A test in the CLI adapter (`cli.rs`) derives this list from the CLI's own definition,
+/// so it cannot drift from the flags that actually exist.
+pub const NO_VERBOSE: &[&str] = &["timeline", "query", "frame", "measure", "fonts list"];
+
+/// Where a collapsed line sends its reader to see the instances it counted.
+fn expansion(tool: &str) -> &'static str {
+    match NO_VERBOSE.contains(&tool) {
+        true => "see --json",
+        false => "expand with --verbose",
+    }
+}
+
 /// What the text renderer may print.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Options {
@@ -118,7 +150,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
     // findings, because the findings are the ones the render did not refuse on and read
     // as a caption to the file (ADR-0011).
     if let Some(video) = report.get("render").filter(|view| !view.is_null()) {
-        out.push_str(&video_block("RENDER", video, &[]));
+        out.push_str(&video_block("RENDER", video, &[], options));
     }
 
     // `preview`'s block: the same block, above the same findings, with the tier disclosure
@@ -126,7 +158,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
     // it is how a caller knows what it is looking at — so it prints before the file's own
     // numbers rather than after them, and at every verbosity.
     if let Some(preview) = report.get("preview").filter(|view| !view.is_null()) {
-        out.push_str(&preview_block(preview));
+        out.push_str(&preview_block(preview, options));
     }
 
     // `measure`'s whole answer, on the same rule again.
@@ -149,6 +181,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
 
+    let expand = expansion(report["tool"].as_str().unwrap_or(""));
     for class in [
         Class::Error,
         Class::Review,
@@ -165,12 +198,21 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
             continue;
         }
         out.push('\n');
-        if class.prints_in_full() || options.verbose {
+        if options.verbose {
+            for finding in of_class {
+                out.push_str(&full(finding)?);
+            }
+        } else if class.bounded_by_repetition() {
+            // The class is not inert, so its findings print in full — but only up to
+            // `FULL_INSTANCES` of any one code. ADR-0099.
+            out.push_str(&bounded(&of_class, expand)?);
+        } else if class.prints_in_full() {
+            // `Drift`: the findings are the answer, so no bound applies. ADR-0099 §6.
             for finding in of_class {
                 out.push_str(&full(finding)?);
             }
         } else {
-            out.push_str(&collapsed(&of_class));
+            out.push_str(&collapsed(&of_class, expand));
         }
     }
 
@@ -334,28 +376,77 @@ fn plural(n: u64, noun: &str) -> String {
     }
 }
 
-/// One counted line carrying the code, per class-and-code, for the informational
-/// classes. ADR-0006's noise budget: `0 errors, 47 notes` must not read as a pass, and
-/// 47 printed alignment lines are how a reader learns to skip the output.
-fn collapsed(findings: &[&Value]) -> String {
-    // Counted in first-appearance order rather than by size: a report that reordered its
-    // own classes by how many of each there are would be ranking them, and ADR-0006's
-    // whole point about the informational classes is that they are inert.
+/// How many times each code appears, in **first-appearance order** rather than by size: a
+/// report that reordered its own findings by how many of each there are would be ranking
+/// them, and a count of instances is not a ranking — ADR-0006's whole point about the
+/// informational classes is that they are inert, and a repeated `review` is no more urgent
+/// for being repeated.
+fn tally<'a>(codes: impl Iterator<Item = &'a str>) -> Vec<(&'a str, usize)> {
     let mut counted: Vec<(&str, usize)> = Vec::new();
-    for finding in findings {
-        let code = finding["code"].as_str().unwrap_or("?");
+    for code in codes {
         match counted.iter_mut().find(|(c, _)| *c == code) {
             Some((_, count)) => *count += 1,
             None => counted.push((code, 1)),
         }
     }
+    counted
+}
 
+fn count_in(counted: &[(&str, usize)], code: &str) -> usize {
+    counted
+        .iter()
+        .find(|(c, _)| *c == code)
+        .map(|(_, n)| *n)
+        .unwrap_or(0)
+}
+
+/// The one line a collapse leaves behind. The **count survives** — that is what makes the
+/// collapse a filter on output rather than on analysis, which is the half of ADR-0006's
+/// *"output may be filtered; analysis may not"* that licenses any of this.
+fn collapsed_line(class: &str, code: &str, count: usize, expand: &str) -> String {
+    format!("{class}  {code}  {count} — {expand}\n")
+}
+
+/// One counted line carrying the code, per class-and-code, for the informational
+/// classes. ADR-0006's noise budget: `0 errors, 47 notes` must not read as a pass, and
+/// 47 printed alignment lines are how a reader learns to skip the output.
+fn collapsed(findings: &[&Value], expand: &str) -> String {
     // Every finding here shares one class — the caller groups by it before collapsing.
     let class = findings[0]["class"].as_str().unwrap_or("?");
-    counted
+    tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")))
         .into_iter()
-        .map(|(code, count)| format!("{class}  {code}  {count} — expand with --verbose\n"))
+        .map(|(code, count)| collapsed_line(class, code, count, expand))
         .collect()
+}
+
+/// The findings of one **non-inert** class, bounded by repetition: a code prints in full up
+/// to [`FULL_INSTANCES`] instances, and collapses to one counted line beyond it. ADR-0099.
+///
+/// Findings are walked in report order, not grouped by code, and a collapsed code's one
+/// line is emitted where that code **first** appears. So the printed order is still the
+/// order the checks found things in, and a reader who has learned to read a small project's
+/// report reads a large one's the same way.
+///
+/// A code past the bound prints **no instance at all** rather than the first three and an
+/// "and N more". A sample would make the printed set arbitrary — it is whichever instances
+/// the check happened to reach first, which is not a ranking and must not read as one.
+fn bounded(findings: &[&Value], expand: &str) -> Result<String, RenderError> {
+    let counted = tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")));
+    let class = findings[0]["class"].as_str().unwrap_or("?");
+
+    let mut out = String::new();
+    let mut announced: Vec<&str> = Vec::new();
+    for finding in findings {
+        let code = finding["code"].as_str().unwrap_or("?");
+        let count = count_in(&counted, code);
+        if count <= FULL_INSTANCES {
+            out.push_str(&full(finding)?);
+        } else if !announced.contains(&code) {
+            announced.push(code);
+            out.push_str(&collapsed_line(class, code, count, expand));
+        }
+    }
+    Ok(out)
 }
 
 fn full(finding: &Value) -> Result<String, RenderError> {
@@ -1273,11 +1364,18 @@ fn frame_block(frame: &Value) -> String {
 /// calling verb has to say before the file's own numbers — `preview`'s tier disclosure,
 /// and nothing today for `render`.
 ///
-/// **Nothing here is behind a verbosity switch**, for `frame`'s reason: an agent that
+/// **No number here is behind a verbosity switch**, for `frame`'s reason: an agent that
 /// cannot tell *"not there"* from *"not drawn"*, or *"silent"* from *"not mixed"*, chases
 /// the wrong defect. The range is stated half-open in so many words, because ADR-0011
 /// asks the tool to say so in its output.
-fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
+///
+/// The **enumerations** are, since ADR-0099: this block names every element on the `audio`
+/// and `painted` lines and emits one row per element under `not mixed` / `in part` /
+/// `not painted`, which at 217 elements was ~140 lines and would have left the report
+/// O(elements) however tightly the findings were bounded. Every count and every total
+/// stays, at every verbosity — what collapses is the list of ids under a count that is
+/// still printed, on the same `FULL_INSTANCES` bound the findings follow.
+fn video_block(heading: &str, video: &Value, first: &[String], options: Options) -> String {
     let number = |key: &str| video[key].as_i64().unwrap_or_default();
     let wall_ms = video["wall_ms"].as_u64().unwrap_or_default();
     let mut out = format!(
@@ -1323,15 +1421,44 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
             .map(|ids| ids.iter().map(named).collect())
             .unwrap_or_default()
     };
+
+    // Past the bound the ids go and the count stays — never the first three and an "and N
+    // more", for the reason `bounded` prints no instance of a collapsed code: a prefix of a
+    // document-order list is whichever elements the timeline reached first, which is not a
+    // ranking and must not read as one.
+    let listed = |ids: &[String]| -> String {
+        match options.verbose || ids.len() <= FULL_INSTANCES {
+            true => format!(": {}", ids.join(", ")),
+            false => " — expand with --verbose".to_string(),
+        }
+    };
+
+    // The three reason groups are rendered first, because the `audio` line says whether the
+    // elements it counts are named below, and after ADR-0099 that is no longer always true.
+    let groups: Vec<(String, bool)> = [
+        ("not_mixed", "not mixed  "),
+        ("painted_partially", "in part    "),
+        ("not_painted", "not painted"),
+    ]
+    .iter()
+    .map(|(key, label)| {
+        let entries: Vec<&Value> = video[key].as_array().into_iter().flatten().collect();
+        element_rows(&entries, label, options.verbose)
+    })
+    .collect();
+
     let mixed = names("mixed");
+    let (_, not_mixed_named) = &groups[0];
     let refused = video["not_mixed"].as_array().map(Vec::len).unwrap_or(0);
     out.push_str(&row(if mixed.is_empty() && refused > 0 {
-        // Not "no audible element": there were some, and each is named below with the
-        // reason it is not in the file.
+        // Not "no audible element": there were some, and each is accounted for below with
+        // the reason it is not in the file — by name where the bound allows, and otherwise
+        // as a count under its code, which is still the reason.
         format!(
-            "audio       none mixed — {} not mixed, named below; the file carries no audio \
+            "audio       none mixed — {} not mixed, {} below; the file carries no audio \
              stream",
-            plural(refused as u64, "audible element")
+            plural(refused as u64, "audible element"),
+            if *not_mixed_named { "named" } else { "counted" },
         )
     } else if mixed.is_empty() {
         "audio       none — no audible element is in the range, so the file carries no audio \
@@ -1339,9 +1466,9 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
             .to_string()
     } else {
         format!(
-            "audio       {} mixed: {}",
+            "audio       {} mixed{}",
             plural(mixed.len() as u64, "element"),
-            mixed.join(", ")
+            listed(&mixed),
         )
     }));
     let painted = names("painted");
@@ -1349,26 +1476,13 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
         "painted     nothing — every frame is its background alone".to_string()
     } else {
         format!(
-            "painted     {}: {}",
+            "painted     {}{}",
             plural(painted.len() as u64, "element"),
-            painted.join(", ")
+            listed(&painted),
         )
     }));
-    for (key, label) in [
-        ("not_mixed", "not mixed  "),
-        ("painted_partially", "in part    "),
-        ("not_painted", "not painted"),
-    ] {
-        for entry in video[key].as_array().into_iter().flatten() {
-            out.push_str(&row(format!(
-                "{label} {} — {}",
-                named(&entry["element"]),
-                // ADR-0093: the code. The sentence is the finding's, printed above with
-                // its class — the same rule the `frame` block follows, and the reason
-                // `reason_words` is not reached here.
-                entry["code"].as_str().unwrap_or("(no code given)"),
-            )));
-        }
+    for (rows, _) in &groups {
+        out.push_str(rows);
     }
     for (key, label) in [("sources", "sources"), ("fonts", "fonts")] {
         let files = names(key);
@@ -1380,6 +1494,47 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
     out
 }
 
+/// One `not mixed` / `in part` / `not painted` group, bounded on the same rule the findings
+/// follow: a code prints one row per element up to [`FULL_INSTANCES`] elements, and one
+/// counted line beyond it. ADR-0099.
+///
+/// Returns the rows and whether every element in the group was **named** — the `audio` line
+/// above them claims it, and may not claim it once anything here has collapsed.
+fn element_rows(entries: &[&Value], label: &str, verbose: bool) -> (String, bool) {
+    fn code_of(entry: &Value) -> &str {
+        entry["code"].as_str().unwrap_or("(no code given)")
+    }
+    let counted = tally(entries.iter().map(|e| code_of(e)));
+
+    let mut out = String::new();
+    let mut all_named = true;
+    let mut announced: Vec<&str> = Vec::new();
+    for entry in entries {
+        let code = code_of(entry);
+        let count = count_in(&counted, code);
+        if verbose || count <= FULL_INSTANCES {
+            out.push_str(&row(format!(
+                "{label} {} — {}",
+                named(&entry["element"]),
+                // ADR-0093: the code. The sentence is the finding's, printed above with
+                // its class — the same rule the `frame` block follows, and the reason
+                // `reason_words` is not reached here.
+                code,
+            )));
+            continue;
+        }
+        all_named = false;
+        if !announced.contains(&code) {
+            announced.push(code);
+            out.push_str(&row(format!(
+                "{label} {code}  {} — expand with --verbose",
+                plural(count as u64, "element"),
+            )));
+        }
+    }
+    (out, all_named)
+}
+
 /// `preview`'s block: the tier disclosure, then the same block `render` answers with.
 ///
 /// The disclosure is unconditional — a preview at the default 720p target says so as
@@ -1388,7 +1543,7 @@ fn video_block(heading: &str, video: &Value, first: &[String]) -> String {
 /// rung it tried prints too: an agent that is told only the tier it ended on cannot tell a
 /// project that missed by 0.1 s from one that missed by four seconds, and those two want
 /// different next moves.
-fn preview_block(preview: &Value) -> String {
+fn preview_block(preview: &Value, options: Options) -> String {
     let tier = &preview["tier"];
     let name = tier["name"].as_str().unwrap_or("?");
     let mut first = vec![format!(
@@ -1431,7 +1586,7 @@ fn preview_block(preview: &Value) -> String {
             }
         ));
     }
-    video_block("PREVIEW", preview, &first)
+    video_block("PREVIEW", preview, &first, options)
 }
 
 /// The answer, generated from the `query` block of the canonical JSON.
