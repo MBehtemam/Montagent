@@ -1,0 +1,71 @@
+{
+  "frame": {"width": 1080, "height": 1080},
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 6000,
+  "loop": true,
+  "output": "deliverable.mp4",
+  "fonts": {"bold": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-6m5lh9o0/work/fonts/Inter-Bold.ttf", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {
+      "name": "tile-tl",
+      "layer": 10,
+      "elements": [
+        {"id":"tile-tl","type":"rect","group":"mark","start":0,"end":5500,"x":[{"t":0,"v":-120},{"t":800,"v":142,"ease":[0.34,1.25,0.64,1.0]}],"y":495,"origin":"center","width":82,"height":82,"fill":"#101418","radius":17,"scale":[{"t":5150,"v":[1.0,1.0]},{"t":5450,"v":[0.0,0.0],"ease":[0.5,0.0,0.75,0.0]}]}
+      ]
+    },
+    {
+      "name": "tile-tr",
+      "layer": 11,
+      "elements": [
+        {"id":"tile-tr","type":"ellipse","group":"mark","start":250,"end":5500,"x":232,"y":[{"t":250,"v":-120},{"t":1050,"v":495,"ease":[0.34,1.25,0.64,1.0]}],"origin":"center","width":82,"height":82,"fill":"#FF5A36","scale":[{"t":5100,"v":[1.0,1.0]},{"t":5400,"v":[0.0,0.0],"ease":[0.5,0.0,0.75,0.0]}]}
+      ]
+    },
+    {
+      "name": "tile-bl",
+      "layer": 12,
+      "elements": [
+        {"id":"tile-bl","type":"rect","group":"mark","start":450,"end":5500,"x":142,"y":[{"t":450,"v":1200},{"t":1300,"v":585,"ease":[0.34,1.25,0.64,1.0]}],"origin":"center","width":82,"height":82,"fill":"#101418","radius":17,"scale":[{"t":5050,"v":[1.0,1.0]},{"t":5350,"v":[0.0,0.0],"ease":[0.5,0.0,0.75,0.0]}]}
+      ]
+    },
+    {
+      "name": "tile-br",
+      "layer": 13,
+      "elements": [
+        {"id":"tile-br","type":"rect","group":"mark","start":600,"end":5500,"x":[{"t":600,"v":1200},{"t":2000,"v":232,"ease":[0.2,0.2,0.7,1.0]}],"y":585,"origin":"center","width":82,"height":82,"fill":"#101418","radius":17,"scale":[{"t":5000,"v":[1.0,1.0]},{"t":5300,"v":[0.0,0.0],"ease":[0.5,0.0,0.75,0.0]}],"rotation":[{"t":600,"v":0.0},{"t":2000,"v":-1080.0,"ease":[0.2,0.2,0.7,1.0]}]}
+      ]
+    },
+    {
+      "name": "name",
+      "layer": 20,
+      "elements": [
+        {"id":"type-1","type":"text","group":"name","start":3100,"end":3300,"x":337,"y":540,"origin":"center-left","width":112,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"M"}]},
+        {"id":"type-2","type":"text","group":"name","start":3300,"end":3400,"x":337,"y":540,"origin":"center-left","width":186,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Mo"}]},
+        {"id":"type-3","type":"text","group":"name","start":3400,"end":3600,"x":337,"y":540,"origin":"center-left","width":261,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Mon"}]},
+        {"id":"type-4","type":"text","group":"name","start":3600,"end":3800,"x":337,"y":540,"origin":"center-left","width":305,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Mont"}]},
+        {"id":"type-5","type":"text","group":"name","start":3800,"end":3900,"x":337,"y":540,"origin":"center-left","width":375,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Monta"}]},
+        {"id":"type-6","type":"text","group":"name","start":3900,"end":4100,"x":337,"y":540,"origin":"center-left","width":451,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Montag"}]},
+        {"id":"type-7","type":"text","group":"name","start":4100,"end":4300,"x":337,"y":540,"origin":"center-left","width":522,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Montage"}]},
+        {"id":"type-8","type":"text","group":"name","start":4300,"end":4400,"x":337,"y":540,"origin":"center-left","width":597,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Montagen"}]},
+        {"id":"type-9","type":"text","group":"name","start":4400,"end":5500,"x":337,"y":540,"origin":"center-left","width":641,"height":120,"font":"bold","size":120,"line_height":1.0,"color":"#101418","runs":[{"text":"Montagent"}],"opacity":[{"t":5000,"v":1.0},{"t":5300,"v":0.0,"ease":"ease-in"}]}
+      ]
+    },
+    {
+      "name": "cursor",
+      "layer": 21,
+      "elements": [
+        {"id":"cursor-01","type":"rect","group":"cursor","start":2500,"end":2800,"x":347,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-02","type":"rect","group":"cursor","start":3100,"end":3300,"x":459,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-03","type":"rect","group":"cursor","start":3300,"end":3400,"x":532,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-04","type":"rect","group":"cursor","start":3400,"end":3600,"x":607,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-05","type":"rect","group":"cursor","start":3600,"end":3800,"x":651,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-06","type":"rect","group":"cursor","start":3800,"end":3900,"x":721,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-07","type":"rect","group":"cursor","start":3900,"end":4100,"x":797,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-08","type":"rect","group":"cursor","start":4100,"end":4300,"x":869,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-09","type":"rect","group":"cursor","start":4300,"end":4400,"x":943,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"},
+        {"id":"cursor-10","type":"rect","group":"cursor","start":4400,"end":4700,"x":987,"y":542,"origin":"center-left","width":10,"height":116,"fill":"#101418"}
+      ]
+    }
+  ]
+}
