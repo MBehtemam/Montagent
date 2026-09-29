@@ -556,8 +556,10 @@ fn font_swap(document: &Loose, cache: Option<&Path>, usage: &[Usage], report: &m
                     .at_file(document.path())
                     .field("font", json!(key))
                     .field("detail", json!(detail))
-                    // The count, which the sentence needs; the census below carries the
-                    // names, which a sentence cannot.
+                    // The count, which the sentence needs. The census below carries the
+                    // names in the canonical JSON only: the text form counts this code's
+                    // group, and needs no names, because its value is the font key, written
+                    // literally on every member and so searchable in the document (ADR-0111).
                     .field("elements", json!(pluralised(members.len(), "element")))
                     .census(Census::on("font").group(json!(key), members)),
             );
