@@ -1,0 +1,1 @@
+Here's the trick. Every element in the video is one line of text, so my agent can change exactly one thing and prove nothing else moved.

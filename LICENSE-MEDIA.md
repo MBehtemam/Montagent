@@ -74,6 +74,35 @@ listed here rather than treated as clean.
 ground, with no channel media in them at all. The **fonts** that typeset them are a
 different matter and are category 2 below — the frames are ours, the faces are not.
 
+### The skills-eval asset pack
+
+`docs/research/skills-eval/assets/`: the fixed pack every run of the skills eval
+([#465](https://github.com/MBehtemam/Montagent/issues/465)) starts from. The pack is
+also listed, file by file, in its own `README.md`. Everything in it is in this category
+**except** `fonts/` (category 2 below) and `music/bed-120bpm.wav` (dedicated CC0 1.0;
+see the note after the table).
+
+| path | what it is |
+| --- | --- |
+| `brand/*.png` | the Montagent mark, wordmark and lockup, drawn by `pack-src/make_brand.py` |
+| `voiceover/voiceover.wav`, `voiceover.words.json`, `script.txt` | a synthetic voiceover spoken by Kokoro-82M (Apache-2.0 weights and voice; the output is ours) |
+| `presenter/*.txt`, `presenter/*.words.json` | the presenter takes' scripts, and their word timings made by `pack-src/align_takes.py` |
+| `screen/*`, `stills/*` | a screen recording of a real Montagent session, and stills from it |
+
+**The presenter takes are Azure avatar output.** `presenter/take-{1,2,3}.mp4` were
+generated with Azure AI Speech's text-to-speech avatar (the prebuilt avatar "Harry",
+casual style) on the maintainer's subscription, and are committed as delivered. The
+person on screen is synthetic. Microsoft's Product Terms and the Azure AI Speech code of
+conduct govern them, including its requirement to disclose that the presenter is
+synthetic, which the pack's `README.md` does. They are in this category because the
+maintainer generated them, not because the maintainer is on camera.
+
+**The music bed is CC0.** `music/bed-120bpm.wav` is synthesised from scratch by
+`pack-src/make_music_bed.py`, which writes the same bytes on every run. The maintainer
+dedicates it to the public domain under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). It is the one media file
+in the repository with no restriction on it at all.
+
 ### On crates.io
 
 Five of the six goldens above are excluded from the published `montagent-core` package
@@ -96,6 +125,13 @@ maintainer's to reserve rights over either**. Each is governed by the licence na
 Open Font License, Version 1.1**. The full licence ships beside the file as
 `fonts/OpenRunde-LICENSE.txt` and that attribution is already correct; this entry only
 records that the font is not covered by either the MIT grant or category 1 above.
+
+### `docs/research/skills-eval/assets/fonts/`
+
+**Inter 4.1**, Regular and Bold, © 2016 The Inter Project Authors
+(<https://github.com/rsms/inter>), under the **SIL Open Font License, Version 1.1**. They
+are copied unmodified from the v4.1 release's `extras/ttf/`, with the full licence beside
+them as `Inter-LICENSE.txt`.
 
 ### `docs/research/prototypes/thai-vertical-metrics/fonts/`
 

@@ -1,0 +1,1 @@
+Most editors hide the video behind a mouse. Montagent hands it to your agent, and tells it the truth about every frame before it renders.

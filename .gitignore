@@ -24,3 +24,6 @@ out/
 # inside a repository, so this rule covers exactly one case: MONTAGENT_CACHE_DIR pointed
 # into a checkout. Stated once, here, so no project repo has to remember it.
 probe-cache.json*
+
+# Raw footage for the skills-eval pack, before it is trimmed and encoded into assets/.
+docs/research/skills-eval/assets/incoming/
