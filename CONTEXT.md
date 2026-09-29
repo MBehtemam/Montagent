@@ -851,7 +851,9 @@ A grouping of the siblings a finding affects by an observable, document-derived
 fact — *"four of five are at y = 1597, one is at 1537"* — which never ranks the
 groups or says which is correct. It is what a refuse-class finding carries
 instead of a repair: narrowing where to look is admissible where stating a fix
-is not.
+is not. Every sibling sits in exactly one group: a grouping whose
+groups all hold the same members partitions nothing, and is not a census
+however it is shaped.
 ([ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md),
 [ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
 _Avoid_: histogram, breakdown, majority (it does not have one)
