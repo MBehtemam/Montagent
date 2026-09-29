@@ -11,6 +11,13 @@ amends: 0094 (decision 2's "the label prints both the sampled instant and the ru
   needs a third key)
 ---
 
+> **Type floor re-measured cold by [#422](https://github.com/MBehtemam/Montagent/issues/422); it stands.**
+> Transcription of unseen labels ([`docs/research/cold-observer-floors/`](../research/cold-observer-floors/FINDINGS.md))
+> is exact at 8 px for Sonnet and Opus and first breaks at **~5 px**, so 8 px keeps ~2–3 px of
+> margin and the "margin over a single datum" risk is retired. What fails first below the floor is
+> the id's **sign**, which is section 8's side-of-boundary bit, and one failure was reported with full confidence.
+> Like ADR-0095's width floor it is **reader-conditional**: Haiku 4.5 never located the label strip.
+
 > **Amended by [ADR-0106](0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md).** Section 8's identifying field is **absent on keyframe and
 > infill tiles**, which have no boundary change to name, and those tiles are **excluded from the
 > sheet-wide elision fit** — #407 found one `element.property` stand-in stripped the field from
