@@ -183,9 +183,13 @@ fn full_scale_and_png_are_each_behind_their_own_flag() {
 }
 
 #[test]
-fn crop_returns_the_requested_region() {
-    // The region is stated in frame space at true pixels, and the default half scale
-    // applies to it like any other extent — so an 800x600 crop comes back 400x300.
+fn crop_returns_the_requested_region_at_true_scale() {
+    // **This assertion is reversed from what it was, deliberately** (ADR-0101). It used to
+    // read *"the default half scale applies to it like any other extent — so an 800x600 crop
+    // comes back 400x300"*, which is why #402 is a decision reversal and not an oversight:
+    // the halving was specified, tested, and wrong about what ADR-0011's default is for. That
+    // default is a token discipline over the whole canvas, and a region has already paid it.
+    // An 800x600 crop now comes back 800x600, with no `--full`.
     let (json, bytes) = drawn(
         &fixture_project(),
         &Ask {
@@ -201,8 +205,134 @@ fn crop_returns_the_requested_region() {
     assert_eq!(json["frame"]["region"]["y"], 200);
     assert_eq!(json["frame"]["region"]["width"], 800);
     assert_eq!(json["frame"]["region"]["height"], 600);
+
+    // The answer says `full` without the flag, so the caption cannot disagree with the
+    // bytes — which is the whole of #402: the two disagreed and the doc string was believed.
+    assert_eq!(json["frame"]["scale"], "full");
+    assert_eq!(json["frame"]["width"], 800);
+    assert_eq!(json["frame"]["height"], 600);
     let picture = pixels(&bytes);
-    assert_eq!((picture.width(), picture.height()), (400, 300));
+    assert_eq!((picture.width(), picture.height()), (800, 600));
+}
+
+#[test]
+fn a_crop_does_not_lift_the_half_scale_default_off_the_whole_frame() {
+    // The negative half of ADR-0101, and the one that keeps ADR-0011's default meaning
+    // something: the exemption is the *region's*, not the caller's. Same instant, no crop,
+    // and the default is untouched.
+    let (json, bytes) = drawn(&fixture_project(), &at(11000));
+
+    assert_eq!(json["frame"]["scale"], "half");
+    assert_eq!(pixels(&bytes).dimensions(), (540, 960));
+}
+
+#[test]
+fn full_with_a_crop_is_redundant_rather_than_illegal() {
+    // ADR-0097 §4 refuses `--full` with a *range* for want of a referent; ADR-0101 declines
+    // to carry that to a region. `--full --crop` is the only spelling that reached true scale
+    // before this change — including in this repo's own contact-sheet research scripts — so
+    // refusing it would turn every correct workaround into an error on upgrade, to buy
+    // tidiness. Byte-identical, not merely same-sized.
+    let ask = |full: bool| Ask {
+        crop: Some("100,200,800,600".into()),
+        full,
+        png: true,
+        ..at(11000)
+    };
+    let (plain, plain_bytes) = drawn(&fixture_project(), &ask(false));
+    let (redundant, redundant_bytes) = drawn(&fixture_project(), &ask(true));
+
+    assert_eq!(plain["frame"]["scale"], "full");
+    assert_eq!(redundant["frame"]["scale"], "full");
+    assert_eq!(
+        plain_bytes, redundant_bytes,
+        "`--full` with a region must change nothing at all"
+    );
+}
+
+#[test]
+fn a_whole_frame_crop_is_full_scale_spelled_longer_and_not_a_discount() {
+    // The consequence ADR-0101 had to answer rather than wave at: if a region implies true
+    // scale then a region *is* the frame reaches true scale with no `--full`, so the
+    // half-scale default is opt-out-able by spelling a whole-frame crop. It is answered by
+    // arithmetic — the two are byte-identical, so the crop costs exactly what `--full` costs
+    // and the caption still says `full` — which is why no redundancy refusal was added. The
+    // default was a default, never a quota.
+    let (whole, whole_bytes) = drawn(
+        &fixture_project(),
+        &Ask {
+            crop: Some("0,0,1080,1920".into()),
+            png: true,
+            ..at(11000)
+        },
+    );
+    let (flagged, flagged_bytes) = drawn(
+        &fixture_project(),
+        &Ask {
+            full: true,
+            png: true,
+            ..at(11000)
+        },
+    );
+
+    assert_eq!(whole["frame"]["scale"], "full");
+    assert_eq!(pixels(&whole_bytes).dimensions(), (1080, 1920));
+    assert_eq!(
+        whole_bytes, flagged_bytes,
+        "a whole-frame crop and `--full` must be the same bytes, or one of them is a discount"
+    );
+    assert_eq!(
+        flagged["frame"]["region"],
+        Value::Null,
+        "and only one of the two names a region, so the answers stay distinguishable"
+    );
+}
+
+#[test]
+fn a_crop_is_the_pixels_a_full_frame_would_have_been_cropped_to() {
+    // The equivalence that makes ADR-0101 worth landing, measured against the thing it
+    // replaces: #402's reporting agent abandoned `--crop` and re-did its pixel work by
+    // cropping `--full --png` output externally. That workaround is now unnecessary, and this
+    // is the assertion that says so — read through the independent decoder, region against
+    // whole frame, pixel for pixel.
+    let dir = tempdir(line!());
+    let project = write_project(
+        &dir,
+        "p.montagent.json",
+        &one_track(
+            r##"{"id":"square","type":"rect","start":0,"end":1000,"x":0,"y":0,
+                "origin":"top-left","width":100,"height":100,"fill":"#FF0000"}"##,
+        ),
+    );
+    let (_, whole_bytes) = drawn(
+        &project,
+        &Ask {
+            full: true,
+            png: true,
+            ..at(500)
+        },
+    );
+    let (_, cropped_bytes) = drawn(
+        &project,
+        &Ask {
+            crop: Some("50,0,100,100".into()),
+            png: true,
+            ..at(500)
+        },
+    );
+
+    let whole = pixels(&whole_bytes);
+    let cropped = pixels(&cropped_bytes);
+    assert_eq!(cropped.dimensions(), (100, 100));
+    for y in 0..100 {
+        for x in 0..100 {
+            assert_eq!(
+                rgb(&cropped, x, y),
+                rgb(&whole, x + 50, y),
+                "the region differs from the whole frame at {x},{y}"
+            );
+        }
+    }
 }
 
 #[test]

@@ -521,8 +521,14 @@ do not repair it by ordinary file edit.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0004",
-        template: "`{element}` ({start}..{end}) and `{other}` ({other_start}..{other_end}) \
-are both in track `{track}` and overlap by {overlap} ms.",
+        // **One finding per track, not per overlapping pair** (ADR-0100). Per-pair
+        // emission was quadratic in one authorial mistake — fifteen elements on one track
+        // printed 105 sentences — and the census under this one carries the member set
+        // that those 105 sentences spelled out pairwise. `overlap` survives the collapse
+        // as contended track time, which is the per-pair field's own quantity summed over
+        // the track rather than over a pair.
+        template: "{count} elements in track `{track}` overlap, in {sets}; {overlap} ms \
+of the track is covered more than once.",
         status: Live,
     },
     CheckSpec {
@@ -1386,6 +1392,56 @@ say why.",
         // tell *"silent by nature"* from *"dropped"* chases the wrong thing — so the fact is
         // reported, at the class that says *"you will not act on this today"*.
         template: "`{element}` is not in the mix: {resolved} carries no audio stream.",
+        status: Live,
+    },
+    // ---- #391 / ADR-0104: what is already at the output path. --------------------
+    //
+    // Two codes and not one, because ADR-0043 fixes repair form per code and these two
+    // conditions do not share one. A *foreign* stamp is a fact: another project wrote that
+    // file, Montagent observed it, and which of the two projects is meant to own the path is
+    // not in either document — refuse. An *absent* stamp is an absence of evidence: the file
+    // may be an irreplaceable cut or may be last week's scratch, and the tool cannot tell.
+    // One code cannot be refuse-class for the first and `review` for the second.
+    CheckSpec {
+        code: "E-OUTPUT-FOREIGN",
+        // ADR-0093: a world-effect of the promotion, so `error` — the deliverable is not
+        // wrong, the *world* is about to be, and `error` covers "the render is refused".
+        // Withholding here is not the absence of a promotion but the whole point of one.
+        classes: &[Error],
+        // Refuse. The repair is not derivable: whether the author meant to change this
+        // project's `output` or to move the other project's deliverable out of the way is a
+        // question about intent, and the document holds neither answer.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0104",
+        template: "{output} was written by a different project ({project}), and rendering \
+this one would destroy it. Give this project its own `output`, or move that file.",
+        status: Live,
+    },
+    CheckSpec {
+        code: "R-OUTPUT-UNATTESTED",
+        // `review` **usually**, which is the one place this ticket's jury split. An unstamped
+        // file is *true-but-uncertain*, and `error` is defined as "refused or **guaranteed**
+        // wrong" — a guarantee the tool cannot make about a file it has no evidence about.
+        // Classing it `error` outright would refuse the first render of every project that
+        // existed before this check, charging the migration cost to the wrong party.
+        //
+        // `error` when `--no-clobber` was given, which is ADR-0006's per-instance class rule
+        // doing exactly its job: the *condition* is identical and the *consequence* is not,
+        // because the caller has said that no evidence is reason enough. It stays one code
+        // rather than borrowing `E-OUTPUT-FOREIGN`, which would name a foreign project for a
+        // file that has none — the report would be wrong about what it observed.
+        classes: &[Review, Error],
+        // ADR-0043: declared once for the code, and read only on the `error` instances. The
+        // repair is not derivable for the same reason `E-OUTPUT-FOREIGN`'s is not.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0104",
+        // Worded to be true at both classes: it states the observation and the two moves,
+        // and does not promise which way the run went — the finding's own class says that.
+        template: "{output} already exists and carries no Montagent attestation, so this \
+project did not produce it. Render elsewhere, or move it aside; without `--no-clobber` it \
+is replaced.",
         status: Live,
     },
     CheckSpec {

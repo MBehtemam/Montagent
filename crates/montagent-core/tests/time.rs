@@ -92,8 +92,22 @@ fn two_elements_of_one_track_sharing_an_instant_is_an_error() {
     let finding = &report.findings[0];
     assert_eq!(finding.class, Class::Error);
     assert_eq!(finding.location.track.as_deref(), Some("photo"));
-    assert_eq!(finding.fields["element"], "a");
-    assert_eq!(finding.fields["other"], "b");
+    // ADR-0100: the finding is the *track's*, so it names no element and carries the
+    // offenders in its census instead. Both members, and the stretch they contend for.
+    assert_eq!(finding.location.element, None);
+    assert_eq!(finding.fields["count"], 2);
+    assert_eq!(finding.fields["sets"], "1 overlapping set");
+    let census = finding
+        .census
+        .as_ref()
+        .expect("a refuse-class finding censuses");
+    assert_eq!(census.field, "contended_stretch");
+    assert_eq!(census.groups.len(), 1);
+    assert_eq!(census.groups[0].members, ["a", "b"]);
+    assert_eq!(census.groups[0].value, "0..5000");
+
+    // `overlap` is the one per-pair number that survives the collapse, and on two
+    // elements it is the number the per-pair finding reported: contended track time.
     assert_eq!(finding.fields["overlap"], 1000);
 
     // ADR-0043: which of the two is in the wrong place is not readable off the document,
@@ -101,7 +115,14 @@ fn two_elements_of_one_track_sharing_an_instant_is_an_error() {
     assert_eq!(finding.repair, Some(Repair::None));
 
     let rendered = render(&report);
-    assert!(rendered.contains("overlap by 1000 ms"), "{rendered}");
+    assert!(
+        rendered.contains("2 elements in track `photo` overlap, in 1 overlapping set; 1000 ms"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("census contended_stretch: 2 at 0..5000"),
+        "{rendered}"
+    );
     assert!(rendered.contains("refuse-class"), "{rendered}");
 }
 
@@ -154,17 +175,150 @@ fn an_overlap_between_two_elements_that_are_not_adjacent_in_time_order_is_found(
         ),
     ));
 
-    let pairs: Vec<(&str, &str)> = report
-        .findings
-        .iter()
-        .map(|f| {
-            (
-                f.fields["element"].as_str().unwrap(),
-                f.fields["other"].as_str().unwrap(),
-            )
-        })
+    // Under ADR-0100 the traversal decides *membership of a knot* rather than how many
+    // sentences print, so reading the previous element's `end` instead of the furthest
+    // instant the knot has reached would no longer merely miss a sentence — it would leave
+    // `later` out of the census and out of the count, reporting two offenders of three.
+    let finding = &report.findings[0];
+    assert_eq!(finding.fields["count"], 3);
+    let census = finding
+        .census
+        .as_ref()
+        .expect("a refuse-class finding censuses");
+    assert_eq!(census.groups.len(), 1);
+    assert_eq!(census.groups[0].members, ["long", "inside", "later"]);
+}
+
+/// A track of `n` elements that all overlap each other, each starting 100 ms after the
+/// last and all ending together.
+fn one_knot_of(n: i64) -> String {
+    let elements: Vec<String> = (0..n)
+        .map(|i| rect(&format!("e{i:02}"), i * 100, 10000))
         .collect();
-    assert_eq!(pairs, [("long", "inside"), ("long", "later")]);
+    track("photo", 10, &elements.join(","))
+}
+
+#[test]
+fn fifteen_elements_on_one_track_are_one_finding_and_not_a_hundred_and_five() {
+    // ADR-0100's measurement, and MONTAGENT-5's own case. Per-pair emission was quadratic
+    // in a single authorial mistake — "these fifteen are on one track and must not be" —
+    // and printed `15 * 14 / 2` sentences for it, each naming a pair the reader must fix
+    // none of individually.
+    let report = report_on(&one_knot_of(15));
+
+    assert_eq!(codes(&report), ["E-TRACK-OVERLAP"]);
+    let finding = &report.findings[0];
+    assert_eq!(finding.fields["count"], 15);
+    assert_eq!(finding.fields["sets"], "1 overlapping set");
+
+    // The member set, whole: what the 105 sentences spelled out pairwise, and the thing
+    // ADR-0043 requires instead of a pointer at a first offender.
+    let census = finding
+        .census
+        .as_ref()
+        .expect("a refuse-class finding censuses");
+    assert_eq!(census.groups.len(), 1);
+    assert_eq!(census.groups[0].members.len(), 15);
+
+    // 105 findings and 38,739 characters before; one finding and under a thousand after.
+    let rendered = render(&report);
+    assert!(
+        rendered.len() < 1000,
+        "{} chars\n{rendered}",
+        rendered.len()
+    );
+}
+
+#[test]
+fn the_collapsed_finding_is_flat_in_the_number_of_overlapping_elements() {
+    // ADR-0099's measure, not byte-identity: the surviving counts print their own digits,
+    // so characters may move by `O(log elements)` and the line count may not move at all.
+    // Tripling the knot is the test — under per-pair emission this was `O(n^2)` lines.
+    let small = render(&report_on(&one_knot_of(15)));
+    let large = render(&report_on(&one_knot_of(45)));
+
+    assert_eq!(
+        small.lines().count(),
+        large.lines().count(),
+        "small:\n{small}\nlarge:\n{large}"
+    );
+    // Two digits become two digits in `count`, and `15`/`45` are the same width, so the
+    // only movement left is the temp path the header prints.
+    assert!(
+        large.len() < small.len() + 40,
+        "{} -> {} chars",
+        small.len(),
+        large.len()
+    );
+}
+
+#[test]
+fn a_chain_of_overlaps_is_one_knot_and_not_two() {
+    // `a` overlaps `b` and `b` overlaps `c`, while `a` and `c` are disjoint. A knot is a
+    // connected component and not a clique: splitting this into two groups would put the
+    // same `b` in both, and `b` is the element most likely to be the one in the wrong
+    // place — which is exactly what the census may not imply.
+    let report = report_on(&track(
+        "photo",
+        10,
+        &format!(
+            "{},{},{}",
+            rect("a", 0, 1000),
+            rect("b", 900, 2000),
+            rect("c", 1900, 3000)
+        ),
+    ));
+
+    let finding = &report.findings[0];
+    assert_eq!(finding.fields["count"], 3);
+    assert_eq!(finding.fields["sets"], "1 overlapping set");
+    let census = finding
+        .census
+        .as_ref()
+        .expect("a refuse-class finding censuses");
+    assert_eq!(census.groups.len(), 1);
+    assert_eq!(census.groups[0].members, ["a", "b", "c"]);
+    assert_eq!(census.groups[0].value, "0..3000");
+
+    // 100 ms twice over, and not 200 ms of `a`-`b` plus 100 of `b`-`c` counted as three
+    // separate contentions: `overlap` is a depth sweep over the track.
+    assert_eq!(finding.fields["overlap"], 200);
+}
+
+#[test]
+fn two_knots_on_one_track_are_two_census_groups_in_time_order() {
+    // Groups in the order their first member appears on the clock, and never by size —
+    // ADR-0043 forbids a census worded so the larger group reads as the correct one, and
+    // sorting by size is that wording written into the ordering. Here the larger knot is
+    // second on the clock, so a size sort would visibly reorder them.
+    let report = report_on(&track(
+        "photo",
+        10,
+        &format!(
+            "{},{},{},{},{}",
+            rect("early-a", 0, 1000),
+            rect("early-b", 500, 1500),
+            rect("late-a", 90000, 95000),
+            rect("late-b", 91000, 95000),
+            rect("late-c", 92000, 95000)
+        ),
+    ));
+
+    let finding = &report.findings[0];
+    assert_eq!(finding.fields["count"], 5);
+    assert_eq!(finding.fields["sets"], "2 overlapping sets");
+    let census = finding
+        .census
+        .as_ref()
+        .expect("a refuse-class finding censuses");
+    assert_eq!(census.groups[0].members, ["early-a", "early-b"]);
+    assert_eq!(census.groups[0].value, "0..1500");
+    assert_eq!(census.groups[1].members, ["late-a", "late-b", "late-c"]);
+    assert_eq!(census.groups[1].value, "90000..95000");
+
+    // 500 ms in the early knot; in the late one 92000..95000 is three-deep and
+    // 91000..92000 is two-deep, so 4000 ms of track is covered more than once.
+    assert_eq!(finding.fields["overlap"], 4500);
 }
 
 #[test]

@@ -5,6 +5,17 @@ amends: 0067 (narrows its legibility floor to a standalone proxy frame, so the f
 
 # The sheet's budget is served tile width, and overflow refuses rather than thins
 
+> **Amended by [ADR-0103](0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md).**
+> Section 2's two cropped-band figures are corrected: the band's 18-tile served width is
+> **429 px, not 448**, and it admits **98 tiles at the 180 px target, not 112**. Both of the
+> original numbers reproduce exactly — on a band carrying **no label strip**, which
+> [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md)
+> has since made impossible by making a label mandatory and flooring its type. **The argument is
+> unaffected** — 98 against 18 is still 5.4×, so count is still aspect-dependent and still
+> derived from width. ADR-0103 also settles the per-tile crop this section's deferral pointed at
+> ([#406](https://github.com/MBehtemam/Montagent/issues/406)): the sheet is **never** cropped,
+> so the constant this ADR supplies for a cropped sheet's count now has no caller.
+
 [#399](https://github.com/MBehtemam/Montagent/issues/399), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). This ADR fixes **what bounds a
 contact sheet, what happens when a range does not fit, and what wall clock the range mode
@@ -76,9 +87,13 @@ description, and it is an argument for the feature rather than a constraint on i
 
 Tile count looks like the natural knob and is the one #399's own title reaches for. It fails
 on a second instrument the same feature is likely to grow: #396 measured that 18 tiles
-cropped to the caption band serve at **448 px** against a whole frame's **184 px**, because
-a 3:1 tile grids far better than 9:16. Held at 180 px, the band admits **112** tiles where
+cropped to the caption band serve at **429 px** against a whole frame's **184 px**, because
+a 3:1 tile grids far better than 9:16. Held at 180 px, the band admits **98** tiles where
 whole frames admit **18**.
+
+*(Both figures are corrected by ADR-0103, from 448 px and 112 tiles. The originals were
+computed on a band with no label strip; ADR-0098 has since made a label mandatory. The ratio
+this section rests on is 5.4× either way.)*
 
 So a single tile-count constant would mean two different legibility outcomes depending on
 tile shape, while a single width constant means one outcome across both. This is the same

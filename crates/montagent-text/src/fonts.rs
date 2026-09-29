@@ -18,14 +18,12 @@
 //! font's own metadata chose; and a name in the document can never collide with a name a
 //! font file happens to carry.
 //!
-//! **Recorded residual — `.ttc` face selection.** [`FontFile::index`] is checked against
-//! the faces the file actually registered, so an out-of-range index is refused rather than
-//! silently ignored. It does not yet *select* among them: `fontique` registers a
-//! collection's faces into one family and picks between them on width/style/weight
-//! attributes, which the format does not carry (ADR-0007: *"No `weight`, no `bold`. A
-//! different weight is a different file."*). Every font in the committed fixture is a
-//! single-face file, so this is untested territory rather than a known-wrong answer, and
-//! it is named here so the next reader does not have to discover it.
+//! **A `.ttc` entry is cut down to its face before it is registered.** ADR-0007's `index`
+//! is honoured by handing `fontique` a file that holds one face — see [`crate::sfnt`] for
+//! why it cannot be honoured by selecting one afterwards. This module's part is only to
+//! apply the default: ADR-0007 says `index` *"defaults to 0"*, and an omitted one is
+//! **not** the same as leaving the collection whole, which resolves by an attribute query
+//! the format does not carry. A single-face file is passed through untouched.
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -35,6 +33,8 @@ use std::sync::Arc;
 use parley::FontContext;
 use parley::fontique::{Blob, Collection, CollectionOptions, FontInfoOverride, SourceCache};
 use parley::style::{FontFamily, FontFamilyName};
+
+use crate::sfnt;
 
 /// One entry in a font's ordered fallback chain, as the project's `fonts` table writes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +79,7 @@ impl FontError {
         }
     }
 
-    fn no_such_face(path: &Path, index: u32, faces: usize) -> FontError {
+    fn no_such_face(path: &Path, index: u32, faces: u32) -> FontError {
         FontError {
             path: Some(path.to_path_buf()),
             reason: format!("it has no face at `index` {index} (it carries {faces})"),
@@ -217,26 +217,34 @@ impl Fonts {
             self.opened.push(file.path.clone());
         }
 
+        // ADR-0007 defaults `index` to 0, and the default is applied here rather than left
+        // to the registry: an omitted index on a collection means face 0, and a whole
+        // collection resolves to whichever face a default attribute query wins — face 7 on
+        // a stock `Avenir Next.ttc`, never face 0. Omitted and `0` are the same request,
+        // and both have to be cut out.
+        let index = file.index.unwrap_or(0);
+        let face = match sfnt::face(&bytes, index) {
+            Ok(face) => face,
+            Err(sfnt::FaceError::NotAFont) => return Err(FontError::not_a_font(&file.path)),
+            Err(sfnt::FaceError::NoSuchFace { faces }) => {
+                return Err(FontError::no_such_face(&file.path, index, faces));
+            }
+        };
+
         let family = synthetic_family(key, position);
         let registered = self.context.collection.register_fonts(
-            Blob::new(Arc::new(bytes)),
+            Blob::new(Arc::new(face.into_owned())),
             Some(FontInfoOverride {
                 family_name: Some(&family),
                 ..Default::default()
             }),
         );
 
-        let faces: Vec<u32> = registered
-            .iter()
-            .flat_map(|(_, fonts)| fonts.iter().map(|font| font.index()))
-            .collect();
-        if faces.is_empty() {
+        // One face went in, so this is no longer a question about *which* face came back —
+        // only whether the face registered at all. A parsable sfnt that registers nothing
+        // is one this build cannot draw with, which is the same answer as not a font.
+        if registered.iter().all(|(_, fonts)| fonts.is_empty()) {
             return Err(FontError::not_a_font(&file.path));
-        }
-        if let Some(index) = file.index
-            && !faces.contains(&index)
-        {
-            return Err(FontError::no_such_face(&file.path, index, faces.len()));
         }
         Ok(family)
     }

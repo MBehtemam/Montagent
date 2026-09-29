@@ -168,6 +168,14 @@ status: accepted
 > collapses. This ADR's noise budget thereby acquires a growth order — O(distinct finding
 > codes) — in place of a line count, and its *"output may be filtered; analysis may not"* is
 > what licenses the collapse, since every count survives it.
+>
+> **Amended by [ADR-0100](./0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md)**,
+> which makes the **sibling census** below the mechanism by which one authorial mistake
+> produces one finding. `E-TRACK-OVERLAP` emitted one finding per overlapping *pair*, so
+> fifteen elements on one track produced 105 of them and a 38,739-character report — this
+> ADR's noise budget failing as the safety property it says it is, and its own
+> *"the count is the number of things to fix"* premise being false. It is now one finding
+> per track whose census groups the offenders by the stretch of track they contend for.
 
 `montagent validate` answers exactly one question: **is this project file internally
 legal, and does it agree with the media on disk?** It never answers *"does this file

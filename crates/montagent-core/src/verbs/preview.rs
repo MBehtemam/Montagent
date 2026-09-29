@@ -112,7 +112,7 @@ use montagent_render::canvas::Rgba;
 use montagent_render::proxy::{self, Tier};
 
 use crate::media::sidecar::Sidecar;
-use crate::media::tools;
+use crate::media::{attest, probe, tools};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
 use crate::verbs::render::{self, Progress, Span, Stop, Surface, Video};
@@ -283,6 +283,9 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
         from: ask.from,
         to: ask.to,
         output: ask.output.clone(),
+        // ADR-0104: `preview` runs the clobber pre-flight itself, below, on its own
+        // narrower rule. It never borrows `render`'s.
+        no_clobber: false,
     };
     let range = match render::request(&asked) {
         Ok(range) => range,
@@ -364,6 +367,37 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
         }
     };
 
+    // ADR-0104, and the narrower half of the rule. `preview` is exempt from ADR-0093's
+    // no-promotion rule because a proxy is not a deliverable — but that exemption must not
+    // become the bypass: `--output` is honoured here, and without this a preview could rename
+    // itself over *another* project's finished cut, which is MONTAGENT-7 one verb across.
+    //
+    // Only `Foreign` refuses. An unattested file is left alone on purpose: a preview writes
+    // no stamp, so the previous preview at this path is unattested by construction, and
+    // refusing it would refuse the second preview of every project.
+    match tools::resolve() {
+        Ok(resolved) => {
+            let stamp = attest::stamp(FilePath::new(document.path()));
+            if let attest::Attestation::Foreign { project } =
+                attest::of(&probe::ProcessRunner, &resolved, &output, &stamp)
+            {
+                return refused(Report::rejected(
+                    TOOL,
+                    Some(document.path().to_string()),
+                    format!(
+                        "{} was written by a different project ({project}), and a preview \
+                         may never destroy a deliverable: it is a disposable artefact \
+                         (ADR-0104)",
+                        output.display()
+                    ),
+                ));
+            }
+        }
+        // A missing `ffmpeg` is the next block's refusal to report (ADR-0091), not this
+        // one's to pre-empt.
+        Err(_) => {}
+    }
+
     let ffmpeg = match tools::resolve() {
         Ok(tools) => tools.ffmpeg,
         Err(missing) => {
@@ -428,6 +462,8 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
             last: last.frame,
             frames,
             output: &output,
+            // ADR-0104: a proxy is not a deliverable and never attests to being one.
+            stamp: None,
             deadline: budget(rung),
         };
 

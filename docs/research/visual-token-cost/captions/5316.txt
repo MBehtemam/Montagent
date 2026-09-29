@@ -1,0 +1,25 @@
+0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout, 0 drift — fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json
+
+FRAME  at 5316 — jpeg, half scale, 540x960 from a 1080x1920 frame
+  written to  OUT.jpg (70177 bytes)
+  painted     10 elements (back to front): photo-05, word-05, chip-panel, handle-panel, flag-field, handle-logo, handle-text, flag-bar-h, flag-bar-v, chip-text
+  sources     fixtures/en-halloween-decorating/images/05.png, fixtures/en-halloween-decorating/brand/logo-en.png
+  fonts       fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf
+
+QUERY  the resolved stack at 5316 — 11 elements (painter's order, back to front; numbers to 6 dp)
+  L0   vo-word-05-a  audio  5316..7092   (declares no animated property)
+  L10  photo-05      image  3018..17472  x 540, y 956, scale [1.012256, 1.012256] (animated)
+  L22  word-05       text   5316..17472  x 540, y 1373
+  L30  chip-panel    rect   0..65216     x 48, y 88
+  L30  handle-panel  rect   0..65216     x 438, y 88
+  L31  flag-field    rect   0..65216     x 82, y 103
+  L31  handle-logo   image  0..65216     x 478, y 96
+  L31  handle-text   text   0..65216     x 560, y 130
+  L32  flag-bar-h    rect   0..65216     x 82, y 124
+  L33  flag-bar-v    rect   0..65216     x 115, y 103
+  L34  chip-text     text   0..65216     x 182, y 130
+
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.

@@ -126,7 +126,7 @@ use crate::exact::{self, Decimal};
 use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
-use crate::media::{Source, display_local, tools};
+use crate::media::{Source, attest, display_local, probe, tools};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
@@ -150,6 +150,13 @@ pub struct Ask {
     /// Where to write the video instead of the project's `output`, as the caller spelled
     /// it. Refused when a range is set and it names the project's own `output`.
     pub output: Option<PathBuf>,
+    /// ADR-0104: escalate `R-OUTPUT-UNATTESTED` from `review` to a refusal.
+    ///
+    /// It only ever *tightens*. There is deliberately no flag in the other direction:
+    /// ADR-0093 condition 2 forbids one that would let an unwaived `error` reach the output
+    /// path, and `E-OUTPUT-FOREIGN` is such an error. A caller who genuinely means to
+    /// replace another project's deliverable changes `output`, or moves the file.
+    pub no_clobber: bool,
 }
 
 /// One coarse progress step, handed to the caller as frames are encoded.
@@ -345,13 +352,59 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
 
     // `ffmpeg`, resolved once for the encoder and for every video element's decode
     // (ADR-0011's exit 70 when there is none).
-    let ffmpeg = match tools::resolve() {
-        Ok(tools) => tools.ffmpeg,
+    let resolved = match tools::resolve() {
+        Ok(tools) => tools,
         Err(missing) => {
             missing.fail(&mut report);
             return refused(report);
         }
     };
+    let ffmpeg = resolved.ffmpeg.clone();
+
+    // ADR-0104. What is already at the output path, before a single frame is painted.
+    //
+    // Sited here and not after the encode for ADR-0093 condition 1's reason: everything
+    // pre-flightable is pre-flighted, so the render that must not happen costs no wall
+    // clock. The injury this prevents is measured in ninety-minute encodes, and discovering
+    // it at promotion time would prevent the destruction while still spending the clock.
+    let stamp = attest::stamp(FilePath::new(document.path()));
+    match attest::of(&probe::ProcessRunner, &resolved, &output, &stamp) {
+        // Nothing there, or this project's own last answer. Re-rendering over yourself is
+        // the normal loop — four attempts at one cut is what the source incident describes —
+        // and is never a finding.
+        attest::Attestation::Vacant | attest::Attestation::Mine => {}
+        attest::Attestation::Foreign { project } => {
+            report.push(
+                Finding::new("E-OUTPUT-FOREIGN")
+                    .at_file(document.path().to_string())
+                    .field("output", Value::String(output.display().to_string()))
+                    // No `repair` value: ADR-0043 fixes this code at refuse, and the repair
+                    // is genuinely not derivable — which of the two projects is meant to own
+                    // this path is in neither document. The template says the two moves
+                    // available; it does not pick one.
+                    .field("project", Value::String(project)),
+            );
+            return refused(report);
+        }
+        attest::Attestation::Absent => {
+            // `review` by default (the class the jury split on) and a refusal only when the
+            // caller asked for one. The tool has no evidence about this file; `--no-clobber`
+            // is how a batch script says "treat no evidence as reason enough".
+            if ask.no_clobber {
+                report.push(
+                    Finding::at_class("R-OUTPUT-UNATTESTED", Class::Error)
+                        .at_file(document.path().to_string())
+                        .field("output", Value::String(output.display().to_string())),
+                );
+                return refused(report);
+            }
+            report.push(
+                Finding::new("R-OUTPUT-UNATTESTED")
+                    .at_file(document.path().to_string())
+                    .field("output", Value::String(output.display().to_string())),
+            );
+        }
+    }
 
     let background = header
         .background
@@ -376,6 +429,7 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
         last: last.frame,
         frames,
         output: &output,
+        stamp: Some(stamp),
         deadline: None,
     };
     let painted = match encode_span(&span, started, progress) {
@@ -470,6 +524,12 @@ pub(crate) struct Span<'a> {
     pub last: i64,
     pub frames: u64,
     pub output: &'a FilePath,
+    /// ADR-0104's attestation, stamped into the container the encoder writes.
+    ///
+    /// `Some` for `render`, whose output is a deliverable a later run must be able to
+    /// recognise as its own. `None` for `preview`: a proxy is not a deliverable, and a
+    /// preview that stamped itself would hand the next `render` a forged licence to clobber.
+    pub stamp: Option<String>,
     /// The wall clock this span must land inside, checked between frames.
     ///
     /// `None` for `render`, which has no ceiling to encode (ADR-0072) and must never
@@ -660,6 +720,7 @@ pub(crate) fn encode_span(
             fps: span.fps,
             background: span.background,
             audio: mix.audio,
+            stamp: span.stamp.clone(),
         },
     ) {
         Ok(encoder) => encoder,
@@ -1383,7 +1444,8 @@ mod tests {
             request(&Ask {
                 from: Some(1000),
                 to: Some(2000),
-                output: None
+                output: None,
+                no_clobber: false
             }),
             Ok(Some((1000, 2000)))
         );
@@ -1397,7 +1459,8 @@ mod tests {
                 request(&Ask {
                     from,
                     to,
-                    output: None
+                    output: None,
+                    no_clobber: false
                 })
                 .is_err(),
                 "{from:?}..{to:?}"

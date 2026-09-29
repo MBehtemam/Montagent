@@ -11,6 +11,9 @@
 //!
 //! The pieces:
 //!
+//! - [`attest`] reads back the stamp `render` writes into a deliverable, so *"did this
+//!   project produce the file already at the output path?"* is observed rather than guessed
+//!   (ADR-0104).
 //! - [`tools`] resolves `ffmpeg`/`ffprobe` from `PATH`. This is owned here, at the first
 //!   tool that spawns a subprocess, rather than downstream of every consumer.
 //! - [`probe`] runs `ffprobe` and turns its output into [`probe::Probe`] — the quad, the
@@ -28,6 +31,7 @@
 //!   session opens and written when it ends, so the cache-miss line survives a process
 //!   boundary (ADR-0069). The remote half never reaches it.
 
+pub mod attest;
 pub mod dimensions;
 pub mod established;
 pub mod probe;

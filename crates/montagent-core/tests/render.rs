@@ -65,6 +65,7 @@ fn range(from: i64, to: i64) -> Ask {
         from: Some(from),
         to: Some(to),
         output: None,
+        no_clobber: false,
     }
 }
 
@@ -351,6 +352,7 @@ fn a_partial_render_derives_its_name_and_can_never_land_on_the_deliverable() {
                 from: Some(0),
                 to: Some(500),
                 output: Some(explicit.clone()),
+                no_clobber: false,
             },
         );
         assert_eq!(
@@ -375,6 +377,7 @@ fn a_partial_render_derives_its_name_and_can_never_land_on_the_deliverable() {
             from: Some(0),
             to: Some(200),
             output: Some(elsewhere.clone()),
+            no_clobber: false,
         },
     );
     assert_eq!(
@@ -399,11 +402,13 @@ fn a_range_is_both_flags_or_neither_and_is_half_open() {
             from: Some(0),
             to: None,
             output: None,
+            no_clobber: false,
         },
         Ask {
             from: None,
             to: Some(500),
             output: None,
+            no_clobber: false,
         },
         range(500, 500),
         range(600, 500),
@@ -661,9 +666,13 @@ fn the_projects_loop_flag_changes_nothing_about_the_encode() {
         "plain.montagent.json",
         &project(r##""duration":2000,"output":"out/plain.mp4","##, &elements),
     );
+    // `loopy` and not `looping`: ADR-0104 stamps the container with the project's own
+    // canonical path, so the two files differ by exactly those bytes — and an MP4's atom
+    // sizes and `faststart` offsets shift if the two stamps differ in *length*. Equal-length
+    // stems keep every other byte comparable, which is what this test is actually about.
     let looping = write_project(
         &dir,
-        "looping.montagent.json",
+        "loopy.montagent.json",
         &project(
             r##""duration":2000,"loop":true,"output":"out/looping.mp4","##,
             &elements,
@@ -680,9 +689,24 @@ fn the_projects_loop_flag_changes_nothing_about_the_encode() {
         looping_answer["render"]["mixed"], plain_answer["render"]["mixed"],
         "nor a claim about what is audible"
     );
+    // Byte for byte, **with each file's own ADR-0104 attestation blanked**. The stamp names
+    // the project that wrote the file and so must differ between these two; every other byte
+    // must not. Blanking rather than skipping the comparison keeps the assertion's whole
+    // strength — a render that quietly wrapped the last 40 ms of audio still fails here.
+    let unstamped = |name: &str, project: &std::path::Path| {
+        let bytes = std::fs::read(dir.join(name)).expect("the render");
+        let stamp = montagent_core::media::attest::stamp(project).into_bytes();
+        let at = bytes
+            .windows(stamp.len())
+            .position(|window| window == stamp)
+            .unwrap_or_else(|| panic!("{name} carries no attestation"));
+        let mut blanked = bytes;
+        blanked[at..at + stamp.len()].fill(b'-');
+        blanked
+    };
     assert_eq!(
-        std::fs::read(dir.join("out/looping.mp4")).expect("the looping render"),
-        std::fs::read(dir.join("out/plain.mp4")).expect("the plain render"),
+        unstamped("out/looping.mp4", &looping),
+        unstamped("out/plain.mp4", &plain),
         "`loop` reached the encode"
     );
 }
@@ -892,6 +916,7 @@ fn the_whole_fixture_renders_to_its_declared_duration_with_every_narration_mixed
             from: Some(0),
             to: Some(2000),
             output: Some(output.clone()),
+            no_clobber: false,
         }
     };
 
