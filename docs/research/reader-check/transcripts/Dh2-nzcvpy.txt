@@ -1,0 +1,7 @@
+The sheet shows a rendering error in Tile 1's label. According to answer.txt, the label should read exactly "1 0ms +0 +intro-title", but the sheet.png displays "1 0ms +40 +intro-title" instead. The infill offset is wrong: +40 instead of +0.
+
+This is a discrepancy between the tool's reported provenance data and the rendered labels on the sheet image. The tool's own READER CHECK mechanism flags this exact scenario, indicating the sheet is visually out of sync with the underlying data.
+
+Confidence: Very high. The error is explicit and directly contradicts the tool's verification.
+
+Recommended next step: Call `frame --at 0ms` to examine the first frame at full scale and determine which value is correct.

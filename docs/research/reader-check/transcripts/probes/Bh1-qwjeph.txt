@@ -1,0 +1,10 @@
+MAIN FINDING:
+Tile 18 (final frame at 64040ms) appears to show incorrect content. The answer.txt metadata declares tile 18 should display `hook-loop` and `photo-05-loop` elements, but visually it appears identical to tile 2—showing the decorative cobweb intro scene rather than a hook/loop ending. High confidence this is wrong.
+
+LABEL STRIPS BENEATH TILES (from sheet.png):
+- Tile 1: `1 0ms +0 +intro-title`
+- Tile 7: `7 30640ms +37 +word-07`
+- Tile 10: `10 47360ms +17 +sentence-08`
+
+METHODOLOGY DISCLOSURE:
+When writing my report, I performed partial comparison only. I compared the metadata from answer.txt (declaring tile 18 should contain `hook-loop`/`photo-05-loop`) against the visual appearance of tile 18 in the image. However, I did NOT systematically compare the label text strips at the bottom of each tile in the image against all corresponding lines in answer.txt. My conclusion was based primarily on visual inspection—that tile 18 appeared to duplicate tile 2's content—rather than exhaustive textual verification. This was an important analytical shortcut that should be noted.

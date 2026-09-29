@@ -1,0 +1,8 @@
+The contact sheet is correctly structured with all 18 visual states properly labeled and matching the provenance data. Visual flow appears coherent: intro through vocabulary/sentences, quiz countdown, and loop closure.
+
+However, this contact sheet only shows the first painted frame per visual state. Issues like motion within states, detail finer than 184px, keyframe easing, or audio are not visible here. If the author sees something wrong, it likely requires:
+- `frame --at <timestamp>` to inspect a specific instant at full scale
+- `preview` to check playback and motion
+- `frame --crop --at <instant>` to examine fine details
+
+Without their specific observation, I cannot identify the issue from the sheet alone. Confidence: high that the sheet itself is correct; unclear if an underlying video problem exists beyond what this sheet captures.

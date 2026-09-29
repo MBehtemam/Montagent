@@ -1,0 +1,10 @@
+The contact sheet labels are correct and match the provenance list exactly (tile 1: `1 0ms +0 +intro-title`, tile 18: `18 64040ms +24 +hook-loop`, etc.). Static frame data is consistent.
+
+However, the `frame` verb explicitly cannot detect:
+- Motion or animation issues
+- Changes within a visual state (cuts, motion within elements)
+- Keyframe easing curves
+
+If the author sees something visually wrong, it likely involves motion, transitions, or timing within states — not visible in still frames.
+
+Next step: Run `preview` to check motion/animation, or `frame --at <timestamp>` if they identify a specific moment. Confidence: high in sheet accuracy; medium that this clears all issues.

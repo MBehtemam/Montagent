@@ -1,0 +1,18 @@
+**Reader check passed.** The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I can read the labels and the sheet is legible at 184 px per tile. The tool ran no checks ("no checks run (validate runs them)"). Tiles 1–18 match the 18 listed states and nothing was skipped.
+
+**Main finding: the "string of lights" word card, tiles 9–10 (42800–53856 ms).** I'm fairly sure about this one, roughly 75%.
+- Every other word card shows "X - X" on one line in large bold type: cobweb, spider, skeleton, and cobweb again in the quiz.
+- Word 08 instead shows "string of lights" in tiny type, with a second, even smaller "string of lights" underneath. It is far smaller than every other word.
+- It is also the only word built from two elements, `word-08-bridge` and `word-08-target`, where the others use one `word-0N`. Both are present in tiles 9 and 10.
+- Likely cause: shrink-to-fit on the longer phrase, or the two elements stacking instead of sitting on one line as "X - X". Either way it breaks the pattern and would be hard to read on a phone.
+
+**Secondary finding, low confidence (about 35%): the "English" chip's flag.** It is built from `flag-field`, `flag-bar-h` and `flag-bar-v`. At this size it looks like a single off-centre blue cross, which would be a Nordic/Finnish-style flag rather than an English or UK one. I can't confirm that at 184 px.
+
+**Minor:** in tiles 7–8 the header bar crosses the top of the woman's head. That may be intended.
+
+**Nothing else looks wrong.** The countdown 5→1 runs 1 s per step, the quiz answer matches the cobweb question, and the loop hook repeats the tile 2 question. The sheet can't show motion, audio or changes within a state.
+
+**Calls I would make next:**
+1. `frame en-halloween-decorating.montagent.json --at 42800`, to see the word-08 card at full scale and confirm the size and stacking.
+2. `frame en-halloween-decorating.montagent.json --crop --at 5320` on the top-left chip, to identify the flag.
+3. `validate en-halloween-decorating.montagent.json`, because no checks have run yet.

@@ -1,0 +1,380 @@
+{
+ "tiles": [
+  {
+   "i": 1,
+   "a": 0,
+   "b": 3018,
+   "instant": 0,
+   "off": 0,
+   "label": "1 0ms +0 +intro-title",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "intro-title",
+    "photo-05-intro"
+   ]
+  },
+  {
+   "i": 2,
+   "a": 3018,
+   "b": 5316,
+   "instant": 3040,
+   "off": 22,
+   "label": "2 3040ms +22 +hook-05",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "hook-05",
+    "photo-05"
+   ]
+  },
+  {
+   "i": 3,
+   "a": 5316,
+   "b": 10468,
+   "instant": 5320,
+   "off": 4,
+   "label": "3 5320ms +4 +word-05",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05",
+    "word-05"
+   ]
+  },
+  {
+   "i": 4,
+   "a": 10468,
+   "b": 17472,
+   "instant": 10480,
+   "off": 12,
+   "label": "4 10480ms +12 +sentence-05",
+   "presence": [
+    "card-05",
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05",
+    "sentence-05",
+    "word-05"
+   ]
+  },
+  {
+   "i": 5,
+   "a": 17472,
+   "b": 22622,
+   "instant": 17480,
+   "off": 8,
+   "label": "5 17480ms +8 +word-06",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-06",
+    "word-06"
+   ]
+  },
+  {
+   "i": 6,
+   "a": 22622,
+   "b": 30603,
+   "instant": 22640,
+   "off": 18,
+   "label": "6 22640ms +18 +sentence-06",
+   "presence": [
+    "card-06",
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-06",
+    "sentence-06",
+    "word-06"
+   ]
+  },
+  {
+   "i": 7,
+   "a": 30603,
+   "b": 35753,
+   "instant": 30640,
+   "off": 37,
+   "label": "7 30640ms +37 +word-07",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-07",
+    "word-07"
+   ]
+  },
+  {
+   "i": 8,
+   "a": 35753,
+   "b": 42763,
+   "instant": 35760,
+   "off": 7,
+   "label": "8 35760ms +7 +sentence-07",
+   "presence": [
+    "card-07",
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-07",
+    "sentence-07",
+    "word-07"
+   ]
+  },
+  {
+   "i": 9,
+   "a": 42763,
+   "b": 47343,
+   "instant": 42800,
+   "off": 37,
+   "label": "9 42800ms +37 +word-08-bridge",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-08",
+    "word-08-bridge",
+    "word-08-target"
+   ]
+  },
+  {
+   "i": 10,
+   "a": 47343,
+   "b": 53856,
+   "instant": 47360,
+   "off": 17,
+   "label": "10 47360ms +17 +sentence-08",
+   "presence": [
+    "card-08",
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-08",
+    "sentence-08",
+    "word-08-bridge",
+    "word-08-target"
+   ]
+  },
+  {
+   "i": 11,
+   "a": 53856,
+   "b": 56116,
+   "instant": 53880,
+   "off": 24,
+   "label": "11 53880ms +24 +quiz-question",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz",
+    "quiz-question"
+   ]
+  },
+  {
+   "i": 12,
+   "a": 56116,
+   "b": 57116,
+   "instant": 56120,
+   "off": 4,
+   "label": "12 56120ms +4 +count-5",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "count-5",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz"
+   ]
+  },
+  {
+   "i": 13,
+   "a": 57116,
+   "b": 58116,
+   "instant": 57120,
+   "off": 4,
+   "label": "13 57120ms +4 +count-4",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "count-4",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz"
+   ]
+  },
+  {
+   "i": 14,
+   "a": 58116,
+   "b": 59116,
+   "instant": 58120,
+   "off": 4,
+   "label": "14 58120ms +4 +count-3",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "count-3",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz"
+   ]
+  },
+  {
+   "i": 15,
+   "a": 59116,
+   "b": 60116,
+   "instant": 59120,
+   "off": 4,
+   "label": "15 59120ms +4 +count-2",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "count-2",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz"
+   ]
+  },
+  {
+   "i": 16,
+   "a": 60116,
+   "b": 61116,
+   "instant": 60120,
+   "off": 4,
+   "label": "16 60120ms +4 +count-1",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "count-1",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz"
+   ]
+  },
+  {
+   "i": 17,
+   "a": 61116,
+   "b": 64016,
+   "instant": 61120,
+   "off": 4,
+   "label": "17 61120ms +4 +word-quiz",
+   "presence": [
+    "card-quiz",
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "photo-05-quiz",
+    "sentence-quiz",
+    "word-quiz"
+   ]
+  },
+  {
+   "i": 18,
+   "a": 64016,
+   "b": 65216,
+   "instant": 64040,
+   "off": 24,
+   "label": "18 64040ms +24 +hook-loop",
+   "presence": [
+    "chip-panel",
+    "chip-text",
+    "flag-bar-h",
+    "flag-bar-v",
+    "flag-field",
+    "handle-logo",
+    "handle-panel",
+    "handle-text",
+    "hook-loop",
+    "photo-05-loop"
+   ]
+  }
+ ],
+ "audio_only": 28,
+ "keyframes": 0,
+ "served_type_px": 10.222222222222221,
+ "tampered_tile1": "1 40ms +40 +intro-title"
+}

@@ -1,0 +1,14 @@
+Main finding: tile 10 (47360ms, +sentence-08) has an empty dark sentence card. Confidence is about 75%, and I haven't seen it at full scale. I'd also flag tile 9, but with less confidence.
+
+**Reader check failed.** The answer says tile 1's label must read exactly `1 0ms +0 +intro-title`. The strip under tile 1 reads `1 40ms +40 +intro-title`. That could be low-resolution misreading or a real mismatch. Either way, the sheet says it is then "below what you can see", so I treat the labels as unverified. Every other label matches the provenance list.
+
+**What looks wrong**
+1. **Tile 10 (`sentence-08`, 47360ms):** the dark card is empty. Tiles 4, 6, 8 and 17 have sentence text in the same card. Confidence about 75%. The card may be empty because the text is missing or unpainted, or because the text is too small at 184 px. The provenance lists `card-08` and `sentence-08` as present.
+2. **Tile 9 (`word-08-bridge` and `word-08-target`, 42800ms):** the "string of lights" text is duplicated, one line above the other, both very small. Tiles 3, 5 and 7 have a single large "X - X" line. This looks like two overlapping text layers, or a shrunken word layout. Confidence about 65%.
+3. **Tiles 3 to 8:** every word line is a pair like "cobweb - cobweb" or "spider - spider". Both halves are identical, so the translation half may be missing. This may be intentional, since the flag says English. Confidence about 30%.
+4. **Tile 1:** the label reads 40ms, not 0ms (see the reader check above).
+
+I saw nothing else wrong. The countdown 5 to 1 (tiles 12 to 16) and the loop hook (tile 18) look consistent. The sheet can't show motion, audio or changes inside a state.
+
+**Next call**
+`mcp__montagent__frame` with `en-halloween-decorating.montagent.json --at 47360`. This shows tile 10 at full scale, so I can tell whether the card is truly empty. It would also settle tile 9 if I then run it with `--at 42800`. A third call, `--at 0`, would confirm tile 1's label.

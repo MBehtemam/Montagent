@@ -1,0 +1,20 @@
+Reader check passed: the strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I could read the labels. No checks were run, so this is a visual read only.
+
+What looks wrong, most sure first:
+
+1. Tile 10 (sentence-08, 47360ms): the dark sentence card is empty. Every other sentence card (tiles 4, 6, 8, 17) has a line of text. Confidence about 85% that this is a real defect. It could be a text-fit or missing-text problem, or the text may appear later in that state, since the tile shows only the first frame.
+
+2. Tiles 9 and 10 (word-08): the word reads "string of lights" twice, in two stacked lines at very different, tiny sizes. Other words are one large line and are unlike this. The provenance lists `word-08-bridge` and `word-08-target`, which fits two overlapping or duplicated layers, or a long phrase shrunk to fit. Confidence about 80%. It is also nearly unreadable at vertical-video scale.
+
+3. Tiles 7 and 8 (skeleton): the picture matches tile 6 (woman with a spider over her face) and shows no skeleton, but the caption says "I hang the skeleton up by the door." This is probably a wrong or duplicated photo (photo-07 vs photo-06). Confidence about 60%, because I only see the images at 184 px.
+
+4. Lower confidence: the spider covers the woman's face in tiles 5 to 8. That may be the source image and not a Montagent bug.
+
+Every "X - X" pair is identical (cobweb - cobweb and so on). That may be by design, but if a translation was meant to differ it is missing. About 30%.
+
+Not judged: motion, audio, anything inside a state, and detail finer than 184 px.
+
+Next calls, if I could make them:
+- `frame en-halloween-decorating.montagent.json --at 47360` to check whether the tile 10 card is really empty at full scale.
+- `frame en-halloween-decorating.montagent.json --at 42800` to read the double "string of lights" and see whether the bridge and target layers overlap.
+- `frame en-halloween-decorating.montagent.json --at 35760` to confirm the skeleton photo is wrong.

@@ -1,0 +1,13 @@
+**Reader check: failed.** The text says tile 1's label should read exactly `1 0ms +0 +intro-title`. On the sheet I read `1 40ms +40 +intro-title`. By the tool's own rule, that means this sheet is too small for me to read reliably, so I'm treating everything below as leads, not verdicts. The provenance text is the reliable record. The pictures need checking at full scale.
+
+**What looks wrong (leads):**
+1. **Tile 10 (47360ms, sentence-08): the sentence card looks empty.** In tiles 4, 6, 8 and 17 the navy bar has white text in it. Here it looks like a blank navy bar, even though provenance lists `sentence-08` as present. It could be missing text, or text the same colour as the bar, or text that is too small or clipped. This is the strongest lead: a whole block of text is missing, not fine detail.
+2. **Tile 9 (42800ms, word-08-bridge): the word is tiny.** "string of lights / string of lights" is much smaller than the other headwords ("cobweb - cobweb", "spider - spider"), and it's stacked on two lines instead of the "X - X" layout. Both `word-08-bridge` and `word-08-target` are present, which may be two layers drawn on top of each other. The small size is probably the text shrinking to fit a phrase longer than the one-word entries. Tile 10 has the same small word.
+3. Nothing else looks off: the photos, the quiz countdown (5 to 1), the quiz answer and the loop hook all look consistent. Also, tile 17 repeats "I hang cobwebs over the door." exactly as the quiz question asks, which is intended.
+
+**Confidence:** Moderate on #1 and #2. They are big, visible differences between tiles, but the failed reader check means I shouldn't trust my reading of this sheet.
+
+**Next calls:**
+- `frame en-halloween-decorating.montagent.json --at 47360`: see tile 10 at full scale and check whether the sentence-08 text is really missing.
+- `frame en-halloween-decorating.montagent.json --at 42800`: check the word-08 size, and whether the bridge and target words overlap.
+- Then `validate en-halloween-decorating.montagent.json`, because the answer says no checks ran. It may catch overflow or contrast problems in the text.

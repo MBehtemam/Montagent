@@ -1,0 +1,18 @@
+What looks wrong: the vocabulary labels repeat the same word on both sides of the dash, and one label is laid out differently from the rest.
+
+1. Duplicated labels (about 80% sure it's a defect). Tiles 3, 4, 5, 6, 7, 8 and 17 read "cobweb - cobweb", "spider - spider" and "skeleton - skeleton". A vocabulary pair like this normally has a translation on one side, so the second half looks like an untranslated placeholder or the same field bound twice. I can't tell from the sheet whether the repeat was intended. The flag chip reads "English", which fits either case.
+
+2. Tiles 9 and 10 (string of lights) (about 70% sure it's a defect). The label is much smaller than on the other word tiles and shows as two stacked lines, "string of lights" over "string of lights". The provenance shows both word-08-bridge and word-08-target present. This is either an overflow or auto-shrink on a long phrase, or two overlapping text elements.
+
+What looks fine:
+- The reader check passes. The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so the labels are legible and the sheet is trustworthy at this scale.
+- The countdown (5, 4, 3, 2, 1) runs in order.
+- The quiz and loop tiles are consistent with the opening.
+- I see no clipping or missing layers.
+
+What the sheet can't show: motion, audio, the 28 audio-only boundaries, anything inside a state, or detail finer than 184 px.
+
+Next calls I would make:
+- `frame en-halloween-decorating.montagent.json --at 42800 --crop`, on the word label region, to see whether tile 9 really has two overlapping text elements at true scale.
+- `frame en-halloween-decorating.montagent.json --at 5320`, to read the "cobweb - cobweb" label at full scale.
+- `query` on the text values of word-05 and word-08-bridge, to see whether the two halves of each label are bound to the same string.

@@ -1,0 +1,41 @@
+frame en-halloween-decorating.montagent.json --from 0 --to 65216
+
+contact sheet: 18 tiles in 6x3, each served at 184 px wide (target rung), labels at 10.2 px served; sheet 1104x1089.
+rule: visual-states v1 (one tile per visual state, sampled at the first frame the grid paints in it)
+no checks run (validate runs them)
+
+READER CHECK. Each tile's label is the line in the strip beneath it, outside the video frame; text inside a tile is the video's own. Tile 1's label reads exactly `1 0ms +0 +intro-title`. The provenance list below is the complete record of this range, and this sheet is a picture of it. If the strip beneath tile 1 does not read exactly that, this sheet is below what you can see, and `frame --at <instant>` shows any listed instant at full scale. Reading the labels is necessary for seeing the pictures, not sufficient.
+
+provenance (18 tiles; class boundary on every line; infill 0, keyframe 0):
+   1  0ms  run 0-3018ms (+0)  boundary  label `1 0ms +0 +intro-title`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, intro-title, photo-05-intro
+   2  3040ms  run 3018-5316ms (+22)  boundary  label `2 3040ms +22 +hook-05`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, hook-05, photo-05
+   3  5320ms  run 5316-10468ms (+4)  boundary  label `3 5320ms +4 +word-05`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05, word-05
+   4  10480ms  run 10468-17472ms (+12)  boundary  label `4 10480ms +12 +sentence-05`  present: card-05, chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05, sentence-05, word-05
+   5  17480ms  run 17472-22622ms (+8)  boundary  label `5 17480ms +8 +word-06`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-06, word-06
+   6  22640ms  run 22622-30603ms (+18)  boundary  label `6 22640ms +18 +sentence-06`  present: card-06, chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-06, sentence-06, word-06
+   7  30640ms  run 30603-35753ms (+37)  boundary  label `7 30640ms +37 +word-07`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-07, word-07
+   8  35760ms  run 35753-42763ms (+7)  boundary  label `8 35760ms +7 +sentence-07`  present: card-07, chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-07, sentence-07, word-07
+   9  42800ms  run 42763-47343ms (+37)  boundary  label `9 42800ms +37 +word-08-bridge`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-08, word-08-bridge, word-08-target
+  10  47360ms  run 47343-53856ms (+17)  boundary  label `10 47360ms +17 +sentence-08`  present: card-08, chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-08, sentence-08, word-08-bridge, word-08-target
+  11  53880ms  run 53856-56116ms (+24)  boundary  label `11 53880ms +24 +quiz-question`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz, quiz-question
+  12  56120ms  run 56116-57116ms (+4)  boundary  label `12 56120ms +4 +count-5`  present: chip-panel, chip-text, count-5, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz
+  13  57120ms  run 57116-58116ms (+4)  boundary  label `13 57120ms +4 +count-4`  present: chip-panel, chip-text, count-4, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz
+  14  58120ms  run 58116-59116ms (+4)  boundary  label `14 58120ms +4 +count-3`  present: chip-panel, chip-text, count-3, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz
+  15  59120ms  run 59116-60116ms (+4)  boundary  label `15 59120ms +4 +count-2`  present: chip-panel, chip-text, count-2, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz
+  16  60120ms  run 60116-61116ms (+4)  boundary  label `16 60120ms +4 +count-1`  present: chip-panel, chip-text, count-1, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz
+  17  61120ms  run 61116-64016ms (+4)  boundary  label `17 61120ms +4 +word-quiz`  present: card-quiz, chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, photo-05-quiz, sentence-quiz, word-quiz
+  18  64040ms  run 64016-65216ms (+24)  boundary  label `18 64040ms +24 +hook-loop`  present: chip-panel, chip-text, flag-bar-h, flag-bar-v, flag-field, handle-logo, handle-panel, handle-text, hook-loop, photo-05-loop
+
+skipped: none (every visual state paints at least one frame)
+dropped: 28 audio-only boundaries inside this range, not tiled (query --from/--to lists them)
+keyframe change points inside a state: 0 tiled, 0 untiled
+
+NOT CHECKED (blind_to, printed on every sheet):
+  inside-run: Each tile shows the first painted frame of its visual state; change inside a state (a source clip's own cut, motion within a still-looking element) is not on this sheet. `frame --at <instant>` looks at any other instant.
+  between-keyframes: Keyframed values are shown only where a tile falls, and keyframe instants are untiled unless asked for; a wrong easing curve shows only if its endpoints are wrong.
+  below-tile-width: Tiles are served at the width stated above; detail finer than that is not visible here. `frame --crop --at <instant>` looks closely at one region at true scale.
+  across-sheets: Only tiles on this one sheet can be compared with each other; a relation with a state outside this range is not visible.
+  audio: Nothing audible is on this sheet.
+  motion: A sheet is stills; whether motion looks right is `preview`'s question.
+
+This sheet shows 18 visual states from 0 to 65216 ms, one tile each at its first painted frame; it does not show the 28 audio-only boundaries, anything inside a state, or anything finer than 184 px.

@@ -1,0 +1,14 @@
+I read only the two files. The sheet has 18 tiles covering 0 to 65216 ms, one per visual state. I see three problems.
+
+1. **Tiles 7 and 8 (skeleton, 30640 to 42763 ms) show the wrong picture. High confidence.** The word is "skeleton" and the sentence is "I hang the skeleton up by the door." But the photo-07 image looks identical to photo-06 from tiles 5 and 6: the woman holding a big spider to her face. There is no skeleton anywhere in it. Most likely photo-07 points to the same source file as photo-06.
+
+2. **Tile 10 (sentence-08, 47360 to 53856 ms) shows an empty sentence card. High confidence.** card-08 and sentence-08 are both listed as present, but the dark card has no visible text. Every other sentence card has white text. The text may be empty, the same colour as the card, clipped, or placed off the card. Tile width can't settle which.
+
+3. **Tiles 9 and 10 show "string of lights" in tiny text. Medium-high confidence.** Every other word is a large "word - word" heading. Here it is two small stacked lines, drawn by two elements at once (word-08-bridge and word-08-target). It stays small across both states, about 11 seconds, so it is not a brief transition moment. This looks like shrink-to-fit on a long phrase, or a bridge/target pair set up wrongly.
+
+Everything else looks as intended: the intro, the cobweb and spider sections, the quiz question, the 5-to-1 countdown, the cobweb answer reveal and the loop hook. The sheet can't show motion, audio, or anything inside a state, and no checks ran.
+
+Next calls I would make:
+- `validate en-halloween-decorating.montagent.json`: the sheet says no checks ran, and the checks may flag the missing text or the sizing.
+- `query en-halloween-decorating.montagent.json --from 30603 --to 53856`: to compare the sources of photo-06 and photo-07 and see the text and style of sentence-08 and word-08-*.
+- `frame en-halloween-decorating.montagent.json --at 48000 --crop` on the caption area: to see card-08 and the small title at true scale.
