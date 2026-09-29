@@ -23,6 +23,15 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
 > (2.67 px typical, 1.83 px busiest), so the routing this ADR chose on a prediction now rests
 > on a number.
 
+> **Amended by [ADR-0103](0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md).**
+> Section 7 refused `--crop` with a range as **not-yet-legal, pending
+> [#406](https://github.com/MBehtemam/Montagent/issues/406)**. That placeholder is closed and the
+> refusal is now **permanent**: the sheet is always whole frames, per-tile crop is out of scope
+> for map #395, and the refusal's message gains a required content — it must name the two-step
+> loop (`--from`/`--to` to locate, `--crop --at` to look closely) and say the sheet is whole
+> frames by design rather than pending work. The spelling this section fixed is kept exactly;
+> only *not-yet* becomes *never*.
+
 [#401](https://github.com/MBehtemam/Montagent/issues/401), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to seven sub-questions; ballots verbatim

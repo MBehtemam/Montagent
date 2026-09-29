@@ -636,10 +636,17 @@ target** is 180 px: what every range gets by default, 18 tiles for a 9:16 projec
 visible, 30 tiles, reached by exactly one degrade step — and where the sheet **refuses,
 naming sub-ranges that would fit**, rather than drawing more tiles than it can show a defect
 in. Tile **count is derived** from the width and the tile's aspect, never set by the caller:
-a cropped 3:1 band clears 180 px at 112 tiles where whole 9:16 frames manage 18. Visual
+a cropped 3:1 band clears 180 px at 98 tiles where whole 9:16 frames manage 18. That
+comparison is a **hypothetical** that shows why the currency is width and not count: **a
+contact sheet is always whole frames**, and a per-tile crop is refused
+([ADR-0103](docs/adr/0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md)),
+because a band removes the only view in which a wrong-photo defect is a defect at all, and its
+blindness is authored by the caller rather than fixed by the rule. A **crop is a single-frame
+instrument**: `--crop` composes with `--at`, never with a range. Visual
 tokens are *not* the currency — a sheet spends 1518–1568 of the tier's 1568 at every count
 from 4 to 48, so a token cap never fires.
-_Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution
+_Avoid_: tile count as a budget, *the* floor, authored tile width, sheet resolution, cropped
+sheet / banded sheet / region sheet (no such artifact exists — a sheet is whole frames)
 
 **Attribution obligation**:
 What `frame` owes the agent alongside every picture: **the agent must be able to attribute
