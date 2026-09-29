@@ -5,6 +5,10 @@ amends: 0011 (*"Progress on stderr, coarse"* was written for the CLI and is wron
 
 # MCP tools run off the runtime thread, and a long call is heard from until it ends
 
+> **Amended by [ADR-0109](0109-a-cancelled-encode-publishes-nothing.md).** §4 no longer
+> holds: a cancelled `render`/`preview` stops within one frame, publishes nothing, and
+> releases the encode slot only once its work has actually stopped.
+
 [#439](https://github.com/MBehtemam/Montagent/issues/439), building what
 [#393](https://github.com/MBehtemam/Montagent/issues/393) (MONTAGENT-9) found. Part of
 [#383](https://github.com/MBehtemam/Montagent/issues/383). The research is

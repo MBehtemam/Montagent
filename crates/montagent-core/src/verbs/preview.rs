@@ -273,6 +273,17 @@ impl Attempt {
 /// `progress` is called as frames are encoded, once per rung; the CLI prints it to stderr.
 /// The verb itself prints nothing.
 pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -> Answer {
+    preview_cancellable(path, ask, progress, None)
+}
+
+/// [`preview`], stopping where it stands and publishing nothing once `cancel` is set, on
+/// `render`'s rule (ADR-0109).
+pub fn preview_cancellable(
+    path: &FilePath,
+    ask: &Ask,
+    progress: &mut dyn FnMut(Progress),
+    cancel: Option<&render::Cancel>,
+) -> Answer {
     let started = Instant::now();
     let project = Some(path.display().to_string());
 
@@ -465,6 +476,7 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
             // ADR-0104: a proxy is not a deliverable and never attests to being one.
             stamp: None,
             deadline: budget(rung),
+            cancel,
         };
 
         let attempt = Instant::now();
@@ -519,6 +531,12 @@ pub fn preview(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -
             }
             Err(Stop::Internal(reason)) => {
                 report.fail_internally(reason);
+                return refused(report);
+            }
+            // ADR-0109: a cancelled preview does not try the next rung — nobody is waiting
+            // for it.
+            Err(Stop::Cancelled { done }) => {
+                report.fail_cancelled(render::cancelled_after(TOOL, done, frames));
                 return refused(report);
             }
             Err(Stop::Missed { elapsed, done }) => {

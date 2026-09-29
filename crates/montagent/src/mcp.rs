@@ -389,7 +389,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("validate", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let report = montagent_core::validate(&PathBuf::from(&params.project));
                 let form = Wire::from_flags(params.json, params.verbose);
 
@@ -428,7 +428,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("create_project", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let report = montagent_core::verbs::create_project::create_project(
                     &PathBuf::from(&params.project),
                     &Scaffold {
@@ -486,7 +486,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("query", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let answer = montagent_core::verbs::query::query(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::query::Ask {
@@ -550,7 +550,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("frame", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let answer = montagent_core::verbs::frame::frame(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::frame::Ask {
@@ -614,11 +614,11 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("render", &context),
             dispatch::Slot::Encode(format!("render of {}", params.project)),
-            move |sink| {
+            move |sink, cancel| {
                 // `dispatch::run` owns progress: the stderr line ADR-0011 specified, and the
                 // MCP stream when the client asked for one (ADR-0108).
                 let mut progress = sink;
-                let answer = montagent_core::verbs::render::render(
+                let answer = montagent_core::verbs::render::render_cancellable(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::render::Ask {
                         from: params.from,
@@ -631,6 +631,9 @@ impl Montagent {
                         no_clobber: false,
                     },
                     &mut progress,
+                    // ADR-0109: stop before the next frame and publish nothing once the
+                    // client cancels.
+                    Some(&cancel),
                 );
                 let form = Wire::from_flags(params.json, params.verbose);
 
@@ -680,11 +683,11 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("preview", &context),
             dispatch::Slot::Encode(format!("preview of {}", params.project)),
-            move |sink| {
+            move |sink, cancel| {
                 // `dispatch::run` owns progress: the stderr line ADR-0011 specified, and the
                 // MCP stream when the client asked for one (ADR-0108).
                 let mut progress = sink;
-                let answer = montagent_core::verbs::preview::preview(
+                let answer = montagent_core::verbs::preview::preview_cancellable(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::preview::Ask {
                         from: params.from,
@@ -695,6 +698,9 @@ impl Montagent {
                         clock: montagent_core::verbs::preview::Clock::Scrub,
                     },
                     &mut progress,
+                    // ADR-0109: stop before the next frame and publish nothing once the
+                    // client cancels.
+                    Some(&cancel),
                 );
                 let form = Wire::from_flags(params.json, params.verbose);
 
@@ -757,7 +763,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("measure", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let answer = montagent_core::verbs::measure::measure(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::measure::Ask {
@@ -811,7 +817,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("shift", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let answer = montagent_core::verbs::shift::shift(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::shift::Ask {
@@ -863,7 +869,7 @@ impl Montagent {
         dispatch::run(
             dispatch::Call::of("compare", &context),
             dispatch::Slot::Free,
-            move |_sink| {
+            move |_sink, _cancel| {
                 let report = montagent_core::verbs::compare::compare(
                     &PathBuf::from(&params.reference),
                     &PathBuf::from(&params.current),

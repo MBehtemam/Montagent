@@ -225,6 +225,24 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{reason}",
         status: Live,
     },
+    CheckSpec {
+        // ADR-0109 (#440): the MCP caller sent `notifications/cancelled` and `render` or
+        // `preview` walked away rather than publish. Its own code rather than `E-INTERNAL`,
+        // for `E-TOOL-MISSING`'s reason — "you stopped it" and "it crashed" are different
+        // next moves — and `NotAboutDocument` because the project did not stop the run.
+        //
+        // Usually unread: `rmcp` drops the response to a cancelled request and the spec tells
+        // the client to ignore a late one. It exists so the report the verb *does* produce
+        // states the one thing ADR-0109 decides — the disk was not touched — and so a test
+        // can name the condition.
+        code: "E-CANCELLED",
+        classes: &[Error],
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0109",
+        template: "{reason}",
+        status: Live,
+    },
     // ---- The disk half of `validate`: the probe's findings (#190) and the check that
     // ---- reads them (#203). --------------------------------------------------------
     CheckSpec {

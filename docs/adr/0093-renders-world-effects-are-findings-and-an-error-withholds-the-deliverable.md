@@ -5,6 +5,11 @@ amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: 
 
 # `render`'s world-effects are findings, and an `error` withholds the deliverable
 
+> **Amended by [ADR-0109](0109-a-cancelled-encode-publishes-nothing.md).** Ruling 6's
+> walk-away has a third trigger: the MCP caller cancelling. A cancelled `render` or `preview`
+> stops before its next frame and publishes nothing, so a file at the output path is a
+> zero-error render that nobody cancelled.
+
 > **Amended by [ADR-0096](0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md).**
 > Ruling 6's condition 1 — *"the seek predicate is computable before the frame loop"* — is
 > **not true of the fine predicate**: whether a given seek lands needs the source's real frame
