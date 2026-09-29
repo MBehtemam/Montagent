@@ -67,8 +67,9 @@ voiceover's.
 
 | File | What it is |
 |---|---|
-| `screen/session.mp4` | *to be recorded*: a screen recording of an agent using Montagent in a terminal |
-| `stills/session-01.png`, `stills/session-02.png` | *to be taken from the screen recording* |
+| `screen/session.mp4` | 55.0 s, 1920×1080, 30 fps, no sound. A real terminal session: Claude Code, with Montagent connected, is asked to add a subtitle that fades in. It reads the format, edits the project file, checks frames and renders. |
+| `stills/session-01.png` | 1920×1080: the terminal at the moment of the edit, with the diff of the project file on screen |
+| `stills/session-02.png` | 960×540: a frame of the video that session rendered, "Hello, Montagent" with the new subtitle beneath |
 
 ## Licences
 

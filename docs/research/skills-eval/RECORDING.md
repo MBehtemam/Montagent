@@ -20,12 +20,17 @@ word for word.
 
 > Most editors hide the video behind a mouse. Montagent hands it to your agent, and tells it the truth about every frame before it renders.
 
-## 2. Product: one screen recording
+## 2. Product: one screen recording (done)
 
-- [ ] Terminal with a dark theme and a **large** font (18 pt or more), so it reads when scaled down in a picture-in-picture.
-- [ ] Hide anything personal: other windows, notifications (Focus mode on), your home path in the prompt if you mind it showing.
-- [ ] Record a region of about 1920×1080 with ⌘⇧5 → *Record Selected Portion*.
-- [ ] A real session, 30–60 s: Claude Code with the Montagent MCP server, asked to make a small change to `examples/hello-text` (for example, "add a subtitle line under the greeting that fades in"). Let it edit the file, run `validate`, look at a `frame`, and `render`, then open the rendered MP4 in QuickTime and let it play for a few seconds.
-- [ ] No need to narrate. The sound from this recording is not used.
+Recorded headlessly with [VHS](https://github.com/charmbracelet/vhs) 0.12.1 at 1920×1080
+and 30 fps, 24 pt, Catppuccin Mocha. The tape is `pack-src/session.tape`. It is a real,
+unscripted session: Claude Code 2.1.284 on Opus 5.5, in a copy of `examples/hello-text`
+with its font vendored and the Montagent MCP server connected. It gets one prompt:
 
-From the screen recording the agent takes two stills for the launch spot: one of the agent at work in the terminal, and one of the rendered frame.
+> Add a subtitle under the greeting that fades in over the first second. Check a frame, then render it.
+
+The tool permissions were pre-approved in the copy's `.claude/settings.json`, so the
+session runs without prompts. Claude read `format.md` and the schema, added the subtitle
+on its own track, checked frames at 500 and 1500 ms, and rendered in about 40 s.
+`screen/session.mp4` is the first 55 s. `stills/session-01.png` is the frame at 36 s,
+and `stills/session-02.png` is the rendered video at 1.5 s.
