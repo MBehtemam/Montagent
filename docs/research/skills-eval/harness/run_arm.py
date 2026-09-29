@@ -341,7 +341,13 @@ def main() -> None:
         print(f"scratch kept at {scratch}")
         return
 
-    record.mkdir(parents=True)
+    # Claim the run number atomically: parallel runs of one arm must not share a directory.
+    while True:
+        try:
+            record.mkdir(parents=True)
+            break
+        except FileExistsError:
+            record = parent / f"{args.arm}-{next_index(parent, args.arm)}"
     print(f"{args.arm} on {bid} → {rel(record)}  (scratch {scratch})", flush=True)
     started = now()
     outcome = run_claude(argv, env, work, record / "transcript.jsonl", record / "stderr.log",
