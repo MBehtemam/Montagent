@@ -385,6 +385,7 @@ fn execute(runner: &dyn Runner, tools: &Tools, args: &[String]) -> Result<Execut
             searched: Vec::new(),
             resolved: Some(tools.ffprobe.clone()),
             failure: e.to_string(),
+            unsupported: None,
         })
     })
 }
@@ -404,6 +405,7 @@ fn interpret(
             searched: Vec::new(),
             resolved: Some(tools.ffprobe.clone()),
             failure,
+            unsupported: None,
         }));
     }
 

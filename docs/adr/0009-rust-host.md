@@ -10,6 +10,11 @@ status: accepted
 > is still not taken: an `ffmpeg` without `libx264` surfaces as exit 70 carrying its own
 > sentence, never a silent fallback.
 
+> **Amended by [ADR-0115](./0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md)**: the `ffmpeg` the user supplies has a floor — **ffmpeg 7.1
+> or newer, built with `libx264`** — stated as the three arguments that decide it rather than a
+> version string, and checked by a **tool qualification** (one null encode per process). An
+> `ffmpeg` below it is `E-TOOL-UNSUPPORTED`, exit 70.
+
 Montagent is hosted in **Rust**, built on the first-party **`rmcp`** SDK.
 
 This ADR records the **host** only — the language, the MCP SDK, the packaging

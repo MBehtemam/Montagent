@@ -262,6 +262,24 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         census: None,
     },
     CheckSpec {
+        // ADR-0115 (#477, #479): `E-TOOL-MISSING`'s sibling, for an `ffmpeg` that is on
+        // `PATH` and runs, and fails the tool qualification — one null encode through the
+        // floor's arguments (`montagent_render::floor`). Its own code because the remedy is
+        // to *upgrade*, which `-MISSING` would misname and `E-INTERNAL` would blame on
+        // Montagent. Same exit 70 and `NotAboutDocument` as its sibling, for its reason.
+        //
+        // In `validate` it is an `error` — `render` is guaranteed to refuse — and it belongs
+        // to no check set: it is refusal-shaped, not a question asked of the project.
+        code: "E-TOOL-UNSUPPORTED",
+        classes: &[Error],
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0115",
+        template: "{reason}",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
         // ADR-0109 (#440): the MCP caller sent `notifications/cancelled` and `render` or
         // `preview` walked away rather than publish. Its own code rather than `E-INTERNAL`,
         // for `E-TOOL-MISSING`'s reason — "you stopped it" and "it crashed" are different

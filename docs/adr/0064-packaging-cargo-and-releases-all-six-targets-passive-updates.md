@@ -4,6 +4,11 @@
 
 Accepted
 
+> **Amended by [ADR-0115](./0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md)**: CI's Linux legs and the reference-frame job test the `ffmpeg`
+> **floor** — a pinned BtbN 7.1.5 static build verified by checksum, in place of apt's 6.1 —
+> while macOS and Windows keep installing the newest release, so both ends of the supported
+> range are tested.
+
 ## Context
 
 [ADR-0009](0009-rust-host.md) settled the host as Rust, shipping as a single compiled binary plus an `ffmpeg` the user supplies themselves — no bundled FFmpeg (GPL/patent duties rule that out), no interpreter, no `node_modules`-style runtime. [ADR-0010](0010-skia-safe-rasterizer-text-beside-it.md) settled the renderer as `skia-safe`, and a separate ticket (#7) verified that its required prebuilt feature-key (`jpegd-jpege-pdf`, CPU-only) publishes cleanly — no silent fallback to a from-source build — on all six of Rust's desktop tier-1 targets (x86_64/aarch64 across macOS, Linux glibc, Windows MSVC).

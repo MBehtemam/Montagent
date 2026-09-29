@@ -126,6 +126,7 @@ use crate::exact::{self, Decimal};
 use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
+use crate::media::tools::Missing;
 use crate::media::{Source, attest, display_local, probe, tools};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
@@ -495,8 +496,8 @@ pub fn render_cancellable(
             return refused(report);
         }
         // ADR-0091: an unconfigured environment, not a broken project.
-        Err(Stop::ToolMissing(reason)) => {
-            report.fail_tool_missing(reason);
+        Err(Stop::ToolMissing(missing)) => {
+            missing.fail(&mut report);
             return refused(report);
         }
         // ADR-0109: stopped where it stood; nothing was written at any path.
@@ -650,9 +651,9 @@ pub(crate) enum Stop {
     /// mid-loop cannot come back through here, and does not: it travels on
     /// [`Painted::declined`] and is caught by the non-promotion rule instead.
     Refused(Vec<Finding>),
-    /// ADR-0091: `ffmpeg` is not on `PATH`, so exit 70 and `E-TOOL-MISSING` rather than a
-    /// finding about the project.
-    ToolMissing(String),
+    /// ADR-0091: `ffmpeg` is not on `PATH` (or, ADR-0115, cannot do what the floor asks), so
+    /// exit 70 and `Missing::fail`'s code rather than a finding about the project.
+    ToolMissing(Box<Missing>),
     /// The span ran past [`Span::deadline`] and was abandoned where it stood. The temp
     /// file goes with the dropped encoder; nothing was written.
     Missed {
@@ -863,8 +864,8 @@ pub(crate) fn encode_span(
         if let Some(reason) = painter.internal.take() {
             return Err(Stop::Internal(reason));
         }
-        if let Some(reason) = painter.tool_missing.take() {
-            return Err(Stop::ToolMissing(reason));
+        if let Some(missing) = painter.tool_missing.take() {
+            return Err(Stop::ToolMissing(missing));
         }
 
         let Some(rgb) = canvas.rgb() else {
@@ -1199,7 +1200,7 @@ impl Mix {
                 // `chain` can reach for a tool. Folded into the invariant channel rather
                 // than given one of its own, because reaching it would itself be the
                 // invariant violation.
-                Err(Declined::Tool(reason)) => internal = internal.or(Some(reason)),
+                Err(Declined::Tool(missing)) => internal = internal.or(Some(missing.reason())),
             }
         }
 

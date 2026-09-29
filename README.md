@@ -31,7 +31,9 @@ or download a prebuilt binary for your platform from the
 `PATH`. Six desktop targets are built: macOS, Linux and Windows, each for `x86_64` and
 `aarch64`.
 
-You'll also need `ffmpeg` on `PATH`. Montagent spawns it for encoding and decoding
+You'll also need `ffmpeg` on `PATH`: **7.1 or newer, built with `libx264`** (ADR-0115).
+Ubuntu 24.04's apt ships 6.1, which is below that; use a static build or a newer
+distribution. Montagent spawns it for encoding and decoding
 rather than linking it in (its codecs are GPL; Montagent's binary isn't), and it's only
 asked for when you actually render — validating or scaffolding a project needs nothing
 but the `montagent` binary itself.

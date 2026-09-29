@@ -216,7 +216,8 @@ impl Encoder {
             }
         }
         if let Some(script) = &script {
-            command.arg("-filter_complex_script").arg(script);
+            // ADR-0115: the graph is read from a file, in the spelling the floor fixes.
+            command.arg(crate::floor::FILTER_COMPLEX_FILE).arg(script);
         }
         command.args(["-map", "0:v"]);
         if let Some(Encoded { width, height }) = encoded {
@@ -228,7 +229,7 @@ impl Encoder {
         }
         command.args([
             "-c:v",
-            "libx264",
+            crate::floor::VIDEO_ENCODER,
             "-preset",
             "medium",
             "-crf",

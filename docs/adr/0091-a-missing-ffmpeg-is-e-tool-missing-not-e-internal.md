@@ -4,6 +4,12 @@ status: accepted
 
 # A missing `ffmpeg`/`ffprobe` is `E-TOOL-MISSING`, not `E-INTERNAL`
 
+> **Amended by [ADR-0115](./0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md)**: `Missing`'s one dispatch point now chooses among **three**
+> codes. A found `ffmpeg` that fails the tool qualification is **`E-TOOL-UNSUPPORTED`**, this
+> code's sibling (same exit 70, same `NotAboutDocument`), because the remedy is to upgrade rather
+> than to install. The painter's and encode loop's tool channel carry the `Missing` whole, so a
+> found binary is no longer named `E-TOOL-MISSING` there.
+
 **Ticket:** [#368](https://github.com/MBehtemam/Montagent/issues/368), part of
 [#356](https://github.com/MBehtemam/Montagent/issues/356)'s stranger walk
 ([#362](https://github.com/MBehtemam/Montagent/issues/362)).
