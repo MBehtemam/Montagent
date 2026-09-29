@@ -52,15 +52,16 @@ are **rounded squares**, corner radius 96, in Ink (on light grounds) or Paper (o
 
 ## Presenter
 
-The person who builds Montagent, filmed vertically against a green screen, speaking to
-camera. Each take has its script and word timings beside it, in the same form as the
+A presenter speaking to camera against a green screen, in three takes. The presenter is a
+synthetic avatar, not a real person. Each take is 1920×1080 at 25 fps, with the presenter
+centred, and has its script and word timings beside it, in the same form as the
 voiceover's.
 
 | File | What it is |
 |---|---|
-| `presenter/take-1.mp4` · `.txt` · `.words.json` | *to be recorded* |
-| `presenter/take-2.mp4` · `.txt` · `.words.json` | *to be recorded* |
-| `presenter/take-3.mp4` · `.txt` · `.words.json` | *to be recorded* |
+| `presenter/take-1.mp4` · `.txt` · `.words.json` | 9.8 s, 25 words: "I stopped dragging clips around a timeline…" |
+| `presenter/take-2.mp4` · `.txt` · `.words.json` | 9.9 s, 26 words: "Here's the trick…" |
+| `presenter/take-3.mp4` · `.txt` · `.words.json` | 9.0 s, 25 words: "Most editors hide the video behind a mouse…" |
 
 ## Product
 
@@ -77,4 +78,5 @@ record is the repository's `LICENSE-MEDIA.md`.
 - `fonts/`: SIL Open Font License 1.1, © The Inter Project Authors; see `fonts/Inter-LICENSE.txt`.
 - `music/bed-120bpm.wav`: CC0 1.0. It is synthesised by `docs/research/skills-eval/pack-src/make_music_bed.py` in the Montagent repository (MIT), which writes the same bytes on every run.
 - `voiceover/voiceover.wav`: spoken by Kokoro-82M (hexgrad, Apache-2.0) with its `af_heart` voice, by `docs/research/skills-eval/pack-src/make_voiceover.py` in the Montagent repository (MIT). © 2026 Mohammad Bagher Ehtemam, rights reserved, like the rest of the maintainer's media.
-- `brand/`, `presenter/`, `screen/`, `stills/`: © 2026 Mohammad Bagher Ehtemam, all rights reserved. They may be used only to build, test, benchmark and study this repository. `brand/` is drawn by `docs/research/skills-eval/pack-src/make_brand.py` in the Montagent repository (MIT).
+- `presenter/*.mp4`: generated with Azure AI Speech's text-to-speech avatar (the prebuilt avatar "Harry", casual style) on the maintainer's subscription, under Microsoft's Product Terms and the Azure AI Speech code of conduct. That code requires disclosing that the presenter is synthetic; this manifest does so. The scripts and word timings (made by `docs/research/skills-eval/pack-src/align_takes.py`) are the maintainer's, as below.
+- `brand/`, `presenter/*.txt`, `presenter/*.words.json`, `screen/`, `stills/`: © 2026 Mohammad Bagher Ehtemam, all rights reserved. They may be used only to build, test, benchmark and study this repository. `brand/` is drawn by `docs/research/skills-eval/pack-src/make_brand.py` in the Montagent repository (MIT).

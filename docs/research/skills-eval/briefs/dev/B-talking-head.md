@@ -2,7 +2,7 @@
 
 **10 seconds · 1080×1920 · 30 fps · 9:16.** Deliver one MP4 with sound.
 
-A vertical social clip: the person who builds Montagent talks to camera for ten seconds. It
+A vertical social clip: a presenter talks to camera about Montagent for ten seconds. It
 has to read with the sound off, so the captions carry the words. It has to feel like a brand's
 own channel, not a raw phone video.
 
@@ -17,7 +17,7 @@ Everything you need is in the asset pack; its `README.md` lists it. The presente
 |---|---|
 | 0–10 s | The presenter is keyed off the green screen and stands over a background in the brand's accent colour. |
 | throughout | Captions show what the presenter is saying, and the word being spoken is highlighted as it is said. |
-| 1 s | A lower-third name bar wipes on: **Mohammad Bagher Ehtemam**, with **Builds Montagent** beneath. |
+| 1 s | A lower-third name bar wipes on: **Montagent**, with **Video your agent can read** beneath. |
 | 6 s | The name bar wipes off. |
 | mid-clip | A circular picture-in-picture of the product pops in on the right and stays until near the end. |
 | throughout | The music sits under the voice, dips while the presenter speaks, and fades out at the end. |

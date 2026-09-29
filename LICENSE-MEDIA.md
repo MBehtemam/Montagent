@@ -86,8 +86,16 @@ see the note after the table).
 | --- | --- |
 | `brand/*.png` | the Montagent mark, wordmark and lockup, drawn by `pack-src/make_brand.py` |
 | `voiceover/voiceover.wav`, `voiceover.words.json`, `script.txt` | a synthetic voiceover spoken by Kokoro-82M (Apache-2.0 weights and voice; the output is ours) |
-| `presenter/*` | the maintainer on green screen, with scripts and word timings |
+| `presenter/*.txt`, `presenter/*.words.json` | the presenter takes' scripts, and their word timings made by `pack-src/align_takes.py` |
 | `screen/*`, `stills/*` | a screen recording of a real Montagent session, and stills from it |
+
+**The presenter takes are Azure avatar output.** `presenter/take-{1,2,3}.mp4` were
+generated with Azure AI Speech's text-to-speech avatar (the prebuilt avatar "Harry",
+casual style) on the maintainer's subscription, and are committed as delivered. The
+person on screen is synthetic. Microsoft's Product Terms and the Azure AI Speech code of
+conduct govern them, including its requirement to disclose that the presenter is
+synthetic, which the pack's `README.md` does. They are in this category because the
+maintainer generated them, not because the maintainer is on camera.
 
 **The music bed is CC0.** `music/bed-120bpm.wav` is synthesised from scratch by
 `pack-src/make_music_bed.py`, which writes the same bytes on every run. The maintainer

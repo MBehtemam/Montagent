@@ -1,27 +1,12 @@
-# Recording checklist for the eval asset pack
+# How the pack's footage was made
 
-Two things only the maintainer can record, done in one sitting: three green-screen
-presenter takes, and one screen recording. Drop the raw files in `assets/incoming/`
-(any names). The agent then trims and encodes them, derives word timings, and pulls
-the stills.
+## 1. Presenter: three green-screen takes (done)
 
-## 1. Presenter: three green-screen takes
-
-**Setup**
-
-- [ ] A green backdrop filling the frame behind you: cloth, paper or a painted wall. Pull it taut; creases become shadows.
-- [ ] Stand about 1 m in front of it, so you don't cast a shadow on it and less green bounces onto you.
-- [ ] Light the backdrop evenly and separately from yourself if you can. A key that has to cope with a gradient across the backdrop is a harder test than intended.
-- [ ] Wear nothing green, and nothing shiny.
-- [ ] Phone **vertical**, 1080×1920 or larger, 30 fps, locked exposure and focus (long-press on iPhone).
-- [ ] Frame from mid-chest up, with some headroom. Leave space on your right for a picture-in-picture and at the bottom for captions.
-- [ ] Record the sound on the phone, or a lav into it. A quiet room matters more than the mic.
-
-**Each take**
-
-- [ ] One second of silence, still, looking at the lens, before you speak and after you finish.
-- [ ] Say the script as written. The captions are checked against these exact words. If you change a word, note it.
-- [ ] 8–10 s of speech. Do it again if it runs long; don't rush.
+Generated with Azure AI Speech's text-to-speech avatar: the prebuilt avatar "Harry",
+casual style, background `#00FF00`, 1920×1080 at 25 fps. Each script was pasted in as
+plain text and the MP4 committed as delivered. Word timings come from
+`pack-src/align_takes.py`, which refuses a take whose speech doesn't match its script
+word for word.
 
 **Take 1** (development brief B)
 
