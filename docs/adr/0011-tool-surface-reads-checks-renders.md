@@ -129,6 +129,11 @@ status: accepted
 >   heartbeat through pre-flight, `seal` and queueing. Every tool runs off the runtime thread,
 >   and `render`/`preview` share one encode slot that a queued call names. The stderr line
 >   stays, with the request id and dispatch/finish times added
+> - [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)
+>   — **every report gains `check_sets`**, the check sets that actually ran (`document`,
+>   `disk`, `layout`, `drift`), and the summary line is generated from it. A verb that runs no
+>   checks prints `no checks run (validate runs them)`, not six zeros, and `validate` stops
+>   printing `0 drift`.
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
