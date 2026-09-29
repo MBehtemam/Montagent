@@ -11,6 +11,14 @@ amends: 0094 (decision 2's "the label prints both the sampled instant and the ru
   needs a third key)
 ---
 
+> **Amended by [ADR-0106](0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md).** Section 8's identifying field is **absent on keyframe and
+> infill tiles**, which have no boundary change to name, and those tiles are **excluded from the
+> sheet-wide elision fit** — #407 found one `element.property` stand-in stripped the field from
+> every tile. The slot is left blank, never a placeholder. A keyframe tile's label prints the
+> **painted** millisecond; its provenance line names the change point as `element.property@t`. A
+> change point whose sample frame is a run tile's frame adds no tile, and that tile keeps its
+> class, boundary field and label.
+
 # The tile label is a floored, fitted line that names the change at its own boundary
 
 [#400](https://github.com/MBehtemam/Montagent/issues/400), on the map

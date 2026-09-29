@@ -1,0 +1,1 @@
+I stopped dragging clips around a timeline. Now my agent writes the video as a file, checks every frame, and renders it. This is Montagent.

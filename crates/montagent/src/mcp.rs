@@ -28,6 +28,8 @@ use montagent_core::report::Report;
 use montagent_core::resources;
 use montagent_core::verbs::create_project::Scaffold;
 
+mod dispatch;
+
 /// The advertised schema **is** the enforced one: `schemars` derives the document the
 /// tool publishes from `T`, and `T` is what the arguments are deserialised into below.
 /// There is one declaration per tool, so the two cannot drift.
@@ -278,7 +280,8 @@ pub struct CompareParams {
 /// There is no argument that skips the checks, narrows them, or renders at a proxy
 /// resolution: ADR-0006 makes the check engine the thing `render` runs before it draws
 /// anything, and ADR-0021 makes the deliverable the one output that is never downsampled.
-/// Progress goes to the server's stderr — this surface hands back the result.
+/// Progress is not an argument: it goes to the server's stderr always, and to the client as
+/// `notifications/progress` whenever the call carries a `progressToken` (ADR-0108).
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct RenderParams {
     /// Path to the project file.
@@ -367,8 +370,9 @@ impl Montagent {
                        meant it to say.",
         input_schema = advertised::<ValidateParams>()
     )]
-    fn validate(
+    async fn validate(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         // Arguments are taken as a raw value and checked here rather than by the
@@ -382,15 +386,22 @@ impl Montagent {
             Err(e) => return Ok(rejected("validate", &e)),
         };
 
-        let report = montagent_core::validate(&PathBuf::from(&params.project));
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("validate", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let report = montagent_core::validate(&PathBuf::from(&params.project));
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        // An `error` finding is an answer, not a protocol failure — ADR-0006's whole
-        // point is that the findings *are* the result, and `respond` (ADR-0083) sets
-        // `isError` only where the report has nothing to say about the document at all.
-        let body = montagent_core::wire::render(&report, form);
+                // An `error` finding is an answer, not a protocol failure — ADR-0006's whole
+                // point is that the findings *are* the result, and `respond` (ADR-0083) sets
+                // `isError` only where the report has nothing to say about the document at all.
+                let body = montagent_core::wire::render(&report, form);
 
-        Ok(respond(&report, vec![ContentBlock::text(body)]))
+                respond(&report, vec![ContentBlock::text(body)])
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -404,8 +415,9 @@ impl Montagent {
                        what it gives you.",
         input_schema = advertised::<CreateProjectParams>()
     )]
-    fn create_project(
+    async fn create_project(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: CreateProjectParams = match serde_json::from_value(raw) {
@@ -413,31 +425,38 @@ impl Montagent {
             Err(e) => return Ok(rejected("create_project", &e)),
         };
 
-        let report = montagent_core::verbs::create_project::create_project(
-            &PathBuf::from(&params.project),
-            &Scaffold {
-                width: params.frame.width,
-                height: params.frame.height,
-                fps: params.fps,
-                background: params.background,
-                duration: params.duration,
-                output: params.output,
-            },
-        );
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("create_project", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let report = montagent_core::verbs::create_project::create_project(
+                    &PathBuf::from(&params.project),
+                    &Scaffold {
+                        width: params.frame.width,
+                        height: params.frame.height,
+                        fps: params.fps,
+                        background: params.background,
+                        duration: params.duration,
+                        output: params.output,
+                    },
+                );
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        // ADR-0011's write-tool invariant: the return value *is* the findings. A
-        // scaffold that did not land because the header disagrees with itself is still
-        // an answer about the project, and stays `success`. `E-PROJECT-EXISTS` is
-        // different in kind — the project being scaffolded does not exist, so there is
-        // no document to have an opinion about — and `respond` (ADR-0083) sets
-        // `isError` for it, resolving #313.
-        Ok(respond(
-            &report,
-            vec![ContentBlock::text(montagent_core::wire::render(
-                &report, form,
-            ))],
-        ))
+                // ADR-0011's write-tool invariant: the return value *is* the findings. A
+                // scaffold that did not land because the header disagrees with itself is still
+                // an answer about the project, and stays `success`. `E-PROJECT-EXISTS` is
+                // different in kind — the project being scaffolded does not exist, so there is
+                // no document to have an opinion about — and `respond` (ADR-0083) sets
+                // `isError` for it, resolving #313.
+                respond(
+                    &report,
+                    vec![ContentBlock::text(montagent_core::wire::render(
+                        &report, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
     #[tool(
         name = "query",
@@ -454,8 +473,9 @@ impl Montagent {
                        document alone; only `at` resolves anything.",
         input_schema = advertised::<QueryParams>()
     )]
-    fn query(
+    async fn query(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: QueryParams = match serde_json::from_value(raw) {
@@ -463,32 +483,39 @@ impl Montagent {
             Err(e) => return Ok(rejected("query", &e)),
         };
 
-        let answer = montagent_core::verbs::query::query(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::query::Ask {
-                at: params.at,
-                from: params.from,
-                to: params.to,
-                predicate: params.predicate,
-                census: params.census,
-            },
-        );
-        // `verbose` is deliberately absent from this tool's schema: `query` has no
-        // informational findings to expand, and an argument that changed nothing would cost
-        // the agent context on every turn for no answer it could get back.
-        let form = Wire::from_flags(params.json, false);
+        dispatch::run(
+            dispatch::Call::of("query", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::query::query(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::query::Ask {
+                        at: params.at,
+                        from: params.from,
+                        to: params.to,
+                        predicate: params.predicate,
+                        census: params.census,
+                    },
+                );
+                // `verbose` is deliberately absent from this tool's schema: `query` has no
+                // informational findings to expand, and an argument that changed nothing would cost
+                // the agent context on every turn for no answer it could get back.
+                let form = Wire::from_flags(params.json, false);
 
-        // An answer about a project that does not validate is still an answer, not a
-        // protocol failure — ADR-0006's findings **are** the result. `respond`
-        // (ADR-0083) sets `isError` only where the report has nothing to say about the
-        // document at all (the file could not be read or parsed, or the query itself
-        // was malformed).
-        Ok(respond(
-            answer.report(),
-            vec![ContentBlock::text(montagent_core::wire::render_query(
-                &answer, form,
-            ))],
-        ))
+                // An answer about a project that does not validate is still an answer, not a
+                // protocol failure — ADR-0006's findings **are** the result. `respond`
+                // (ADR-0083) sets `isError` only where the report has nothing to say about the
+                // document at all (the file could not be read or parsed, or the query itself
+                // was malformed).
+                respond(
+                    answer.report(),
+                    vec![ContentBlock::text(montagent_core::wire::render_query(
+                        &answer, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -510,8 +537,9 @@ impl Montagent {
                        layout, never how you measure one, which is `measure`'s job.",
         input_schema = advertised::<FrameParams>()
     )]
-    fn frame(
+    async fn frame(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: FrameParams = match serde_json::from_value(raw) {
@@ -519,37 +547,44 @@ impl Montagent {
             Err(e) => return Ok(rejected("frame", &e)),
         };
 
-        let answer = montagent_core::verbs::frame::frame(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::frame::Ask {
-                at: Some(params.at),
-                crop: params.crop,
-                full: params.full,
-                png: params.png,
-                // The CLI's flag, and not this surface's: a picture that came back as a
-                // path would be a picture an agent cannot see.
-                out: None,
-            },
-        );
-        // `verbose` is deliberately absent, as it is on `query` and `measure`.
-        let form = Wire::from_flags(params.json, false);
+        dispatch::run(
+            dispatch::Call::of("frame", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::frame::frame(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::frame::Ask {
+                        at: Some(params.at),
+                        crop: params.crop,
+                        full: params.full,
+                        png: params.png,
+                        // The CLI's flag, and not this surface's: a picture that came back as a
+                        // path would be a picture an agent cannot see.
+                        out: None,
+                    },
+                );
+                // `verbose` is deliberately absent, as it is on `query` and `measure`.
+                let form = Wire::from_flags(params.json, false);
 
-        // The caption first and the image second, so a client that renders content blocks
-        // in order shows the picture under the list of what is in it — which is the reading
-        // order ADR-0011 argues for, the block being the picture's caption.
-        let mut content = vec![ContentBlock::text(montagent_core::wire::render_frame(
-            &answer, form,
-        ))];
-        if let Some(image) = answer.image() {
-            content.push(ContentBlock::image(
-                BASE64.encode(&image.bytes),
-                image.mime_type(),
-            ));
-        }
-        // A project that did not render is still an answer about the project — the report
-        // says what stopped it — and `respond` (ADR-0083) sets `isError` only where it
-        // does not (the file could not be read/parsed, or the call was malformed).
-        Ok(respond(answer.report(), content))
+                // The caption first and the image second, so a client that renders content blocks
+                // in order shows the picture under the list of what is in it — which is the reading
+                // order ADR-0011 argues for, the block being the picture's caption.
+                let mut content = vec![ContentBlock::text(montagent_core::wire::render_frame(
+                    &answer, form,
+                ))];
+                if let Some(image) = answer.image() {
+                    content.push(ContentBlock::image(
+                        BASE64.encode(&image.bytes),
+                        image.mime_type(),
+                    ));
+                }
+                // A project that did not render is still an answer about the project — the report
+                // says what stopped it — and `respond` (ADR-0083) sets `isError` only where it
+                // does not (the file could not be read/parsed, or the call was malformed).
+                respond(answer.report(), content)
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -566,8 +601,9 @@ impl Montagent {
                        CHECKED footer: exit 0 never means the video is right.",
         input_schema = advertised::<RenderParams>()
     )]
-    fn render(
+    async fn render(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: RenderParams = match serde_json::from_value(raw) {
@@ -575,42 +611,45 @@ impl Montagent {
             Err(e) => return Ok(rejected("render", &e)),
         };
 
-        // Progress to the server's own stderr, which is where an MCP host collects a
-        // server's log: the protocol has no stream for it, and the result is the answer.
-        let mut progress = |p: montagent_core::verbs::render::Progress| {
-            eprintln!(
-                "render  {}/{} frames  {:.1} s",
-                p.done,
-                p.of,
-                p.elapsed.as_secs_f64()
-            );
-        };
-        let answer = montagent_core::verbs::render::render(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::render::Ask {
-                from: params.from,
-                to: params.to,
-                output: params.output.map(PathBuf::from),
-                // ADR-0104: CLI-only, for ADR-0011's reason that kept `probe` off this
-                // surface — a tool schema costs context on every turn, and the case the
-                // flag exists for is a batch script. The MCP caller still gets the whole
-                // default rule: a foreign deliverable is refused, an unattested one reviewed.
-                no_clobber: false,
-            },
-            &mut progress,
-        );
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("render", &context),
+            dispatch::Slot::Encode(format!("render of {}", params.project)),
+            move |sink, cancel| {
+                // `dispatch::run` owns progress: the stderr line ADR-0011 specified, and the
+                // MCP stream when the client asked for one (ADR-0108).
+                let mut progress = sink;
+                let answer = montagent_core::verbs::render::render_cancellable(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::render::Ask {
+                        from: params.from,
+                        to: params.to,
+                        output: params.output.map(PathBuf::from),
+                        // ADR-0104: CLI-only, for ADR-0011's reason that kept `probe` off this
+                        // surface — a tool schema costs context on every turn, and the case the
+                        // flag exists for is a batch script. The MCP caller still gets the whole
+                        // default rule: a foreign deliverable is refused, an unattested one reviewed.
+                        no_clobber: false,
+                    },
+                    &mut progress,
+                    // ADR-0109: stop before the next frame and publish nothing once the
+                    // client cancels.
+                    Some(&cancel),
+                );
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        // A refused render is an answer about the project — the findings say why — and
-        // `respond` (ADR-0083) keeps it `success`; only a run with nothing to say about
-        // the document (unreadable file, bad invocation, an internal failure) sets
-        // `isError`.
-        Ok(respond(
-            answer.report(),
-            vec![ContentBlock::text(montagent_core::wire::render_video(
-                &answer, form,
-            ))],
-        ))
+                // A refused render is an answer about the project — the findings say why — and
+                // `respond` (ADR-0083) keeps it `success`; only a run with nothing to say about
+                // the document (unreadable file, bad invocation, an internal failure) sets
+                // `isError`.
+                respond(
+                    answer.report(),
+                    vec![ContentBlock::text(montagent_core::wire::render_video(
+                        &answer, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -631,8 +670,9 @@ impl Montagent {
                        never downsampled.",
         input_schema = advertised::<PreviewParams>()
     )]
-    fn preview(
+    async fn preview(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: PreviewParams = match serde_json::from_value(raw) {
@@ -640,39 +680,42 @@ impl Montagent {
             Err(e) => return Ok(rejected("preview", &e)),
         };
 
-        // Progress to the server's own stderr, as `render` does: the protocol has no
-        // stream for it, and the result is the answer.
-        let mut progress = |p: montagent_core::verbs::render::Progress| {
-            eprintln!(
-                "preview  {}/{} frames  {:.1} s",
-                p.done,
-                p.of,
-                p.elapsed.as_secs_f64()
-            );
-        };
-        let answer = montagent_core::verbs::preview::preview(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::preview::Ask {
-                from: params.from,
-                to: params.to,
-                output: params.output.map(PathBuf::from),
-                full: params.full,
-                // ADR-0021's budget, which is not this surface's to restate.
-                clock: montagent_core::verbs::preview::Clock::Scrub,
-            },
-            &mut progress,
-        );
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("preview", &context),
+            dispatch::Slot::Encode(format!("preview of {}", params.project)),
+            move |sink, cancel| {
+                // `dispatch::run` owns progress: the stderr line ADR-0011 specified, and the
+                // MCP stream when the client asked for one (ADR-0108).
+                let mut progress = sink;
+                let answer = montagent_core::verbs::preview::preview_cancellable(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::preview::Ask {
+                        from: params.from,
+                        to: params.to,
+                        output: params.output.map(PathBuf::from),
+                        full: params.full,
+                        // ADR-0021's budget, which is not this surface's to restate.
+                        clock: montagent_core::verbs::preview::Clock::Scrub,
+                    },
+                    &mut progress,
+                    // ADR-0109: stop before the next frame and publish nothing once the
+                    // client cancels.
+                    Some(&cancel),
+                );
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        // A refused or hard-failed preview is an answer about the project — the findings
-        // say why — and `respond` (ADR-0083) keeps it `success`; a run with nothing to
-        // say about the document sets `isError`.
-        Ok(respond(
-            answer.report(),
-            vec![ContentBlock::text(montagent_core::wire::render_preview(
-                &answer, form,
-            ))],
-        ))
+                // A refused or hard-failed preview is an answer about the project — the findings
+                // say why — and `respond` (ADR-0083) keeps it `success`; a run with nothing to
+                // say about the document sets `isError`.
+                respond(
+                    answer.report(),
+                    vec![ContentBlock::text(montagent_core::wire::render_preview(
+                        &answer, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -707,8 +750,9 @@ impl Montagent {
                        here either.",
         input_schema = advertised::<MeasureParams>()
     )]
-    fn measure(
+    async fn measure(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: MeasureParams = match serde_json::from_value(raw) {
@@ -716,26 +760,33 @@ impl Montagent {
             Err(e) => return Ok(rejected("measure", &e)),
         };
 
-        let answer = montagent_core::verbs::measure::measure(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::measure::Ask {
-                element: params.element,
-                at: params.at,
-                elements: params.elements,
-                all: params.all,
-            },
-        );
-        // `verbose` is deliberately absent, as it is on `query`: the answer *is* the
-        // output and is never collapsed, so an argument that changed nothing would cost the
-        // agent context on every turn.
-        let form = Wire::from_flags(params.json, false);
+        dispatch::run(
+            dispatch::Call::of("measure", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::measure::measure(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::measure::Ask {
+                        element: params.element,
+                        at: params.at,
+                        elements: params.elements,
+                        all: params.all,
+                    },
+                );
+                // `verbose` is deliberately absent, as it is on `query`: the answer *is* the
+                // output and is never collapsed, so an argument that changed nothing would cost the
+                // agent context on every turn.
+                let form = Wire::from_flags(params.json, false);
 
-        Ok(respond(
-            answer.report(),
-            vec![ContentBlock::text(montagent_core::wire::render_measure(
-                &answer, form,
-            ))],
-        ))
+                respond(
+                    answer.report(),
+                    vec![ContentBlock::text(montagent_core::wire::render_measure(
+                        &answer, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -753,8 +804,9 @@ impl Montagent {
                        findings, never `ok` — read them the way you read `validate`'s.",
         input_schema = advertised::<ShiftParams>()
     )]
-    fn shift(
+    async fn shift(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: ShiftParams = match serde_json::from_value(raw) {
@@ -762,27 +814,34 @@ impl Montagent {
             Err(e) => return Ok(rejected("shift", &e)),
         };
 
-        let answer = montagent_core::verbs::shift::shift(
-            &PathBuf::from(&params.project),
-            &montagent_core::verbs::shift::Ask {
-                at: params.at,
-                delta: params.delta,
-                scope: params.scope,
-                release: params
-                    .release
-                    .into_iter()
-                    .map(|[from, to]| (from, to))
-                    .collect(),
-            },
-        );
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("shift", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::shift::shift(
+                    &PathBuf::from(&params.project),
+                    &montagent_core::verbs::shift::Ask {
+                        at: params.at,
+                        delta: params.delta,
+                        scope: params.scope,
+                        release: params
+                            .release
+                            .into_iter()
+                            .map(|[from, to]| (from, to))
+                            .collect(),
+                    },
+                );
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        Ok(respond(
-            answer.report(),
-            vec![ContentBlock::text(montagent_core::wire::render_shift(
-                &answer, form,
-            ))],
-        ))
+                respond(
+                    answer.report(),
+                    vec![ContentBlock::text(montagent_core::wire::render_shift(
+                        &answer, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 
     #[tool(
@@ -797,8 +856,9 @@ impl Montagent {
                        running it needs no keyframe resolver.",
         input_schema = advertised::<CompareParams>()
     )]
-    fn compare(
+    async fn compare(
         &self,
+        context: RequestContext<RoleServer>,
         Parameters(raw): Parameters<serde_json::Value>,
     ) -> Result<CallToolResult, ErrorData> {
         let params: CompareParams = match serde_json::from_value(raw) {
@@ -806,18 +866,25 @@ impl Montagent {
             Err(e) => return Ok(rejected("compare", &e)),
         };
 
-        let report = montagent_core::verbs::compare::compare(
-            &PathBuf::from(&params.reference),
-            &PathBuf::from(&params.current),
-        );
-        let form = Wire::from_flags(params.json, params.verbose);
+        dispatch::run(
+            dispatch::Call::of("compare", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let report = montagent_core::verbs::compare::compare(
+                    &PathBuf::from(&params.reference),
+                    &PathBuf::from(&params.current),
+                );
+                let form = Wire::from_flags(params.json, params.verbose);
 
-        Ok(respond(
-            &report,
-            vec![ContentBlock::text(montagent_core::wire::render(
-                &report, form,
-            ))],
-        ))
+                respond(
+                    &report,
+                    vec![ContentBlock::text(montagent_core::wire::render(
+                        &report, form,
+                    ))],
+                )
+            },
+        )
+        .await
     }
 }
 

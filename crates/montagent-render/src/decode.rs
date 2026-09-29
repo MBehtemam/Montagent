@@ -106,7 +106,21 @@ impl std::fmt::Debug for DecodedFrame {
     }
 }
 
-/// Decode the frame at `at_ms` into the source, resampled to `width`×`height`.
+/// How far back the at-or-before window reaches, in milliseconds.
+///
+/// The window has to span the largest gap between two consecutive frames in the source,
+/// because the frame visible at `at_ms` is the last one starting at or before it and the
+/// window is where it gets looked for. 200 ms spans any gap down to 5 fps, which is below
+/// every rate a composited source plausibly carries — and the repository's own reference
+/// MP4 is the reason the bound is stated as a gap rather than as a frame period: it is
+/// nominally 25 fps and carries four gaps of 51–58 ms where frames were dropped.
+///
+/// It is not a budget to be minimised. The window is bounded on the *read* side too (see
+/// `-t` below), so widening it costs the decode of the extra frames it spans and nothing
+/// else; narrowing it past a real gap turns a correct frame into a missing one.
+const SEEK_WINDOW_MS: i64 = 200;
+
+/// Decode the frame the source is **showing** at `at_ms`, resampled to `width`×`height`.
 ///
 /// `at_ms` is an offset **into the source file**, not a timeline instant: the arithmetic
 /// that turns one into the other — `source_start`, `speed`, `overrun`'s hold and loop —
@@ -114,9 +128,55 @@ impl std::fmt::Debug for DecodedFrame {
 /// into the source* with the same number. Two implementations of that arithmetic would be
 /// a picture and a caption that disagree.
 ///
-/// The seek is `-ss` **before** `-i`, which is the input seek: `ffmpeg` jumps to the
-/// nearest preceding keyframe and decodes forward to the requested instant rather than
-/// decoding the file from zero. At the 500 ms budget the difference is the whole budget.
+/// **The frame at an instant is the last frame starting at or before it, and `ffmpeg`'s
+/// own seek answers a different question.** ADR-0096. A plain `-ss t` returns the first
+/// frame whose timestamp is `>= t` — measured, across ProRes, long-GOP H.264 and a
+/// fractional 30000/1001 rate alike — so every `at_ms` that does not land exactly on a
+/// source frame's start used to paint the *next* frame. That is one frame early for the
+/// whole of an element whose start is off the source's grid, and at the last frame there is
+/// no next one, so `ffmpeg` exited cleanly having written nothing and the element silently
+/// did not draw (#387, MONTAGENT-2).
+///
+/// **The grid is not computable from what `probe` establishes, which is why this is a
+/// filter and not arithmetic.** Clamping `at_ms` down onto a frame grid needs that grid,
+/// and [`Quad`](montagent_core::media::probe::Quad)'s two frame rates are not it: on the
+/// repository's own reference MP4 the real frame timestamps start at 42.031 ms and step
+/// 40 ms — 25 fps — while `r_frame_rate` says 50 and `avg_frame_rate` says 24.9785, and
+/// four dropped frames mean no single rate describes the file at all. So the question is
+/// put to the one authority that holds the real timestamps:
+///
+/// - `-ss` lands [`SEEK_WINDOW_MS`] **before** `at_ms`, still the input seek — `ffmpeg`
+///   jumps to the nearest preceding keyframe and decodes forward rather than reading the
+///   file from zero, which at the 500 ms budget is the whole budget.
+/// - `-copyts` keeps the source's own timestamps, so the filter compares against source
+///   time rather than against time rebased onto the seek point.
+/// - `select='lte(t,<at_ms>)'` keeps every frame starting at or before the instant, and the
+///   **last** one of those is the answer. A streaming filter cannot know which frame is
+///   last, so the run is read to its end and the final whole frame is taken.
+/// - `-t` bounds the read to the window, and it is load-bearing rather than tidy: `select`
+///   places no limit on the output, so without it `ffmpeg` reads to end of file decoding
+///   and discarding everything after the instant. Measured at 1080p that is the difference
+///   between a 20% cost over the old single-frame seek and a 2x one, and the unbounded form
+///   gets worse the longer the source is.
+///
+/// **The clamp is symmetric.** A source whose first frame starts *after* the instant has no
+/// frame at or before it — this repository's reference MP4 begins at 42.031 ms, so an element
+/// with `source_start: 0` asks for instants no frame covers — and the answer there is the
+/// window's **earliest** frame. A container's own origin is not a statement by the author, and
+/// refusing it would have moved the silent failure from the end of a source to the start of
+/// one. The fallback searches the same window and no further, so an instant past the end still
+/// finds nothing and stays an error.
+///
+/// **The threshold carries one microsecond of slack, and the slack is exact.** `select`
+/// evaluates `t` as a float, so a frame whose start *is* the instant compares marginally
+/// above it and `lte` drops it — measured on a 25 fps source at 1400 ms and a 30000/1001
+/// one at 1001 ms, both of which returned the frame before. A microsecond clears that
+/// margin by three orders of magnitude while staying three below the closest a real
+/// source's frames come to each other, and it is written as integer digits —
+/// `1.001` ms becomes `1.001001` s — so ADR-0005's integer millisecond is still never
+/// routed through a float. Coarser slack is not safe: at 100 microseconds a 30000/1001
+/// source over-includes the *next* frame wherever its start falls that close above a
+/// whole millisecond.
 ///
 /// The error is one sentence naming the source and what `ffmpeg` said, because the caller
 /// is a report and ADR-0011's exit 70 says *"retry or report"* — neither of which is
@@ -134,59 +194,92 @@ pub fn frame_at(
             "{source}: a frame was asked for at {width}x{height}, which is no frame at all"
         ));
     }
+    let at_ms = at_ms.max(0);
+    let from_ms = (at_ms - SEEK_WINDOW_MS).max(0);
+    // The read has to reach the instant itself, and the window is shorter than
+    // `SEEK_WINDOW_MS` for any instant inside the first window's worth of the source.
+    let read_ms = at_ms - from_ms + 1;
+
     // Milliseconds to `ffmpeg`'s decimal seconds, in the string rather than through a
     // float: ADR-0005 stores every time as an integer millisecond because float seconds
     // failed in practice, and re-introducing one at the boundary would put the error back
     // in the one place the whole surface treats as authoritative.
-    let seconds = format!("{}.{:03}", at_ms.max(0) / 1000, at_ms.max(0) % 1000);
-
-    let scale = format!("scale={width}:{height}");
-    let output = Command::new(ffmpeg)
-        .args(["-hide_banner", "-loglevel", "error"])
-        // Before `-i`, because a decoder choice is an option about the *input* — after it,
-        // `ffmpeg` reads it as an encoder for the output and the decode is unchanged.
-        .args(decoder.args())
-        .args([
-            "-ss",
-            &seconds,
-            "-i",
-            source,
-            "-frames:v",
-            "1",
-            "-vf",
-            &scale,
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
-            "-",
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))?;
+    let seconds = format!("{}.{:03}", at_ms / 1000, at_ms % 1000);
+    let from = format!("{}.{:03}", from_ms / 1000, from_ms % 1000);
+    let read = format!("{}.{:03}", read_ms / 1000, read_ms % 1000);
+    // The instant plus one microsecond, in the same integer arithmetic — the six decimal
+    // places *are* the slack, so there is no float here either.
+    let threshold = format!("{}.{:03}001", at_ms / 1000, at_ms % 1000);
 
     let expected = (width as usize) * (height as usize) * 4;
-    if output.stdout.len() != expected {
+    let scale = format!("scale={width}:{height}");
+
+    // One spawn of `ffmpeg` over the window, with whichever output-side arguments pick the
+    // frame wanted out of it.
+    let over_window = |output_args: &[&str]| -> Result<std::process::Output, String> {
+        Command::new(ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error"])
+            // Before `-i`, because a decoder choice is an option about the *input* — after
+            // it, `ffmpeg` reads it as an encoder for the output and the decode is
+            // unchanged.
+            .args(decoder.args())
+            .args(["-ss", &from, "-copyts", "-t", &read, "-i", source])
+            .args(output_args)
+            .args(["-f", "rawvideo", "-pix_fmt", "rgba", "-"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))
+    };
+
+    let filter = format!("select='lte(t\\,{threshold})',{scale}");
+    let at_or_before = over_window(&["-vf", &filter, "-vsync", "0"])?;
+
+    // **The frame at or before the instant, and where there is none, the source's first.**
+    // A source whose first frame starts *after* the instant has no frame at or before it,
+    // and the clamp is symmetric for the same reason it exists at the other end: a
+    // container's own origin is not the author's mistake. This repository's reference MP4
+    // begins at 42.031 ms, so an element with `source_start: 0` asks for instants no frame
+    // covers — and before this fallback existed those instants failed, which is the defect
+    // the clamp was written to remove rather than to move to the other end of the file.
+    //
+    // `-frames:v 1` over the same window, so the answer is the source's earliest frame
+    // *near the instant* and never a search of the whole file: an instant past the end of
+    // the source still finds nothing here and stays an error.
+    let (output, at_or_after) = if at_or_before.stdout.len() >= expected {
+        (at_or_before, false)
+    } else {
+        (over_window(&["-frames:v", "1", "-vf", &scale])?, true)
+    };
+
+    let whole = output.stdout.len() / expected;
+    if whole == 0 || output.stdout.len() % expected != 0 {
         let said = String::from_utf8_lossy(&output.stderr);
         let said = said.trim();
         // The empty-output case is the one an author can act on, so it says what it means
-        // rather than reporting a byte count: seeking past the end of a source produces no
-        // frame, and `ffmpeg` exits cleanly having written nothing.
+        // rather than reporting a byte count. After ADR-0096's clamp it no longer means
+        // *"the instant is past the last frame"* — that instant now paints the last frame —
+        // but *"there is no frame within a window of it in either direction"*, which is a
+        // source whose frames stop more than `SEEK_WINDOW_MS` before the instant the
+        // document asked for.
         return Err(if output.stdout.is_empty() {
             format!(
-                "{source}: no frame at {seconds}s{}",
+                "{source}: no frame at or before {seconds}s{}",
                 if said.is_empty() {
-                    " — the seek is past the end of the source".to_string()
+                    format!(
+                        " — the source carries no frame within {SEEK_WINDOW_MS} ms of it in \
+                         either direction, so it does not cover the range the document \
+                         declares"
+                    )
                 } else {
                     format!(" — {said}")
                 }
             )
         } else {
             format!(
-                "{source}: ffmpeg wrote {} bytes for a {width}x{height} RGBA frame, which \
-                 needs {expected}{}",
+                "{source}: ffmpeg wrote {} bytes for {width}x{height} RGBA frames, which is \
+                 not a whole number of the {expected} each one needs{}",
                 output.stdout.len(),
                 if said.is_empty() {
                     String::new()
@@ -197,8 +290,16 @@ pub fn frame_at(
         });
     }
 
+    // The last whole frame of the `select` run, because it kept every frame starting at or
+    // before the instant in decode order — or the only frame of the fallback, which asked
+    // for one.
+    let taken = if at_or_after {
+        output.stdout[..expected].to_vec()
+    } else {
+        output.stdout[(whole - 1) * expected..].to_vec()
+    };
     Ok(DecodedFrame {
-        rgba: output.stdout,
+        rgba: taken,
         width,
         height,
     })

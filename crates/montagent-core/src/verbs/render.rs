@@ -173,6 +173,40 @@ pub struct Progress {
     pub elapsed: Duration,
 }
 
+/// A caller's request that a running encode stop, and publish nothing (ADR-0109).
+///
+/// A flag rather than a channel or a token type from an async runtime, because the core is
+/// synchronous and the one question it asks is *"has anyone asked me to stop?"* — once per
+/// frame, and once more immediately before the rename that would publish. The MCP adapter
+/// sets it when the client sends `notifications/cancelled`; the CLI never does, because a
+/// CLI user who wants a render stopped sends a signal and the process goes with it.
+#[derive(Debug, Clone, Default)]
+pub struct Cancel(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl Cancel {
+    pub fn new() -> Cancel {
+        Cancel::default()
+    }
+
+    /// Ask the encode to stop. Idempotent, and callable from any thread.
+    pub fn cancel(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// `E-CANCELLED`'s sentence for an encode stopped part-way: how far it got, and what that
+/// means for the disk, which is the one thing ADR-0109 decides.
+pub fn cancelled_after(tool: &str, done: u64, of: u64) -> String {
+    format!(
+        "`{tool}` was cancelled by the caller after {done} of {of} frames, and published \
+         nothing: whatever was at the output path before this call is still there, untouched"
+    )
+}
+
 /// One `render` invocation's answer: the video, where one was written, and the report
 /// every verb answers with — here, the check engine's own.
 pub struct Answer {
@@ -260,6 +294,18 @@ pub struct Encoded {
 /// `progress` is called as frames are encoded; the CLI prints it to stderr. The verb
 /// itself prints nothing.
 pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) -> Answer {
+    render_cancellable(path, ask, progress, None)
+}
+
+/// [`render`], stopping where it stands and publishing nothing once `cancel` is set
+/// (ADR-0109). A cancel that arrives after the publish is too late to matter: the render had
+/// already succeeded, and the file at `output` is exactly the one it made.
+pub fn render_cancellable(
+    path: &FilePath,
+    ask: &Ask,
+    progress: &mut dyn FnMut(Progress),
+    cancel: Option<&Cancel>,
+) -> Answer {
     let started = Instant::now();
     let project = Some(path.display().to_string());
 
@@ -431,6 +477,7 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
         output: &output,
         stamp: Some(stamp),
         deadline: None,
+        cancel,
     };
     let painted = match encode_span(&span, started, progress) {
         Ok(painted) => painted,
@@ -450,6 +497,11 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
         // ADR-0091: an unconfigured environment, not a broken project.
         Err(Stop::ToolMissing(reason)) => {
             report.fail_tool_missing(reason);
+            return refused(report);
+        }
+        // ADR-0109: stopped where it stood; nothing was written at any path.
+        Err(Stop::Cancelled { done }) => {
+            report.fail_cancelled(cancelled_after(TOOL, done, frames));
             return refused(report);
         }
         // `render` passes no deadline, so there is no clock for a span of its to run past.
@@ -479,6 +531,13 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
     }
     if report.exit_code() != ExitCode::Ok {
         painted.withhold();
+        return refused(report);
+    }
+    // ADR-0109: the last moment a cancel can change what is on disk. Past this line the
+    // rename happens, and a cancel that arrives after it finds a render that succeeded.
+    if span.cancelled() {
+        painted.withhold();
+        report.fail_cancelled(cancelled_after(TOOL, frames, frames));
         return refused(report);
     }
 
@@ -538,6 +597,15 @@ pub(crate) struct Span<'a> {
     /// next rung down starts with the budget in hand, rather than the ladder costing the
     /// sum of every attempt run to completion.
     pub deadline: Option<Duration>,
+    /// ADR-0109: the caller's request to stop, checked before the encoder starts, before
+    /// every frame, and after the seal. `None` where nobody can ask.
+    pub cancel: Option<&'a Cancel>,
+}
+
+impl Span<'_> {
+    fn cancelled(&self) -> bool {
+        self.cancel.is_some_and(Cancel::is_cancelled)
+    }
 }
 
 /// The device a span lands on: its pixel dimensions, and the scale from the project's
@@ -590,6 +658,12 @@ pub(crate) enum Stop {
     Missed {
         elapsed: Duration,
         /// How far it got, so a refusal can say how much of the span the clock bought.
+        done: u64,
+    },
+    /// ADR-0109: the caller asked the span to stop. Walked away exactly as [`Stop::Missed`]
+    /// is — the temp file goes with the encoder, and nothing was written at any path.
+    Cancelled {
+        /// Frames encoded before the request was seen.
         done: u64,
     },
 }
@@ -711,6 +785,11 @@ pub(crate) fn encode_span(
     let mixed = mix.mixed;
     let mix_declined = mix.declined;
 
+    // ADR-0109: a call cancelled during pre-flight never spawns an encoder at all.
+    if span.cancelled() {
+        return Err(Stop::Cancelled { done: 0 });
+    }
+
     let mut encoder = match Encoder::start(
         span.ffmpeg,
         span.output,
@@ -754,6 +833,11 @@ pub(crate) fn encode_span(
     });
     let mut reported_tenth = 0;
     for (done, n) in (span.first..=span.last).enumerate() {
+        // ADR-0109: checked before each frame, so a cancelled call frees the server within
+        // one frame's time. The encoder is dropped on the way out, and its temp file with it.
+        if span.cancelled() {
+            return Err(Stop::Cancelled { done: done as u64 });
+        }
         let instant = instant_of(n, span.fps);
         let view = at::presence(span.document, instant);
         painter.begin(instant);
@@ -824,6 +908,13 @@ pub(crate) fn encode_span(
             )));
         }
     };
+    // ADR-0109: a request that arrived during the seal still wins — the file is whole and
+    // sitting in its temp path, and the caller has been told the call failed.
+    if span.cancelled() {
+        let done = sealed.frames();
+        sealed.withhold();
+        return Err(Stop::Cancelled { done });
+    }
     // The whole span is in the file, so the clock only decides whether the file is worth
     // keeping — which is `preview`'s call, at the rung it is standing on, not this
     // function's.
@@ -1163,16 +1254,11 @@ fn chain(
     ) else {
         return Err(Declined::internal(name, "no integer `start`/`end`"));
     };
-    // Not an invariant violation: this is the one cross-field fact the schema cannot
-    // express and no `validate` check states, so the render genuinely reaches it
-    // (ADR-0093, `E-EMPTY-RANGE`).
+    // ADR-0093 gave this arm `E-EMPTY-RANGE` because no `validate` check stated it and the
+    // render genuinely reached it. ADR-0107 moved the finding to `crate::checks::range`, so
+    // the check engine refuses first and reaching here is the two halves disagreeing.
     if end <= start {
-        return Err(Declined::Finding(
-            Finding::new("E-EMPTY-RANGE")
-                .field("field", json!("`start`..`end`"))
-                .field("from", json!(start))
-                .field("to", json!(end)),
-        ));
+        return Err(Declined::internal(name, "an empty `start`..`end`"));
     }
     // The part of the element inside the render's range, in the element's own time.
     let window_start = from.max(start) - start;
@@ -1239,12 +1325,11 @@ fn chain(
         ));
     };
     let source_span = source_end - source_start;
+    // The source half of the same fact, and unreachable for the same reason (ADR-0107).
     if source_span <= 0 {
-        return Err(Declined::Finding(
-            Finding::new("E-EMPTY-RANGE")
-                .field("field", json!("`source_start`..`source_end`"))
-                .field("from", json!(source_start))
-                .field("to", json!(source_end)),
+        return Err(Declined::internal(
+            name,
+            "an empty `source_start`..`source_end`",
         ));
     }
     let speed = match element.get("speed") {

@@ -174,6 +174,26 @@ scaffold somewhere else.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0105 (#412): `frame`'s range mode holds more visual states than the sheet can
+        // show legibly, so it refuses rather than thin, split or reshape (ADR-0095). One code
+        // for every limit that can bind — ADR-0095's 140 px tile width, ADR-0098's 8 px served
+        // type, or either reached through the keyframe opt-in (#407) — because all three share
+        // one next move, a narrower range; `limit` says which bound. Its own code rather than a
+        // bare `E-INVOCATION` (the shape `preview`'s budget refusal takes) because the remedy is
+        // a list of ranges, and an agent loops over `sub_ranges` without parsing prose.
+        code: "E-SHEET-OVERFLOW",
+        classes: &[Error],
+        // `NotAboutDocument` (ADR-0073): the document is legal and unchanged, and the subject
+        // is the range the caller typed. Reaches exit 3 through `Report::refused_invocation`.
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0105",
+        template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
+and the sheet holds {fits} before {limit} stops a tile showing a defect. It never thins, splits \
+or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
+        status: Declared,
+    },
+    CheckSpec {
         code: "E-INTERNAL",
         classes: &[Error],
         // ADR-0073 (#224): not about a document — Montagent itself broke. Refuse's "no
@@ -202,6 +222,24 @@ scaffold somewhere else.",
         repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0091",
+        template: "{reason}",
+        status: Live,
+    },
+    CheckSpec {
+        // ADR-0109 (#440): the MCP caller sent `notifications/cancelled` and `render` or
+        // `preview` walked away rather than publish. Its own code rather than `E-INTERNAL`,
+        // for `E-TOOL-MISSING`'s reason — "you stopped it" and "it crashed" are different
+        // next moves — and `NotAboutDocument` because the project did not stop the run.
+        //
+        // Usually unread: `rmcp` drops the response to a cancelled request and the spec tells
+        // the client to ignore a late one. It exists so the report the verb *does* produce
+        // states the one thing ADR-0109 decides — the disk was not touched — and so a test
+        // can name the condition.
+        code: "E-CANCELLED",
+        classes: &[Error],
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0109",
         template: "{reason}",
         status: Live,
     },
@@ -836,6 +874,12 @@ minimum caption duration",
         // one, and is the alignment detail the same ADR puts "behind `--verbose`". Nothing
         // emits it yet; ADR-0035 gave the grid arithmetic to `measure` (#205), and where
         // that fact belongs is #257.
+        //
+        // ADR-0105 (#412) adds a third `review` condition on the same reason: a *visual
+        // state* the grid never paints — two boundaries on different elements landing on one
+        // frame, so no element vanishes and no track gains a gap, yet the combination the
+        // document declares is never on screen. `frame`'s range mode raises it for each
+        // `no-grid-frame` skipped run. This check does not detect it yet (#437).
         classes: &[Review, Note],
         repair: None,
         threshold: Internal,
@@ -1451,16 +1495,17 @@ is replaced.",
         // and which of them the author meant to move is not in the document.
         repair: Some(Refuse),
         threshold: Internal,
-        adr: "ADR-0093",
-        // Shared by both halves of the render, because it is one condition: an element whose
-        // `end` does not exceed its `start` — or whose source range does not — occupies no
-        // instant, so it is neither mixed nor painted.
+        adr: "ADR-0107",
+        // One condition: an element whose `end` does not exceed its `start` — or whose
+        // source range does not — occupies no instant, so it is neither mixed nor painted.
         //
-        // **It is here because the render can genuinely reach it.** Unlike its type-level
-        // siblings this is a cross-field fact the schema cannot express, and no `validate`
-        // check states it today: a project with `"start": 0, "end": 0` validates at zero
-        // errors. That `validate` should state it too is a real gap and a separate ticket —
-        // ADR-0093 records it rather than smuggling a new `validate` check in here.
+        // ADR-0093 registered it as a `render` finding, because no `validate` check stated it
+        // and a project with `"start": 0, "end": 0` validated at zero errors while `render`
+        // refused it. ADR-0107 (#410) gives it to `crate::checks::range` under the **same**
+        // code — one fact, one repair form (ADR-0043) — so `render` refuses on the check
+        // engine's report and its own two arms are `E-INTERNAL`, as ADR-0093 makes every
+        // arm the check engine closes. `error` and never `review`: there is no frame at
+        // which to look at an element that holds no instant.
         template: "`{element}` occupies no instant: {field} {from}..{to} is empty, so there \
 is nothing to render for it.",
         status: Live,
@@ -1511,11 +1556,14 @@ local sources.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
-        // MONTAGENT-2's failed seek surfaces here until #387 clamps it: `ffmpeg` exits
-        // cleanly having written nothing, and `{detail}` carries what it said. ADR-0093
-        // ruling 6 condition 1 is what makes that acceptable as an interim — the seek
-        // predicate is computable before the frame loop, so #387 removes the case rather
-        // than leaving it to be discovered mid-render.
+        // MONTAGENT-2's failed seek no longer surfaces here: ADR-0096 made `frame_at`
+        // answer with the frame the source is showing at the instant, so an off-grid
+        // instant inside the last frame paints it rather than decoding nothing. ADR-0093
+        // ruling 6 condition 1 held that the seek predicate was computable before the frame
+        // loop; it is not, because the frame grid is a property of the source's timestamps
+        // and not of either frame rate `probe` reports (ADR-0096 §2). What remains
+        // computable — and so still pre-flightable — is the coarser question the clamp
+        // leaves: whether the source ends more than a window before the declared range.
         template: "`{element}` was not painted: {resolved} did not decode — {detail}.",
         status: Live,
     },

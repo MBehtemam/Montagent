@@ -1,0 +1,127 @@
+[
+  {
+    "word": "I",
+    "start": 0,
+    "end": 120
+  },
+  {
+    "word": "stopped",
+    "start": 120,
+    "end": 340
+  },
+  {
+    "word": "dragging",
+    "start": 340,
+    "end": 700
+  },
+  {
+    "word": "clips",
+    "start": 700,
+    "end": 960
+  },
+  {
+    "word": "around",
+    "start": 960,
+    "end": 1200
+  },
+  {
+    "word": "a",
+    "start": 1200,
+    "end": 1360
+  },
+  {
+    "word": "timeline.",
+    "start": 1360,
+    "end": 1740
+  },
+  {
+    "word": "Now",
+    "start": 2420,
+    "end": 2440
+  },
+  {
+    "word": "my",
+    "start": 2440,
+    "end": 2620
+  },
+  {
+    "word": "agent",
+    "start": 2620,
+    "end": 2940
+  },
+  {
+    "word": "writes",
+    "start": 2940,
+    "end": 3200
+  },
+  {
+    "word": "the",
+    "start": 3200,
+    "end": 3420
+  },
+  {
+    "word": "video",
+    "start": 3420,
+    "end": 3640
+  },
+  {
+    "word": "as",
+    "start": 3640,
+    "end": 3860
+  },
+  {
+    "word": "a",
+    "start": 3860,
+    "end": 4000
+  },
+  {
+    "word": "file,",
+    "start": 4000,
+    "end": 4360
+  },
+  {
+    "word": "checks",
+    "start": 5621,
+    "end": 5840
+  },
+  {
+    "word": "every",
+    "start": 5840,
+    "end": 6340
+  },
+  {
+    "word": "frame,",
+    "start": 6340,
+    "end": 6740
+  },
+  {
+    "word": "and",
+    "start": 7164,
+    "end": 7260
+  },
+  {
+    "word": "renders",
+    "start": 7260,
+    "end": 7540
+  },
+  {
+    "word": "it.",
+    "start": 7540,
+    "end": 7820
+  },
+  {
+    "word": "This",
+    "start": 8400,
+    "end": 8660
+  },
+  {
+    "word": "is",
+    "start": 8660,
+    "end": 9040
+  },
+  {
+    "word": "Montagent.",
+    "start": 9040,
+    "end": 9480
+  }
+]

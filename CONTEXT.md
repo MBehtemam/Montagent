@@ -718,6 +718,60 @@ per platform. Tabular figures, and the build fails loudly rather than falling ba
 _Avoid_: the label font (ambiguous with a project's declared fonts), a fallback font, the
 system face
 
+**Blind spot**:
+Something the contact sheet's **rule** structurally cannot see, whatever the document says —
+change inside a visual state, easing between keyframes, detail below the served tile width, a
+relation across two sheets, audio, motion. A blind spot is a property of the rule, never of the
+document, so it is **never a finding**: it is the sheet's NOT CHECKED block, printed on every
+answer including perfect ones, as a fixed list of `blind_to` tokens each bound to one sentence
+([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md),
+[ADR-0094](docs/adr/0094-the-sheets-instants-are-visual-states-sampled-at-the-first-painted-frame.md)).
+Where one call can see past it, its sentence names that call.
+_Avoid_: limitation, caveat, unchecked (a `U-` finding means *could not establish for this
+document*, not *structurally cannot*)
+
+**Unpainted visual state**:
+A visual state — a span over which the set of visual elements is constant — that contains no
+frame the grid paints, because the two boundaries around it land on one frame. The document
+declares it and the rendered video never shows it, so it is a fact about the **document**,
+reported as `N-QUANTIZATION` at `review`
+([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)).
+The contact sheet draws no tile for it and names it in `skipped` with reason `no-grid-frame`.
+Distinct from a **skipped** entry in general: an infill tile evicted under budget is also
+skipped, and that is a fact about the answer, not the document. A span that differs from its
+neighbours only in audio is not a visual state at all — the fixture's 4 ms interval at
+56112–56116 is one such, absorbed into a run that paints once audio is set aside.
+_Avoid_: short run, sub-frame run, dropped state
+
+**Keyframe change point**:
+One keyframe's `t` as the contact sheet sees it — the other kind of boundary the document states,
+beside a visual state's own ([ADR-0106](docs/adr/0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md)). The sheet counts only change
+points **interior to a visual state, on an element visible there**: one on a run boundary is
+already that run's tile, and one outside its element's lifetime (a trimmed move) is never on
+screen — the fixture declares 14 keyframes and has **zero** such change points. Membership is read
+off the document; whether one is **tiled** is a fact about the sheet. It is sampled, like a run,
+at **the first frame the grid paints at or after it** — the only frame that shows a `step` at
+all — so several may share one tile, one may land on a run's own tile and add nothing, and one
+with no frame left in its run lands on the next run's tile. Every answer reports `tiled` and
+`untiled`; `--keyframes` asks for the untiled ones to get tiles of their own. Never an easing
+midpoint or a curve's extremum: those are computed, not stated.
+_Avoid_: keyframe (the record, not the instant), keyframe tile (the picture, not the instant),
+animation point
+
+**Infill ceiling**:
+The longest span, in painted time, that a contact sheet may leave between two consecutive
+tiles **of any class** — document-derived, keyframe or infill alike — asked for with
+`--infill-ceiling <MS>` ([ADR-0106](docs/adr/0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md)). It is a
+**bound, not a count and not a period**: infill tiles are inserted only where the tiles the
+document already produced sit further apart than the ceiling, so a busy range may gain none and
+an empty one many. Infill is what closes the span; the span itself is measured across every
+tile. Infill is fitted into the slots left at the rung the other tiles fixed and never degrades
+the sheet, so a request may be honoured only coarser than asked — and then the answer states the
+**achieved** ceiling beside the requested one, uniform across the whole sheet, never a ceiling
+that holds in some stretches and not others.
+_Avoid_: gap ceiling (**Gap** is a stretch of a track with no element — a different thing),
+max gap, infill count, infill interval / period
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montagent has
@@ -1177,6 +1231,26 @@ is forced for it and for nothing else, since a user-supplied `ffmpeg` may have n
 Defined in [ADR-0089](docs/adr/0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).
 _Avoid_: transparency, alpha channel (the file carries one; this term is the reading),
 pix_fmt alpha
+
+**Sampled frame**:
+Which frame of a source a given instant shows: the **last frame whose start is at or before
+it**, never the next one. The distinction is not pedantry — `ffmpeg`'s own seek answers the
+opposite question, the first frame at or *after* the instant, so an element whose `start` is
+off its source's frame grid used to draw every frame one early and to draw nothing at all at
+the end of its range. The frame grid is a property of the **timestamps a source carries**, not
+of the frame rate it declares: the repository's own reference MP4 runs at 25 fps from a
+42.031 ms origin with four dropped frames, while its container reports `50/1` and its average
+reports `24.9785`. So Montagent does not compute the grid — it asks the decoder for the frame
+at or before the instant, over a bounded backward window, which is exact for constant,
+fractional, dropped-frame and variable rates alike. The clamp is symmetric at both ends: an instant past the end of the
+source resolves to its final frame, which is what `overrun: "hold"` means, and an instant
+*before* the first frame — a source whose own origin is late, as the reference MP4's is by
+42 ms — resolves to that first frame rather than refusing. An instant further outside the
+source than the window reaches is an `error`, because then the source really does not cover
+the range the document declares.
+Defined in [ADR-0096](docs/adr/0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md).
+_Avoid_: nearest frame (it is not the nearest — it is the one at or before), seek target,
+current frame
 
 **PAR (pixel aspect ratio)**:
 Applied, not ignored — silence here would repeat the EXIF-orientation divergence ADR-0015

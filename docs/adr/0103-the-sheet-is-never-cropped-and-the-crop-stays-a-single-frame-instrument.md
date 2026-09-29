@@ -8,6 +8,10 @@ amends: 0097 (section 7's `--crop`-with-a-range refusal stops being *not-yet-leg
   which the tile-label ADR has since made impossible; the argument they support is unaffected)
 ---
 
+> **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** The refusal's "stable code" is **`E-INVOCATION`**; the
+> two-step loop is its `reason` text. Juror 3's request, left open below, is settled: the sheet's
+> own `below-tile-width` blind-spot sentence names `frame --crop --at <instant>`.
+
 # The sheet is never cropped, and `--crop` stays a single-frame instrument
 
 [#406](https://github.com/MBehtemam/Montagent/issues/406), on the map

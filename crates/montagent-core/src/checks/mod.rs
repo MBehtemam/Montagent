@@ -29,6 +29,7 @@ pub mod ink;
 pub mod layout;
 pub mod mask;
 pub mod quantization;
+pub mod range;
 pub mod retired;
 pub mod runs;
 pub mod schema;
