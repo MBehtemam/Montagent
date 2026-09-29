@@ -88,7 +88,6 @@ see the note after the table).
 | `voiceover/voiceover.wav`, `voiceover.words.json`, `script.txt` | a synthetic voiceover spoken by Kokoro-82M (Apache-2.0 weights and voice; the output is ours) |
 | `presenter/*` | the maintainer on green screen, with scripts and word timings |
 | `screen/*`, `stills/*` | a screen recording of a real Montagent session, and stills from it |
-| `render/montagent-render.mp4` | 8 s of the fixture above rendered by Montagent, so it carries the channel's photography, logo and voice as well |
 
 **The music bed is CC0.** `music/bed-120bpm.wav` is synthesised from scratch by
 `pack-src/make_music_bed.py`, which writes the same bytes on every run. The maintainer

@@ -8,8 +8,8 @@ own channel, not a raw phone video.
 
 Everything you need is in the asset pack; its `README.md` lists it. The presenter is
 `presenter/take-1.mp4`, filmed against a green screen; its words and their timings are in
-`presenter/take-1.words.json`. The music is `music/bed-120bpm.wav`. The product clip is in
-`screen/`.
+`presenter/take-1.words.json`. The music is `music/bed-120bpm.wav`. The product clip is
+`screen/session.mp4`.
 
 ## Beat by beat
 

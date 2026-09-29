@@ -68,7 +68,6 @@ voiceover's.
 |---|---|
 | `screen/session.mp4` | *to be recorded*: a screen recording of an agent using Montagent in a terminal |
 | `stills/session-01.png`, `stills/session-02.png` | *to be taken from the screen recording* |
-| `render/montagent-render.mp4` | 8.0 s, 720×1280, 25 fps, with sound: a stretch of a real short rendered by Montagent |
 
 ## Licences
 
@@ -78,4 +77,4 @@ record is the repository's `LICENSE-MEDIA.md`.
 - `fonts/`: SIL Open Font License 1.1, © The Inter Project Authors; see `fonts/Inter-LICENSE.txt`.
 - `music/bed-120bpm.wav`: CC0 1.0. It is synthesised by `docs/research/skills-eval/pack-src/make_music_bed.py` in the Montagent repository (MIT), which writes the same bytes on every run.
 - `voiceover/voiceover.wav`: spoken by Kokoro-82M (hexgrad, Apache-2.0) with its `af_heart` voice, by `docs/research/skills-eval/pack-src/make_voiceover.py` in the Montagent repository (MIT). © 2026 Mohammad Bagher Ehtemam, rights reserved, like the rest of the maintainer's media.
-- `brand/`, `presenter/`, `screen/`, `stills/`, `render/`: © 2026 Mohammad Bagher Ehtemam, all rights reserved. They may be used only to build, test, benchmark and study this repository. `brand/` is drawn by `docs/research/skills-eval/pack-src/make_brand.py` in the Montagent repository (MIT).
+- `brand/`, `presenter/`, `screen/`, `stills/`: © 2026 Mohammad Bagher Ehtemam, all rights reserved. They may be used only to build, test, benchmark and study this repository. `brand/` is drawn by `docs/research/skills-eval/pack-src/make_brand.py` in the Montagent repository (MIT).
