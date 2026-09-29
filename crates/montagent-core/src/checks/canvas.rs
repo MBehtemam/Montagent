@@ -107,8 +107,9 @@ pub fn check(document: &Loose, report: &mut Report) {
             continue;
         }
         let Some(range) = active_range(element) else {
-            // A malformed or empty range is the schema check's fact, and an element with
-            // no instants has none at which it is off canvas.
+            // A malformed range is the schema check's fact and an empty one is
+            // `E-EMPTY-RANGE`'s (ADR-0107); an element with no instants has none at which
+            // it is off canvas.
             continue;
         };
         let Some(union) =

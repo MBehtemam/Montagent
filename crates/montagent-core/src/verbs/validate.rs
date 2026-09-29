@@ -164,6 +164,10 @@ fn run_checks(
     // arithmetic, never `f64` (ADR-0045).
     crate::checks::track::check(document, report);
     crate::checks::speed::check(document, report);
+    // ADR-0107's `E-EMPTY-RANGE` (#410): an element whose range does not advance holds no
+    // instant of the half-open clock, and every check above steps over it for that reason.
+    // `render` refused it and this list said nothing, so this is the check that owns it.
+    crate::checks::range::check(document, report);
     // The cross-track coverage question the track check cannot see (ADR-0018, #200):
     // group-scoped pairing, not a frame-wide union — see `crate::checks::coverage`.
     crate::checks::coverage::check(document, report);
