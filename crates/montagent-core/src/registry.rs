@@ -1603,6 +1603,161 @@ is replaced.",
         status: Live,
         census: None,
     },
+    // ---- `verify` (ADR-0117) ---------------------------------------------------------------
+    //
+    // The identity gate first. `Foreign` has no code of its own here: it is the same fact
+    // `E-OUTPUT-FOREIGN` states, with the same repair form, and ADR-0107's rule is one fact,
+    // one code.
+    CheckSpec {
+        code: "E-VERIFY-NO-OUTPUT",
+        classes: &[Error],
+        // Advise, on `E-FONT-UNATTESTED`'s reasoning: the next move is the one verb that
+        // writes the deliverable, and it follows from the condition itself.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "Nothing is at {output}, the project's declared `output`: there is no \
+deliverable to verify. Render it first.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "E-VERIFY-STALE",
+        classes: &[Error],
+        // Advise. `verify`'s question takes the document as it stands to be the one the
+        // deliverable must render — that is what "stale" means — so the repair is fully
+        // determined: render it again. Which edit made it stale does not change the move.
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} is this project's render, of a different document: the project \
+file, or a source or font it names, has changed since it was rendered. Nothing about the file \
+was measured, because every mismatch would descend from that one change. Render it again.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "R-VERIFY-UNATTESTED",
+        // `review`: #391's court's argument. `error` means *guaranteed* wrong, and no
+        // evidence is not evidence. The measurements below still run at their own classes —
+        // a 720p file where the document says 1080p is wrong as a deliverable whoever made it.
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} carries no Montagent attestation, so it is not known to be this \
+project's render. It was measured anyway; any mismatch below may mean it was never rendered \
+from this document at all.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "R-VERIFY-STALENESS-UNKNOWN",
+        // A separate code from `R-VERIFY-UNATTESTED` and not a second wording of it: that one
+        // is *not known to be Montagent's*, this one is *Montagent's, staleness unknown*, and
+        // an agent acts differently on each. A fingerprint that could not be read lands here
+        // too, with its own `reason`: ADR-0069's rule is that such a failure is silence, never
+        // a mismatch.
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} is this project's render, and whether it is stale is unknown: \
+{reason}. It was measured anyway; any mismatch below may be staleness rather than a defect.",
+        status: Live,
+        census: None,
+    },
+    // The measurements. Once the gate has passed, a mismatch is attributable to the engine or
+    // the encoder; without a stamp it may be anybody's. Either way the document holds no
+    // answer to which, so each is refuse-class with no repair value.
+    CheckSpec {
+        code: "E-VERIFY-FRAME-SIZE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} is {measured}, and this project renders {expected} (its declared \
+`frame`, padded to even).",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "E-VERIFY-FRAME-TIMING",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output}'s decoded frames are not evenly spaced at {fps} fps: {irregular} \
+intervals differ from {expected_ms} ms, the first before frame {frame} ({interval_ms} ms).",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        // One finding carrying both measurements: a missing frame shortens the stream by one
+        // frame, and two findings for one cause is the cascade #384 collapsed.
+        code: "E-VERIFY-EXTENT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} holds {measured_frames} frames over {measured_ms} ms of video \
+stream, and this project renders {expected_frames} frames over {expected_ms} ms.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "E-VERIFY-NO-AUDIO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} has no audio stream, and something should be heard from {from} ms \
+to {to} ms: an `audio` or `video` element with an audio stream and a `volume` above 0.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        // `note`: a stream nobody should hear is harmless as a deliverable. It happens by
+        // design where every element is at `volume: 0` — `render` still mixes them.
+        code: "N-VERIFY-UNEXPECTED-AUDIO",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output} has an audio stream, and nothing in this project should be heard.",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        code: "E-VERIFY-AUDIO-EXTENT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0117",
+        template: "{output}'s audio stream lasts {audio_ms} ms and its video stream {video_ms} \
+ms: more apart than one video frame plus one audio frame ({slack_ms} ms).",
+        status: Live,
+        census: None,
+    },
+    CheckSpec {
+        // `review` only, because both numbers that decide it are borrowed (ADR-0061): the
+        // gate and the block. The census is the point: *silent in its own source* is the
+        // author's material, *audible in its own source* is the engine.
+        code: "R-VERIFY-SILENT-SPAN",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: "EBU R 128 absolute gate (−70 LUFS) over ITU-R BS.1770-4 400 ms momentary blocks",
+            adr: "ADR-0117",
+        },
+        adr: "ADR-0117",
+        template: "{output}'s mix is below the {gate_lufs} LUFS gate from {from} ms to {to} ms \
+(quietest block {quietest_lufs} LUFS), where something should be heard. Attribution: \
+{attribution}.",
+        status: Live,
+        // Named: "silent in its own source" is a measurement, not a value the document spells.
+        census: Some(Named),
+    },
     CheckSpec {
         code: "E-EMPTY-RANGE",
         classes: &[Error],

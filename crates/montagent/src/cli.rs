@@ -318,6 +318,24 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Is what the document says in the deliverable? Measures the project's declared
+    /// `output` with the decoder, never with the engine (ADR-0117).
+    ///
+    /// Reads the stamp `render` wrote first: a missing file, another project's file, or a
+    /// file rendered from an earlier version of this document is one `error` and nothing
+    /// is measured. Otherwise it measures frame size, frame timing, frame count and
+    /// duration, audio presence and extent, and where the mix is silent though something
+    /// should be heard.
+    Verify {
+        /// The project file. Only its declared `output` is verified.
+        project: PathBuf,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
 
     /// Does it look right in motion? A scrub preview at a proxy resolution.
     ///
@@ -807,6 +825,26 @@ where
                     println!(
                         "{}",
                         montagent_core::wire::render_video(&answer, form).trim_end()
+                    );
+                    exit_code(answer.report())
+                }
+                Err(report) => {
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Verify {
+            project,
+            json,
+            verbose,
+        } => {
+            let form = Wire::from_flags(json, verbose);
+            match run_verb(|| montagent_core::verbs::verify::verify(&project)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        montagent_core::wire::render_verify(&answer, form).trim_end()
                     );
                     exit_code(answer.report())
                 }

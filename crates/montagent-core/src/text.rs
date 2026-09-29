@@ -237,6 +237,20 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&line);
         out.push('\n');
     }
+    // ADR-0117: a verb's own limits, one bullet each, beneath the sentence every report ends
+    // with.
+    for also in report["not_checked_also"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        for (i, line) in wrap(also, 74).into_iter().enumerate() {
+            out.push_str(if i == 0 { "  - " } else { "    " });
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
 
     Ok(out)
 }

@@ -69,8 +69,8 @@ adjust the wrapper for whatever client you use):
 }
 ```
 
-Once it's connected, your agent has nine tools — `compare`, `create_project`, `frame`,
-`measure`, `preview`, `query`, `render`, `shift`, `validate` — and two resources that
+Once it's connected, your agent has ten tools — `compare`, `create_project`, `frame`,
+`measure`, `preview`, `query`, `render`, `shift`, `validate`, `verify` — and two resources that
 teach it the project format directly: `montagent://schema.json` and
 `montagent://format.md`. That's where the agent learns the verbs; this page isn't
 trying to repeat them.

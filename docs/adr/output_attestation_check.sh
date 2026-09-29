@@ -97,7 +97,9 @@ echo "1. the first render publishes a stamped deliverable"
 STAMP="$(ffprobe -v error -print_format json -show_format "$DELIVERABLE" \
   | tr ',' '\n' | grep '"comment"')"
 case "$STAMP" in
-  *"montagent/1 project="*da.montagent.json*) pass "stamped with its own project identity" ;;
+  # ADR-0117 moved the grammar to `montagent/2 engine=… digest=… project=…`; the project
+  # identity is still the stamp's last field, and still the whole of this ADR's predicate.
+  *"montagent/"[12]*" project="*da.montagent.json*) pass "stamped with its own project identity" ;;
   *) fail "the deliverable carries no attestation naming da.montagent.json: $STAMP" ;;
 esac
 

@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by twenty-eight later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-nine later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -134,6 +134,10 @@ status: accepted
 >   `disk`, `layout`, `drift`), and the summary line is generated from it. A verb that runs no
 >   checks prints `no checks run (validate runs them)`, not six zeros, and `validate` stops
 >   printing `0 drift`.
+> - [ADR-0117](0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md)
+>   — **a tenth MCP verb, `verify`**, and a thirteenth CLI command: the counts move to 10 / 13.
+>   The CLI-only rule is for rarely used verbs, and `verify` is the last step of every agent's
+>   workflow. Its MCP schema is `project` only
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

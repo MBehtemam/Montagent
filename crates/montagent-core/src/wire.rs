@@ -105,6 +105,12 @@ pub fn render_video(answer: &crate::verbs::render::Answer, form: Wire) -> String
     in_form(&answer.to_json(), form)
 }
 
+/// Render a `verify` answer in one wire form: the report plus what the decoder measured, under
+/// the one rule (ADR-0006, ADR-0117).
+pub fn render_verify(answer: &crate::verbs::verify::Answer, form: Wire) -> String {
+    in_form(&answer.to_json(), form)
+}
+
 /// Render a `preview` answer in one wire form.
 ///
 /// The same function and the same rule as `render`'s, which is the point: a preview's

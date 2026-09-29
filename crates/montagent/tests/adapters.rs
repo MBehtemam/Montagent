@@ -1331,9 +1331,10 @@ fn mcp_does_not_advertise_probe() {
 }
 
 #[test]
-fn the_mcp_surface_is_exactly_nine_tools_and_preview_is_the_ninth() {
+fn the_mcp_surface_is_exactly_ten_tools_and_verify_is_the_tenth() {
     // ADR-0011's table listed eight and spec #168's title says nine; ADR-0078 (#295) settles
-    // it by giving the table a `preview` row. The count is asserted against the router
+    // it by giving the table a `preview` row, and ADR-0117 (#436) adds `verify` as the tenth:
+    // the last step of every agent's workflow, and MONTAGENT-9's question over MCP. The count is asserted against the router
     // rather than restated in prose, because ADR-0011's own opening sentence ("nine verbs
     // and two resources", against a table of eleven) is what a prose count is worth.
     let session = mcp_session(&[
@@ -1362,6 +1363,7 @@ fn the_mcp_surface_is_exactly_nine_tools_and_preview_is_the_ninth() {
             "render",
             "shift",
             "validate",
+            "verify",
         ],
         "the MCP surface changed without an ADR"
     );

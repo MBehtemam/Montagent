@@ -693,15 +693,28 @@ fn the_projects_loop_flag_changes_nothing_about_the_encode() {
     // the project that wrote the file and so must differ between these two; every other byte
     // must not. Blanking rather than skipping the comparison keeps the assertion's whole
     // strength — a render that quietly wrapped the last 40 ms of audio still fails here.
+    //
+    // Since ADR-0117 the stamp also carries the document's digest, which differs here for the
+    // same reason the project does (the documents differ by `loop`). It is fixed-length hex, so
+    // the blanked span is still the same length in both files: from the version prefix to the
+    // end of this project's own identity.
     let unstamped = |name: &str, project: &std::path::Path| {
+        use montagent_core::media::attest;
         let bytes = std::fs::read(dir.join(name)).expect("the render");
-        let stamp = montagent_core::media::attest::stamp(project).into_bytes();
+        let prefix = attest::MARK.as_bytes();
         let at = bytes
-            .windows(stamp.len())
-            .position(|window| window == stamp)
+            .windows(prefix.len())
+            .position(|window| window == prefix)
             .unwrap_or_else(|| panic!("{name} carries no attestation"));
+        let identity = format!(" project={}", attest::identity(project)).into_bytes();
+        let end = at
+            + bytes[at..]
+                .windows(identity.len())
+                .position(|window| window == identity)
+                .unwrap_or_else(|| panic!("{name}'s attestation names another project"))
+            + identity.len();
         let mut blanked = bytes;
-        blanked[at..at + stamp.len()].fill(b'-');
+        blanked[at..end].fill(b'-');
         blanked
     };
     assert_eq!(

@@ -20,3 +20,4 @@ pub mod render;
 pub mod shift;
 pub mod timeline;
 pub mod validate;
+pub mod verify;
