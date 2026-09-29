@@ -5,6 +5,16 @@ amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: 
 
 # `render`'s world-effects are findings, and an `error` withholds the deliverable
 
+> **Amended by [ADR-0096](0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md).**
+> Ruling 6's condition 1 — *"the seek predicate is computable before the frame loop"* — is
+> **not true of the fine predicate**: whether a given seek lands needs the source's real frame
+> timestamps, and neither frame rate `probe` reports is the source's frame grid (ADR-0096 §2).
+> The ruling survives in a weaker form, because ADR-0096's clamp removes the case it was about;
+> what is left pre-flightable is the coarse question *"does this source end more than a window
+> before the declared range?"*, raised as
+> [#413](https://github.com/MBehtemam/Montagent/issues/413). `E-NOT-PAINTED-UNDECODABLE` keeps
+> the case either way, and this ADR still withholds the deliverable for it.
+>
 > **Amended by [ADR-0104](0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md)**,
 > which extends ruling 6 outward. This ADR made *a file at the output path a render with zero
 > errors* — a statement about the file the render **produces**, silent about the file it

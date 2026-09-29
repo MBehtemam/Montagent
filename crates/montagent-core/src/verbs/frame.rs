@@ -1373,10 +1373,13 @@ impl<'a> Painter<'a> {
                     .field("detail", json!(detail)),
             )
         };
-        // MONTAGENT-2's failed seek arrives here: `ffmpeg` exits cleanly having written
-        // nothing, and this is where that becomes an `error` rather than a line of prose.
-        // #387 removes the case by clamping the seek, which is ADR-0093 ruling 6's own
-        // condition 1 — the predicate is computable before the frame loop.
+        // MONTAGENT-2's failed seek used to arrive here. ADR-0096 removed the case at its
+        // source: `frame_at` now answers with the frame the source is *showing* at the
+        // instant — the last one starting at or before it — so an instant inside the final
+        // frame paints that frame instead of seeking past the end and decoding nothing.
+        // What still arrives here is a source that ends more than a window before the
+        // instant the document asked for, which is a real disagreement between the
+        // document and the file rather than a rounding artefact.
         let decoded = montagent_render::decode::frame_at(
             &ffmpeg,
             &path.to_string_lossy(),
