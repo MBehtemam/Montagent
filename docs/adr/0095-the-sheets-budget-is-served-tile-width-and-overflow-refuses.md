@@ -3,6 +3,12 @@ status: accepted
 amends: 0067 (narrows its legibility floor to a standalone proxy frame, so the floor does not govern a contact-sheet tile, and adds a second legibility floor in a different currency), 0021 (states that its enforced `frame` budget does not bind the range mode, and adds a third budget that is observational)
 ---
 
+> **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** The refusal this ADR left uncoded is **`E-SHEET-OVERFLOW`**,
+> `NotAboutDocument`, exit 3: its subject is the range the caller typed, so ADR-0043's
+> refuse/advise question does not reach it. The sub-ranges that would fit are **finding fields**,
+> rendered as prose, and a `limit` field says whether this ADR's 140 px or ADR-0098's type floor
+> bound.
+
 # The sheet's budget is served tile width, and overflow refuses rather than thins
 
 > **Amended by [ADR-0103](0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md).**

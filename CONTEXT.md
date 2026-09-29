@@ -718,6 +718,31 @@ per platform. Tabular figures, and the build fails loudly rather than falling ba
 _Avoid_: the label font (ambiguous with a project's declared fonts), a fallback font, the
 system face
 
+**Blind spot**:
+Something the contact sheet's **rule** structurally cannot see, whatever the document says —
+change inside a visual state, easing between keyframes, detail below the served tile width, a
+relation across two sheets, audio, motion. A blind spot is a property of the rule, never of the
+document, so it is **never a finding**: it is the sheet's NOT CHECKED block, printed on every
+answer including perfect ones, as a fixed list of `blind_to` tokens each bound to one sentence
+([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md),
+[ADR-0094](docs/adr/0094-the-sheets-instants-are-visual-states-sampled-at-the-first-painted-frame.md)).
+Where one call can see past it, its sentence names that call.
+_Avoid_: limitation, caveat, unchecked (a `U-` finding means *could not establish for this
+document*, not *structurally cannot*)
+
+**Unpainted visual state**:
+A visual state — a span over which the set of visual elements is constant — that contains no
+frame the grid paints, because the two boundaries around it land on one frame. The document
+declares it and the rendered video never shows it, so it is a fact about the **document**,
+reported as `N-QUANTIZATION` at `review`
+([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)).
+The contact sheet draws no tile for it and names it in `skipped` with reason `no-grid-frame`.
+Distinct from a **skipped** entry in general: an infill tile evicted under budget is also
+skipped, and that is a fact about the answer, not the document. A span that differs from its
+neighbours only in audio is not a visual state at all — the fixture's 4 ms interval at
+56112–56116 is one such, absorbed into a run that paints once audio is set aside.
+_Avoid_: short run, sub-frame run, dropped state
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montagent has
