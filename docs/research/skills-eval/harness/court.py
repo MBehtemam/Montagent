@@ -7,7 +7,7 @@ For each pair in `judging/<phase>/pairs.json` that a judge would see (not `"auto
 one sheet, `judging/<phase>/stills/<pair>.png`: the left clip on the top row and the right on
 the bottom, each at the same fixed instants, `(k + 0.5) / N` of the brief's declared length
 for k = 0…N-1 (N is `court.stills_per_clip` in `pins.json`). Then it asks each juror in
-`pins.json`, independently and in a fresh isolated Claude Code session, which is better for
+`pins.json`, independently, in an isolated Claude Code session (project settings only, Read as its only tool), which is better for
 the brief, with the same three choices as the human. Each juror's ballots go verbatim to
 `judging/<phase>/ballots/court/<model>.json`. Re-running fills only missing ballots.
 
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -37,7 +38,6 @@ from common import (  # noqa: E402
     EVAL, JUDGING, PHASES, REPO, brief_duration_ms, ffprobe, load_pins, read_json, rel, sh,
     write_json,
 )
-from run_arm import auth_env  # noqa: E402
 
 THUMB_H = 240
 FONT = EVAL / "assets" / "fonts" / "Inter-Bold.ttf"
@@ -100,20 +100,19 @@ def sheet(pair: dict, key: dict, duration_ms: int, n: int, dest: Path) -> None:
     img.save(dest)
 
 
-def ask(juror: str, pair: dict, sheet_png: Path, brief: str, instants: list[int], auth: dict) -> dict:
+def ask(juror: str, pair: dict, sheet_png: Path, brief: str, instants: list[int]) -> dict:
     with tempfile.TemporaryDirectory(prefix="montagent-eval-court-") as tmp:
         tmp = Path(tmp)
-        (tmp / "config").mkdir()
         (tmp / "work").mkdir()
         (tmp / "work" / sheet_png.name).write_bytes(sheet_png.read_bytes())
         prompt = QUESTION.format(sheet=sheet_png.name, brief=brief.strip(),
                                  instants=", ".join(f"{t / 1000:g} s" for t in instants))
-        env = {"HOME": str(Path.home()), "PATH": "/usr/bin:/bin", "CLAUDE_CONFIG_DIR": str(tmp / "config"),
-               "DISABLE_AUTOUPDATER": "1", **auth}
+        env = {"HOME": str(Path.home()), "USER": os.environ.get("USER", ""), "PATH": os.environ["PATH"],
+               "DISABLE_AUTOUPDATER": "1"}
         r = subprocess.run(
             ["claude", "-p", prompt, "--model", juror, "--output-format", "json",
              "--json-schema", json.dumps(SCHEMA), "--tools", "Read",
-             "--permission-mode", "bypassPermissions", "--strict-mcp-config",
+             "--permission-mode", "bypassPermissions", "--strict-mcp-config", "--setting-sources", "project",
              "--no-session-persistence", "--max-budget-usd", "2"],
             cwd=tmp / "work", env=env, capture_output=True, text=True, timeout=600)
     try:
@@ -138,7 +137,6 @@ def main() -> None:
     args = ap.parse_args()
 
     pins = load_pins()
-    auth = auth_env()[1]
     out = JUDGING / args.phase
     key = read_json(out / "key.json")
     pairs = [p for p in read_json(out / "pairs.json") if "auto" not in p]
@@ -161,7 +159,7 @@ def main() -> None:
         def one(p):
             text = briefs[p["brief"]]
             return p["id"], ask(juror, p, out / "stills" / f"{p['id']}.png", text,
-                                instants_ms(brief_duration_ms(text), n), auth)
+                                instants_ms(brief_duration_ms(text), n))
 
         with ThreadPoolExecutor(max_workers=4) as pool:
             for pid, ballot in pool.map(one, todo):

@@ -23,9 +23,9 @@ The held-out briefs are not here. Only their SHA-256 hashes will be, once they a
 ## Running it
 
 Every script is a `uv run` script with its dependencies inline; run them from the repo root.
-They need `claude` at the version `harness/pins.json` pins, `ffmpeg`, `cargo`, and a
-credential for the isolated sessions: `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, or
-the token from `claude setup-token` saved in `~/.config/montagent-eval/oauth-token`.
+They need `claude` at the version `harness/pins.json` pins, logged in as usual, plus
+`ffmpeg` and `cargo`. Before a batch of runs, `uv run $H/run_arm.py check` proves the
+sandbox with one cheap Haiku session.
 
 ```sh
 H=docs/research/skills-eval/harness

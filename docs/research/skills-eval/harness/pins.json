@@ -38,6 +38,7 @@
     "loop",
     "run",
     "run-skill-generator",
+    "schedule",
     "simplify",
     "update-config",
     "verify",

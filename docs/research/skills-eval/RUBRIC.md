@@ -46,10 +46,13 @@ One Montagent commit pins the binary (built from that commit), the skills (that 
 `skills/`) and the asset pack (that commit's `assets/`). Every verdict run uses the same
 commit.
 
-Each run starts in a fresh directory outside the repo that holds only the pack, under a
-fresh Claude Code config directory: no user skills, plugins, memory, settings or global
-`CLAUDE.md`. The run's own transcript records what the session loaded, and any deviation
-from its arm's setup is an **isolation problem**.
+Each run starts in a fresh directory outside the repo that holds only the pack. Claude Code
+loads only that directory's settings and only the Montagent MCP server: no user skills,
+plugins, settings or MCP servers, and auto-memory starts empty because it is keyed to the new
+directory. The harness refuses to run while a global `~/.claude/CLAUDE.md` exists. The run's
+own transcript records what the session loaded, and any deviation from its arm's setup is an
+**isolation problem**. `harness/run_arm.py check` proves the sandbox (web blocked, registries
+reachable, home not writable) and is run before the verdict runs.
 
 ## Briefs
 

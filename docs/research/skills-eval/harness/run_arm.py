@@ -4,9 +4,12 @@
 
 Arms: `reference` (no Montagent), `no-skills` (Montagent), `with-skills` (Montagent plus the
 commit's `skills/`). The run happens in a fresh directory outside the repo that holds only
-the pinned commit's asset pack (plus, in `with-skills`, the skills in `.claude/skills/`),
-under a fresh Claude Code config directory: no user skills, plugins, memory, settings or
-global CLAUDE.md. The record lands in `runs/<phase>/<brief>/<arm>-<n>/`:
+the pinned commit's asset pack (plus, in `with-skills`, the skills in `.claude/skills/`).
+Claude Code loads only that directory's settings (`--setting-sources project`) and only the
+Montagent MCP server (`--strict-mcp-config`): no user skills, plugins, settings or MCP servers,
+and auto-memory starts empty because it is keyed to the new directory. The run's own init
+event records what loaded, and anything beyond the arm's setup is an isolation problem.
+The record lands in `runs/<phase>/<brief>/<arm>-<n>/`:
 
 - `manifest.json`: every pin, the exact prompt, caps, timings, and the run-time signals
 - `transcript.jsonl`: Claude Code's stream-json output, verbatim
@@ -15,11 +18,12 @@ global CLAUDE.md. The record lands in `runs/<phase>/<brief>/<arm>-<n>/`:
   source), minus caches and anything over 2 MB, which the manifest lists by hash instead
 - `render.mp4`: the deliverable, re-encoded to 720p (short side), if one was delivered
 
-Needs `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`: the
-fresh config directory has no login, which is the point.
+It uses the machine's normal Claude Code login. It refuses to run while a global
+`~/.claude/CLAUDE.md` exists, since nothing in the transcript would show it was loaded.
 
-`probe` prints what a fresh, isolated session loads, without calling the model, so
-`pins.json`'s `builtin_skills` can be refreshed when Claude Code's pin moves.
+`check` proves the sandbox with one cheap Haiku session (web blocked, registries reachable,
+home not writable); run it before verdict runs. `probe` prints what an isolated session
+loads, so `pins.json`'s `builtin_skills` can be refreshed when Claude Code's pin moves.
 """
 
 # /// script
@@ -43,7 +47,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     ARMS, EVAL, MONTAGENT_ARMS, PHASES, REPO, RUNS, brief_id, encode_720p, ffprobe,
-    isolation_problems, load_pins, montagent_signals, pinned_build, read_jsonl, rel, sh,
+    isolation_problems, load_pins, tool_uses, montagent_signals, pinned_build, read_jsonl, rel, sh,
     sha256_file, sha256_text, skill_names, transcript_signals, write_json,
 )
 
@@ -57,19 +61,13 @@ def now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
 
-TOKEN_FILE = Path.home() / ".config" / "montagent-eval" / "oauth-token"
+GLOBAL_CLAUDE_MD = Path.home() / ".claude" / "CLAUDE.md"
 
 
-def auth_env() -> tuple[str, dict]:
-    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        return "oauth-token", {"CLAUDE_CODE_OAUTH_TOKEN": os.environ["CLAUDE_CODE_OAUTH_TOKEN"]}
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "api-key", {"ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"]}
-    if TOKEN_FILE.is_file():
-        return "oauth-token", {"CLAUDE_CODE_OAUTH_TOKEN": TOKEN_FILE.read_text().strip()}
-    sys.exit(f"no credentials: export CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY, or save the "
-             f"token `claude setup-token` prints to {TOKEN_FILE}. The run's config directory is "
-             "fresh, so it has no login.")
+def check_no_global_instructions() -> None:
+    if GLOBAL_CLAUDE_MD.exists():
+        sys.exit(f"{GLOBAL_CLAUDE_MD} exists; move it aside for the eval, since a run cannot "
+                 "show whether it was read")
 
 
 def path_without_montagent() -> list[str]:
@@ -77,7 +75,7 @@ def path_without_montagent() -> list[str]:
             if d and not (Path(d) / "montagent").exists()]
 
 
-def build_env(scratch: Path, work: Path, arm: str, build: dict | None, auth: dict) -> dict:
+def build_env(scratch: Path, work: Path, arm: str, build: dict | None) -> dict:
     path = path_without_montagent()
     if arm in MONTAGENT_ARMS:
         path.insert(0, str(build["bin"].parent))
@@ -87,9 +85,9 @@ def build_env(scratch: Path, work: Path, arm: str, build: dict | None, auth: dic
         "USER": os.environ.get("USER", ""),
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
         "TERM": "dumb",
+        # The login lives in the keychain, found through HOME and USER.
         "PATH": os.pathsep.join(path),
         "TMPDIR": str(scratch / "tmp"),
-        "CLAUDE_CONFIG_DIR": str(scratch / "config"),
         "DISABLE_AUTOUPDATER": "1",
         # Tool caches are written inside the work dir, because the sandbox lets Bash write
         # nowhere else; and a run must not inherit another run's cache.
@@ -98,7 +96,6 @@ def build_env(scratch: Path, work: Path, arm: str, build: dict | None, auth: dic
         "UV_CACHE_DIR": str(cache / "uv"),
         "PIP_CACHE_DIR": str(cache / "pip"),
         "XDG_CACHE_HOME": str(cache / "xdg"),
-        **auth,
     }
     # Browsers already downloaded on this machine stay readable, so a reference build does
     # not have to fetch Chromium through the registry allowlist.
@@ -127,7 +124,11 @@ def claude_argv(pins: dict, arm: str, prompt: str, build: dict | None) -> list[s
         "--effort", pins["effort"],
         "--output-format", "stream-json", "--verbose",
         "--max-budget-usd", str(pins["caps"]["budget_usd"]),
-        "--permission-mode", "bypassPermissions",
+        # Not bypassPermissions: that also approves the sandbox's "reach a new domain?"
+        # prompt, so the network allowlist leaks. Here every prompt is denied instead.
+        "--permission-mode", "dontAsk",
+        "--permission-prompts", "none",
+        "--allowedTools", "Bash", "Read", "Edit", "Write", "Glob", "Grep", "mcp__montagent",
         "--setting-sources", "project",
         "--settings", json.dumps(settings(pins)),
         "--disallowedTools", "WebFetch", "WebSearch",
@@ -225,13 +226,55 @@ def probe(pins: dict) -> None:
         scratch = Path(tmp)
         (scratch / "work").mkdir()
         (scratch / "tmp").mkdir()
-        env = build_env(scratch, scratch / "work", "reference", None, {})
-        r = subprocess.run(claude_argv(pins, "reference", "probe", None), cwd=scratch / "work",
-                           env=env, capture_output=True, text=True, timeout=120)
+        env = build_env(scratch, scratch / "work", "reference", None)
+        argv = claude_argv({**pins, "model": "haiku"}, "reference", "Reply with: ok", None)
+        r = subprocess.run(argv, cwd=scratch / "work", env=env, capture_output=True, text=True, timeout=300)
         init = next((e for e in map(json.loads, filter(None, r.stdout.splitlines()))
                      if e.get("subtype") == "init"), {})
         print(json.dumps({k: init.get(k) for k in ("claude_code_version", "skills", "plugins",
-                                                    "mcp_servers", "tools", "apiKeySource")}, indent=2))
+                                                    "mcp_servers", "tools", "memory_paths")}, indent=2))
+
+
+CHECKS = [  # (what, command, passes if its output...)
+    ("web is blocked", "curl -sS -m 20 -o /dev/null -w '%{http_code}' https://example.com",
+     lambda out: "200" not in out),
+    ("registries are reachable", "curl -sS -m 20 -o /dev/null -w '%{http_code}' https://registry.npmjs.org/playwright",
+     lambda out: "200" in out),
+    ("the pinned montagent is on PATH", "montagent --version", lambda out: "montagent" in out),
+    ("the run directory is writable", "echo hi > made.txt && cat made.txt", lambda out: "hi" in out),
+    ("home is not writable", "echo x > ~/montagent-eval-escape.txt",
+     lambda out: not (Path.home() / "montagent-eval-escape.txt").exists()),
+]
+
+
+def check(pins: dict) -> None:
+    """Prove the sandbox with one cheap Haiku session: each command's real output decides."""
+    build = pinned_build("HEAD")
+    with tempfile.TemporaryDirectory(prefix="montagent-eval-check-") as tmp:
+        scratch = Path(tmp)
+        work = scratch / "work"
+        work.mkdir()
+        (scratch / "tmp").mkdir()
+        env = build_env(scratch, work, "no-skills", build)
+        prompt = ("Run each of these commands with the Bash tool, one call per command, exactly as "
+                  "written, then reply: done.\n" + "\n".join(c for _, c, _ in CHECKS))
+        argv = claude_argv({**pins, "model": "haiku", "effort": "low"}, "no-skills", prompt, build)
+        r = subprocess.run(argv, cwd=work, env=env, capture_output=True, text=True, timeout=300)
+    events = [json.loads(l) for l in r.stdout.splitlines() if l.strip().startswith("{")]
+    commands = {b["id"]: b["input"].get("command", "") for b in tool_uses(events) if b.get("name") == "Bash"}
+    outputs = {}
+    for e in events:
+        for c in (e.get("message", {}).get("content") or []) if e.get("type") == "user" else []:
+            if isinstance(c, dict) and c.get("type") == "tool_result" and c.get("tool_use_id") in commands:
+                outputs[commands[c["tool_use_id"]].strip()] = str(c.get("content"))
+    ok = True
+    for what, cmd, passes in CHECKS:
+        out = outputs.get(cmd)
+        good = out is not None and passes(out)
+        ok &= good
+        print(f"{'PASS' if good else 'FAIL'}  {what}: {'(not run)' if out is None else out.strip()[:120]}")
+    (Path.home() / "montagent-eval-escape.txt").unlink(missing_ok=True)
+    sys.exit(0 if ok else 1)
 
 
 def main() -> None:
@@ -242,12 +285,15 @@ def main() -> None:
     ap.add_argument("--commit", default="HEAD", help="the Montagent commit that pins binary, skills and pack")
     ap.add_argument("--keep", action="store_true", help="keep the scratch directory for inspection")
     ap.add_argument("--dry-run", action="store_true", help="set everything up and print the command; call no model")
-    ap.add_argument("probe", nargs="?", help="`probe`: print what an isolated session loads, then exit")
+    ap.add_argument("command", nargs="?", choices=["probe", "check"],
+                    help="`probe`: print what an isolated Haiku session loads; `check`: prove the sandbox; then exit")
     args = ap.parse_args()
 
     pins = load_pins()
-    if args.probe == "probe":
+    if args.command == "probe":
         return probe(pins)
+    if args.command == "check":
+        return check(pins)
     if not (args.brief and args.arm):
         ap.error("--brief and --arm are required")
 
@@ -255,7 +301,7 @@ def main() -> None:
     if version != pins["claude_code_version"]:
         sys.exit(f"Claude Code is {version}; pins.json pins {pins['claude_code_version']}. "
                  "Re-pin deliberately (and re-run `probe`) rather than mix versions.")
-    auth_kind, auth = ("none", {}) if args.dry_run else auth_env()
+    check_no_global_instructions()
 
     brief_text = args.brief.read_text()
     brief_sha = sha256_text(brief_text)
@@ -274,17 +320,16 @@ def main() -> None:
     scratch = Path(tempfile.mkdtemp(prefix="montagent-eval-"))
     work = scratch / "work"
     shutil.copytree(build["pack"], work)
-    (scratch / "config").mkdir()
     (scratch / "tmp").mkdir()
     if args.arm == "with-skills":
         shutil.copytree(build["skills"], work / ".claude" / "skills")
 
     prompt = make_prompt(pins, args.arm, brief_text)
     argv = claude_argv(pins, args.arm, prompt, build)
-    env = build_env(scratch, work, args.arm, build, auth)
+    env = build_env(scratch, work, args.arm, build)
     if args.dry_run:
         print(json.dumps({"cwd": str(work), "argv": argv,
-                          "env": {k: v for k, v in env.items() if "TOKEN" not in k and "KEY" not in k}}, indent=2))
+                          "env": env}, indent=2))
         print(f"scratch kept at {scratch}")
         return
 
@@ -320,7 +365,7 @@ def main() -> None:
             "caps": pins["caps"],
             "allowed_domains": pins["network"]["allowed_domains"],
             "web_tools": "removed (WebFetch, WebSearch)",
-            "auth": auth_kind,
+            "setting_sources": "project",
         },
         "prompt": prompt,
         "prompt_sha256": sha256_text(prompt),
