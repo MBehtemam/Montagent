@@ -1163,16 +1163,11 @@ fn chain(
     ) else {
         return Err(Declined::internal(name, "no integer `start`/`end`"));
     };
-    // Not an invariant violation: this is the one cross-field fact the schema cannot
-    // express and no `validate` check states, so the render genuinely reaches it
-    // (ADR-0093, `E-EMPTY-RANGE`).
+    // ADR-0093 gave this arm `E-EMPTY-RANGE` because no `validate` check stated it and the
+    // render genuinely reached it. ADR-0107 moved the finding to `crate::checks::range`, so
+    // the check engine refuses first and reaching here is the two halves disagreeing.
     if end <= start {
-        return Err(Declined::Finding(
-            Finding::new("E-EMPTY-RANGE")
-                .field("field", json!("`start`..`end`"))
-                .field("from", json!(start))
-                .field("to", json!(end)),
-        ));
+        return Err(Declined::internal(name, "an empty `start`..`end`"));
     }
     // The part of the element inside the render's range, in the element's own time.
     let window_start = from.max(start) - start;
@@ -1239,12 +1234,11 @@ fn chain(
         ));
     };
     let source_span = source_end - source_start;
+    // The source half of the same fact, and unreachable for the same reason (ADR-0107).
     if source_span <= 0 {
-        return Err(Declined::Finding(
-            Finding::new("E-EMPTY-RANGE")
-                .field("field", json!("`source_start`..`source_end`"))
-                .field("from", json!(source_start))
-                .field("to", json!(source_end)),
+        return Err(Declined::internal(
+            name,
+            "an empty `source_start`..`source_end`",
         ));
     }
     let speed = match element.get("speed") {

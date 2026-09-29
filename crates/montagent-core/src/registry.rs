@@ -1477,16 +1477,17 @@ is replaced.",
         // and which of them the author meant to move is not in the document.
         repair: Some(Refuse),
         threshold: Internal,
-        adr: "ADR-0093",
-        // Shared by both halves of the render, because it is one condition: an element whose
-        // `end` does not exceed its `start` — or whose source range does not — occupies no
-        // instant, so it is neither mixed nor painted.
+        adr: "ADR-0107",
+        // One condition: an element whose `end` does not exceed its `start` — or whose
+        // source range does not — occupies no instant, so it is neither mixed nor painted.
         //
-        // **It is here because the render can genuinely reach it.** Unlike its type-level
-        // siblings this is a cross-field fact the schema cannot express, and no `validate`
-        // check states it today: a project with `"start": 0, "end": 0` validates at zero
-        // errors. That `validate` should state it too is a real gap and a separate ticket —
-        // ADR-0093 records it rather than smuggling a new `validate` check in here.
+        // ADR-0093 registered it as a `render` finding, because no `validate` check stated it
+        // and a project with `"start": 0, "end": 0` validated at zero errors while `render`
+        // refused it. ADR-0107 (#410) gives it to `crate::checks::range` under the **same**
+        // code — one fact, one repair form (ADR-0043) — so `render` refuses on the check
+        // engine's report and its own two arms are `E-INTERNAL`, as ADR-0093 makes every
+        // arm the check engine closes. `error` and never `review`: there is no frame at
+        // which to look at an element that holds no instant.
         template: "`{element}` occupies no instant: {field} {from}..{to} is empty, so there \
 is nothing to render for it.",
         status: Live,

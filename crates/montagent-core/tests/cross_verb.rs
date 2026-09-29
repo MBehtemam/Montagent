@@ -209,3 +209,79 @@ fn a_source_both_verbs_can_use_declines_nothing() {
         rendered.report().findings
     );
 }
+
+// ---------------------------------------------------------------------------
+// The same containment for a document fact rather than a source (#410, ADR-0107)
+// ---------------------------------------------------------------------------
+
+/// An empty range is the other shape ruling 3 closes: `render` refused it as
+/// `E-EMPTY-RANGE` while `validate` passed the document at zero errors. The containment is
+/// stated over **codes** here rather than sources — every document-fact refusal `render`
+/// makes, `validate` makes as an `error` — and it is also required that the refusal come
+/// from the check engine rather than from the mix, which is what makes `render`'s own two
+/// arms `E-INTERNAL`.
+#[test]
+fn a_range_render_refuses_is_an_error_to_validate_under_the_same_code() {
+    if !has_ffprobe() {
+        eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
+        return;
+    }
+    for (label, element) in [
+        (
+            "`start`..`end`",
+            r#""start":500,"end":500,"source_start":0,"source_end":1000"#,
+        ),
+        (
+            "`source_start`..`source_end`",
+            r#""start":0,"end":1000,"source_start":400,"source_end":400"#,
+        ),
+    ] {
+        let dir = tempdir(line!());
+        std::fs::copy(
+            fixture_dir().join("audio/05-cobweb.mp3"),
+            dir.join("vo.mp3"),
+        )
+        .expect("copied");
+        let path = write_project(
+            &dir,
+            "cross.montagent.json",
+            &format!(
+                r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                    "duration":1000,"output":"out/cross.mp4",
+                    "tracks":[{{"name":"only","layer":0,"elements":[
+                      {{"id":"vo","type":"audio","source":"vo.mp3",{element}}}
+                    ]}}]}}"##
+            ),
+        );
+
+        let empty = |report: &Report| {
+            report
+                .findings
+                .iter()
+                .filter(|f| f.code == "E-EMPTY-RANGE" && f.fields["field"] == label)
+                .map(|f| f.class)
+                .collect::<Vec<_>>()
+        };
+
+        let checked = validate(&path);
+        assert_eq!(
+            empty(&checked),
+            vec![Class::Error],
+            "{label}: `validate` must state the fact `render` refuses on: {:?}",
+            checked.findings
+        );
+
+        let rendered = render(&path, &Ask::default(), &mut |_: Progress| {});
+        assert_eq!(empty(rendered.report()), vec![Class::Error], "{label}");
+        assert!(
+            rendered
+                .report()
+                .findings
+                .iter()
+                .all(|f| f.code != "E-INTERNAL"),
+            "{label}: the mix was reached, so the check engine did not refuse first: {:?}",
+            rendered.report().findings
+        );
+        assert!(rendered.video().is_none(), "{label}: a file was produced");
+    }
+}

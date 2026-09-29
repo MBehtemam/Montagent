@@ -184,9 +184,9 @@ fn an_element_whose_range_is_empty_is_an_error_rather_than_nothing() {
     let dir = tempdir(line!());
     let source = narration(&dir, "vo.mp3");
 
-    // `end` not exceeding `start` is the one cross-field fact the schema cannot express, and
-    // no `validate` check states it — so before ADR-0093 this rendered at zero errors with the
-    // element silently absent.
+    // `end` not exceeding `start` is the one cross-field fact the schema cannot express.
+    // Before ADR-0093 this rendered at zero errors with the element silently absent; since
+    // ADR-0107 the check engine refuses it before the mix, under the same code.
     let path = project(
         &dir,
         &format!(

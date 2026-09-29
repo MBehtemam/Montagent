@@ -15,6 +15,10 @@ amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: 
 > [#413](https://github.com/MBehtemam/Montagent/issues/413). `E-NOT-PAINTED-UNDECODABLE` keeps
 > the case either way, and this ADR still withholds the deliverable for it.
 >
+> **Amended by [ADR-0107](0107-an-empty-range-is-validates-error-under-renders-code.md).**
+> The empty range is no longer a `render`-only finding: `validate` states `E-EMPTY-RANGE` under
+> the same code, so the check engine refuses first and ruling 2's two arms are `E-INTERNAL`.
+
 > **Amended by [ADR-0104](0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md)**,
 > which extends ruling 6 outward. This ADR made *a file at the output path a render with zero
 > errors* — a statement about the file the render **produces**, silent about the file it
