@@ -1,0 +1,11 @@
+## Findings: Video frames 17-18 appear wrong
+
+**What looks wrong:** The final two tiles (17-18) show content that doesn't match their labels:
+- Tile 17 (labeled `word-quiz` at 61120ms) displays "cobweb - cobweb" sentence from earlier in the video, not quiz content
+- Tile 18 (labeled `hook-loop` at 64040ms) displays the opening "What is this called in English?" prompt, not loop content
+
+Both tiles show repetition of earlier states rather than new states.
+
+**Confidence:** Moderate (65%). The visual mismatch is clear, but the root cause could be frame-capture timing issues, incorrect state definitions, or intentional content repetition that just looks odd.
+
+**Suggested next step:** Call `montagent frame --at 61120ms --crop` and `montagent frame --at 64040ms --crop` to examine full-detail pixel content at those timestamps and confirm whether the frame capture or state definitions are the problem.

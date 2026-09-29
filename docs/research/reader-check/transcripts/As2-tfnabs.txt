@@ -1,0 +1,13 @@
+Tile 1's label reads exactly `1 0ms +0 +intro-title`, so the reader check passes and the sheet is legible.
+
+What looks wrong:
+1. Tile 10 (47360ms, sentence-08) has an empty sentence card. The navy box is drawn with no text. Every other sentence tile (4, 6, 8, 17) has a line in its card. Most likely defect, about 85% sure. It could be text that hasn't faded in yet, since the tile shows only the first frame of the state.
+2. Tiles 9 and 10 (word-08-bridge and word-08-target) show "string of lights" twice, in two sizes, stacked. The provenance lists both elements present at once. Looks like overlapping bridge and target text, or a duplicated word. About 70% sure it's a defect.
+3. Every word tile repeats its word ("cobweb - cobweb", "spider - spider", "skeleton - skeleton"). May be intentional in an English-to-English deck. If the second half is meant to be a translation or definition, it's a placeholder bug. About 50% sure.
+
+Everything else looks consistent: the countdown 5 to 1, the quiz and the loop hook. I can't judge motion, audio, or anything finer than 184 px from this sheet.
+
+Next calls I would make:
+- `frame en-halloween-decorating.montagent.json --at 47360` to see the sentence-08 card at full scale and confirm whether it is empty.
+- `frame en-halloween-decorating.montagent.json --at 42800` to see the overlapping "string of lights" text at full scale.
+- `query` over `--from 47343 --to 53856` to list the text content and timing of sentence-08, which would show whether the text is missing or just starts late.

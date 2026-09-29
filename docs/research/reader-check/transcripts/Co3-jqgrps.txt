@@ -1,0 +1,18 @@
+**Reader check passed.** The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I can read the labels on this sheet.
+
+**The likely problem: the "string of lights" word card (tiles 9–10, 42800–53856 ms).**
+- Every other vocabulary word is set as one large line, "word - word": cobweb, spider, skeleton.
+- "string of lights" instead shows as two tiny stacked lines. The upper one is small and the lower one is smaller still. It is a fraction of the size of the other words, with lots of empty space beside it.
+- This is the only word with two word elements, `word-08-bridge` and `word-08-target`. The others each have a single `word-NN`. That fits a layout mistake: either the two parts were stacked instead of joined with " - ", or the long phrase was shrunk to fit.
+- Compared with the other three words, this is clearly inconsistent. I'm fairly sure it's the thing the author means (about 75%).
+
+**Minor things I checked that look fine:**
+- The intro, hook, quiz question, 5–1 countdown, quiz answer (cobweb, which matches the question) and loop hook are all consistent.
+- The header chips are the same in every tile.
+
+**Limits of this sheet:** tiles are 184 px wide, so I can't judge text crispness or clipping. It shows only the first frame of each state, so anything that changes within a state, motion or audio is invisible to me. If the complaint is about sound or timing, this sheet can't show it.
+
+**What I would call next:**
+1. `frame en-halloween-decorating.montagent.json --at 42800` to see the word card at full size and confirm the size and stacking.
+2. `frame en-halloween-decorating.montagent.json --crop --at 47360` on the caption region, to check whether the text is clipped or shrunk against the sentence card.
+3. `validate en-halloween-decorating.montagent.json`, because this sheet ran no checks and a text-fit or overflow check might flag the word-08 elements directly.

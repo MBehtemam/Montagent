@@ -1,0 +1,16 @@
+What looks wrong (fairly sure, about 80%):
+
+1. Tiles 9 and 10 (42800ms and 47360ms, "string of lights" / word-08): the label is doubled, with a tiny second copy of "string of lights" stacked under the first. Every other word tile shows one label at normal size ("cobweb - cobweb", "spider - spider"). The provenance lists `word-08-bridge` and `word-08-target` both present, so two text layers appear to overlap. That is probably the "wrong" thing the author means.
+
+2. Tile 10 (sentence-08): the dark sentence card is empty, with no caption text. Tiles 4, 6, 8 and 17 all show a sentence in the card. That looks like a missing or unpainted sentence-08 text, or a text layer that hasn't appeared yet at its first frame. I'm about 70% sure this is a real defect and not a timing artifact.
+
+3. Every word tile reads "X - X" (cobweb - cobweb, spider - spider, skeleton - skeleton). This could be a deliberate word-and-translation pattern with a placeholder or untranslated second half, but it looks like a duplicated string. Less sure, about 50%. The intro says "4 English words", and the video shows cobweb, spider, skeleton and string of lights, so the count matches.
+
+Minor: tile 1's intro title is small and low on the frame. Tile 11's quiz question is fine. The countdown 5 to 1 is fine. The loop hook matches the start.
+
+The sheet can't show motion, audio, or anything inside a state. It also can't show detail finer than 184 px, so the tiny second label in tiles 9-10 is barely legible.
+
+Next calls I would make:
+- `frame en-halloween-decorating.montagent.json --at 48000 --crop` on the caption region, to see whether the sentence-08 text is really absent later in the state and whether the two word-08 layers overlap.
+- `query` on `word-08-bridge`, `word-08-target` and `sentence-08`, to read their text, timing and position.
+- `validate en-halloween-decorating.montagent.json`, since no checks ran on this sheet.

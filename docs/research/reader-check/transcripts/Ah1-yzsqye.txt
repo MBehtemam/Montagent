@@ -1,0 +1,7 @@
+Sheet analysis complete. All 18 visual state labels on the contact sheet match the tool's provenance report exactly, and transitions appear coherent for a Halloween vocabulary lesson (0–65216ms). No obvious misalignment, dropout, or missing state detected.
+
+However, the tool explicitly does not show: changes within a visual state (cuts, motion), detail finer than 184px width, audio, or cross-sheet relations. If the author's concern is about motion, fine detail, or layered edits inside a state, this sheet cannot reveal it.
+
+To investigate further, call: `frame --at <timestamp>` at the suspected instant for full-scale inspection, or `preview` to check motion.
+
+Confidence: Medium. Structurally sound on this sheet; significant problems could hide in excluded domains.

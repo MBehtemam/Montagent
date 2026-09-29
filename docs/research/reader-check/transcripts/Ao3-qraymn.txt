@@ -1,0 +1,17 @@
+I checked the reader check first. The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I trust the labels. The sheet has 18 tiles covering 0 to 65216 ms, and nothing was skipped.
+
+What looks wrong, most confident first:
+
+1. **Tile 10 (47360ms, sentence-08): the sentence card is empty.** The dark card is drawn, but no text shows on it. Every other sentence tile (4, 6, 8, 17) shows its sentence. The provenance list says `sentence-08` is present, so the element exists but its text isn't visible. It could be empty, the same color as the card, or placed outside the card. High confidence.
+
+2. **Tiles 7–8 (skeleton, photo-07) show the spider picture.** "skeleton - skeleton" and "I hang the skeleton up by the door." sit over the same woman-with-spider image as tiles 5–6 (photo-06). No skeleton is visible. photo-07 is probably the same file as photo-06, or points at the wrong source. Fairly high confidence, though a small skeleton could be hidden below the 184 px tile size.
+
+3. **Tiles 9–10 (string of lights): the word is tiny.** It shows as two small lines ("string of lights" twice), not the large "X - X" style of the other words. The word is built from two elements (`word-08-bridge` and `word-08-target`), unlike the others, so it may be shrinking to fit or using the wrong style. Medium confidence that this is a mistake rather than a deliberate choice.
+
+The rest looks consistent: intro, hook, 5–1 countdown, quiz answer and loop hook.
+
+Next calls I would make:
+- `frame --at 47360 --crop <card region>`: see the card at full size and tell whether its text is missing or just invisible.
+- `frame --at 30640`: look at photo-07 at full scale to confirm there is no skeleton.
+- `query` on photo-06, photo-07 and sentence-08: compare their source paths and read sentence-08's text and color.
+- `frame --at 42800 --crop <word region>`: check the size of the string-of-lights word.

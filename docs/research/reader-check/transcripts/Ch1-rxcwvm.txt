@@ -1,0 +1,3 @@
+Tile 17 (word-quiz) violates the established visual pattern: all regular word tiles show only the vocabulary word repeated (e.g., "cobweb - cobweb"), but the quiz word tile displays both the word repetition AND a full sentence caption below it ("I hang cobwebs over the door."). This is inconsistent with how word tiles should be formatted — word tiles show vocabulary only; sentence tiles show full context sentences. The issue appears to be in the video project's quiz word element definition, which incorrectly includes the sentence caption alongside the word display.
+
+Confidence: High — the pattern across 6 prior word tiles is consistent and clear.

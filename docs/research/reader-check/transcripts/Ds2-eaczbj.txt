@@ -1,0 +1,15 @@
+Reader check failed, so treat the sheet as partly untrusted. The text says tile 1's label must read exactly `1 0ms +0 +intro-title`. The strip under tile 1 reads `1 40ms +40 +intro-title`. The provenance list and the image disagree about the first tile's instant, so I can't be sure tile 1 shows frame 0. Tiles 2-18 match the provenance.
+
+What looks wrong, most likely first:
+1. Tile 10 (47360ms, sentence-08): the dark sentence card is empty. Every other sentence tile (4, 6, 8, 17) has text in its card. Fairly sure (~80%).
+2. Tiles 9-10, "string of lights": the label is tiny and doubled, with a small line overlapping or stacked under the main one. The provenance lists both word-08-bridge and word-08-target, so it may be two layers rendering at once. Every other word tile has a large, single label. About 75% sure.
+3. Tiles 3, 5 and 7: the word labels are "cobweb - cobweb", "spider - spider" and "skeleton - skeleton". The translation half repeats the English word, which looks like a missing or placeholder translation. It could be intentional, so about 50%.
+4. Tiles 5-7: the spider covers the woman's face while the caption says "holding a big spider in my hand". That is probably a source-image problem, not a timeline one. About 40%.
+
+Not checked: motion, audio, and anything inside a state.
+
+Next calls I would make:
+- `frame en-halloween-decorating.montagent.json --at 0`, to confirm what tile 1 really shows and resolve the 0ms vs 40ms label mismatch.
+- `frame en-halloween-decorating.montagent.json --at 47360`, to see tile 10 at full scale.
+- `frame --crop --at 47360` on the label area, to see the string-of-lights label overlap at true scale.
+- `validate`, because no checks ran. It would likely flag an empty text element or a duplicate layer.

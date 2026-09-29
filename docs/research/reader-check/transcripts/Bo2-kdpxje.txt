@@ -1,0 +1,17 @@
+I read only the two files. The sheet has 18 tiles covering 0–65216 ms, one per visual state. No checks ran.
+
+**Likely wrong, most confident first:**
+
+1. **Skeleton shows the spider picture (tiles 7–8, 30640–42763 ms).** The words "skeleton" and "I hang the skeleton up by the door." sit over photo-07. At this size photo-07 looks the same as photo-06: the woman holding a big spider. There is no skeleton anywhere. Either photo-07 points to the spider image file or the wrong asset was put in. Confidence: high. The two images match in every detail I can see at 184 px.
+
+2. **The sentence card for "string of lights" is blank (tile 10, 47360 ms).** card-08 and sentence-08 are both listed as present, but the dark card shows no text. In every other sentence tile the white text is easy to read. The text could be empty, the same colour as the card, or placed off the card. Confidence: medium-high. Tiny text is below what this tile size can show, but the other cards' text is clearly visible at the same size.
+
+3. **"string of lights" is shown differently from the other words (tiles 9–10).** The other words use one large line, "word - word". This one shows two very small lines stacked, word-08-bridge above word-08-target. It looks like a style or size fallback, maybe because the longer phrase was shrunk to fit. Confidence: medium. It might be a deliberate "bridge" effect.
+
+Everything else looks consistent: the intro, the hook, cobweb and spider, the quiz question, the 5→1 countdown, the answer and the loop hook.
+
+**Next calls I would make:**
+- `frame en-halloween-decorating.montagent.json --at 47400 --crop <sentence-card region>` to see at true scale whether sentence-08 draws anything.
+- `frame en-halloween-decorating.montagent.json --at 30700` to see photo-07 at full size and confirm it is the spider image.
+- `query en-halloween-decorating.montagent.json` for photo-06, photo-07, sentence-08 and word-08-bridge/target, to compare their sources, text and styles.
+- `validate en-halloween-decorating.montagent.json`, because no checks have run yet.

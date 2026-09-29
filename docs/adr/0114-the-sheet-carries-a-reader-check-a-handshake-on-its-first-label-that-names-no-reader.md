@@ -5,6 +5,14 @@ amends: 0094 (section 6's unconditional disclosure gains a member that is about 
 
 # The sheet carries a reader check: a handshake on its first label that names no reader
 
+> **Amended by [ADR-0116](0116-the-reader-check-orients-a-reader-that-can-see-and-its-pass-is-not-evidence-of-reading.md).**
+> #481 measured §5's prediction and **falsified** it: on a sheet whose tile 1 label differed from
+> the quoted string, half the weak readers confirmed the quoted string. The wording and JSON stand
+> and the check ships, under a narrower claim. It orients a reader that can see and catches a weak
+> reader that reports honestly. **Its pass is not evidence that the sheet was read**, and the
+> Costs entry "such a lie is checkable" holds for a reader's claims about pictures, not for its
+> claim to have matched the label.
+
 [#476](https://github.com/MBehtemam/Montagent/issues/476), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Three questions were put to a jury of
 three models, Fable 5.1, Opus 5.5 and Sonnet 5.5, and the human took the judge's read of the

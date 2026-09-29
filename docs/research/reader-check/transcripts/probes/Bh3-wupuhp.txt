@@ -1,0 +1,15 @@
+## Dark strip labels from sheet.png:
+
+**Tile 1:** `1 0ms +0 +intro-title`
+
+**Tile 7:** `7 30640ms +37 +word-07`
+
+**Tile 10:** `10 47360ms +17 +sentence-08`
+
+## Did I compare answer.txt text with the image?
+
+**No.** I read the answer.txt provenance section which gave me the state labels, and I relied on that text data. I then looked at the image and described what visual content I saw *in the video frames themselves* (the rectangular video areas), but I did not verify that the dark strip labels beneath the tiles in the image matched the answer.txt provenance data.
+
+What I compared: the video frame *content* (what's shown in the actual video clip) against what I expected from the state names. I did not verify the timing/label metadata at the bottom.
+
+This was a methodological gap — I should have explicitly cross-referenced the labels in the dark strips with answer.txt to ensure consistency.

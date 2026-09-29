@@ -1,0 +1,17 @@
+I read only the two files: answer.txt and sheet.png, 18 tiles covering 0–65216 ms.
+
+**What looks wrong, most likely first:**
+
+1. **The skeleton section shows the spider picture (tiles 7–8, 30640–42763 ms).** The word is "skeleton" and the sentence is "I hang the skeleton up by the door." But photo-07 looks the same as photo-06: a woman holding a big black spider in front of her face, with plush toys on a table. I see no skeleton. Photo-07 is probably pointing at the same image file as photo-06. I'm fairly sure (about 75%). At 184 px I can't completely rule out a small skeleton in the frame, but the two images look identical.
+
+2. **The sentence card for "string of lights" is empty (tile 10, 47343–53856 ms).** The text says `sentence-08` is present, but the dark card has no visible text. Every other sentence card shows white text. The sentence text may be missing, the same colour as the card, or pushed outside the card. I'm fairly sure (about 70%). It could also be text too small to see at this tile width.
+
+3. **"string of lights" is much smaller than the other words (tiles 9–10).** It's printed twice in tiny type, while the other words are large, like "cobweb - cobweb". Two elements are both painted, word-08-bridge and word-08-target, so they may be overlapping or shrunk to fit. I'm moderately sure this is a mistake (about 60%). It could be a deliberate style.
+
+The rest looks consistent. The intro promises 4 words and there are 4. The quiz countdown runs 5 to 1, 1 s each, then the answer, and the ending loops back to the hook.
+
+**Calls I would make next:**
+- `query en-halloween-decorating.montagent.json` on photo-06 and photo-07, to compare their image sources and confirm issue 1.
+- `frame en-halloween-decorating.montagent.json --at 47360 --crop <card region>`, to see the empty card at full size (issue 2).
+- `frame en-halloween-decorating.montagent.json --at 42800 --crop <word region>`, to check the two word-08 elements (issue 3).
+- `validate en-halloween-decorating.montagent.json`, because the sheet says no checks were run.

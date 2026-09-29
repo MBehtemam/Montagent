@@ -1,0 +1,13 @@
+Reader check passed: the strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I trust the labels. The sheet is 18 tiles at 184 px, and the tool ran no checks.
+
+What looks wrong, most sure first:
+
+1. Tile 10 (47360ms, +sentence-08): the dark example-sentence box is empty. Every other sentence tile (4, 6, 8, 17) has text in it. Fairly sure, about 85%. It could be a missing or blank sentence, or the text may not have painted yet at the first frame of that state.
+
+2. Tile 9 and 10 (word-08-bridge with word-08-target): "string of lights" shows twice, once large and once smaller and stacked just below it. The provenance list shows two word elements present at once. This looks like a duplicate or overlapping caption. About 75% sure it's unintended. It could be a deliberate bridge or target animation, but at this size it reads as a bug.
+
+3. Tiles 3 to 8: each word card reads "X - X" ("cobweb - cobweb", "spider - spider", "skeleton - skeleton"). The second half looks like an untranslated placeholder, since a bilingual card would normally show a different word on each side. About 60% sure. It could be intended if the pair is English to English.
+
+Not seen: nothing else stood out. The photos match their words, and the countdown 5 to 1 and the quiz answer look fine. The sheet is blind to change inside a state, to motion, to audio, and to detail finer than 184 px. So I can't rule out timing or animation problems, for example the sentence text arriving late.
+
+Next call I would make: `frame en-halloween-decorating.montagent.json --at 47360`. That shows tile 10 at full scale and confirms whether the sentence box is really empty. I'd follow it with `frame ... --at 50000`, or `--crop` on the caption region, to see whether text appears later and whether the two "string of lights" lines really overlap. If both hold, I'd run `validate` on the project file. I'd also `query` elements word-08-bridge, word-08-target and sentence-08 for their text and timing.

@@ -1,0 +1,14 @@
+Reader check passed. The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I could read the labels. No checks ran, so this is only what I can see in stills.
+
+What looks wrong, most likely first:
+
+1. Tiles 9 and 10 (`word-08-bridge`, `sentence-08`, 42.8s to 53.9s). "string of lights" appears twice. One copy is stacked directly above the other, and both are much smaller than the word captions on the other cards. Provenance lists both `word-08-bridge` and `word-08-target` as present. The other word cards (cobweb, spider, skeleton) are one large line. So this looks like two caption layers overlapping, or a bridge/target pair that isn't laid out like the rest. I'm fairly sure (about 80%) something is off here. It's the only card that differs in structure and size.
+
+2. Tiles 3 to 8 and 17. Every word card reads "X - X" ("cobweb - cobweb", "spider - spider", "skeleton - skeleton"). If the second half is supposed to be a translation or a different-language rendering, it is duplicating the English word. That could be a missing translation. It could also be intended, because the badge says English and this is a learner format. I'm about 40% sure it's a defect, and it's the author's intent that decides.
+
+3. Tile 9's photo has a different crop and framing from the others. It looks intentional, so I'm not flagging it.
+
+Everything else looks consistent: the countdown 5 to 1, the quiz, and the loop back to the hook.
+
+Next call I would make, to see the doubled caption at full scale:
+`frame en-halloween-decorating.montagent.json --at 47360` (tile 10's instant). I would follow it with `frame --crop --at 42800` on the caption region, to see whether the two "string of lights" lines overlap or collide. I haven't run either call.

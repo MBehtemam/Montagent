@@ -1,0 +1,17 @@
+**Reader check: failed as I read it.** The text says tile 1's label should read exactly `1 0ms +0 +intro-title`. In the image I read it as `1 40ms +40 +intro-title`. By the tool's own rule, that means the sheet is below what I can reliably see. So the small details below are not settled. The large features probably are.
+
+**What looks wrong, most sure first:**
+
+1. **Tile 10 (47360ms, sentence-08): the sentence card is empty.** The dark bar shows but has no text in it. Every other sentence tile (4, 6, 8, 17) has text in its bar. I'm fairly sure of this.
+2. **Tiles 9 and 10 (the "string of lights" word): wrong styling.** Every other word shows as large bold "word - word" on one line. This one is tiny text on two stacked lines ("string of lights / string of lights"). The provenance lists two layers here, `word-08-bridge` and `word-08-target`, so the layout or font sizing may be broken. Also fairly sure.
+3. **Tiles 7 and 8 (skeleton): the photo seems to be the spider photo.** `photo-07` looks the same as `photo-06`: a woman holding a big spider. Yet the text says "skeleton" and "I hang the skeleton up by the door." This could be a wrong or duplicated image. I'm only moderately sure, since the tiles are 184 px wide.
+
+The rest looks consistent: the intro, the cobweb tiles, the quiz question, the 5-to-1 countdown, the quiz answer and the loop hook.
+
+**Calls I would make next:**
+- `frame en-halloween-decorating.montagent.json --at 0`: redo the reader check at full scale.
+- `frame en-halloween-decorating.montagent.json --at 47360`: confirm the sentence-08 card is blank.
+- `frame en-halloween-decorating.montagent.json --at 42800`: see the string-of-lights styling at full scale.
+- `frame en-halloween-decorating.montagent.json --at 30640` and `--at 17480`: compare photo-07 with photo-06.
+- `validate en-halloween-decorating.montagent.json`: the sheet says no checks were run.
+- Read the project file's `sentence-08`, `word-08-*` and `photo-07` entries to find the cause.

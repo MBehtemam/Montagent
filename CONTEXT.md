@@ -739,9 +739,10 @@ where the tile labels are (the strip beneath each tile, not the video's own capt
 the first tile's label exactly. It says the provenance list is the complete record and the sheet
 a picture of it, and names `frame --at` for a reader whose strip does not match. It is
 **not a blind spot**, since what a reader can see is not a property of the rule. It is never a
-finding, and it names no model. Passing it shows the labels are legible, not the pictures. It
-cannot stop a reader that lies. It makes the lie checkable, because each tile's exact label
-string is in the JSON.
+finding, and it names no model. It orients a reader that can see, and catches a weak reader
+that reports honestly. **Its pass is not evidence of reading**: a reader that copies the quoted
+string reports a true match, and nothing can tell that from a real one
+([ADR-0116](docs/adr/0116-the-reader-check-orients-a-reader-that-can-see-and-its-pass-is-not-evidence-of-reading.md)).
 _Avoid_: reader token, capability disclaimer, model class, legibility check (the floors are
 the legibility checks; this checks the reader against them)
 

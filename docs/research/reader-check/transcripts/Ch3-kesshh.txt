@@ -1,0 +1,3 @@
+Nothing obvious looks wrong. The sheet's 18 frame labels match the expected output exactly (reader check passes), and the visual content is coherent with those labels—vocabulary items display their named words, countdown frames show the correct numbers, and transitions follow a logical educational sequence.
+
+If the author reports something still appears wrong, the next step would be calling `frame --at <instant>` on a specific timestamp to inspect that frame at full scale, since the reader check notes that tile-level detail finer than 184 px is not visible on this sheet.
