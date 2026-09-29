@@ -2,6 +2,13 @@
 status: accepted
 ---
 
+> **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)**, which gives `N-QUANTIZATION` a **third `review`
+> escalation condition** beside the two above: a **visual state the grid never paints** — two
+> boundaries on different elements landing on one frame, so the combination the document declares
+> for that span is never on screen. Same reason as the other two: *"the rendered frames do not
+> show what the document declares."* `frame`'s range mode emits it for a `no-grid-frame` skipped
+> run; `validate` does not detect it yet ([#437](https://github.com/MBehtemam/Montagent/issues/437)).
+
 # `validate` reports facts, and `render` is what enforces them
 
 > **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,

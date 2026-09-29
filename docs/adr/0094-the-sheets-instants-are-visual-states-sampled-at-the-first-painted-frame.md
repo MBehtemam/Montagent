@@ -3,6 +3,14 @@ status: accepted
 amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticipated, specifies the re-merge that filter implies, and turns the audio-only boundary loss it measured into a mandatory disclosure on the sheet)
 ---
 
+> **Also amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** Section 4's **example is corrected, not its rule**: the
+> 4 ms interval at 56112–56116 is a pre-merge artifact — the change at 56112 is `vo-quiz`, audio,
+> so the re-merge section 1 mandates absorbs it into the visual run 53856–56116, which paints. The
+> fixture has **46 intervals, 18 visual runs and zero unpainted runs**. Section 6 is specified:
+> `skipped[]` is a **disclosure field** with reasons `no-grid-frame` and `infill-evicted`, and only
+> the first raises a finding — `N-QUANTIZATION` at `review`. `blind_to` is **six fixed tokens, each
+> bound to one sentence**, in the NOT CHECKED block's shape, never a finding.
+
 # The sheet's instants are the document's visual states, sampled at the first frame the grid paints
 
 > **Amended by [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md).**

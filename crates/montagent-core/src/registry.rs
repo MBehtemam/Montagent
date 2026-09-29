@@ -174,6 +174,26 @@ scaffold somewhere else.",
         status: Live,
     },
     CheckSpec {
+        // ADR-0105 (#412): `frame`'s range mode holds more visual states than the sheet can
+        // show legibly, so it refuses rather than thin, split or reshape (ADR-0095). One code
+        // for every limit that can bind — ADR-0095's 140 px tile width, ADR-0098's 8 px served
+        // type, or either reached through the keyframe opt-in (#407) — because all three share
+        // one next move, a narrower range; `limit` says which bound. Its own code rather than a
+        // bare `E-INVOCATION` (the shape `preview`'s budget refusal takes) because the remedy is
+        // a list of ranges, and an agent loops over `sub_ranges` without parsing prose.
+        code: "E-SHEET-OVERFLOW",
+        classes: &[Error],
+        // `NotAboutDocument` (ADR-0073): the document is legal and unchanged, and the subject
+        // is the range the caller typed. Reaches exit 3 through `Report::refused_invocation`.
+        repair: Some(NotAboutDocument),
+        threshold: Internal,
+        adr: "ADR-0105",
+        template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
+and the sheet holds {fits} before {limit} stops a tile showing a defect. It never thins, splits \
+or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
+        status: Declared,
+    },
+    CheckSpec {
         code: "E-INTERNAL",
         classes: &[Error],
         // ADR-0073 (#224): not about a document — Montagent itself broke. Refuse's "no
@@ -836,6 +856,12 @@ minimum caption duration",
         // one, and is the alignment detail the same ADR puts "behind `--verbose`". Nothing
         // emits it yet; ADR-0035 gave the grid arithmetic to `measure` (#205), and where
         // that fact belongs is #257.
+        //
+        // ADR-0105 (#412) adds a third `review` condition on the same reason: a *visual
+        // state* the grid never paints — two boundaries on different elements landing on one
+        // frame, so no element vanishes and no track gains a gap, yet the combination the
+        // document declares is never on screen. `frame`'s range mode raises it for each
+        // `no-grid-frame` skipped run. This check does not detect it yet (#437).
         classes: &[Review, Note],
         repair: None,
         threshold: Internal,

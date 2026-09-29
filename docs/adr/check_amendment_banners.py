@@ -25,9 +25,24 @@ So three things must agree, and this script checks all three:
 
 Two frontmatter conventions are in use and both are read here: YAML
 (`amends: 0011 (gloss), 0012`) and prose (`**Amends:** [ADR-0011](...) (gloss)`).
-ADR-0008, ADR-0016 and ADR-0064 use the prose form. Tooling that reads only YAML
+ADR-0016, ADR-0043 and ADR-0044 use the prose form. Tooling that reads only YAML
 silently drops those amendments — which is how ADR-0011's banner came to be
 missing ADR-0016 and ADR-0006's missing ADR-0043 and ADR-0044.
+
+A fourth thing is checked, added after the first three had been passing clean for
+some time over a false sentence:
+
+  4. `README.md`'s opening sentence counts ADRs, and those counts are derived
+     here rather than retyped.
+
+It claimed "74 of 92 ADRs declare an amendment: 71 in an `amends:` header" when
+the true figures were 84, 102 and 81 — drifted across roughly ten ADRs — while
+this script exited 0, because it checked amendment *edges* and never *totals*.
+The sentence meanwhile credited this script with keeping "the three views
+(header, banner, this column) in agreement". A claim with a verifier named beside
+it, where the verifier does not cover the claim, is the defect this repository
+keeps finding in itself; the cheap fix is to retype four numbers, and the fix
+that holds is to derive them.
 """
 
 import glob
@@ -101,6 +116,91 @@ def index_rows():
     return rows
 
 
+# Small integers are spelled as words in the index's prose, so the check compares like
+# with like rather than forcing a digit into a sentence that reads better without one.
+NUMBER_WORDS = {
+    1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+    6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+}
+
+HEADLINE = re.compile(
+    r"Most of this series amends itself — (\d+) of (\d+) ADRs declare an "
+    r"amendment: (\d+) in an `amends:` header, ([A-Za-z]+) \((.*?)\) in an "
+    r"`\*\*Amends:\*\*` line",
+    re.S,
+)
+
+
+def declaration_forms(texts):
+    """Which ADRs *declare* an amendment, split by the convention they use.
+
+    Presence of the declaration, not whether a target could be parsed out of it —
+    which is the sentence's own question ("ADRs declare an amendment") and differs
+    from the edge check above by exactly one document. **ADR-0021** declares
+    `amends: the performance budget stated in the map's Notes (never itself an ADR)`:
+    a real amendment of something that is not an ADR, so it contributes no edge and
+    is still an ADR that declares one. Counting parsed targets instead reports 83 of
+    102 and silently drops it.
+    """
+    yaml_form, prose_form = set(), set()
+    for num, text in texts.items():
+        header = re.match(r"^---\n(.*?)\n---", text, re.S)
+        if header and re.search(r"^amends:[ \t]*\S", header.group(1), re.M):
+            yaml_form.add(num)
+        if re.search(r"^\*\*Amends:\*\*", text, re.M):
+            prose_form.add(num)
+    return yaml_form, prose_form
+
+
+def headline_defects(texts):
+    """Check `README.md`'s opening sentence against the ADRs it counts.
+
+    The sentence says this script keeps the index honest. Until this function existed
+    it did not check the sentence at all, and the sentence was wrong in three of its
+    four numbers.
+    """
+    path = os.path.join(ADR_DIR, "README.md")
+    if not os.path.exists(path):
+        return []
+    m = HEADLINE.search(open(path).read())
+    if not m:
+        return [
+            "README.md's opening sentence no longer matches the shape this script "
+            "checks, so its counts are unverified. Restore the wording or update "
+            "HEADLINE."
+        ]
+
+    yaml_form, prose_form = declaration_forms(texts)
+    said_declaring, said_total, said_yaml, said_prose_word, said_prose_list = m.groups()
+
+    actual = {
+        "ADRs declaring an amendment": (int(said_declaring), len(yaml_form | prose_form)),
+        "ADRs in total": (int(said_total), len(texts)),
+        "declarations in an `amends:` header": (int(said_yaml), len(yaml_form)),
+    }
+    problems = [
+        f"README.md's opening sentence says {said} {what}, but there are {measured}"
+        for what, (said, measured) in actual.items()
+        if said != measured
+    ]
+
+    word = NUMBER_WORDS.get(len(prose_form), str(len(prose_form)))
+    if said_prose_word.lower() != word:
+        problems.append(
+            f"README.md's opening sentence says {said_prose_word} declarations in an "
+            f"`**Amends:**` line, but there are {word}"
+        )
+    listed = set(re.findall(r"\[(\d{4})\]", said_prose_list))
+    if listed != prose_form:
+        problems.append(
+            "README.md's opening sentence names "
+            f"{', '.join('ADR-' + a for a in sorted(listed)) or 'nothing'} as using the "
+            "`**Amends:**` form, but the ADRs that do are "
+            f"{', '.join('ADR-' + a for a in sorted(prose_form))}"
+        )
+    return problems
+
+
 def main():
     texts, amends = {}, {}
     for path in adr_files():
@@ -133,6 +233,8 @@ def main():
                 f"(amended by {len(amenders)}, banner names {len(amenders & named)})"
             )
 
+    problems += headline_defects(texts)
+
     rows = index_rows()
     for target, amenders in sorted(amended_by.items()):
         listed = rows.get(target, set())
@@ -163,9 +265,17 @@ def main():
         return 1
 
     total = sum(len(v) for v in amended_by.values())
+    yaml_form, prose_form = declaration_forms(texts)
     print(
         f"OK — {len(amended_by)} amended ADRs, {total} amendment edges, "
         f"every one named in both the banner and the index."
+    )
+    # Printed on success too, so the index's opening sentence is visibly checked rather
+    # than merely unreported: it went stale by ten ADRs while this script exited 0.
+    print(
+        f"     {len(yaml_form | prose_form)} of {len(texts)} ADRs declare an amendment "
+        f"({len(yaml_form)} in an `amends:` header, {len(prose_form)} in an "
+        f"`**Amends:**` line) — matching README.md's opening sentence."
     )
     return 0
 
