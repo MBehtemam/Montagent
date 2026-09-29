@@ -28,6 +28,8 @@
 //! §8.3). The dispatch line also records whether the call carried a `progressToken` —
 //! the one fact about Claude Code's client its documentation does not state.
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -36,7 +38,8 @@ use rmcp::service::RequestContext;
 use rmcp::{ErrorData, Peer, RoleServer};
 use tokio::sync::{Semaphore, mpsc};
 
-use montagent_core::verbs::render::Progress;
+use montagent_core::report::Report;
+use montagent_core::verbs::render::{Cancel, Progress};
 
 /// How often a call that has said nothing else says it is alive.
 ///
@@ -80,6 +83,10 @@ pub struct Call {
     token: Option<ProgressToken>,
     peer: Peer<RoleServer>,
     dispatched: Instant,
+    /// Resolves when `rmcp` cancels the request — on `notifications/cancelled`, or when the
+    /// session ends. `rmcp` never drops the handler's future on cancel, it only trips the
+    /// token, so honouring it is this module's job (ADR-0109).
+    cancelled: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 
 impl Call {
@@ -92,6 +99,7 @@ impl Call {
             token,
             peer: context.peer.clone(),
             dispatched: Instant::now(),
+            cancelled: Some(Box::pin(context.ct.clone().cancelled_owned())),
         };
         eprintln!(
             "mcp  #{} {}  dispatched  progressToken: {}",
@@ -116,11 +124,19 @@ impl Call {
 pub type Sink = Box<dyn FnMut(Progress) + Send>;
 
 /// Run one call's work off the runtime thread, and keep the client informed until it ends.
-pub async fn run<F>(call: Call, slot: Slot, work: F) -> Result<CallToolResult, ErrorData>
+///
+/// `work` receives the call's [`Cancel`], which is set the moment the request is cancelled
+/// (ADR-0109). `render` and `preview` hand it to the core, which stops before its next frame
+/// and publishes nothing; every other verb is short and ignores it.
+pub async fn run<F>(mut call: Call, slot: Slot, work: F) -> Result<CallToolResult, ErrorData>
 where
-    F: FnOnce(Sink) -> CallToolResult + Send + 'static,
+    F: FnOnce(Sink, Cancel) -> CallToolResult + Send + 'static,
 {
+    let mut cancelled = call.cancelled.take().expect("a call is run once");
     let mut reporter = Reporter::new(call);
+    // Set on the way out whatever the way out is, so work this future can no longer hear
+    // about is told to stop rather than left encoding for nobody.
+    let cancel = CancelOnDrop(Cancel::new());
     let mut tick = tokio::time::interval(heartbeat());
     // The first tick of an interval is immediate; the dispatch line already said this call
     // exists, so the first heartbeat is one period in.
@@ -135,6 +151,17 @@ where
             let permit = loop {
                 tokio::select! {
                     permit = &mut acquire => break permit,
+                    // ADR-0109: cancelled before it ever started, so there is nothing to
+                    // withhold — the call simply leaves the queue.
+                    _ = &mut cancelled => {
+                        eprintln!(
+                            "mcp  #{} {}  cancelled while queued  {:.1} s after dispatch",
+                            reporter.call.id,
+                            reporter.call.tool,
+                            reporter.call.since()
+                        );
+                        return Ok(cancelled_while_queued(reporter.call.tool));
+                    }
                     _ = tick.tick() => {
                         let behind = HOLDER
                             .lock()
@@ -173,12 +200,24 @@ where
         // The receiver outlives the work, so a failed send cannot happen while it matters.
         let _ = frames_tx.send(p);
     });
-    let mut handle = tokio::task::spawn_blocking(move || work(sink));
+    let for_work = cancel.0.clone();
+    let mut handle = tokio::task::spawn_blocking(move || work(sink, for_work));
 
     let mut last: Option<Progress> = None;
     let joined = loop {
         tokio::select! {
             joined = &mut handle => break joined,
+            // ADR-0109: tell the work, and keep waiting for it. The slot is released only
+            // when the work has actually stopped — within one frame for an encode.
+            _ = &mut cancelled, if !cancel.0.is_cancelled() => {
+                cancel.0.cancel();
+                eprintln!(
+                    "mcp  #{} {}  cancel requested  {:.1} s after dispatch",
+                    reporter.call.id,
+                    reporter.call.tool,
+                    reporter.call.since()
+                );
+            }
             Some(p) = frames.recv() => {
                 reporter.send(Some(&p), frames_message(tool, &p)).await;
                 last = Some(p);
@@ -204,6 +243,29 @@ where
         reporter.call.since()
     );
     joined.map_err(|e| ErrorData::internal_error(format!("`{tool}` did not complete: {e}"), None))
+}
+
+/// Sets the call's [`Cancel`] when dropped. See [`run`].
+struct CancelOnDrop(Cancel);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+
+/// The answer for a call cancelled before it took the encode slot. `rmcp` drops it, as it
+/// drops every response to a cancelled request; it is built anyway so the call has one
+/// answer on every path, and says what ADR-0109 promises about the disk.
+fn cancelled_while_queued(tool: &str) -> CallToolResult {
+    let mut report = Report::new(tool, None);
+    report.fail_cancelled(format!(
+        "`{tool}` was cancelled by the caller while queued for the encode slot, and never \
+         started: nothing was written anywhere"
+    ));
+    CallToolResult::error(vec![rmcp::model::ContentBlock::text(
+        montagent_core::wire::render(&report, montagent_core::Wire::Text { verbose: false }),
+    )])
 }
 
 fn frames_message(tool: &str, p: &Progress) -> String {

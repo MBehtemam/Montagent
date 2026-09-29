@@ -256,6 +256,17 @@ impl Report {
         self.terminal = Some(Terminal::Internal);
     }
 
+    /// ADR-0109: the caller cancelled the call, and nothing was published.
+    ///
+    /// `NotAboutDocument`, on ADR-0091's reasoning for `E-TOOL-MISSING`: the project is not
+    /// what stopped the run, so no finding about it may be implied. The sentence names what
+    /// the disk holds, because that is the whole of what ADR-0109 decides.
+    pub fn fail_cancelled(&mut self, reason: impl Into<String>) {
+        self.findings
+            .push(Finding::new("E-CANCELLED").field("reason", Value::String(reason.into())));
+        self.terminal = Some(Terminal::Internal);
+    }
+
     /// The atomic write did not land. One sentence, so every write tool says it the same
     /// way.
     ///

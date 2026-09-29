@@ -317,3 +317,95 @@ fn a_call_without_a_progress_token_gets_no_notifications_and_still_its_result() 
     );
     assert!(text_of(server.response(2)).contains("RENDER"));
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0109 (#440): a cancelled call withholds, and frees the slot
+// ---------------------------------------------------------------------------
+
+fn write_long_or_short(path: &Path, name: &str, duration: i64, fill: &str) {
+    std::fs::write(
+        path,
+        format!(
+            r##"{{"frame":{{"width":640,"height":360}},"fps":25,"background":"#000000",
+  "duration":{duration},"output":"out/{name}.mp4",
+  "tracks":[{{"name":"only","layer":0,"elements":[
+    {{"id":"card","type":"rect","start":0,"end":{duration},"x":320,"y":180,"width":200,
+      "height":100,"fill":"{fill}"}}]}}]}}
+"##
+        ),
+    )
+    .expect("write project");
+}
+
+#[test]
+fn a_cancelled_render_publishes_nothing_and_frees_the_slot_for_the_next_call() {
+    if !has_ffmpeg() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cancelled-render");
+    let project = dir.join("c.montagent.json");
+    let tiny = dir.join("t.montagent.json");
+    write_long_or_short(&project, "c", 400, "#FF0000");
+    write_long_or_short(&tiny, "t", 40, "#00FF00");
+    let mut server = Server::start(&dir);
+    let project_arg = project.display().to_string();
+
+    // A stamped deliverable already at the path: the file the cancelled call must leave.
+    server.call(2, "render", json!({"project": project_arg}), None);
+    server.wait_for(2);
+    let before = std::fs::read(dir.join("out/c.mp4")).expect("the first deliverable");
+
+    // A long edit of the same project, so a completed render would replace those bytes.
+    write_long_or_short(&project, "c", 60_000, "#0000FF");
+    server.call(3, "render", json!({"project": project_arg}), Some("c"));
+    // Wait for the encode to be under way: the first frame report.
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !server.progress("c").iter().any(|l| {
+        l.value["params"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("frames"))
+    }) {
+        assert!(Instant::now() < deadline, "the long render never started");
+        if let Ok(line) = server.lines.recv_timeout(Duration::from_millis(100)) {
+            server.seen.push(line);
+        }
+    }
+
+    let cancelled_at = server.send(json!({"jsonrpc":"2.0","method":"notifications/cancelled",
+        "params":{"requestId":3,"reason":"acceptance test"}}));
+    // The next call needs the same encode slot, so it can only start once the cancelled
+    // encode has actually stopped.
+    server.call(
+        4,
+        "render",
+        json!({"project": tiny.display().to_string()}),
+        None,
+    );
+    let next_at = server.wait_for(4);
+
+    assert!(
+        next_at.duration_since(cancelled_at) < Duration::from_secs(10),
+        "the slot was held {:?} after the cancel — the 1500-frame encode ran on",
+        next_at.duration_since(cancelled_at)
+    );
+    assert!(text_of(server.response(4)).contains("RENDER"));
+    assert_eq!(
+        std::fs::read(dir.join("out/c.mp4")).expect("the first deliverable"),
+        before,
+        "the cancelled render touched the deliverable"
+    );
+    let mut beside: Vec<String> = std::fs::read_dir(dir.join("out"))
+        .expect("out/")
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    beside.sort();
+    assert_eq!(
+        beside,
+        vec!["c.mp4".to_string(), "t.mp4".to_string()],
+        "a temp file was left"
+    );
+    let stderr = server.stderr();
+    assert!(stderr.contains("#3 render  cancel requested"), "{stderr}");
+}
