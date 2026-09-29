@@ -1,0 +1,224 @@
+{
+ "ppkamt": {
+  "kind": "picture",
+  "tile_w": 184,
+  "size": [
+   1104,
+   1089
+  ],
+  "committed_as": "sheets/picture-184px.jpg"
+ },
+ "pwcwgk": {
+  "kind": "picture",
+  "tile_w": 160,
+  "size": [
+   960,
+   947
+  ],
+  "committed_as": "sheets/picture-160px.jpg"
+ },
+ "pbrjeb": {
+  "kind": "picture",
+  "tile_w": 148,
+  "size": [
+   888,
+   876
+  ],
+  "committed_as": "sheets/picture-148px.jpg"
+ },
+ "psntwp": {
+  "kind": "picture",
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "committed_as": "sheets/picture-140px.jpg"
+ },
+ "pyhegq": {
+  "kind": "picture",
+  "tile_w": 130,
+  "size": [
+   780,
+   770
+  ],
+  "committed_as": "sheets/picture-130px.jpg"
+ },
+ "pkpjja": {
+  "kind": "picture",
+  "tile_w": 120,
+  "size": [
+   720,
+   710
+  ],
+  "committed_as": "sheets/picture-120px.jpg"
+ },
+ "pdzaxx": {
+  "kind": "picture",
+  "tile_w": 92,
+  "size": [
+   552,
+   545
+  ],
+  "committed_as": "sheets/picture-92px.jpg"
+ },
+ "pctrlqbm": {
+  "kind": "control-clean",
+  "tile_w": 184,
+  "size": [
+   1104,
+   1089
+  ],
+  "committed_as": "sheets/control-clean-184px.jpg"
+ },
+ "lajcvw": {
+  "kind": "label",
+  "type_px": 5,
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "truth": [
+   "1 4480ms +0 +vo-sentence-06-a",
+   "2 5200ms +0 +word-08-bridge",
+   "3 18360ms +36 -flag-bar-v",
+   "4 25480ms +0 -count-1",
+   "5 30760ms +19 -vo-word-06-a",
+   "6 31280ms +0 +photo-05-loop",
+   "7 32200ms +26 -photo-05-quiz",
+   "8 33080ms +3 -hook-05",
+   "9 35600ms +0 +flag-bar-h",
+   "10 42880ms +0 +word-05",
+   "11 46080ms +0 -vo-word-06-b",
+   "12 47640ms +0 +intro-title",
+   "13 48520ms +0 +card-06",
+   "14 52400ms +23 +flag-bar-h",
+   "15 56720ms +39 +quiz-question",
+   "16 57360ms +0 +flag-bar-v",
+   "17 61200ms +7 +vo-quiz-answer",
+   "18 64640ms +0 +vo-sentence-05-a"
+  ],
+  "committed_as": "sheets/label-5px.jpg"
+ },
+ "lqywgd": {
+  "kind": "label",
+  "type_px": 6,
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "truth": [
+   "1 1360ms +0 -card-06",
+   "2 4040ms +0 -flag-bar-v",
+   "3 7320ms +0 -quiz-question",
+   "4 11800ms +25 -count-4",
+   "5 14840ms +8 -photo-08",
+   "6 18400ms +0 -vo-word-08-b",
+   "7 20800ms +0 -word-quiz",
+   "8 29360ms +19 +vo-word-06-b",
+   "9 30760ms +21 +vo-hook",
+   "10 33400ms +38 +vo-word-07-b",
+   "11 33560ms +0 +photo-08",
+   "12 52120ms +0 +chip-text",
+   "13 58600ms +36 +flag-field",
+   "14 58880ms +0 +vo-word-05-a",
+   "15 60000ms +0 +photo-05-loop",
+   "16 60160ms +0 +word-quiz",
+   "17 61320ms +0 -vo-quiz",
+   "18 61640ms +0 -vo-word-08-b"
+  ],
+  "committed_as": "sheets/label-6px.jpg"
+ },
+ "lfmwvu": {
+  "kind": "label",
+  "type_px": 7,
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "truth": [
+   "1 80ms +24 +flag-bar-h",
+   "2 680ms +0 +word-05",
+   "3 760ms +4 -handle-text",
+   "4 4280ms +17 +sentence-quiz",
+   "5 7560ms +0 -count-1",
+   "6 9120ms +26 +photo-05",
+   "7 9440ms +0 +count-4",
+   "8 15560ms +3 -word-06",
+   "9 32240ms +0 -vo-word-07-a",
+   "10 33080ms +19 -chip-panel",
+   "11 45920ms +37 -sentence-05",
+   "12 47920ms +12 -vo-sentence-05-a",
+   "13 48280ms +0 -chip-text",
+   "14 50480ms +0 +card-07",
+   "15 55800ms +0 +vo-sentence-05-a",
+   "16 56040ms +14 -photo-05-quiz",
+   "17 56280ms +0 -card-quiz",
+   "18 64360ms +0 +count-1"
+  ],
+  "committed_as": "sheets/label-7px.jpg"
+ },
+ "lefwxx": {
+  "kind": "label",
+  "type_px": 8,
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "truth": [
+   "1 4680ms +29 -photo-07",
+   "2 6600ms +19 +vo-word-07-b",
+   "3 20360ms +0",
+   "4 21200ms +0 -chip-text",
+   "5 21480ms +0 +word-08-bridge",
+   "6 22880ms +23 -word-05",
+   "7 24560ms +30 +flag-field",
+   "8 26840ms +17 +chip-panel",
+   "9 28000ms +0",
+   "10 32000ms +11 +vo-word-05-a",
+   "11 38480ms +0 -vo-word-05-b",
+   "12 38520ms +0 +quiz-question",
+   "13 46280ms +0 +flag-field",
+   "14 48000ms +23 -card-05",
+   "15 53480ms +0 -word-quiz",
+   "16 56760ms +0 -chip-text",
+   "17 62840ms +0 +photo-05-intro",
+   "18 63400ms +32 +intro-title"
+  ],
+  "committed_as": "sheets/label-8px.jpg"
+ },
+ "lugdzq": {
+  "kind": "label",
+  "type_px": 10,
+  "tile_w": 140,
+  "size": [
+   840,
+   829
+  ],
+  "truth": [
+   "1 2960ms +0 -photo-07",
+   "2 5080ms +0",
+   "3 6080ms +0",
+   "4 8040ms +14 +word-06",
+   "5 9040ms +0",
+   "6 16360ms +21",
+   "7 23160ms +0",
+   "8 36720ms +0",
+   "9 38520ms +0",
+   "10 42800ms +8",
+   "11 42880ms +0 -count-5",
+   "12 45400ms +0 +count-3",
+   "13 46360ms +31",
+   "14 46640ms +0",
+   "15 51480ms +5 -card-06",
+   "16 54720ms +0",
+   "17 56160ms +0",
+   "18 57880ms +0 -chip-text"
+  ],
+  "committed_as": "sheets/label-10px.jpg"
+ }
+}
