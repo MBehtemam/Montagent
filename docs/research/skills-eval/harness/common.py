@@ -192,16 +192,15 @@ def tool_uses(events: list[dict]):
                 yield block
 
 
-def montagent_verb(block: dict) -> str | None:
-    """The Montagent verb a tool call ran, over MCP or the CLI, or None."""
+def montagent_verbs(block: dict) -> list[str]:
+    """Every Montagent verb a tool call ran: one over MCP, or each CLI call in a Bash
+    command, since agents chain several (`montagent validate p && montagent render p`)."""
     name = block.get("name", "")
     if name.startswith(MCP_PREFIX):
-        return name[len(MCP_PREFIX):]
+        return [name[len(MCP_PREFIX):]]
     if name == "Bash":
-        m = re.search(r"(?:^|[\s;&|(/])montagent\s+([a-z][a-z-]*)", block.get("input", {}).get("command", ""))
-        if m:
-            return m.group(1)
-    return None
+        return re.findall(r"(?:^|[\s;&|(/])montagent\s+([a-z][a-z-]*)", block.get("input", {}).get("command", ""))
+    return []
 
 
 def transcript_signals(events: list[dict], our_skills: list[str]) -> dict:
@@ -216,8 +215,7 @@ def transcript_signals(events: list[dict], our_skills: list[str]) -> dict:
     tool_counts: dict[str, int] = {}
     for b in tool_uses(events):
         tool_counts[b.get("name", "?")] = tool_counts.get(b.get("name", "?"), 0) + 1
-        verb = montagent_verb(b)
-        if verb:
+        for verb in montagent_verbs(b):
             verbs[verb] = verbs.get(verb, 0) + 1
         inp = b.get("input", {}) or {}
         if b.get("name") == "Skill":
