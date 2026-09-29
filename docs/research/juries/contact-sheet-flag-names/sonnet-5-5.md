@@ -1,0 +1,40 @@
+# Juror 2 — Sonnet 5.5
+
+Recorded verbatim, unedited.
+
+---
+
+🗳️ **Juror 2** (Sonnet 5.5) — **VOTE: Q1 (a) off by default, opt-in; retire the "absence of evidence" caveat ; Q2 `--keyframes`, bare boolean ; Q3 (e) `--max-gap <MS>` is (d), but I vote (d) `--max-gap <MS>` ; Q4 keep "gap ceiling" as the quantity but do not reuse bare "Gap" from the glossary; define "gap ceiling" explicitly in the glossary as the longest span of the range between consecutive tiles that the sheet may leave unsampled, distinct from Gap (a track with no element) ; Q5 (a) ; Q6 (c) ; Q7 (a) ; Q8 adopt the measurement's definition; when the flag is passed report both `tiled` and `untiled` (untiled is then normally 0 for interior ones) ; Q9 (a) ; Q10 agree with (a), (b), (c)**
+
+**Reasoning:**
+Q1: The measurement gives the evidence the ADR lacked. On the only real project the flag adds zero tiles. On the constructed project it caught 2 of 4 defects, one of which nothing else can reach. The flag can also turn a working call into E-SHEET-OVERFLOW. Default-on (c) makes that failure reachable without the caller asking. A width-conditional default (b) is the worst option against the Blind-spot principle (ADR-0103). It makes the sheet's contents depend on the document's animation load, so a blindness would vary per call and could not be learned. It also silently changes which tiles appear as the document edits. The refusal already names the flag, so opt-in is a coherent, constant rule. The disclosed untiled count keeps the blindness visible.
+
+Q2: `--keyframes` is a bare boolean matching `--full`, `--all` and `--census`. The repo has no `--with-*` or `--include-*` forms. It names a tile class (the `keyframe` token from ADR-0098 §6), not a selection rule. It does not advertise a sibling rule the way `--per-state` did. It is not valued, because there is nothing to parametrise. MCP: `keyframes`.
+
+Q3: `--max-gap <MS>` reads as a bound, so it cannot be mistaken for a count the way `--n` or `--infill 5` could be. It matches the "gap ceiling" semantics: no two consecutive tiles are further apart than this. `--infill <MS>` is ambiguous between a count and a period. `--infill-every` implies a uniform cadence, which is not what a ceiling does, since tiles may be closer. `--infill-ceiling` is accurate but long and hides the unit-free bound. One caveat: "gap" collides with the glossary's Gap, addressed in Q4.
+
+Q4: Keep "gap ceiling" because ADR-0094 already ratified it and it is the precise term for a bound. Coining "infill ceiling" ties the concept to one tile class, but the ceiling is defined over consecutive tiles of any class. The glossary should carry a distinct entry saying it is a sheet-sampling quantity over the range, not a track Gap. The name of the flag and the term then agree.
+
+Q5: (a). ADR-0094 §5 says infill is strictly additive, never displaces a document-derived tile, and is the first class evicted. Letting infill push the sheet to the floor (b) would let a request degrade the sheet, and infill is the lowest-priority tile class. Document-derived tiles fix the rung. Infill uses only the slots left over.
+
+Q6: (c). (a) throws away possible value and gives no information. (b) makes the ceiling hold in some places and not others, which is the per-call variable blindness ADR-0103 rejects. (d) contradicts the ratified rule that infill is evicted under budget, not refused. (c) keeps a single constant, learnable promise: the sheet has ceiling Y everywhere, and the requested X is disclosed as unmet. The tiles that X would have added appear as `infill-evicted` in `skipped[]`. The prose answer must say "requested X ms, achieved Y ms". If no ceiling at or above the request fits, degrade to no infill with the same disclosure.
+
+Q7: (a). Since elision is sheet-wide, any long id on a non-boundary tile strips the identifying field from every tile. The class mark and sigil already say what the tile is, and the provenance line carries the unabbreviated class token and the `element.property` census. So the identifying field adds nothing on those tiles. Excluding them from the fit means adding a flag cannot degrade the label of the document-derived tiles, which fits "the label is a pointer, the list is the census". The unlabelled slot should render blank, and never a placeholder that looks like an id.
+
+Q8: Yes, adopt the measurement's definition (interior to a run, on an element visible at that keyframe). The declared-list count of 14 read as "gap" when the honest count was 0, so the disclosure was noise, and noise erodes the instrument's honesty. Trimmed-move keyframes outside the element's lifetime are not visible change. Boundary-coincident keyframes are already tiled by the run-start rule. With the flag passed, report both `tiled` and `untiled`, so the caller sees the flag did its job and can audit the sum. Without the flag, report `untiled` only, as ADR-0094 §3 requires. If keyframes are dropped under budget, the count of dropped ones must appear in `skipped[]`.
+
+Q9: (a). The refusal is a diagnosis, and the most useful fact is that the sheet is unrefused without the flag, plus how many keyframe tiles would fit, so the caller can retry without guessing. This is a finding field rendered as prose, consistent with the `limit` field and ADR-0105's structured findings. (c), degrading by dropping keyframe tiles, would silently reshape the sheet against ADR-0095's "refuses, never thins", and it would make the flag's effect vary per call. (b) leaves the caller to work out the cause, and the sub-ranges do not say the flag was the cause.
+
+Q10: Agree with all three. (a) preserves the same-meaning-on-both-surfaces rule: `keyframes` and `max_gap`. (b) is the same class of error as `--at` with `--from/--to`, and both are bare `E-INVOCATION`. Ignoring the flag silently would mislead the caller. For (c), a ceiling ≤ 0 is meaningless. A ceiling below one frame period asks for something the grid cannot paint, since the grid quantizes, so clamping would hide the fact that the request cannot be honoured. Refusing is consistent with a call that never quietly reshapes. I would add one more invalid value: a non-integer or non-numeric `<MS>`. It is also `E-INVOCATION`.
+
+**Trade-offs:**
+Q1: Opt-in means a caller who never passes the flag never sees the scale-overshoot or off-canvas drift defects, but the untiled count discloses that the blindness exists. Default-on catches more but adds a new refusal path to a call that worked. The width-conditional default is rejected because its blindness varies per call.
+Q2: `--keyframes` is terse and its name does not say the tiles are extra, but the help text and provenance token do. `--with-keyframes` and `--include-keyframes` break the convention.
+Q3: `--max-gap` reuses a glossary word, which costs a definition, but it is the only candidate that reads as a bound. `--infill-every` would suggest uniform sampling and `--infill <MS>` could read as a count.
+Q4: Keeping "gap ceiling" carries a naming collision with Gap. The glossary must disambiguate, which is cheaper than a new term with a duplicate meaning.
+Q5: (a) means infill may fill fewer slots than a user hopes, and that is exactly what makes a request unable to harm the sheet.
+Q6: (c) costs slightly more code than (a) and gives a coarser ceiling than asked for. It is still better than dropping all infill or a patchy ceiling, and one uniform Y is disclosed.
+Q7: (a) means the tile's identity is only in the provenance line, so a reader scanning the sheet has to look there for which property moved. That is the accepted cost of a stable sheet-wide label.
+Q8: Reporting both counts adds a line to the disclosure, and the tiled count can be affected by budget eviction, so it must be accompanied by the `skipped[]` entries.
+Q9: Adds one finding field and one prose sentence to a refusal. Not adding it is cheaper but leaves the caller unable to see the cause.
+Q10: Rejecting sub-frame ceilings costs a caller who wants "as fine as possible" one extra retry, in exchange for no clamping surprises.

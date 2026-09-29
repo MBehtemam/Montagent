@@ -1,0 +1,21 @@
+# Juror 2 — Sonnet 5.5
+
+Recorded verbatim, unedited.
+
+---
+
+🗳️ **Juror 2** (Sonnet 5.5) — **VOTE: Q1 (a) first painted frame at or after t, provided it is < e; Q2 (a), with a grid-aware population; Q3 (a) untiled with reason `no-grid-frame`, disclosure only, no finding; Q4 stays**
+
+**Reasoning:**
+- **Q1.** The keyframe says the value is exactly `v` at `t`. The first frame painted at or after `t` is the earliest frame that can show the state from `t` onward. It is the same shape as the ADR-0094 run rule ("first frame at or after the instant"), so there is one sampling idiom in the sheet. For `step` it shows the new value, which is the change the tile exists to show. Rule (c) would show a `step` keyframe's old value, so the tile would miss the change. Rule (b) makes ties and the choice of side arbitrary, and the nearest frame can be the one before `t`, showing the pre-change state. With (a), the next segment has moved at most one frame period (about 40 ms at 25 fps) toward the following keyframe. That drift is bounded, learnable and the same everywhere.
+- **Q2.** One tile per distinct painted frame keeps the sheet minimal and the tiles reproducible with `frame --at`. The provenance line is the census, so it lists every change point that mapped to the frame, and all of them count as `tiled`. When the frame is the run tile's, the tile keeps the run-tile class and its boundary field and adds no tile. It should not take the `keyframe` mark, because the mark and the class token say why a tile exists, and a run tile exists because of the run. Marking it would also change its label semantics, since the label's identifying field names the boundary. The population should be grid-aware. A change point whose sample frame is the run tile's frame is shown by the sheet whether or not the flag is set. Counting it `untiled` would falsely say something is unseen and would make the count change meaning with the flag. `tiled` and `untiled` should describe what the sheet shows, so the test is applied to the sample frame, not to the raw millisecond `s < t < e`. The raw-ms test still decides the "interior" candidate set. Change points on a boundary stay covered by the run tile under the existing rule.
+- **Q3.** A change point with no painted frame inside the run, so that its sample frame falls in the next run, is an ordinary consequence of off-grid keyframes. It is not a document defect. The rendered video does show the run itself, so nothing declared is lost, unlike an unpainted run. It gets `untiled` with reason `no-grid-frame`. Option (b) would sample a frame that is not the change, which is the invented instant ADR-0094 refused. Option (c) would attribute the tile to another run's state and blur the census. Option (d) would raise findings on routine authoring, which is noise. The reason field keeps the zero asserted, and the count stays honest.
+- **Q4.** The rule stays "change points only". #407 showed the failures peaked at, or were visible at, a keyframe, so the sample instant is sufficient for what was measured. The `between-keyframes` blind spot is already disclosed as constant and learnable (ADR-0103). Extremum-of-curve instants are derived from the curve, not stated by the document, so they fall under ADR-0094's 3–0 refusal. They would also need curve-specific solving, and they still would not catch an 8 % `step` snap, which is a tile-resolution limit. Nothing here reopens that refusal.
+
+**Trade-offs:**
+- **Q1(a)** shows the value up to one frame period past `t`, so a fast segment following the keyframe can look slightly advanced. Its last partial period is handled by Q3.
+- **Q1(c)** and **Q1(b)** fail on `step` easing or on ties.
+- **Q2(a)** hides the "a keyframe was here" signal from the tile's visual mark, but the provenance line carries it. The cost of grid-awareness is a population definition that depends on `fps`, so the counts are not derivable by reading the JSON alone. That is acceptable, because the sheet defines what is shown.
+- **Q2(b)** muddies the class semantics and the label.
+- **Q3(a)** can hide a real value at `t` when a keyframe falls in a run's last partial frame period, but the video also never shows it, and the reason is disclosed.
+- **Q4** accepts that an extremum between keyframes stays invisible, which is a disclosed blind spot rather than a silent one.

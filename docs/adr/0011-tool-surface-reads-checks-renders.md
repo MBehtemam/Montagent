@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by twenty-seven later ADRs.** Read them before relying on anything below.
+> **Amended by twenty-eight later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -111,6 +111,10 @@ status: accepted
 >   the doc strings now name `--png` alongside the crop: measured over one card, JPEG holds
 >   **14,090** distinct colours against PNG's **523**, so scale alone does not make a crop fit
 >   for pixel work
+> - [ADR-0106](0106-the-sheets-opt-ins-are-keyframes-and-infill-ceiling-and-a-keyframe-tile-is-sampled-where-its-change-first-paints.md) — **the `frame` row's range arguments gain two
+>   opt-ins**, `--keyframes` (a bare boolean) and `--infill-ceiling <MS>`, on both surfaces
+>   (`keyframes`, `infill_ceiling` on MCP). Either without `--from`/`--to` is `E-INVOCATION`.
+>   The counts are **unchanged** — arguments, not a verb
 > - [ADR-0108](0108-mcp-tools-run-off-the-runtime-thread-and-a-long-call-is-heard-from-until-it-ends.md)
 >   — **"Progress on stderr, coarse" holds for the CLI and not for MCP.** Over MCP a call also
 >   sends `notifications/progress` when the client supplied a `progressToken`, including a 30 s
