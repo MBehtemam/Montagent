@@ -5,6 +5,12 @@ amends: 0096 (§5's fallback is taken only after a `select` run that *succeeded*
 
 # A seek whose `ffmpeg` failed is refused, never read as "no frame"
 
+> **Amended by [ADR-0115](./0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md)**: this ADR's rule — a failed spawn is never an empty answer —
+> is an **invariant over every spawn**, held by `tests/spawn_exit_status.rs`'s audit of each
+> one. The seek now sends `-fps_mode passthrough`, and the open note below is answered:
+> once the tool has qualified, `E-NOT-PAINTED-UNDECODABLE` blaming the source is correct, and an
+> `ffmpeg` that cannot seek is `E-TOOL-UNSUPPORTED` before any seek runs.
+
 [#478](https://github.com/MBehtemam/Montagent/issues/478), found by
 [#471](https://github.com/MBehtemam/Montagent/issues/471) while bringing
 [#424](https://github.com/MBehtemam/Montagent/pull/424) up to date on a machine with

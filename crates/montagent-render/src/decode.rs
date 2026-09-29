@@ -257,7 +257,14 @@ pub fn frame_at(
     };
 
     let filter = format!("select='lte(t\\,{threshold})',{scale}");
-    let at_or_before = succeeded(over_window(&["-vf", &filter, "-vsync", "0"])?)?;
+    // `-fps_mode passthrough`, from the one place the floor's arguments are spelled
+    // (ADR-0115): every selected frame, none duplicated to meet an output rate.
+    let at_or_before = succeeded(over_window(&[
+        "-vf",
+        &filter,
+        crate::floor::FPS_PASSTHROUGH[0],
+        crate::floor::FPS_PASSTHROUGH[1],
+    ])?)?;
 
     // **The frame at or before the instant, and where there is none, the source's first.**
     // A source whose first frame starts *after* the instant has no frame at or before it,

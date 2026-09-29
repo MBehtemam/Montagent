@@ -215,7 +215,7 @@ def extract(window: range, into: Path, width: int, height: int) -> None:
             "-i", str(VIDEO),
             "-vf", f"select='between(n\\,{lo}\\,{hi})',scale={width}:{height}",
             # Emit exactly the selected frames, unnumbered by time.
-            "-vsync", "0",
+            "-fps_mode", "passthrough",
             "-start_number", str(lo),
             str(into / "f%05d.png"),
         ],

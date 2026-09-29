@@ -925,6 +925,115 @@ fn cli_validate_that_loses_its_ffprobe_keeps_what_it_had_already_learned() {
     assert!(stdout.contains("ffmpeg"), "{stdout}");
 }
 
+/// A `PATH` holding the real `ffprobe` and an `ffmpeg` that is present, runs, and rejects
+/// the floor's `-/filter_complex` the way ffmpeg 6.1 does — the machine ADR-0115's tool
+/// qualification exists for. `None` where this machine has no `ffprobe` to borrow.
+#[cfg(unix)]
+fn path_with_an_unqualified_ffmpeg(name: &str) -> Option<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let ffprobe = montagent_core::media::tools::resolve_found()
+        .ok()?
+        .0
+        .ffprobe;
+    let dir = scratch_dir(name);
+    let ffmpeg = dir.join("ffmpeg");
+    std::fs::write(
+        &ffmpeg,
+        "#!/bin/sh\necho \"Unrecognized option '/filter_complex'.\" >&2\n\
+         echo \"Error splitting the argument list: Option not found\" >&2\nexit 8\n",
+    )
+    .expect("write the stand-in ffmpeg");
+    std::fs::set_permissions(&ffmpeg, std::fs::Permissions::from_mode(0o755))
+        .expect("make it executable");
+    let _ = std::fs::remove_file(dir.join("ffprobe"));
+    std::os::unix::fs::symlink(&ffprobe, dir.join("ffprobe")).expect("borrow the real ffprobe");
+    Some(dir)
+}
+
+#[cfg(unix)]
+#[test]
+fn cli_validate_on_an_ffmpeg_below_the_floor_is_an_error_and_still_reads_the_disk() {
+    // ADR-0115 §6: `render` is guaranteed to refuse, so `validate` says so at `error` —
+    // exit 70, `E-TOOL-UNSUPPORTED`, naming the floor and the binary — and the disk half,
+    // which needs only `ffprobe`, still completes, as does the document half before it.
+    let Some(path) = path_with_an_unqualified_ffmpeg("cli-unqualified-validate-path") else {
+        return;
+    };
+    let dir = scratch_dir("cli-unqualified-validate");
+    let project = dir.join("p.montagent.json");
+    std::fs::write(
+        &project,
+        r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"photos","layer":1,"elements":[{"id":"photo-06","type":"image","start":0,"end":1000,"source":"images/05.png","x":0,"y":0,"origin":"top-left","width":1080,"height":1912,"fit":"cover","gravity":"bottom"}]}]}"##,
+    )
+    .expect("write project");
+
+    let out = Command::new(binary())
+        .args(["validate", project.to_str().unwrap()])
+        .env("PATH", &path)
+        .output()
+        .expect("run montagent");
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(70), "{stdout}");
+    assert!(stdout.contains("E-TOOL-UNSUPPORTED"), "{stdout}");
+    assert!(!stdout.contains("E-TOOL-MISSING"), "it was found: {stdout}");
+    assert!(
+        stdout.contains("ffmpeg 7.1 or newer"),
+        "the floor is named: {stdout}"
+    );
+    assert!(
+        stdout.contains("-/filter_complex"),
+        "the capability is named: {stdout}"
+    );
+    assert!(
+        stdout.contains(&path.join("ffmpeg").display().to_string()),
+        "the resolved path is named: {stdout}"
+    );
+    assert!(
+        stdout.contains("Unrecognized option"),
+        "ffmpeg's own words: {stdout}"
+    );
+    assert!(
+        stdout.contains("E-RETIRED-KEY"),
+        "the document half survives: {stdout}"
+    );
+    assert!(
+        stdout.contains("E-SOURCE-MISSING"),
+        "the disk half ran on ffprobe alone: {stdout}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn cli_render_on_an_ffmpeg_below_the_floor_refuses_before_the_encoder() {
+    let Some(path) = path_with_an_unqualified_ffmpeg("cli-unqualified-render-path") else {
+        return;
+    };
+    let dir = scratch_dir("cli-unqualified-render");
+    let project = dir.join("p.montagent.json");
+    let output = dir.join("out.mp4");
+    std::fs::write(
+        &project,
+        format!(
+            r##"{{"frame":{{"width":64,"height":64}},"fps":25,"output":{},"tracks":[{{"name":"shapes","layer":1,"elements":[{{"id":"box","type":"rect","start":0,"end":200,"x":0,"y":0,"origin":"top-left","width":64,"height":64,"fill":"#FF0000"}}]}}]}}"##,
+            serde_json::to_string(output.to_str().unwrap()).unwrap()
+        ),
+    )
+    .expect("write project");
+
+    let out = Command::new(binary())
+        .args(["render", project.to_str().unwrap()])
+        .env("PATH", &path)
+        .output()
+        .expect("run montagent");
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(70), "{stdout}");
+    assert!(stdout.contains("E-TOOL-UNSUPPORTED"), "{stdout}");
+    assert!(!output.exists(), "nothing was written: {stdout}");
+}
+
 #[test]
 fn cli_frame_reaches_the_verb_and_writes_the_picture() {
     // One test per subcommand, asserting argv reaches the right core call and the exit code

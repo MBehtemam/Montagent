@@ -256,6 +256,15 @@ impl Report {
         self.terminal = Some(Terminal::Internal);
     }
 
+    /// `ffmpeg` was found and ran, and cannot do what Montagent asks of it: it failed the
+    /// tool qualification (ADR-0115). A sibling of [`Report::fail_tool_missing`] with its own
+    /// code, because the next move is to upgrade rather than to install.
+    pub fn fail_tool_unsupported(&mut self, reason: impl Into<String>) {
+        self.findings
+            .push(Finding::new("E-TOOL-UNSUPPORTED").field("reason", Value::String(reason.into())));
+        self.terminal = Some(Terminal::Internal);
+    }
+
     /// ADR-0109: the caller cancelled the call, and nothing was published.
     ///
     /// `NotAboutDocument`, on ADR-0091's reasoning for `E-TOOL-MISSING`: the project is not

@@ -957,6 +957,22 @@ key are identical. A guard that established nothing never invalidates anything.
 ([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
 _Avoid_: checksum key, content key, hash key
 
+**Tool qualification**:
+The one null encode Montagent runs through a found `ffmpeg` to learn whether it
+can do what Montagent asks of it: the three arguments that make up the floor
+(`-fps_mode passthrough`, a filter graph read through `-/filter_complex`, and
+`libx264`), on sixteen black pixels. It runs the first time a given `ffmpeg` is
+resolved in a process, and its verdict is kept in memory and never on disk, so no
+answer outlives an upgrade. It reads what the binary *does*, never its version
+string, because a git build's version names no release and no version string
+reveals a missing `libx264`. A failure is `E-TOOL-UNSUPPORTED`. It is not the
+primary guard: that is the rule that a failed spawn is never an empty answer,
+which also covers the breakages nobody has met yet.
+([ADR-0115](docs/adr/0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md),
+[ADR-0113](docs/adr/0113-a-seek-whose-ffmpeg-failed-is-refused-never-read-as-no-frame.md))
+_Avoid_: probe (the verb, and the probe cache), check (a check asks a question of
+the project), version check
+
 **Observed identity**:
 The canonical path a probe recorded at the moment it ran (`Probe::identity`), and
 the only thing a consumer may use to ask *"is this the same file?"*. It is

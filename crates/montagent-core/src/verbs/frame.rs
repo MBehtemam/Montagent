@@ -112,8 +112,9 @@ use montagent_render::canvas::{
 use montagent_render::decode::Decoder;
 
 use crate::finding::{Class, Finding};
+use crate::media::Source;
 use crate::media::session::Session;
-use crate::media::{Source, tools};
+use crate::media::tools::{self, Missing};
 use crate::model::{self, Colour, Origin};
 use crate::parse;
 use crate::permissive::Loose;
@@ -321,10 +322,12 @@ pub(crate) enum Declined {
     Finding(Finding),
     /// Montagent contradicting itself, as the sentence the report fails internally with.
     Internal(String),
-    /// ADR-0091: `ffmpeg` is not on `PATH`. Neither a fact about the project nor Montagent
-    /// contradicting itself — an unconfigured environment, at exit 70 and its own code, so
-    /// that *"you don't have this installed"* never reads as *"your source is broken"*.
-    Tool(String),
+    /// ADR-0091: `ffmpeg` is not on `PATH` — or, ADR-0115, is and cannot do what the floor
+    /// asks. Neither a fact about the project nor Montagent contradicting itself — an
+    /// environment, at exit 70 and its own code, so that *"you don't have this installed"*
+    /// never reads as *"your source is broken"*. Carried whole, so [`Missing::fail`] picks
+    /// the code and nothing here re-derives it.
+    Tool(Box<Missing>),
 }
 
 impl Declined {
@@ -519,9 +522,9 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     // Pushed before the encode so that a frame that then fails to encode still says what it
     // could not draw. `frame` is a read-only verb and these findings do not gate it: it is
     // reporting on the picture it drew, not refusing to draw one.
-    if let Some(reason) = painter.tool_missing.take() {
-        // ADR-0091: exit 70 and its own code, never a claim about the source.
-        report.fail_tool_missing(reason);
+    if let Some(missing) = painter.tool_missing.take() {
+        // ADR-0091/ADR-0115: exit 70 and its own code, never a claim about the source.
+        missing.fail(&mut report);
         return Answer {
             picture: None,
             view: Some(view),
@@ -751,7 +754,7 @@ pub(crate) struct Painter<'a> {
     pub(crate) internal: Option<String>,
     /// ADR-0091's missing `ffmpeg`, kept apart from both of the above so it keeps its own
     /// code and exit 70. Not cleared per frame, for [`Painter::internal`]'s reason.
-    pub(crate) tool_missing: Option<String>,
+    pub(crate) tool_missing: Option<Box<Missing>>,
     /// Every crossfade running at this instant, in document order.
     pub(crate) crossfades: Vec<Crossfade>,
     /// Each bridged element's id and the factor its `opacity` is multiplied by — the one
@@ -776,7 +779,7 @@ pub(crate) struct Painter<'a> {
     registry: montagent_text::Fonts,
     /// Resolved on demand, once: an all-image project must not need an `ffmpeg` on `PATH`
     /// to look at itself.
-    ffmpeg: Option<Result<PathBuf, String>>,
+    ffmpeg: Option<Result<PathBuf, Box<Missing>>>,
     /// Every still decoded so far, by path. A `frame` decodes each once and gains nothing;
     /// a `render` paints the fixture's 6 MB PNGs on 1631 consecutive frames and would
     /// otherwise decode each of them 1631 times.
@@ -1415,13 +1418,9 @@ impl<'a> Painter<'a> {
     }
 
     /// `ffmpeg`, resolved once per run and only where a video element needs one.
-    fn ffmpeg(&mut self) -> Result<PathBuf, String> {
+    fn ffmpeg(&mut self) -> Result<PathBuf, Box<Missing>> {
         if self.ffmpeg.is_none() {
-            self.ffmpeg = Some(
-                tools::resolve()
-                    .map(|tools| tools.ffmpeg)
-                    .map_err(|missing| missing.reason()),
-            );
+            self.ffmpeg = Some(tools::resolve().map(|tools| tools.ffmpeg).map_err(Box::new));
         }
         self.ffmpeg.clone().expect("just resolved")
     }
