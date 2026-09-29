@@ -31,14 +31,20 @@ order, not a token budget, and it is stated with its hole.**
 2. **This is a second, independent bound, on top of the class rule.** `Class::prints_in_full`
    is unchanged: `note`, `unchecked` and `layout` still collapse at one instance because they
    are **inert**, and the new rule collapses any code past N because it is **repetitive**.
-   Notes do not start expanding in small projects.
+   Notes do not start expanding in small projects. **`drift` is exempt from the repetition
+   bound** and prints every instance: a `compare` fact is the answer to the call, which is
+   the very reason §6 gives for bounding `render`'s block and not `compare`'s findings.
 3. **A collapsed code prints no instance at all**, not the first three and an "and N more".
 4. **`render`'s verb block is bounded on the same rule.** Its `audio` and `painted` lines
    stop naming every element past N, and its `not mixed` / `in part` / `not painted` rows
    collapse per code. **Every count and every total stays, at every verbosity.** `preview`
    shares the block and moves with it.
 5. **`--verbose` restores every collapsed instance**, and the one-line summary keeps the
-   exact counts unconditionally.
+   exact counts unconditionally. **A collapsed line names a route the verb actually has:**
+   `timeline`, `query`, `frame`, `measure` and `fonts list` carry no `--verbose` on any
+   surface, so on them the line ends `— see --json` instead. Before this bound only notes
+   collapsed there; a fourth `error` of one code on `frame` would otherwise hide every
+   location behind a flag the verb rejects.
 6. **Nothing else.** No `--min-severity`, no summary mode, no change to the canonical JSON,
    and no `census` added to any per-element check.
 
@@ -154,6 +160,11 @@ duration, frame count, bytes, and the counts under `audio`, `painted` and each r
 so an agent can still tell *"not there"* from *"not drawn"* and *"silent"* from *"not
 mixed"*, which is the discrimination the block exists to provide. What goes is the list of
 ids under a count that is still printed.
+
+The same distinction exempts `drift` from the repetition bound (Decision 2). The first
+version of this ADR's code applied the bound to every class that prints in full, `drift`
+included, so four drifts of one code printed as a count, the collapse this section argues
+against. A review before merge caught it; `tests/report_bound.rs` now holds it.
 
 It is in scope for the second reason too, and it is the load-bearing one: **leave the block
 O(elements) and §1's bound is false the day it ships**, which ADR-0031 will not let anything

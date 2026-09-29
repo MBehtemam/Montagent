@@ -36,6 +36,21 @@ const EXCERPT: &str = "excerpt";
 /// over MCP and has no screen.
 const FULL_INSTANCES: usize = 3;
 
+/// The verbs with no `--verbose` on any surface — deliberately, each one's adapter says
+/// why — keyed by the report's `tool`. A collapsed line on one of these cannot tell its
+/// reader to expand with a flag the verb rejects, so it names the route the verb does have.
+/// A test in the CLI adapter (`cli.rs`) derives this list from the CLI's own definition,
+/// so it cannot drift from the flags that actually exist.
+pub const NO_VERBOSE: &[&str] = &["timeline", "query", "frame", "measure", "fonts list"];
+
+/// Where a collapsed line sends its reader to see the instances it counted.
+fn expansion(tool: &str) -> &'static str {
+    match NO_VERBOSE.contains(&tool) {
+        true => "see --json",
+        false => "expand with --verbose",
+    }
+}
+
 /// What the text renderer may print.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Options {
@@ -166,6 +181,7 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
 
+    let expand = expansion(report["tool"].as_str().unwrap_or(""));
     for class in [
         Class::Error,
         Class::Review,
@@ -186,12 +202,17 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
             for finding in of_class {
                 out.push_str(&full(finding)?);
             }
-        } else if class.prints_in_full() {
+        } else if class.bounded_by_repetition() {
             // The class is not inert, so its findings print in full — but only up to
             // `FULL_INSTANCES` of any one code. ADR-0099.
-            out.push_str(&bounded(&of_class)?);
+            out.push_str(&bounded(&of_class, expand)?);
+        } else if class.prints_in_full() {
+            // `Drift`: the findings are the answer, so no bound applies. ADR-0099 §6.
+            for finding in of_class {
+                out.push_str(&full(finding)?);
+            }
         } else {
-            out.push_str(&collapsed(&of_class));
+            out.push_str(&collapsed(&of_class, expand));
         }
     }
 
@@ -382,19 +403,19 @@ fn count_in(counted: &[(&str, usize)], code: &str) -> usize {
 /// The one line a collapse leaves behind. The **count survives** — that is what makes the
 /// collapse a filter on output rather than on analysis, which is the half of ADR-0006's
 /// *"output may be filtered; analysis may not"* that licenses any of this.
-fn collapsed_line(class: &str, code: &str, count: usize) -> String {
-    format!("{class}  {code}  {count} — expand with --verbose\n")
+fn collapsed_line(class: &str, code: &str, count: usize, expand: &str) -> String {
+    format!("{class}  {code}  {count} — {expand}\n")
 }
 
 /// One counted line carrying the code, per class-and-code, for the informational
 /// classes. ADR-0006's noise budget: `0 errors, 47 notes` must not read as a pass, and
 /// 47 printed alignment lines are how a reader learns to skip the output.
-fn collapsed(findings: &[&Value]) -> String {
+fn collapsed(findings: &[&Value], expand: &str) -> String {
     // Every finding here shares one class — the caller groups by it before collapsing.
     let class = findings[0]["class"].as_str().unwrap_or("?");
     tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")))
         .into_iter()
-        .map(|(code, count)| collapsed_line(class, code, count))
+        .map(|(code, count)| collapsed_line(class, code, count, expand))
         .collect()
 }
 
@@ -409,7 +430,7 @@ fn collapsed(findings: &[&Value]) -> String {
 /// A code past the bound prints **no instance at all** rather than the first three and an
 /// "and N more". A sample would make the printed set arbitrary — it is whichever instances
 /// the check happened to reach first, which is not a ranking and must not read as one.
-fn bounded(findings: &[&Value]) -> Result<String, RenderError> {
+fn bounded(findings: &[&Value], expand: &str) -> Result<String, RenderError> {
     let counted = tally(findings.iter().map(|f| f["code"].as_str().unwrap_or("?")));
     let class = findings[0]["class"].as_str().unwrap_or("?");
 
@@ -422,7 +443,7 @@ fn bounded(findings: &[&Value]) -> Result<String, RenderError> {
             out.push_str(&full(finding)?);
         } else if !announced.contains(&code) {
             announced.push(code);
-            out.push_str(&collapsed_line(class, code, count));
+            out.push_str(&collapsed_line(class, code, count, expand));
         }
     }
     Ok(out)

@@ -263,3 +263,61 @@ fn the_bound_is_on_element_count_and_the_cache_block_is_the_stated_hole() {
          honesty clause is now wrong and wants amending rather than deleting"
     );
 }
+
+#[test]
+fn a_compare_prints_every_drift_because_its_findings_are_the_answer() {
+    // ADR-0099 §6 argues `render`'s block may be bounded *because* it is not the answer the
+    // way a `compare` fact is. The repetition bound first shipped applying to `Drift`
+    // anyway, which left four drifts of one code as a count of what changed and nothing
+    // about what — the collapse `Class::prints_in_full`'s own comment warns against.
+    let mut report = Report::new("compare", Some("p.json".into()));
+    for i in 0..4 {
+        report.push(
+            Finding::new("D-SLACK-DRIFT")
+                .at_file("p.json")
+                .field("from", json!(format!("slack-from-{i}")))
+                .field("to", json!(i * 1000 + 500))
+                .field("ref_size", json!(500))
+                .field("current_size", json!(700))
+                .field("from_edges", json!("an end"))
+                .field("to_edges", json!("a start"))
+                .field("ref_project", json!("ref.json")),
+        );
+    }
+    let printed = text_of(&report);
+    for i in 0..4 {
+        assert!(
+            printed.contains(&format!("slack-from-{i}")),
+            "drift {i} was not printed:\n{printed}"
+        );
+    }
+    assert!(
+        !printed.contains("D-SLACK-DRIFT  4"),
+        "drift collapsed to a count:\n{printed}"
+    );
+}
+
+#[test]
+fn a_collapsed_line_names_a_route_the_verb_actually_has() {
+    // `timeline`, `query`, `frame`, `measure` and `fonts list` have no `--verbose`. Before
+    // the repetition bound only notes collapsed on them; now a fourth `error` or `review`
+    // of one code does too, and a line saying "expand with --verbose" would send the
+    // caller to a flag the verb rejects, with every instance's location gone.
+    for tool in text::NO_VERBOSE {
+        let mut report = captions_with_no_audio(4);
+        report.tool = (*tool).to_string();
+        let printed = text_of(&report);
+        assert!(
+            printed.contains("review  R-CAPTION-NO-AUDIO  4 — see --json"),
+            "`{tool}` pointed its reader somewhere else:\n{printed}"
+        );
+        assert!(
+            !printed.contains("--verbose"),
+            "`{tool}` has no --verbose to name:\n{printed}"
+        );
+    }
+    assert!(
+        text_of(&captions_with_no_audio(4)).contains("4 — expand with --verbose"),
+        "`validate` has the flag, and keeps pointing at it"
+    );
+}
