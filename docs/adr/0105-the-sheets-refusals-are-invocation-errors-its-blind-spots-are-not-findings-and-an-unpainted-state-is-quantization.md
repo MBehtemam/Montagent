@@ -10,6 +10,10 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > sampled: the first painted frame at or after the change. `untiled` keyframe change points carry
 > reason `no-grid-frame` and, like `infill-evicted`, raise no finding.
 
+> **Amended by [ADR-0114](0114-the-sheet-carries-a-reader-check-a-handshake-on-its-first-label-that-names-no-reader.md).** Section 6's `blind_to` stays about the **rule**. What
+> the reader can see is not a blind spot and gets no token. The READER CHECK is a sibling of the
+> NOT CHECKED block, printed on every range answer and never a finding.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map

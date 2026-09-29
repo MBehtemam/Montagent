@@ -730,6 +730,21 @@ Where one call can see past it, its sentence names that call.
 _Avoid_: limitation, caveat, unchecked (a `U-` finding means *could not establish for this
 document*, not *structurally cannot*)
 
+**Reader check**:
+The paragraph every contact sheet answer carries about its **reader**, not its rule
+([ADR-0114](docs/adr/0114-the-sheet-carries-a-reader-check-a-handshake-on-its-first-label-that-names-no-reader.md)).
+The served floors hold for a capable reader and mean nothing for a weak one, and Montagent
+cannot know which is calling. So the answer offers a **handshake**, not a self-grade. It says
+where the tile labels are (the strip beneath each tile, not the video's own captions) and quotes
+the first tile's label exactly. It says the provenance list is the complete record and the sheet
+a picture of it, and names `frame --at` for a reader whose strip does not match. It is
+**not a blind spot**, since what a reader can see is not a property of the rule. It is never a
+finding, and it names no model. Passing it shows the labels are legible, not the pictures. It
+cannot stop a reader that lies. It makes the lie checkable, because each tile's exact label
+string is in the JSON.
+_Avoid_: reader token, capability disclaimer, model class, legibility check (the floors are
+the legibility checks; this checks the reader against them)
+
 **Unpainted visual state**:
 A visual state — a span over which the set of visual elements is constant — that contains no
 frame the grid paints, because the two boundaries around it land on one frame. The document

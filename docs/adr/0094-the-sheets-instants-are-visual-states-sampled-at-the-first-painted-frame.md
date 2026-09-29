@@ -49,6 +49,13 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 > accumulation, which is where misattribution enters. This ADR's open question *"what the
 > label carries"* is closed there.
 
+> **Amended by [ADR-0114](0114-the-sheet-carries-a-reader-check-a-handshake-on-its-first-label-that-names-no-reader.md).** Section 6's unconditional disclosure gains a
+> member about the **reader**, not the rule: a READER CHECK that names where each tile's label
+> is, quotes tile 1's label exactly, and says the provenance list is the complete record with
+> the sheet a picture of it. Every provenance entry gains `label`, the exact string drawn in
+> that tile's gutter. Found by [#422](https://github.com/MBehtemam/Montagent/issues/422): a weak
+> reader found no defect at any width and never found the label strip.
+
 [#398](https://github.com/MBehtemam/Montagent/issues/398), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to six sub-questions; ballots verbatim
