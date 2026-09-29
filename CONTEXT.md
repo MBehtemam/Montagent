@@ -811,6 +811,22 @@ so a check never triages its own matches.
 [ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
 _Avoid_: rule, lint, validator (a check is not a tool)
 
+**Check set**:
+A named group of checks that a run either completes or does not. A report records
+the ones it completed, and records a set only once the set finishes. There are
+four: `document` (validate's checks that read only the file and its fonts), `disk`
+(validate's checks that need the media tools), `layout` (the one check `fmt` runs),
+and `drift` (`compare`'s own). Running `validate` means running `document` and then
+`disk`, and the split is there because a run can stop between the two: with
+`ffprobe` missing, the document half's findings stand and the disk half never
+runs. A project with no media completes `disk` trivially. A check set is not a
+class. A verb that runs no check set can still raise an `error`, because a refusal
+is a finding without being a check. So a zero means something only for a class
+that some completed set could have raised.
+([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+_Avoid_: engine, scoreboard, scope (that is the NOT CHECKED block's), coverage
+(reads as test coverage); `validate` as a set name (it is the verb that runs two)
+
 **Class**:
 Which of five kinds a finding is. Three are severities, named for what the
 reader does rather than for how bad it is: `error` (the render is refused or is
@@ -870,7 +886,8 @@ best-effort — an optional citation requirement leaves no provenance to inspect
 _Avoid_: reference, source (already spoken for — see Source), attribution
 
 **Report**:
-One verb's whole answer: its findings, a count per class, an exit code, the
+One verb's whole answer: its findings, a count per class of the findings it
+raised, the **check sets** that produced them, an exit code, the
 `NOT CHECKED` block that states the report's own boundary, and — for a run that
 read the disk — the **cache misses** and the **media facts** it established. The
 cache miss is there because ADR-0006 put it there (*"report the cache miss,
@@ -883,9 +900,12 @@ the prose form is generated from it — `--json` prints the JSON *instead of* th
 text, never alongside it. Errors and near-errors print in full while the
 informational classes collapse to one counted line, because `0 errors, 47 notes`
 reads as a pass and a noisy report manufactures false confidence faster than an
-unrun one does.
+unrun one does. For the same reason the report prints a zero only for a class
+some completed check set could have raised. A verb that runs none says
+*"no checks run"* rather than six zeros shaped like a clean `validate`.
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
-[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
 _Avoid_: output, results, log
 
 **Probe sidecar**:
@@ -990,8 +1010,11 @@ The block every report ends with, unconditionally, clean runs included: this
 file was not compared against any prior version or instruction, and Montagent
 cannot tell you whether it says what you meant it to say. It is there because
 without it a clean run is read as *"the file is right"*, which is the rejected
-`sequence` label wearing a `validate` label instead.
-([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
+`sequence` label wearing a `validate` label instead. A report that did not
+complete both of validate's check sets also says here which did not run, so a
+verb that checks nothing does not end with `validate`'s statement of scope.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
 _Avoid_: caveat, disclaimer, limitations
 
 **Resource**:

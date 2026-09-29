@@ -5,6 +5,10 @@ amends: 0012 (the rounding paragraph over-generalised; `photo-06` was right), 00
 
 # Fitted extents floor, and the nine `origin` keywords are spelled
 
+> **Amended by [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)**: the `unchecked` count this ADR put in
+> the summary line prints as a zero only when a check set that can raise it ran. A verb
+> that runs no checks no longer prints `0 unchecked`.
+
 > **Amended by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**, in three
 > places. **Tiebreak (2) below is false**: `contain` is now defined, and ceil preserves
 > containment just as trivially as floor preserves coverage (zero violations under either over

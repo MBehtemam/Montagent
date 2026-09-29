@@ -11,6 +11,11 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)**: the NOT CHECKED block below stays
+> unconditional but stops being one fixed text. A report that did not run both halves of
+> validate's checks (`check_sets` other than `["document", "disk"]`) gains a generated sentence
+> naming what did not run. Until then, `timeline` ended with `validate`'s own scope statement.
+
 > **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,
 > which ratifies the four structural-time codes — `E-TRACK-OVERLAP`, `N-TRACK-GAP`,
 > `E-SPEED-MISMATCH`, `E-OVERRUN-UNNEEDED` — that ADR-0004 and ADR-0020 name the
