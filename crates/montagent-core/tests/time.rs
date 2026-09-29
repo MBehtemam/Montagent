@@ -120,7 +120,7 @@ fn two_elements_of_one_track_sharing_an_instant_is_an_error() {
         "{rendered}"
     );
     assert!(
-        rendered.contains("census contended_stretch: 2 at 0..5000"),
+        rendered.contains("census contended_stretch: 2 at 0..5000 (a, b)"),
         "{rendered}"
     );
     assert!(rendered.contains("refuse-class"), "{rendered}");
@@ -249,6 +249,39 @@ fn the_collapsed_finding_is_flat_in_the_number_of_overlapping_elements() {
         "{} -> {} chars",
         small.len(),
         large.len()
+    );
+}
+
+#[test]
+fn a_fifteen_element_knot_names_three_members_and_counts_the_rest() {
+    // ADR-0111: `E-TRACK-OVERLAP` is Named, because `a..b` narrows the clock and not the
+    // document — no search of the project finds the elements a stretch contains. So the
+    // text form names members, at most three per group, in the group's own clock order
+    // and never sorted, and counts the rest where the canonical JSON holds them.
+    let rendered = render(&report_on(&one_knot_of(15)));
+    assert!(
+        rendered.contains(
+            "census contended_stretch: 15 at 0..10000 (e00, e01, e02, +12 more — see --json)\n"
+        ),
+        "{rendered}"
+    );
+}
+
+#[test]
+fn a_four_member_group_names_all_four() {
+    // `+1 more` would hide one id and save nothing, so a group of exactly N + 1 names every
+    // member and the marker appears only when two or more are left over.
+    let rendered = render(&report_on(&one_knot_of(4)));
+    assert!(
+        rendered.contains("census contended_stretch: 4 at 0..10000 (e00, e01, e02, e03)\n"),
+        "{rendered}"
+    );
+    assert!(!rendered.contains("more — see --json"), "{rendered}");
+
+    let rendered = render(&report_on(&one_knot_of(5)));
+    assert!(
+        rendered.contains("(e00, e01, e02, +2 more — see --json)"),
+        "{rendered}"
     );
 }
 

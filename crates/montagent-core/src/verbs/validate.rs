@@ -256,15 +256,25 @@ fn run_checks(
     if !document.elements().any(|e| e["source"].is_string()) {
         return Ok(());
     }
-    match session {
-        Some(session) => run_disk_checks(document, session, report),
+    let mut opened;
+    let session = match session {
+        Some(session) => session,
         None => {
             // The same cache file the font half above just wrote: one run, one sidecar.
-            let mut session = Session::open_at(cache.map(Path::to_path_buf)).map_err(Box::new)?;
-            session.begin_run();
-            run_disk_checks(document, &mut session, report)
+            opened = Session::open_at(cache.map(Path::to_path_buf)).map_err(Box::new)?;
+            opened.begin_run();
+            &mut opened
         }
+    };
+    run_disk_checks(document, session, report)?;
+    // ADR-0115: an `ffmpeg` that failed the tool qualification is an `error` here, because
+    // `render` is guaranteed to refuse. After the disk half rather than instead of it — that
+    // half needs only `ffprobe` — and in no check set: it is refusal-shaped, not a question
+    // asked of the project (ADR-0112).
+    if let Some(unqualified) = session.unqualified() {
+        unqualified.fail(report);
     }
+    Ok(())
 }
 
 /// The checks that read the disk, over the one session both share.

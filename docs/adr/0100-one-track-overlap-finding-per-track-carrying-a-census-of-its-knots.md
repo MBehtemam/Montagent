@@ -5,6 +5,12 @@ amends: 0076 (its ratified `E-TRACK-OVERLAP` is now emitted once per track carry
 
 # One `E-TRACK-OVERLAP` per track, carrying a census of its knots
 
+> **Amended by [ADR-0111](./0111-a-census-names-its-members-where-its-value-cannot-be-searched-for.md)**, which discharges §7's known
+> limit. `E-TRACK-OVERLAP`'s census is **Named**, because a knot's `a..b` narrows the clock and
+> not the document: the text form now prints up to three member ids per knot, in clock order,
+> then `+K more — see --json`. The canonical JSON, the grouping and the line-count invariant
+> are unchanged.
+
 **Ticket:** [#389](https://github.com/MBehtemam/Montagent/issues/389) (MONTAGENT-5), applying
 [#384](https://github.com/MBehtemam/Montagent/issues/384)'s ruling 4.
 

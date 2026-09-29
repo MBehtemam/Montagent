@@ -5,6 +5,10 @@ amends: 0005 (its writing-convention sentence stops being folklore and becomes a
 
 # Canonical key order is schema property order; `validate` checks it; `fmt` splits into `--check` and write
 
+> **Amended by [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)**: the `layout` count this ADR put in
+> the summary line prints as a zero only when a check set that can raise it (`document` or
+> `layout`) ran.
+
 > **Amended by [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md)**,
 > which supplies the position this ADR deferred for one of the fields it declined to
 > enumerate: **`effects` appends after a type's existing fields**, making `image`'s order

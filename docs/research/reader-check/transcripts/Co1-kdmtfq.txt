@@ -1,0 +1,22 @@
+**Reader check passed.** The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so the sheet is readable at the scale I see it.
+
+**What looks wrong (fairly confident, about 75%):** the "string of lights" word card in tiles 9 and 10 (42800 ms and 47360 ms).
+- Every other vocabulary state shows the word as one large bold line, "word - word": cobweb in tiles 3, 4 and 17, spider in 5 and 6, skeleton in 7 and 8.
+- In tiles 9 and 10 the word is tiny and stacked on two lines. "string of lights" sits over a smaller "string of lights", about a third of the usual size, with no dash.
+- These are also the only states with two word elements present at once, `word-08-bridge` and `word-08-target`, and both stay present in tile 10. The others each have a single `word-0N`.
+
+My guess is that the longer phrase was auto-shrunk to fit, or that the bridge and target elements are both painting instead of handing off from one to the other. Either way it breaks the visual pattern the other words set.
+
+**Everything else looks consistent:**
+- Header chips and handle are on every tile.
+- The photo matches the word in each segment.
+- The quiz countdown runs 5, 4, 3, 2, 1 at 1 s steps, the answer reveal is cobweb, and the loop hook matches the opening hook.
+- Nothing is skipped (0 skipped states).
+
+**Not checked:** audio (28 audio-only boundaries), motion, and anything that changes inside a state. The sheet can't show any of these.
+
+**Next calls I would make:**
+1. `frame en-halloween-decorating.montagent.json --at 42800` to see tile 9 at full scale and confirm the text size and the two overlapping lines.
+2. `frame en-halloween-decorating.montagent.json --crop --at 47360` on the caption region, to check whether the two lines are two separate elements overlapping.
+3. `query en-halloween-decorating.montagent.json --from 42763 --to 53856` to compare how `word-08-bridge` and `word-08-target` are timed and styled against `word-07`.
+4. `validate en-halloween-decorating.montagent.json`, because the note "no checks run" means no fit or overflow checks have been run yet.

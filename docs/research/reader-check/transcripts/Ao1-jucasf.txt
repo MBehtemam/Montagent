@@ -1,0 +1,16 @@
+Reader check passed. The strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I can read the labels at this size.
+
+What looks wrong, most confident first:
+
+1. **Tile 10 (47360 ms, sentence-08): the sentence card is empty.** `card-08` and `sentence-08` are both listed as present, but the dark card shows no text. Every other sentence tile (4, 6, 8, 17) shows white text on the card. The text could be missing, the same colour as the card, or cut off. I'm highly confident this is a real fault.
+
+2. **Tiles 9–10 (42800–53856 ms, word-08): the word caption breaks the pattern.** Every other word appears once, large and bold, as "cobweb - cobweb". Here "string of lights" appears twice in small type, one line above the other. Both `word-08-bridge` and `word-08-target` are present at once, so two text elements seem to be stacked instead of forming one "X - X" line, and the text may be shrinking to fit a long phrase. I'm highly confident it looks inconsistent. I can't tell from here whether that was intended.
+
+3. **Tiles 7–8 (30640 ms, skeleton): the picture looks like the spider picture.** At 184 px, `photo-07` looks the same as `photo-06` (woman holding a spider to her face), so no skeleton shows. That makes "I hang the skeleton up by the door" a mismatch. I'm moderately confident: two different files could look alike at this size.
+
+Everything else follows the expected flow: intro, hook, four words each with a sentence, quiz, countdown 5–1, answer, loop hook. I checked no audio or motion (the sheet can't show them), and no checks ran.
+
+Next calls:
+- `frame en-halloween-decorating.montagent.json --crop --at 47360`, cropped to the caption and card area, to see whether sentence-08 is empty, clipped or the card's colour, and to read the word-08 lines at true scale.
+- `frame en-halloween-decorating.montagent.json --at 30640` and `--at 22640`, to compare photo-07 with photo-06 at full size.
+- Then read the project file's `photo-07`, `sentence-08` and `word-08-*` entries to confirm the cause, and run `validate` to see what the checks report.

@@ -51,9 +51,13 @@
 //! - The proxy ladder and its two floors are
 //!   [#218](https://github.com/MBehtemam/Montagent/issues/218)'s [`proxy`]: the arithmetic of
 //!   a rung and the refusal text, with `montagent-core`'s `preview` verb walking it.
+//! - The `ffmpeg` floor and the arguments that decide it are
+//!   [#479](https://github.com/MBehtemam/Montagent/issues/479)'s [`floor`] (ADR-0115): defined
+//!   once, built from by [`decode`] and [`encode`], and exercised by the tool qualification.
 
 pub mod budget;
 pub mod canvas;
 pub mod decode;
 pub mod encode;
+pub mod floor;
 pub mod proxy;

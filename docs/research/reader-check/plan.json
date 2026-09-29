@@ -1,0 +1,187 @@
+{
+ "yzsqye": {
+  "cond": "A",
+  "model": "haiku",
+  "rep": 1
+ },
+ "rxkrwg": {
+  "cond": "A",
+  "model": "haiku",
+  "rep": 2
+ },
+ "dmkbmc": {
+  "cond": "A",
+  "model": "haiku",
+  "rep": 3
+ },
+ "mhakpj": {
+  "cond": "A",
+  "model": "sonnet",
+  "rep": 1
+ },
+ "tfnabs": {
+  "cond": "A",
+  "model": "sonnet",
+  "rep": 2
+ },
+ "xfrfcj": {
+  "cond": "A",
+  "model": "sonnet",
+  "rep": 3
+ },
+ "jucasf": {
+  "cond": "A",
+  "model": "opus",
+  "rep": 1
+ },
+ "hkqfrs": {
+  "cond": "A",
+  "model": "opus",
+  "rep": 2
+ },
+ "qraymn": {
+  "cond": "A",
+  "model": "opus",
+  "rep": 3
+ },
+ "qwjeph": {
+  "cond": "B",
+  "model": "haiku",
+  "rep": 1
+ },
+ "hmprep": {
+  "cond": "B",
+  "model": "haiku",
+  "rep": 2
+ },
+ "wupuhp": {
+  "cond": "B",
+  "model": "haiku",
+  "rep": 3
+ },
+ "xxmmwx": {
+  "cond": "B",
+  "model": "sonnet",
+  "rep": 1
+ },
+ "zpbrpy": {
+  "cond": "B",
+  "model": "sonnet",
+  "rep": 2
+ },
+ "mkpzeb": {
+  "cond": "B",
+  "model": "sonnet",
+  "rep": 3
+ },
+ "jksbzv": {
+  "cond": "B",
+  "model": "opus",
+  "rep": 1
+ },
+ "kdpxje": {
+  "cond": "B",
+  "model": "opus",
+  "rep": 2
+ },
+ "tnpnqm": {
+  "cond": "B",
+  "model": "opus",
+  "rep": 3
+ },
+ "rxcwvm": {
+  "cond": "C",
+  "model": "haiku",
+  "rep": 1
+ },
+ "gffrhu": {
+  "cond": "C",
+  "model": "haiku",
+  "rep": 2
+ },
+ "kesshh": {
+  "cond": "C",
+  "model": "haiku",
+  "rep": 3
+ },
+ "dtpqxc": {
+  "cond": "C",
+  "model": "sonnet",
+  "rep": 1
+ },
+ "udveyu": {
+  "cond": "C",
+  "model": "sonnet",
+  "rep": 2
+ },
+ "vywjhf": {
+  "cond": "C",
+  "model": "sonnet",
+  "rep": 3
+ },
+ "kdmtfq": {
+  "cond": "C",
+  "model": "opus",
+  "rep": 1
+ },
+ "udmdra": {
+  "cond": "C",
+  "model": "opus",
+  "rep": 2
+ },
+ "jqgrps": {
+  "cond": "C",
+  "model": "opus",
+  "rep": 3
+ },
+ "bswdja": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 1
+ },
+ "nzcvpy": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 2
+ },
+ "xgamrf": {
+  "cond": "D",
+  "model": "sonnet",
+  "rep": 1
+ },
+ "eaczbj": {
+  "cond": "D",
+  "model": "sonnet",
+  "rep": 2
+ },
+ "xfsmxx": {
+  "cond": "D",
+  "model": "opus",
+  "rep": 1
+ },
+ "kzzcwx": {
+  "cond": "D",
+  "model": "opus",
+  "rep": 2
+ },
+ "tqrxkh": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 3
+ },
+ "qjkrnf": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 4
+ },
+ "uqyhus": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 5
+ },
+ "vujgna": {
+  "cond": "D",
+  "model": "haiku",
+  "rep": 6
+ }
+}

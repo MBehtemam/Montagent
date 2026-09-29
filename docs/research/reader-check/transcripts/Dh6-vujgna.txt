@@ -1,0 +1,9 @@
+ISSUE FOUND: Reader check failure on tile 1.
+
+The answer.txt report includes a critical reader check that states "Tile 1's label reads exactly `1 0ms +0 +intro-title`". This is a built-in verification that the sheet's visual labels match the reported data. 
+
+Examining the sheet.png contact sheet, the label beneath the first tile (top-left) does not read exactly as claimed in the provenance list. The reader check is failing, indicating "this sheet is below what you can see" — meaning the rendered contact sheet does not accurately show the provenance data.
+
+Confidence: High. The mismatch is in the reader check verification itself.
+
+To diagnose further: Call `frame --at 0` to see the first frame at full scale and verify whether the issue is in labeling or frame data.

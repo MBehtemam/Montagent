@@ -111,6 +111,10 @@ pub struct Session {
     /// probed or answered from cache — so a run that merely rewrote the file does not
     /// refresh entries it never looked at.
     recency: BTreeMap<PathBuf, i128>,
+    /// The tool qualification's verdict on this machine's `ffmpeg`, where it failed
+    /// (ADR-0115). A session only ever spawns `ffprobe`, so a failure does not stop it; it is
+    /// carried so the verb that opened it can say so.
+    unqualified: Option<Missing>,
 }
 
 impl Session {
@@ -132,7 +136,11 @@ impl Session {
     /// cache: its font half (#206) and its probe half write the same file, and a caller
     /// that owns one owns both.
     pub fn open_at(sidecar: Option<PathBuf>) -> Result<Session, Missing> {
-        let mut session = Session::with(tools::resolve()?, Box::new(ProcessRunner));
+        // Found, not qualified: this session asks only `ffprobe`, and a machine whose
+        // `ffmpeg` cannot render must still have its sources read (#477 §6).
+        let (tools, unqualified) = tools::resolve_found()?;
+        let mut session = Session::with(tools, Box::new(ProcessRunner));
+        session.unqualified = unqualified;
         if let Some(path) = sidecar {
             session.attach(Sidecar::load(path));
         }
@@ -152,7 +160,14 @@ impl Session {
             content: BTreeMap::new(),
             sidecar: None,
             recency: BTreeMap::new(),
+            unqualified: None,
         }
+    }
+
+    /// Where this session's `ffmpeg` failed the tool qualification (ADR-0115), the failure
+    /// — for a verb to report after its `ffprobe` work is done.
+    pub fn unqualified(&self) -> Option<&Missing> {
+        self.unqualified.as_ref()
     }
 
     /// The same, over a named sidecar file.

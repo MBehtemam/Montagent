@@ -1,0 +1,17 @@
+I read only the two files. The reader check passes: the strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I can trust the labels on this sheet.
+
+**What looks wrong, most confident first:**
+
+1. **The skeleton segment shows the spider picture (high confidence).** Tiles 7 and 8 (`word-07` / `sentence-07`, "skeleton - skeleton", "I hang the skeleton up by the door.") show the same image as tiles 5 and 6: a woman holding a big spider over her face. The provenance calls it `photo-07`, but it looks identical to `photo-06`. It is probably the wrong or duplicated source file.
+
+2. **The string-of-lights sentence card is empty (fairly confident).** Tile 10 (`sentence-08`) has the dark card with no text in it. Every other sentence tile (4, 6, 8, 17) shows its sentence at its first frame.
+
+3. **The string-of-lights word is tiny (medium confidence).** In tiles 9 and 10, "string of lights" sits in two small lines, far smaller than "cobweb", "spider" or "skeleton". Both `word-08-bridge` and `word-08-target` are present, so this may be a scale-up animation caught at its first frame. The sheet can't see changes inside a state, so this one is unconfirmed.
+
+Everything else looks consistent: the intro, the hooks, the cobweb segment, the quiz question, the 5-4-3-2-1 countdown, the quiz answer and the loop hook.
+
+**Next calls I would make:**
+- `frame en-halloween-decorating.montagent.json --at 33000` to confirm the skeleton segment really shows the spider picture throughout, not just at its first frame.
+- `frame en-halloween-decorating.montagent.json --at 45000` and `--at 52000` to see whether the lights word grows and the sentence text appears later in each state.
+- `frame en-halloween-decorating.montagent.json --crop --at 52000` on the card area to read it at true scale.
+- `query` for `photo-07` and `sentence-08` to see which source file and text each one points to.

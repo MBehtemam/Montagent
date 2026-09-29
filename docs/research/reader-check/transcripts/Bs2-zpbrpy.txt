@@ -1,0 +1,17 @@
+What looks wrong, with confidence levels:
+
+1. Tile 10 (47360ms, +sentence-08) is the clearest defect (about 85% sure). The dark caption card is empty. Every other sentence card (tiles 4, 6, 8, 17) shows its sentence. Tile 10 shows a blank navy box. The text is missing, or it hasn't painted yet at this first frame of the state. The sheet only shows a state's first frame, so a late text fade-in would look the same. That is why I'm not at 100%.
+
+2. Tile 9 (42800ms, +word-08-bridge) has a doubled label. It reads "string of lights / string of lights" in two sizes, and both are tiny compared with the other word labels. "word-08-bridge" and "word-08-target" are both present, so two text layers probably overlap. The other words show as "cobweb - cobweb", "spider - spider" and "skeleton - skeleton". Tile 10 has the same doubling. It may be a deliberate bridge and target transition, but the small size looks like a bug (about 70%).
+
+3. The intro says "4 English words", but the sheet shows only cobweb, spider, skeleton and string of lights. That matches four words, so it's fine.
+
+4. Word 8 is a different scene: the photo is a different crop, a woman hanging lights. The cards for words 05, 06 and 07 are plain. This is probably fine.
+
+5. Tile 1 has no visible logo or flag problem. The chip and handle are present in every tile.
+
+Not checked (the sheet says so itself): motion, audio, changes inside a state, and 28 audio-only boundaries.
+
+Next call I would make:
+`frame en-halloween-decorating.montagent.json --at 49000`
+This looks at the later part of state 10 to see whether the sentence text appears. I'd also run `frame --crop` on the word-08 label at 43000 ms to check its size and overlap. I'd follow with `validate en-halloween-decorating.montagent.json`, since no checks ran on this sheet.

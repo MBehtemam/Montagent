@@ -525,8 +525,8 @@ pub fn preview_cancellable(
                 return refused(report);
             }
             // ADR-0091: an unconfigured environment, not a broken project.
-            Err(Stop::ToolMissing(reason)) => {
-                report.fail_tool_missing(reason);
+            Err(Stop::ToolMissing(missing)) => {
+                missing.fail(&mut report);
                 return refused(report);
             }
             Err(Stop::Internal(reason)) => {

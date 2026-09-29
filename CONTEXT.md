@@ -730,6 +730,22 @@ Where one call can see past it, its sentence names that call.
 _Avoid_: limitation, caveat, unchecked (a `U-` finding means *could not establish for this
 document*, not *structurally cannot*)
 
+**Reader check**:
+The paragraph every contact sheet answer carries about its **reader**, not its rule
+([ADR-0114](docs/adr/0114-the-sheet-carries-a-reader-check-a-handshake-on-its-first-label-that-names-no-reader.md)).
+The served floors hold for a capable reader and mean nothing for a weak one, and Montagent
+cannot know which is calling. So the answer offers a **handshake**, not a self-grade. It says
+where the tile labels are (the strip beneath each tile, not the video's own captions) and quotes
+the first tile's label exactly. It says the provenance list is the complete record and the sheet
+a picture of it, and names `frame --at` for a reader whose strip does not match. It is
+**not a blind spot**, since what a reader can see is not a property of the rule. It is never a
+finding, and it names no model. It orients a reader that can see, and catches a weak reader
+that reports honestly. **Its pass is not evidence of reading**: a reader that copies the quoted
+string reports a true match, and nothing can tell that from a real one
+([ADR-0116](docs/adr/0116-the-reader-check-orients-a-reader-that-can-see-and-its-pass-is-not-evidence-of-reading.md)).
+_Avoid_: reader token, capability disclaimer, model class, legibility check (the floors are
+the legibility checks; this checks the reader against them)
+
 **Unpainted visual state**:
 A visual state — a span over which the set of visual elements is constant — that contains no
 frame the grid paints, because the two boundaries around it land on one frame. The document
@@ -811,6 +827,22 @@ so a check never triages its own matches.
 [ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md))
 _Avoid_: rule, lint, validator (a check is not a tool)
 
+**Check set**:
+A named group of checks that a run either completes or does not. A report records
+the ones it completed, and records a set only once the set finishes. There are
+four: `document` (validate's checks that read only the file and its fonts), `disk`
+(validate's checks that need the media tools), `layout` (the one check `fmt` runs),
+and `drift` (`compare`'s own). Running `validate` means running `document` and then
+`disk`, and the split is there because a run can stop between the two: with
+`ffprobe` missing, the document half's findings stand and the disk half never
+runs. A project with no media completes `disk` trivially. A check set is not a
+class. A verb that runs no check set can still raise an `error`, because a refusal
+is a finding without being a check. So a zero means something only for a class
+that some completed set could have raised.
+([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+_Avoid_: engine, scoreboard, scope (that is the NOT CHECKED block's), coverage
+(reads as test coverage); `validate` as a set name (it is the verb that runs two)
+
 **Class**:
 Which of five kinds a finding is. Three are severities, named for what the
 reader does rather than for how bad it is: `error` (the render is refused or is
@@ -851,7 +883,9 @@ A grouping of the siblings a finding affects by an observable, document-derived
 fact — *"four of five are at y = 1597, one is at 1537"* — which never ranks the
 groups or says which is correct. It is what a refuse-class finding carries
 instead of a repair: narrowing where to look is admissible where stating a fix
-is not.
+is not. Every sibling sits in exactly one group: a grouping whose
+groups all hold the same members partitions nothing, and is not a census
+however it is shaped.
 ([ADR-0043](docs/adr/0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md),
 [ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
 _Avoid_: histogram, breakdown, majority (it does not have one)
@@ -868,7 +902,8 @@ best-effort — an optional citation requirement leaves no provenance to inspect
 _Avoid_: reference, source (already spoken for — see Source), attribution
 
 **Report**:
-One verb's whole answer: its findings, a count per class, an exit code, the
+One verb's whole answer: its findings, a count per class of the findings it
+raised, the **check sets** that produced them, an exit code, the
 `NOT CHECKED` block that states the report's own boundary, and — for a run that
 read the disk — the **cache misses** and the **media facts** it established. The
 cache miss is there because ADR-0006 put it there (*"report the cache miss,
@@ -881,9 +916,12 @@ the prose form is generated from it — `--json` prints the JSON *instead of* th
 text, never alongside it. Errors and near-errors print in full while the
 informational classes collapse to one counted line, because `0 errors, 47 notes`
 reads as a pass and a noisy report manufactures false confidence faster than an
-unrun one does.
+unrun one does. For the same reason the report prints a zero only for a class
+some completed check set could have raised. A verb that runs none says
+*"no checks run"* rather than six zeros shaped like a clean `validate`.
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
-[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
+[ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md),
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
 _Avoid_: output, results, log
 
 **Probe sidecar**:
@@ -919,6 +957,22 @@ mismatch is a `rewritten` miss, distinct from `changed` because both sides of th
 key are identical. A guard that established nothing never invalidates anything.
 ([ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md))
 _Avoid_: checksum key, content key, hash key
+
+**Tool qualification**:
+The one null encode Montagent runs through a found `ffmpeg` to learn whether it
+can do what Montagent asks of it: the three arguments that make up the floor
+(`-fps_mode passthrough`, a filter graph read through `-/filter_complex`, and
+`libx264`), on sixteen black pixels. It runs the first time a given `ffmpeg` is
+resolved in a process, and its verdict is kept in memory and never on disk, so no
+answer outlives an upgrade. It reads what the binary *does*, never its version
+string, because a git build's version names no release and no version string
+reveals a missing `libx264`. A failure is `E-TOOL-UNSUPPORTED`. It is not the
+primary guard: that is the rule that a failed spawn is never an empty answer,
+which also covers the breakages nobody has met yet.
+([ADR-0115](docs/adr/0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md),
+[ADR-0113](docs/adr/0113-a-seek-whose-ffmpeg-failed-is-refused-never-read-as-no-frame.md))
+_Avoid_: probe (the verb, and the probe cache), check (a check asks a question of
+the project), version check
 
 **Observed identity**:
 The canonical path a probe recorded at the moment it ran (`Probe::identity`), and
@@ -988,8 +1042,11 @@ The block every report ends with, unconditionally, clean runs included: this
 file was not compared against any prior version or instruction, and Montagent
 cannot tell you whether it says what you meant it to say. It is there because
 without it a clean run is read as *"the file is right"*, which is the rejected
-`sequence` label wearing a `validate` label instead.
-([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md))
+`sequence` label wearing a `validate` label instead. A report that did not
+complete both of validate's check sets also says here which did not run, so a
+verb that checks nothing does not end with `validate`'s statement of scope.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
 _Avoid_: caveat, disclaimer, limitations
 
 **Resource**:

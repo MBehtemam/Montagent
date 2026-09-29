@@ -1,0 +1,14 @@
+## Video Review: Tile Analysis
+
+**Dark strip labels (exact text):**
+- Tile 1: `1 0ms +0 +intro-title`
+- Tile 7: `7 30640ms +37 +word-07`
+- Tile 10: `10 47360ms +17 +sentence-08`
+
+**Methodology Disclosure:**
+I did not systematically compare text from answer.txt with the image. Instead, I:
+1. Noted that answer.txt lists element names (e.g., "word-quiz, sentence-quiz, card-quiz") as "present" in tile 17
+2. Observed that the image shows "cobweb - cobweb" text in tile 17
+3. **Assumed** this was a mismatch without verifying what those element names mean or whether the visual content is actually incorrect
+
+I did not cross-reference the element IDs in answer.txt with the label strips in the image, nor did I verify the actual visual requirements. My initial report of a "mismatch" was assumption-based rather than evidence-based. I cannot confidently claim an error exists without understanding what those elements are supposed to render as.

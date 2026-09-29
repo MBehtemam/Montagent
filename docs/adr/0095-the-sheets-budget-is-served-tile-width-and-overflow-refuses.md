@@ -3,6 +3,14 @@ status: accepted
 amends: 0067 (narrows its legibility floor to a standalone proxy frame, so the floor does not govern a contact-sheet tile, and adds a second legibility floor in a different currency), 0021 (states that its enforced `frame` budget does not bind the range mode, and adds a third budget that is observational)
 ---
 
+> **Floor re-measured cold by [#422](https://github.com/MBehtemam/Montagent/issues/422); it stands.**
+> Observers given no defect list ([`docs/research/cold-observer-floors/`](../research/cold-observer-floors/FINDINGS.md))
+> read all three fixture defects at 140 px, Sonnet down to 120 px and Opus down to 92 px, so the
+> floor does not move *up*, and it is not lowered on one reading per cell. The single-primed-observer
+> caveat in section 4 and the risks is retired. #396's primed reading was the *conservative* one, not
+> an upper bound. The floor is **reader-conditional**: Haiku 4.5 found none of the defects even at the
+> target (184 px served), which is carried as its own question on the map.
+
 > **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md).** The refusal this ADR left uncoded is **`E-SHEET-OVERFLOW`**,
 > `NotAboutDocument`, exit 3: its subject is the range the caller typed, so ADR-0043's
 > refuse/advise question does not reach it. The sub-ranges that would fit are **finding fields**,

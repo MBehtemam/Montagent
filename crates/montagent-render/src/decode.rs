@@ -233,8 +233,38 @@ pub fn frame_at(
             .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))
     };
 
+    // **A spawn that failed is a refusal, never an empty answer.** Its stdout is empty for the
+    // same reason an instant with no frame at or before it is empty, and reading the one as
+    // the other is how an `ffmpeg` that rejected an argument painted a frame up to a window
+    // early with `0 errors` — ffmpeg 9 removed `-vsync`, the `select` run exited 8, and the
+    // fallback below answered every instant. ADR-0113.
+    let succeeded = |output: std::process::Output| -> Result<std::process::Output, String> {
+        if output.status.success() {
+            return Ok(output);
+        }
+        let said = String::from_utf8_lossy(&output.stderr);
+        let said = said.trim();
+        Err(format!(
+            "{source}: {} could not read the frame at {seconds}s: it exited with {}{}",
+            ffmpeg.display(),
+            output.status,
+            if said.is_empty() {
+                String::new()
+            } else {
+                format!(" — {said}")
+            }
+        ))
+    };
+
     let filter = format!("select='lte(t\\,{threshold})',{scale}");
-    let at_or_before = over_window(&["-vf", &filter, "-vsync", "0"])?;
+    // `-fps_mode passthrough`, from the one place the floor's arguments are spelled
+    // (ADR-0115): every selected frame, none duplicated to meet an output rate.
+    let at_or_before = succeeded(over_window(&[
+        "-vf",
+        &filter,
+        crate::floor::FPS_PASSTHROUGH[0],
+        crate::floor::FPS_PASSTHROUGH[1],
+    ])?)?;
 
     // **The frame at or before the instant, and where there is none, the source's first.**
     // A source whose first frame starts *after* the instant has no frame at or before it,
@@ -247,10 +277,16 @@ pub fn frame_at(
     // `-frames:v 1` over the same window, so the answer is the source's earliest frame
     // *near the instant* and never a search of the whole file: an instant past the end of
     // the source still finds nothing here and stays an error.
+    //
+    // Only a run that *succeeded* and wrote no frame reaches the fallback: that is the one
+    // outcome that means *"no frame at or before"*.
     let (output, at_or_after) = if at_or_before.stdout.len() >= expected {
         (at_or_before, false)
     } else {
-        (over_window(&["-frames:v", "1", "-vf", &scale])?, true)
+        (
+            succeeded(over_window(&["-frames:v", "1", "-vf", &scale])?)?,
+            true,
+        )
     };
 
     let whole = output.stdout.len() / expected;
@@ -359,7 +395,7 @@ pub fn frames_from(
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))?;
 
@@ -367,10 +403,21 @@ pub fn frames_from(
         .stdout
         .take()
         .ok_or_else(|| format!("{source}: ffmpeg's output could not be read"))?;
+    // Drained on its own thread, because a run is read a frame at a time and `ffmpeg`
+    // blocked on a full stderr pipe would stop writing the frames the reader is waiting for.
+    let stderr = child.stderr.take().map(|mut stderr| {
+        std::thread::spawn(move || {
+            use std::io::Read;
+            let mut said = String::new();
+            let _ = stderr.read_to_string(&mut said);
+            said
+        })
+    });
 
     Ok(Frames {
         child,
         stdout,
+        stderr,
         source: source.to_string(),
         width,
         height,
@@ -386,6 +433,7 @@ pub fn frames_from(
 pub struct Frames {
     child: std::process::Child,
     stdout: std::process::ChildStdout,
+    stderr: Option<std::thread::JoinHandle<String>>,
     source: String,
     width: u32,
     height: u32,
@@ -397,8 +445,12 @@ impl Frames {
     /// **A short run is an end, not an error.** Asking past the end of a source is how a
     /// caller finds out where the end is; whether the source is shorter than the document
     /// says it is is `validate`'s finding (`E-SOURCE-OVERRUN`) and not this type's to
-    /// re-derive. A run that ends mid-frame is the one genuine failure, because those bytes
-    /// are not a picture.
+    /// re-derive. A run that ends mid-frame is a genuine failure, because those bytes are not
+    /// a picture.
+    ///
+    /// **So is a run whose `ffmpeg` failed**, however many frames it wrote first. An `ffmpeg`
+    /// that rejected an argument writes nothing and exits non-zero, and reading that as an end
+    /// is a series of no frames about a source that has them — ADR-0113.
     pub fn next_frame(&mut self) -> Result<Option<DecodedFrame>, String> {
         use std::io::Read;
 
@@ -411,6 +463,9 @@ impl Frames {
                 Ok(read) => filled += read,
                 Err(e) => return Err(format!("{}: its frames stopped arriving: {e}", self.source)),
             }
+        }
+        if filled < stride {
+            self.ended()?;
         }
         if filled == 0 {
             return Ok(None);
@@ -426,6 +481,34 @@ impl Frames {
             width: self.width,
             height: self.height,
         }))
+    }
+}
+
+impl Frames {
+    /// The run's output has ended: wait for `ffmpeg` and refuse if it failed.
+    fn ended(&mut self) -> Result<(), String> {
+        let status = self
+            .child
+            .wait()
+            .map_err(|e| format!("{}: ffmpeg could not be waited for: {e}", self.source))?;
+        if status.success() {
+            return Ok(());
+        }
+        let said = self
+            .stderr
+            .take()
+            .and_then(|thread| thread.join().ok())
+            .unwrap_or_default();
+        let said = said.trim();
+        Err(format!(
+            "{}: ffmpeg stopped reading its frames: it exited with {status}{}",
+            self.source,
+            if said.is_empty() {
+                String::new()
+            } else {
+                format!(" — {said}")
+            }
+        ))
     }
 }
 

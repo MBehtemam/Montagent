@@ -1,0 +1,14 @@
+Sheet analysis: All 18 visual state labels visible on the contact sheet match the answer.txt provenance report exactly.
+
+Direct verification of tiles 1, 7, and 10:
+- Tile 1 dark strip: `1 0ms +0 +intro-title`
+- Tile 7 dark strip: `7 30640ms +37 +word-07`
+- Tile 10 dark strip: `10 47360ms +17 +sentence-08`
+
+All match their corresponding provenance entries in answer.txt.
+
+Structural assessment: No visible dropout, misalignment, or missing states. Timing sequence and state transitions are coherent for a Halloween vocabulary lesson.
+
+Known limitations of this sheet: Does not show motion, internal cuts/edits within states, audio events, or detail finer than 184px width. If the author's concern involves any of those, they need `frame --at <instant>` at the flagged moment or `preview` for motion.
+
+Confidence: Medium. Sheet is structurally sound; problems could hide in excluded domains.

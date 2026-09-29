@@ -1088,6 +1088,50 @@ fn exit_code(report: &Report) -> ExitCode {
 mod tests {
     use super::*;
 
+    /// `text::NO_VERBOSE` decides whether a collapsed line says *"expand with --verbose"* or
+    /// *"see --json"*, so it has to be the verbs that really have no `--verbose` — derived
+    /// here from the CLI's own definition rather than trusted. ADR-0099.
+    ///
+    /// `mcp` and `cache clear` are left out: neither answers with a report of findings,
+    /// only with a lone `E-INTERNAL` on failure, which never repeats and so never collapses.
+    /// The MCP schemas mirror the CLI's flags verb for verb, so this covers both surfaces.
+    #[test]
+    fn the_verbs_a_collapsed_line_sends_to_json_are_exactly_those_with_no_verbose() {
+        use clap::CommandFactory;
+
+        fn leaves(command: &clap::Command, prefix: &str, out: &mut Vec<(String, bool)>) {
+            for sub in command.get_subcommands() {
+                let name = match prefix {
+                    "" => sub.get_name().to_string(),
+                    _ => format!("{prefix} {}", sub.get_name()),
+                };
+                match sub.has_subcommands() {
+                    true => leaves(sub, &name, out),
+                    false => {
+                        let verbose = sub.get_arguments().any(|a| a.get_id() == "verbose");
+                        out.push((name, verbose));
+                    }
+                }
+            }
+        }
+
+        let mut all = Vec::new();
+        leaves(&Cli::command(), "", &mut all);
+        let mut without: Vec<String> = all
+            .into_iter()
+            .filter(|(name, verbose)| !verbose && name != "mcp" && name != "cache clear")
+            // A report's `tool` spells a verb with `_` where the CLI spells it with `-`.
+            .map(|(name, _)| name.replace('-', "_"))
+            .collect();
+        let mut listed: Vec<String> = montagent_core::text::NO_VERBOSE
+            .iter()
+            .map(|tool| tool.to_string())
+            .collect();
+        without.sort();
+        listed.sort();
+        assert_eq!(without, listed);
+    }
+
     #[test]
     fn a_panicking_verb_becomes_exit_70_rather_than_an_abort() {
         let report = run_verb(|| panic!("the font stack failed")).expect_err("a panic");

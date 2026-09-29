@@ -42,6 +42,6 @@ uv run docs/research/skills-eval/verdict.py --phase verdict --write
 uv run docs/research/skills-eval/verdict.py --phase verdict
 ```
 
-`run_arm.py probe` prints what a fresh isolated session loads, without calling the model;
-use it to refresh `builtin_skills` when Claude Code's pin moves. `--dry-run` sets a run up
+`run_arm.py probe` prints what an isolated session loads (one tiny Haiku call); use it to
+refresh `builtin_skills` when Claude Code's pin moves. `--dry-run` sets a run up
 and prints the exact command instead of running it.

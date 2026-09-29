@@ -1,5 +1,10 @@
 # ADR-0064: Distribution is cargo + GitHub Releases, all six desktop tier-1 targets, no update checks
 
+> **Amended by [ADR-0115](./0115-ffmpeg-7-1-with-libx264-is-the-floor-and-a-tool-qualification-finds-out.md)**: CI's Linux legs and the reference-frame job test the `ffmpeg`
+> **floor** — a pinned BtbN 7.1.5 static build verified by checksum, in place of apt's 6.1 —
+> while macOS and Windows keep installing the newest release, so both ends of the supported
+> range are tested.
+
 ## Status
 
 Accepted

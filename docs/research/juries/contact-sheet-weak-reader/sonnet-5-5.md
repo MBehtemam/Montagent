@@ -1,0 +1,33 @@
+# Juror 3 — Sonnet 5.5
+
+Recorded verbatim, unedited.
+
+🗳️ **Juror 3** (Sonnet 5.5) — **Part 1 VOTE: (c), but not in `blind_to`, and not the self-check sentence as drafted. Put a fixed "reader check" line in the answer, separate from `blind_to`. Its form is a transcription handshake, not a capability disclaimer.**
+
+**Reasoning:** The effort's own principle is that silence reads as coverage. The new evidence shows the same failure moved into the reader. Haiku found 0 of 21 defects, invented defects confidently, and never noticed it could not read the gutter. Disclosure that only describes the selection rule now leaves that failure unaddressed, so (a) and (b) both leave silence standing in for coverage for a reader that cannot see the image. Montagent cannot know which model is calling, so it cannot tailor anything. It can only give every reader a check that a weak reader would have to fail visibly.
+
+The self-check as drafted has a flaw. "If you cannot read it, this sheet is below what you can see" only works if the reader knows it cannot read it. Haiku confidently transcribed video captions instead of the label strip, so it would probably "read" the wrong text and pass. A better form is a handshake that cannot be passed by misreading. The answer states where the strip is, for example "the label strip is the bottom gutter of each tile, outside the video frame", and states the exact text of one or two labels. It then asks the reader to confirm the gutter text matches, and says that a mismatch means the sheet is not readable by you, so use `frame --at` per instant and the provenance list. A handshake on a label the reader cannot produce independently is verifiable, and anchoring it to the gutter location targets the observed failure mode of reading in-frame captions.
+
+Do not put this in `blind_to`. `blind_to` is defined as constant statements about the selection rule that judge nothing. That definition is what makes it learnable and keeps it from being a verdict. A reader-directed line is about the caller. Mixing it in would blur the definition and make `blind_to` a place where any caveat can go. It should be its own fixed, unconditional line in both text and JSON, for example `reader_check`. It is constant, never varies with the document, and is not a finding. It fits the no-verdict rule because it judges the reader's ability to read the sheet, not the video.
+
+It also answers the prior incident. That incident showed that a fact in the answer loses to a promise in the tool description. The tool description must therefore not promise that a sheet is readable, and must point at the answer's `reader_check`. The sheet must not be described as "one call sees the whole span" without that qualification.
+
+The check has a limit. The handshake tests label legibility, not picture legibility. Haiku failed both, but Sonnet's picture threshold (120 px) and label threshold (8 px) differ, so passing the label check does not prove the reader can see the picture defects. The line should say so plainly and not claim more than it tests.
+
+**Trade-offs:** It adds a fixed line to every answer, which costs tokens and slightly weakens the "constant and learnable" austerity. It relies on a weak reader following the handshake, and we have no evidence it will, since that is untested. It is better than (b), which records the problem in the spec where the reader never sees it. It is better than (a), which treats founding-failure relocation as out of scope. It is better than putting it in `blind_to`, which would dilute that block's definition.
+
+🗳️ **Juror 3** (Sonnet 5.5) — **Part 2 VOTE: Only in the tool description, and even there prefer capability language over model names. The answer text never names a model.**
+
+**Reasoning:** Model names rot. A line like "floors measured on Sonnet/Opus-class readers" will be false or misleading in a year and can steer a caller toward or away from a model for the wrong reasons. The prior host-tier binding was safe because it was a documented, stable host property. A reader capability is neither documented nor stable. The answer must be constant and learnable, and a name in it would break that, since the caller may not be any of those models. The answer should state what to do (transcribe the gutter, compare, fall back to `frame --at`), not who is expected to succeed.
+
+If a model class must appear anywhere, it belongs only in the ADR record of the measurement, dated and framed as an observation ("measured 2026-09 on X, Y, Z"), where it can age without misleading a caller. The tool description can say the floors were set from measured readers and point to the `reader_check` line, with no names.
+
+**Trade-offs:** Omitting names loses the concrete signal that a caller on a small model should be careful. The handshake covers that signal without naming. Allowing names in the tool description would be cheap to write but creates a second place that rots, and the prior incident shows the description outranks the answer, so wrong text there is expensive.
+
+🗳️ **Juror 3** (Sonnet 5.5) — **Part 3 VOTE: (iii) Decide now and make the measurement a condition of shipping whatever Part 1 decided.**
+
+**Reasoning:** The argument for a reader-directed line is strong enough to decide now. The evidence of the failure is clear, and Montagent cannot avoid it by waiting. The untested piece is whether the disclosure helps a weak reader, and that determines whether the `reader_check` line is worth its cost and whether its wording works at all. The effort's rule is that "I checked" must be an artifact and not an argument, and shipping a handshake that nobody tested on the reader it targets would be an argument. The measurement is cheap, since it needs only a mock of the plain-text answer built from the ADRs. It should therefore gate shipping. It should not gate the decision, because the ADR needs to exist first (every behaviour ratified before spec), and the prototype needs the decided wording to test.
+
+The measurement should also test the handshake's wording specifically, whether Haiku passes it falsely by transcribing in-frame captions, and whether the check changes what a weak reader does next. If the result shows the handshake fails, Part 1 is revisited and not shipped.
+
+**Trade-offs:** (i) leaves the decision unverified and lets a possibly ineffective line ship, and "measurement optional" tends to become never. (ii) blocks the range mode on building the very plain-text answer the decision would specify. (iii) costs one prototype ticket before ship and accepts that the ADR may be amended by its result, which is a fair price. One reading per cell is thin, so the measurement should use several readings per model.

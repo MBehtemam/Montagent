@@ -93,7 +93,7 @@ at_or_before() { # at_or_before <file> <at_ms> <eps_seconds>
   read="$(python3 -c "print(f'{($2 - $from + 1)/1000:.3f}')")"
   ffmpeg -hide_banner -loglevel error \
     -ss "$(python3 -c "print(f'{$from/1000:.3f}')")" -copyts -t "$read" -i "$1" \
-    -vf "select='lte(t\,$thr)',scale=64:64" -vsync 0 \
+    -vf "select='lte(t\,$thr)',scale=64:64" -fps_mode passthrough \
     -f rawvideo -pix_fmt rgba - 2> /dev/null | pick last
 }
 
@@ -171,12 +171,12 @@ time_form() { # time_form <bound|unbound>
       ffmpeg -hide_banner -loglevel error -ss "$(python3 -c "print(f'{$from/1000:.3f}')")" \
         -copyts -t 0.201 -i "$WORK/hd.mov" \
         -vf "select='lte(t\,$(python3 -c "print(f'{$at/1000:.6f}')"))',scale=1920:1080" \
-        -vsync 0 -f rawvideo -pix_fmt rgba - > /dev/null 2>&1
+        -fps_mode passthrough -f rawvideo -pix_fmt rgba - > /dev/null 2>&1
     else
       ffmpeg -hide_banner -loglevel error -ss "$(python3 -c "print(f'{$from/1000:.3f}')")" \
         -copyts -i "$WORK/hd.mov" \
         -vf "select='lte(t\,$(python3 -c "print(f'{$at/1000:.6f}')"))',scale=1920:1080" \
-        -vsync 0 -f rawvideo -pix_fmt rgba - > /dev/null 2>&1
+        -fps_mode passthrough -f rawvideo -pix_fmt rgba - > /dev/null 2>&1
     fi
     end=$(python3 -c 'import time; print(time.perf_counter())')
     total=$(python3 -c "print($total + ($end - $start))")

@@ -63,6 +63,17 @@ impl Class {
         matches!(self, Class::Error | Class::Review | Class::Drift)
     }
 
+    /// Whether a class that prints in full is still bounded by **repetition** — a code
+    /// printing in full to three instances and collapsing beyond them. ADR-0099.
+    ///
+    /// `Drift` is not, for the reason it prints in full at all: a `compare` fact is the
+    /// answer to the call, and ADR-0099 §6 rests on exactly that when it argues that
+    /// `render`'s block is *not* the answer and may be bounded. Collapsing four drifts of
+    /// one code would leave the caller a count of what changed and nothing about what.
+    pub fn bounded_by_repetition(self) -> bool {
+        matches!(self, Class::Error | Class::Review)
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Class::Error => "error",

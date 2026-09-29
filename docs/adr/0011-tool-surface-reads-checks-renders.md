@@ -100,6 +100,14 @@ status: accepted
 >   **1560**, so `--full` is 3.84x on one tier and 2.23x on the other. The counts are
 >   **unchanged** — nine MCP tools, twelve CLI commands — because a range is arguments, not a
 >   verb
+> - [ADR-0099](./0099-the-report-is-bounded-by-distinct-finding-code-not-by-a-token-budget.md) —
+>   **bounds what a verb answers with**, on every surface: a finding code prints in full to
+>   three instances and collapses beyond it, and `render`'s verb block stops naming every
+>   element under `audio`, `painted` and each reason group. Every count and total survives at
+>   every verbosity. The `CACHE` block this ADR calls the sole mechanism announcing a changed
+>   source is **exempt and stays unbounded**, so the token error can recur. The MCP
+>   `json: true` parameter was recorded there as a known open defect, which
+>   [#420](https://github.com/MBehtemam/Montagent/issues/420) has since ruled **is not one**
 > - [ADR-0101](0101-a-crop-is-served-at-true-scale.md) — **`--crop` is exempted from the
 >   half-scale default, which now governs the whole canvas and nothing else.** A region is
 >   served at the project's true pixel dimensions with or without `--full`, because this ADR's
@@ -121,6 +129,11 @@ status: accepted
 >   heartbeat through pre-flight, `seal` and queueing. Every tool runs off the runtime thread,
 >   and `render`/`preview` share one encode slot that a queued call names. The stderr line
 >   stays, with the request id and dispatch/finish times added
+> - [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)
+>   — **every report gains `check_sets`**, the check sets that actually ran (`document`,
+>   `disk`, `layout`, `drift`), and the summary line is generated from it. A verb that runs no
+>   checks prints `no checks run (validate runs them)`, not six zeros, and `validate` stops
+>   printing `0 drift`.
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

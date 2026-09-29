@@ -1,0 +1,15 @@
+What looks wrong (from the sheet only; the tool says no checks were run):
+
+1. Tile 10 (47360 ms, sentence-08): the dark sentence card is empty, with no text. Every other sentence card (tiles 4, 6, 8, 17) has text. About 90% sure this is a real defect (missing or empty caption, or text not rendering).
+2. Tile 9 (42800 ms, word-08-bridge and word-08-target): "string of lights" appears twice, stacked, in much smaller type than the other word labels. It looks like two overlapping layers both drawn. About 85% sure it is wrong.
+3. Tiles 7 and 8 (word-07 and sentence-07, "skeleton"): the photo is the same spider-in-face image used in tiles 5 and 6, and no skeleton shows. About 70% sure. It may be a reused or wrong asset, and I can't see the source.
+4. Every word label reads "X - X" (cobweb - cobweb, spider - spider, skeleton - skeleton). The second half looks like an untranslated or duplicated string. The header also shows "English" next to a blue-cross flag. About 50% sure, because this may be intended.
+
+The countdown (5 to 1), the quiz and the loop hook look fine at this size.
+
+Not covered by the sheet: motion, audio, and anything inside a state.
+
+What I would call next:
+- mcp__montagent__validate on en-halloween-decorating.montagent.json. It runs the checks that frame skipped and should flag the empty text or overlapping layers.
+- mcp__montagent__frame with --at 50000 and --crop on the caption card of tile 10. That shows whether the card is really empty or its text arrives late.
+- mcp__montagent__query for sentence-08, word-08-bridge, word-08-target and photo-07, to read their text and asset values.

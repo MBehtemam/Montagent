@@ -11,6 +11,11 @@ status: accepted
 
 # `validate` reports facts, and `render` is what enforces them
 
+> **Amended by [ADR-0112](0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md)**: the NOT CHECKED block below stays
+> unconditional but stops being one fixed text. A report that did not run both halves of
+> validate's checks (`check_sets` other than `["document", "disk"]`) gains a generated sentence
+> naming what did not run. Until then, `timeline` ended with `validate`'s own scope statement.
+
 > **Amended by [ADR-0076](./0076-the-four-structural-time-finding-codes-are-ratified.md)**,
 > which ratifies the four structural-time codes — `E-TRACK-OVERLAP`, `N-TRACK-GAP`,
 > `E-SPEED-MISMATCH`, `E-OVERRUN-UNNEEDED` — that ADR-0004 and ADR-0020 name the
@@ -164,6 +169,18 @@ status: accepted
 > parsed and discarded — is a finding with a code and a class, so it reaches the one-line
 > summary this ADR requires every report to start with.
 
+> **Amended by [ADR-0099](./0099-the-report-is-bounded-by-distinct-finding-code-not-by-a-token-budget.md)**, which
+> gives this ADR's collapse rule a **second, independent bound**. The rule here draws one
+> line, on **inertness**: the informational classes collapse to a counted line and the rest
+> print in full. That leaves a non-inert class printing every instance of every code, which
+> on a 217-element project was 98 `review` findings at **19,027 characters — 84% of the
+> report** — while 301 notes cost 142. So a code now prints in full to **three** instances
+> and collapses beyond, on **repetition**, and `render`'s verb block stops enumerating its
+> elements. Both justifications stand and neither replaces the other: a single note still
+> collapses. This ADR's noise budget thereby acquires a growth order — O(distinct finding
+> codes) — in place of a line count, and its *"output may be filtered; analysis may not"* is
+> what licenses the collapse, since every count survives it.
+>
 > **Amended by [ADR-0100](./0100-one-track-overlap-finding-per-track-carrying-a-census-of-its-knots.md)**,
 > which makes the **sibling census** below the mechanism by which one authorial mistake
 > produces one finding. `E-TRACK-OVERLAP` emitted one finding per overlapping *pair*, so

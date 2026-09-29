@@ -38,6 +38,11 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
 > frames by design rather than pending work. The spelling this section fixed is kept exactly;
 > only *not-yet* becomes *never*.
 
+> **Amended by [ADR-0114](0114-the-sheet-carries-a-reader-check-a-handshake-on-its-first-label-that-names-no-reader.md).** The plain-text form prints the READER CHECK directly
+> after the header, ahead of the provenance list. The tool description states the same fact in
+> the same words, promises no reader that a sheet is legible, and names **no model**. Model
+> names appear only as dated evidence in ADRs and `docs/research/`.
+
 [#401](https://github.com/MBehtemam/Montagent/issues/401), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to seven sub-questions; ballots verbatim

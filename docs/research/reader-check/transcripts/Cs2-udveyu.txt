@@ -1,0 +1,15 @@
+Reader check passed: the label strip under tile 1 reads exactly `1 0ms +0 +intro-title`, so I could read the labels. The tool ran no checks, so nothing here is confirmed by `validate`.
+
+What looks wrong:
+1. **Each vocabulary caption repeats the same word on both sides of the dash.** Tiles 3-4 read "cobweb - cobweb", tiles 5-6 "spider - spider", tiles 7-8 "skeleton - skeleton", and tile 17 "cobweb - cobweb". A "word - translation" pair would normally show two different words. This looks like a missing or placeholder translation, or a field bound to the wrong text. I'm fairly sure (about 80%) it's a real defect. It is consistent across all four words, so it looks systematic rather than a one-off. The one thing that could make it intentional is a design where the caption shows the word twice on purpose.
+2. **Tiles 9-10 ("string of lights") look broken.** The caption is tiny and shows two stacked copies, the second smaller than the first. Provenance lists both `word-08-bridge` and `word-08-target` present, so two text layers overlap or one is mis-sized. The other words use one large line. I'm about 85% sure this is wrong, and it is the most visible oddity.
+3. **Lower confidence: large empty cream areas under the photos.** Tiles 1 and 3 have a lot of blank space. This is probably just the layout.
+
+Nothing looks wrong with the order or pacing. The countdown runs 5 to 1 correctly, the quiz cobweb matches the cobweb clip, and the hook is repeated at the loop point.
+
+The sheet can't show motion, audio, or detail finer than 184 px.
+
+Next calls I would make:
+- `frame en-halloween-decorating.montagent.json --at 42800` to see the "string of lights" overlap at full scale.
+- `frame en-halloween-decorating.montagent.json --at 5320 --crop <caption region>` to confirm the "cobweb - cobweb" text.
+- `query` on `word-05` and `word-08-bridge` / `word-08-target` to read their text and size values, and `validate` to run the checks that didn't run here.
