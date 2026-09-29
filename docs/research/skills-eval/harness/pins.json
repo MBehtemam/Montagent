@@ -1,0 +1,50 @@
+{
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "claude_code_version": "2.1.284",
+  "caps": {
+    "wall_clock_s": 3600,
+    "budget_usd": 30
+  },
+  "deliverable": "deliverable.mp4",
+  "prompt": {
+    "common": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\n{tools}\n\n---\n\n{brief}",
+    "tools": {
+      "reference": "Use whatever tools on this machine you like.",
+      "montagent": "Make it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH."
+    }
+  },
+  "network": {
+    "why": "Web access is blocked: WebFetch and WebSearch are removed, and Bash runs in Claude Code's sandbox, which lets it reach only these package registries, so the reference arm can install a renderer the way it would today.",
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ]
+  },
+  "builtin_skills": [
+    "batch",
+    "claude-api",
+    "code-review",
+    "dataviz",
+    "debug",
+    "deep-research",
+    "design",
+    "design-sync",
+    "doctor",
+    "fewer-permission-prompts",
+    "loop",
+    "run",
+    "run-skill-generator",
+    "simplify",
+    "update-config",
+    "verify",
+    "workflow-authoring"
+  ],
+  "court": {
+    "jurors": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"],
+    "stills_per_clip": 8
+  }
+}
