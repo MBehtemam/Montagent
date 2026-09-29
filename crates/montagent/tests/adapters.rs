@@ -1343,7 +1343,11 @@ fn a_validate_that_could_not_parse_the_file_is_an_mcp_tool_failure() {
     // run and found document-level `error` findings (see the `render` MCP test's exit-1
     // case), which stays `success` because the findings are still an answer about the
     // project.
-    let project = scratch("mcp-errors", "broken.montagent.json", "{\n  \"fps\": ,\n}\n");
+    let project = scratch(
+        "mcp-errors",
+        "broken.montagent.json",
+        "{\n  \"fps\": ,\n}\n",
+    );
     let session = mcp_session(&[
         handshake(1),
         notification("notifications/initialized"),

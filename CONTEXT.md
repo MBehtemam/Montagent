@@ -908,6 +908,27 @@ the rule.
 _Avoid_: commit (spoken for by git), publish step, finalize, atomic write (that is
 the mechanism, not the decision)
 
+**Attestation**:
+What a **deliverable** carries saying which project wrote it — a `comment` tag on
+the container holding the project file's **observed identity**, stamped at the
+moment `render` encodes. It exists so that *"did this project produce the file
+already at the output path?"* is a question Montagent **reads an answer to** rather
+than infers: the cheap alternative, comparing the existing file's duration or frame
+count against the document, is a re-derived label of exactly the kind
+[ADR-0092](docs/adr/0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md)
+ruled is not an identity, and it fails in both directions — silent on two language
+cuts of one timeline, loud on a project's own second render. A file bearing another
+project's attestation is refused **before the encoder is spawned**; one bearing none
+is a `review`, because *no evidence* is weaker than *evidence of someone else* and
+`error` means the render is refused or **guaranteed** wrong. A **preview** never
+attests: it is not a deliverable, and a stamp would hand the next `render` a forged
+licence to clobber.
+([ADR-0104](docs/adr/0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md),
+[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md))
+_Avoid_: watermark (it is metadata, not pixels), signature (nothing is verified
+cryptographically and nothing is meant to resist forgery), ownership, provenance
+(too broad — this is one question, not a history)
+
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
 file was not compared against any prior version or instruction, and Montagent
