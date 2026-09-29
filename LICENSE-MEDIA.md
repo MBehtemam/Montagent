@@ -71,7 +71,8 @@ listed here rather than treated as clean.
 **Not in this category**, and MIT along with the code: the frames under
 `docs/research/prototypes/thai-line-breaking/` and
 `docs/research/prototypes/thai-vertical-metrics/`. Those are text typeset on a blank
-ground, with no channel media in them at all.
+ground, with no channel media in them at all. The **fonts** that typeset them are a
+different matter and are category 2 below — the frames are ours, the faces are not.
 
 ### On crates.io
 
@@ -95,6 +96,26 @@ maintainer's to reserve rights over either**. Each is governed by the licence na
 Open Font License, Version 1.1**. The full licence ships beside the file as
 `fonts/OpenRunde-LICENSE.txt` and that attribution is already correct; this entry only
 records that the font is not covered by either the MIT grant or category 1 above.
+
+### `docs/research/prototypes/thai-vertical-metrics/fonts/`
+
+Two Thai text faces, each under the **SIL Open Font License, Version 1.1**, with the full
+licence text committed beside it as the OFL itself requires:
+
+| file | font | copyright | licence beside it |
+| --- | --- | --- | --- |
+| `NotoSansThai-Regular.ttf` | Noto Sans Thai | © 2022 The Noto Project Authors (<https://github.com/notofonts/thai>) | `NotoSansThai-OFL.txt` |
+| `Sarabun-Regular.ttf` | Sarabun | © 2018 The Sarabun Project Authors (<https://github.com/cadsondemak/Sarabun>) | `Sarabun-OFL.txt` |
+
+They were downloaded for [ADR-0087](docs/adr/0087-thai-line-height-collision-is-a-font-selection-problem.md)'s
+line-height measurements and are **also the fixture ADR-0102's `.ttc` tests are built
+from** — which is why they are committed rather than downloaded on demand. A test that
+reads a font the repository does not carry passes only on the machine that fetched it,
+and that is the precise failure ADR-0102 exists to prevent
+([#432](https://github.com/MBehtemam/Montagent/issues/432)).
+
+Like Open Runde above, neither font is the maintainer's to place under MIT or to reserve
+rights over; this entry records that they are governed by the OFL and nothing else.
 
 ### `docs/research/chroma-key/green-screen-trex.mp4`
 
