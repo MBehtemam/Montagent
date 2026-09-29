@@ -3,8 +3,8 @@ status: accepted
 amends: 0006 (its collapse rule gains a second, independent bound — repetition, on top of inertness — so a
   non-inert class no longer prints every instance of every code; and its noise budget is given a growth order
   rather than a line count), 0011 (the report a verb answers with is bounded in the same way on every surface,
-  and `render`'s verb block stops enumerating its elements; the `json: true` MCP parameter is recorded as a
-  known open defect this ADR does not fix)
+  and `render`'s verb block stops enumerating its elements; the `json: true` MCP parameter was recorded as a
+  known open defect this ADR does not fix, and #420 has since ruled it is not one)
 ---
 
 # The report is bounded by distinct finding code, not by a token budget
@@ -159,7 +159,7 @@ It is in scope for the second reason too, and it is the load-bearing one: **leav
 O(elements) and §1's bound is false the day it ships**, which ADR-0031 will not let anything
 ratify. At 217 elements with 134 not mixed it was ~140 lines.
 
-### 7. The canonical JSON stays whole, and `json: true` is a known open defect
+### 7. The canonical JSON stays whole, and `json: true` is not this ADR's
 
 `--json` on the reference project is **171,706 characters** — already past any realistic
 client cap. But *canonical* means lossless: filtering it would create a second, lossy
@@ -170,9 +170,17 @@ What is wrong is the **MCP `json: true` parameter**, a tool call returning a for
 transport cannot carry. **It is not this ADR's, on evidence:** the failing calls reported
 2,086 lines at **114 characters per line**, and pretty-printed JSON runs **22** (171,706 over
 7,760). The reporter was on the **default text path**, which this ADR fixes. The `json: true`
-defect pre-dates every caption finding and is
-[#420](https://github.com/MBehtemam/Montagent/issues/420) — **recorded here as open, so it is
-not read as closed by this one.**
+question pre-dates every caption finding and is
+[#420](https://github.com/MBehtemam/Montagent/issues/420).
+
+**Corrected before this ADR landed: #420 ruled it is not a defect.** Since 2.1.2 Claude Code
+saves any MCP result over 25,000 tokens to a file and hands the model the path, so an
+oversized `json: true` result reaches the agent as a lossless, queryable file — ADR-0006's
+contract exactly. `json` stays on every tool, with no code change and no ADR. The ruling holds
+for clients that save oversized results and carry a shell; shell-less clients are a separate
+effort. This section had said *"recorded here as open, so it is not read as closed by this
+one"*, and it was the right caution at the time: the question was closed by #420, not by this
+ADR.
 
 ## Measured effect
 

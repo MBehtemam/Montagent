@@ -106,7 +106,8 @@ status: accepted
 >   element under `audio`, `painted` and each reason group. Every count and total survives at
 >   every verbosity. The `CACHE` block this ADR calls the sole mechanism announcing a changed
 >   source is **exempt and stays unbounded**, so the token error can recur. The MCP
->   `json: true` parameter is recorded there as a **known open defect**
+>   `json: true` parameter was recorded there as a known open defect, which
+>   [#420](https://github.com/MBehtemam/Montagent/issues/420) has since ruled **is not one**
 > - [ADR-0101](0101-a-crop-is-served-at-true-scale.md) — **`--crop` is exempted from the
 >   half-scale default, which now governs the whole canvas and nothing else.** A region is
 >   served at the project's true pixel dimensions with or without `--full`, because this ADR's
