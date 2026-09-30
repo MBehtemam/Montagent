@@ -94,7 +94,8 @@ parts, cropped to the owl.
   viewer's. A child follows its parent: when the upper arm turns, the elbow moves with it.
 - **`draw_order`** is back to front. Arms go over the body; the upper arm goes over the
   forearm, so the rounded elbow shows when it bends. The shoulders and elbows are
-  overlapping round joints, so a part turned about its pivot never shows a gap.
+  overlapping round joints (each upper arm ends in a round cap over a round socket in the
+  body), so a part turned about its pivot never shows a gap.
 - **The face overlays** (`mouth_*`, `eyes_closed`) are the head's own canvas, the same size
   and pivot, and are transparent except where they change the face. Put one exactly where
   the head is, with the head's rotation and scale, and it lines up. With no mouth overlay,

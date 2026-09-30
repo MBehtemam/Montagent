@@ -13,9 +13,11 @@ split by its dark outlines into fills; each fill goes to a group (head, torso, l
 right arm) by where its centre lies, and each outline pixel goes to the nearest group. The
 sleeves join the cardigan with no outline between them, so a seam is drawn across each
 shoulder before the split. Each arm is cut across its middle into an upper arm and a
-forearm, and round caps are painted at the elbow and shoulder so a bent joint reads as
-round. A flat grey neck is painted on the torso under the head so tilting the head never
-opens a hole. Every coordinate below was read off a gridded zoom of `master.png`.
+forearm, and a round cap is painted at the elbow so a bent joint reads as round. Each upper
+arm's shoulder end is redrawn as a capsule round its pivot, and the torso keeps only the
+socket under it, so a raised arm shows neither a stub of sleeve nor a hole. The cut checks
+this and stops if it doesn't hold. A flat grey neck is painted on the torso under the head
+so tilting the head never opens a hole. Every coordinate below was read off a gridded zoom of `master.png`.
 
 The five mouths are drawn here, not by FLUX: FLUX redrew the beak at a different size for
 every mouth it was asked for, and a mouth set that changes size flickers. Each mouth is
@@ -100,29 +102,96 @@ WRIST = {"left": (172, 815), "right": (840, 820)}
 ARM_R = 48  # half the sleeve's width, to the middle of its outline
 arms = {"left": left, "right": right}
 
-# The shoulders overlap, as in any cut-out puppet. The torso keeps a strip of each sleeve
-# next to the seam, so moving an arm never opens a hole; the upper arm keeps only the part
-# of that strip inside a disc round its pivot, which looks the same at every angle, so its
-# cut end never swings out over the cardigan.
-STRIP = 30
-SHOULDER_R = 40
+# The shoulders are round sockets, as in any cut-out puppet. Each upper arm's shoulder end is
+# redrawn as a capsule: a disc round the pivot, which looks the same at every angle, and a
+# straight run out to where the drawn sleeve takes over. The torso keeps, of each sleeve, only
+# what that disc covers and the shoulder's top behind the pivot, which no pose of the arm
+# covers or uncovers. So a turned arm never shows a stub of sleeve, and never opens a hole.
+# The drawn sleeve is wider at the shoulder than ARM_R and not centred on the pivot.
+SHOULDER_R = 55  # the socket's radius, to the middle of its outline
+CAPSULE = 60  # how far along the arm the capsule runs before the drawing takes over
+SEAMS = {"left": SEAM_L, "right": SEAM_R}
+near_arm = {"left": dL < dB, "right": dR < dB}  # nearer the sleeve's fill than the body's
 
 
-def beyond_seam(seam, side):
+def beyond_seam(side):
     """Distance past the seam line, towards the arm; negative on the body's side."""
-    (x0, y0), (x1, y1) = seam
+    (x0, y0), (x1, y1) = SEAMS[side]
     nx, ny = y1 - y0, -(x1 - x0)
     nx, ny = nx / np.hypot(nx, ny), ny / np.hypot(nx, ny)
     d = (xx - x0) * nx + (yy - y0) * ny
     return -d if side == "left" else d
 
 
-seam_strip = {}
-for side, seam in (("left", SEAM_L), ("right", SEAM_R)):
-    past = beyond_seam(seam, side)
-    seam_strip[side] = arms[side] & (past < STRIP)
-    torso |= seam_strip[side]
-    arms[side] = arms[side] & ~(seam_strip[side] & ~disk(SHOULDER[side], SHOULDER_R))
+def arm_frame(side):
+    """Distance along the arm from the shoulder pivot, and across it, at every pixel."""
+    sh, wr = np.array(SHOULDER[side], float), np.array(WRIST[side], float)
+    a = (wr - sh) / np.linalg.norm(wr - sh)
+    n = np.array([-a[1], a[0]])
+    return (xx - sh[0]) * a[0] + (yy - sh[1]) * a[1], (xx - sh[0]) * n[0] + (yy - sh[1]) * n[1]
+
+
+def median_fill(at):
+    """The drawing's colour round a point, as an RGB tuple."""
+    x, y = at
+    return tuple(int(v) for v in np.median(master[y - 6:y + 6, x - 6:x + 6].reshape(-1, 3), 0))
+
+
+# Outside its socket, the torso also gives up the sleeve's share of the outline at the
+# armpit; the upper arm covers it at rest, and it would show as a spur once the arm turned.
+sleeves = {side: arm.copy() for side, arm in arms.items()}
+for side in arms:
+    ahead = arm_frame(side)[0] >= 0
+    socket = disk(SHOULDER[side], SHOULDER_R)
+    torso |= arms[side] & (~ahead | socket)
+    torso &= ~(sleeves[side] & near_arm[side] & ahead & ~socket)
+    arms[side] = arms[side] & ahead
+
+
+def seam_ink(side):
+    """An outline along the seam, just inside the body, below the socket: the body's edge
+    once the arm turns away."""
+    beyond = beyond_seam(side)
+    return ((beyond > -OUTLINE) & (beyond <= 0) & (yy <= SEAMS[side][1][1])
+            & (arm_frame(side)[0] >= 0) & ~disk(SHOULDER[side], SHOULDER_R) & fg)
+
+
+def paint_shoulder(img, side, fill_at):
+    """The upper arm with its first CAPSULE pixels redrawn as a capsule round the pivot. Its
+    two sides run from the disc to the drawn sleeve's outlines, measured where they meet."""
+    sh, wr = np.array(SHOULDER[side], float), np.array(WRIST[side], float)
+    a = (wr - sh) / np.linalg.norm(wr - sh)
+    n = np.array([-a[1], a[0]])
+    along, across = arm_frame(side)
+    rim = sleeves[side] & dark & (np.abs(along - CAPSULE) < 1.5)  # a 3 px band across the sleeve
+    edges = [across[rim & (across > 0)], across[rim & (across < 0)]]
+    assert all(e.size for e in edges), f"no outline on the {side} sleeve {CAPSULE} px from the shoulder"
+    edges = [e.mean() for e in edges]
+    fill = median_fill(fill_at) + (255,)
+    # Drawn at 4x in a box round the pivot, then scaled down, for smooth edges.
+    s, half = 4, CAPSULE + SHOULDER_R + OUTLINE
+    ox, oy = int(sh[0]) - half, int(sh[1]) - half
+    at = lambda dist, off: tuple(((sh + a * dist + n * off) - (ox, oy)) * s)
+    centre = at(0, 0)
+    ring = lambda r: [centre[0] - r * s, centre[1] - r * s, centre[0] + r * s, centre[1] + r * s]
+    # The straight sides overlap the drawing by 2 px and the disc by 1 px, and the disc's
+    # outline runs 2 degrees past a half circle each way, so no seam shows between them.
+    end = CAPSULE + 2
+    layer = Image.new("RGBA", (2 * half * s, 2 * half * s), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    draw.ellipse(ring(SHOULDER_R), fill=fill)
+    draw.polygon([at(0, SHOULDER_R), at(end, edges[0]), at(end, edges[1]), at(0, -SHOULDER_R)], fill=fill)
+    back = np.degrees(np.arctan2(-a[1], -a[0]))
+    draw.arc(ring(SHOULDER_R + OUTLINE / 2), back - 92, back + 92, fill=INK + (255,), width=OUTLINE * s)
+    for off, edge in zip((SHOULDER_R, -SHOULDER_R), edges):
+        draw.line([at(-1, off), at(end, edge)], fill=INK + (255,), width=OUTLINE * s)
+    layer = layer.resize((2 * half, 2 * half), Image.LANCZOS)
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    out.alpha_composite(layer, (ox, oy))
+    drawn = img.copy()
+    drawn[along < CAPSULE, 3] = 0
+    out.alpha_composite(Image.fromarray(drawn))
+    return np.asarray(out), disk(SHOULDER[side], half)
 
 
 # Pixels well inside the drawing, away from the background. A part is feathered only at
@@ -138,11 +207,10 @@ def rgba(mask, src=master, soft=1.0):
 
 
 def paint_joint(img, c, r, fill_at, ring_toward=None, spread=90):
-    """A filled disc at the joint, so a bent joint reads as round. `ring_toward` outlines
-    the arc facing that way: at the elbow it faces the forearm (a crease at rest, the
-    outside edge when bent); at the shoulder it faces away from the body."""
-    fx, fy = fill_at
-    fill = tuple(int(v) for v in np.median(master[fy - 6:fy + 6, fx - 6:fx + 6].reshape(-1, 3), 0))
+    """A filled disc at the elbow, so a bent joint reads as round. `ring_toward` outlines
+    the arc facing that way: on the upper arm it faces the forearm (a crease at rest, the
+    outside edge when bent)."""
+    fill = median_fill(fill_at)
     box = [c[0] - r - OUTLINE // 2, c[1] - r - OUTLINE // 2, c[0] + r + OUTLINE // 2, c[1] + r + OUTLINE // 2]
     # The disc goes under the part's own pixels, so it only fills what the cut took away.
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -182,19 +250,21 @@ torso_img = rgba(torso)
 im =Image.fromarray(np.dstack([np.broadcast_to(np.array(GREY, np.uint8), (H, W, 3)), neck * np.uint8(255)]))
 im.alpha_composite(Image.fromarray(torso_img))  # the neck goes under the torso's feathered top edge
 torso_img = np.asarray(im).copy()
-# The sleeve strips' cut ends get an outline, as the shoulder's edge when an arm moves away.
-for side, seam in (("left", SEAM_L), ("right", SEAM_R)):
-    (sx0, sy0), (sx1, sy1) = seam
-    # Just past the strip, so at rest the upper arm covers it.
-    t = (STRIP + OUTLINE // 2 + 1) / np.hypot(sx1 - sx0, sy1 - sy0)
-    ox, oy = (sy1 - sy0) * t, -(sx1 - sx0) * t
-    if side == "left":
-        ox, oy = -ox, -oy
-    ImageDraw.Draw(im).line([(sx0 + ox, sy0 + oy), (sx1 + ox, sy1 + oy)], fill=INK + (255,), width=OUTLINE)
-edge = (np.asarray(im)[..., :3] != torso_img[..., :3]).any(2) & fg
-torso_img = np.asarray(im).copy()
-torso_img[~(torso | neck | edge), 3] = 0
-parts["torso"] = save_centered("torso", torso_img, FEET, torso | neck | edge)
+# The body's side under each arm gets an outline, as its edge once the arm moves away.
+for side in SEAMS:
+    ink = seam_ink(side)
+    torso_img[ink, :3] = INK
+    torso_img[ink, 3] = 255
+    torso |= ink
+torso_img[~(torso | neck), 3] = 0
+
+# The torso must hide nothing of a sleeve but its socket, which the upper arm covers at every
+# angle. Anything else would show once the arm turns.
+for side in SEAMS:
+    stub = ((torso_img[..., 3] > 0) & sleeves[side] & near_arm[side] & (arm_frame(side)[0] >= 0)
+            & ~disk(SHOULDER[side], SHOULDER_R))
+    assert not stub.any(), f"the torso keeps {stub.sum()} px of the {side} sleeve outside its socket"
+parts["torso"] = save_centered("torso", torso_img, FEET, torso | neck)
 
 for side, arm in arms.items():
     sh, wr = np.array(SHOULDER[side], float), np.array(WRIST[side], float)
@@ -205,9 +275,9 @@ for side, arm in arms.items():
     fore = arm & (below | disk(elbow, ARM_R))
     fill_at = tuple(int(v) for v in np.round(sh + axis * 0.4))
     up = paint_joint(rgba(upper), elbow, ARM_R - OUTLINE // 2, fill_at, ring_toward=axis)
-    up = paint_joint(up, SHOULDER[side], SHOULDER_R - OUTLINE // 2, fill_at)
-    parts[f"upper_arm_{side}"] = save_centered(
-        f"upper_arm_{side}", up, SHOULDER[side], upper | disk(elbow, ARM_R + 1) | disk(SHOULDER[side], SHOULDER_R + 1))
+    up, capsule = paint_shoulder(up, side, fill_at)
+    parts[f"upper_arm_{side}"] = save_centered(f"upper_arm_{side}", up, SHOULDER[side],
+                                               (upper | disk(elbow, ARM_R + 1) | capsule) & (up[..., 3] > 0))
     fo = paint_joint(rgba(fore), elbow, ARM_R - OUTLINE // 2, fill_at)
     parts[f"forearm_{side}"] = save_centered(f"forearm_{side}", fo, elbow, fore | disk(elbow, ARM_R + 1))
 
