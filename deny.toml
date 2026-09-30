@@ -53,6 +53,10 @@ allow = [
     # ADR-0008's break oracle. `icu_segmenter`'s `compiled_data` puts the Unicode character
     # database in the binary, so this is a licence Montagent genuinely distributes under.
     "Unicode-3.0",
+    # The chrome face `frame` draws its labels in (#421), embedded with `include_bytes!`.
+    # Its reciprocal clause binds the font software alone, never the program it is bundled
+    # with, so it cannot reach ADR-0009's invariant — ADR-0122, amending ADR-0090.
+    "OFL-1.1",
     # `libfuzzer-sys`, which is dev-only and reaches no archive, but is in the workspace
     # graph and has to be named for the run to be clean.
     "NCSA",

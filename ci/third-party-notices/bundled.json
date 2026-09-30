@@ -155,6 +155,28 @@
     }
   ],
 
+  "fonts_comment": [
+    "Fonts the binary itself carries — not a project's, which belong to the project that vendors",
+    "them (ADR-0057), but Montagent's own. `ci/assert_third_party_attribution.py` checks each in",
+    "full: the file is present, its bytes hash to `sha256`, its notice is present, and `spdx` is",
+    "on ADR-0090's allowlist in both `about.toml` and `deny.toml`. `montagent-core`'s",
+    "`tests/chrome_face.rs` checks the same `sha256` against the bytes `include_bytes!` put in the",
+    "binary, so the attested file and the embedded one cannot be two different files."
+  ],
+  "fonts": [
+    {
+      "name": "JetBrains Mono NL Regular",
+      "spdx": "OFL-1.1",
+      "url": "https://github.com/JetBrains/JetBrainsMono",
+      "revision": "v2.304",
+      "source": "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip, fonts/ttf/JetBrainsMonoNL-Regular.ttf",
+      "path": "crates/montagent-core/fonts/JetBrainsMonoNL-Regular.ttf",
+      "sha256": "fb3b2575d7b0657359707993288f12a7360344d39387bb26050e276d61f6bd2a",
+      "notice": "crates/montagent-core/fonts/OFL.txt",
+      "why": "The face Montagent draws its own chrome in — `frame`'s contact-sheet tile labels (#421, ADR-0098 §9) — embedded with `include_bytes!` so that neither the project's fonts nor the platform's decide how a label looks. It is never offered to a project's text."
+    }
+  ],
+
   "system_libraries": [
     {
       "name": "FreeType",

@@ -35,6 +35,13 @@ Two halves, because two different things can rot:
      (`obj/third_party/externals/<name>/...`), which is what makes this a measurement rather
      than a restatement of the gn args; the Unix `.a` members carry bare gn target names, so
      the manifest's `gn_targets` is the mapping back.
+
+  3. **The fonts.** The binary carries one font of its own — the chrome face `frame` draws its
+     labels in (#421) — and no manifest-reading tool sees a file `include_bytes!` put there.
+     So `bundled.json`'s `fonts` are checked with the drift half: each file is present and
+     hashes to what is attested, its notice is present, and its licence is on ADR-0090's
+     allowlist in both `about.toml` and `deny.toml`. A licence that is not there fails here
+     exactly as it would for a crate.
 """
 
 import argparse
@@ -43,6 +50,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
@@ -265,15 +273,64 @@ def _check_prebuilt(manifest, prebuilt_dir, where, failures):
         print(f"  {where}: key {key}, {len(members)} members, vendors {', '.join(sorted(seen))}")
 
 
+# --- The fonts ----------------------------------------------------------------------
+
+
+def allowlists():
+    """ADR-0090's allowlist as the two files that carry it spell it: `about.toml`'s
+    `accepted` and `deny.toml`'s `[licenses] allow`. Both, because a font's licence has to
+    be permitted for the distributed binary and for the workspace alike."""
+    with open(os.path.join(ROOT, "about.toml"), "rb") as f:
+        about = set(tomllib.load(f)["accepted"])
+    with open(os.path.join(ROOT, "deny.toml"), "rb") as f:
+        deny = set(tomllib.load(f)["licenses"]["allow"])
+    return {"about.toml": about, "deny.toml": deny}
+
+
+def check_fonts(manifest, failures):
+    """Each font the binary carries is present, is the attested file, has its notice beside
+    it, and is under a licence ADR-0090's allowlist permits."""
+    lists, before = allowlists(), len(failures)
+    for font in manifest["fonts"]:
+        path = os.path.join(ROOT, font["path"])
+        if not os.path.exists(path):
+            failures.append(
+                f"{font['path']} is missing — the binary embeds it with `include_bytes!`, so "
+                f"this checkout does not build either"
+            )
+        else:
+            with open(path, "rb") as f:
+                got = hashlib.sha256(f.read()).hexdigest()
+            if got != font["sha256"]:
+                failures.append(
+                    f"{font['path']} hashes to {got}, not the attested {font['sha256']} — the "
+                    f"notice in bundled.json was written for a different file"
+                )
+        if not os.path.exists(os.path.join(ROOT, font["notice"])):
+            failures.append(f"{font['notice']}, {font['name']}'s licence text, is missing")
+        for where, allowed in lists.items():
+            if font["spdx"] not in allowed:
+                failures.append(
+                    f"{font['name']} is {font['spdx']}, which {where}'s allowlist does not "
+                    f"permit (ADR-0090: widening it is an ADR amendment, not a config edit)"
+                )
+    if len(failures) == before:
+        print(f"fonts: {', '.join(f['name'] for f in manifest['fonts'])} attested and allowed")
+
+
 # --- The generated document ---------------------------------------------------------
 
 
 def notice(filename):
+    return read_notice(os.path.join(NOTICES, filename))
+
+
+def read_notice(path):
     # `newline=""` throughout this script, on every read and every write of the generated
     # document: several upstream licence texts are CRLF (`generic-array`'s is), and Python's
     # default universal-newline translation would rewrite them on the way in but not on the
     # way out, so a file that had just been written would not compare equal to itself.
-    with open(os.path.join(NOTICES, filename), encoding="utf-8", newline="") as f:
+    with open(path, encoding="utf-8", newline="") as f:
         return f.read().rstrip("\n")
 
 
@@ -348,8 +405,8 @@ def render(manifest):
     w("  one — ADR-0009, because `libx264` is GPL and linking `libavcodec` would make this binary a")
     w("  GPL combined work. Nothing in this file covers FFmpeg; its licence is between the user and")
     w("  whoever packaged their copy.")
-    w("- **Fonts.** A vendored font belongs to the project that vendors it, gated and attested per")
-    w("  ADR-0057. No font ships in the binary.")
+    w("- **A project's fonts.** A vendored font belongs to the project that vendors it, gated and")
+    w("  attested per ADR-0057. The one font that *is* in the binary is Montagent's own, below.")
     w("- **System libraries**, linked dynamically from the platform rather than distributed:")
     for lib in manifest["system_libraries"]:
         w(f"  - **{lib['name']}** — {lib['note']}")
@@ -411,6 +468,24 @@ def render(manifest):
     w("")
     w("---")
     w("")
+    w("## Fonts")
+    w("")
+    w("Embedded in the binary with `include_bytes!`, so no manifest reports them. Each is checked")
+    w("by `ci/assert_third_party_attribution.py` against the hash recorded in `bundled.json`.")
+    w("")
+    for font in manifest["fonts"]:
+        w(f"### {font['name']} — {font['spdx']}")
+        w("")
+        w(f"<{font['url']}> at `{font['revision']}`, `{font['path']}`.")
+        w("")
+        w(f"Why it is in the binary: {font['why']}")
+        w("")
+        w("```")
+        w(read_notice(os.path.join(ROOT, font["notice"])))
+        w("```")
+        w("")
+    w("---")
+    w("")
     w("## Rust crates")
     w("")
     by_id = rust_licenses()
@@ -465,6 +540,7 @@ def main():
     failures = []
 
     if not args.prebuilt_only:
+        check_fonts(manifest, failures)
         generated = render(manifest)
         # Two copies of the same generated text: the root, for a reader of the repository or
         # the GitHub Release archive, and `crates/montagent/`'s, so the same attribution rides

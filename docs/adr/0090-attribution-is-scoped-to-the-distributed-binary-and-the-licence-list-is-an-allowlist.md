@@ -2,6 +2,12 @@
 status: accepted
 ---
 
+> **Amended by [ADR-0122](0122-the-chrome-face-is-an-embedded-ligature-free-monospace-and-ofl-joins-the-allowlist.md).** The allowlist gains
+> `OFL-1.1`. Its reciprocal clause binds the font software alone, never the program it is
+> bundled with, so it cannot reach ADR-0009's invariant. Decision 3's derive-never-assert rule
+> extends to the chrome face the binary embeds: `bundled.json` attests its hash, and the script
+> checks presence, digest, notice and allowlist.
+
 # Attribution is scoped to the distributed binary, and the licence list is an allowlist
 
 [ADR-0064](./0064-packaging-cargo-and-releases-all-six-targets-passive-updates.md) settled

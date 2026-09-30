@@ -20,6 +20,9 @@
 //!   shaping pass the measurement came from — never a second layout (#213). See [`place`].
 //! - **What a font file can draw** — the `cmap` of one face, so ADR-0007's glyph-coverage
 //!   `error` is asked of the file rather than guessed from a layout. See [`glyphs`].
+//! - **One face's metrics as the file stores them** — its em, vertical metrics and unshaped
+//!   advances — for arithmetic that runs before anything is shaped, such as `frame`'s
+//!   label sizing over Montagent's chrome face (#421). See [`metrics`].
 //! - **What a font file says about itself** — its family and PostScript names and its
 //!   licence strings, per face — for `fonts list` and the gate in `fonts vendor`
 //!   (ADR-0057). See [`names`]. Read, never judged: which names are blocklisted is a rule,
@@ -41,6 +44,7 @@ pub mod fonts;
 pub mod glyphs;
 pub mod ink;
 pub mod lines;
+pub mod metrics;
 pub mod names;
 pub mod place;
 pub mod sfnt;
@@ -50,5 +54,6 @@ pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, m
 pub use fonts::{FontError, FontFile, Fonts};
 pub use glyphs::Charmap;
 pub use ink::InkSeam;
+pub use metrics::FaceMetrics;
 pub use names::FaceNames;
 pub use place::{Align, Glyph, PathEl, Placement, place};
