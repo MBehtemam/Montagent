@@ -49,8 +49,13 @@ fn rect(id: &str, start: i64, end: i64) -> String {
 /// The fixture's shortest narration, as an absolute path a scratch project can name
 /// (ADR-0053: an absolute path is permitted and resolved as-is).
 fn narration() -> String {
+    fixture_file("audio/05-cobweb.mp3")
+}
+
+/// A file of the committed fixture, as an absolute path a scratch project can name.
+fn fixture_file(relative: &str) -> String {
     fixture_dir()
-        .join("audio/05-cobweb.mp3")
+        .join(relative)
         .display()
         .to_string()
         .replace('\\', "/")
@@ -643,6 +648,68 @@ fn audio_elements_are_mixed_into_the_output_at_their_place_on_the_clock() {
         during > -30.0,
         "the narration plays where it is placed: {during} dB"
     );
+}
+
+/// #517: a mix of two elements, one ending before the span does, once padded with an
+/// unbounded `apad` that ffmpeg 9 intermittently never ended — the render hung in roughly a
+/// third of runs, encoding silence forever. Rendered ten times over, and once as a range,
+/// each under a watchdog so a regression fails here rather than stalling the suite.
+#[test]
+fn a_mix_with_a_short_element_ends_at_the_span_every_time() {
+    if !has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let intro = fixture_file("audio/intro-2.mp3");
+    let body = canonical(&format!(
+        r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+            "duration":2000,"output":"out/padded.mp4","tracks":[
+            {{"name":"short","layer":0,"elements":[{{"id":"short","type":"audio","start":0,"end":1200,
+                "source":"{narration}","source_start":0,"source_end":1200}}]}},
+            {{"name":"long","layer":1,"elements":[{{"id":"long","type":"audio","start":0,"end":2000,
+                "source":"{intro}","source_start":0,"source_end":2000}}]}}]}}"##,
+        narration = narration(),
+    ));
+    let path = write_project(&dir, "p.montagent.json", &body);
+
+    // The rendered file's audio duration, or a failure naming the run that hung. A hung
+    // render's thread, and the ffmpeg it spawned, outlive the failure until the test
+    // binary exits.
+    let within = |ask: Ask, written: PathBuf, run: String| {
+        let (done, wait) = std::sync::mpsc::channel();
+        let path = path.clone();
+        std::thread::spawn(move || {
+            let json = rendered(&path, &ask);
+            let audio = audio_stream(&written).expect("an audio stream");
+            let _ = done.send((json, audio.duration_ms.expect("a duration")));
+        });
+        match wait.recv_timeout(std::time::Duration::from_secs(120)) {
+            Ok(answer) => answer,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                panic!("{run}: the render did not finish in 120 s")
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("{run}: the render failed; its panic is printed above")
+            }
+        }
+    };
+
+    for n in 0..10 {
+        let (json, duration) = within(full(), dir.join("out/padded.mp4"), format!("run {n}"));
+        assert_eq!(
+            json["render"]["mixed"],
+            serde_json::json!(["short", "long"])
+        );
+        assert!((duration - 2000).abs() <= 50, "run {n}: {duration} ms");
+    }
+
+    // A range bounds the pad with the range's length, not the project's.
+    let (_, duration) = within(
+        range(400, 1400),
+        dir.join("out/padded.400-1400.mp4"),
+        "the range".to_string(),
+    );
+    assert!((duration - 1000).abs() <= 50, "the range: {duration} ms");
 }
 
 #[test]

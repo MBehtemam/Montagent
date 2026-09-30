@@ -1266,27 +1266,40 @@ impl Mix {
                 internal,
             };
         }
-        let mut graph = String::new();
-        for (k, filter) in chains.iter().enumerate() {
-            graph.push_str(&format!("{filter}[a{k}];\n"));
-        }
-        for k in 0..chains.len() {
-            graph.push_str(&format!("[a{k}]"));
-        }
-        // Summed, padded with silence, and cut to exactly the span the frames cover — the
-        // graph's own length is the audio stream's length, since the encoder applies no
-        // `-t` (it would drop the last video frame).
-        if chains.len() > 1 {
-            graph.push_str(&format!("amix=inputs={}:normalize=0,", chains.len()));
-        }
-        graph.push_str(&format!("apad,atrim=end={}[mix]\n", seconds(to - from)));
         Mix {
-            audio: Some(encode::Audio { inputs, graph }),
+            audio: Some(encode::Audio {
+                inputs,
+                graph: mix_graph(&chains, to - from),
+            }),
             mixed,
             declined,
             internal,
         }
     }
+}
+
+/// The mix graph: every chain labelled, summed, padded with silence, and cut to exactly
+/// the `span` milliseconds the frames cover — the graph's own length is the audio stream's
+/// length, since the encoder applies no `-t` (it would drop the last video frame).
+///
+/// The pad is bounded by the span itself (#517). A bare `apad` pads forever and leans on
+/// the `atrim` after it to end the stream; on ffmpeg 9, after an `amix`, that end is
+/// intermittently lost, ffmpeg encodes silence without end, and the render never returns.
+/// `atrim` stays as the exact cut; both are spelled by one `seconds`.
+fn mix_graph(chains: &[String], span: i64) -> String {
+    let mut graph = String::new();
+    for (k, filter) in chains.iter().enumerate() {
+        graph.push_str(&format!("{filter}[a{k}];\n"));
+    }
+    for k in 0..chains.len() {
+        graph.push_str(&format!("[a{k}]"));
+    }
+    if chains.len() > 1 {
+        graph.push_str(&format!("amix=inputs={}:normalize=0,", chains.len()));
+    }
+    let end = seconds(span);
+    graph.push_str(&format!("apad=whole_dur={end},atrim=end={end}[mix]\n"));
+    graph
 }
 
 /// One audible element's filter chain, from `[input:a]` up to (not including) its output
@@ -1657,6 +1670,25 @@ mod tests {
         assert_eq!(atempo_chain(0.25), vec!["0.5", "0.5"]);
         assert_eq!(atempo_chain(0.2), vec!["0.5", "0.5", "0.8"]);
         assert_eq!(atempo_chain(3.0), vec!["2", "1.5"]);
+    }
+
+    /// #517: an unbounded `apad` after an `amix` intermittently never ends on ffmpeg 9, so
+    /// the pad carries the span as its own bound and `atrim` stays the exact cut — both
+    /// spelled by one `seconds`, so they cannot disagree.
+    #[test]
+    fn the_mix_pads_to_the_span_and_no_further() {
+        let one = mix_graph(&["[1:a]anull".to_string()], 8000);
+        assert_eq!(
+            one,
+            "[1:a]anull[a0];\n[a0]apad=whole_dur=8.000,atrim=end=8.000[mix]\n"
+        );
+
+        let two = mix_graph(&["[1:a]anull".to_string(), "[2:a]anull".to_string()], 480);
+        assert_eq!(
+            two,
+            "[1:a]anull[a0];\n[2:a]anull[a1];\n[a0][a1]amix=inputs=2:normalize=0,\
+             apad=whole_dur=0.480,atrim=end=0.480[mix]\n"
+        );
     }
 
     #[test]
