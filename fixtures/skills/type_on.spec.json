@@ -1,0 +1,15 @@
+{
+  "track": "name",
+  "layer": 20,
+  "text": "Montagent",
+  "font": "title",
+  "size": 120,
+  "color": "#101418",
+  "x": 300,
+  "y": 540,
+  "start": 3000,
+  "every": 150,
+  "end": 5500,
+  "exit": {"at": 5000, "ms": 300},
+  "cursor": {"from": 2500, "to": 5000, "blink": 500, "width": 10}
+}
