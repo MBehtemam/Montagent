@@ -752,7 +752,9 @@ frame the grid paints, because the two boundaries around it land on one frame. T
 declares it and the rendered video never shows it, so it is a fact about the **document**,
 reported as `N-QUANTIZATION` at `review`
 ([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)).
-The contact sheet draws no tile for it and names it in `skipped` with reason `no-grid-frame`.
+`validate` reports every one, and the contact sheet draws no tile for it and names it in
+`skipped` with reason `no-grid-frame` — one finding, from one selection of visual states, in
+both verbs.
 Distinct from a **skipped** entry in general: an infill tile evicted under budget is also
 skipped, and that is a fact about the answer, not the document. A span that differs from its
 neighbours only in audio is not a visual state at all — the fixture's 4 ms interval at

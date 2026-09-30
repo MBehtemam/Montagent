@@ -12,7 +12,8 @@ status: accepted
 > boundaries on different elements landing on one frame, so the combination the document declares
 > for that span is never on screen. Same reason as the other two: *"the rendered frames do not
 > show what the document declares."* `frame`'s range mode emits it for a `no-grid-frame` skipped
-> run; `validate` does not detect it yet ([#437](https://github.com/MBehtemam/Montagent/issues/437)).
+> run, and `validate` reports it too, one finding per state
+> ([#437](https://github.com/MBehtemam/Montagent/issues/437)).
 
 # `validate` reports facts, and `render` is what enforces them
 

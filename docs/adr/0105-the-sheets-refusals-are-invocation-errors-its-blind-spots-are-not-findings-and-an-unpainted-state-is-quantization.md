@@ -14,6 +14,17 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > the reader can see is not a blind spot and gets no token. The READER CHECK is a sibling of the
 > NOT CHECKED block, printed on every range answer and never a finding.
 
+> **[#437](https://github.com/MBehtemam/Montagent/issues/437) closed the gap this ADR filed.** `validate`
+> now raises `N-QUANTIZATION` for every unpainted visual state, one finding per state, over the
+> same selection `frame`'s range mode is to tile. Where this ADR below says `validate` is silent,
+> that was true when it was accepted. The ninth claim of `check_unpainted_runs.py` was that
+> silence; it now checks the closing instead. An element that vanishes, or a gap no frame falls
+> in, is also an unpainted state, so it now raises two findings: the element's or gap's, and the
+> state's. The spec's condition is "every" unpainted state, and the two name different subjects.
+> The finding carries the template's `fps`, `changed` (always 2, the state's own boundaries) and
+> `detail`, plus `from`, `to`, `present` (element ids) and `boundaries`, one per edge: `at`, with
+> the elements `entering` and `leaving`, each as `{element, track}`.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map
