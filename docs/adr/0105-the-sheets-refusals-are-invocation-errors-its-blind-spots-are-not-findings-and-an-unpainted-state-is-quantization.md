@@ -22,6 +22,9 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > was true when it was accepted; the ninth claim of `check_unpainted_runs.py` now checks the
 > closing instead.
 
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** `E-SHEET-OVERFLOW` carries `from`, `to`, `states`, `fits`, `limit` and `limit_px`, and `limit`'s first value is
+> **`tile-width`**. A refused range answer carries **the report alone**. The sub-ranges remain #489's.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map

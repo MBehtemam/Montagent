@@ -327,7 +327,7 @@ pub fn preview_cancellable(
 
     let (from, to, partial) = match range {
         Some((from, to)) => (from, to, true),
-        None => match render::extent(&document) {
+        None => match crate::exact::extent(&document) {
             Some(end) => (0, end, false),
             None => {
                 return refused(Report::rejected(

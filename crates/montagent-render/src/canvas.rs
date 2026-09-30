@@ -952,6 +952,36 @@ impl Canvas {
         Some(rgba)
     }
 
+    /// The frame as it stands, as a still that can be drawn somewhere else.
+    ///
+    /// A reference to the surface's pixels at this moment, not a live view: painting the next
+    /// frame on this canvas does not change a snapshot already taken. `frame`'s range mode
+    /// takes one per tile and [`Canvas::composite`]s it onto the sheet (ADR-0095).
+    pub fn snapshot(&mut self) -> Raster {
+        Raster {
+            image: self.surface.image_snapshot(),
+        }
+    }
+
+    /// Draw `source` into `into`, resampled to exactly that rectangle — a contact sheet's
+    /// tile, composited down from a frame painted at true pixels (ADR-0095 §5).
+    ///
+    /// **Mipmapped**, unlike every other resample in this crate. A tile is a frame reduced
+    /// five- or sixfold, and a bilinear read of that samples four source pixels out of
+    /// thirty-odd: a one-pixel stroke either vanishes or survives by where it happens to
+    /// fall. Reading from the mip level nearest the reduction averages every pixel, so what
+    /// a tile shows depends on the picture and not on the grid.
+    pub fn composite(&mut self, source: &Raster, into: Region) {
+        let paint = SkPaint::default();
+        self.surface.canvas().draw_image_rect_with_sampling_options(
+            &source.image,
+            None,
+            into.rect(),
+            SamplingOptions::new(skia_safe::FilterMode::Linear, skia_safe::MipmapMode::Linear),
+            &paint,
+        );
+    }
+
     /// Draw one `rect` or `ellipse` (ADR-0014).
     pub fn shape(
         &mut self,
@@ -1623,6 +1653,62 @@ mod tests {
             "reading ({x}, {y})"
         );
         out
+    }
+
+    #[test]
+    fn a_composited_tile_averages_its_source_rather_than_sampling_four_pixels_of_it() {
+        // One-pixel black and white columns, reduced fivefold. A bilinear read lands on one
+        // column's centre and comes back black or white, by where it fell; a mipmapped one
+        // averages the columns to grey.
+        let mut stripes = vec![0u8; 100 * 100 * 4];
+        for (i, px) in stripes.chunks_exact_mut(4).enumerate() {
+            let level = if (i % 100) % 2 == 0 { 0 } else { 255 };
+            px.copy_from_slice(&[level, level, level, 255]);
+        }
+        let source = Raster::from_rgba(&stripes, 100, 100).expect("100x100 RGBA");
+        let mut sheet = Canvas::new(20, 20).expect("a surface");
+        sheet.background(Rgba::BLACK);
+        let whole = Region {
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 20,
+        };
+        sheet.composite(&source, whole);
+        let png = sheet
+            .encode(None, Scale::Full, Encoding::Png)
+            .expect("encodes");
+        for x in [9, 10] {
+            let [r, g, b, _] = pixel_at(&png.bytes, x, 10);
+            assert!(
+                (80..=175).contains(&r),
+                "({r}, {g}, {b}) at x={x} is not grey"
+            );
+        }
+    }
+
+    #[test]
+    fn a_snapshot_keeps_the_frame_it_was_taken_of() {
+        let red = Rgba([0xFF, 0x00, 0x00, 0xFF]);
+        let mut frame = Canvas::new(4, 4).expect("a surface");
+        frame.background(red);
+        let first = frame.snapshot();
+        frame.background(Rgba::BLACK);
+
+        let mut sheet = Canvas::new(4, 4).expect("a surface");
+        sheet.composite(
+            &first,
+            Region {
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            },
+        );
+        let png = sheet
+            .encode(None, Scale::Full, Encoding::Png)
+            .expect("encodes");
+        assert_eq!(pixel_at(&png.bytes, 2, 2), [0xFF, 0x00, 0x00, 0xFF]);
     }
 
     #[test]

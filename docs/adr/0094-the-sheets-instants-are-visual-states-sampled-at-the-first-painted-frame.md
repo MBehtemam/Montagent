@@ -24,6 +24,9 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 > the first raises a finding — `N-QUANTIZATION` at `review`. `blind_to` is **six fixed tokens, each
 > bound to one sentence**, in the NOT CHECKED block's shape, never a finding.
 
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** Section 6's disclosure is **spelled**: the `sheet` object's key names, `coverage.not_depicted_ms` as the total length of the skipped
+> states, and a range whose only states are unpainted answering with `picture: null` rather than a refusal.
+
 # The sheet's instants are the document's visual states, sampled at the first frame the grid paints
 
 > **Amended by [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md).**

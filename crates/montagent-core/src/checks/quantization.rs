@@ -39,21 +39,20 @@
 //!    and no frame shows. No element vanishes and no track gains a gap, so neither (1) nor
 //!    (2) sees it — *"one fact, arrived at through two elements rather than one"*. The
 //!    states are [`cuts::visual_states`] (ADR-0094 §1), and [`unpainted_states`] is the
-//!    finding. `frame`'s range mode is to tile the same selection and raise the same
-//!    finding for each `no-grid-frame` run (#488); it is not built yet.
+//!    finding. `frame`'s range mode tiles the same selection and raises the same finding
+//!    for each `no-grid-frame` run (#488).
 //!
 //! On a project where quantization changes nothing, this check emits nothing at all.
 
 use serde_json::{Value, json};
 
-use crate::exact;
+use crate::exact::{self, extent, instant_of};
 use crate::finding::{Class, Finding};
 use crate::permissive::Loose;
 use crate::report::Report;
 use crate::track;
 use crate::verbs::query::Named;
 use crate::verbs::query::cuts::{self, Interval};
-use crate::verbs::render::{extent, instant_of};
 
 /// The whole project, against its own frame grid.
 ///
@@ -132,9 +131,9 @@ fn vanished(document: &Loose, fps: i64, report: &mut Report) {
 }
 
 /// One `N-QUANTIZATION` per visual state in `states` that holds no painted frame
-/// `⌊n × 1000 / fps⌋`. `validate` raises it today, and `frame`'s range mode is to raise it
-/// through this same function (#488), so the state has one identity whichever verb saw it
-/// (ADR-0105 §5). Crate-visible, not private, for that second caller.
+/// `⌊n × 1000 / fps⌋`. `validate` raises it, and `frame`'s range mode raises it through this
+/// same function (#488), so the state has one identity whichever verb saw it (ADR-0105 §5).
+/// Crate-visible, not private, for that second caller.
 ///
 /// ADR-0118 ratifies this shape. One finding per state, not one for the document as (1) and (2) are: a state is the unit
 /// the sheet skips, and `frame` raises one per `no-grid-frame` run. A state that is unpainted

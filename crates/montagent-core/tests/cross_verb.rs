@@ -426,3 +426,137 @@ fn validates_unpainted_states_are_the_visual_states_query_implies_no_frame_paint
         report.findings
     );
 }
+
+// ---------------------------------------------------------------------------
+// `frame`'s range mode against `query` and `frame --at` (#488)
+// ---------------------------------------------------------------------------
+
+/// The sheet of `[from, to)`, as JSON and PNG bytes.
+fn sheet(path: &Path, from: i64, to: i64) -> (serde_json::Value, Vec<u8>) {
+    use montagent_core::verbs::frame::{Ask, frame};
+    let answer = frame(
+        path,
+        &Ask {
+            from: Some(from),
+            to: Some(to),
+            png: true,
+            ..Ask::default()
+        },
+    );
+    let bytes = answer.image().expect("a drawn sheet").bytes.clone();
+    (answer.to_json(), bytes)
+}
+
+/// Every state the sheet accounts for — a tile's run or a skipped run — in clock order.
+fn states_on_the_sheet(json: &serde_json::Value) -> Vec<State> {
+    let sheet = &json["sheet"];
+    let mut states: Vec<State> = sheet["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(sheet["skipped"].as_array().unwrap())
+        .map(|entry| State {
+            start: entry["run"]["start"].as_i64().unwrap(),
+            end: entry["run"]["end"].as_i64().unwrap(),
+            present: serde_json::from_value(entry["present"].clone()).unwrap(),
+        })
+        .collect();
+    states.sort_by_key(|state| state.start);
+    states
+}
+
+#[test]
+fn the_sheets_visual_states_are_querys_cut_list_filtered_and_re_merged() {
+    let fixture = common::fixture_project();
+    let duration = common::document(&fixture)["duration"].as_i64().unwrap();
+    for (path, from, to) in [
+        (fixture.as_path(), 0, duration),
+        (fixture.as_path(), 1234, 20001),
+        (fixture.as_path(), 53000, 57000),
+    ] {
+        let (json, _) = sheet(path, from, to);
+        assert_eq!(
+            states_on_the_sheet(&json),
+            visual_states_through_query(path, from, to).1,
+            "[{from}, {to})"
+        );
+    }
+    let constructed = common::unpainted_fixture();
+    let (json, _) = sheet(&constructed, 0, 2000);
+    assert_eq!(
+        states_on_the_sheet(&json),
+        visual_states_through_query(&constructed, 0, 2000).1
+    );
+}
+
+#[test]
+fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
+    use montagent_core::verbs::frame::{Ask, frame};
+    use montagent_render::canvas::{Canvas, Encoding, Raster, Region, Scale};
+
+    let fixture = common::fixture_project();
+    let duration = common::document(&fixture)["duration"].as_i64().unwrap();
+    let (json, bytes) = sheet(&fixture, 0, duration);
+    let picture = &json["sheet"]["picture"];
+    let number = |key: &str| picture[key].as_i64().unwrap();
+    let (columns, tile_w, tile_h) = (
+        number("columns"),
+        number("served_tile_width"),
+        number("served_tile_height"),
+    );
+    let cell_h = number("height") / number("rows");
+    let drawn = image::load_from_memory(&bytes).unwrap().to_rgba8();
+
+    for tile in json["sheet"]["provenance"].as_array().unwrap() {
+        let instant = tile["instant_ms"].as_i64().unwrap();
+        let single = frame(
+            &fixture,
+            &Ask {
+                at: Some(instant),
+                full: true,
+                png: true,
+                ..Ask::default()
+            },
+        );
+
+        // The frame `frame --at` returns, composited into a tile by the sheet's own
+        // compositor, is the tile on the sheet, byte for byte.
+        let raster = Raster::decode(&single.image().unwrap().bytes).expect("a PNG");
+        let whole = Region {
+            x: 0,
+            y: 0,
+            width: tile_w,
+            height: tile_h,
+        };
+        let mut alone = Canvas::new(tile_w, tile_h).unwrap();
+        alone.composite(&raster, whole);
+        let expected = image::load_from_memory(
+            &alone
+                .encode(None, Scale::Full, Encoding::Png)
+                .unwrap()
+                .bytes,
+        )
+        .unwrap()
+        .to_rgba8();
+        let index = tile["index"].as_i64().unwrap() - 1;
+        let (x, y) = ((index % columns) * tile_w, (index / columns) * cell_h);
+        let on_sheet =
+            image::imageops::crop_imm(&drawn, x as u32, y as u32, tile_w as u32, tile_h as u32)
+                .to_image();
+        assert!(on_sheet == expected, "tile {} at {instant} ms", index + 1);
+
+        // And `query --at` names the tile's presence set, audio aside.
+        let stack: Vec<String> = single.to_json()["query"]["stack"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["type"] != "audio")
+            .map(|row| row["id"].as_str().unwrap().to_string())
+            .collect();
+        let mut present: Vec<String> = serde_json::from_value(tile["present"].clone()).unwrap();
+        let mut stacked = stack.clone();
+        present.sort();
+        stacked.sort();
+        assert_eq!(stacked, present, "tile {} at {instant} ms", index + 1);
+    }
+}

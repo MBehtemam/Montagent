@@ -17,6 +17,10 @@ amends: 0067 (narrows its legibility floor to a standalone proxy frame, so the f
 > rendered as prose, and a `limit` field says whether this ADR's 140 px or ADR-0098's type floor
 > bound.
 
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** The degraded rung is named **`degraded`**, not *floor*, and drawn at **the near-square grid's own served
+> width** in `[140, 180)`, not at exactly 140 px. Both widths are capped at the project's own width, and the sheet is drawn at
+> its served size, so the disclosed width is the width looked at.
+
 # The sheet's budget is served tile width, and overflow refuses rather than thins
 
 > **Amended by [ADR-0103](0103-the-sheet-is-never-cropped-and-the-crop-stays-a-single-frame-instrument.md).**

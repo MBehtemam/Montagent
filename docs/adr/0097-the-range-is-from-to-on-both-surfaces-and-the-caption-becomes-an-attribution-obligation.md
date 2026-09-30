@@ -15,6 +15,9 @@ amends: 0011 (the verb table's `frame` row gains range arguments and the counts 
 > permanent by ADR-0103) carries. Section 5's prose-renderable constraint is met by finding fields
 > rendered through templates and by `blind_to` tokens each bound to one fixed sentence.
 
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** `frame` reads its range through **`render`'s rule**, and a range call's refusals come in a fixed order: a mix
+> with `--at`, then the pair, then `--crop`, then `--full`. **`--crop` outranks `--full`.**
+
 # The range is `--from`/`--to` on both surfaces, and `frame`'s caption obligation becomes an attribution obligation
 
 > **Amended by [ADR-0098](0098-the-tile-label-is-a-floored-fitted-line-naming-the-change-at-its-own-boundary.md).** Section 7 left the attribution guarantee discharged
