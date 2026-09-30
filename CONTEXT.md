@@ -715,6 +715,11 @@ declares a path that does not exist, so chrome built on it fails hardest on the 
 likely to be broken. Never a system font either — across ADR-0064's six targets the fitted type
 size, and so the served type floor and the measured `295/chars` law, would mean a different thing
 per platform. Tabular figures, and the build fails loudly rather than falling back.
+It is **JetBrains Mono NL Regular**, embedded in the binary (`include_bytes!`, so its absence
+is a compile error) and never registered where a project's text could reach it
+([ADR-0122](docs/adr/0122-the-chrome-face-is-an-embedded-ligature-free-monospace-and-ofl-joins-the-allowlist.md)).
+Monospaced and ligature-free, so for this face the `295/chars` law is exact arithmetic — every
+character advances 600/1000 em. The code calls it the *chrome face* (`fonts::chrome`).
 _Avoid_: the label font (ambiguous with a project's declared fonts), a fallback font, the
 system face
 
