@@ -1183,6 +1183,35 @@ parallel hand-maintained list.
 ([ADR-0041](docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md))
 _Avoid_: catalogue, table, rule set
 
+**Skill**:
+End-user guidance an **Agent** installs alongside Montagent: workflow, recipes,
+craft and capability discovery. A skill never states a format fact — the shape
+belongs to the published schema, the rules to the format docs, and what is wrong
+with a project to the **Finding**s — so it points at those instead of restating
+them. When a skill and the installed Montagent disagree, Montagent wins.
+_Avoid_: prompt, guide, docs; and never for guidance to agents developing
+Montagent itself
+
+**Router skill**:
+The `montagent` **Skill**. It holds the loop from project file to delivered video
+and the capability map, which says what Montagent can do, what it cannot do yet,
+and which **Job skill** covers each kind of piece. Its description is written to
+load on any Montagent task; nothing enforces that it loads first.
+_Avoid_: entry skill, main skill
+
+**Job skill**:
+A **Skill** the **Router skill** points to. It owns either the recipes for one kind
+of piece (motion graphics, footage, character animation), or the cross-cutting
+craft every piece is judged by.
+_Avoid_: topic skill
+
+**Workaround**:
+A recipe in a **Skill** that compensates for something Montagent cannot yet do,
+and names the issue whose resolution would retire it. It is written down as
+temporary by design: when that issue closes, the workaround is either replaced
+by the real capability or becomes plain recipe.
+_Avoid_: hack, trick, fake
+
 ## Rejected terms
 
 These words are deliberately absent. Each is standard vocabulary in a comparable

@@ -1,0 +1,19 @@
+{
+ "drawing": {"width": 1024, "height": 1536},
+ "draw_order": ["torso", "forearm_left", "forearm_right", "upper_arm_left", "upper_arm_right", "head", "mouth_open", "mouth_round", "mouth_small", "mouth_teeth", "mouth_closed", "eyes_closed"],
+ "parts": {
+  "torso": {"file": "parts/torso.png", "width": 480, "height": 1408, "pivot": [512, 1322], "parent": null},
+  "forearm_left": {"file": "parts/forearm_left.png", "width": 468, "height": 368, "pivot": [264, 776], "parent": "upper_arm_left"},
+  "forearm_right": {"file": "parts/forearm_right.png", "width": 476, "height": 362, "pivot": [753, 778], "parent": "upper_arm_right"},
+  "upper_arm_left": {"file": "parts/upper_arm_left.png", "width": 294, "height": 200, "pivot": [356, 736], "parent": "torso"},
+  "upper_arm_right": {"file": "parts/upper_arm_right.png", "width": 284, "height": 196, "pivot": [666, 736], "parent": "torso"},
+  "head": {"file": "parts/head.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "torso"},
+  "mouth_open": {"file": "parts/mouth_open.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"},
+  "mouth_round": {"file": "parts/mouth_round.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"},
+  "mouth_small": {"file": "parts/mouth_small.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"},
+  "mouth_teeth": {"file": "parts/mouth_teeth.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"},
+  "mouth_closed": {"file": "parts/mouth_closed.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"},
+  "eyes_closed": {"file": "parts/eyes_closed.png", "width": 616, "height": 992, "pivot": [512, 648], "parent": "head"}
+ },
+ "visemes": {"0": null, "1": "open", "2": "open", "3": "round", "4": "small", "5": "small", "6": "small", "7": "round", "8": "round", "9": "open", "10": "round", "11": "open", "12": "small", "13": "round", "14": "small", "15": "teeth", "16": "round", "17": "small", "18": "teeth", "19": "small", "20": "small", "21": "closed"}
+}

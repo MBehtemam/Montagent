@@ -113,6 +113,11 @@ jobs:
       - name: ffmpeg is on PATH
         run: ffmpeg -version
 
+      # The skills drift guard (`tests/skills.rs`, #513) runs every skill script on the
+      # minimum Python its header states, and `uv` is how it gets exactly that Python. The
+      # test refuses to fall back to whatever `python3` the runner has when `CI` is set.
+      - uses: astral-sh/setup-uv@v6
+
       - name: Clippy
         # `-D warnings` after the `--` so it applies to the workspace rather than
         # to every dependency: a warning in somebody else's crate is not a
@@ -227,6 +232,15 @@ jobs:
 
       - name: The prebuilt canary's assertion still tells good logs from bad
         run: python3 ci/assert_prebuilt_key.py --self-test
+
+      # The offline half of the skills workaround guard (#513): the lint's own examples,
+      # then the lint over `skills/`. The closed-issue half is `skills.yml`, which needs the
+      # tracker and runs only on PRs touching `skills/`.
+      - name: The skills workaround lint still tells marked from unmarked
+        run: python3 ci/skills_workarounds.py --self-test
+
+      - name: Every Workaround in skills/ carries a well-formed marker
+        run: python3 ci/skills_workarounds.py --lint
 
       - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
         run: python3 ci/assert_passive_packaging.py

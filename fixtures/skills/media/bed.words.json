@@ -1,0 +1,32 @@
+[
+  {
+    "word": "Made",
+    "start": 500,
+    "end": 1000
+  },
+  {
+    "word": "with",
+    "start": 1100,
+    "end": 1600
+  },
+  {
+    "word": "Montagent",
+    "start": 1700,
+    "end": 2200
+  },
+  {
+    "word": "and",
+    "start": 2300,
+    "end": 2800
+  },
+  {
+    "word": "nothing",
+    "start": 2900,
+    "end": 3400
+  },
+  {
+    "word": "else",
+    "start": 3500,
+    "end": 4000
+  }
+]

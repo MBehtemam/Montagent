@@ -1,0 +1,175 @@
+{
+  "arm": "no-skills",
+  "brief": {
+    "id": "A-launch-spot",
+    "path": "docs/research/skills-eval/briefs/dev/A-launch-spot.md",
+    "sha256": "dc3d6ca5e4e48a93844605585f93b350a3ff66df3bdaf2614ee9d6e5c3e54941"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 12.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "ended": "2026-09-29T16:09:12+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "baseline",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "92a45d16a616af7b5e01514fc30e65fcee2d7b8b",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "spot.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Brief A: Montagent launch spot\n\n**12 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nA launch spot for Montagent, the video editor that agents drive. It is the first thing\nsomeone sees on the launch post, so it has to land the idea in its opening two seconds and\nleave the brand on screen at the end. It should feel confident and quick, like a product\nlaunch, not a tutorial.\n\nEverything you need is in the asset pack; its `README.md` lists it. The music is\n`music/bed-120bpm.wav` at 120 BPM. Use the pack's fonts and brand colours, and the two\nproduct screenshots in `stills/`.\n\n## Beat by beat\n\nThe spot is cut to the music. At 120 BPM a beat is 0.5 s and a bar is 2 s, and the first\ndownbeat is at 0 s.\n\n| When | What happens |\n|---|---|\n| 0\u20132 s | Five hook words, **\"Video your agent can read.\"**, land one per beat. Each arrives with a small overshoot and settles. |\n| 2 s | On the downbeat, the last word (\"read.\") turns the accent colour. The line holds, then clears. |\n| 4\u20137 s | The first product screenshot enters in a rounded frame with a soft shadow and pushes in slowly. |\n| 7\u20139 s | It crossfades to the second screenshot, which keeps the frame and the push-in going. |\n| 9\u201310 s | A three-bar chart grows up from its baseline, bars labelled **Edit**, **Check**, **Render**, each taller than the last. |\n| 10\u201312 s | The Montagent wordmark is revealed by a bar wiping across it, then holds to the end. |\n| 11\u201312 s | The music fades out over the last second. |\n\n## Acceptance checklist\n\n- [ ] The five hook words each land on a beat (0, 0.5, 1.0, 1.5, 2.0 s), with visible overshoot.\n- [ ] \"read.\" turns the accent colour at 2.0 s, not before.\n- [ ] Screenshot 1 sits in a frame with rounded corners and a soft shadow, and is visibly pushing in.\n- [ ] The move from screenshot 1 to screenshot 2 is a crossfade, not a cut.\n- [ ] The chart's bars grow from the baseline, not from their centres.\n- [ ] The wordmark is revealed by a wipe, not a fade, and is fully visible from about 10.5 s to the end.\n- [ ] The music is audible throughout and has faded to silence by 12 s.\n- [ ] No corner labels, watermarks, timecodes or frame chrome anywhere.\n- [ ] Every cut and every entrance falls on a beat.",
+  "prompt_sha256": "3538f6ab78623f100492801788bf4030b4d5c480e3e02b02e83d812662e96a2e",
+  "run": "no-skills-2",
+  "signals": {
+    "image_reads": 3,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate"
+      ]
+    },
+    "look_loops": 11,
+    "looked_at": true,
+    "montagent": {
+      "census_type": {
+        "audio": 1,
+        "image": 3,
+        "rect": 7,
+        "text": 8,
+        "transition": 1
+      },
+      "finding_codes": {
+        "R-EASE-INERT": 6,
+        "R-KEYFRAME-UNREACHED": 2
+      },
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 0,
+        "review": 8,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {
+      "create-project": 1,
+      "fmt": 6,
+      "fonts": 1,
+      "frame": 11,
+      "measure": 1,
+      "render": 4,
+      "validate": 1
+    },
+    "result": {
+      "cache_creation_input_tokens": 94705,
+      "cache_read_input_tokens": 2439109,
+      "duration_ms": 316443,
+      "input_tokens": 64,
+      "is_error": false,
+      "num_turns": 42,
+      "output_tokens": 24352,
+      "subtype": "success",
+      "total_cost_usd": 1.7327578
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 23,
+      "Read": 3,
+      "ReadMcpResourceTool": 2,
+      "ToolSearch": 1,
+      "mcp__montagent__frame": 11,
+      "mcp__montagent__render": 1
+    }
+  },
+  "started": "2026-09-29T16:03:54+00:00",
+  "timed_out": false,
+  "wall_clock_s": 318.1
+}

@@ -1,0 +1,218 @@
+{
+  "arm": "reference",
+  "brief": {
+    "id": "C-character-short",
+    "path": "docs/research/skills-eval/briefs/dev/C-character-short.md",
+    "sha256": "c0b287c0b88236ca3bf8219141a7a98aec0acfa861d286d0fe91a930a0c9fd4c"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 8.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "delivery_warnings": [],
+  "ended": "2026-09-30T13:42:39+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [
+    {
+      "bytes": 2755725,
+      "path": "_build/chk/tile.png",
+      "sha256": "be1e7d7cd4c545f5e4eeb21cadad725094feeb8126193da8b890fb1498dede7c"
+    },
+    {
+      "bytes": 2119694,
+      "path": "_build/s/f_000.png",
+      "sha256": "51809a5bda5702b48f9aec28c60c0244741f1e6dd8d06957f237550d6a3e5d69"
+    },
+    {
+      "bytes": 2179411,
+      "path": "_build/s/f_008.png",
+      "sha256": "fbab037b4419c40c4ff08b16b78c289e241f63dec8713d6d6cde8679887cc46a"
+    },
+    {
+      "bytes": 2206205,
+      "path": "_build/s/f_014.png",
+      "sha256": "1655c8991aeee2f64e1c7ef2e6d40c66f712e35fce5517b6057cf6efdd72658d"
+    },
+    {
+      "bytes": 2282432,
+      "path": "_build/s/f_027.png",
+      "sha256": "780571838dfaa59d3e56e99f958a046951a60b4bc06c0264f549e71085bfead7"
+    },
+    {
+      "bytes": 2284044,
+      "path": "_build/s/f_036.png",
+      "sha256": "950166f519b72d8bb5d63d6b85d087d8fa08d422dd57a51585aa97c089b9a081"
+    },
+    {
+      "bytes": 2289739,
+      "path": "_build/s/f_040.png",
+      "sha256": "cfd561d4f79f7ed25e07b4520b2210463c547929d5877fa8f07d638ca1d52822"
+    },
+    {
+      "bytes": 2290285,
+      "path": "_build/s/f_045.png",
+      "sha256": "8ed8127e8001d3737f0d1f61cb7ee9bd9c7d4e1b4477e44e70d996feaec3d32d"
+    },
+    {
+      "bytes": 2289117,
+      "path": "_build/s/f_050.png",
+      "sha256": "154909c01884623aad192da7e8c0064646749f5b9f18173ccc5e8b69f55a89bd"
+    },
+    {
+      "bytes": 2291721,
+      "path": "_build/s/f_095.png",
+      "sha256": "9f593a75a0270c0db0904a137a7ce29237ede862afa6efdd6fe7ec6d7484cd11"
+    },
+    {
+      "bytes": 2310623,
+      "path": "_build/s/f_113.png",
+      "sha256": "966d2f8e9b0ab0c721955bf19d445b495c3d80d236f7779bcb36674fdf80ddb3"
+    },
+    {
+      "bytes": 2217891,
+      "path": "_build/s/f_117.png",
+      "sha256": "861275600e2504768ece9414efe38dabce05c06f80b48f5f76e0c1c7844492ef"
+    },
+    {
+      "bytes": 2210411,
+      "path": "_build/s/f_150.png",
+      "sha256": "6c3d3ddca4db4a50c553115e24435d69d2d700fe23a15713c96c25128a925a2e"
+    },
+    {
+      "bytes": 2213622,
+      "path": "_build/s/f_185.png",
+      "sha256": "8d91bf375b8e06ffb88b1cf0dfe4aaa13ea17d0af62e2cb8b59468bd1a836e5b"
+    },
+    {
+      "bytes": 2767382,
+      "path": "_build/video.mp4",
+      "sha256": "c17b18c7c36e0f87f2ea912dd0e2845c685ac2be1303431bf55813994a26dd26"
+    }
+  ],
+  "phase": "baseline",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "0404eb8d4b6daa87d8969004c7e3b96eadb2568c",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": null,
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nUse whatever tools on this machine you like.\n\n---\n\n# Brief C: mascot character short\n\n**8 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nHoot, Montagent's owl mascot, introduces the product in one line, standing in a study. It\nis a cartoon, so it lives or dies on the character feeling alive: the beak moves with the\nwords, the owl blinks and gestures, and it never comes apart at the joints.\n\nEverything you need is in the asset pack; its `README.md` lists it. The owl is a cut-out\nrig in `character/`: its parts, their pivots and parents, and its mouths are described in\n`character/rig.json`. The line is `character/voice/line-1.wav`, with its words, visemes and\ntheir timings in `character/voice/line-1.json`. The set is `character/study.png`. The\nproduct pictures are in `stills/` and the brand is in `brand/`.\n\n## Beat by beat\n\n| When | What happens |\n|---|---|\n| 0\u20131 s | The study. The owl hops in from the side and lands on the floor, arms at its sides. |\n| 1 s | The line starts: \"Hi, I'm Hoot! Your agent writes the video as a file, and Montagent turns it into a movie.\" |\n| \"Hi\u2026 Hoot\" | The owl waves: one arm raised, its forearm swinging back and forth from the elbow. |\n| \"\u2026as a file\" | A card with `stills/session-01.png` on it pops in beside the owl, and the owl gestures towards it with the arm on that side. |\n| \"movie\" | The card's picture changes to `stills/session-02.png`, the video that session made. |\n| ~7 s | The brand lockup lands above the owl, and the owl lifts both arms in a small cheer. |\n| throughout | The beak moves with the words, and the owl blinks now and then. |\n\n## Acceptance checklist\n\n- [ ] The owl is built from the rig's parts and holds together: no gap or loose part at the neck, shoulders or elbows on any frame.\n- [ ] The owl stands on the study's floor and is the frame's main subject, at least half the frame tall.\n- [ ] The beak shapes follow the line's visemes: it moves while the voice speaks and is at rest in the pauses and after the line ends.\n- [ ] The wave swings the forearm from the elbow at least twice while the upper arm stays raised.\n- [ ] The owl blinks at least twice, each blink lasting only a few frames.\n- [ ] The card pops in with a small overshoot, and the owl's gesture points at it.\n- [ ] The card's picture changes on \"movie\", not before.\n- [ ] The lockup is legible and on screen from about 7 s to the end.\n- [ ] The voice is clear and starts at 1 s; nothing is clipped at the end.",
+  "prompt_sha256": "72688f30ac1a4b36ea08f42b9cc7543c13e9c7dcd8c9031eef79b87656e33ccf",
+  "run": "reference-2",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-b16yk923-work",
+    "forearm_left.png",
+    "forearm_right.png",
+    "head.png",
+    "torso.png",
+    "upper_arm_left.png",
+    "upper_arm_right.png"
+  ],
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 14,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write"
+      ]
+    },
+    "look_loops": 0,
+    "looked_at": true,
+    "montagent": null,
+    "montagent_verbs": {},
+    "result": {
+      "cache_creation_input_tokens": 69690,
+      "cache_read_input_tokens": 1510017,
+      "duration_ms": 353267,
+      "input_tokens": 58,
+      "is_error": false,
+      "num_turns": 40,
+      "output_tokens": 31055,
+      "subtype": "success",
+      "total_cost_usd": 1.4808554000000003
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 17,
+      "Edit": 1,
+      "Read": 14,
+      "Write": 2
+    }
+  },
+  "started": "2026-09-30T13:36:44+00:00",
+  "timed_out": false,
+  "wall_clock_s": 354.7
+}

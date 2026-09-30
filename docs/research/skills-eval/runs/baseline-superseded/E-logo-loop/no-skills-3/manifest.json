@@ -1,0 +1,173 @@
+{
+  "arm": "no-skills",
+  "brief": {
+    "id": "E-logo-loop",
+    "path": "docs/research/skills-eval/briefs/dev/E-logo-loop.md",
+    "sha256": "db3e7df6698d65ca63856e4a47e8935748b77db01e60fccee99314240b2da925"
+  },
+  "deliverable": {
+    "audio": false,
+    "duration_s": 6.0,
+    "height": 1080,
+    "width": 1080
+  },
+  "ended": "2026-09-29T16:20:15+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "baseline",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "92a45d16a616af7b5e01514fc30e65fcee2d7b8b",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "sting.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Brief E: logo reveal loop\n\n**6 seconds \u00b7 1080\u00d71080 \u00b7 30 fps \u00b7 1:1.** Deliver one MP4; no sound.\n\nA looping logo sting for Montagent's profile and the end of its videos. It plays on repeat,\nso the join has to be invisible: someone watching it loop should not be able to say where it\nstarts.\n\nEverything you need is in the asset pack; its `README.md` lists it. The mark's exact\nconstruction is there: four shapes on a 2\u00d72 grid. Use the pack's fonts and brand colours.\n\n## Beat by beat\n\n| When | What happens |\n|---|---|\n| 0 s | An empty frame in the brand's ground colour. |\n| 0\u20132 s | The mark assembles: its four shapes fly in from off-frame one after another and settle into place. |\n| on the way in | One of the rounded squares spins three full turns before it settles. |\n| ~2.5 s | A text cursor appears to the right of the mark and blinks. |\n| ~3\u20134.5 s | The name **Montagent** types on letter by letter, and the cursor moves ahead of each new letter. |\n| 4.5\u20135.5 s | Everything holds, then clears. |\n| 6 s | The frame is empty again, identical to the first frame, so the loop is seamless. |\n\n## Acceptance checklist\n\n- [ ] The mark is built from four separate shapes that arrive one after another, not all at once.\n- [ ] One rounded square visibly turns three full times (1080\u00b0) on its way in, and settles upright.\n- [ ] Assembled, the mark matches the pack's construction: three ink tiles and one accent circle, top right.\n- [ ] The cursor blinks with a hard on/off, not a fade.\n- [ ] \"Montagent\" appears one letter at a time, in order, with the cursor ahead of each letter.\n- [ ] The last frame matches the first, and the loop has no visible jump.",
+  "prompt_sha256": "7a6af54ff174b41ac0417e2d17083b2b55d2a831c7cdcc078afe9093168ff23e",
+  "run": "no-skills-3",
+  "signals": {
+    "image_reads": 5,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate"
+      ]
+    },
+    "look_loops": 3,
+    "looked_at": true,
+    "montagent": {
+      "census_type": {
+        "ellipse": 1,
+        "rect": 4,
+        "text": 9
+      },
+      "finding_codes": {
+        "R-CAPTION-MIN-DURATION": 8,
+        "R-CAPTION-NO-AUDIO": 9,
+        "R-CAPTION-PACE": 5,
+        "R-EASE-INERT": 9
+      },
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 0,
+        "review": 31,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {
+      "create-project": 2,
+      "fmt": 4,
+      "frame": 3,
+      "measure": 3,
+      "query": 2
+    },
+    "result": {
+      "cache_creation_input_tokens": 96539,
+      "cache_read_input_tokens": 2514307,
+      "duration_ms": 375681,
+      "input_tokens": 64,
+      "is_error": false,
+      "num_turns": 35,
+      "output_tokens": 30604,
+      "subtype": "success",
+      "total_cost_usd": 1.8875094
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 24,
+      "Read": 5,
+      "ReadMcpResourceTool": 2,
+      "ToolSearch": 1,
+      "mcp__montagent__frame": 1
+    }
+  },
+  "started": "2026-09-29T16:13:58+00:00",
+  "timed_out": false,
+  "wall_clock_s": 377.5
+}

@@ -1,0 +1,134 @@
+{
+  "arm": "reference",
+  "brief": {
+    "id": "A-launch-spot",
+    "path": "docs/research/skills-eval/briefs/dev/A-launch-spot.md",
+    "sha256": "dc3d6ca5e4e48a93844605585f93b350a3ff66df3bdaf2614ee9d6e5c3e54941"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 12.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "ended": "2026-09-29T15:57:16+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "baseline",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "92a45d16a616af7b5e01514fc30e65fcee2d7b8b",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": null,
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nUse whatever tools on this machine you like.\n\n---\n\n# Brief A: Montagent launch spot\n\n**12 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nA launch spot for Montagent, the video editor that agents drive. It is the first thing\nsomeone sees on the launch post, so it has to land the idea in its opening two seconds and\nleave the brand on screen at the end. It should feel confident and quick, like a product\nlaunch, not a tutorial.\n\nEverything you need is in the asset pack; its `README.md` lists it. The music is\n`music/bed-120bpm.wav` at 120 BPM. Use the pack's fonts and brand colours, and the two\nproduct screenshots in `stills/`.\n\n## Beat by beat\n\nThe spot is cut to the music. At 120 BPM a beat is 0.5 s and a bar is 2 s, and the first\ndownbeat is at 0 s.\n\n| When | What happens |\n|---|---|\n| 0\u20132 s | Five hook words, **\"Video your agent can read.\"**, land one per beat. Each arrives with a small overshoot and settles. |\n| 2 s | On the downbeat, the last word (\"read.\") turns the accent colour. The line holds, then clears. |\n| 4\u20137 s | The first product screenshot enters in a rounded frame with a soft shadow and pushes in slowly. |\n| 7\u20139 s | It crossfades to the second screenshot, which keeps the frame and the push-in going. |\n| 9\u201310 s | A three-bar chart grows up from its baseline, bars labelled **Edit**, **Check**, **Render**, each taller than the last. |\n| 10\u201312 s | The Montagent wordmark is revealed by a bar wiping across it, then holds to the end. |\n| 11\u201312 s | The music fades out over the last second. |\n\n## Acceptance checklist\n\n- [ ] The five hook words each land on a beat (0, 0.5, 1.0, 1.5, 2.0 s), with visible overshoot.\n- [ ] \"read.\" turns the accent colour at 2.0 s, not before.\n- [ ] Screenshot 1 sits in a frame with rounded corners and a soft shadow, and is visibly pushing in.\n- [ ] The move from screenshot 1 to screenshot 2 is a crossfade, not a cut.\n- [ ] The chart's bars grow from the baseline, not from their centres.\n- [ ] The wordmark is revealed by a wipe, not a fade, and is fully visible from about 10.5 s to the end.\n- [ ] The music is audible throughout and has faded to silence by 12 s.\n- [ ] No corner labels, watermarks, timecodes or frame chrome anywhere.\n- [ ] Every cut and every entrance falls on a beat.",
+  "prompt_sha256": "832ca0388fd4fda5e31b98eab5abef610a8d7fe15bbf070da171408557a33eeb",
+  "run": "reference-1",
+  "signals": {
+    "image_reads": 7,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write"
+      ]
+    },
+    "look_loops": 0,
+    "looked_at": true,
+    "montagent": null,
+    "montagent_verbs": {},
+    "result": {
+      "cache_creation_input_tokens": 57128,
+      "cache_read_input_tokens": 1226586,
+      "duration_ms": 312626,
+      "input_tokens": 56,
+      "is_error": false,
+      "num_turns": 34,
+      "output_tokens": 22516,
+      "subtype": "success",
+      "total_cost_usd": 1.1528851999999998
+    },
+    "skill_tool_calls": [
+      "dataviz"
+    ],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 19,
+      "Edit": 3,
+      "Read": 7,
+      "Skill": 1,
+      "Write": 1
+    }
+  },
+  "started": "2026-09-29T15:52:00+00:00",
+  "timed_out": false,
+  "wall_clock_s": 315.4
+}

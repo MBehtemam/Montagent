@@ -88,6 +88,7 @@ see the note after the table).
 | `voiceover/voiceover.wav`, `voiceover.words.json`, `script.txt` | a synthetic voiceover spoken by Kokoro-82M (Apache-2.0 weights and voice; the output is ours) |
 | `presenter/*.txt`, `presenter/*.words.json` | the presenter takes' scripts, and their word timings made by `pack-src/align_takes.py` |
 | `screen/*`, `stills/*` | a screen recording of a real Montagent session, and stills from it |
+| `character/*` | Hoot, the owl mascot: a cut-out rig, its voice lines with visemes, a set and a prop (see below) |
 
 **The presenter takes are Azure avatar output.** `presenter/take-{1,2,3}.mp4` were
 generated with Azure AI Speech's text-to-speech avatar (the prebuilt avatar "Harry",
@@ -96,6 +97,14 @@ person on screen is synthetic. Microsoft's Product Terms and the Azure AI Speech
 conduct govern them, including its requirement to disclose that the presenter is
 synthetic, which the pack's `README.md` does. They are in this category because the
 maintainer generated them, not because the maintainer is on camera.
+
+**The character is FLUX and Azure Speech output.** The drawings in `character/` (and
+their sources in `pack-src/character/`) were generated with FLUX.2-pro on Azure AI
+Foundry, and `character/voice/*.wav` with Azure AI Speech (`en-US-AvaNeural`), on the
+maintainer's subscription and under Microsoft's Product Terms. The voice is synthetic.
+The rig's parts, its five mouths, the set and the prop were cut and drawn from them by
+`pack-src/character/cut_rig.py` and `make_props.py`. The drawings in `pack-src/character/`
+are in this category too, like the pack made from them.
 
 **The music bed is CC0.** `music/bed-120bpm.wav` is synthesised from scratch by
 `pack-src/make_music_bed.py`, which writes the same bytes on every run. The maintainer
@@ -132,6 +141,13 @@ records that the font is not covered by either the MIT grant or category 1 above
 (<https://github.com/rsms/inter>), under the **SIL Open Font License, Version 1.1**. They
 are copied unmodified from the v4.1 release's `extras/ttf/`, with the full licence beside
 them as `Inter-LICENSE.txt`.
+
+### `fixtures/skills/fonts/`
+
+The same **Inter 4.1** Bold, copied unmodified from the pack above with its
+`Inter-LICENSE.txt` beside it, under the **SIL Open Font License, Version 1.1**. It is
+the font the skills drift guard (`crates/montagent/tests/skills.rs`) validates skill
+snippets against.
 
 ### `docs/research/prototypes/thai-vertical-metrics/fonts/`
 
@@ -181,7 +197,9 @@ its keyer against, and `chroma_key_scan.sh` beside it re-derives every number fr
 ## 3. Everything else
 
 MIT, per [`LICENSE`](LICENSE). That includes every Rust source file, every markdown
-document, the JSON schemas, the scripts, and the two clean picture sets named above.
+document, the JSON schemas, the scripts, and the two clean picture sets named above. It
+also includes the synthetic media in `fixtures/skills/media/` and `fixtures/skills/rig/`,
+which `fixtures/skills/make_fixtures.py` generates from ffmpeg test sources.
 
 Third-party **code** the binary links is a separate matter with a separate document; see
 `THIRD-PARTY.md` when it lands.
