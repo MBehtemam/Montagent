@@ -12,7 +12,7 @@ itself was 59 MB). **Glance:** `contact-sheet.jpg`, 20 frames across the trailer
 
 | Step | Script | What it does |
 |---|---|---|
-| Shots | `gen_images.sh`, `gen_images2.sh`, `flux.py` | FLUX.2-pro on Azure: six 1920×1088 cinematic stills in `img/`. The filter blocked five prompts (casino ×2, control room ×2, helicopter); those shots were dropped or rebuilt from shapes. |
+| Shots | `gen_images.sh`, `gen_images2.sh`, `flux.py` | FLUX.2-pro on Azure: six 1920×1088 cinematic stills in `img/`. Six of twelve requests failed (four blocked by the content filter, two returned no image): the casino, control room and helicopter, twice each. Those shots were dropped, and the control room was rebuilt from shapes. |
 | Voices | `vo.py` | Azure Speech: narrator `en-US-DavisNeural`, villain `en-GB-ThomasNeural`, agent `en-GB-RyanNeural`, with word timings in `vo/`. |
 | Score | `score.py` | The music and sound design, synthesised from scratch in numpy (ticks, whooshes, booms, braams, a pad, toms, a riser), cut to `plan.py`'s timeline. It is seeded, so `score.wav` is not committed; run the script before rendering. |
 | Plates | `plates.py` | Still PNGs in `fx/`: rifling spiral, vignette, grain, anamorphic flare, light sweep, embers, HUD map. |
