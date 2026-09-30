@@ -5,6 +5,10 @@ amends: 0011 (a tenth MCP verb and a thirteenth CLI command, `verify`; the count
 
 # `verify` measures the deliverable with the decoder, and a stale file is one error
 
+> **Amended by [ADR-0121](0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md)**: a partial render adds one line to
+> `not_checked_also`, naming its range and stating that a clean partial render says nothing
+> about whether the full render will pass.
+
 > **Amended by [ADR-0119](0119-verify-s-measurement-is-a-fifth-check-set-and-a-checkless-verb-s-finding-prints-after-its-scope.md)**: the Scope section's open question is decided. `verify`
 > records a check set of its own, `deliverable`, when its measurement completes, and `[]` on
 > every refusal, so a clean `verify` still prints `0 errors, 0 reviews, 0 notes`.

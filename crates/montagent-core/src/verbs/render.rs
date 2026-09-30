@@ -152,6 +152,23 @@ pub const NOT_VERIFIED: &str = "Whether the file written carries what this docum
 should. render reports what it intended to put in; run `montagent verify <project>` to measure \
 the deliverable with the decoder before calling it done.";
 
+/// ADR-0121: what a partial render states it did not look at, beside [`NOT_VERIFIED`].
+///
+/// Its analysis is split, and until this line its report did not say so. Every `validate`
+/// check runs on the whole project first and any `error` refuses, but the world-effects
+/// (ADR-0093) are read off the span: [`Mix::of`] reads only the audible elements inside
+/// `[from, to)`, and the painter paints only those frames. So an element that cannot be mixed
+/// at 200 s refuses the full render and not `--from 0 --to 1000`, which is right — a partial
+/// render is never the deliverable, and its file is correct for its range — and was silent.
+fn partial_scope(from: i64, to: i64) -> String {
+    format!(
+        "Whether anything outside {from}..{to} ms would stop the full render. This was a \
+partial render: every validate check ran on the whole project, but elements not mixed, not \
+painted or painted without a field (ADR-0093) are looked for only inside that range, so a \
+clean partial render says nothing about whether the full render will pass."
+    )
+}
+
 /// What one `render` invocation is asking.
 #[derive(Debug, Clone, Default)]
 pub struct Ask {
@@ -224,6 +241,9 @@ pub fn cancelled_after(tool: &str, done: u64, of: u64) -> String {
 pub struct Answer {
     video: Option<Video>,
     report: Report,
+    /// The range of a partial render, wherever the invocation settled one — refused or not,
+    /// since the scope of what `render` looked for is the same either way. ADR-0121.
+    partial: Option<(i64, i64)>,
 }
 
 impl Answer {
@@ -248,6 +268,9 @@ impl Answer {
             },
         );
         crate::report::extend_boundary(&mut json, &[NOT_VERIFIED]);
+        if let Some((from, to)) = self.partial {
+            crate::report::extend_boundary(&mut json, &[&partial_scope(from, to)]);
+        }
         json
     }
 }
@@ -315,6 +338,19 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
 /// (ADR-0109). A cancel that arrives after the publish is too late to matter: the render had
 /// already succeeded, and the file at `output` is exactly the one it made.
 pub fn render_cancellable(
+    path: &FilePath,
+    ask: &Ask,
+    progress: &mut dyn FnMut(Progress),
+    cancel: Option<&Cancel>,
+) -> Answer {
+    let mut answer = run(path, ask, progress, cancel);
+    // `request` is a pure function of the flags, so reading it again here names the same
+    // range the run used — and on an invocation it rejected, none.
+    answer.partial = request(ask).ok().flatten();
+    answer
+}
+
+fn run(
     path: &FilePath,
     ask: &Ask,
     progress: &mut dyn FnMut(Progress),
@@ -571,6 +607,7 @@ pub fn render_cancellable(
         Ok(video) => Answer {
             video: Some(video),
             report,
+            partial: None,
         },
         // The encode was whole and the rename was not. Nothing is at the declared path.
         Err(reason) => {
@@ -981,6 +1018,7 @@ fn refused(report: Report) -> Answer {
     Answer {
         video: None,
         report,
+        partial: None,
     }
 }
 

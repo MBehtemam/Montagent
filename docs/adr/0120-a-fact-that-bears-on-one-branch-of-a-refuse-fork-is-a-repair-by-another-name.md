@@ -101,7 +101,7 @@ and left for its own ticket. Read against their message templates:
 
 **None is changed here.** Whether each message changes or the rule narrows is a separate
 question for each code, and `E-RETIRED-KEY`'s answer reaches back into ADR-0016. The five are
-left for their own ticket. Until it is decided, this ADR's rule governs **new** refuse-class
+left for their own ticket, [#504](https://github.com/MBehtemam/Montagent/issues/504). Until it is decided, this ADR's rule governs **new** refuse-class
 findings and `E-FONT-NO-GLYPH`, and does not yet claim the five.
 
 ## Consequences
