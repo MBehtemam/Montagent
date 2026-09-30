@@ -167,6 +167,10 @@ def main(argv):
             v = 1.0 if lit(t) else 0.0
             if start < t < stop and on_frame(t) > ops[-1]["t"] and v != ops[-1]["v"]:
                 ops.append({"t": on_frame(t), "v": v, "ease": "step"})
+        # A blink that would come on for less than half a cycle before the cursor goes
+        # reads as a flicker: stay off instead.
+        if len(ops) > 1 and ops[-1]["v"] == 1.0 and stop - ops[-1]["t"] < half:
+            ops.pop()
         elements.append({
             "id": f"{track}-cursor", "type": "rect", "start": start, "end": stop,
             "x": xs if len(xs) > 1 else xs[0]["v"], "y": y, "origin": "center-left",
