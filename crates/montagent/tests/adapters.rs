@@ -1094,6 +1094,81 @@ fn cli_frame_offers_no_flag_that_suppresses_the_caption() {
 }
 
 #[test]
+fn cli_frame_from_to_writes_the_sheet_to_the_out_it_already_requires() {
+    // #493: the range mode reaches argv, and the sheet goes where the single frame goes —
+    // the command line does not grow a second output flag. What the sheet *is* is asserted
+    // in the core; this asserts argv reaches it.
+    let project = scratch("cli-frame-range", "p.montagent.json", &states_project(3));
+    let out_file = project.with_file_name("sheet.jpg");
+    let out = montagent(&[
+        "frame",
+        project.to_str().unwrap(),
+        "--from",
+        "0",
+        "--to",
+        "600",
+        "--keyframes",
+        "--infill-ceiling",
+        "100",
+        "--out",
+        out_file.to_str().unwrap(),
+    ]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(out.stdout.contains("READER CHECK"), "{}", out.stdout);
+    assert!(out.stdout.contains("SHEET  [0, 600)"), "{}", out.stdout);
+    // ADR-0112 (#403): `frame` records no check sets, and says so above its disclosure.
+    assert!(
+        out.stdout.contains("no checks run (validate runs them)"),
+        "{}",
+        out.stdout
+    );
+    let written = std::fs::read(&out_file).expect("the sheet was written to --out");
+    assert_eq!(&written[..2], &[0xFF, 0xD8], "JPEG, as a single frame is");
+}
+
+#[test]
+fn cli_frame_advertises_the_range_arguments_with_their_unit() {
+    let out = montagent(&["frame", "--help"]);
+
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    for present in [
+        "--from <MS>",
+        "--to <MS>",
+        "--keyframes",
+        "--infill-ceiling <MS>",
+    ] {
+        assert!(
+            out.stdout.contains(present),
+            "`frame` does not advertise `{present}`: {}",
+            out.stdout
+        );
+    }
+    assert_names_no_model(&out.stdout);
+}
+
+#[test]
+fn cli_frame_refusing_an_unknown_argument_names_the_range_arguments() {
+    // ADR-0097: the range mode is arguments, not a flag that says "sheet", so an agent
+    // reaching for one (`--per-state`, in the trial agents' own words) is taught by the
+    // refusal rather than by the flag's name.
+    let project = scratch("cli-frame-unknown", "p.montagent.json", &states_project(3));
+    let out = montagent(&[
+        "frame",
+        project.to_str().unwrap(),
+        "--per-state",
+        "--out",
+        "x.jpg",
+    ]);
+
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(out.stderr.contains("E-INVOCATION"), "{}", out.stderr);
+    for named in ["--from", "--to", "--keyframes", "--infill-ceiling"] {
+        assert!(out.stderr.contains(named), "{named}: {}", out.stderr);
+    }
+}
+
+#[test]
 fn cli_render_puts_the_result_on_stdout_and_progress_on_stderr() {
     // One test per subcommand, asserting argv reaches the right core call and the exit
     // code is right (#168). Everything the render *is* — the refusal, the atomic write,
@@ -1828,9 +1903,11 @@ fn mcp_frame_advertises_the_schema_it_enforces_and_hands_back_an_image() {
         .expect("a `frame` tool")["inputSchema"]
         .clone();
     assert_eq!(schema["type"], "object");
+    // `at` is optional since #493: a range call names `from`/`to` instead, and the verb —
+    // not the schema — refuses a call that names neither.
     assert_eq!(
         schema["required"],
-        serde_json::json!(["project", "at"]),
+        serde_json::json!(["project"]),
         "{schema}"
     );
     for present in ["crop", "full", "png", "json"] {
@@ -1880,6 +1957,106 @@ fn mcp_frame_advertises_the_schema_it_enforces_and_hands_back_an_image() {
         .expect("a rendered report, not a bare SDK error");
     assert!(text.contains("E-INVOCATION"), "{text}");
     assert_eq!(rejected["result"]["isError"], true, "{rejected}");
+}
+
+#[test]
+fn mcp_frame_range_is_one_text_block_and_one_image_block_and_refusals_are_errors() {
+    // #493's MCP half: `at` is optional, `from`/`to`/`keyframes`/`infill_ceiling` are
+    // accepted, a sheet answers in the shape a single frame does, and both kinds of refusal
+    // — the sheet's own overflow and a plain invocation error — tell the client the call did
+    // not run.
+    let fits = scratch("mcp-frame-range", "p.montagent.json", &states_project(3));
+    let overflows = scratch(
+        "mcp-frame-overflow",
+        "p.montagent.json",
+        &states_project(120),
+    );
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {
+                    "project": fits.to_str().unwrap(),
+                    "from": 0,
+                    "to": 600,
+                    "keyframes": true,
+                    "infill_ceiling": 100,
+                }
+            }),
+        ),
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {"project": overflows.to_str().unwrap(), "from": 0, "to": 24000}
+            }),
+        ),
+        // Both modes at once: the verb's `E-INVOCATION`, not a schema rejection.
+        request(
+            5,
+            "tools/call",
+            serde_json::json!({
+                "name": "frame",
+                "arguments": {"project": fits.to_str().unwrap(), "at": 0, "from": 0, "to": 600}
+            }),
+        ),
+    ]);
+
+    let tool = session[&2]["result"]["tools"]
+        .as_array()
+        .expect("a tool list")
+        .iter()
+        .find(|tool| tool["name"] == "frame")
+        .expect("a `frame` tool")
+        .clone();
+    for present in ["at", "from", "to", "keyframes", "infill_ceiling"] {
+        assert!(
+            !tool["inputSchema"]["properties"][present].is_null(),
+            "the schema advertises no `{present}`: {tool}"
+        );
+    }
+    let description = tool["description"].as_str().expect("a description");
+    assert!(description.contains("from"), "{description}");
+    assert_names_no_model(&tool.to_string());
+
+    let answered = &session[&3]["result"];
+    let content = answered["content"].as_array().expect("content blocks");
+    assert_eq!(
+        content.len(),
+        2,
+        "one text block and one image block: {answered}"
+    );
+    assert_eq!(content[0]["type"], "text");
+    let text = content[0]["text"].as_str().expect("a rendered answer");
+    assert!(text.contains("READER CHECK"), "{text}");
+    assert!(
+        text.contains("no checks run (validate runs them)"),
+        "{text}"
+    );
+    assert_eq!(content[1]["type"], "image", "{}", content[1]);
+    assert_eq!(content[1]["mimeType"], "image/jpeg");
+    assert_ne!(answered["isError"], true, "{answered}");
+
+    let overflow = &session[&4]["result"];
+    let text = overflow["content"][0]["text"].as_str().expect("a report");
+    assert!(text.contains("E-SHEET-OVERFLOW"), "{text}");
+    assert_eq!(overflow["isError"], true, "{overflow}");
+    assert_eq!(
+        overflow["content"].as_array().map(Vec::len),
+        Some(1),
+        "a refusal carries no picture: {overflow}"
+    );
+
+    let mixed = &session[&5]["result"];
+    let text = mixed["content"][0]["text"].as_str().expect("a report");
+    assert!(text.contains("E-INVOCATION"), "{text}");
+    assert_eq!(mixed["isError"], true, "{mixed}");
 }
 
 #[test]
@@ -2337,6 +2514,36 @@ struct Output {
     code: Option<i32>,
     stdout: String,
     stderr: String,
+}
+
+/// A project of `n` visual states: one rect after another, 200 ms each, each its own colour.
+/// Media-free, so a range call over it reads no disk.
+fn states_project(n: usize) -> String {
+    let elements: Vec<String> = (0..n)
+        .map(|i| {
+            format!(
+                r##"{{"id":"box-{i}","type":"rect","start":{},"end":{},"x":0,"y":0,"origin":"top-left","width":200,"height":200,"fill":"#{:02X}40{:02X}"}}"##,
+                i * 200,
+                (i + 1) * 200,
+                (i * 37) % 256,
+                255 - (i * 37) % 256
+            )
+        })
+        .collect();
+    format!(
+        r#"{{"frame":{{"width":200,"height":200}},"fps":25,"tracks":[{{"name":"boxes","layer":1,"elements":[{}]}}]}}"#,
+        elements.join(",")
+    )
+}
+
+/// #486 story 53: nothing `frame` prints or advertises names a model, so it makes no claim
+/// about a reader.
+fn assert_names_no_model(text: &str) {
+    for model in [
+        "Claude", "Opus", "Sonnet", "Haiku", "Fable", "GPT", "Gemini", "Llama",
+    ] {
+        assert!(!text.contains(model), "names `{model}`: {text}");
+    }
 }
 
 fn binary() -> PathBuf {
