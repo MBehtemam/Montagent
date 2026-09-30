@@ -850,8 +850,10 @@ impl Montagent {
                        that finished before the edit point does not move. Prints what it \
                        will do to every record sitting exactly at `at`, unconditionally. \
                        Every slack in the file is invariant by default: an edit that would \
-                       change one is refused, listing each threatened pair; pass `release` \
-                       with exactly those pairs to consume them. Returns the new state's \
+                       change one is refused, listing each threatened pair. Pass `release` \
+                       with those pairs only if the instruction you were given decides \
+                       those slacks' fate; otherwise surface the refusal to whoever is \
+                       operating Montagent. Returns the new state's \
                        findings, never `ok` — read them the way you read `validate`'s.",
         input_schema = advertised::<ShiftParams>()
     )]

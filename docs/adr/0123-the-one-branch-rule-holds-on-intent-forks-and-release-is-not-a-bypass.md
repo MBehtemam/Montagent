@@ -105,7 +105,8 @@ an intent fork and so refuse-class. But the tension the dissent named is real. A
 finding tells the agent to *stop and surface it to a human*, while this message tells the
 agent exactly how to continue by itself. **Whether an agent may type `release` on its own
 authority is a question about ADR-0047's consent model**, not a class label, and it is left
-to [#506](https://github.com/MBehtemam/Montagent/issues/506).
+to [#506](https://github.com/MBehtemam/Montagent/issues/506), settled by
+[ADR-0124](./0124-release-carries-the-requester-s-consent-and-surfacing-is-the-default.md).
 
 ## Consequences
 

@@ -2250,14 +2250,16 @@ source. The nearest legal boundaries are {start} and {end}.",
     CheckSpec {
         // ADR-0032/ADR-0047: every slack is invariant by default. `shift` refuses an edit
         // that would change one's size unless the caller names it, in full, in `release`.
+        // ADR-0124: the caller may do so only when its instruction decides the slack's fate.
         code: "E-SHIFT-SLACK",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0032",
         template: "the slack {from}\u{2013}{to} is {size} ms ({from_edges} \u{2192} \
-{to_edges}) and this edit would change it to {new_size} ms. Release it explicitly with \
-`release: [[{from}, {to}]]` if that is intended.",
+{to_edges}) and this edit would change it to {new_size} ms. Release it with \
+`release: [[{from}, {to}]]` only if the instruction you were given decides this slack's fate; \
+otherwise surface this finding verbatim to whoever is operating Montagent.",
         status: Live,
         census: None,
         sets: &[],
