@@ -169,7 +169,7 @@ pub fn cuts(document: &Loose, from: i64, to: i64) -> Cuts {
 /// intervals into 18 states. Equality stays on the set: two intervals that differ only in
 /// *which* text card is up are two states.
 ///
-/// Only `type: "audio"` is dropped. An element with no `type`, or one this build does not
+/// Only `type: "audio"` is dropped (ADR-0118). An element with no `type`, or one this build does not
 /// know, is kept — a state wrongly split is visible on a sheet, and one wrongly merged away
 /// is not.
 pub fn visual_states(cuts: &Cuts) -> Vec<Interval> {

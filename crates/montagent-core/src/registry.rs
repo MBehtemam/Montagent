@@ -969,7 +969,8 @@ minimum caption duration",
         // saw it. One finding
         // per state, carrying `from`, `to`, `present` and `boundaries` (each `at` with the
         // elements `entering` and `leaving`, by element and track) beside the template's
-        // three fields; `changed` is always 2, the state's own boundaries.
+        // three fields; `changed` is always 2, the state's own boundaries. ADR-0118 ratifies
+        // the fields, and that the state finding fires even where (1) or (2) already did.
         classes: &[Review, Note],
         repair: None,
         threshold: Internal,

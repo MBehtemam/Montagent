@@ -136,7 +136,7 @@ fn vanished(document: &Loose, fps: i64, report: &mut Report) {
 /// through this same function (#488), so the state has one identity whichever verb saw it
 /// (ADR-0105 §5). Crate-visible, not private, for that second caller.
 ///
-/// One finding per state, not one for the document as (1) and (2) are: a state is the unit
+/// ADR-0118 ratifies this shape. One finding per state, not one for the document as (1) and (2) are: a state is the unit
 /// the sheet skips, and `frame` raises one per `no-grid-frame` run. A state that is unpainted
 /// *because* an element inside it vanishes, or because it is a gap, is reported here as well
 /// as above — the spec's condition is "every visual state", and the two findings are about
