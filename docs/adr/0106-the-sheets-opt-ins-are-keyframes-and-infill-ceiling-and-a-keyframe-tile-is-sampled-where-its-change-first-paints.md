@@ -5,6 +5,10 @@ amends: 0011 (the `frame` row's range arguments gain two opt-ins, `--keyframes` 
 
 # The sheet's opt-ins are `--keyframes` and `--infill-ceiling`, and a keyframe tile is sampled where its change first paints
 
+> **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** Decision 7's blank slot stands beside ADR-0098 §2's placeholder:
+> `=` fills a run tile's slot where nothing nameable changed, and a keyframe or infill tile's
+> label ends after its offset.
+
 [#418](https://github.com/MBehtemam/Montagent/issues/418), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Put to **two juries** of three models —
 Opus 5.5, Sonnet 5.5 and Fable 5.1 — on the same day. The first took ten questions about the two

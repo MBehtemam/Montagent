@@ -7,10 +7,14 @@
 //! so the recorded hash and the file on disk are compared by the one function that wrote
 //! the hash in the first place.
 //!
+//! [`chrome`] is the other direction: not a project's font but Montagent's own, the face
+//! its chrome is drawn in (#421), held to the same gate.
+//!
 //! What is here is rules — which names refuse, which licence texts are recognised, what a
 //! hash is — and rules live in the core (ADR-0011). Reading the font file's own account of
 //! itself is `montagent_text::names`'s.
 
+pub mod chrome;
 pub mod licence;
 
 use sha2::{Digest, Sha256};

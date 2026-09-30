@@ -47,6 +47,10 @@
 //! divides in `f64`. The literal's digits become an exact rational and the division is
 //! integer arithmetic from there.
 
+use serde_json::Value;
+
+use crate::permissive::Loose;
+
 /// A finite decimal, held exactly: `units × 10⁻ˢᶜᵃˡᵉ`.
 ///
 /// `0.645` is `Decimal { units: 645, scale: 3 }` — the exact rational `645/1000` ADR-0045
@@ -153,7 +157,7 @@ impl Decimal {
     }
 
     /// `numerator / denominator`, as the exact rational this decimal is.
-    fn as_ratio(self) -> Option<(i128, i128)> {
+    pub(crate) fn as_ratio(self) -> Option<(i128, i128)> {
         Some((self.units, pow10(self.scale)?))
     }
 
@@ -439,6 +443,35 @@ pub fn frame_before(t: i64, fps: i64) -> Option<Sampled> {
 
 fn ceil_div(numerator: i128, denominator: i128) -> i128 {
     -floor_div(-numerator, denominator)
+}
+
+/// The whole millisecond frame `n` is painted at: `⌊n × 1000 / fps⌋`.
+///
+/// The one place this floor is spelled: for `render`'s frame loop, for its `volume`
+/// commands, and for every tile `frame`'s range mode samples (#488). They must all sample
+/// the same instants, or a fade would be heard on a different clock from the one it is
+/// seen on, and a tile would not be a frame the render emits.
+pub(crate) fn instant_of(n: i64, fps: i64) -> i64 {
+    ((i128::from(n) * 1000) / i128::from(fps)) as i64
+}
+
+/// The instant the whole render ends at: the declared `duration`, or the last boundary
+/// any element states — the same derived `duration` [`crate::slack`] uses.
+///
+/// Here rather than in `render` because `preview`, `verify` and `validate`'s quantization
+/// check ask it too.
+pub(crate) fn extent(document: &Loose) -> Option<i64> {
+    document
+        .value()
+        .get("duration")
+        .and_then(Value::as_i64)
+        .or_else(|| {
+            document
+                .elements()
+                .filter_map(|element| element.get("end").and_then(Value::as_i64))
+                .max()
+        })
+        .filter(|end| *end > 0)
 }
 
 /// **ADR-0013/ADR-0015's `cover`/`contain` rule**: `cover` or `contain`. `literal` names

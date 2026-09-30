@@ -32,15 +32,27 @@
 //! frame-exact, *"the non-obvious fact one agent found only by building a private
 //! checker"*.
 //!
+//! ADR-0105 adds a third condition on ADR-0006's own reason for the first two:
+//!
+//! 3. **A visual state the grid never paints.** Two boundaries on *different* elements
+//!    less than a frame apart bound a span whose visual presence set the document declares
+//!    and no frame shows. No element vanishes and no track gains a gap, so neither (1) nor
+//!    (2) sees it — *"one fact, arrived at through two elements rather than one"*. The
+//!    states are [`cuts::visual_states`] (ADR-0094 §1), and [`unpainted_states`] is the
+//!    finding. `frame`'s range mode tiles the same selection and raises the same finding
+//!    for each `no-grid-frame` run (#488).
+//!
 //! On a project where quantization changes nothing, this check emits nothing at all.
 
 use serde_json::{Value, json};
 
-use crate::exact;
+use crate::exact::{self, extent, instant_of};
 use crate::finding::{Class, Finding};
 use crate::permissive::Loose;
 use crate::report::Report;
 use crate::track;
+use crate::verbs::query::Named;
+use crate::verbs::query::cuts::{self, Interval};
 
 /// The whole project, against its own frame grid.
 ///
@@ -54,6 +66,19 @@ pub fn check(document: &Loose, report: &mut Report) {
         return;
     };
 
+    vanished(document, fps, report);
+
+    // Over the whole clock the render paints: `[0, extent)`, the range `render` with no
+    // `--from`/`--to` draws frames for.
+    if let Some(end) = extent(document) {
+        for finding in unpainted_states(document, fps, 0, end) {
+            report.push(finding);
+        }
+    }
+}
+
+/// ADR-0006's two conditions: an element, or a gap in one track, that no frame falls in.
+fn vanished(document: &Loose, fps: i64, report: &mut Report) {
     let mut changed: Vec<i64> = Vec::new();
     let mut detail: Vec<String> = Vec::new();
 
@@ -103,4 +128,161 @@ pub fn check(document: &Loose, report: &mut Report) {
             .field("changed", json!(changed.len()))
             .field("detail", json!(detail.join("; "))),
     );
+}
+
+/// One `N-QUANTIZATION` per visual state in `states` that holds no painted frame
+/// `⌊n × 1000 / fps⌋`. `validate` raises it, and `frame`'s range mode raises it through this
+/// same function (#488), so the state has one identity whichever verb saw it (ADR-0105 §5).
+/// Crate-visible, not private, for that second caller.
+///
+/// ADR-0118 ratifies this shape. One finding per state, not one for the document as (1) and (2) are: a state is the unit
+/// the sheet skips, and `frame` raises one per `no-grid-frame` run. A state that is unpainted
+/// *because* an element inside it vanishes, or because it is a gap, is reported here as well
+/// as above — the spec's condition is "every visual state", and the two findings are about
+/// different subjects, an element and a combination.
+///
+/// The states are [`cuts::visual_states`] over `[from, to)`. What changes at a state's
+/// boundary is read off its neighbours, and a state at either end of the range reads the
+/// visual state just outside it. So a state that closes the document still names what leaves
+/// at its end, and nothing is named at an edge only where nothing visual changes there.
+pub(crate) fn unpainted_states(document: &Loose, fps: i64, from: i64, to: i64) -> Vec<Finding> {
+    let states = cuts::visual_states(&cuts::cuts(document, from, to));
+    // One millisecond either side is enough: the presence set is constant over an interval
+    // and is read at the instant it opens.
+    let outside = |start: i64, end: i64| {
+        cuts::visual_states(&cuts::cuts(document, start, end))
+            .into_iter()
+            .next()
+    };
+    let before_range = outside(from.saturating_sub(1), from);
+    let after_range = outside(to, to.saturating_add(1));
+
+    states
+        .iter()
+        .enumerate()
+        .filter(|(_, state)| {
+            exact::holds_a_sampled_frame(state.start, state.end, fps) == Some(false)
+        })
+        .map(|(index, state)| {
+            let before = match index.checked_sub(1) {
+                Some(previous) => states.get(previous),
+                None => before_range.as_ref(),
+            };
+            let after = states.get(index + 1).or(after_range.as_ref());
+            let opening = Change::between(state.start, before, Some(state));
+            let closing = Change::between(state.end, Some(state), after);
+            // The frames either side: the last one before the state opens and the first one
+            // at or after it closes. Both exist for any state that can be unpainted — one
+            // opening at 0 holds frame 0.
+            let painted = |frame: Option<exact::Sampled>| frame.map(|f| instant_of(f.frame, fps));
+            let previous = painted(exact::frame_before(state.start, fps));
+            let next = painted(exact::frame_at_or_after(state.end, fps));
+
+            let mut detail = format!(
+                "the visual state {}..{} ms {{{}}} holds no painted frame \u{2014} {} and {}",
+                state.start,
+                state.end,
+                state
+                    .present
+                    .iter()
+                    .map(|named| format!("`{}`", name(named)))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                opening.prose(),
+                closing.prose(),
+            );
+            if let (Some(previous), Some(next)) = (previous, next) {
+                detail.push_str(&format!(
+                    ", between the frames painted at {previous} and {next} ms"
+                ));
+            }
+
+            Finding::at_class("N-QUANTIZATION", Class::Review)
+                .at_file(document.path())
+                .field("fps", json!(fps))
+                .field("changed", json!(2))
+                .field("from", json!(state.start))
+                .field("to", json!(state.end))
+                .field(
+                    "present",
+                    json!(state.present.iter().map(name).collect::<Vec<_>>()),
+                )
+                .field("boundaries", json!([opening.to_json(), closing.to_json()]))
+                .field("detail", json!(detail))
+        })
+        .collect()
+}
+
+/// What the visual presence set does at one boundary of a state.
+struct Change<'a> {
+    at: i64,
+    entering: Vec<&'a Named>,
+    leaving: Vec<&'a Named>,
+}
+
+impl<'a> Change<'a> {
+    /// The difference between the states either side of `at`. A missing side is the edge
+    /// of the range, where nothing is named as entering or leaving.
+    fn between(at: i64, before: Option<&'a Interval>, after: Option<&'a Interval>) -> Self {
+        let (Some(before), Some(after)) = (before, after) else {
+            return Change {
+                at,
+                entering: Vec::new(),
+                leaving: Vec::new(),
+            };
+        };
+        let missing_from = |from: &'a Interval, of: &'a Interval| -> Vec<&'a Named> {
+            of.present
+                .iter()
+                .filter(|named| !from.present.contains(named))
+                .collect()
+        };
+        Change {
+            at,
+            entering: missing_from(before, after),
+            leaving: missing_from(after, before),
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        let members = |list: &[&Named]| -> Value {
+            list.iter()
+                .map(|named| json!({"element": name(named), "track": named.track}))
+                .collect()
+        };
+        json!({
+            "at": self.at,
+            "entering": members(&self.entering),
+            "leaving": members(&self.leaving),
+        })
+    }
+
+    /// `` `a` (track `a`) leaves at 1010 ms ``, one clause per element.
+    fn prose(&self) -> String {
+        let clauses: Vec<String> = self
+            .leaving
+            .iter()
+            .map(|named| (named, "leaves"))
+            .chain(self.entering.iter().map(|named| (named, "enters")))
+            .map(|(named, verb)| match &named.track {
+                Some(track) => format!(
+                    "`{}` (track `{track}`) {verb} at {} ms",
+                    name(named),
+                    self.at
+                ),
+                None => format!("`{}` {verb} at {} ms", name(named), self.at),
+            })
+            .collect();
+        if clauses.is_empty() {
+            format!("the range's edge is at {} ms", self.at)
+        } else {
+            clauses.join(", ")
+        }
+    }
+}
+
+/// An element's id, or `(no id)` for one without. `query`'s own placeholder also carries
+/// the element's traversal index, which a state's members do not keep.
+fn name(named: &Named) -> String {
+    named.id.clone().unwrap_or_else(|| "(no id)".to_string())
 }

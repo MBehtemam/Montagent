@@ -688,7 +688,14 @@ fn an_element_no_sampled_frame_falls_inside_is_what_quantization_changes() {
     // 1000 ms), so nothing can round out of existence." Here one is.
     let report = report_on(&track("photo", 10, &rect("blink", 1001, 1020)));
 
-    assert_eq!(codes(&report), ["N-QUANTIZATION"]);
+    // Twice: once for the element, and once for the visual state `1001..1020 {blink}` it
+    // is the whole of — ADR-0105's third condition is "every" unpainted state, and the two
+    // findings name different subjects. The element's comes first.
+    assert_eq!(codes(&report), ["N-QUANTIZATION", "N-QUANTIZATION"]);
+    assert_eq!(
+        report.findings[1].fields["present"],
+        serde_json::json!(["blink"])
+    );
     let finding = &report.findings[0];
     // ADR-0006: "Escalate to `review` only for the cases in (1) and (2)" — and this is
     // case (1) verbatim. The `N-` prefix is not the class: "the prefix is a convention and
@@ -715,7 +722,13 @@ fn a_gap_no_sampled_frame_falls_inside_is_the_other_half() {
         &format!("{},{}", rect("a", 0, 1001), rect("b", 1020, 3000)),
     ));
 
-    assert_eq!(codes(&report), ["N-TRACK-GAP", "N-QUANTIZATION"]);
+    // And the gap is also the visual state `1001..1020 {}`, which the third condition
+    // reports on its own (ADR-0105).
+    assert_eq!(
+        codes(&report),
+        ["N-TRACK-GAP", "N-QUANTIZATION", "N-QUANTIZATION"]
+    );
+    assert_eq!(report.findings[2].fields["present"], serde_json::json!([]));
     assert!(
         report.findings[1].fields["detail"]
             .as_str()
@@ -757,8 +770,8 @@ fn the_grid_is_fps_dependent_and_not_the_intuitive_step() {
     );
     assert_eq!(
         codes(&validate(&narrower)),
-        ["N-QUANTIZATION"],
-        "and 34..35 sits between two of them"
+        ["N-QUANTIZATION", "N-QUANTIZATION"],
+        "and 34..35 sits between two of them — as an element, and as a visual state"
     );
 }
 
@@ -773,6 +786,119 @@ fn quantization_says_nothing_about_the_committed_fixture() {
     montagent_core::checks::quantization::check(&document, &mut report);
 
     assert!(report.findings.is_empty(), "{:?}", report.findings);
+}
+
+// ---------------------------------------------------------------------------
+// The third condition: a visual state the grid never paints (ADR-0105, #437).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_visual_state_the_grid_never_paints_is_quantization_at_review() {
+    // ADR-0105 §6: "frames paint at 1000 and 1040", so `1010..1030 {bg}` is declared and
+    // never shown — and no element rounds out of existence and no track gains a gap, so
+    // neither of ADR-0006's first two conditions reaches it.
+    let report = validate(&common::unpainted_fixture());
+
+    assert_eq!(codes(&report), ["N-QUANTIZATION"]);
+    assert_eq!(
+        report.exit_code(),
+        ExitCode::Ok,
+        "review never gates (ADR-0011)"
+    );
+    let finding = &report.findings[0];
+    assert_eq!(finding.class, Class::Review);
+    assert_eq!(finding.fields["fps"], 25);
+    assert_eq!(finding.fields["changed"], 2, "the state's two boundaries");
+    assert_eq!(finding.fields["from"], 1010);
+    assert_eq!(finding.fields["to"], 1030);
+    assert_eq!(finding.fields["present"], serde_json::json!(["bg"]));
+    assert_eq!(
+        finding.fields["boundaries"],
+        serde_json::json!([
+            {"at": 1010, "entering": [], "leaving": [{"element": "a", "track": "a"}]},
+            {"at": 1030, "entering": [{"element": "b", "track": "b"}], "leaving": []},
+        ]),
+        "the two boundaries, each as element, track and ms"
+    );
+    assert_eq!(
+        finding.fields["detail"],
+        "the visual state 1010..1030 ms {`bg`} holds no painted frame \u{2014} `a` (track `a`) \
+leaves at 1010 ms and `b` (track `b`) enters at 1030 ms, between the frames painted at 1000 \
+and 1040 ms"
+    );
+
+    let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+    assert!(
+        rendered.contains("quantization at 25 fps changes 2 boundaries: the visual state"),
+        "{rendered}"
+    );
+}
+
+#[test]
+fn an_audio_boundary_never_makes_a_visual_state() {
+    // ADR-0094 §1: audio is dropped and equal neighbours re-merged, so a narration ending
+    // 20 ms before a picture changes cuts `query`'s list and not the visual states — the
+    // fixture's own 56112..56116 shape (ADR-0105 §6).
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &project(&format!(
+            "{},{},{}",
+            track("bg", 0, &rect("bg", 0, 2000)),
+            track("photo", 10, &rect("b", 1030, 2000)),
+            track(
+                "narration",
+                20,
+                r##"{"id":"vo","type":"audio","start":0,"end":1010,"source_start":0,"source_end":1010}"##
+            ),
+        )),
+    );
+    let document = parse::read(&path).expect("parses");
+    let mut report = Report::new("validate", Some(document.path().to_string()));
+
+    montagent_core::checks::quantization::check(&document, &mut report);
+
+    assert!(report.findings.is_empty(), "{:?}", report.findings);
+}
+
+#[test]
+fn every_unpainted_visual_state_is_its_own_finding() {
+    // One finding per state, not one for the document: it is the identity `frame`'s range
+    // mode raises per `no-grid-frame` run (ADR-0105 §5), and the same state must be the
+    // same finding from both verbs.
+    let report = report_on(&format!(
+        "{},{},{}",
+        track("bg", 0, &rect("bg", 0, 3000)),
+        track(
+            "a",
+            10,
+            &format!("{},{}", rect("a1", 0, 1010), rect("a2", 2010, 3000))
+        ),
+        track(
+            "b",
+            20,
+            &format!("{},{}", rect("b1", 1030, 2000), rect("b2", 2000, 2030))
+        ),
+    ));
+
+    let states: Vec<(i64, i64)> = report
+        .findings
+        .iter()
+        .filter(|finding| finding.code == "N-QUANTIZATION" && finding.fields.contains_key("from"))
+        .map(|finding| {
+            (
+                finding.fields["from"].as_i64().unwrap(),
+                finding.fields["to"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        [(1010, 1030), (2010, 2030)],
+        "{:?}",
+        report.findings
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -988,4 +1114,26 @@ fn a_gap_is_never_declared_as_able_to_be_an_error() {
     // because the severity rule above could be misread as overturning it."
     let gap = montagent_core::registry::spec("N-TRACK-GAP").unwrap();
     assert!(!gap.may_error());
+}
+
+#[test]
+fn an_unpainted_state_at_the_end_still_names_what_leaves_there() {
+    // The last state has no neighbour inside `[0, extent)`, but its closing boundary is
+    // still two elements' `end`, and #437's `detail` names "the two boundaries (element,
+    // track, ms)". Frames paint at 1960 and 2000, so `1990..2000 {bg}` holds none.
+    let report = report_on(&format!(
+        "{},{}",
+        track("bg", 0, &rect("bg", 0, 2000)),
+        track("a", 10, &rect("a", 0, 1990)),
+    ));
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.fields.get("from") == Some(&serde_json::json!(1990)))
+        .unwrap_or_else(|| panic!("{:?}", report.findings));
+    assert_eq!(
+        finding.fields["boundaries"][1],
+        serde_json::json!({"at": 2000, "entering": [], "leaving": [{"element": "bg", "track": "bg"}]}),
+    );
 }

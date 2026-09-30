@@ -261,3 +261,112 @@ fn a_video_with_no_audio_stream_is_a_note_and_does_not_withhold_the_file() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// ADR-0121: a partial render's world effects stop at its range, and it says so
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_partial_render_publishes_past_a_world_effect_outside_its_range_and_says_so() {
+    if !has_ffprobe() {
+        eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
+        return;
+    }
+    #[cfg(not(unix))]
+    {
+        eprintln!("skipped: needs POSIX permissions to make a present file unreadable");
+        return;
+    }
+    let dir = tempdir(line!());
+    let source = narration(&dir, "vo.mp3");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.join(&source), std::fs::Permissions::from_mode(0o000))
+            .expect("chmod");
+    }
+    // The unmixable element sits at 1000..2000, wholly outside the partial range 0..1000.
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &format!(
+            r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                "duration":2000,"output":"out/p.mp4",
+                "tracks":[{{"name":"only","layer":0,"elements":[
+                    {{"id":"vo","type":"audio","start":1000,"end":2000,
+                      "source":"{source}","source_start":0,"source_end":1000}}]}}]}}"##
+        ),
+    );
+    let boundary = |json: &serde_json::Value| -> Vec<String> {
+        json["not_checked_also"]
+            .as_array()
+            .map(|lines| {
+                lines
+                    .iter()
+                    .filter_map(|line| line.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
+    // The full render refuses on the element: this is ADR-0093, unchanged.
+    let full = rendered(&path);
+    assert_eq!(
+        full.report().exit_code(),
+        ExitCode::Errors,
+        "{:?}",
+        full.report().findings
+    );
+    assert!(
+        !boundary(&full.to_json())
+            .iter()
+            .any(|line| line.contains("partial render")),
+        "a full render states no partial scope: {:?}",
+        boundary(&full.to_json())
+    );
+
+    // The partial render publishes: it is never the deliverable, and its file is right for
+    // its range.
+    let partial = render(
+        &path,
+        &Ask {
+            from: Some(0),
+            to: Some(1000),
+            ..Ask::default()
+        },
+        &mut |_: Progress| {},
+    );
+    assert_eq!(
+        partial.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        partial.report().findings
+    );
+    assert!(
+        partial.video().is_some(),
+        "the partial render wrote nothing"
+    );
+
+    // And it now says where its world effects stopped, in the JSON and in the text.
+    let json = partial.to_json();
+    let scope: Vec<String> = boundary(&json)
+        .into_iter()
+        .filter(|line| line.contains("partial render"))
+        .collect();
+    assert_eq!(scope.len(), 1, "{:?}", boundary(&json));
+    assert!(scope[0].contains("0..1000 ms"), "{}", scope[0]);
+    assert!(
+        scope[0].contains("says nothing about whether the full render will pass"),
+        "{}",
+        scope[0]
+    );
+    let prose = montagent_core::text::render(&json, montagent_core::text::Options::default())
+        .expect("the report renders");
+    assert!(prose.contains("0..1000 ms"), "{prose}");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(dir.join(&source), std::fs::Permissions::from_mode(0o644));
+    }
+}

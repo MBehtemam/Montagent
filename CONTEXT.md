@@ -687,7 +687,11 @@ and `-` departed, highest layer, tie-broken on element id, whole-document-span e
 excluded. "Not present in every tile of this sheet" is rejected because it is
 **range-dependent**: the same instant would label differently depending on the range asked for.
 The label is a **pointer, not a census** — one id cannot name both planted defects, and the
-provenance list is the census.
+provenance list is the census. The candidates are the elements that **entered**, and the ones
+that departed only where nothing entered; the greatest element id breaks a layer tie. Every label
+on a sheet is drawn at **one type size**, and a run tile with nothing nameable to report prints
+`=`. The arity is fixed **within a sheet**, not across sheets: after the sheet-wide elision every
+label has four fields, and the answer says so ([ADR-0128](docs/adr/0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md)).
 _Avoid_: caption (that is the single-frame block), tile title, gist, gutter text, the
 discriminating element
 
@@ -715,6 +719,11 @@ declares a path that does not exist, so chrome built on it fails hardest on the 
 likely to be broken. Never a system font either — across ADR-0064's six targets the fitted type
 size, and so the served type floor and the measured `295/chars` law, would mean a different thing
 per platform. Tabular figures, and the build fails loudly rather than falling back.
+It is **JetBrains Mono NL Regular**, embedded in the binary (`include_bytes!`, so its absence
+is a compile error) and never registered where a project's text could reach it
+([ADR-0122](docs/adr/0122-the-chrome-face-is-an-embedded-ligature-free-monospace-and-ofl-joins-the-allowlist.md)).
+Monospaced and ligature-free, so for this face the `295/chars` law is exact arithmetic — every
+character advances 600/1000 em. The code calls it the *chrome face* (`fonts::chrome`).
 _Avoid_: the label font (ambiguous with a project's declared fonts), a fallback font, the
 system face
 
@@ -752,7 +761,9 @@ frame the grid paints, because the two boundaries around it land on one frame. T
 declares it and the rendered video never shows it, so it is a fact about the **document**,
 reported as `N-QUANTIZATION` at `review`
 ([ADR-0105](docs/adr/0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)).
-The contact sheet draws no tile for it and names it in `skipped` with reason `no-grid-frame`.
+`validate` reports every one, and the contact sheet draws no tile for it and names it in
+`skipped` with reason `no-grid-frame` — one finding, from one selection of visual states, in
+both verbs.
 Distinct from a **skipped** entry in general: an infill tile evicted under budget is also
 skipped, and that is a fact about the answer, not the document. A span that differs from its
 neighbours only in audio is not a visual state at all — the fixture's 4 ms interval at
@@ -830,16 +841,19 @@ _Avoid_: rule, lint, validator (a check is not a tool)
 **Check set**:
 A named group of checks that a run either completes or does not. A report records
 the ones it completed, and records a set only once the set finishes. There are
-four: `document` (validate's checks that read only the file and its fonts), `disk`
+five: `document` (validate's checks that read only the file and its fonts), `disk`
 (validate's checks that need the media tools), `layout` (the one check `fmt` runs),
-and `drift` (`compare`'s own). Running `validate` means running `document` and then
+`drift` (`compare`'s own), and `deliverable` (`verify`'s measurement of the
+rendered file). Running `validate` means running `document` and then
 `disk`, and the split is there because a run can stop between the two: with
 `ffprobe` missing, the document half's findings stand and the disk half never
 runs. A project with no media completes `disk` trivially. A check set is not a
-class. A verb that runs no check set can still raise an `error`, because a refusal
-is a finding without being a check. So a zero means something only for a class
-that some completed set could have raised.
-([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+class. A verb that runs no check set can still raise a finding: a refusal is a
+finding without being a check, and so is the `N-QUANTIZATION` that `frame`'s range
+mode raises. So a zero means something only for a class that some completed set
+could have raised.
+([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md),
+[ADR-0119](docs/adr/0119-verify-s-measurement-is-a-fifth-check-set-and-a-checkless-verb-s-finding-prints-after-its-scope.md))
 _Avoid_: engine, scoreboard, scope (that is the NOT CHECKED block's), coverage
 (reads as test coverage); `validate` as a set name (it is the verb that runs two)
 
@@ -869,8 +883,15 @@ document, the media on disk and the published rendering semantics.
 *Refuse-class* states `"none"`, when the fix depends on knowing what the author
 meant — and that refusal is a guarantee no flag, force mode or write tool may
 lift. Which of the two a check emits is decided once, when the check is written,
-and holds for every instance it matches, including the ones that look safe. It
-is orthogonal to class, not a fourth severity. Whether the binary reaches
+and holds for every instance it matches, including the ones that look safe.
+Where the refusal is an intent fork, a fact that bears on only one branch, or
+names a concrete candidate for one branch, is a repair by another name, and the
+finding does not carry it; naming the complete set of legal options, unranked
+and covering every branch, or the refusal's own consent handle is not one, and
+nor is a census. A consent handle names the fact the finding reported and is
+refused when it does not match; anything that lifts a refusal without naming
+what it consents to is a bypass, and there is none. It is orthogonal to class,
+not a fourth severity. Whether the binary reaches
 findings that are not about a document at all — a file that would not parse, an
 invocation that was wrong — is open
 ([#224](https://github.com/MBehtemam/Montagent/issues/224)).
@@ -1016,6 +1037,19 @@ the rule.
 _Avoid_: commit (spoken for by git), publish step, finalize, atomic write (that is
 the mechanism, not the decision)
 
+**Partial render**:
+A `render` of a half-open range `[from, to)`, written to a derived path and refused
+if that path is the declared `output`, so it is never a **deliverable**. Its
+analysis is split, and its report says so: every `validate` check runs on the whole
+project and any `error` refuses it, while **world-effects** are established only
+inside the range. So a partial render can publish its file over a world-effect that
+would refuse the full render, and a clean one says nothing about whether the full
+render will pass. Its findings are the whole project's, printed as any report's are.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0093](docs/adr/0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md),
+[ADR-0121](docs/adr/0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md))
+_Avoid_: scene render, draft render, preview (a different verb with its own budget)
+
 **Attestation**:
 What a **deliverable** carries saying which project wrote it — a `comment` tag on
 the container holding the project file's **observed identity**, stamped at the
@@ -1030,12 +1064,42 @@ project's attestation is refused **before the encoder is spawned**; one bearing 
 is a `review`, because *no evidence* is weaker than *evidence of someone else* and
 `error` means the render is refused or **guaranteed** wrong. A **preview** never
 attests: it is not a deliverable, and a stamp would hand the next `render` a forged
-licence to clobber.
+licence to clobber. Since `montagent/2` it also carries a **staleness digest** and the
+engine version, so it says *what* was rendered as well as *who* rendered it; ownership
+is still the project identity alone, and a `montagent/1` stamp is still this project's.
 ([ADR-0104](docs/adr/0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md),
-[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md))
+[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md),
+[ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
 _Avoid_: watermark (it is metadata, not pixels), signature (nothing is verified
 cryptographically and nothing is meant to resist forgery), ownership, provenance
 (too broad — this is one question, not a history)
+
+**Stale**:
+Said of a **deliverable** whose **attestation** is this project's and whose staleness
+digest no longer matches the project as it stands: the document in canonical (`fmt`)
+form, every local source's content fingerprint, and every font's `sha256`. A
+whitespace or key-order edit is not staleness, because it renders identically; a
+source swapped on disk is, even with its size and mtime unchanged (a **renumbering
+shuffle**). The engine version is not in the digest, so an upgrade stales nothing.
+`verify` reports a stale file as **one** `error` and measures nothing, because every
+mismatch it would find descends from that one change. A digest that could not be
+computed, or a stamp with none, is *staleness unknown*, never stale.
+([ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
+_Avoid_: out of date (says nothing about which input moved), dirty (git's word),
+outdated render
+
+**Should be heard**:
+Where `verify` expects the mix to carry energy: an `audio` or `video` element is in
+range, its source has an audio stream, and its resolved `volume` is above 0 on that
+frame. A keyframed fade to 0 stops it being heard, and without `overrun: "loop"` an
+element stops being heard where its source runs out. It is a claim about **spans**,
+not elements: the file carries one mixed track, so a silent element under an audible
+one cannot be seen in it, and `verify` says so in its `NOT CHECKED`. Where the mix is
+below R128's −70 LUFS gate inside such a span for at least a 400 ms block, the census
+splits the elements by whether their own source is silent there (the author's
+material) or audible (the engine).
+([ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
+_Avoid_: audible (a measurement, not an expectation), expected audio, has sound
 
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
@@ -1044,9 +1108,12 @@ cannot tell you whether it says what you meant it to say. It is there because
 without it a clean run is read as *"the file is right"*, which is the rejected
 `sequence` label wearing a `validate` label instead. A report that did not
 complete both of validate's check sets also says here which did not run, so a
-verb that checks nothing does not end with `validate`'s statement of scope.
+verb that checks nothing does not end with `validate`'s statement of scope. A verb
+with limits of its own lists them beneath it, one bullet each (`not_checked_also`):
+`render` names `verify`, and `verify` states what one mixed track cannot show.
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
-[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md),
+[ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
 _Avoid_: caveat, disclaimer, limitations
 
 **Resource**:
@@ -1069,11 +1136,11 @@ _Avoid_: asset, document, endpoint, attachment; and never for an element's
 
 **Verb**:
 One operation on the surface — `validate`, `query`, `frame`, `measure`,
-`compare`, `render`, `preview`, `shift`, `create_project`, `probe`, `fmt`,
+`compare`, `render`, `preview`, `verify`, `shift`, `create_project`, `probe`, `fmt`,
 `timeline`. The surface's job is to make reading, checking, comparing and
 rendering cheap, not to provide editing verbs: the agent edits the file with the
-tools it is already strongest with. Nine are MCP tools and twelve are CLI
-commands, and the asymmetry is deliberate — an MCP schema costs context on every
+tools it is already strongest with. Ten are MCP tools and thirteen are CLI
+commands (nine and twelve until `verify`, [ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md)), and the asymmetry is deliberate — an MCP schema costs context on every
 turn, a CLI subcommand costs nothing until invoked. Every write verb returns the
 new state's findings, never an `ok`. (`preview` was missing from ADR-0011's
 table, which this entry calls authoritative;

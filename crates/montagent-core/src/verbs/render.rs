@@ -122,12 +122,12 @@ use serde_json::{Value, json};
 use montagent_render::canvas::{Canvas, Rgba};
 use montagent_render::encode::{self, Encoder, Spec};
 
-use crate::exact::{self, Decimal};
+use crate::exact::{self, Decimal, extent, instant_of};
 use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
-use crate::media::{Source, attest, display_local, probe, tools};
+use crate::media::{Source, attest, digest, display_local, probe, tools};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
@@ -140,6 +140,34 @@ const TOOL: &str = "render";
 /// The mix bus's sample rate. Every input is resampled to it first, which is what makes a
 /// loop's sample count computable from the document alone.
 const MIX_RATE: i64 = 48_000;
+
+/// ADR-0117: what `render` states it did not check, beside ADR-0006's sentence — and the verb
+/// that does.
+///
+/// `render` asks *"did I intend to put X in?"*; nothing in it measured the file it wrote. It
+/// does not run `verify` itself: a `verify` `error` in this report would sit beside a file
+/// already published, which breaks ADR-0093's *"a file at the output path is a zero-error
+/// render"*, and a witness sharing this process's parsed model is not independent.
+pub const NOT_VERIFIED: &str = "Whether the file written carries what this document says it \
+should. render reports what it intended to put in; run `montagent verify <project>` to measure \
+the deliverable with the decoder before calling it done.";
+
+/// ADR-0121: what a partial render states it did not look at, beside [`NOT_VERIFIED`].
+///
+/// Its analysis is split, and until this line its report did not say so. Every `validate`
+/// check runs on the whole project first and any `error` refuses, but the world-effects
+/// (ADR-0093) are read off the span: [`Mix::of`] reads only the audible elements inside
+/// `[from, to)`, and the painter paints only those frames. So an element that cannot be mixed
+/// at 200 s refuses the full render and not `--from 0 --to 1000`, which is right — a partial
+/// render is never the deliverable, and its file is correct for its range — and was silent.
+fn partial_scope(from: i64, to: i64) -> String {
+    format!(
+        "Whether anything outside {from}..{to} ms would stop the full render. This was a \
+partial render: every validate check ran on the whole project, but elements not mixed, not \
+painted or painted without a field (ADR-0093) are looked for only inside that range, so a \
+clean partial render says nothing about whether the full render will pass."
+    )
+}
 
 /// What one `render` invocation is asking.
 #[derive(Debug, Clone, Default)]
@@ -213,6 +241,9 @@ pub fn cancelled_after(tool: &str, done: u64, of: u64) -> String {
 pub struct Answer {
     video: Option<Video>,
     report: Report,
+    /// The range of a partial render, wherever the invocation settled one — refused or not,
+    /// since the scope of what `render` looked for is the same either way. ADR-0121.
+    partial: Option<(i64, i64)>,
 }
 
 impl Answer {
@@ -229,13 +260,18 @@ impl Answer {
     /// the render was refused or failed, so a consumer reads the absence off a key that is
     /// always there.
     pub fn to_json(&self) -> Value {
-        self.report.to_json_with(
+        let mut json = self.report.to_json_with(
             "render",
             match &self.video {
                 Some(video) => serde_json::to_value(video).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        )
+        );
+        crate::report::extend_boundary(&mut json, &[NOT_VERIFIED]);
+        if let Some((from, to)) = self.partial {
+            crate::report::extend_boundary(&mut json, &[&partial_scope(from, to)]);
+        }
+        json
     }
 }
 
@@ -302,6 +338,19 @@ pub fn render(path: &FilePath, ask: &Ask, progress: &mut dyn FnMut(Progress)) ->
 /// (ADR-0109). A cancel that arrives after the publish is too late to matter: the render had
 /// already succeeded, and the file at `output` is exactly the one it made.
 pub fn render_cancellable(
+    path: &FilePath,
+    ask: &Ask,
+    progress: &mut dyn FnMut(Progress),
+    cancel: Option<&Cancel>,
+) -> Answer {
+    let mut answer = run(path, ask, progress, cancel);
+    // `request` is a pure function of the flags, so reading it again here names the same
+    // range the run used — and on an invocation it rejected, none.
+    answer.partial = request(ask).ok().flatten();
+    answer
+}
+
+fn run(
     path: &FilePath,
     ask: &Ask,
     progress: &mut dyn FnMut(Progress),
@@ -414,12 +463,24 @@ pub fn render_cancellable(
     // pre-flightable is pre-flighted, so the render that must not happen costs no wall
     // clock. The injury this prevents is measured in ninety-minute encodes, and discovering
     // it at promotion time would prevent the destruction while still spending the clock.
-    let stamp = attest::stamp(FilePath::new(document.path()));
-    match attest::of(&probe::ProcessRunner, &resolved, &output, &stamp) {
+    //
+    // ADR-0117: the stamp now also records what was rendered — the digest `verify` compares
+    // — and ownership is still the project identity alone, so a `montagent/1` deliverable
+    // from before the digest existed is `Mine` here like any other.
+    let stamp = attest::stamp(
+        FilePath::new(document.path()),
+        digest::of(&document).known(),
+    );
+    match attest::of(
+        &probe::ProcessRunner,
+        &resolved,
+        &output,
+        FilePath::new(document.path()),
+    ) {
         // Nothing there, or this project's own last answer. Re-rendering over yourself is
         // the normal loop — four attempts at one cut is what the source incident describes —
         // and is never a finding.
-        attest::Attestation::Vacant | attest::Attestation::Mine => {}
+        attest::Attestation::Vacant | attest::Attestation::Mine(_) => {}
         attest::Attestation::Foreign { project } => {
             report.push(
                 Finding::new("E-OUTPUT-FOREIGN")
@@ -546,6 +607,7 @@ pub fn render_cancellable(
         Ok(video) => Answer {
             video: Some(video),
             report,
+            partial: None,
         },
         // The encode was whole and the rename was not. Nothing is at the declared path.
         Err(reason) => {
@@ -956,13 +1018,21 @@ fn refused(report: Report) -> Answer {
     Answer {
         video: None,
         report,
+        partial: None,
     }
 }
 
 /// The range asked for, or `None` for the whole project — or the one sentence saying why
 /// the flags ask for no render.
 pub(crate) fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
-    match (ask.from, ask.to) {
+    range(ask.from, ask.to)
+}
+
+/// A `--from`/`--to` pair as every verb that takes one reads it: both or neither, half-open,
+/// and not before the clock starts. `frame`'s range mode reads its pair here too (#488), so
+/// the two verbs cannot disagree about what a range is (ADR-0097 §1).
+pub(crate) fn range(from: Option<i64>, to: Option<i64>) -> Result<Option<(i64, i64)>, String> {
+    match (from, to) {
         (None, None) => Ok(None),
         (Some(from), Some(to)) => {
             if from < 0 {
@@ -981,22 +1051,6 @@ pub(crate) fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
         (Some(_), None) => Err("`--from` needs a `--to`: a range is half-open `[from, to)`".into()),
         (None, Some(_)) => Err("`--to` needs a `--from`: a range is half-open `[from, to)`".into()),
     }
-}
-
-/// The instant the whole render ends at: the declared `duration`, or the last boundary
-/// any element states — the same derived `duration` [`crate::slack`] uses.
-pub(crate) fn extent(document: &Loose) -> Option<i64> {
-    document
-        .value()
-        .get("duration")
-        .and_then(Value::as_i64)
-        .or_else(|| {
-            document
-                .elements()
-                .filter_map(|element| element.get("end").and_then(Value::as_i64))
-                .max()
-        })
-        .filter(|end| *end > 0)
 }
 
 /// Where the video goes (ADR-0011, stories 55 and 56).
@@ -1474,15 +1528,6 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
-}
-
-/// The whole millisecond frame `n` is painted at: `⌊n × 1000 / fps⌋`.
-///
-/// The one place the module doc's floor is spelled, for the frame loop and for the
-/// `volume` commands alike — the two must sample the same instants, or a fade would be
-/// heard on a different clock from the one it is seen on.
-pub(crate) fn instant_of(n: i64, fps: i64) -> i64 {
-    ((i128::from(n) * 1000) / i128::from(fps)) as i64
 }
 
 /// Milliseconds as `ffmpeg`'s decimal seconds — in the string, never through a float

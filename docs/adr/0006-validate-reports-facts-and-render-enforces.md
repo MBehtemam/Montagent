@@ -2,12 +2,18 @@
 status: accepted
 ---
 
+> **Amended by [ADR-0117](0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md).** The `NOT CHECKED` block may be followed by a verb's own
+> limits, as `not_checked_also` — one bullet each in the text form. The block's sentence is not
+> edited; `render` uses it to name `verify`, and `verify` to state what an independent witness of
+> one mixed track cannot see.
+
 > **Amended by [ADR-0105](0105-the-sheets-refusals-are-invocation-errors-its-blind-spots-are-not-findings-and-an-unpainted-state-is-quantization.md)**, which gives `N-QUANTIZATION` a **third `review`
 > escalation condition** beside the two above: a **visual state the grid never paints** — two
 > boundaries on different elements landing on one frame, so the combination the document declares
 > for that span is never on screen. Same reason as the other two: *"the rendered frames do not
 > show what the document declares."* `frame`'s range mode emits it for a `no-grid-frame` skipped
-> run; `validate` does not detect it yet ([#437](https://github.com/MBehtemam/Montagent/issues/437)).
+> run, and `validate` reports it too, one finding per state
+> ([#437](https://github.com/MBehtemam/Montagent/issues/437)).
 
 # `validate` reports facts, and `render` is what enforces them
 

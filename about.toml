@@ -57,6 +57,10 @@ accepted = [
     # oracle and `compiled_data` puts the Unicode tables in the binary, so the
     # Unicode licence is attribution this binary genuinely owes.
     "Unicode-3.0",
+    # The chrome face `frame` draws its labels in (#421), embedded with `include_bytes!`.
+    # Its reciprocal clause binds the font software alone, never the program it is bundled
+    # with, so it cannot reach ADR-0009's invariant — ADR-0122, amending ADR-0090.
+    "OFL-1.1",
 ]
 
 # --- Clarifications -----------------------------------------------------------------

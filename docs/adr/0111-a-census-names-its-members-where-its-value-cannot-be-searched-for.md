@@ -5,6 +5,10 @@ amends: 0100 (its §7 known limit, *"it does not make the shared census renderer
 
 # A census names its members where its value cannot be searched for
 
+> **Amended by [ADR-0120](./0120-a-fact-that-bears-on-one-branch-of-a-refuse-fork-is-a-repair-by-another-name.md)**, which discharges §6: `E-FONT-NO-GLYPH`'s
+> census-shaped field is dropped rather than renamed, so the code carries no census and the
+> registry has no exception to *"every code that carries a census declares a mode"*.
+
 **Ticket:** [#470](https://github.com/MBehtemam/Montagent/issues/470), building
 [#427](https://github.com/MBehtemam/Montagent/issues/427)'s
 [rulings](https://github.com/MBehtemam/Montagent/issues/427#issuecomment-5887547798), on the

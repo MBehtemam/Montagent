@@ -3,6 +3,12 @@ status: accepted
 amends: 0093 (extends the promotion rule outward: it made a file at the output path mean *a render with zero errors*, and said nothing about the file that was already there. The invariant now also carries *and the promotion destroyed nothing this project did not write*. Adds the encoder's first identifying metadata, and gives `preview`'s exemption a boundary — exempt from withholding, not licensed to clobber), 0021 (`render` is still the only verb that writes the declared `output`; this states what happens when something else already has)
 ---
 
+> **Amended by [ADR-0117](0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md).** The stamp moves to
+> `montagent/2 engine=<version> digest=<hex|none> project=<path>`: it now also says *what* was
+> rendered, so `verify` can tell a stale deliverable. Ownership is still the project identity
+> alone — `render`'s pre-flight reads `montagent/1` and `montagent/2` alike as `Mine` — and
+> render's output bytes change again.
+
 # The output path is checked for a foreign deliverable before the encoder runs
 
 > **Numbered 0104 and not 0103.** A concurrent session on

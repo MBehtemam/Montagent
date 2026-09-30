@@ -24,6 +24,7 @@ use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
 use crate::parse;
 use crate::permissive::Loose;
+use crate::registry::CheckSet;
 use crate::report::Report;
 
 /// The verb's own name, as it travels in the report. One spelling, so the two exits
@@ -248,12 +249,18 @@ fn run_checks(
     // findings are a set and nothing downstream reads their order — and it is named only so
     // the next reader wondering where a slow run went does not have to measure to find out.
     crate::checks::ink::check(document, report);
+    // ADR-0112: the document half has completed, and its findings stand whatever the disk
+    // half does next — so it is recorded here, before anything below can stop the run.
+    report.record(CheckSet::Document);
 
     // The two checks that need a subprocess, and the only ones that can fail rather than
     // find. Whether one needs to be opened at all is decided once, here, rather than per
     // check: `crate::checks::fit` needs the identical session `crate::checks::source`
     // does, and a project referencing no media has nothing to ask either of them.
     if !document.elements().any(|e| e["source"].is_string()) {
+        // ADR-0112 §4: the disk half was entered, found nothing to probe, and completed.
+        // A no-media run is complete on the wire because it is complete in fact.
+        report.record(CheckSet::Disk);
         return Ok(());
     }
     let mut opened;
@@ -267,6 +274,7 @@ fn run_checks(
         }
     };
     run_disk_checks(document, session, report)?;
+    report.record(CheckSet::Disk);
     // ADR-0115: an `ffmpeg` that failed the tool qualification is an `error` here, because
     // `render` is guaranteed to refuse. After the disk half rather than instead of it — that
     // half needs only `ffprobe` — and in no check set: it is refusal-shaped, not a question

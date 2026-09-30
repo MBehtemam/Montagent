@@ -12,6 +12,7 @@
 //! test as a promise the tool does not make.
 
 use montagent_core::finding::{Class, Finding};
+use montagent_core::registry::CheckSet;
 use montagent_core::report::Report;
 use montagent_core::text;
 use serde_json::{Value, json};
@@ -31,6 +32,9 @@ fn captions_with_no_audio(k: usize) -> Report {
                 .field("duration", json!(900)),
         );
     }
+    // Standing in for a whole validate run, so it records what one would (ADR-0112).
+    report.record(CheckSet::Document);
+    report.record(CheckSet::Disk);
     report
 }
 

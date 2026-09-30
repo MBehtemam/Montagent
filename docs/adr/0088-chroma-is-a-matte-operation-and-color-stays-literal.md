@@ -5,6 +5,12 @@ amends: 0040 (overturns its chroma-key out-of-scope entry, replaces that entry's
 
 # Chroma key is a matte operation, not a colour one: it is admitted, and `color` stays literal
 
+> **Amended by [ADR-0127](0127-a-run-of-frames-is-the-frames-the-render-paints.md).**
+> The coverage series was one to three frames ahead of the render wherever the element started
+> off its source's grid, ran at another rate, was retimed, or used a source starting after zero,
+> and a retimed series covered the wrong span. It now samples the frames the render paints, and
+> `source_fps` reads `fps ÷ speed`.
+
 > **Amended by [ADR-0089](0089-source-alpha-is-a-file-level-reading-and-vp9-needs-its-own-decoder.md).**
 > `R-CHROMA-ON-ALPHA-SOURCE` reaches further than it did here. Its reading was the *pixel
 > format's* alpha, which silently skipped every source carrying alpha in a side stream — so

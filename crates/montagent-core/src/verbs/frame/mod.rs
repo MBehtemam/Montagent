@@ -4,6 +4,10 @@
 //! the primary one (ADR-0021: under 500 ms **cold**, at true pixel dimensions, and
 //! resolution-independent).
 //!
+//! **Given `from`/`to` instead of `at`, it draws a contact sheet of the span**, one tile per
+//! visual state: the `sheet` module's, sized by `sizing`'s (ADR-0094, ADR-0095). The range
+//! mode does not inherit the 500 ms budget (ADR-0095 §5). Everything below is one frame.
+//!
 //! ## Three decisions this verb is built on, all ADR-0011's
 //!
 //! **JPEG at half the project's frame size by default, full scale and PNG behind flags —
@@ -123,6 +127,10 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at::{self, At};
 use crate::verbs::query::geometry::{self, Rect};
 
+mod label;
+mod sheet;
+mod sizing;
+
 const TOOL: &str = "frame";
 
 /// What one `frame` invocation is asking.
@@ -154,6 +162,12 @@ pub struct Ask {
     pub png: bool,
     /// Where to write the bytes. The CLI's; the MCP surface carries the image itself.
     pub out: Option<PathBuf>,
+    /// The span to draw a contact sheet of, half-open `[from, to)` in absolute
+    /// milliseconds, as on `query`, `preview` and `render` (ADR-0097 §1). The pair *is* the
+    /// range mode: there is no `--sheet` flag, both halves are required, and `at` with
+    /// either is refused here, in the verb, so both surfaces inherit the rule (ADR-0097 §2).
+    pub from: Option<i64>,
+    pub to: Option<i64>,
 }
 
 /// One `frame` invocation's answer: the picture, its caption, and the report every verb
@@ -166,6 +180,9 @@ pub struct Answer {
     /// would be megabytes of a form whose whole purpose is to be read.
     image: Option<Encoded>,
     report: Report,
+    /// The contact sheet's record, on a range call that drew one (#488). `None` on every
+    /// single-frame answer and on every refusal, which carries the report alone.
+    sheet: Option<Box<sheet::Sheet>>,
 }
 
 impl Answer {
@@ -186,6 +203,10 @@ impl Answer {
     /// `query --at` answer: it renders through [`crate::text`]'s existing `at_block`, so
     /// the block an agent reads under `frame` is byte-for-byte the block it reads under
     /// `query --at`, and neither can drift from the other.
+    ///
+    /// A range call's answer carries a third key, `sheet`, and `frame` and `query` are
+    /// `null`: a sheet is not one picture of one instant, and its attribution is the
+    /// provenance list (ADR-0097 §8).
     pub fn to_json(&self) -> Value {
         let mut json = self.report.to_json();
         let object = json
@@ -212,7 +233,24 @@ impl Answer {
                 None => Value::Null,
             },
         );
+        if let Some(sheet) = &self.sheet {
+            object.insert(
+                "sheet".to_string(),
+                serde_json::to_value(sheet).unwrap_or(Value::Null),
+            );
+        }
         json
+    }
+
+    /// An answer with no picture of any kind: the report says why.
+    fn refused(report: Report) -> Answer {
+        Answer {
+            picture: None,
+            view: None,
+            image: None,
+            report,
+            sheet: None,
+        }
     }
 }
 
@@ -289,6 +327,20 @@ pub struct Picture {
 pub struct Rasterized {
     pub width: i64,
     pub height: i64,
+}
+
+/// A document whose `frame` holds no integer `width`/`height`: it does not have the shape of
+/// a project, one level down from ADR-0042's missing key. Both modes refuse it alike.
+fn not_a_frame(document: &Loose) -> Finding {
+    Finding::new("E-NOT-A-PROJECT")
+        .at_file(document.path())
+        .field(
+            "missing",
+            Value::String("integer `frame.width`/`frame.height`".to_string()),
+        )
+        .repair_value(serde_json::json!({
+            "value": "give `frame` an integer `width` and `height`, then run validate"
+        }))
 }
 
 /// The one reason two element types give in the same words, so they give it in one place.
@@ -382,13 +434,15 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     // whatever the document says, and ADR-0011 keeps exit 3 apart from exit 1 so that
     // "fix the command" is never read as "fix the project".
     let (instant, crop) = match request(ask) {
-        Ok(request) => request,
+        Ok(Mode::At { instant, crop }) => (instant, crop),
+        Ok(Mode::Range { from, to }) => return sheet::sheet(path, ask, from, to),
         Err(reason) => {
             return Answer {
                 picture: None,
                 view: None,
                 image: None,
                 report: Report::rejected(TOOL, project, reason),
+                sheet: None,
             };
         }
     };
@@ -402,6 +456,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
                 view: None,
                 image: None,
                 report: Report::unparseable(TOOL, project, *finding),
+                sheet: None,
             };
         }
     };
@@ -419,6 +474,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             view: None,
             image: None,
             report,
+            sheet: None,
         };
     }
 
@@ -435,6 +491,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
                 view: None,
                 image: None,
                 report,
+                sheet: None,
             };
         }
     };
@@ -451,22 +508,13 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         // any more than one carrying no `frame` at all. Which *way* it is malformed is
         // `validate`'s schema check to name, and `frame` runs no checks (#212 raises this
         // reading for ratification rather than leaving it to be found here).
-        report.push(
-            Finding::new("E-NOT-A-PROJECT")
-                .at_file(document.path())
-                .field(
-                    "missing",
-                    Value::String("integer `frame.width`/`frame.height`".to_string()),
-                )
-                .repair_value(serde_json::json!({
-                    "value": "give `frame` an integer `width` and `height`, then run validate"
-                })),
-        );
+        report.push(not_a_frame(&document));
         return Answer {
             picture: None,
             view: Some(view),
             image: None,
             report,
+            sheet: None,
         };
     };
 
@@ -493,6 +541,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
                     view: Some(view),
                     image: None,
                     report,
+                    sheet: None,
                 };
             }
         },
@@ -508,6 +557,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             view: Some(view),
             image: None,
             report,
+            sheet: None,
         };
     };
 
@@ -530,6 +580,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             view: Some(view),
             image: None,
             report,
+            sheet: None,
         };
     }
     if let Some(reason) = painter.internal.take() {
@@ -539,6 +590,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             view: Some(view),
             image: None,
             report,
+            sheet: None,
         };
     }
     for finding in std::mem::take(&mut painter.declined) {
@@ -575,6 +627,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
             view: Some(view),
             image: None,
             report,
+            sheet: None,
         };
     };
 
@@ -615,11 +668,70 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         view: Some(view),
         image: Some(encoded),
         report,
+        sheet: None,
     }
 }
 
+/// What the flags ask for: one frame, or a sheet of a span.
+enum Mode {
+    At { instant: i64, crop: Option<Region> },
+    Range { from: i64, to: i64 },
+}
+
+/// The mode, or the one sentence saying why the flags ask for no picture.
+///
+/// **Every refusal here is the verb's, never `clap`'s**, for the reason the CLI adapter
+/// states: the MCP surface takes the same arguments with no `clap` to arrange them
+/// (ADR-0097 §2). A range refuses in this order, and the first that applies is the reason
+/// given (ADR-0125): a mix of the two modes, then the pair itself, then `--crop`, then
+/// `--full`. `--crop` precedes `--full` because its refusal is permanent and names the loop
+/// the caller wants; `--full` alone is only a flag with no referent.
+fn request(ask: &Ask) -> Result<Mode, String> {
+    if ask.from.is_some() || ask.to.is_some() {
+        return range_request(ask);
+    }
+    let (instant, crop) = at_request(ask)?;
+    Ok(Mode::At { instant, crop })
+}
+
+/// A range call's flags (ADR-0097, ADR-0103, ADR-0105 §3).
+fn range_request(ask: &Ask) -> Result<Mode, String> {
+    if ask.at.is_some() {
+        return Err(
+            "`--at` draws one frame and `--from`/`--to` draw a contact sheet of a span; ask \
+             for one or the other"
+                .into(),
+        );
+    }
+    let Some((from, to)) = crate::verbs::render::range(ask.from, ask.to)? else {
+        unreachable!("a range call carries at least one half of the pair")
+    };
+    if ask.crop.is_some() {
+        // ADR-0103: permanent, and the message is the teaching surface.
+        return Err(
+            "`--crop` does not compose with `--from`/`--to`, and never will: a contact sheet \
+             is whole frames by design. Locate with `frame --from/--to`, then look closely \
+             with `frame --crop --at <instant>`, taking the instant from the sheet's \
+             provenance line"
+                .into(),
+        );
+    }
+    if ask.full {
+        // ADR-0097 §4: the tier fact, in one line.
+        return Err(
+            "`--full` has nothing to buy on a contact sheet: its tiles are already painted at \
+             true project pixels, and the sheet is drawn at the size the standard tier serves \
+             (1568 px on its long edge) at every tile count, so a larger one would be \
+             downscaled to the same picture. Drop `--full`, or use `frame --at <instant> \
+             --full` for one frame"
+                .into(),
+        );
+    }
+    Ok(Mode::Range { from, to })
+}
+
 /// The instant and the crop, or the one sentence saying why the flags ask for no frame.
-fn request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
+fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
     // Every instant is a legal question, including one before the project starts and one
     // after it ends — the answer there is the background and an empty caption, which is a
     // fact about the document rather than a malformed call. `query --at` takes the same
@@ -968,14 +1080,16 @@ impl<'a> Painter<'a> {
                     Finding::new("E-EFFECT-UNKNOWN")
                         .field("index", json!(i))
                         // The declared spelling, so the message names what the author
-                        // wrote rather than the vocabulary they missed.
+                        // wrote rather than the vocabulary they missed. An effect is
+                        // tagged on `name` (`model::Effect`), not on `kind` as a
+                        // transition is (#460).
                         .field(
                             "effect",
                             json!(
                                 value
-                                    .get("kind")
+                                    .get("name")
                                     .and_then(Value::as_str)
-                                    .unwrap_or("(no `kind`)")
+                                    .unwrap_or("(no `name`)")
                             ),
                         ),
                 ),

@@ -60,6 +60,7 @@ use serde_json::{Value, json};
 use crate::finding::{Census, Finding};
 use crate::parse;
 use crate::permissive::Loose;
+use crate::registry::CheckSet;
 use crate::report::Report;
 use crate::slack::{self, Edge, Side};
 
@@ -137,6 +138,8 @@ pub fn compare(ref_path: &Path, current_path: &Path) -> Report {
         &current_file,
         &mut report,
     );
+    // ADR-0112: the four predicates are `compare`'s drift checks, and they have completed.
+    report.record(CheckSet::Drift);
 
     report
 }

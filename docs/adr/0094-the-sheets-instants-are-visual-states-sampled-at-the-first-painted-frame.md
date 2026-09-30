@@ -24,6 +24,9 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 > the first raises a finding — `N-QUANTIZATION` at `review`. `blind_to` is **six fixed tokens, each
 > bound to one sentence**, in the NOT CHECKED block's shape, never a finding.
 
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** Section 6's disclosure is **spelled**: the `sheet` object's key names, `coverage.not_depicted_ms` as the total length of the skipped
+> states, and a range whose only states are unpainted answering with `picture: null` rather than a refusal.
+
 # The sheet's instants are the document's visual states, sampled at the first frame the grid paints
 
 > **Amended by [ADR-0097](0097-the-range-is-from-to-on-both-surfaces-and-the-caption-becomes-an-attribution-obligation.md).**
@@ -55,6 +58,11 @@ amends: 0074 (names `frame`'s range mode as the caller its `type` filter anticip
 > the sheet a picture of it. Every provenance entry gains `label`, the exact string drawn in
 > that tile's gutter. Found by [#422](https://github.com/MBehtemam/Montagent/issues/422): a weak
 > reader found no defect at any width and never found the label strip.
+
+> **Amended by [ADR-0118](0118-an-unpainted-visual-state-is-one-finding-per-state-from-one-selection-in-every-verb.md).** Decision 1's *"filters members to visual
+> types"* drops `type: "audio"` and keeps every other type, known or not, because a state wrongly
+> merged away is invisible and one wrongly split is not. The filter and re-merge are one function,
+> `query::cuts::visual_states`, which `validate` uses and `frame`'s range mode is to share.
 
 [#398](https://github.com/MBehtemam/Montagent/issues/398), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three

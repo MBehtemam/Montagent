@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::fmt;
 
 use crate::finding::Class;
-use crate::registry::{self, CensusMode};
+use crate::registry::{self, CensusMode, CheckSet};
 
 /// The reserved field rendered as an indented block rather than interpolated: the
 /// offending line and its caret, which ADR-0011 requires of every tool's parse failure.
@@ -148,6 +148,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&frame_block(frame));
     }
 
+    // `frame`'s range answer: the sheet, its provenance list and its disclosure, in full at
+    // every verbosity (ADR-0097 §6). Above the findings, which are about the states it
+    // skipped.
+    if let Some(sheet) = report.get("sheet").filter(|view| !view.is_null()) {
+        out.push_str(&sheet_block(sheet));
+    }
+
     // `query`'s whole answer, on the same rule as `timeline`'s view: it prints wherever it
     // is present and at any verbosity, because a verb whose output is the answer has nothing
     // left to say if the answer is filtered out.
@@ -236,6 +243,29 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str("  ");
         out.push_str(&line);
         out.push('\n');
+    }
+    // ADR-0112 §6: the sentence above is about validate's checks, so a run that did not
+    // complete them says so beside it — the block stays unconditional and stays true.
+    if let Some(sentence) = not_run(&check_sets(report)) {
+        for line in wrap(&sentence, 76) {
+            out.push_str("  ");
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+    // ADR-0117: a verb's own limits, one bullet each, beneath the sentence every report ends
+    // with.
+    for also in report["not_checked_also"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        for (i, line) in wrap(also, 74).into_iter().enumerate() {
+            out.push_str(if i == 0 { "  - " } else { "    " });
+            out.push_str(&line);
+            out.push('\n');
+        }
     }
 
     Ok(out)
@@ -360,21 +390,98 @@ fn source_block(probed: &Value) -> String {
 
 fn summary_line(report: &Value) -> Result<String, RenderError> {
     let summary = &report["summary"];
-    let count = |key: &str| summary[key].as_u64().unwrap_or(0);
-    let mut line = format!(
-        "{}, {}, {}, {} unchecked, {} layout, {} drift",
-        plural(count("error"), "error"),
-        plural(count("review"), "review"),
-        plural(count("note"), "note"),
-        count("unchecked"),
-        count("layout"),
-        count("drift"),
-    );
+    let count = |class: Class| summary[class.as_str()].as_u64().unwrap_or(0);
+    let ran = check_sets(report);
+
+    // ADR-0112 §5: a count above zero always prints; a zero prints only for a class some
+    // set that ran could have raised. A zero no check could have earned is not printed at
+    // all, because it would read exactly like one that was.
+    let counts: Vec<String> = [
+        Class::Error,
+        Class::Review,
+        Class::Note,
+        Class::Unchecked,
+        Class::Layout,
+        Class::Drift,
+    ]
+    .into_iter()
+    .filter(|&class| count(class) > 0 || ran.iter().any(|set| set.classes().any(|c| c == class)))
+    .map(|class| match class {
+        Class::Error | Class::Review | Class::Note => plural(count(class), class.as_str()),
+        _ => format!("{} {}", count(class), class.as_str()),
+    })
+    .collect();
+
+    // And a run that is not both halves of validate's says so first, before any number.
+    let mut line = match (scope(&ran), counts.is_empty()) {
+        (Some(scope), true) => scope,
+        (Some(scope), false) => format!("{scope}; {}", counts.join(", ")),
+        (None, _) => counts.join(", "),
+    };
     if let Some(project) = report["project"].as_str() {
         line.push_str(" — ");
         line.push_str(project);
     }
     Ok(line)
+}
+
+/// The check sets a report says ran, read back from the wire. A name this build does not
+/// know is dropped rather than guessed at: it could raise nothing this renderer can print.
+fn check_sets(report: &Value) -> Vec<CheckSet> {
+    report["check_sets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter_map(CheckSet::named)
+        .collect()
+}
+
+/// What a run that did not complete both halves of validate's checks ran, as the summary
+/// line's opening words; `None` on a run that did. ADR-0112 §5's wording is illustrative,
+/// and this is it made uniform: the words are generated from the sets, not kept per verb.
+fn scope(ran: &[CheckSet]) -> Option<String> {
+    let missing = validate_halves_missing(ran);
+    if missing.is_empty() {
+        return None;
+    }
+    Some(match (ran.is_empty(), missing.len()) {
+        (true, _) => "no checks run (validate runs them)".to_string(),
+        (false, 2) => format!("{} only (validate's checks not run)", set_names(ran)),
+        (false, _) => format!("{} not run", set_names(&missing)),
+    })
+}
+
+/// ADR-0112 §6: the sentence NOT CHECKED gains on a run that did not complete both halves
+/// of validate's checks. The only way to hold one half without the other is a run that
+/// stopped between them, so that is what it says; the finding above it says why.
+fn not_run(ran: &[CheckSet]) -> Option<String> {
+    let missing = validate_halves_missing(ran);
+    match missing.len() {
+        0 => None,
+        2 => Some("validate's checks were not run; run validate for them.".to_string()),
+        _ => Some(format!(
+            "validate's {} were not run: the run stopped before them.",
+            set_names(&missing)
+        )),
+    }
+}
+
+/// Which of validate's two halves a run did not complete.
+fn validate_halves_missing(ran: &[CheckSet]) -> Vec<CheckSet> {
+    [CheckSet::Document, CheckSet::Disk]
+        .into_iter()
+        .filter(|half| !ran.contains(half))
+        .collect()
+}
+
+/// Check sets in words: `layout check`, `document and disk checks`.
+fn set_names(sets: &[CheckSet]) -> String {
+    let names: Vec<&str> = sets.iter().map(|set| set.as_str()).collect();
+    match (names.as_slice(), sets) {
+        ([one], [CheckSet::Layout]) => format!("{one} check"),
+        _ => format!("{} checks", names.join(" and ")),
+    }
 }
 
 fn plural(n: u64, noun: &str) -> String {
@@ -619,11 +726,33 @@ fn interpolate(template: &str, finding: &Value, code: &str) -> Result<String, Re
                     "{code}: its template names `{name}`, which the finding does not carry"
                 ))
             })?;
-        out.push_str(&compact(value));
+        // `sub_ranges` alone reads as a prose list of ranges (ADR-0126). Keyed on the name,
+        // not the shape, because other templates interpolate the document's own JSON.
+        let prose = (name == "sub_ranges").then(|| ranges(value)).flatten();
+        out.push_str(&prose.unwrap_or_else(|| compact(value)));
         rest = &rest[close + 1..];
     }
     out.push_str(rest);
     Ok(out)
+}
+
+/// A list of half-open `{from, to}` ranges as prose — `[0, 3200) and [3200, 6200)`, or
+/// `none` (ADR-0126). `None` for anything else.
+fn ranges(value: &Value) -> Option<String> {
+    let ranges = value
+        .as_array()?
+        .iter()
+        .map(|range| {
+            let object = range.as_object().filter(|object| object.len() == 2)?;
+            let (from, to) = (object.get("from")?.as_i64()?, object.get("to")?.as_i64()?);
+            Some(format!("[{from}, {to})"))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(match ranges.split_last() {
+        None => "none".to_string(),
+        Some((only, [])) => only.clone(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+    })
 }
 
 /// A value as it reads in prose: a string bare, everything else as compact JSON.
@@ -1393,6 +1522,201 @@ fn frame_block(frame: &Value) -> String {
     out
 }
 
+/// `frame --from --to`'s block (#488): the READER CHECK, the sheet, then the provenance
+/// list that is its complete record, then what the rule dropped and could not see.
+///
+/// **The READER CHECK comes first**, directly under the header, where a reader that stops
+/// early still meets it (ADR-0114 §3). Like a blind spot's sentence it prints on one line,
+/// so the label it quotes is byte for byte the JSON's.
+///
+/// **Nothing here is summarised or behind a verbosity switch** (ADR-0097 §6): the plain-text
+/// path is the one an agent reaching for pixels takes, so it carries the disclosure's full
+/// content — every provenance line, every skipped state, every dropped boundary by name, and
+/// all six blind spots on a perfect answer too (ADR-0094 §6). Each blind spot's sentence
+/// prints on one line, unwrapped, so the text and the JSON hold the same string.
+fn sheet_block(sheet: &Value) -> String {
+    let number = |value: &Value| value.as_i64().unwrap_or_default();
+    let ids = |value: &Value| -> String {
+        value
+            .as_array()
+            .map(|ids| ids.iter().map(named).collect::<Vec<_>>().join(", "))
+            .unwrap_or_default()
+    };
+    let (from, to) = (number(&sheet["from"]), number(&sheet["to"]));
+    let provenance = sheet["provenance"].as_array().cloned().unwrap_or_default();
+    let coverage = &sheet["coverage"];
+    let picture = &sheet["picture"];
+
+    let mut out = String::new();
+    if let Some(sentence) = sheet["reader_check"]["sentence"].as_str() {
+        out.push_str(&format!("\nREADER CHECK  {sentence}\n"));
+    }
+    out.push_str(&if picture.is_null() {
+        format!("\nSHEET  [{from}, {to}) \u{2014} no tile: no frame is painted in [{from}, {to})\n")
+    } else {
+        format!(
+            "\nSHEET  [{from}, {to}) \u{2014} {} of {}, {} {}x{}, {} x {}\n",
+            plural(provenance.len() as u64, "tile"),
+            plural(number(&coverage["states"]) as u64, "visual state"),
+            picture["encoding"].as_str().unwrap_or("?"),
+            number(&picture["width"]),
+            number(&picture["height"]),
+            plural(number(&picture["columns"]) as u64, "column"),
+            plural(number(&picture["rows"]) as u64, "row"),
+        )
+    });
+    out.push_str(&row(format!(
+        "rule        {} v{}: {}",
+        named(&sheet["rule"]["name"]),
+        number(&sheet["rule"]["version"]),
+        named(&sheet["rule"]["sentence"]),
+    )));
+    if !picture.is_null() {
+        out.push_str(&row(format!(
+            "tiles       served {} px wide, {} rung (every tile {} px or more), painted at {}x{}",
+            number(&picture["served_tile_width"]),
+            named(&picture["rung"]),
+            number(&picture["rung_px"]),
+            number(&sheet["rasterized"]["width"]),
+            number(&sheet["rasterized"]["height"]),
+        )));
+        out.push_str(&row(format!(
+            "labels      in the strip beneath each tile, outside the video frame, at {} px \
+             (never under {} px); {}",
+            number(&picture["label_px"]),
+            number(&picture["label_floor_px"]),
+            match picture["ids"].as_str() {
+                Some("elided") =>
+                    "ids elided on every tile: the longest label does not fit at the floor \
+                     with its id",
+                _ => "ids carried",
+            },
+        )));
+        if let Some(path) = picture["path"].as_str() {
+            out.push_str(&row(format!(
+                "written to  {path} ({})",
+                plural(number(&picture["bytes"]) as u64, "byte")
+            )));
+        }
+    }
+    for (key, label) in [("sources", "sources"), ("fonts", "fonts")] {
+        let files = ids(&sheet[key]);
+        if !files.is_empty() {
+            out.push_str(&row(format!("{label:<11} {files}")));
+        }
+    }
+
+    out.push_str(
+        "\nPROVENANCE  one line per tile, the complete record; the sheet is a picture of it\n",
+    );
+    if provenance.is_empty() {
+        out.push_str(&row("no tiles".to_string()));
+    }
+    for tile in &provenance {
+        out.push_str(&row(format!(
+            "{:>3}  {}  {}  at {} ms  state {}..{}  label `{}`  {}",
+            number(&tile["index"]),
+            named(&tile["class"]),
+            named(&tile["why"]),
+            number(&tile["instant_ms"]),
+            number(&tile["run"]["start"]),
+            number(&tile["run"]["end"]),
+            named(&tile["label"]),
+            ids(&tile["present"]),
+        )));
+        for (key, label) in [
+            ("painted_partially", "in part"),
+            ("not_painted", "not painted"),
+        ] {
+            for entry in tile[key].as_array().into_iter().flatten() {
+                out.push_str(&row(format!(
+                    "       {label} {} \u{2014} {}",
+                    named(&entry["element"]),
+                    named(&entry["code"]),
+                )));
+            }
+        }
+    }
+    let classes = &sheet["classes"];
+    out.push_str(&row(format!(
+        "classes     {} run, {} keyframe, {} infill",
+        number(&classes["run"]),
+        number(&classes["keyframe"]),
+        number(&classes["infill"]),
+    )));
+
+    out.push_str("\nDISCLOSED\n");
+    let skipped = sheet["skipped"].as_array().cloned().unwrap_or_default();
+    if skipped.is_empty() {
+        out.push_str(&row("skipped     none".to_string()));
+    }
+    for (i, state) in skipped.iter().enumerate() {
+        out.push_str(&row(format!(
+            "{}{}..{}  {} \u{2014} present: {}",
+            if i == 0 {
+                "skipped     "
+            } else {
+                "            "
+            },
+            number(&state["run"]["start"]),
+            number(&state["run"]["end"]),
+            named(&state["reason"]),
+            ids(&state["present"]),
+        )));
+    }
+    let dropped = &sheet["audio_boundaries_dropped"];
+    let count = number(&dropped["count"]);
+    let named_boundaries: Vec<String> = dropped["boundaries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|boundary| {
+            let signed = |key: &str, sign: char| -> Vec<String> {
+                boundary[key]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|id| format!("{sign}{}", named(id)))
+                    .collect()
+            };
+            let mut changed = signed("leaving", '-');
+            changed.extend(signed("entering", '+'));
+            format!("{} ms ({})", number(&boundary["at"]), changed.join(" "))
+        })
+        .collect();
+    out.push_str(&row(format!(
+        "audio       {} dropped{}",
+        match count {
+            1 => "1 audio-only boundary".to_string(),
+            n => format!("{n} audio-only boundaries"),
+        },
+        if named_boundaries.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", named_boundaries.join(", "))
+        }
+    )));
+    out.push_str(&row(format!(
+        "coverage    {} ms in {}: {} tiled, {} skipped; {} ms depicted, {} ms not depicted",
+        number(&coverage["range_ms"]),
+        plural(number(&coverage["states"]) as u64, "visual state"),
+        number(&coverage["tiled"]),
+        number(&coverage["skipped"]),
+        number(&coverage["depicted_ms"]),
+        number(&coverage["not_depicted_ms"]),
+    )));
+
+    out.push_str("\nBLIND TO\n");
+    for spot in sheet["blind_to"].as_array().into_iter().flatten() {
+        out.push_str(&row(format!(
+            "{:<18}{}",
+            named(&spot["token"]),
+            named(&spot["sentence"])
+        )));
+    }
+    out
+}
+
 /// The block `render` and `preview` both answer with: the file, its numbers, and what of
 /// the document reached it.
 ///
@@ -2039,4 +2363,25 @@ fn vendor_block(vendor: &Value) -> String {
     );
     field("chain entry", compact(&vendor["chain_entry"]));
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_sub_ranges_reads_as_prose_ranges() {
+        let finding = serde_json::json!({"fields": {
+            "sub_ranges": [{"from": 0, "to": 3200}, {"from": 3200, "to": 6200}],
+            "none": [],
+            "value": [{"from": 0, "to": 5}],
+        }});
+        let read = |template| interpolate(template, &finding, "X").unwrap();
+        assert_eq!(read("{sub_ranges}"), "[0, 3200) and [3200, 6200)");
+        // Another template's document JSON prints as written, whatever its shape.
+        assert_eq!(read("{value}"), r#"[{"from":0,"to":5}]"#);
+        assert_eq!(read("{none}"), "[]");
+        let empty = serde_json::json!({"fields": {"sub_ranges": []}});
+        assert_eq!(interpolate("{sub_ranges}", &empty, "X").unwrap(), "none");
+    }
 }

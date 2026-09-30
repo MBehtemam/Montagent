@@ -3,6 +3,16 @@ status: accepted
 amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: a world-effect is now an `error` like any other finding, and the two verbs read one structure rather than two — the `validate`/`render` split this ADR designed held for the *document* and not for the disk), 0043 (adds sixteen codes whose repair form is fixed per code, and records that per-reason coding is forced by that rule rather than chosen), 0056 (amends the `UncheckedReason` enumeration with its first non-network member, `Unidentified`), 0021 (reads *"never silently"* at the level of the deliverable: an `error`-class finding withholds the file, so a file at the output path is a render with zero errors)
 ---
 
+> **Amended by [ADR-0121](0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md).** A partial render's world-effects
+> are established only inside `[from, to)`, so it may publish its file over a world-effect
+> `error` that would refuse the full render. Ruling 6 protects the deliverable, which a partial
+> render never is, and the partial render's report now says where its world-effects stopped.
+
+> **Amended by [ADR-0117](0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md).** Ruling 3 does not forbid a second witness: `verify`
+> measures the deliverable with the decoder, which is one file and two different questions, not
+> one question down two data paths. It is never run by `render`, so *a file at the output path is
+> a zero-error render* is untouched; `render`'s `NOT CHECKED` names it instead.
+
 # `render`'s world-effects are findings, and an `error` withholds the deliverable
 
 > **Amended by [ADR-0109](0109-a-cancelled-encode-publishes-nothing.md).** Ruling 6's

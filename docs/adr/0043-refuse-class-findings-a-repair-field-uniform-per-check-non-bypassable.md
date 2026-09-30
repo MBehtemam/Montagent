@@ -41,6 +41,24 @@ status: accepted
 > object — prints up to three member ids per group, in the group's own order and never
 > sorted, then `+K more — see --json`. The census itself and the canonical JSON are unchanged.
 
+> **Amended by [ADR-0120](./0120-a-fact-that-bears-on-one-branch-of-a-refuse-fork-is-a-repair-by-another-name.md)**, which states what a
+> refuse-class finding may not carry besides a `repair` value: *a fact that bears on only one
+> branch of its fork, or names something the author could adopt, is a repair by another name.*
+> A census that partitions the siblings without ranking them is not one — this ADR's gravity
+> census stays the model. `E-FONT-NO-GLYPH`'s list of covering fonts is dropped under it, and
+> five other codes whose messages conflict with it are named there and left open.
+
+> **Amended by [ADR-0123](./0123-the-one-branch-rule-holds-on-intent-forks-and-release-is-not-a-bypass.md)**, which states that `shift`'s
+> `release` is **not** a bypass of the no-override guarantee below: it changes the edit rather
+> than lifting the finding, names the exact fact the finding reported, and is refused when it
+> does not match. A flag that lifts a finding without naming what it consents to remains
+> forbidden. Whether an agent may type `release` on its own authority is left to #506.
+
+> **Amended by [ADR-0124](./0124-release-carries-the-requester-s-consent-and-surfacing-is-the-default.md)**, which
+> settles #506: `E-SHIFT-SLACK`'s fork is in the edit request, so the intent it asks about
+> belongs to whoever requested the edit. An agent may type `release` only when its instruction
+> decides the slack's fate; otherwise the stop-and-surface instruction below applies unchanged.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

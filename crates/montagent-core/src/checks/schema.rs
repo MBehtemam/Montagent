@@ -150,7 +150,7 @@ impl Fault {
         };
 
         let finding = match unknown_key(reason) {
-            Some((key, expected)) => {
+            Some(key) => {
                 // Exact: `serde` names the key it refused, and the retirement names the key
                 // it found. The comparison is on those two strings and never on the message
                 // as a whole, whose "expected one of" list is full of published key names a
@@ -158,9 +158,10 @@ impl Fault {
                 if here().any(|named| named.key == key) {
                     return None;
                 }
-                Finding::new("E-SCHEMA-UNKNOWN-KEY")
-                    .field("key", json!(key))
-                    .field("expected", json!(expected))
+                // Not the keys `serde` names instead: they serve the *typo* branch of this
+                // refusal's fork only, and on the *newer format* branch they offer the silent
+                // rename the message forbids. ADR-0123.
+                Finding::new("E-SCHEMA-UNKNOWN-KEY").field("key", json!(key))
             }
             None => {
                 // Four of the nine retirements are retired *values* rather than keys — the
@@ -269,26 +270,17 @@ impl<'a> Locus<'a> {
     }
 }
 
-/// The key `serde` refused and the keys it named instead, where the fault is an unknown
-/// one.
+/// The key `serde` refused, where the fault is an unknown one.
 ///
 /// Read off the message rather than out of a typed error, because `serde` has no typed
 /// error: `unknown field \`x\`, expected one of \`a\`, \`b\`` is what
 /// `serde::de::Error::unknown_field` writes, at every object level and for every one of
 /// this format's types. The shape is asserted against real parses in
 /// `tests/schema_check.rs` rather than trusted.
-fn unknown_key(message: &str) -> Option<(&str, &str)> {
+fn unknown_key(message: &str) -> Option<&str> {
     const MARKER: &str = "unknown field `";
     let rest = &message[message.find(MARKER)? + MARKER.len()..];
-    let key = &rest[..rest.find('`')?];
-    let expected = match rest.find("expected one of ") {
-        Some(i) => &rest[i + "expected one of ".len()..],
-        // `serde` writes "there are no fields" for a struct with none. No type in this
-        // format is in that state, so this is the branch that keeps the sentence readable
-        // if one ever is.
-        None => "no keys at all",
-    };
-    Some((key, expected))
+    Some(&rest[..rest.find('`')?])
 }
 
 /// The document's tracks, or nothing where it states none the walk can read. A `tracks`

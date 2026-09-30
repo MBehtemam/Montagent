@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::finding::{Class, Finding};
 use crate::media::probe::Probe;
 use crate::media::session::CacheMiss;
-use crate::registry::{self, RepairClass};
+use crate::registry::{self, CheckSet, RepairClass};
 
 /// ADR-0006's `NOT CHECKED` block, verbatim.
 ///
@@ -15,6 +15,25 @@ use crate::registry::{self, RepairClass};
 pub const NOT_CHECKED: &str = "This file was not compared against any prior version or instruction. validate \
 verifies that the file is internally legal; it cannot tell you whether it says what you \
 meant it to say.";
+
+/// Add a verb's own limits to a report's boundary, under `not_checked_also` (ADR-0117).
+///
+/// ADR-0006's block is the same sentence on every report, and stays so: this does not edit
+/// it. A verb whose answer has limits of its own — `verify`'s one mixed track, `render`'s
+/// deliverable that nothing has yet measured — states them beside it, as a list that is
+/// absent rather than empty on every other verb, so no report grows a key it has nothing to
+/// put in.
+pub fn extend_boundary(json: &mut Value, lines: &[&str]) {
+    let Some(object) = json.as_object_mut() else {
+        return;
+    };
+    let list = object
+        .entry("not_checked_also")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Value::Array(list) = list {
+        list.extend(lines.iter().map(|line| Value::String(line.to_string())));
+    }
+}
 
 /// ADR-0011's five exit codes, distinguished by what the caller does next.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +104,13 @@ pub struct Report {
     /// the reader to re-derive them — and because the fit checks downstream consume exactly
     /// these dimensions rather than probing a second time.
     pub media: Vec<Probe>,
+    /// The check sets that ran to completion, in the order they completed. ADR-0112.
+    ///
+    /// Private, and only [`Report::record`] adds to it: the field is marked by the code
+    /// that runs a set, when the set completes, and never declared per verb. A new report
+    /// starts at `[]`, which is the safe direction — a verb that forgets to record reads
+    /// *"no checks run"* rather than claiming a run it never made.
+    check_sets: Vec<CheckSet>,
     terminal: Option<Terminal>,
 }
 
@@ -96,6 +122,7 @@ impl Report {
             findings: Vec::new(),
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: None,
         }
     }
@@ -110,6 +137,7 @@ impl Report {
             findings: vec![finding],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::Unparseable),
         }
     }
@@ -128,6 +156,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
         }
     }
@@ -208,6 +237,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::Internal),
         }
     }
@@ -227,6 +257,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             // Same exit code as `E-INTERNAL` (ADR-0011, unchanged by ADR-0091): the run
             // did not finish either way.
             terminal: Some(Terminal::Internal),
@@ -315,6 +346,18 @@ impl Report {
         self.findings.push(finding);
     }
 
+    /// A check set has run to completion. Called at the four run sites and nowhere else.
+    pub fn record(&mut self, set: CheckSet) {
+        if !self.check_sets.contains(&set) {
+            self.check_sets.push(set);
+        }
+    }
+
+    /// The check sets this run completed.
+    pub fn check_sets(&self) -> &[CheckSet] {
+        &self.check_sets
+    }
+
     pub fn summary(&self) -> Summary {
         let mut summary = Summary::default();
         for finding in &self.findings {
@@ -374,6 +417,10 @@ impl Report {
         json!({
             "tool": self.tool,
             "project": self.project,
+            // ADR-0112: what ran, beside what it found. `summary` keeps all six keys and
+            // its meaning, so a zero there is only a claim where a set named here could
+            // have raised that class.
+            "check_sets": self.check_sets.iter().map(|set| set.as_str()).collect::<Vec<_>>(),
             "summary": {
                 "error": summary.error,
                 "review": summary.review,

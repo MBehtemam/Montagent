@@ -14,6 +14,20 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > the reader can see is not a blind spot and gets no token. The READER CHECK is a sibling of the
 > NOT CHECKED block, printed on every range answer and never a finding.
 
+> **Amended by [ADR-0118](0118-an-unpainted-visual-state-is-one-finding-per-state-from-one-selection-in-every-verb.md).** [#437](https://github.com/MBehtemam/Montagent/issues/437) closed the gap this
+> ADR filed: `validate` raises `N-QUANTIZATION` for every unpainted visual state, **one finding
+> per state**, over the one selection `frame`'s range mode is to share. ADR-0118 names the
+> finding's fields, and records that a vanished element or a sub-frame gap now raises two
+> findings, the element's or gap's and the state's. Where this ADR says `validate` is silent, that
+> was true when it was accepted; the ninth claim of `check_unpainted_runs.py` now checks the
+> closing instead.
+
+> **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** `E-SHEET-OVERFLOW` carries `from`, `to`, `states`, `fits`, `limit` and `limit_px`, and `limit`'s first value is
+> **`tile-width`**. A refused range answer carries **the report alone**. The sub-ranges remain #489's.
+
+> **Amended by [ADR-0126](0126-an-overflow-names-the-fewest-even-sub-ranges-that-each-fit.md).** The sub-ranges' field is **`sub_ranges`**, an array of `{from, to}`
+> rendered as a prose list, and `limit`'s two values are **`tile-width`** and **`type-floor`**.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map

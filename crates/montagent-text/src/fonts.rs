@@ -54,11 +54,13 @@ pub struct FontFile {
 /// sentence could drift from the one the file itself would give.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FontError {
-    /// The file, where one is named. `None` only for a key the project does not declare,
-    /// which is about the table rather than about a file.
+    /// The file, where one is named. `None` for a key the project does not declare, which
+    /// is about the table rather than about a file, and for a face registered from bytes
+    /// ([`Fonts::register_bytes`]), which came from no file.
     pub path: Option<PathBuf>,
     /// What was wrong, as one clause: it is printed after *"<path> could not be read: "*
-    /// by the caller, so it neither repeats the path nor ends in a full stop.
+    /// by the caller, so it neither repeats the path nor ends in a full stop. With no
+    /// `path`, [`Display`](std::fmt::Display) prints it alone.
     pub reason: String,
 }
 
@@ -70,18 +72,18 @@ impl FontError {
         }
     }
 
-    fn not_a_font(path: &Path) -> FontError {
+    fn not_a_font(path: Option<&Path>) -> FontError {
         FontError {
-            path: Some(path.to_path_buf()),
+            path: path.map(Path::to_path_buf),
             reason: "it registered no font family — not a font, or not one this build can \
                      parse"
                 .to_string(),
         }
     }
 
-    fn no_such_face(path: &Path, index: u32, faces: u32) -> FontError {
+    fn no_such_face(path: Option<&Path>, index: u32, faces: u32) -> FontError {
         FontError {
-            path: Some(path.to_path_buf()),
+            path: path.map(Path::to_path_buf),
             reason: format!("it has no face at `index` {index} (it carries {faces})"),
         }
     }
@@ -203,6 +205,28 @@ impl Fonts {
         &mut self.context
     }
 
+    /// Register one key as a single face whose bytes are already in memory.
+    ///
+    /// For a face the **binary** carries rather than one a project declares: Montagent's own
+    /// chrome face (#421) is `include_bytes!`'d, because a face read off a path is a face a
+    /// clean machine may not have, and the chrome must not depend on the document or the
+    /// machine it runs on. So there is no path here, and nothing is added to
+    /// [`Fonts::opened`] — that list is every file the registry read, and this reads none.
+    ///
+    /// Otherwise the same registration as a chain entry: a collection is cut down to its
+    /// `index` (face 0 when omitted, ADR-0102), the face goes in under a synthetic family
+    /// name, and a refusal carries the same sentence with no path in front of it.
+    pub fn register_bytes(
+        &mut self,
+        key: &str,
+        bytes: &[u8],
+        index: Option<u32>,
+    ) -> Result<(), FontError> {
+        let family = self.register_face(key, 0, bytes, index, None)?;
+        self.chains.insert(key.to_string(), vec![family]);
+        Ok(())
+    }
+
     fn register_one(
         &mut self,
         key: &str,
@@ -216,18 +240,30 @@ impl Fonts {
         if !self.opened.contains(&file.path) {
             self.opened.push(file.path.clone());
         }
+        self.register_face(key, position, &bytes, file.index, Some(&file.path))
+    }
 
+    /// Register the face at `index` of `bytes` as one chain position, naming `path` in any
+    /// refusal when the bytes came from one.
+    fn register_face(
+        &mut self,
+        key: &str,
+        position: usize,
+        bytes: &[u8],
+        index: Option<u32>,
+        path: Option<&Path>,
+    ) -> Result<String, FontError> {
         // ADR-0007 defaults `index` to 0, and the default is applied here rather than left
         // to the registry: an omitted index on a collection means face 0, and a whole
         // collection resolves to whichever face a default attribute query wins — face 7 on
         // a stock `Avenir Next.ttc`, never face 0. Omitted and `0` are the same request,
         // and both have to be cut out.
-        let index = file.index.unwrap_or(0);
-        let face = match sfnt::face(&bytes, index) {
+        let index = index.unwrap_or(0);
+        let face = match sfnt::face(bytes, index) {
             Ok(face) => face,
-            Err(sfnt::FaceError::NotAFont) => return Err(FontError::not_a_font(&file.path)),
+            Err(sfnt::FaceError::NotAFont) => return Err(FontError::not_a_font(path)),
             Err(sfnt::FaceError::NoSuchFace { faces }) => {
-                return Err(FontError::no_such_face(&file.path, index, faces));
+                return Err(FontError::no_such_face(path, index, faces));
             }
         };
 
@@ -244,7 +280,7 @@ impl Fonts {
         // only whether the face registered at all. A parsable sfnt that registers nothing
         // is one this build cannot draw with, which is the same answer as not a font.
         if registered.iter().all(|(_, fonts)| fonts.is_empty()) {
-            return Err(FontError::not_a_font(&file.path));
+            return Err(FontError::not_a_font(path));
         }
         Ok(family)
     }

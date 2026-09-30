@@ -254,6 +254,11 @@ fn font_usage(elements: &[StyledText]) -> Vec<Usage> {
 /// **A chain no file of which could be read produces no finding.** The attestation check
 /// above has already said so under `E-FONT-MISSING`, and *"this font has no glyph for ك"*
 /// derived from a font nobody could open is the false confidence ADR-0006 exists to prevent.
+///
+/// **No list of the project's other chains that do map the characters.** It used to ride
+/// along as a census-shaped field, and it bore on one branch of this refuse fork only —
+/// *the chain is short a file*, never *the text carries a character it was not meant to* —
+/// which makes it a menu for that branch: a repair by another name (ADR-0120).
 fn glyph_coverage(document: &Loose, usage: &[Usage], report: &mut Report) {
     let mut chains = Chains::of(document);
 
@@ -281,47 +286,8 @@ fn glyph_coverage(document: &Loose, usage: &[Usage], report: &mut Report) {
         if let Some(track) = &element.track {
             finding = finding.at_track(track.clone());
         }
-        if let Some(census) = elsewhere(&mut chains, &element.key, &missing) {
-            finding = finding.census(census);
-        }
         report.push(finding);
     }
-}
-
-/// ADR-0043's sibling census for a refuse-class finding: *"a census narrows"* without
-/// deciding anything.
-///
-/// The group that exists here is **the project's own other declared chains that do map
-/// every one of these characters**. It is inert and document-derived — ADR-0007's `brand+fa`
-/// is in the ADR's worked table precisely because `brand` cannot draw Persian — and it
-/// carries the fix without proposing it: whether the right move is to add that file to this
-/// chain, to move the run to that key, or to change the text is the author's, and the census
-/// says none of them.
-///
-/// Omitted rather than stated as a negative when no other chain maps them (ADR-0058's rule):
-/// *"no other font in this project has them either"* implies a hypothesis was tested that
-/// the reader never asked about.
-fn elsewhere(chains: &mut Chains<'_>, key: &str, missing: &[char]) -> Option<Census> {
-    let others: Vec<String> = chains
-        .declared()
-        .into_iter()
-        .filter(|other| other != key)
-        .filter(|other| {
-            chains
-                .get(other)
-                .is_some_and(|chain| missing.iter().all(|&c| chain.covers(c)))
-        })
-        .collect();
-
-    let mut census = Census::on("font");
-    let members: Vec<String> = missing
-        .iter()
-        .map(|&c| format!("{} {c}", codepoint(c)))
-        .collect();
-    for other in &others {
-        census = census.group(json!(other), members.clone());
-    }
-    (!others.is_empty()).then_some(census)
 }
 
 /// Characters a conforming renderer draws nothing for whether or not a font maps them, so
@@ -443,16 +409,6 @@ impl<'a> Chains<'a> {
             self.loaded.insert(key.to_string(), chain);
         }
         self.loaded.get(key)?.as_ref()
-    }
-
-    /// Every key the `fonts` table declares, whether or not it has been read yet.
-    fn declared(&self) -> Vec<String> {
-        self.document
-            .value()
-            .get("fonts")
-            .and_then(Value::as_object)
-            .map(|table| table.keys().cloned().collect())
-            .unwrap_or_default()
     }
 
     fn read(&self, key: &str) -> Option<Chain> {

@@ -282,6 +282,17 @@ pub struct CompareParams {
 /// anything, and ADR-0021 makes the deliverable the one output that is never downsampled.
 /// Progress is not an argument: it goes to the server's stderr always, and to the client as
 /// `notifications/progress` whenever the call carries a `progressToken` (ADR-0108).
+/// `verify`'s arguments: the project, and nothing else (ADR-0117 §8).
+///
+/// Only the declared `output` carries a stamp, so only it can pass the identity gate; an
+/// `output` argument would bypass the gate, and a range would verify a different extent. The
+/// text form is the answer, as on every verb whose MCP schema ADR-0011 keeps small.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct VerifyParams {
+    /// Path to the project file. Its declared `output` is what is verified.
+    pub project: String,
+}
+
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct RenderParams {
     /// Path to the project file.
@@ -561,6 +572,9 @@ impl Montagent {
                         // The CLI's flag, and not this surface's: a picture that came back as a
                         // path would be a picture an agent cannot see.
                         out: None,
+                        // The range mode reaches this surface with #493.
+                        from: None,
+                        to: None,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query` and `measure`.
@@ -598,7 +612,8 @@ impl Montagent {
                        and can never land on the deliverable. The result carries the path, \
                        duration, frame count, wall time and realtime factor, and beneath it \
                        the `review` findings the render did not refuse on plus the NOT \
-                       CHECKED footer: exit 0 never means the video is right.",
+                       CHECKED footer: exit 0 never means the video is right. Run `verify` on \
+                       the result before calling a deliverable done.",
         input_schema = advertised::<RenderParams>()
     )]
     async fn render(
@@ -647,6 +662,45 @@ impl Montagent {
                         &answer, form,
                     ))],
                 )
+            },
+        )
+        .await
+    }
+
+    #[tool(
+        name = "verify",
+        description = "Is what the document says actually in the deliverable? Measures the \
+                       project's declared `output` with the decoder, never with the engine that \
+                       wrote it. It first reads the stamp `render` wrote: nothing there, another \
+                       project's file, or a render of an earlier version of this document is one \
+                       `error` and nothing is measured. Otherwise it checks frame size, frame \
+                       timing, frame count and duration, audio presence and extent, and where \
+                       the mix is silent though something should be heard. Run it after \
+                       `render` and before calling a deliverable done; it is also the question \
+                       to ask when a `render` call timed out.",
+        input_schema = advertised::<VerifyParams>()
+    )]
+    async fn verify(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: VerifyParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("verify", &e)),
+        };
+
+        dispatch::run(
+            dispatch::Call::of("verify", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::verify::verify(&PathBuf::from(&params.project));
+                let body =
+                    montagent_core::wire::render_verify(&answer, Wire::Text { verbose: false });
+                // A deliverable that fails verification is an answer about the project, not a
+                // protocol failure; `respond` (ADR-0083) sets `isError` only where the report has
+                // nothing to say about the document.
+                respond(answer.report(), vec![ContentBlock::text(body)])
             },
         )
         .await
@@ -799,8 +853,10 @@ impl Montagent {
                        that finished before the edit point does not move. Prints what it \
                        will do to every record sitting exactly at `at`, unconditionally. \
                        Every slack in the file is invariant by default: an edit that would \
-                       change one is refused, listing each threatened pair; pass `release` \
-                       with exactly those pairs to consume them. Returns the new state's \
+                       change one is refused, listing each threatened pair. Pass `release` \
+                       with those pairs only if the instruction you were given decides \
+                       those slacks' fate; otherwise surface the refusal to whoever is \
+                       operating Montagent. Returns the new state's \
                        findings, never `ok` — read them the way you read `validate`'s.",
         input_schema = advertised::<ShiftParams>()
     )]
