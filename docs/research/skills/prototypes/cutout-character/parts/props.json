@@ -1,0 +1,17 @@
+{
+ "machine": {
+  "file": "parts/machine.png",
+  "w": 807,
+  "h": 861
+ },
+ "toast": {
+  "file": "parts/toast.png",
+  "w": 492,
+  "h": 641
+ },
+ "bg": {
+  "file": "parts/bg.png",
+  "w": 1920,
+  "h": 1080
+ }
+}

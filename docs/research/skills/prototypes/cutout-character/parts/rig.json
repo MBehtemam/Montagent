@@ -1,0 +1,92 @@
+{
+ "torso": {
+  "file": "parts/torso.png",
+  "w": 528,
+  "h": 956,
+  "pivot": [
+   512,
+   1060
+  ]
+ },
+ "upper_arm": {
+  "file": "parts/upper_arm.png",
+  "w": 122,
+  "h": 338,
+  "pivot": [
+   662,
+   690
+  ]
+ },
+ "forearm": {
+  "file": "parts/forearm.png",
+  "w": 194,
+  "h": 610,
+  "pivot": [
+   678,
+   815
+  ]
+ },
+ "head": {
+  "file": "parts/head.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "mouth_A": {
+  "file": "parts/mouth_A.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "mouth_O": {
+  "file": "parts/mouth_O.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "mouth_E": {
+  "file": "parts/mouth_E.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "mouth_S": {
+  "file": "parts/mouth_S.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "mouth_M": {
+  "file": "parts/mouth_M.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ },
+ "eyes_closed": {
+  "file": "parts/eyes_closed.png",
+  "w": 536,
+  "h": 1134,
+  "pivot": [
+   512,
+   590
+  ]
+ }
+}
