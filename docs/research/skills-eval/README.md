@@ -7,9 +7,9 @@ comparable to what it makes without Montagent, and better than Montagent without
 
 | Path | What it holds |
 |---|---|
-| `briefs/dev/` | The three open development briefs: A (Montagent launch spot), B (talking-head social cut), E (logo reveal loop). The baseline runs these, and the skills may be written with them in view. |
+| `briefs/dev/` | The four open development briefs: A (Montagent launch spot), B (talking-head social cut), C (mascot character short), E (logo reveal loop). The baseline runs these, and the skills may be written with them in view. |
 | `assets/` | The fixed asset pack. Every run starts from a copy of this directory and nothing else. Its `README.md` is the manifest, and is part of the pack. |
-| `pack-src/` | The scripts that made the pack's generated files (brand, music bed, voiceover, presenter word timings, the screen-recording tape). They are not part of the pack. |
+| `pack-src/` | The scripts that made the pack's generated files (brand, music bed, voiceover, presenter word timings, the screen-recording tape), and in `character/` the owl's FLUX drawings and the scripts that cut its rig, voiced its lines and prepared its set. They are not part of the pack. |
 | `RECORDING.md` | How the pack's footage was made: the presenter takes and their scripts, and the screen recording. |
 | `RUBRIC.md` | The pre-registered rubric and decision rule. `harness/pins.json` is part of it. |
 | `harness/` | The scripts that run the arms, pair the runs blind, serve the judging page and convene the court. |

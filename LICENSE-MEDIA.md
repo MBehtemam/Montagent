@@ -88,6 +88,7 @@ see the note after the table).
 | `voiceover/voiceover.wav`, `voiceover.words.json`, `script.txt` | a synthetic voiceover spoken by Kokoro-82M (Apache-2.0 weights and voice; the output is ours) |
 | `presenter/*.txt`, `presenter/*.words.json` | the presenter takes' scripts, and their word timings made by `pack-src/align_takes.py` |
 | `screen/*`, `stills/*` | a screen recording of a real Montagent session, and stills from it |
+| `character/*` | Hoot, the owl mascot: a cut-out rig, its voice lines with visemes, a set and a prop (see below) |
 
 **The presenter takes are Azure avatar output.** `presenter/take-{1,2,3}.mp4` were
 generated with Azure AI Speech's text-to-speech avatar (the prebuilt avatar "Harry",
@@ -96,6 +97,14 @@ person on screen is synthetic. Microsoft's Product Terms and the Azure AI Speech
 conduct govern them, including its requirement to disclose that the presenter is
 synthetic, which the pack's `README.md` does. They are in this category because the
 maintainer generated them, not because the maintainer is on camera.
+
+**The character is FLUX and Azure Speech output.** The drawings in `character/` (and
+their sources in `pack-src/character/`) were generated with FLUX.2-pro on Azure AI
+Foundry, and `character/voice/*.wav` with Azure AI Speech (`en-US-AvaNeural`), on the
+maintainer's subscription and under Microsoft's Product Terms. The voice is synthetic.
+The rig's parts, its five mouths, the set and the prop were cut and drawn from them by
+`pack-src/character/cut_rig.py` and `make_props.py`. The drawings in `pack-src/character/`
+are in this category too, like the pack made from them.
 
 **The music bed is CC0.** `music/bed-120bpm.wav` is synthesised from scratch by
 `pack-src/make_music_bed.py`, which writes the same bytes on every run. The maintainer
