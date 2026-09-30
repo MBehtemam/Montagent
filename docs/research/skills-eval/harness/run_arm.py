@@ -246,6 +246,21 @@ def final_project(work: Path, deliverable: str) -> Path | None:
     return max((p for p, _ in projects), key=lambda p: p.stat().st_mtime, default=None)
 
 
+def delivery_warnings(work: Path, deliverable: str, project: Path | None) -> list[str]:
+    """Signs that the deliverable may not be the agent's last word. Recorded, never decisive:
+    the video judged is the one delivered. Only the live directory has these facts (the
+    kept workspace loses the deliverable and its mtime), so they are taken here, at run time."""
+    warnings = []
+    partials = sorted(str(p.relative_to(work)) for p in work.rglob("*.montagent-partial*"))
+    if partials:
+        warnings.append(f"an interrupted render left {len(partials)} partial file(s): {', '.join(partials)}")
+    out = work / deliverable
+    if out.exists() and project and project.stat().st_mtime > out.stat().st_mtime:
+        warnings.append(f"{project.relative_to(work)} was written after {deliverable}, "
+                        "so the deliverable may not show the final project")
+    return warnings
+
+
 def next_index(parent: Path, arm: str) -> int:
     taken = [int(p.name.rsplit("-", 1)[1]) for p in parent.glob(f"{arm}-*") if p.name.rsplit("-", 1)[1].isdigit()]
     return max(taken, default=0) + 1
@@ -395,13 +410,14 @@ def main() -> None:
 
     deliverable = work / pins["deliverable"]
     probe_info = ffprobe(deliverable) if deliverable.exists() else None
+    project = final_project(work, pins["deliverable"]) if args.arm in MONTAGENT_ARMS else None
+    warnings = delivery_warnings(work, pins["deliverable"], project)
     if probe_info:
         encode_720p(deliverable, record / "render.mp4")
     omitted = keep_workspace(work, build["pack"], record / "workspace", pins["deliverable"])
 
     events = read_jsonl(record / "transcript.jsonl")
     sig = transcript_signals(events, ours)
-    project = final_project(work, pins["deliverable"]) if args.arm in MONTAGENT_ARMS else None
 
     manifest = {
         "brief": {"id": bid, "sha256": brief_sha, "path": rel(args.brief)},
@@ -429,6 +445,7 @@ def main() -> None:
         "project": str(project.relative_to(work)) if project else None,
         "omitted_files": omitted,
         "sandbox_tmp_swept": swept,
+        "delivery_warnings": warnings,
         "isolation_problems": isolation_problems(sig, args.arm, ours, pins["builtin_skills"]),
         "signals": {
             **sig,
@@ -452,6 +469,8 @@ def main() -> None:
         "cost_usd": r["total_cost_usd"],
         "wall_clock_s": outcome["wall_clock_s"],
         "skills_triggered": sig["skills_triggered"],
+        "background_tasks_killed": sig["background_tasks_killed"],
+        "delivery_warnings": warnings,
         "isolation_problems": manifest["isolation_problems"],
     }, indent=2))
 

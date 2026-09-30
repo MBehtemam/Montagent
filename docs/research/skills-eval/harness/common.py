@@ -228,6 +228,11 @@ def transcript_signals(events: list[dict], our_skills: list[str]) -> dict:
             if IMAGE_RE.search(p):
                 image_reads += 1
 
+    # A background task still running when a headless session ends is killed: a render the
+    # agent left in the background never reaches the deliverable.
+    killed = sum(1 for e in events if e.get("type") == "system" and e.get("subtype") == "task_updated"
+                 and (e.get("patch") or {}).get("status") == "killed")
+
     triggered = sorted({s.split(":")[-1] for s in skill_calls + skill_reads} & set(our_skills))
     usage = result.get("usage", {}) or {}
     looks = sum(verbs.get(v, 0) for v in LOOK_VERBS)
@@ -249,6 +254,7 @@ def transcript_signals(events: list[dict], our_skills: list[str]) -> dict:
         "image_reads": image_reads,
         "looked_at": looks > 0 or image_reads > 0,
         "tool_calls": dict(sorted(tool_counts.items())),
+        "background_tasks_killed": killed,
         "result": {
             "subtype": result.get("subtype"),
             "is_error": result.get("is_error"),

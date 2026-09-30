@@ -130,7 +130,11 @@ For every run, `verdict.py` re-derives from the committed files and reports:
 - **Process:** Montagent verbs used, `frame`/`preview` loops, and whether the run looked at
   its own pictures (a look verb, or reading an image file) or delivered one-shot.
 - **Cost:** turns, wall-clock, tokens and spend.
-- **Delivery:** whether a video was delivered, and its length and size.
+- **Delivery:** whether a video was delivered, and its length and size. Also whether it may
+  not be the agent's last word: background tasks killed when the session ended (from the
+  transcript), and the run-time `delivery_warnings` (a render's partial file left behind,
+  or a project written after the deliverable). These are recorded and never decisive: the
+  video judged is the one delivered.
 - Whether the with-skills run's skills triggered.
 
 `R-CAPTION-*` findings fire on every text element (see

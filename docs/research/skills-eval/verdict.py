@@ -114,6 +114,9 @@ def run_signals(run: Path, man: dict, builds: dict, pins: dict) -> dict:
         "arm": man["arm"],
         "delivered": probe is not None,
         "render_720p": probe,
+        # Recorded, never decisive: the judged video is the one delivered.
+        "background_tasks_killed": sig["background_tasks_killed"],
+        "delivery_warnings": man.get("delivery_warnings"),
         "cap_hit": man.get("timed_out") or sig["result"]["subtype"] not in ("success", None),
         "timed_out": man.get("timed_out"),
         "isolation_problems": isolation_problems(sig, man["arm"], ours, pins["builtin_skills"]),
