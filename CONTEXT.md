@@ -1024,6 +1024,19 @@ the rule.
 _Avoid_: commit (spoken for by git), publish step, finalize, atomic write (that is
 the mechanism, not the decision)
 
+**Partial render**:
+A `render` of a half-open range `[from, to)`, written to a derived path and refused
+if that path is the declared `output`, so it is never a **deliverable**. Its
+analysis is split, and its report says so: every `validate` check runs on the whole
+project and any `error` refuses it, while **world-effects** are established only
+inside the range. So a partial render can publish its file over a world-effect that
+would refuse the full render, and a clean one says nothing about whether the full
+render will pass. Its findings are the whole project's, printed as any report's are.
+([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
+[ADR-0093](docs/adr/0093-renders-world-effects-are-findings-and-an-error-withholds-the-deliverable.md),
+[ADR-0121](docs/adr/0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md))
+_Avoid_: scene render, draft render, preview (a different verb with its own budget)
+
 **Attestation**:
 What a **deliverable** carries saying which project wrote it — a `comment` tag on
 the container holding the project file's **observed identity**, stamped at the
