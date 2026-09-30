@@ -14,6 +14,14 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > the reader can see is not a blind spot and gets no token. The READER CHECK is a sibling of the
 > NOT CHECKED block, printed on every range answer and never a finding.
 
+> **Amended by [ADR-0118](0118-an-unpainted-visual-state-is-one-finding-per-state-from-one-selection-in-every-verb.md).** [#437](https://github.com/MBehtemam/Montagent/issues/437) closed the gap this
+> ADR filed: `validate` raises `N-QUANTIZATION` for every unpainted visual state, **one finding
+> per state**, over the one selection `frame`'s range mode is to share. ADR-0118 names the
+> finding's fields, and records that a vanished element or a sub-frame gap now raises two
+> findings, the element's or gap's and the state's. Where this ADR says `validate` is silent, that
+> was true when it was accepted; the ninth claim of `check_unpainted_runs.py` now checks the
+> closing instead.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map

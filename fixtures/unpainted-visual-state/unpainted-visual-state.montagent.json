@@ -1,0 +1,29 @@
+{
+  "frame": {"width": 1080, "height": 1920},
+  "fps": 25,
+  "background": "#FFFFFF",
+  "duration": 2000,
+  "tracks": [
+    {
+      "name": "bg",
+      "layer": 0,
+      "elements": [
+        {"id":"bg","type":"rect","start":0,"end":2000,"x":0,"y":0,"origin":"top-left","width":1080,"height":1920,"fill":"#222222"}
+      ]
+    },
+    {
+      "name": "a",
+      "layer": 1,
+      "elements": [
+        {"id":"a","type":"rect","start":0,"end":1010,"x":100,"y":100,"origin":"top-left","width":400,"height":400,"fill":"#FF0000"}
+      ]
+    },
+    {
+      "name": "b",
+      "layer": 2,
+      "elements": [
+        {"id":"b","type":"rect","start":1030,"end":2000,"x":100,"y":100,"origin":"top-left","width":400,"height":400,"fill":"#0000FF"}
+      ]
+    }
+  ]
+}

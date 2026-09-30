@@ -17,8 +17,8 @@ paints dozens of frames. The example was computed before the re-merge the same A
 So on the repo's only real project the condition has **zero instances**, the shape #407
 found for ADR-0094 section 3's keyframe population. The condition is still reachable: two
 visual boundaries on different elements less than one frame period apart. The constructed
-document below is one, and `validate` says nothing about it -- no `N-QUANTIZATION`, at any
-class -- which is the gap ADR-0105 files rather than closes.
+document below is one, and `validate` said nothing about it -- no `N-QUANTIZATION`, at any
+class -- which is the gap ADR-0105 filed rather than closed, and #437 has since closed.
 
 The run rule (ADR-0094 section 1) and the painted-frame rule (section 2, ADR-0077's
 `floor(n * 1000 / fps)`) are reimplemented here in a dozen lines, because the sheet itself
@@ -140,12 +140,15 @@ with tempfile.TemporaryDirectory() as tmp:
           f"a constructed document has one unpainted visual state, 1010..1030 {{bg}} "
           f"(got {c_unpainted})")
 
+    # When ADR-0105 was accepted this claim read "validate is silent on it", and passed.
+    # #437 closed that gap, so the claim now checks the closing: one N-QUANTIZATION at
+    # review, naming the state.
     code, report = run("validate", str(project), "--json")
-    codes = sorted({f["code"] for f in report["findings"]})
-    claim(code == 0 and "N-QUANTIZATION" not in codes
-          and report["summary"]["review"] == 0 and report["summary"]["note"] == 0,
-          f"validate is silent on it: exit 0, no N-QUANTIZATION, no review or note "
-          f"(got exit {code}, codes {codes})")
+    states = [(f["class"], f["fields"].get("from"), f["fields"].get("to"))
+              for f in report["findings"] if f["code"] == "N-QUANTIZATION"]
+    claim(code == 0 and states == [("review", 1010, 1030)],
+          f"validate reports it (#437): exit 0, one N-QUANTIZATION at review for 1010..1030 "
+          f"(got exit {code}, {states})")
 
 print()
 if defects:

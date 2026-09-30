@@ -85,6 +85,13 @@ pub fn fixture_project() -> PathBuf {
     fixture_dir().join("en-halloween-decorating.montagent.json")
 }
 
+/// The constructed document with one unpainted visual state (#437): at 25 fps, `a` ends at
+/// 1010 and `b` starts at 1030 on different tracks, over a whole-span `bg`.
+pub fn unpainted_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/unpainted-visual-state/unpainted-visual-state.montagent.json")
+}
+
 /// A project file written into the fixture's own directory and removed again, even when
 /// the assertion between the two panics.
 ///

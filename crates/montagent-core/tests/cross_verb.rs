@@ -285,3 +285,144 @@ fn a_range_render_refuses_is_an_error_to_validate_under_the_same_code() {
         assert!(rendered.video().is_none(), "{label}: a file was produced");
     }
 }
+
+// ---------------------------------------------------------------------------
+// One selection of visual states, for every verb that cuts the clock by them (#437).
+// ---------------------------------------------------------------------------
+
+/// A visual state as a caller outside the crate can compute it: `query --from --to`'s
+/// intervals, audio members dropped, equal neighbours merged (ADR-0094 §1) — ADR-0074's
+/// *"filters one field of an answer it already has"*, done here by hand from the verb's own
+/// JSON so the comparison is against `query`, not against the function under test.
+#[derive(Debug, PartialEq)]
+struct State {
+    start: i64,
+    end: i64,
+    present: Vec<String>,
+}
+
+fn visual_states_through_query(path: &Path, from: i64, to: i64) -> (usize, Vec<State>) {
+    let answer = montagent_core::verbs::query::query(
+        path,
+        &montagent_core::verbs::query::Ask {
+            from: Some(from),
+            to: Some(to),
+            ..Default::default()
+        },
+    );
+    let json = answer.to_json();
+    let intervals = json["query"]["intervals"].as_array().expect("a cut list");
+    let mut states: Vec<State> = Vec::new();
+    for interval in intervals {
+        let present: Vec<String> = interval["present"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|member| member["type"] != "audio")
+            .map(|member| member["id"].as_str().unwrap().to_string())
+            .collect();
+        match states.last_mut() {
+            Some(last) if last.present == present => last.end = interval["end"].as_i64().unwrap(),
+            _ => states.push(State {
+                start: interval["start"].as_i64().unwrap(),
+                end: interval["end"].as_i64().unwrap(),
+                present,
+            }),
+        }
+    }
+    (intervals.len(), states)
+}
+
+fn visual_states_as_selected(path: &Path, from: i64, to: i64) -> Vec<State> {
+    use montagent_core::verbs::query::cuts;
+    let document = montagent_core::parse::read(path).expect("parses");
+    cuts::visual_states(&cuts::cuts(&document, from, to))
+        .into_iter()
+        .map(|state| State {
+            start: state.start,
+            end: state.end,
+            present: state
+                .present
+                .into_iter()
+                .filter_map(|named| named.id)
+                .collect(),
+        })
+        .collect()
+}
+
+#[test]
+fn the_visual_states_are_querys_cut_list_filtered_to_visual_members() {
+    let fixture = common::fixture_project();
+    let duration = common::document(&fixture)["duration"].as_i64().unwrap();
+
+    // ADR-0105 §6's census of the fixture: 46 intervals, 18 visual states.
+    let (intervals, through_query) = visual_states_through_query(&fixture, 0, duration);
+    assert_eq!(intervals, 46);
+    assert_eq!(through_query.len(), 18);
+    assert_eq!(
+        visual_states_as_selected(&fixture, 0, duration),
+        through_query
+    );
+
+    // A range that starts and ends inside states, and one around the fixture's 4 ms
+    // audio-only interval at 56112..56116, which the re-merge absorbs.
+    for (from, to) in [(1234, 20001), (53000, 57000)] {
+        assert_eq!(
+            visual_states_as_selected(&fixture, from, to),
+            visual_states_through_query(&fixture, from, to).1,
+            "[{from}, {to})"
+        );
+    }
+
+    let constructed = common::unpainted_fixture();
+    assert_eq!(
+        visual_states_as_selected(&constructed, 0, 2000),
+        visual_states_through_query(&constructed, 0, 2000).1
+    );
+}
+
+#[test]
+fn validates_unpainted_states_are_the_visual_states_query_implies_no_frame_paints() {
+    // `validate`'s `N-QUANTIZATION` for a state and `query`'s cut list, compared at the verb
+    // level: every state the grid misses, and nothing else, is a finding naming it.
+    let path = common::unpainted_fixture();
+    let fps = 25;
+    let painted = |state: &State| {
+        (0..)
+            .map(|n: i64| n * 1000 / fps)
+            .take_while(|ms| *ms < state.end)
+            .any(|ms| ms >= state.start)
+    };
+    let expected: Vec<State> = visual_states_through_query(&path, 0, 2000)
+        .1
+        .into_iter()
+        .filter(|state| !painted(state))
+        .collect();
+    assert_eq!(
+        expected.len(),
+        1,
+        "the constructed document has one: {expected:?}"
+    );
+
+    let report = validate(&path);
+    let reported: Vec<State> = report
+        .findings
+        .iter()
+        .filter(|finding| finding.code == "N-QUANTIZATION")
+        .map(|finding| State {
+            start: finding.fields["from"].as_i64().unwrap(),
+            end: finding.fields["to"].as_i64().unwrap(),
+            present: serde_json::from_value(finding.fields["present"].clone()).unwrap(),
+        })
+        .collect();
+    assert_eq!(reported, expected);
+    assert!(
+        report
+            .findings
+            .iter()
+            .filter(|f| f.code == "N-QUANTIZATION")
+            .all(|f| f.class == Class::Review),
+        "{:?}",
+        report.findings
+    );
+}

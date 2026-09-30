@@ -962,8 +962,15 @@ minimum caption duration",
         // ADR-0105 (#412) adds a third `review` condition on the same reason: a *visual
         // state* the grid never paints — two boundaries on different elements landing on one
         // frame, so no element vanishes and no track gains a gap, yet the combination the
-        // document declares is never on screen. `frame`'s range mode raises it for each
-        // `no-grid-frame` skipped run. This check does not detect it yet (#437).
+        // document declares is never on screen. `validate`'s quantization check raises it
+        // (#437) through `checks::quantization::unpainted_states`, over the one selection of
+        // visual states; `frame`'s range mode is to raise it for each `no-grid-frame` skipped
+        // run through the same function (#488), so the state has one identity whichever verb
+        // saw it. One finding
+        // per state, carrying `from`, `to`, `present` and `boundaries` (each `at` with the
+        // elements `entering` and `leaving`, by element and track) beside the template's
+        // three fields; `changed` is always 2, the state's own boundaries. ADR-0118 ratifies
+        // the fields, and that the state finding fires even where (1) or (2) already did.
         classes: &[Review, Note],
         repair: None,
         threshold: Internal,

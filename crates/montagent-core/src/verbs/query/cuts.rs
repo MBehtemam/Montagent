@@ -153,6 +153,42 @@ pub fn cuts(document: &Loose, from: i64, to: i64) -> Cuts {
     }
 }
 
+/// The **visual states** of a cut list: its intervals with audio members dropped and equal
+/// neighbours re-merged (ADR-0094 §1).
+///
+/// ADR-0074 kept this out of `query` itself — *"a caller that wants the visual cut list
+/// filters one field of an answer it already has"* — and `validate`'s quantization check
+/// is that caller, as `frame`'s range mode will be (#488). The two are to share this one
+/// function rather than each filtering for itself, because an unpainted visual state is `N-QUANTIZATION` from
+/// both (ADR-0105 §5), and one fact has one identity only if both verbs cut the clock at
+/// the same places.
+///
+/// The filter is one line; the re-merge is the work, and it is [`merged`] — the same join
+/// the cut list's own intervals went through. Dropping narration makes neighbours that
+/// differed only in audio identical, and that join is what turns the fixture's 46
+/// intervals into 18 states. Equality stays on the set: two intervals that differ only in
+/// *which* text card is up are two states.
+///
+/// Only `type: "audio"` is dropped (ADR-0118). An element with no `type`, or one this build does not
+/// know, is kept — a state wrongly split is visible on a sheet, and one wrongly merged away
+/// is not.
+pub fn visual_states(cuts: &Cuts) -> Vec<Interval> {
+    merged(
+        cuts.intervals
+            .iter()
+            .map(|interval| Interval {
+                present: interval
+                    .present
+                    .iter()
+                    .filter(|named| named.kind.as_deref() != Some("audio"))
+                    .cloned()
+                    .collect(),
+                ..interval.clone()
+            })
+            .collect(),
+    )
+}
+
 /// The instants the range is cut at: its own two edges, plus every boundary strictly
 /// inside it.
 ///
