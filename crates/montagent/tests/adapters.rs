@@ -1125,6 +1125,7 @@ fn cli_frame_from_to_writes_the_sheet_to_the_out_it_already_requires() {
     );
     let written = std::fs::read(&out_file).expect("the sheet was written to --out");
     assert_eq!(&written[..2], &[0xFF, 0xD8], "JPEG, as a single frame is");
+    assert_states_the_reader_check(&montagent(&["frame", "--help"]).stdout, &out.stdout);
 }
 
 #[test]
@@ -2034,11 +2035,11 @@ fn mcp_frame_range_is_one_text_block_and_one_image_block_and_refusals_are_errors
     );
     assert_eq!(content[0]["type"], "text");
     let text = content[0]["text"].as_str().expect("a rendered answer");
-    assert!(text.contains("READER CHECK"), "{text}");
     assert!(
         text.contains("no checks run (validate runs them)"),
         "{text}"
     );
+    assert_states_the_reader_check(description, text);
     assert_eq!(content[1]["type"], "image", "{}", content[1]);
     assert_eq!(content[1]["mimeType"], "image/jpeg");
     assert_ne!(answered["isError"], true, "{answered}");
@@ -2534,6 +2535,25 @@ fn states_project(n: usize) -> String {
         r#"{{"frame":{{"width":200,"height":200}},"fps":25,"tracks":[{{"name":"boxes","layer":1,"elements":[{}]}}]}}"#,
         elements.join(",")
     )
+}
+
+/// #486 story 54: the help and the tool description state the READER CHECK in the same words
+/// the answer does — everything but tile 1's label, which only an answer can know.
+fn assert_states_the_reader_check(surface: &str, answer: &str) {
+    let sentence = answer
+        .lines()
+        .find_map(|line| line.strip_prefix("READER CHECK  "))
+        .unwrap_or_else(|| panic!("the answer has no READER CHECK: {answer}"));
+    let (before, quoted) = sentence
+        .split_once("Tile 1's label reads exactly `")
+        .expect("the check quotes tile 1's label");
+    let (_label, after) = quoted.split_once("`.").expect("the quote closes");
+    for words in [before.trim(), after.trim()] {
+        assert!(
+            surface.contains(words),
+            "the surface does not state `{words}`: {surface}"
+        );
+    }
 }
 
 /// #486 story 53: nothing `frame` prints or advertises names a model, so it makes no claim

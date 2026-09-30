@@ -175,17 +175,20 @@ enum Command {
     /// (ADR-0097): one labelled tile per visual state, each at the first frame that paints
     /// it, with a provenance list naming every tile's instant and elements. A sheet is
     /// drawn no larger than the standard tier serves (1568 px on its long edge), so it costs
-    /// at most what one `--full` frame costs on that tier: 18 visual states for the price of
-    /// one full frame. It shows the states its tiles sample and says what it does not: its
+    /// at most what one `--full` frame costs on that tier: on a 9:16 project, 18 visual
+    /// states for the price of one full frame. It shows the states its tiles sample and says what it does not: its
     /// `blind_to` lines name what no still can show. Where the span holds more states than
     /// the sheet can draw, it refuses and names sub-ranges that fit. `--keyframes` adds a
     /// tile where each keyframe change first paints; `--infill-ceiling <MS>` adds tiles
     /// inside long states.
     ///
-    /// Every sheet opens with a READER CHECK quoting tile 1's label exactly: if the strip
-    /// beneath tile 1 does not read exactly that, the sheet is below what you can see, and
-    /// `frame --at <instant>` shows any listed instant at full scale. Reading the labels is
-    /// necessary for seeing the pictures, not sufficient.
+    /// Every sheet opens with a READER CHECK, in these words around tile 1's exact label:
+    /// "Each tile's label is the line in the strip beneath it, outside the video frame; text
+    /// inside a tile is the video's own. Tile 1's label reads exactly `…`. The provenance
+    /// list below is the complete record of this range, and this sheet is a picture of it.
+    /// If the strip beneath tile 1 does not read exactly that, this sheet is below what you
+    /// can see, and `frame --at <instant>` shows any listed instant at full scale. Reading
+    /// the labels is necessary for seeing the pictures, not sufficient."
     ///
     /// One instant, rasterized at the project's true pixel dimensions and answered as
     /// **JPEG at half that size** — full scale and PNG are behind flags, because an image
@@ -540,7 +543,7 @@ enum FontsCommand {
 }
 
 /// What an unknown argument on `frame` is told: the range mode is arguments, not a flag.
-const FRAME_RANGE_ARGUMENTS: &str = "\n\n`frame` draws one instant with `--at <MS>`, or a \
+const FRAME_UNKNOWN_ARGUMENT_HINT: &str = "\n\n`frame` draws one instant with `--at <MS>`, or a \
     contact sheet of a span with `--from <MS> --to <MS>`, one tile per visual state; \
     `--keyframes` and `--infill-ceiling <MS>` add tiles to a sheet.";
 
@@ -562,7 +565,7 @@ where
             {
                 // ADR-0097: nothing in `frame`'s arguments says "sheet", so an agent
                 // reaching for one by another name is taught here, by the refusal.
-                reason.push_str(FRAME_RANGE_ARGUMENTS);
+                reason.push_str(FRAME_UNKNOWN_ARGUMENT_HINT);
             }
             let report = Report::bad_invocation(reason);
             eprint!("{}", montagent_core::wire::render(&report, PLAIN));

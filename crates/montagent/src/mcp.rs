@@ -557,17 +557,21 @@ impl Montagent {
                        that paints it, with a provenance list naming every tile's instant \
                        and elements. A sheet is drawn no larger than the standard tier \
                        serves (1568 px on its long edge), so it costs at most what one `full` \
-                       frame costs on that tier: 18 visual states for the price of one full \
-                       frame. It shows the \
+                       frame costs on that tier: on a 9:16 project, 18 visual states for the \
+                       price of one full frame. It shows the \
                        states its tiles sample, and its `blind_to` lines name what no still \
                        can show. A span holding more states than the sheet can draw is \
                        refused, naming sub-ranges that fit. `keyframes` adds a tile where \
                        each keyframe change first paints; `infill_ceiling` adds tiles inside \
-                       long states. Every sheet opens with a READER CHECK quoting tile 1's \
-                       label exactly: if the strip beneath tile 1 does not read exactly that, \
-                       the sheet is below what you can see, and `frame` with `at` shows any \
-                       listed instant at full scale. Reading the labels is necessary for \
-                       seeing the pictures, not sufficient. One instant is drawn at the \
+                       long states. Every sheet opens with a READER CHECK, in these words \
+                       around tile 1's exact label: \"Each tile's label is the line in the \
+                       strip beneath it, outside the video frame; text inside a tile is the \
+                       video's own. Tile 1's label reads exactly `…`. The provenance list \
+                       below is the complete record of this range, and this sheet is a \
+                       picture of it. If the strip beneath tile 1 does not read exactly that, \
+                       this sheet is below what you can see, and `frame --at <instant>` \
+                       shows any listed instant at full scale. Reading the labels is \
+                       necessary for seeing the pictures, not sufficient.\" One instant is drawn at the \
                        project's true pixel dimensions and handed back as JPEG at \
                        half the frame size by default, because an image costs \
                        ceil(w/28) x ceil(h/28) visual tokens on the dimensions it is served: \
