@@ -125,7 +125,7 @@ Show a second clip in a circle: a video element with a circle `mask`, a ring beh
 }
 ```
 
-- **The circle's rect:** a square as tall as the element. Its `x` chooses which part of the picture shows. The centre is `(width - height) / 2`; move it to frame the part that matters, such as the edit in a screen recording.
+- **The circle's rect:** a square as tall as the element. Its `x` chooses which part of the picture shows. The centre is `(width - height) / 2`, and that is the one to use: the pop scales about the element's `origin`, so a circle moved off the centre drifts sideways as it grows. To show another part of the picture, pick a `source_start` where that part sits in the middle, or make the element larger and set its `x` so the part lands in the circle, then key `x` on the pop's curve so the circle's centre holds still.
 - **Size:** 30–40 % of the frame's width across. The ring is 12–24 px wider than the circle, in the ground's lightest colour, with a soft `shadow`.
 - **Pop:** 350–450 ms on `[0.34, 1.56, 0.64, 1]` for both, from scale 0, on the same keys. Exit in 200–300 ms, `ease-in`, back to 0.
 - **Timing:** in when the speaker first names the thing it shows, out a beat before the end so the close is clean.
