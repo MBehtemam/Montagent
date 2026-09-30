@@ -1681,7 +1681,7 @@ fn sheet_block(sheet: &Value) -> String {
     }
     for (i, state) in skipped.iter().enumerate() {
         out.push_str(&row(format!(
-            "{}{}..{}  {} \u{2014} present: {}",
+            "{}{}..{}  {}{} \u{2014} present: {}",
             if i == 0 {
                 "skipped     "
             } else {
@@ -1690,6 +1690,10 @@ fn sheet_block(sheet: &Value) -> String {
             number(&state["run"]["start"]),
             number(&state["run"]["end"]),
             named(&state["reason"]),
+            match state["evicted"].as_u64() {
+                Some(evicted) => format!(", {}", plural(evicted, "tile")),
+                None => String::new(),
+            },
             ids(&state["present"]),
         )));
     }
@@ -1751,6 +1755,19 @@ fn sheet_block(sheet: &Value) -> String {
             number(&point["run"]["start"]),
             number(&point["run"]["end"]),
             named(&point["reason"]),
+        )));
+    }
+
+    // Only when the ceiling was passed (ADR-0106 D6).
+    let infill = &sheet["infill"];
+    if !infill.is_null() {
+        out.push_str(&row(format!(
+            "infill      requested {} ms, {}",
+            number(&infill["requested_ms"]),
+            match infill["achieved_ms"].as_i64() {
+                Some(achieved) => format!("achieved {achieved} ms"),
+                None => "achieved: none".to_string(),
+            },
         )));
     }
 

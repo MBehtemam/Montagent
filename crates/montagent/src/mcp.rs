@@ -576,6 +576,7 @@ impl Montagent {
                         from: None,
                         to: None,
                         keyframes: false,
+                        infill_ceiling: None,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query` and `measure`.

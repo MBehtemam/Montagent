@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 mod common;
 use common::{
     Scratch, fixture_project, keyframe_coincidence_fixture, keyframe_cross_boundary_fixture,
-    tempdir, unpainted_fixture, write_project,
+    long_state_fixture, tempdir, unpainted_fixture, write_project,
 };
 
 // ---------------------------------------------------------------------------
@@ -1411,4 +1411,314 @@ fn keyframes_without_a_range_is_refused() {
     });
     assert!(reason.contains("`--keyframes`"), "{reason}");
     assert!(reason.contains("`--from`/`--to`"), "{reason}");
+}
+
+// ---------------------------------------------------------------------------
+// Infill tiles: `--infill-ceiling` (#492, ADR-0106, ADR-0130)
+// ---------------------------------------------------------------------------
+
+fn infilled(from: i64, to: i64, ceiling: &str) -> Ask {
+    Ask {
+        infill_ceiling: Some(ceiling.into()),
+        ..range(from, to)
+    }
+}
+
+/// Every span a sheet leaves, in painted time: between consecutive tiles of any class, and
+/// from the last to `to`, which is on the 25 fps grid in every test here.
+fn spans(json: &Value, to: i64) -> Vec<i64> {
+    let mut instants: Vec<i64> = json["sheet"]["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tile| tile["instant_ms"].as_i64().unwrap())
+        .collect();
+    instants.push(to);
+    instants.windows(2).map(|pair| pair[1] - pair[0]).collect()
+}
+
+#[test]
+fn infill_tiles_close_every_span_to_the_ceiling_marked_and_listed_with_why_infill() {
+    let json = drawn(&long_state_fixture(), &infilled(0, 9000, "2000")).to_json();
+    assert_eq!(
+        tiles(&json),
+        [
+            tile(1, "run", "boundary", 0, "1 0ms +0 +a", &[]),
+            tile(2, "run", "boundary", 1000, "2 1000ms +0 +b", &[]),
+            // The latest painted frame no more than 2000 ms after the tile before it, with
+            // the offset from its state's start and no identifying field.
+            tile(3, "infill", "infill", 3000, "3 I 3000ms +2000", &[]),
+            tile(4, "infill", "infill", 5000, "4 I 5000ms +4000", &[]),
+            tile(5, "infill", "infill", 7000, "5 I 7000ms +6000", &[]),
+        ]
+    );
+    assert!(spans(&json, 9000).iter().all(|&span| span <= 2000));
+    let sheet = &json["sheet"];
+    assert_eq!(
+        sheet["classes"],
+        json!({"run": 2, "keyframe": 0, "infill": 3})
+    );
+    assert_eq!(
+        sheet["infill"],
+        json!({"requested_ms": 2000, "achieved_ms": 2000})
+    );
+    assert_eq!(sheet["skipped"], json!([]));
+    assert_eq!(
+        sheet["provenance"][2]["run"],
+        json!({"start": 1000, "end": 9000})
+    );
+    assert_eq!(sheet["provenance"][2]["present"], json!(["bg", "b"]));
+    assert_eq!(sheet["coverage"]["tiled"], 2, "coverage counts states");
+    // b.x@4010 samples at 4040, where no tile of this sheet sits.
+    assert_eq!(sheet["keyframes"]["untiled"], 1);
+
+    let text = prose(&json);
+    for words in [
+        "infill  infill  at 3000 ms",
+        "classes     2 run, 0 keyframe, 3 infill",
+        "infill      requested 2000 ms, achieved 2000 ms",
+    ] {
+        assert!(text.contains(words), "`{words}` missing: {text}");
+    }
+}
+
+#[test]
+fn an_infill_tile_is_marked_by_an_inverted_strip() {
+    let answer = drawn(
+        &long_state_fixture(),
+        &Ask {
+            png: true,
+            ..infilled(0, 9000, "2000")
+        },
+    );
+    let json = answer.to_json();
+    let picture = &json["sheet"]["picture"];
+    let number = |key: &str| picture[key].as_i64().unwrap();
+    let (columns, tile_w, tile_h) = (
+        number("columns"),
+        number("served_tile_width"),
+        number("served_tile_height"),
+    );
+    let cell_h = number("height") / number("rows");
+    let drawn = image::load_from_memory(&answer.image().unwrap().bytes)
+        .unwrap()
+        .to_rgba8();
+    let ground = |index: i64| {
+        let (x, y) = (
+            (index % columns) * tile_w,
+            (index / columns) * cell_h + tile_h,
+        );
+        drawn
+            .get_pixel((x + tile_w - 1) as u32, (y + cell_h - tile_h - 1) as u32)
+            .0
+    };
+    assert_eq!(
+        ground(1),
+        [0x1A, 0x1A, 0x1A, 0xFF],
+        "a run tile is unmarked"
+    );
+    for index in 2..5 {
+        assert_eq!(
+            ground(index),
+            [0xE6, 0xE6, 0xE6, 0xFF],
+            "tile {}",
+            index + 1
+        );
+    }
+}
+
+#[test]
+fn a_ceiling_that_only_partly_fits_is_honoured_uniformly_and_the_rest_is_infill_evicted() {
+    // 200 ms would add 43 tiles; the target rung has 16 slots beside the two run tiles.
+    // 520 ms is the smallest ceiling 16 tiles honour on this grid, in every span at once.
+    let json = drawn(&long_state_fixture(), &infilled(0, 9000, "200")).to_json();
+    let sheet = &json["sheet"];
+    assert_eq!(
+        sheet["infill"],
+        json!({"requested_ms": 200, "achieved_ms": 520})
+    );
+    assert_eq!(sheet["classes"]["infill"], 16);
+    assert_eq!(sheet["picture"]["rung"], "target");
+    let spans = spans(&json, 9000);
+    assert_eq!(spans.iter().max(), Some(&520), "{spans:?}");
+    // What 200 ms would have added and the sheet does not draw, by the run it is in: 3600,
+    // 6200 and 8800 are on both grids, and drawn.
+    assert_eq!(
+        sheet["skipped"],
+        json!([
+            {"run": {"start": 0, "end": 1000}, "reason": "infill-evicted",
+             "present": ["bg", "a"], "evicted": 4},
+            {"run": {"start": 1000, "end": 9000}, "reason": "infill-evicted",
+             "present": ["bg", "b"], "evicted": 36},
+        ])
+    );
+    // An evicted infill tile is the instrument's choice, never a finding (ADR-0105 §4).
+    assert_eq!(json["findings"], json!([]));
+    assert_eq!(sheet["coverage"]["skipped"], 0, "no state went untiled");
+
+    let text = prose(&json);
+    for words in [
+        "infill      requested 200 ms, achieved 520 ms",
+        "0..1000  infill-evicted, 4 tiles",
+        "1000..9000  infill-evicted, 36 tiles",
+    ] {
+        assert!(text.contains(words), "`{words}` missing: {text}");
+    }
+}
+
+#[test]
+fn infill_with_keyframes_still_bounds_the_span_between_tiles_of_any_class() {
+    let json = drawn(
+        &long_state_fixture(),
+        &Ask {
+            keyframes: true,
+            ..infilled(0, 9000, "3000")
+        },
+    )
+    .to_json();
+    assert_eq!(
+        tiles(&json),
+        [
+            tile(1, "run", "boundary", 0, "1 0ms +0 +a", &[]),
+            tile(2, "run", "boundary", 1000, "2 1000ms +0 +b", &[]),
+            tile(3, "infill", "infill", 4000, "3 I 4000ms +3000", &[]),
+            tile(
+                4,
+                "keyframe",
+                "keyframe",
+                4040,
+                "4 K 4040ms +30",
+                &["b.x@4010"]
+            ),
+            // From the keyframe tile, not from the infill tile before it.
+            tile(5, "infill", "infill", 7040, "5 I 7040ms +6040", &[]),
+        ]
+    );
+    assert!(spans(&json, 9000).iter().all(|&span| span <= 3000));
+    assert_eq!(
+        json["sheet"]["classes"],
+        json!({"run": 2, "keyframe": 1, "infill": 2})
+    );
+}
+
+#[test]
+fn an_infill_tile_at_a_change_points_sample_frame_tiles_it_and_keeps_its_class() {
+    // 3040 ms after the run tile at 1000 is 4040, where b.x@4010 first paints.
+    let json = drawn(&long_state_fixture(), &infilled(0, 9000, "3040")).to_json();
+    assert_eq!(
+        tiles(&json)[2],
+        tile(
+            3,
+            "infill",
+            "infill",
+            4040,
+            "3 I 4040ms +3040",
+            &["b.x@4010"]
+        )
+    );
+    let census = &json["sheet"]["keyframes"];
+    assert_eq!(
+        (&census["tiled"], &census["untiled"]),
+        (&json!(1), &json!(0))
+    );
+}
+
+#[test]
+fn a_ceiling_longer_than_the_range_is_legal_and_adds_no_tile() {
+    let json = drawn(&long_state_fixture(), &infilled(0, 9000, "60000")).to_json();
+    let sheet = &json["sheet"];
+    assert_eq!(sheet["classes"]["infill"], 0);
+    assert_eq!(
+        sheet["infill"],
+        json!({"requested_ms": 60000, "achieved_ms": 60000})
+    );
+    assert_eq!(sheet["skipped"], json!([]));
+    // The sheet is the one drawn without the flag.
+    let without = drawn(&long_state_fixture(), &range(0, 9000)).to_json();
+    assert_eq!(sheet["picture"], without["sheet"]["picture"]);
+    assert_eq!(sheet["provenance"], without["sheet"]["provenance"]);
+    assert!(without["sheet"].get("infill").is_none(), "only when asked");
+    assert!(!prose(&without).contains("infill      requested"));
+}
+
+#[test]
+fn the_whole_fixture_gains_no_infill_tile_at_any_ceiling() {
+    // Eighteen states fill the target rung's eighteen slots (ADR-0106 §5–6).
+    let project = fixture_project();
+    let duration = common::document(&project)["duration"].as_i64().unwrap();
+    let (whole, _) = fixture_sheet();
+    for (ceiling, achieved) in [("40", Value::Null), ("1000000", json!(1_000_000))] {
+        let json = drawn(&project, &infilled(0, duration, ceiling)).to_json();
+        let sheet = &json["sheet"];
+        assert_eq!(sheet["classes"]["infill"], 0, "{ceiling}");
+        assert_eq!(labels(&json), FIXTURE_LABELS, "{ceiling}");
+        assert_eq!(sheet["picture"]["served_tile_width"], 184);
+        assert_eq!(sheet["infill"]["achieved_ms"], achieved, "{ceiling}");
+        assert_eq!(sheet["provenance"], whole["sheet"]["provenance"]);
+        let evicted = sheet["skipped"].as_array().unwrap();
+        assert_eq!(evicted.is_empty(), achieved.is_number(), "{ceiling}");
+        assert!(
+            evicted
+                .iter()
+                .all(|entry| entry["reason"] == "infill-evicted")
+        );
+        if achieved.is_null() {
+            let text = prose(&json);
+            assert!(
+                text.contains("infill      requested 40 ms, achieved: none"),
+                "{text}"
+            );
+        }
+    }
+}
+
+#[test]
+fn infill_ceiling_without_a_range_is_refused() {
+    let reason = refused(&Ask {
+        at: Some(500),
+        infill_ceiling: Some("1000".into()),
+        ..Ask::default()
+    });
+    assert!(reason.contains("`--infill-ceiling`"), "{reason}");
+    assert!(reason.contains("`--from`/`--to`"), "{reason}");
+}
+
+#[test]
+fn a_ceiling_that_is_not_a_positive_whole_number_of_milliseconds_is_refused_not_clamped() {
+    for (ceiling, words) in [
+        ("0", "more than zero"),
+        ("-40", "more than zero"),
+        ("40.5", "whole number of milliseconds"),
+        ("1e400", "whole number of milliseconds"),
+        ("soon", "whole number of milliseconds"),
+    ] {
+        let reason = refused(&infilled(0, 2000, ceiling));
+        assert!(
+            reason.contains(&format!("`--infill-ceiling {ceiling}`")) && reason.contains(words),
+            "{ceiling}: {reason}"
+        );
+    }
+    // A whole number written with a fraction is still that number.
+    drawn(&unpainted_fixture(), &infilled(0, 2000, "40.0"));
+}
+
+#[test]
+fn a_ceiling_below_one_frame_period_is_refused_and_one_period_is_legal() {
+    // 25 fps paints every 40 ms.
+    let reason = refused(&infilled(0, 2000, "39"));
+    assert!(reason.contains("`--infill-ceiling 39`"), "{reason}");
+    assert!(reason.contains("one frame period"), "{reason}");
+    assert!(reason.contains("25 fps"), "{reason}");
+    drawn(&unpainted_fixture(), &infilled(0, 2000, "40"));
+
+    // 30 fps paints every 33.3 ms: 33 is under it, and 34 the least whole ceiling over.
+    let dir = tempdir(line!());
+    let mut document = common::document(&long_state_fixture());
+    document["fps"] = json!(30);
+    let thirty = write_project(&dir, "thirty.montagent.json", &document.to_string());
+    let answer = frame(&thirty, &infilled(0, 9000, "33"));
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    assert_eq!(answer.to_json()["findings"][0]["code"], "E-INVOCATION");
+    let json = drawn(&thirty, &infilled(0, 500, "34")).to_json();
+    assert_eq!(json["sheet"]["infill"]["achieved_ms"], 34);
 }

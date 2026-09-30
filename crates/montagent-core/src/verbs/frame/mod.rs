@@ -172,6 +172,12 @@ pub struct Ask {
     /// Add a keyframe tile at the first painted frame of each keyframe change point inside
     /// a visual state (ADR-0106). A range call's alone: without `from`/`to` it is refused.
     pub keyframes: bool,
+    /// The infill ceiling, in milliseconds, as the caller wrote it: the longest span in
+    /// painted time the sheet may leave between two consecutive tiles of any class, closed
+    /// by infill tiles where the rung leaves room (ADR-0106 D4). Parsed here rather than in
+    /// an adapter, as [`Ask::crop`] is, so both surfaces refuse the same spellings. A range
+    /// call's alone.
+    pub infill_ceiling: Option<String>,
 }
 
 /// One `frame` invocation's answer: the picture, its caption, and the report every verb
@@ -439,7 +445,9 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
     // "fix the command" is never read as "fix the project".
     let (instant, crop) = match request(ask) {
         Ok(Mode::At { instant, crop }) => (instant, crop),
-        Ok(Mode::Range { from, to }) => return sheet::sheet(path, ask, from, to),
+        Ok(Mode::Range { from, to, ceiling }) => {
+            return sheet::sheet(path, ask, from, to, ceiling);
+        }
         Err(reason) => {
             return Answer {
                 picture: None,
@@ -678,8 +686,15 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
 
 /// What the flags ask for: one frame, or a sheet of a span.
 enum Mode {
-    At { instant: i64, crop: Option<Region> },
-    Range { from: i64, to: i64 },
+    At {
+        instant: i64,
+        crop: Option<Region>,
+    },
+    Range {
+        from: i64,
+        to: i64,
+        ceiling: Option<i64>,
+    },
 }
 
 /// The mode, or the one sentence saying why the flags ask for no picture.
@@ -688,8 +703,10 @@ enum Mode {
 /// states: the MCP surface takes the same arguments with no `clap` to arrange them
 /// (ADR-0097 §2). A range refuses in this order, and the first that applies is the reason
 /// given (ADR-0125): a mix of the two modes, then the pair itself, then `--crop`, then
-/// `--full`. `--crop` precedes `--full` because its refusal is permanent and names the loop
-/// the caller wants; `--full` alone is only a flag with no referent.
+/// `--full`, then the infill ceiling's spelling. `--crop` precedes `--full` because its
+/// refusal is permanent and names the loop the caller wants; `--full` alone is only a flag
+/// with no referent. A ceiling under one frame period is refused too, once the document says
+/// what its frame period is (ADR-0130).
 fn request(ask: &Ask) -> Result<Mode, String> {
     if ask.from.is_some() || ask.to.is_some() {
         return range_request(ask);
@@ -731,7 +748,38 @@ fn range_request(ask: &Ask) -> Result<Mode, String> {
                 .into(),
         );
     }
-    Ok(Mode::Range { from, to })
+    let ceiling = match &ask.infill_ceiling {
+        Some(spelling) => Some(infill_ceiling(spelling)?),
+        None => None,
+    };
+    Ok(Mode::Range { from, to, ceiling })
+}
+
+/// A whole number of milliseconds, more than zero: ADR-0106 D14's ceiling, refused rather
+/// than clamped. A number written with a zero fraction, as a JSON client may send `40.0`, is
+/// that whole number.
+fn infill_ceiling(spelling: &str) -> Result<i64, String> {
+    let written = spelling.trim();
+    let whole = written.parse::<i64>().ok().or_else(|| {
+        written
+            .parse::<f64>()
+            .ok()
+            // Under 2^53, where every whole number is exact: past it, `f64` cannot say
+            // whether the caller wrote a whole number at all.
+            .filter(|ms| ms.is_finite() && ms.fract() == 0.0 && ms.abs() < 9.0e15)
+            .map(|ms| ms as i64)
+    });
+    match whole {
+        Some(ms) if ms > 0 => Ok(ms),
+        Some(_) => Err(format!(
+            "`--infill-ceiling {spelling}` must be more than zero: it is the longest span, in \
+             milliseconds, the sheet may leave between two consecutive tiles"
+        )),
+        None => Err(format!(
+            "`--infill-ceiling {spelling}` is not a whole number of milliseconds: write the \
+             longest span the sheet may leave between two consecutive tiles, such as `2000`"
+        )),
+    }
 }
 
 /// The instant and the crop, or the one sentence saying why the flags ask for no frame.
@@ -745,6 +793,14 @@ fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
         return Err(
             "`--keyframes` adds keyframe tiles to a contact sheet, and needs `--from`/`--to`; \
              to see one keyframe, `frame --at` the instant its sheet lists"
+                .into(),
+        );
+    }
+    if ask.infill_ceiling.is_some() {
+        // ADR-0106 D14: a ceiling bounds the span between tiles, and one frame has no span.
+        return Err(
+            "`--infill-ceiling` bounds the span between the tiles of a contact sheet, and needs \
+             `--from`/`--to`; one frame has no span to bound"
                 .into(),
         );
     }

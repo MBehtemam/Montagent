@@ -2,9 +2,10 @@
 //!
 //! The one crate-private test point the range mode has (#486): a pixel diff says *that* a
 //! sheet is wrong, not *which* rung it picked. It is pure — values in, values out — and knows
-//! nothing about documents, painting or reports. The later tickets for labels, keyframes,
-//! infill and sub-ranges (#490, #491, #492, #489) extend this one function rather than
-//! adding a second.
+//! nothing about documents, painting or reports. [`size`] fixes the sheet the
+//! document-derived tiles need, and [`infill`] fills what it leaves (#492); the tickets for
+//! labels, keyframes and sub-ranges (#490, #491, #489) extended `size` rather than adding a
+//! third.
 //!
 //! ## The model
 //!
@@ -41,8 +42,13 @@
 //! **An overflow names the fewest sub-ranges that each fit**, their tiles shared as evenly as
 //! they go and each cut at a visual state's start, so that together they cover the range
 //! exactly and each, requested alone, draws the tiles counted for it here (ADR-0126).
+//!
+//! **Infill takes only what the rung leaves** (ADR-0106 D5): a sheet of one tile at the
+//! target rung has seventeen slots, because eighteen tiles still serve at 180 px. It keeps
+//! the rung and the identifying field, and its ceiling is honoured in every span or at the
+//! smallest one that fits (ADR-0130).
 
-use crate::exact;
+use crate::exact::{self, instant_of};
 use crate::fonts::chrome;
 
 /// ADR-0095's target: every range gets tiles at least this wide, served, when they fit.
@@ -274,6 +280,162 @@ pub(crate) fn size(
     })
 }
 
+/// What `--infill-ceiling` adds to a sheet [`size`] fitted (ADR-0106 D4–6, ADR-0130).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Infill {
+    /// The sheet with its infill tiles: the document-derived tiles' own where none is added,
+    /// and otherwise the grid for all of them, on the same rung and with the same ids.
+    pub(crate) fit: Fit,
+    /// The infill tiles' painted instants, in clock order.
+    pub(crate) tiles: Vec<i64>,
+    /// The ceiling every span on the sheet honours: the one asked for, or the smallest that
+    /// fits. `None` where the request needed tiles and the sheet draws none.
+    pub(crate) achieved: Option<i64>,
+    /// The instants the requested ceiling would have added and the sheet does not draw, in
+    /// clock order.
+    pub(crate) evicted: Vec<i64>,
+}
+
+/// Fill the slots `fit` leaves at its rung with infill tiles, so that no span between two
+/// consecutive tiles of any class — the document-derived ones at `tiles`, in clock order,
+/// and the infill itself — is longer, in painted time, than `ceiling` (ADR-0106 D4).
+///
+/// **The document-derived tiles fix the rung, and infill only fills what it leaves** (D5): a
+/// count of tiles is admitted while every sheet up to it keeps `fit`'s rung, and its labels,
+/// as `labels` measures them for a given set of infill instants, keep `fit`'s identifying
+/// field at the type floor. So infill never degrades, elides or refuses a sheet.
+///
+/// **The ceiling is honoured uniformly or not at all** (D6): at `ceiling` if its tiles fit,
+/// and otherwise at the smallest ceiling whose tiles do, in every span at once. The last
+/// tile's span runs to the first frame painted at or after `to`, where the range's frames
+/// end. Inside a span, each infill tile is the latest painted frame no more than the ceiling
+/// after the tile before it (ADR-0130).
+pub(crate) fn infill(
+    frame: (i64, i64),
+    fps: i64,
+    fit: Fit,
+    tiles: &[i64],
+    to: i64,
+    ceiling: i64,
+    labels: &dyn Fn(&[i64]) -> LabelWidths,
+) -> Infill {
+    let end = exact::frame_at_or_after(to, fps).map_or(to, |frame| instant_of(frame.frame, fps));
+    let requested = placed(fps, tiles, end, ceiling, usize::MAX).unwrap_or_default();
+    let unchanged = |achieved| Infill {
+        fit,
+        tiles: Vec::new(),
+        achieved,
+        evicted: requested.clone(),
+    };
+    if requested.is_empty() {
+        return unchanged(Some(ceiling));
+    }
+    // The document's own longest span: a ceiling that long needs no tile, and always fits.
+    let longest = tiles
+        .iter()
+        .zip(tiles.iter().skip(1).chain([&end]))
+        .map(|(from, to)| to - from)
+        .max()
+        .unwrap_or(0);
+    let rung = fit.rung.px(frame.0);
+    let geometry = |n: usize| grid(frame, n).tile_width >= rung;
+    let bound = bound(frame, rung);
+    let slots = (1..)
+        .take_while(|&extra| tiles.len() + extra <= bound && geometry(tiles.len() + extra))
+        .last()
+        .unwrap_or(0);
+    // The most tiles first, each at the smallest ceiling that needs no more; a count whose
+    // labels do not fit gives way to the next smaller.
+    for slots in (1..=slots).rev() {
+        let achieved = smallest(ceiling, longest, |c| {
+            placed(fps, tiles, end, c, slots).is_some()
+        });
+        let infill = placed(fps, tiles, end, achieved, slots).unwrap_or_default();
+        if infill.is_empty() {
+            // Only the document's own spans fit this many: nothing uniform is left to add.
+            break;
+        }
+        let mut sheet = Fit {
+            rung: fit.rung,
+            ids: fit.ids,
+            ..grid(frame, tiles.len() + infill.len())
+        };
+        let widths = labels(&infill);
+        sheet.type_px = type_px(
+            &sheet,
+            match fit.ids {
+                Ids::Carried => widths.whole,
+                Ids::Elided => widths.core,
+            },
+        );
+        if sheet.type_px < TYPE_FLOOR_PX {
+            continue;
+        }
+        return Infill {
+            fit: sheet,
+            evicted: requested
+                .iter()
+                .copied()
+                .filter(|instant| infill.binary_search(instant).is_err())
+                .collect(),
+            tiles: infill,
+            achieved: Some(achieved),
+        };
+    }
+    unchanged(None)
+}
+
+/// The infill tiles `ceiling` places among `tiles`, whose last span ends at `end`, or `None`
+/// where that is more than `most`, or where no frame is counted past a tile in 64 bits.
+fn placed(fps: i64, tiles: &[i64], end: i64, ceiling: i64, most: usize) -> Option<Vec<i64>> {
+    let mut infill = Vec::new();
+    let closes = tiles.iter().skip(1).chain([&end]);
+    for (&from, &to) in tiles.iter().zip(closes) {
+        let mut last = from;
+        while to - last > ceiling {
+            // The latest painted frame at or before `last + ceiling`. The verb refuses a
+            // ceiling under one frame period, so there is always one after `last`; the next
+            // painted frame stands in for it here all the same, so the loop always moves on.
+            let within = exact::frame_before(last.saturating_add(ceiling).saturating_add(1), fps);
+            let after = exact::frame_at_or_after(last.saturating_add(1), fps);
+            let next = [within, after]
+                .into_iter()
+                .flatten()
+                .map(|frame| instant_of(frame.frame, fps))
+                .max()
+                .filter(|&next| next > last)?;
+            if infill.len() == most {
+                return None;
+            }
+            infill.push(next);
+            last = next;
+        }
+    }
+    Some(infill)
+}
+
+/// The least ceiling in `[from, to]` that `fits`, which holds of `to`. A larger ceiling
+/// never needs more tiles, so the search halves.
+fn smallest(from: i64, to: i64, fits: impl Fn(i64) -> bool) -> i64 {
+    if fits(from) {
+        return from;
+    }
+    let (mut lo, mut hi) = (from, to.max(from));
+    while hi - lo > 1 {
+        let mid = lo + (hi - lo) / 2;
+        if fits(mid) { hi = mid } else { lo = mid }
+    }
+    hi
+}
+
+/// A bound on how many tiles a sheet can serve at `width` px or more: at most `1568 /
+/// width` columns, and at most as many rows as cells of that width stack inside 1568 px.
+fn bound(frame: (i64, i64), width: i64) -> usize {
+    let columns = SERVED_EDGE / width.max(1);
+    let cell = (width * cell_height(frame.1) / frame.0.max(1)).max(1);
+    (columns * (SERVED_EDGE / cell)).max(0) as usize
+}
+
 /// The largest whole type size at which a label `units` wide fits `fit`'s cells: its
 /// advance and one more character's inside the tile's width less [`LABEL_INSET`] at each
 /// end, and its em inside the strip beneath the tile. The extra character keeps a space
@@ -365,14 +527,9 @@ fn cut(
 /// a label core the type floor admits.
 ///
 /// Scanned rather than solved, because the research model does not assume served width
-/// falls monotonically with count. The scan is bounded: a grid serving tiles at `refusal`
-/// px has at most `1568 / refusal` columns, and at most as many rows as cells of that width
-/// stack inside 1568 px.
+/// falls monotonically with count. The scan is [`bound`]ed.
 fn admitted(frame: (i64, i64), tiles: usize, refusal: i64, fits: &dyn Fn(usize) -> bool) -> usize {
-    let columns = SERVED_EDGE / refusal.max(1);
-    let cell = (refusal * cell_height(frame.1) / frame.0.max(1)).max(1);
-    let bound = (columns * (SERVED_EDGE / cell)).max(0) as usize;
-    (1..tiles.min(bound + 1))
+    (1..tiles.min(bound(frame, refusal) + 1))
         .rev()
         .find(|&n| fits(n))
         .unwrap_or(0)
@@ -857,6 +1014,178 @@ mod tests {
         let refused = size((10, 10), 25, &states(1), &[], fixture_labels()).unwrap_err();
         assert_eq!((refused.limit, refused.admitted), (Limit::TypeFloor, 0));
         assert!(refused.sub_ranges.is_empty());
+    }
+
+    /// Labels short enough never to bind: the tests below are about counts and instants.
+    fn short(_: &[i64]) -> LabelWidths {
+        LabelWidths {
+            core: units("1 0ms +0"),
+            whole: units("1 0ms +0 +a"),
+        }
+    }
+
+    /// The infill of a portrait sheet whose document-derived tiles sit at `tiles`, at 25
+    /// fps, over a range ending at `to`.
+    fn infilled(tiles: &[i64], to: i64, ceiling: i64) -> Infill {
+        infilled_at(25, tiles, to, ceiling)
+    }
+
+    fn infilled_at(fps: i64, tiles: &[i64], to: i64, ceiling: i64) -> Infill {
+        let fit = fit(PORTRAIT, tiles.len());
+        infill(PORTRAIT, fps, fit, tiles, to, ceiling, &short)
+    }
+
+    /// Every span the sheet leaves, in painted time: between consecutive tiles of any class,
+    /// and from the last to the first frame painted at or after `to`.
+    fn spans(fps: i64, tiles: &[i64], infill: &[i64], to: i64) -> Vec<i64> {
+        let mut all: Vec<i64> = tiles.iter().chain(infill).copied().collect();
+        all.sort();
+        all.push(instant_of(
+            exact::frame_at_or_after(to, fps).unwrap().frame,
+            fps,
+        ));
+        all.windows(2).map(|pair| pair[1] - pair[0]).collect()
+    }
+
+    #[test]
+    fn a_ceiling_that_fits_is_honoured_at_the_latest_frame_within_it_of_the_tile_before() {
+        // One tile at 0 over five seconds, a second apart: four slots of the seventeen the
+        // target rung leaves, and a sheet of five on it.
+        let sheet = infilled(&[0], 5000, 1000);
+        assert_eq!(sheet.tiles, [1000, 2000, 3000, 4000]);
+        assert_eq!(sheet.achieved, Some(1000));
+        assert!(sheet.evicted.is_empty());
+        assert_eq!(
+            (sheet.fit.rung, sheet.fit.columns, sheet.fit.rows),
+            (Rung::Target, 3, 2)
+        );
+
+        // Off the grid, the latest painted frame no further than the ceiling: 1030 → 1000.
+        let sheet = infilled(&[0], 3000, 1030);
+        assert_eq!(sheet.tiles, [1000, 2000]);
+        assert_eq!(sheet.achieved, Some(1030));
+    }
+
+    #[test]
+    fn a_ceiling_that_only_partly_fits_is_honoured_uniformly_at_the_smallest_that_does() {
+        // Twenty seconds at 1000 ms needs 19 tiles; the target rung has 17 slots. The
+        // smallest ceiling 17 tiles honour on a 40 ms grid is 1120, everywhere at once.
+        let sheet = infilled(&[0], 20000, 1000);
+        assert_eq!(sheet.achieved, Some(1120));
+        assert_eq!(sheet.tiles, (1..=17).map(|i| i * 1120).collect::<Vec<_>>());
+        let honoured = spans(25, &[0], &sheet.tiles, 20000);
+        assert_eq!(
+            honoured.iter().max(),
+            Some(&1120),
+            "achieved is the longest span"
+        );
+        // What 1000 ms would have added, and the sheet does not draw.
+        assert_eq!(
+            sheet.evicted,
+            (1..=19).map(|i| i * 1000).collect::<Vec<_>>()
+        );
+        assert_eq!((sheet.fit.rung, sheet.fit.tile_width), (Rung::Target, 184));
+
+        // 1119 ms steps 1080 on this grid, and leaves 1640 at the end: not honoured.
+        let near = spans(25, &[0], &infilled(&[0], 20000, 1119).tiles, 20000);
+        assert!(near.iter().all(|&span| span <= 1120), "{near:?}");
+    }
+
+    #[test]
+    fn with_no_slot_left_nothing_is_added_and_the_achieved_ceiling_is_none() {
+        // Eighteen tiles fill the target rung: a nineteenth serves at 173 px.
+        let states: Vec<i64> = (0..18).map(|i| i * 200).collect();
+        let sheet = infilled(&states, 3600, 100);
+        assert_eq!(sheet.achieved, None);
+        assert!(sheet.tiles.is_empty());
+        assert_eq!(
+            sheet.fit,
+            fit(PORTRAIT, 18),
+            "the sheet is the document's own"
+        );
+        // Each 200 ms span would have had two: 80 ms in, and 80 ms after that.
+        assert_eq!(
+            sheet.evicted,
+            states
+                .iter()
+                .flat_map(|start| [start + 80, start + 160])
+                .collect::<Vec<_>>()
+        );
+
+        // Two slots, and sixteen equal spans: no ceiling short of the spans' own fits
+        // uniformly, so none is achieved, though the slots were there.
+        let states: Vec<i64> = (0..16).map(|i| i * 200).collect();
+        let sheet = infilled(&states, 3200, 100);
+        assert_eq!((sheet.achieved, sheet.tiles.len()), (None, 0));
+        assert_eq!(sheet.evicted.len(), 32);
+    }
+
+    #[test]
+    fn a_ceiling_longer_than_the_range_adds_nothing_and_is_achieved() {
+        let sheet = infilled(&[0, 1000], 5000, 60_000);
+        assert_eq!((sheet.tiles.len(), sheet.achieved), (0, Some(60_000)));
+        assert!(sheet.evicted.is_empty());
+        assert_eq!(sheet.fit, fit(PORTRAIT, 2));
+    }
+
+    #[test]
+    fn the_span_is_across_tiles_of_any_class() {
+        // A keyframe tile at 2600 is a tile like any other: the spans are 2600 and 2400.
+        let sheet = infilled(&[0, 2600], 5000, 2000);
+        assert_eq!(sheet.tiles, [2000, 4600]);
+    }
+
+    #[test]
+    fn a_ceiling_of_one_frame_period_tiles_every_frame_whole_or_not() {
+        // 40 ms at 25 fps is every frame.
+        let sheet = infilled(&[0], 400, 40);
+        assert_eq!(sheet.tiles, (1..10).map(|i| i * 40).collect::<Vec<_>>());
+        assert_eq!(sheet.achieved, Some(40));
+        // 30 fps paints 33.3 ms apart, at 0, 33, 66, 100, …: a whole-millisecond ceiling of
+        // 34 is the smallest the grid can honour, and it is every frame too.
+        let sheet = infilled_at(30, &[0], 500, 34);
+        assert_eq!(
+            sheet.tiles,
+            (1..15).map(|n| instant_of(n, 30)).collect::<Vec<_>>()
+        );
+        assert!(
+            spans(30, &[0], &sheet.tiles, 500)
+                .iter()
+                .all(|&span| span <= 34)
+        );
+    }
+
+    #[test]
+    fn infill_keeps_the_rung_and_the_identifying_field_the_document_tiles_fixed() {
+        // A degraded sheet stays degraded: 19 tiles leave the 11 slots up to 30, and a
+        // six-second last state takes all of them.
+        let states: Vec<i64> = (0..19).map(|i| i * 200).collect();
+        let sheet = infilled(&states, 9600, 520);
+        assert_eq!(
+            sheet.tiles,
+            (1..=11).map(|i| 3600 + i * 520).collect::<Vec<_>>()
+        );
+        assert_eq!(sheet.achieved, Some(520));
+        // 500 ms is 480 on this grid, twelve tiles: honoured at 520 instead.
+        assert_eq!(infilled(&states, 9600, 500).achieved, Some(520));
+        assert_eq!(
+            (sheet.fit.rung, sheet.fit.tile_width),
+            (Rung::Degraded, 141)
+        );
+
+        // A label that would not fit takes the slot away rather than the id: here any
+        // infill tile's label is too long for the tile.
+        let long = |infill: &[i64]| match infill.len() {
+            0 => short(infill),
+            _ => LabelWidths {
+                core: units(&"9".repeat(200)),
+                whole: units(&"9".repeat(200)),
+            },
+        };
+        let docs = fit(PORTRAIT, 1);
+        let sheet = infill(PORTRAIT, 25, docs, &[0], 5000, 1000, &long);
+        assert_eq!((sheet.tiles.len(), sheet.achieved), (0, None));
+        assert_eq!(sheet.fit, docs);
     }
 
     #[test]

@@ -30,7 +30,12 @@
 //! marked, carries no identifying field, and is counted like any tile: never dropped to
 //! make the sheet fit (ADR-0129).
 //!
-//! Not yet here: infill (#492).
+//! **Infill tiles are added only with `--infill-ceiling <MS>`** (ADR-0106 D4–6), into the
+//! slots the document-derived tiles leave at their rung, so that no span between two
+//! consecutive tiles of any class is longer than the ceiling. [`sizing::infill`] places them
+//! and says which ceiling the sheet achieved; what the requested one would have added and
+//! the sheet does not draw is `skipped` as `infill-evicted`, by run, and is never a finding
+//! (ADR-0105 §4). An infill tile is marked and carries no identifying field (ADR-0130).
 
 use std::collections::BTreeMap;
 use std::path::Path as FilePath;
@@ -139,7 +144,12 @@ pub struct Sheet {
     /// The keyframe change points interior to a state on a visible element, split by
     /// whether a tile of this sheet shows them: on every answer, flag or not (ADR-0106 D8).
     pub keyframes: KeyframeCensus,
-    /// Every state in the range that drew no tile, and why (ADR-0105 §4).
+    /// The ceiling asked for and the one the sheet honours: present only when
+    /// `--infill-ceiling` was passed (ADR-0106 D6).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub infill: Option<InfillCeiling>,
+    /// Every state in the range that drew no tile, and every one whose infill tiles the
+    /// sheet had no room for, and why (ADR-0105 §4).
     pub skipped: Vec<Skipped>,
     /// The boundaries inside the range that only audio crosses, which the selection drops
     /// (ADR-0094 §6, on ADR-0074's measurement).
@@ -209,13 +219,13 @@ pub struct Tile {
     pub instant_ms: i64,
     /// The visual state the tile stands for.
     pub run: Span,
-    /// Why the tile exists: `boundary`, a visual state's own opening, or `keyframe`, a
-    /// change point inside it.
+    /// Why the tile exists: `boundary`, a visual state's own opening; `keyframe`, a change
+    /// point inside it; or `infill`, a span longer than the infill ceiling.
     pub why: &'static str,
-    /// The unabbreviated class token: `run` or `keyframe`.
+    /// The unabbreviated class token: `run`, `keyframe` or `infill`.
     pub class: &'static str,
-    /// The change points this tile shows, as `element.property@t`, in clock order. A run
-    /// tile's are the points sampled at its frame; it keeps its class (ADR-0106 D11).
+    /// The change points this tile shows, as `element.property@t`, in clock order. A run or
+    /// infill tile's are the points sampled at its frame; it keeps its class (ADR-0106 D11).
     pub keyframes: Vec<String>,
     /// The exact string drawn in the strip beneath the tile, after the sheet-wide elision.
     pub label: String,
@@ -238,13 +248,28 @@ pub struct Classes {
     pub infill: usize,
 }
 
-/// A state that drew no tile.
+/// A state that drew no tile, or none of the infill tiles asked for inside it.
 #[derive(Debug, Clone, Serialize)]
 pub struct Skipped {
     pub run: Span,
-    /// `no-grid-frame`: no frame the grid paints falls inside the state.
+    /// `no-grid-frame`: no frame the grid paints falls inside the state. `infill-evicted`:
+    /// the requested ceiling would have added tiles inside it, and the sheet had no room.
     pub reason: &'static str,
     pub present: Vec<String>,
+    /// How many tiles the requested ceiling would have added inside the state: an
+    /// `infill-evicted` entry's alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evicted: Option<usize>,
+}
+
+/// ADR-0106 D6's disclosure of the infill ceiling.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct InfillCeiling {
+    pub requested_ms: i64,
+    /// The ceiling every span on the sheet honours: `requested_ms` where it fits, the
+    /// smallest that does where it only partly fits, and `null` where the request needed
+    /// tiles and the sheet draws none.
+    pub achieved_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -280,8 +305,15 @@ pub struct BlindSpot {
     pub sentence: &'static str,
 }
 
-/// Draw the sheet of `[from, to)`. The flags are already known to compose.
-pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
+/// Draw the sheet of `[from, to)`, with infill tiles under `ceiling` where one is asked for.
+/// The flags are already known to compose.
+pub(super) fn sheet(
+    path: &FilePath,
+    ask: &Ask,
+    from: i64,
+    to: i64,
+    ceiling: Option<i64>,
+) -> Answer {
     let project = Some(path.display().to_string());
     let document = match parse::read(path) {
         Ok(document) => document,
@@ -318,6 +350,20 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         );
         return Answer::refused(report);
     };
+    // A ceiling under one frame period asks for a spacing the grid cannot paint: a malformed
+    // request, not a tight one, so it is refused rather than clamped (ADR-0106 D14). Only
+    // here, once the document says what the period is.
+    if let Some(ceiling) = ceiling.filter(|&ceiling| i128::from(ceiling) * i128::from(fps) < 1000) {
+        return Answer::refused(Report::rejected(
+            TOOL,
+            project,
+            below_one_frame(
+                ask.infill_ceiling.as_deref().unwrap_or_default(),
+                ceiling,
+                fps,
+            ),
+        ));
+    }
 
     let cut_list = cuts::cuts(&document, from, to);
     let states = cuts::visual_states(&cut_list);
@@ -340,14 +386,14 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
 
     // Every change point placed, whether or not keyframe tiles were asked for: the census
     // is on every answer (ADR-0106 D8).
-    let placed = keyframes::place(&document, &states, &painted, fps, ask.keyframes);
+    let mut placed = keyframes::place(&document, &states, &painted, fps, ask.keyframes);
     let changes = Changes::of(&document, to);
     let bounds: Vec<(i64, i64)> = states.iter().map(bounds).collect();
 
     // Sized before anything is painted: a range that does not fit is refused whole, and
     // never thinned, split or reshaped (ADR-0095 §4), and a keyframe tile is never dropped
     // to make it fit (ADR-0106 D9).
-    let planned = plan(&states, &painted, &placed, &changes);
+    let planned = plan(&states, &painted, &placed, &changes, &[]);
     let fit = match planned.len() {
         0 => None,
         _ => match sizing::size(
@@ -368,7 +414,7 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
                         fps,
                         &bounds,
                         &[],
-                        widths(&plan(&states, &painted, &Placed::default(), &changes)),
+                        widths(&plan(&states, &painted, &Placed::default(), &changes, &[])),
                     );
                     refusal = refusal
                         .field("keyframe_tiles", json!(placed.tiles.len()))
@@ -381,6 +427,48 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
                 return Answer::refused(Report::refused_invocation(TOOL, project, refusal));
             }
         },
+    };
+
+    // Infill fills what the document-derived tiles leave at their rung, and changes nothing
+    // else about them but their index (ADR-0106 D5).
+    let (fit, planned, infill, evicted) = match (fit, ceiling) {
+        (Some(fit), Some(ceiling)) => {
+            let instants: Vec<i64> = planned.iter().map(|tile| tile.instant).collect();
+            let labels = |infill: &[i64]| {
+                widths(&plan(
+                    &states,
+                    &painted,
+                    &placed,
+                    &changes,
+                    &infill_tiles(&states, infill),
+                ))
+            };
+            let infill = sizing::infill(frame, fps, fit, &instants, to, ceiling, &labels);
+            placed.onto_infill(&infill.tiles);
+            let planned = plan(
+                &states,
+                &painted,
+                &placed,
+                &changes,
+                &infill_tiles(&states, &infill.tiles),
+            );
+            let disclosed = InfillCeiling {
+                requested_ms: ceiling,
+                achieved_ms: infill.achieved,
+            };
+            (Some(infill.fit), planned, Some(disclosed), infill.evicted)
+        }
+        // No tile, so no span to bound: the ceiling holds of the sheet as it is.
+        (None, Some(ceiling)) => (
+            None,
+            planned,
+            Some(InfillCeiling {
+                requested_ms: ceiling,
+                achieved_ms: Some(ceiling),
+            }),
+            Vec::new(),
+        ),
+        (fit, None) => (fit, planned, None, Vec::new()),
     };
 
     // One `N-QUANTIZATION` per `no-grid-frame` state, from `validate`'s own function.
@@ -406,17 +494,14 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         classes: Classes {
             run: runs.len(),
             keyframe: placed.tiles.len(),
-            infill: 0,
+            infill: planned
+                .iter()
+                .filter(|tile| tile.class == Class::Infill)
+                .count(),
         },
         keyframes: placed.census_over(&states),
-        skipped: skipped
-            .iter()
-            .map(|state| Skipped {
-                run: span(state),
-                reason: "no-grid-frame",
-                present: ids(state),
-            })
-            .collect(),
+        infill,
+        skipped: skipped_states(&states, &skipped, &evicted),
         audio_boundaries_dropped: dropped(&cut_list.intervals, &states),
         coverage: Coverage {
             range_ms: to - from,
@@ -537,6 +622,8 @@ enum Class {
     Run,
     /// A painted frame inside a state, where a keyframe change point first paints.
     Keyframe,
+    /// A painted frame inside a span longer than the infill ceiling.
+    Infill,
 }
 
 impl Class {
@@ -545,6 +632,7 @@ impl Class {
         match self {
             Class::Run => "boundary",
             Class::Keyframe => "keyframe",
+            Class::Infill => "infill",
         }
     }
 
@@ -553,6 +641,7 @@ impl Class {
         match self {
             Class::Run => "run",
             Class::Keyframe => "keyframe",
+            Class::Infill => "infill",
         }
     }
 
@@ -572,13 +661,30 @@ struct Planned<'a> {
     label: Label,
 }
 
-/// Every tile, run and keyframe, in clock order and so in reading order, each with both
-/// forms of its label. `painted` is each state's run tile, `None` where it has none.
+/// An infill tile before it is planned: the state it samples inside, and its instant.
+type InfillTile = (usize, i64);
+
+/// The infill tiles at `instants`, each with the state holding it.
+fn infill_tiles(states: &[Interval], instants: &[i64]) -> Vec<InfillTile> {
+    instants
+        .iter()
+        .filter_map(|&instant| {
+            let state = states
+                .iter()
+                .position(|state| state.start <= instant && instant < state.end)?;
+            Some((state, instant))
+        })
+        .collect()
+}
+
+/// Every tile, run, keyframe and infill, in clock order and so in reading order, each with
+/// both forms of its label. `painted` is each state's run tile, `None` where it has none.
 fn plan<'a>(
     states: &'a [Interval],
     painted: &[Option<i64>],
     placed: &Placed,
     changes: &Changes,
+    infill: &[InfillTile],
 ) -> Vec<Planned<'a>> {
     let runs = states
         .iter()
@@ -596,8 +702,17 @@ fn plan<'a>(
             tile.points.clone(),
         )
     });
-    let mut tiles: Vec<_> = runs.chain(keyframe_tiles).collect();
-    // A keyframe tile is never at its state's run tile's frame, so no two share an instant.
+    let infill_tiles = infill.iter().map(|&(state, instant)| {
+        let points = placed
+            .on_infill_tiles
+            .get(&instant)
+            .cloned()
+            .unwrap_or_default();
+        (&states[state], instant, Class::Infill, points)
+    });
+    let mut tiles: Vec<_> = runs.chain(keyframe_tiles).chain(infill_tiles).collect();
+    // A keyframe tile is never at its state's run tile's frame, and an infill tile is
+    // strictly between two others, so no two share an instant.
     tiles.sort_by_key(|&(_, instant, ..)| instant);
     tiles
         .into_iter()
@@ -608,6 +723,7 @@ fn plan<'a>(
             class,
             label: match class {
                 Class::Keyframe => Label::keyframe(i + 1, instant, points[0].at),
+                Class::Infill => Label::infill(i + 1, instant, state.start),
                 Class::Run => Label::run(
                     i + 1,
                     instant,
@@ -621,8 +737,9 @@ fn plan<'a>(
 }
 
 /// The longest label on the sheet, in both forms, in the chrome face's units: whether they
-/// fit is the sizing's to decide. A keyframe tile has no identifying field, so it counts in
-/// both forms at its one length and cannot force the sheet-wide elision (ADR-0106 D7).
+/// fit is the sizing's to decide. A keyframe or infill tile has no identifying field, so it
+/// counts in both forms at its one length and cannot force the sheet-wide elision (ADR-0106
+/// D7).
 fn widths(planned: &[Planned]) -> LabelWidths {
     let metrics = chrome::metrics();
     let longest = |form: fn(&Label) -> &String| {
@@ -787,6 +904,48 @@ fn overflowed(from: i64, to: i64, states: usize, overflow: &Overflow) -> Finding
         .field("limit", json!(overflow.limit.as_str()))
         .field("limit_px", json!(overflow.limit.px()))
         .field("sub_ranges", json!(sub_ranges))
+}
+
+/// ADR-0106 D14's refusal of a ceiling the grid cannot paint, naming the least it can.
+fn below_one_frame(spelling: &str, ceiling: i64, fps: i64) -> String {
+    let period = match 1000 % fps {
+        0 => format!("{}", 1000 / fps),
+        _ => format!("{:.1}", 1000.0 / fps as f64),
+    };
+    format!(
+        "`--infill-ceiling {spelling}` is under one frame period: at {fps} fps a frame is \
+         painted every {period} ms, so no two tiles can be closer than that, and {ceiling} ms \
+         is not a spacing the grid paints. The least ceiling at {fps} fps is {} ms",
+        (1000 + fps - 1) / fps
+    )
+}
+
+/// `skipped[]`: every state no frame paints, as `no-grid-frame`, and every state holding
+/// instants the requested ceiling would have added and the sheet does not draw, as
+/// `infill-evicted` with how many, in clock order. A state is never both: infill is a
+/// painted frame.
+fn skipped_states(states: &[Interval], unpainted: &[&Interval], evicted: &[i64]) -> Vec<Skipped> {
+    let mut by_state: BTreeMap<usize, usize> = BTreeMap::new();
+    for (state, _) in infill_tiles(states, evicted) {
+        *by_state.entry(state).or_default() += 1;
+    }
+    let mut skipped: Vec<Skipped> = unpainted
+        .iter()
+        .map(|state| Skipped {
+            run: span(state),
+            reason: "no-grid-frame",
+            present: ids(state),
+            evicted: None,
+        })
+        .chain(by_state.into_iter().map(|(state, count)| Skipped {
+            run: span(&states[state]),
+            reason: "infill-evicted",
+            present: ids(&states[state]),
+            evicted: Some(count),
+        }))
+        .collect();
+    skipped.sort_by_key(|entry| entry.run.start);
+    skipped
 }
 
 /// Every boundary inside the range where the cut list changes and the visual states do

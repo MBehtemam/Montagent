@@ -635,3 +635,35 @@ fn a_keyframe_tile_is_frame_at_its_painted_millisecond() {
         tile_is_frame_at(&path, &json, &drawn, tile);
     }
 }
+
+#[test]
+fn an_infill_tile_is_frame_at_its_painted_millisecond() {
+    // ADR-0130: an infill tile is a painted frame like any other, and `frame --at` its
+    // instant reproduces it exactly.
+    use montagent_core::verbs::frame::{Ask, frame};
+    let path = common::long_state_fixture();
+    let answer = frame(
+        &path,
+        &Ask {
+            from: Some(0),
+            to: Some(9000),
+            png: true,
+            infill_ceiling: Some("2000".into()),
+            ..Ask::default()
+        },
+    );
+    let json = answer.to_json();
+    let drawn = image::load_from_memory(&answer.image().expect("a drawn sheet").bytes)
+        .unwrap()
+        .to_rgba8();
+    let infill_tiles: Vec<&serde_json::Value> = json["sheet"]["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|tile| tile["class"] == "infill")
+        .collect();
+    assert_eq!(infill_tiles.len(), 3);
+    for tile in infill_tiles {
+        tile_is_frame_at(&path, &json, &drawn, tile);
+    }
+}

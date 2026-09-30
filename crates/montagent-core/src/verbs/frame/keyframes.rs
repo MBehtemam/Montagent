@@ -19,6 +19,9 @@
 //!   it where the element is on screen there. Otherwise, or with that state outside the
 //!   range, it is untiled as `no-grid-frame`: disclosed, never a finding.
 //!
+//! An infill tile that lands on a `not-requested` point's sample frame shows it, and keeps its
+//! class as a run tile does (ADR-0130).
+//!
 //! No instant here is derived from a curve (D13): every sample is a change point's own.
 
 use std::collections::BTreeMap;
@@ -124,6 +127,8 @@ pub(super) struct Placed {
     pub(super) tiles: Vec<KeyframeTile>,
     /// The points a run tile shows, by the index of its state.
     pub(super) on_run_tiles: BTreeMap<usize, Vec<Point>>,
+    /// The points an infill tile shows, by its instant.
+    pub(super) on_infill_tiles: BTreeMap<i64, Vec<Point>>,
     /// The rest, in clock order.
     pub(super) untiled: Vec<Untiled>,
 }
@@ -137,7 +142,8 @@ impl Placed {
                 .iter()
                 .map(|tile| tile.points.len())
                 .sum::<usize>()
-                + self.on_run_tiles.values().map(Vec::len).sum::<usize>(),
+                + self.on_run_tiles.values().map(Vec::len).sum::<usize>()
+                + self.on_infill_tiles.values().map(Vec::len).sum::<usize>(),
             untiled: self.untiled.len(),
             untiled_points: self
                 .untiled
@@ -155,6 +161,29 @@ impl Placed {
                     reason: untiled.reason.as_str(),
                 })
                 .collect(),
+        }
+    }
+
+    /// Give the infill tiles at `instants` the untiled points sampled there. Only a
+    /// `not-requested` point can be: its sample frame is inside its own state, where its
+    /// element is on screen. A `no-grid-frame` point samples at a run tile's frame or past
+    /// the range, and an infill tile is at neither.
+    pub(super) fn onto_infill(&mut self, instants: &[i64]) {
+        let (shown, untiled) = std::mem::take(&mut self.untiled)
+            .into_iter()
+            .partition::<Vec<_>, _>(|untiled| {
+                untiled.reason == Reason::NotRequested
+                    && untiled
+                        .sample
+                        .is_some_and(|sample| instants.binary_search(&sample).is_ok())
+            });
+        self.untiled = untiled;
+        for untiled in shown {
+            let sample = untiled.sample.expect("partitioned on a sample");
+            self.on_infill_tiles
+                .entry(sample)
+                .or_default()
+                .push(untiled.point);
         }
     }
 

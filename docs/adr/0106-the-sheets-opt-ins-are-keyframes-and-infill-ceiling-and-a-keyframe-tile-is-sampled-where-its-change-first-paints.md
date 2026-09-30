@@ -14,6 +14,12 @@ amends: 0011 (the `frame` row's range arguments gain two opt-ins, `--keyframes` 
 > is `not-requested`; `volume` is not in the population. Decision 9's fields are `keyframe_tiles`,
 > `fits_without_keyframes` and `keyframe_tiles_admitted`.
 
+> **Amended by [ADR-0130](0130-infill-fills-the-rung-not-the-grid-at-the-latest-frame-within-the-ceiling.md).** Decision 4's span after the last tile runs
+> to the first frame painted at or after the range's end. Decision 5's slots are the tiles the rung admits, not
+> the grid's empty cells, and infill keeps the identifying field as well as the rung. Decision 6's
+> `achieved: none` means no ceiling better than the document's own tiles, slot or not. Decision
+> 14's frame-period refusal is made once the document is read.
+
 [#418](https://github.com/MBehtemam/Montagent/issues/418), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Put to **two juries** of three models —
 Opus 5.5, Sonnet 5.5 and Fable 5.1 — on the same day. The first took ten questions about the two
