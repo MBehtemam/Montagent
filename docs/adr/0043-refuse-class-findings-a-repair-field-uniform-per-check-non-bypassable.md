@@ -54,6 +54,11 @@ status: accepted
 > does not match. A flag that lifts a finding without naming what it consents to remains
 > forbidden. Whether an agent may type `release` on its own authority is left to #506.
 
+> **Amended by [ADR-0124](./0124-release-carries-the-requester-s-consent-and-surfacing-is-the-default.md)**, which
+> settles #506: `E-SHIFT-SLACK`'s fork is in the edit request, so the intent it asks about
+> belongs to whoever requested the edit. An agent may type `release` only when its instruction
+> decides the slack's fate; otherwise the stop-and-surface instruction below applies unchanged.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

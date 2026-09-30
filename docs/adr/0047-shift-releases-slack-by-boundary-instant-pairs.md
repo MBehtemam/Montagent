@@ -3,6 +3,11 @@ status: accepted
 amends: 0032 (settles the release mechanism it deferred)
 ---
 
+> **Amended by [ADR-0124](./0124-release-carries-the-requester-s-consent-and-surfacing-is-the-default.md)**,
+> which names who may consent through `release`: whoever requested the edit. An agent types
+> `release` on its own only when its instruction decides that slack's fate; otherwise it
+> surfaces `E-SHIFT-SLACK`, whose message now states that test instead of *"if that is intended"*.
+
 # `shift` releases slack through a `release` argument naming boundary-instant pairs, enumerated individually
 
 [ADR-0032](./0032-slack-is-invariant-shift-refuses-compare-is-the-backstop.md)
