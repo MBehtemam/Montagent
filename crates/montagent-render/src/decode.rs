@@ -341,8 +341,27 @@ pub fn frame_at(
     })
 }
 
-/// A **run** of frames out of one `ffmpeg`, starting at `from_ms` into the source and
-/// sampled at `per_second` source frames per second of source time.
+/// The largest term of a `speed` ratio [`frames_from`] samples exactly — see its bound.
+const EXACT_SPEED_TERM: i128 = 1_000_000;
+
+fn gcd(a: i128, b: i128) -> i128 {
+    if b == 0 { a } else { gcd(b, a % b) }
+}
+
+/// How a run moves through its source: one frame per timeline frame at the project's `fps`,
+/// each `speed / fps` seconds of source further on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pace {
+    /// The project's frame rate, which is an integer (ADR-0005).
+    pub fps: i64,
+    /// The element's `speed` as the exact rational `(numerator, denominator)` the document's
+    /// decimal is — never a float, because the render's offset into the source is not one.
+    pub speed: (i128, i128),
+}
+
+/// A **run** of frames out of one `ffmpeg`, starting at `from_ms` into the source: frame `n`
+/// of the run is the frame the renderer paints at timeline frame `n` of an element that
+/// starts there and plays at `pace`.
 ///
 /// [`frame_at`]'s sibling, and the reason it exists is a measurement rather than a
 /// preference: on ADR-0088's 140-frame forcing case, one spawn per frame costs ~13 s and
@@ -356,43 +375,100 @@ pub fn frame_at(
 /// materialised as a `Vec` is 1.16 GB of RGBA at 1080p, which is not a buffer a reading
 /// about *fractions* may demand of the machine it runs on.
 ///
-/// `per_second` is the rate in **source** time, so an element played at `speed: 2` asks for
-/// twice the project's `fps` and lands on the frames the timeline actually shows. A float,
-/// because that product is one: `fps` is an integer and `speed` is not.
+/// **The frames are the renderer's, to the millisecond, and a rate could not say which those
+/// are.** ADR-0127. The render paints timeline frame `n` at `⌊n × 1000 / fps⌋` ms, moves
+/// `round_half_up(elapsed × speed)` ms into the source, and asks [`frame_at`] for the last
+/// frame starting at or before that. This run used to be `-ss from -vf fps=fps×speed`, and
+/// measured against that rule it returned a frame the render does not paint on 501 of 504
+/// runs, always later in the source, by three separate mechanisms:
+///
+/// - `-ss` without `-copyts` is ADR-0096's seek, so a `from_ms` off the source's grid
+///   started the whole run on the *next* frame, and it rebased the source onto zero, so a
+///   file whose frames start at 42.031 ms — this repository's reference MP4 — was read a
+///   frame ahead from its very first instant;
+/// - `fps=` rounds to the **nearest** tick by default, so wherever the two rates differ it
+///   took the frame about to start rather than the one showing;
+/// - and the rate was `fps × speed` where a retimed element moves `speed / fps` seconds
+///   through its source per frame, so a `speed: 2` series sampled four times too densely
+///   and covered a quarter of the range it named.
+///
+/// So the run asks the renderer's question in the renderer's arithmetic, with no rate in it:
+///
+/// - `-ss` lands [`SEEK_WINDOW_MS`] before `from_ms` with `-copyts`, [`frame_at`]'s window,
+///   so the frame already showing at `from_ms` is decoded and compared in source time;
+/// - `settb` puts every timestamp on the microsecond, and `setpts` rewrites each frame's to
+///   the first **timeline** millisecond the render shows it at — `ceil(p − 1 µs)` in source
+///   milliseconds is [`frame_at`]'s at-or-before with its slack, and the inverse of
+///   `round_half_up(t × speed)` is `ceil((2q − 1) × den / 2 × num)` — every operand an
+///   integer, so the float the expression evaluator works in is exact;
+/// - `fps=<fps>:round=up:start_time=0` then paints each tick with the last frame whose
+///   timeline start is at or before it, which on integer milliseconds is exactly
+///   *"at or before `⌊n × 1000 / fps⌋`"*. Before the first frame, `start_time` holds the
+///   earliest one, [`frame_at`]'s symmetric clamp.
+///
+/// The run may end a frame later than the element does; the caller counts the frames its
+/// range shows and stops there.
 pub fn frames_from(
     ffmpeg: &Path,
     source: &str,
     decoder: Decoder,
     from_ms: i64,
-    per_second: f64,
+    pace: Pace,
     width: u32,
     height: u32,
 ) -> Result<Frames, String> {
+    let Pace { fps, speed } = pace;
     if width == 0 || height == 0 {
         return Err(format!(
             "{source}: frames were asked for at {width}x{height}, which is no frame at all"
         ));
     }
-    if !per_second.is_finite() || per_second <= 0.0 {
+    if fps <= 0 {
         return Err(format!(
-            "{source}: a run of frames needs a positive sampling rate, not {per_second}"
+            "{source}: a run of frames needs a positive frame rate, not {fps}"
+        ));
+    }
+    let (num, den) = speed;
+    if num <= 0 || den <= 0 {
+        return Err(format!(
+            "{source}: a run of frames needs a positive speed, not {num}/{den}"
+        ));
+    }
+    // In lowest terms, and small enough that the filter's arithmetic stays exact: the
+    // expression evaluator is a double, so its largest product, `(2q − 1) × den`, must stay
+    // under 2^53. With each term of the ratio at most a million — six decimal places of
+    // `speed` — that holds for any millisecond `q` under 4.5 × 10^9, a source of 52 days.
+    let common = gcd(num, den);
+    let (num, den) = (num / common, den / common);
+    if num > EXACT_SPEED_TERM || den > EXACT_SPEED_TERM {
+        return Err(format!(
+            "{source}: a speed of {num}/{den} carries more precision than a run of frames can \
+             sample exactly; six decimal places is the most it reads"
         ));
     }
 
+    let from_ms = from_ms.max(0);
+    let window_ms = (from_ms - SEEK_WINDOW_MS).max(0);
     // [`frame_at`]'s conversion, for [`frame_at`]'s reason: integer milliseconds to
     // `ffmpeg`'s decimal seconds through the string, never through a float.
-    let seconds = format!("{}.{:03}", from_ms.max(0) / 1000, from_ms.max(0) % 1000);
+    let window = format!("{}.{:03}", window_ms / 1000, window_ms % 1000);
 
-    let filter = format!("fps={per_second},scale={width}:{height}");
+    let filter = format!(
+        "settb=1/1000000,\
+         setpts='ceil((2*(ceil((PTS-1)/1000)-{from_ms})-1)*{den}/(2*{num}))*1000',\
+         fps={fps}:round=up:start_time=0,\
+         scale={width}:{height}"
+    );
     let mut child = Command::new(ffmpeg)
         .args(["-hide_banner", "-loglevel", "error"])
         // [`frame_at`]'s placement, for [`frame_at`]'s reason: an input option goes before
         // the input it is about.
         .args(decoder.args())
-        .args([
-            "-ss", &seconds, "-i", source, "-vf", &filter, "-f", "rawvideo", "-pix_fmt", "rgba",
-            "-",
-        ])
+        .args(["-ss", &window, "-copyts", "-i", source, "-vf", &filter])
+        // Every frame the filter paints, none duplicated or dropped again by the muxer
+        // (ADR-0115's spelling): the filter's output *is* the timeline's grid.
+        .args(crate::floor::FPS_PASSTHROUGH)
+        .args(["-f", "rawvideo", "-pix_fmt", "rgba", "-"])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

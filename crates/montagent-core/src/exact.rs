@@ -157,7 +157,7 @@ impl Decimal {
     }
 
     /// `numerator / denominator`, as the exact rational this decimal is.
-    fn as_ratio(self) -> Option<(i128, i128)> {
+    pub(crate) fn as_ratio(self) -> Option<(i128, i128)> {
         Some((self.units, pow10(self.scale)?))
     }
 

@@ -126,7 +126,10 @@ fn the_generator_numbers_its_frames_which_is_what_every_other_test_here_reads() 
         &path.to_string_lossy(),
         Decoder::Auto,
         0,
-        25.0,
+        decode::Pace {
+            fps: 25,
+            speed: (1, 1),
+        },
         SIZE,
         SIZE,
     )
@@ -366,7 +369,10 @@ fn a_run_whose_ffmpeg_failed_is_an_error_and_not_an_empty_series() {
         &path.to_string_lossy(),
         Decoder::Auto,
         0,
-        25.0,
+        decode::Pace {
+            fps: 25,
+            speed: (1, 1),
+        },
         SIZE,
         SIZE,
     )
@@ -376,4 +382,194 @@ fn a_run_whose_ffmpeg_failed_is_an_error_and_not_an_empty_series() {
         .expect_err("a failed run is an error, not an end");
     assert!(e.contains("numbered.mkv"), "it names the source: {e}");
     assert!(e.contains("Unrecognized option"), "{e}");
+}
+
+// ---------------------------------------------------------------------------------------
+// ADR-0127: a *run* of frames is the renderer's frames too.
+//
+// `frames_from` is `measure`'s coverage series, and a series is only worth reading if frame
+// `n` of it is the frame the render paints at frame `n` of the element. The render's rule is
+// integer arithmetic ending in `frame_at` — instant `⌊n × 1000 / fps⌋`, offset
+// `source_start + source_advance(instant, speed)`, then the last frame starting at or before
+// it — so that is the oracle here, and `frame_at` itself is held to the pixels above.
+// ---------------------------------------------------------------------------------------
+
+/// The first `count` frames of a run, as indices.
+fn run_indices(path: &Path, from_ms: i64, fps: i64, speed: (i128, i128), count: usize) -> Vec<i64> {
+    let mut frames = decode::frames_from(
+        &ffmpeg(),
+        &path.to_string_lossy(),
+        Decoder::Auto,
+        from_ms,
+        decode::Pace {
+            fps: fps,
+            speed: speed,
+        },
+        SIZE,
+        SIZE,
+    )
+    .expect("a run of frames");
+    let mut seen = Vec::new();
+    while seen.len() < count {
+        match frames.next_frame().expect("a frame or an end") {
+            Some(frame) => seen.push(index_of(&frame)),
+            None => break,
+        }
+    }
+    seen
+}
+
+/// What the render paints at timeline frame `n` of an element starting `from_ms` into this
+/// source at `speed` — `render`'s own arithmetic, then `frame_at`.
+fn painted(path: &Path, from_ms: i64, fps: i64, speed: &str, n: i64) -> i64 {
+    let speed = montagent_core::exact::Decimal::parse(speed).expect("a decimal speed");
+    let elapsed = n * 1000 / fps;
+    let offset =
+        from_ms + montagent_core::exact::source_advance(elapsed, speed).expect("a source offset");
+    frame_index_at(path, offset).expect("a frame")
+}
+
+#[test]
+fn a_run_paints_what_the_render_paints_on_and_off_the_grid_at_any_rate_and_speed() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    // The three grids a source can be on that matter here: the project's own millisecond
+    // grid, a fractional one that never lands on a whole millisecond, and one whose frames
+    // start after zero — this repository's reference MP4 begins at 42.031 ms.
+    let (Some(cfr), Some(ntsc), Some(late)) = (
+        encode(&dir, "numbered.mkv", "25"),
+        encode(&dir, "numbered.mov", "30000/1001"),
+        encode_from(&dir, "late.mkv", "25", &["-output_ts_offset", "0.042"]),
+    ) else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixtures");
+        return;
+    };
+    const SAMPLES: i64 = 12;
+    for path in [&cfr, &ntsc, &late] {
+        // (from_ms, fps, speed as the document writes it, speed as a ratio)
+        for (from_ms, fps, literal, ratio) in [
+            (0, 25, "1", (1, 1)),
+            (1234, 25, "1", (1, 1)),
+            (0, 30, "1", (1, 1)),
+            (1210, 24, "1", (1, 1)),
+            (1239, 25, "2", (2, 1)),
+            (20, 30, "0.5", (1, 2)),
+            (1001, 30, "1.5", (3, 2)),
+            (367, 60, "0.645", (645, 1000)),
+        ] {
+            let got = run_indices(path, from_ms, fps, ratio, SAMPLES as usize);
+            let want: Vec<i64> = (0..SAMPLES)
+                .map(|n| painted(path, from_ms, fps, literal, n))
+                .collect();
+            assert_eq!(
+                got,
+                want,
+                "{} from {from_ms} ms at {fps} fps, speed {literal}: the run is not the frames \
+                 the render paints",
+                path.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn an_off_grid_run_starts_on_the_frame_showing_and_not_the_next_one() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode(&dir, "numbered.mkv", "25") else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // 1234 ms is inside frame 30. The old `-ss` without `-copyts` started on 31 and stayed
+    // one frame ahead for the whole run.
+    assert_eq!(run_indices(&path, 1234, 25, (1, 1), 4), [30, 31, 32, 33]);
+}
+
+#[test]
+fn a_run_at_another_rate_holds_the_frame_showing_rather_than_rounding_to_the_nearest() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode(&dir, "numbered.mkv", "25") else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // At 30 fps over a 25 fps source the render paints at 0, 33, 66, 100, 133, 166 and 200 ms,
+    // which are inside frames 0, 0, 1, 2, 3, 4 and 5. `fps=`'s default nearest-tick rounding
+    // took frame 1 at 33 ms — the frame about to start, not the one showing.
+    assert_eq!(run_indices(&path, 0, 30, (1, 1), 7), [0, 0, 1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn a_retimed_run_moves_speed_over_fps_through_its_source_per_frame() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode(&dir, "numbered.mkv", "25") else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // `speed: 2` at 25 fps moves 80 ms per frame, so every other source frame. The old run
+    // sampled at `fps × speed` = 50 per source second, which is every *half* frame: 0, 0, 1,
+    // 1, … — a series covering a quarter of the range it named.
+    assert_eq!(run_indices(&path, 0, 25, (2, 1), 5), [0, 2, 4, 6, 8]);
+    assert_eq!(run_indices(&path, 0, 25, (1, 2), 5), [0, 0, 1, 1, 2]);
+}
+
+#[test]
+fn a_run_over_a_source_that_starts_late_holds_its_first_frame_until_the_second_starts() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let Some(path) = encode_from(&dir, "late.mkv", "25", &["-output_ts_offset", "0.042"]) else {
+        eprintln!("skipped: this ffmpeg cannot encode the fixture");
+        return;
+    };
+    // Frame k starts at 42 + 40k ms. At 0 and 40 ms no frame has started, and `frame_at`'s
+    // symmetric clamp paints frame 0; at 80 ms frame 0 is still showing. The old run rebased
+    // the file onto zero and was a frame ahead from its first instant.
+    assert_eq!(run_indices(&path, 0, 25, (1, 1), 5), [0, 0, 0, 1, 2]);
+}
+
+#[test]
+fn a_speed_finer_than_a_run_can_sample_exactly_is_refused_and_not_approximated() {
+    let e = decode::frames_from(
+        Path::new("ffmpeg"),
+        "clip.mov",
+        Decoder::Auto,
+        0,
+        decode::Pace {
+            fps: 25,
+            speed: (1_000_001, 1_000_000),
+        },
+        SIZE,
+        SIZE,
+    )
+    .err()
+    .expect("a speed of seven significant decimals is refused");
+    assert!(e.contains("clip.mov") && e.contains("exactly"), "{e}");
+    // In lowest terms first: 2_000_000/1_000_000 is 2, which is exact.
+    assert!(
+        decode::frames_from(
+            Path::new("/nonexistent/ffmpeg"),
+            "clip.mov",
+            Decoder::Auto,
+            0,
+            decode::Pace {
+                fps: 25,
+                speed: (2_000_000, 1_000_000)
+            },
+            SIZE,
+            SIZE,
+        )
+        .err()
+        .is_some_and(|e| e.contains("could not be run"))
+    );
 }
