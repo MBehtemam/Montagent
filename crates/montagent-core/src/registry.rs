@@ -80,6 +80,67 @@ pub enum CensusMode {
     Named,
 }
 
+/// A named group of checks a run executes. ADR-0112.
+///
+/// A report records the sets that **completed**, never the ones its verb is declared to
+/// run, so a run that stopped part-way says so on the wire. Which classes a set can raise
+/// is [`CheckSet::classes`], read off the codes below that name it: the registry is the
+/// only table of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckSet {
+    /// `validate`'s checks that read only the file and its fonts.
+    Document,
+    /// `validate`'s checks that need `ffprobe`: source, fit, chroma-on-disk.
+    Disk,
+    /// The key-order/line-break check alone, as `fmt` runs it.
+    Layout,
+    /// `compare`'s own checks.
+    Drift,
+    /// `verify`'s measurement of the rendered file against the document (ADR-0117). A
+    /// fifth set beside ADR-0112's four: `verify` runs none of `validate`'s checks, and
+    /// printing it as the check-free case would drop the zeros a clean measurement earns.
+    Deliverable,
+}
+
+impl CheckSet {
+    /// Every set, in the order the report names them.
+    pub const ALL: [CheckSet; 5] = [
+        CheckSet::Document,
+        CheckSet::Disk,
+        CheckSet::Layout,
+        CheckSet::Drift,
+        CheckSet::Deliverable,
+    ];
+
+    /// The spelling on the wire.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CheckSet::Document => "document",
+            CheckSet::Disk => "disk",
+            CheckSet::Layout => "layout",
+            CheckSet::Drift => "drift",
+            CheckSet::Deliverable => "deliverable",
+        }
+    }
+
+    /// The set a wire spelling names, for the text renderer, which sees only the JSON.
+    pub fn named(name: &str) -> Option<CheckSet> {
+        CheckSet::ALL.into_iter().find(|set| set.as_str() == name)
+    }
+
+    /// Every class some code in this set may emit — derived, so a check that learns a new
+    /// class moves the summary line with it rather than disagreeing with a second table.
+    pub fn classes(self) -> impl Iterator<Item = Class> {
+        [Error, Review, Note, Unchecked, Layout, Drift]
+            .into_iter()
+            .filter(move |class| {
+                CHECKS
+                    .iter()
+                    .any(|spec| spec.sets.contains(&self) && spec.classes.contains(class))
+            })
+    }
+}
+
 /// One check's declaration.
 #[derive(Debug, Clone, Copy)]
 pub struct CheckSpec {
@@ -112,9 +173,15 @@ pub struct CheckSpec {
     /// its grouping is not a census: every group holds the same codepoints, so it
     /// partitions nothing (#427 ruling 6). ADR-0111.
     pub census: Option<CensusMode>,
+    /// The check sets whose run can raise this code (ADR-0112). Empty on a code no check
+    /// raises: a refusal, a failure of Montagent's own, or a verb's answer about something
+    /// other than the document's checks — `frame` raises `E-NOT-A-PROJECT` while running
+    /// none. The `L-` codes sit in two, because `fmt` runs `validate`'s layout check alone.
+    pub sets: &'static [CheckSet],
 }
 
 use CensusMode::{Counted, Named};
+use CheckSet::{Deliverable, Disk, Document};
 use Class::{Drift, Error, Layout, Note, Review, Unchecked};
 use RepairClass::{Advise, NotAboutDocument, Refuse};
 use Status::{Declared, Live};
@@ -134,6 +201,7 @@ const CHECKS: &[CheckSpec] = &[
         template: "{file} is not valid JSON: {reason}, at line {line}, column {column} (byte {byte_offset}).",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-READ",
@@ -147,6 +215,7 @@ const CHECKS: &[CheckSpec] = &[
         template: "{file} could not be read: {reason} — {advice}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0042's refusal. The reported hazard is wrong-file destruction — `fmt`
@@ -168,6 +237,7 @@ const CHECKS: &[CheckSpec] = &[
         template: "{file} does not look like a Montagent project file — no {missing}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // `create_project` scaffolds, and a scaffold that overwrites is a scaffold that
@@ -192,6 +262,7 @@ const CHECKS: &[CheckSpec] = &[
 scaffold somewhere else.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-INVOCATION",
@@ -205,6 +276,7 @@ scaffold somewhere else.",
         template: "{reason}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0105 (#412): `frame`'s range mode holds more visual states than the sheet can
@@ -226,6 +298,7 @@ and the sheet holds {fits} before {limit} stops a tile showing a defect. It neve
 or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         status: Declared,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-INTERNAL",
@@ -243,6 +316,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "Montagent failed internally: {reason}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0091 (#368): a missing `ffmpeg`/`ffprobe` is `E-INTERNAL` today, and reads
@@ -260,6 +334,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{reason}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0115 (#477, #479): `E-TOOL-MISSING`'s sibling, for an `ffmpeg` that is on
@@ -278,6 +353,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{reason}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0109 (#440): the MCP caller sent `notifications/cancelled` and `render` or
@@ -297,6 +373,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{reason}",
         status: Live,
         census: None,
+        sets: &[],
     },
     // ---- The disk half of `validate`: the probe's findings (#190) and the check that
     // ---- reads them (#203). --------------------------------------------------------
@@ -324,6 +401,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{source} is not there: {detail}. Looked for it at {resolved}.",
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     CheckSpec {
         // ADR-0056: an existence-only result "is a strictly weaker claim than a local
@@ -338,6 +416,7 @@ or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
         template: "{source}: existence confirmed; duration and dimensions NOT CHECKED. {detail}",
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     CheckSpec {
         code: "E-SOURCE-OVERRUN",
@@ -355,6 +434,7 @@ source range {source_start}..{source_end} ({declared_source_span} ms) reaches {o
 it.",
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     // ---- The anchor's resolution and the checks over it (#198). --------------------
     //
@@ -380,6 +460,7 @@ it.",
 in this project.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "E-ANCHOR-SELF",
@@ -395,6 +476,7 @@ in this project.",
 itself.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "E-ANCHOR-CHAIN",
@@ -416,6 +498,7 @@ object rather than a plain integer. An anchor resolves in exactly one hop, so a 
 is itself anchored is refused rather than walked.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0019's `review`: legal, renders, and *"the hardest class of error to catch by
@@ -432,6 +515,7 @@ screen together — {element} runs {start}..{end} ms and {target} runs {target_s
 {target_end} ms. It resolves to layer {layer} and can change nothing.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- The layer tie (#209, ADR-0060). -------------------------------------------
     CheckSpec {
@@ -455,6 +539,7 @@ overlap at {instant} ms — {overlap_width}×{overlap_height} px at ({overlap_x}
 element its own integer `layer`, or an anchor naming the other.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // The tie check answers in rectangles, and a rotated element's footprint is a
@@ -478,6 +563,7 @@ resolved `rotation` is {degrees}° at {instant} ms. Whether their boxes overlap 
 unanswered: the tie check measures rectangles, and a rotated footprint is not one.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- The closed schema, turned into findings (#244). ---------------------------
     //
@@ -524,6 +610,7 @@ your Montagent version before removing it. Do not delete the key to make the fil
 Here the format publishes {expected}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // Everything else the published types refuse: a value of the wrong type, a required
@@ -548,6 +635,7 @@ Here the format publishes {expected}.",
         template: "{subject} does not fit the published schema: {reason}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- Declared by the ADR series; the checks themselves are later tickets. ------
     CheckSpec {
@@ -564,6 +652,7 @@ says this with {replacement}. Surface this finding verbatim to whoever is operat
 do not repair it by ordinary file edit.",
         status: Live,
         census: Some(Named),
+        sets: &[Document],
     },
     CheckSpec {
         // The advise-class half of the same mechanism, and a separate code because it has
@@ -584,6 +673,7 @@ do not repair it by ordinary file edit.",
 {replacement} instead.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "E-KEYFRAME-EASE",
@@ -596,6 +686,7 @@ do not repair it by ordinary file edit.",
         template: "{element}: `ease` presence does not match keyframe position on `{property}` at t={t}.",
         status: Declared,
         census: None,
+        sets: &[],
     },
     // ---- The structural time checks, and `slack` (#197). ---------------------------
     //
@@ -638,6 +729,7 @@ do not repair it by ordinary file edit.",
 of the track is covered more than once.",
         status: Live,
         census: Some(Named),
+        sets: &[Document],
     },
     CheckSpec {
         // A gap is legal, ordinary content — "the silence between two narration lines is a
@@ -662,6 +754,7 @@ of the track is covered more than once.",
 between `{after}` and `{before}`.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "E-SPEED-MISMATCH",
@@ -684,6 +777,7 @@ at `speed` {speed} plays for {played} ms, and the timeline range {start}..{end} 
 {timeline_span} ms.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // The other arm of the same invariant: "with `overrun` declared, `end - start` must
@@ -704,6 +798,7 @@ source to cover — {source_span} ms at `speed` {speed} plays for {played} ms, a
 timeline range {start}..{end} is {timeline_span} ms.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "R-VISUAL-GAP",
@@ -725,6 +820,7 @@ timeline range {start}..{end} is {timeline_span} ms.",
 while {elements} plays on {active}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // A worked counterexample to the tempting rule that a code's prefix *is* its
@@ -742,6 +838,7 @@ while {elements} plays on {active}.",
 {computed_height} ({derivation}) — slack {slack} ({slack_percent}%).",
         status: Live,
         census: Some(Counted),
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0087's ink seam (#325). ADR-0007 makes a line's slot *"the largest `size`
@@ -781,6 +878,7 @@ line reserves {slot} px — `size × line_height`, which is not a function of th
 repairs open and the document does not say which was meant.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- The `highlight` and transition document checks (#202). --------------------
     CheckSpec {
@@ -797,6 +895,7 @@ repairs open and the document does not say which was meant.",
 outside the element's own range {element_start}..{element_end}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0051's non-overlap check. Its own code rather than an instance of the one
@@ -813,6 +912,7 @@ outside the element's own range {element_start}..{element_end}.",
 overlaps run \"{other}\" ({other_start}..{other_end}) by {overlap} ms.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0059: a transition's range is derived, redundant data that must track the
@@ -829,6 +929,7 @@ overlaps run \"{other}\" ({other_start}..{other_end}) by {overlap} ms.",
 intersection of `{from}` and `{to}`, which is {derived_start}..{derived_end}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0059's closed-form function — `max(start)..min(end)` — has no legitimate
@@ -851,6 +952,7 @@ intersection of `{from}` and `{to}`, which is {derived_start}..{derived_end}.",
 between them.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "R-CAPTION-PACE",
@@ -872,6 +974,7 @@ between them.",
 characters per second, against a threshold of {threshold_cps}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // Internal, and ADR-0061 says why in this check's own words: "`R-CAPTION-REPEAT-DURATION`'s
@@ -893,6 +996,7 @@ durations disagree: {shortest} ms to {longest} ms, a spread of {spread} ms again
 frame at {fps} fps — {detail}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // Internal, and the contrast with its two siblings is the point ADR-0061 makes:
@@ -912,6 +1016,7 @@ frame at {fps} fps — {detail}.",
 ({duration} ms), so nothing is declared to be heard under it.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // The second member of ADR-0061's fenced category, which ADR-0071 records as this
@@ -936,6 +1041,7 @@ minimum caption duration",
 {floor} ms floor.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0006 restated ADR-0005's instruction because the literal one is wrong:
@@ -982,6 +1088,7 @@ minimum caption duration",
         template: "quantization at {fps} fps changes {changed} boundaries: {detail}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- `fit`'s only consumer (#204). ---------------------------------------------
     CheckSpec {
@@ -1004,6 +1111,7 @@ minimum caption duration",
 if deliberate.",
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     // ---- Font vendoring: the gate in `fonts vendor`, and the attestation checks in
     // ---- `validate` (#207, ADR-0057). ------------------------------------------------
@@ -1029,6 +1137,7 @@ copied, and no flag will copy it. Known open substitutes, none of them metric-co
 {substitutes}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // Bucket 3. Advise, and the tension is recorded rather than hidden: the fix is
@@ -1049,6 +1158,7 @@ nothing was copied. Once a human has confirmed the file may be redistributed, re
 liability, recorded in the file.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // `validate`'s attestation check, missing half. Advise: the next move is the one
@@ -1064,6 +1174,7 @@ the font> --as {file}` — `--as` must match `{file}` exactly, or the table stil
 resolve to an attestation.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // `validate`'s attestation check, mismatched half. Refuse, on `E-SOURCE-OVERRUN`'s
@@ -1083,6 +1194,7 @@ does not say which; every measured size and break in this project was taken in t
 that was attested, not the one on disk.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // A `fonts`-table path with no file behind it. Not in ADR-0057's list, and needed
@@ -1099,6 +1211,7 @@ that was attested, not the one on disk.",
 it at {resolved}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0057: "a path referenced by no remaining chain ... is a `validate` warning,
@@ -1115,6 +1228,7 @@ it at {resolved}.",
 kept, never pruned: remove it yourself if the file is gone for good.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- ADR-0007's own five text checks, and the font-swap census (#206). -----------
     //
@@ -1139,6 +1253,7 @@ kept, never pruned: remove it yourself if the file is gone for good.",
 so it renders as .notdef. The chain is {chain}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0007's font census — *"23 elements use `brand`; 1 uses `brand-old`"* — and
@@ -1156,6 +1271,7 @@ so it renders as .notdef. The chain is {chain}.",
         template: "The project's text is set in more than one declared font: {distribution}.",
         status: Live,
         census: Some(Counted),
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0007: a "**font-swap** finding naming which measured layouts are now
@@ -1179,6 +1295,7 @@ against: {detail}. {elements} measured in the old chain are unverified — every
 every hand-placed break in them was taken against different metrics.",
         status: Live,
         census: Some(Counted),
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0007's grapheme-cluster check: "no run boundary splits a base from its
@@ -1207,6 +1324,7 @@ every hand-placed break in them was taken against different metrics.",
 move it off the cluster.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0007's invisible-character census, spec #168 story 104: "a character I cannot
@@ -1223,6 +1341,7 @@ move it off the cluster.",
         template: "{occurrences}, and no diff will show you where: {summary}.",
         status: Live,
         census: Some(Named),
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0007's mixed-normalization finding, spec #168 story 105: "two strings that
@@ -1240,6 +1359,7 @@ move it off the cluster.",
 bytes on disk, so an exact-string edit finds one of them and not the other.",
         status: Live,
         census: Some(Named),
+        sets: &[Document],
     },
     // ---- The motion and geometry checks (#211). ------------------------------------
     CheckSpec {
@@ -1272,6 +1392,7 @@ bytes on disk, so an exact-string edit finds one of them and not the other.",
         template: "`{element}` \u{2192} `{other}` {seam}, both `{source}`: {detail}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0035: a keyframe's declared target value that no sampled frame inside the
@@ -1290,6 +1411,7 @@ bytes on disk, so an exact-string edit finds one of them and not the other.",
 frame {frame} at {sampled_t} ms, where it resolves to {sampled}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0044: a **standing** invariant, never conditioned on "a `frame` edit just
@@ -1305,6 +1427,7 @@ ms \u{2014} the union of its resolved rect across that range is {width}\u{d7}{he
 ({x}, {y}), and the frame is {frame_width}\u{d7}{frame_height}.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0052, discharging ADR-0038's acknowledged cost: an `ease` required on a
@@ -1323,6 +1446,7 @@ ms \u{2014} the union of its resolved rect across that range is {width}\u{d7}{he
 from t={from} to t={to}; ease={ease} describes no motion.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0086's one instance of the recorded-intent pattern: a `t_from` whose rule
@@ -1356,6 +1480,7 @@ from t={from} to t={to}; ease={ease} describes no motion.",
 `t_from`.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // ADR-0084. `circle` is the one mask shape whose meaning *discards* part of its
@@ -1380,6 +1505,7 @@ from t={from} to t={to}; ease={ease} describes no motion.",
 outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     // ---- `chroma` (#342, ADR-0088). -------------------------------------------------
     //
@@ -1407,6 +1533,7 @@ outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
 `effects[{colour_index}]`, a `{colour_name}`, has already changed — `effects` is ordered, so the key is measured against the graded frame rather than the source's own colour.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // A key on pixels this format authored. The colour being keyed out is one the
@@ -1421,6 +1548,7 @@ outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
 pixels this format authored — the colour being keyed is one the document itself states.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         // A key on a source that already carries alpha. One `ffprobe` field, from the probe
@@ -1438,6 +1566,7 @@ pixels this format authored — the colour being keyed is one the document itsel
 probe reports as already carrying an alpha channel.",
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     CheckSpec {
         // `tolerance: 0`, the identity value, which keys nothing. The shape ADR-0052
@@ -1451,6 +1580,7 @@ probe reports as already carrying an alpha channel.",
 identity value, so it keys nothing.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
@@ -1466,6 +1596,7 @@ identity value, so it keys nothing.",
         // "it is not there".
         status: Live,
         census: None,
+        sets: &[Disk],
     },
     // ---- ADR-0093: render's world-effects are findings (#386). ---------------------
     //
@@ -1509,6 +1640,7 @@ identity value, so it keys nothing.",
 local sources.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-MIXED-UNREADABLE",
@@ -1523,6 +1655,7 @@ local sources.",
         template: "`{element}` is not in the mix: {resolved} could not be opened — {detail}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-MIXED-UNESTABLISHED",
@@ -1542,6 +1675,7 @@ match to {resolved}, so `render` has no facts to mix it from — the `UNCHECKED`
 say why.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "N-NO-AUDIO-STREAM",
@@ -1557,6 +1691,7 @@ say why.",
         template: "`{element}` is not in the mix: {resolved} carries no audio stream.",
         status: Live,
         census: None,
+        sets: &[],
     },
     // ---- #391 / ADR-0104: what is already at the output path. --------------------
     //
@@ -1582,6 +1717,7 @@ say why.",
 this one would destroy it. Give this project its own `output`, or move that file.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "R-OUTPUT-UNATTESTED",
@@ -1609,6 +1745,7 @@ project did not produce it. Render elsewhere, or move it aside; without `--no-cl
 is replaced.",
         status: Live,
         census: None,
+        sets: &[],
     },
     // ---- `verify` (ADR-0117) ---------------------------------------------------------------
     //
@@ -1627,6 +1764,7 @@ is replaced.",
 deliverable to verify. Render it first.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-VERIFY-STALE",
@@ -1642,6 +1780,7 @@ file, or a source or font it names, has changed since it was rendered. Nothing a
 was measured, because every mismatch would descend from that one change. Render it again.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "R-VERIFY-UNATTESTED",
@@ -1657,6 +1796,7 @@ project's render. It was measured anyway; any mismatch below may mean it was nev
 from this document at all.",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         code: "R-VERIFY-STALENESS-UNKNOWN",
@@ -1673,6 +1813,7 @@ from this document at all.",
 {reason}. It was measured anyway; any mismatch below may be staleness rather than a defect.",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     // The measurements. Once the gate has passed, a mismatch is attributable to the engine or
     // the encoder; without a stamp it may be anybody's. Either way the document holds no
@@ -1687,6 +1828,7 @@ from this document at all.",
 `frame`, padded to even).",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         code: "E-VERIFY-FRAME-TIMING",
@@ -1698,6 +1840,7 @@ from this document at all.",
 intervals differ from {expected_ms} ms, the first before frame {frame} ({interval_ms} ms).",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         // One finding carrying both measurements: a missing frame shortens the stream by one
@@ -1711,6 +1854,7 @@ intervals differ from {expected_ms} ms, the first before frame {frame} ({interva
 stream, and this project renders {expected_frames} frames over {expected_ms} ms.",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         code: "E-VERIFY-NO-AUDIO",
@@ -1722,6 +1866,7 @@ stream, and this project renders {expected_frames} frames over {expected_ms} ms.
 to {to} ms: an `audio` or `video` element with an audio stream and a `volume` above 0.",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         // `note`: a stream nobody should hear is harmless as a deliverable. It happens by
@@ -1734,6 +1879,7 @@ to {to} ms: an `audio` or `video` element with an audio stream and a `volume` ab
         template: "{output} has an audio stream, and nothing in this project should be heard.",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         code: "E-VERIFY-AUDIO-EXTENT",
@@ -1745,6 +1891,7 @@ to {to} ms: an `audio` or `video` element with an audio stream and a `volume` ab
 ms: more apart than one video frame plus one audio frame ({slack_ms} ms).",
         status: Live,
         census: None,
+        sets: &[Deliverable],
     },
     CheckSpec {
         // `review` only, because both numbers that decide it are borrowed (ADR-0061): the
@@ -1764,6 +1911,7 @@ ms: more apart than one video frame plus one audio frame ({slack_ms} ms).",
         status: Live,
         // Named: "silent in its own source" is a measurement, not a value the document spells.
         census: Some(Named),
+        sets: &[Deliverable],
     },
     CheckSpec {
         code: "E-EMPTY-RANGE",
@@ -1787,6 +1935,7 @@ ms: more apart than one video frame plus one audio frame ({slack_ms} ms).",
 is nothing to render for it.",
         status: Live,
         census: None,
+        sets: &[Document],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-REMOTE",
@@ -1805,6 +1954,7 @@ is nothing to render for it.",
 local sources.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNREADABLE",
@@ -1821,6 +1971,7 @@ local sources.",
         template: "`{element}` was not painted: {resolved} could not be read — {detail}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNDECODABLE",
@@ -1847,6 +1998,7 @@ local sources.",
         template: "`{element}` was not painted: {resolved} did not decode — {detail}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-NO-EXTENT",
@@ -1866,6 +2018,7 @@ local sources.",
         template: "`{element}` was not painted: {detail}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-NO-PAINT",
@@ -1886,6 +2039,7 @@ local sources.",
 to paint with.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-FONT-CHAIN",
@@ -1906,6 +2060,7 @@ to paint with.",
         template: "`{element}` was not painted: its font chain did not resolve — {detail}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-TEXT-LAYOUT",
@@ -1922,6 +2077,7 @@ to paint with.",
         template: "`{element}` was not painted: its text could not be laid out — {detail}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNDRAWABLE",
@@ -1953,6 +2109,7 @@ to paint with.",
         template: "`{element}` was not painted: {detail}",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-EFFECT-UNKNOWN",
@@ -1975,6 +2132,7 @@ to paint with.",
 member of the effect vocabulary, and it was drawn as though it were not there.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNRESOLVED-REF",
@@ -1999,6 +2157,7 @@ member of the effect vocabulary, and it was drawn as though it were not there.",
         template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the crossfade was not applied.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "E-FIELD-UNHONOURED",
@@ -2024,6 +2183,7 @@ member of the effect vocabulary, and it was drawn as though it were not there.",
 without it — the picture is not what the document declares.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         code: "L-KEY-ORDER",
@@ -2038,6 +2198,7 @@ without it — the picture is not what the document declares.",
         // a second check.
         status: Live,
         census: None,
+        sets: &[Document, CheckSet::Layout],
     },
     CheckSpec {
         // The rest of the convention: one element per line, the element sort ADR-0005
@@ -2060,6 +2221,7 @@ written, {canonical_lines} in canonical form, first difference at line {line}. R
 fmt`.",
         status: Live,
         census: None,
+        sets: &[Document, CheckSet::Layout],
     },
     // ---- `shift` (#220). ------------------------------------------------------------
     CheckSpec {
@@ -2076,6 +2238,7 @@ point {at}: it runs {start}..{end} ms, so stretching or moving it whole would mi
 source. The nearest legal boundaries are {start} and {end}.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0032/ADR-0047: every slack is invariant by default. `shift` refuses an edit
@@ -2090,6 +2253,7 @@ source. The nearest legal boundaries are {start} and {end}.",
 `release: [[{from}, {to}]]` if that is intended.",
         status: Live,
         census: None,
+        sets: &[],
     },
     CheckSpec {
         // ADR-0047: a `release` entry naming a pair that does not currently bound a real,
@@ -2105,6 +2269,7 @@ change \u{2014} release only pairs this call's own refusal reports, and only for
 that reported them.",
         status: Live,
         census: None,
+        sets: &[],
     },
     // ---- `compare` (#221). -----------------------------------------------------------
     //
@@ -2128,6 +2293,7 @@ that reported them.",
 {ref_size} ms in {ref_project} and is {current_size} ms in the current one.",
         status: Live,
         census: None,
+        sets: &[CheckSet::Drift],
     },
     CheckSpec {
         // ADR-0063: two instants numerically equal in the reference document that are no
@@ -2147,6 +2313,7 @@ that reported them.",
 {current_right}).",
         status: Live,
         census: None,
+        sets: &[CheckSet::Drift],
     },
     CheckSpec {
         // ADR-0066: a sibling predicate to the one above, not an extension of it — this
@@ -2166,6 +2333,7 @@ that reported them.",
 in the {other} version, {moved}; {stayed}. ({ref_project} is the reference version.)",
         status: Live,
         census: Some(Counted),
+        sets: &[CheckSet::Drift],
     },
     CheckSpec {
         // ADR-0051: karaoke drift gets an owner. A run whose `text` changed between the
@@ -2183,6 +2351,7 @@ in the {other} version, {moved}; {stayed}. ({ref_project} is the reference versi
 {ref_project}) to \"{current_text}\" while its highlight window did not.",
         status: Live,
         census: None,
+        sets: &[CheckSet::Drift],
     },
 ];
 

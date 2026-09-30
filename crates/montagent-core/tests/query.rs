@@ -1053,7 +1053,11 @@ fn json_replaces_the_prose_and_never_accompanies_it() {
     let text = wire::render_query(&answer, Wire::Text { verbose: false });
 
     serde_json::from_str::<Value>(&json).expect("the JSON form is JSON alone");
-    assert!(text.starts_with("0 errors"), "{text}");
+    // ADR-0112: `query` runs no checks, so its header says so rather than printing zeros.
+    assert!(
+        text.starts_with("no checks run (validate runs them) — "),
+        "{text}"
+    );
     assert!(
         text.contains("QUERY  cut list over [17000, 19000)"),
         "{text}"

@@ -5,6 +5,10 @@ amends: 0011 (a tenth MCP verb and a thirteenth CLI command, `verify`; the count
 
 # `verify` measures the deliverable with the decoder, and a stale file is one error
 
+> **Amended by [ADR-0119](0119-verify-s-measurement-is-a-fifth-check-set-and-a-checkless-verb-s-finding-prints-after-its-scope.md)**: the Scope section's open question is decided. `verify`
+> records a check set of its own, `deliverable`, when its measurement completes, and `[]` on
+> every refusal, so a clean `verify` still prints `0 errors, 0 reviews, 0 notes`.
+
 [#436](https://github.com/MBehtemam/Montagent/issues/436), building MONTAGENT-4 exactly as ruled
 in [its design ticket](https://github.com/MBehtemam/Montagent/issues/392#issuecomment-5885476778)
 ([#392](https://github.com/MBehtemam/Montagent/issues/392)), the fourth of the nine findings from

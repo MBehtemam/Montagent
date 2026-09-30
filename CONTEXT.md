@@ -832,16 +832,19 @@ _Avoid_: rule, lint, validator (a check is not a tool)
 **Check set**:
 A named group of checks that a run either completes or does not. A report records
 the ones it completed, and records a set only once the set finishes. There are
-four: `document` (validate's checks that read only the file and its fonts), `disk`
+five: `document` (validate's checks that read only the file and its fonts), `disk`
 (validate's checks that need the media tools), `layout` (the one check `fmt` runs),
-and `drift` (`compare`'s own). Running `validate` means running `document` and then
+`drift` (`compare`'s own), and `deliverable` (`verify`'s measurement of the
+rendered file). Running `validate` means running `document` and then
 `disk`, and the split is there because a run can stop between the two: with
 `ffprobe` missing, the document half's findings stand and the disk half never
 runs. A project with no media completes `disk` trivially. A check set is not a
-class. A verb that runs no check set can still raise an `error`, because a refusal
-is a finding without being a check. So a zero means something only for a class
-that some completed set could have raised.
-([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+class. A verb that runs no check set can still raise a finding: a refusal is a
+finding without being a check, and so is the `N-QUANTIZATION` that `frame`'s range
+mode raises. So a zero means something only for a class that some completed set
+could have raised.
+([ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md),
+[ADR-0119](docs/adr/0119-verify-s-measurement-is-a-fifth-check-set-and-a-checkless-verb-s-finding-prints-after-its-scope.md))
 _Avoid_: engine, scoreboard, scope (that is the NOT CHECKED block's), coverage
 (reads as test coverage); `validate` as a set name (it is the verb that runs two)
 

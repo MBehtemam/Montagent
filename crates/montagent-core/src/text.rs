@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::fmt;
 
 use crate::finding::Class;
-use crate::registry::{self, CensusMode};
+use crate::registry::{self, CensusMode, CheckSet};
 
 /// The reserved field rendered as an indented block rather than interpolated: the
 /// offending line and its caret, which ADR-0011 requires of every tool's parse failure.
@@ -237,6 +237,15 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&line);
         out.push('\n');
     }
+    // ADR-0112 §6: the sentence above is about validate's checks, so a run that did not
+    // complete them says so beside it — the block stays unconditional and stays true.
+    if let Some(sentence) = not_run(&check_sets(report)) {
+        for line in wrap(&sentence, 76) {
+            out.push_str("  ");
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
     // ADR-0117: a verb's own limits, one bullet each, beneath the sentence every report ends
     // with.
     for also in report["not_checked_also"]
@@ -374,21 +383,98 @@ fn source_block(probed: &Value) -> String {
 
 fn summary_line(report: &Value) -> Result<String, RenderError> {
     let summary = &report["summary"];
-    let count = |key: &str| summary[key].as_u64().unwrap_or(0);
-    let mut line = format!(
-        "{}, {}, {}, {} unchecked, {} layout, {} drift",
-        plural(count("error"), "error"),
-        plural(count("review"), "review"),
-        plural(count("note"), "note"),
-        count("unchecked"),
-        count("layout"),
-        count("drift"),
-    );
+    let count = |class: Class| summary[class.as_str()].as_u64().unwrap_or(0);
+    let ran = check_sets(report);
+
+    // ADR-0112 §5: a count above zero always prints; a zero prints only for a class some
+    // set that ran could have raised. A zero no check could have earned is not printed at
+    // all, because it would read exactly like one that was.
+    let counts: Vec<String> = [
+        Class::Error,
+        Class::Review,
+        Class::Note,
+        Class::Unchecked,
+        Class::Layout,
+        Class::Drift,
+    ]
+    .into_iter()
+    .filter(|&class| count(class) > 0 || ran.iter().any(|set| set.classes().any(|c| c == class)))
+    .map(|class| match class {
+        Class::Error | Class::Review | Class::Note => plural(count(class), class.as_str()),
+        _ => format!("{} {}", count(class), class.as_str()),
+    })
+    .collect();
+
+    // And a run that is not both halves of validate's says so first, before any number.
+    let mut line = match (scope(&ran), counts.is_empty()) {
+        (Some(scope), true) => scope,
+        (Some(scope), false) => format!("{scope}; {}", counts.join(", ")),
+        (None, _) => counts.join(", "),
+    };
     if let Some(project) = report["project"].as_str() {
         line.push_str(" — ");
         line.push_str(project);
     }
     Ok(line)
+}
+
+/// The check sets a report says ran, read back from the wire. A name this build does not
+/// know is dropped rather than guessed at: it could raise nothing this renderer can print.
+fn check_sets(report: &Value) -> Vec<CheckSet> {
+    report["check_sets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter_map(CheckSet::named)
+        .collect()
+}
+
+/// What a run that did not complete both halves of validate's checks ran, as the summary
+/// line's opening words; `None` on a run that did. ADR-0112 §5's wording is illustrative,
+/// and this is it made uniform: the words are generated from the sets, not kept per verb.
+fn scope(ran: &[CheckSet]) -> Option<String> {
+    let missing = validate_halves_missing(ran);
+    if missing.is_empty() {
+        return None;
+    }
+    Some(match (ran.is_empty(), missing.len()) {
+        (true, _) => "no checks run (validate runs them)".to_string(),
+        (false, 2) => format!("{} only (validate's checks not run)", set_names(ran)),
+        (false, _) => format!("{} not run", set_names(&missing)),
+    })
+}
+
+/// ADR-0112 §6: the sentence NOT CHECKED gains on a run that did not complete both halves
+/// of validate's checks. The only way to hold one half without the other is a run that
+/// stopped between them, so that is what it says; the finding above it says why.
+fn not_run(ran: &[CheckSet]) -> Option<String> {
+    let missing = validate_halves_missing(ran);
+    match missing.len() {
+        0 => None,
+        2 => Some("validate's checks were not run; run validate for them.".to_string()),
+        _ => Some(format!(
+            "validate's {} were not run: the run stopped before them.",
+            set_names(&missing)
+        )),
+    }
+}
+
+/// Which of validate's two halves a run did not complete.
+fn validate_halves_missing(ran: &[CheckSet]) -> Vec<CheckSet> {
+    [CheckSet::Document, CheckSet::Disk]
+        .into_iter()
+        .filter(|half| !ran.contains(half))
+        .collect()
+}
+
+/// Check sets in words: `layout check`, `document and disk checks`.
+fn set_names(sets: &[CheckSet]) -> String {
+    let names: Vec<&str> = sets.iter().map(|set| set.as_str()).collect();
+    match (names.as_slice(), sets) {
+        ([one], [CheckSet::Layout]) => format!("{one} check"),
+        _ => format!("{} checks", names.join(" and ")),
+    }
 }
 
 fn plural(n: u64, noun: &str) -> String {
