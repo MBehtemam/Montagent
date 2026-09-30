@@ -293,12 +293,13 @@ scaffold somewhere else.",
         adr: "ADR-0105",
         //
         // Live since #488, with `from`, `to`, `states` (the visual states needing a tile),
-        // `fits` (the most tiles the sheet holds), `limit` and `limit_px` (ADR-0125). The
-        // sub-ranges that would fit are #489's, which adds them to this template.
+        // `fits` (the most tiles the sheet holds), `limit` and `limit_px` (ADR-0125), and
+        // `sub_ranges`: the fewest `{from, to}` ranges that each fit, covering the range
+        // exactly, which the text renders as a prose list (ADR-0126).
         template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
 and the sheet holds {fits} before its {limit} limit of {limit_px} px served stops a tile \
-showing a defect. It never thins, splits or reshapes the sheet (ADR-0095); ask for a narrower \
-range.",
+showing a defect. It never thins, splits or reshapes the sheet (ADR-0095). Ask for these \
+instead, each a sheet that fits: {sub_ranges}.",
         status: Live,
         census: None,
         sets: &[],

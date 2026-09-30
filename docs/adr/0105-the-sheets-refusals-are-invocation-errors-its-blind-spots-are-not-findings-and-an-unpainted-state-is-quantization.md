@@ -25,6 +25,9 @@ amends: 0006 (`N-QUANTIZATION` gains a third `review` escalation condition — a
 > **Amended by [ADR-0125](0125-the-sheets-first-build-spells-its-record-and-its-refusals.md).** `E-SHEET-OVERFLOW` carries `from`, `to`, `states`, `fits`, `limit` and `limit_px`, and `limit`'s first value is
 > **`tile-width`**. A refused range answer carries **the report alone**. The sub-ranges remain #489's.
 
+> **Amended by [ADR-0126](0126-an-overflow-names-the-fewest-even-sub-ranges-that-each-fit.md).** The sub-ranges' field is **`sub_ranges`**, an array of `{from, to}`
+> rendered as a prose list, and `limit`'s two values are **`tile-width`** and **`type-floor`**.
+
 # The sheet's refusals are invocation errors, its blind spots are not findings, and an unpainted state is quantization
 
 [#412](https://github.com/MBehtemam/Montagent/issues/412), on the map

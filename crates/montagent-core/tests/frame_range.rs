@@ -430,14 +430,115 @@ fn a_range_past_the_tile_width_refusal_is_refused_never_thinned() {
     assert_eq!(refusal["fields"]["limit"], "tile-width");
     assert!(refusal.get("repair").is_none(), "{refusal}");
 
+    // The fewest sub-ranges, their tiles shared evenly: 16 and 15, not 30 and 1 (ADR-0126).
+    assert_eq!(
+        refusal["fields"]["sub_ranges"],
+        json!([{"from": 0, "to": 3200}, {"from": 3200, "to": 6200}])
+    );
+
     let text = prose(&json);
-    for words in ["31 visual states", "holds 30", "tile-width", "140 px"] {
+    for words in [
+        "31 visual states",
+        "holds 30",
+        "tile-width",
+        "140 px",
+        "each a sheet that fits: [0, 3200) and [3200, 6200).",
+    ] {
         assert!(text.contains(words), "`{words}` missing: {text}");
     }
 
     // Thirty fit, at the degraded rung.
     let thirty = drawn(&path, &range(0, 30 * 200)).to_json();
     assert_eq!(thirty["sheet"]["picture"]["rung"], "degraded");
+}
+
+/// Every sub-range `E-SHEET-OVERFLOW` names for `[from, to)`, each requested in turn: every
+/// one draws a sheet, and together they tile every state the refusal counted, cover the
+/// range exactly and skip what it would have skipped. Returns the tiles on each sheet.
+#[track_caller]
+fn every_sub_range_draws(path: &Path, from: i64, to: i64) -> Vec<u64> {
+    let json = frame(path, &range(from, to)).to_json();
+    let refusal = &json["findings"][0];
+    assert_eq!(refusal["code"], "E-SHEET-OVERFLOW", "{json}");
+    let ranges = refusal["fields"]["sub_ranges"].as_array().unwrap();
+    let mut next = from;
+    let mut tiles = Vec::new();
+    let mut skipped = 0;
+    for sub_range in ranges {
+        let (start, end) = (
+            sub_range["from"].as_i64().unwrap(),
+            sub_range["to"].as_i64().unwrap(),
+        );
+        assert_eq!(start, next, "consecutive: {ranges:?}");
+        next = end;
+        let sheet = drawn(path, &range(start, end)).to_json()["sheet"].clone();
+        tiles.push(sheet["coverage"]["tiled"].as_u64().unwrap());
+        skipped += sheet["coverage"]["skipped"].as_u64().unwrap();
+    }
+    assert_eq!(next, to, "the last sub-range ends the range");
+    assert_eq!(
+        tiles.iter().sum::<u64>(),
+        refusal["fields"]["states"].as_u64().unwrap()
+    );
+    let states = common::document(path)["tracks"][0]["elements"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(
+        tiles.iter().sum::<u64>() + skipped,
+        states as u64,
+        "no state is lost"
+    );
+    tiles
+}
+
+/// A 1080×1920 project at `fps` with three rects a second for `seconds` seconds: `[0, 960)`,
+/// `[960, 990)` and `[990, 1000)` of each. The 10 ms state holds no frame at 24, 25 or 30
+/// fps, and the 30 ms one holds a frame at 25 and 30 fps but none at 24.
+fn seconds_project(dir: &Path, seconds: i64, fps: i64) -> PathBuf {
+    let elements: Vec<Value> = (0..seconds)
+        .flat_map(|i| {
+            [(0, 960), (960, 990), (990, 1000)].map(|(a, b)| (i * 1000 + a, i * 1000 + b))
+        })
+        .enumerate()
+        .map(|(n, (start, end))| {
+            json!({
+                "id": format!("card-{n:03}"), "type": "rect", "start": start, "end": end,
+                "x": 0, "y": 0, "origin": "top-left", "width": 1080, "height": 1920,
+                "fill": format!("#{:02X}{:02X}40", (n * 8) % 256, 255 - (n * 8) % 256),
+            })
+        })
+        .collect();
+    write_project(
+        dir,
+        "seconds.montagent.json",
+        &json!({
+            "frame": {"width": 1080, "height": 1920},
+            "fps": fps,
+            "background": "#000000",
+            "tracks": [{"name": "cards", "layer": 0, "elements": elements}],
+        })
+        .to_string(),
+    )
+}
+
+#[test]
+fn every_sub_range_an_overflow_names_draws_a_sheet() {
+    let dir = tempdir(line!());
+    assert_eq!(
+        every_sub_range_draws(&states_project(&dir, 31), 0, 31 * 200),
+        [16, 15]
+    );
+}
+
+#[test]
+fn every_sub_range_draws_a_sheet_whatever_the_grid_leaves_unpainted() {
+    // (fps, tiles on each sheet): two tiles a second at 30 fps, one at 24.
+    for (fps, tiles) in [(30, &[21_u64, 21, 20][..]), (24, &[16, 15][..])] {
+        let dir = tempdir(line!() * 100 + fps as u32);
+        let path = seconds_project(&dir, 31, fps);
+        assert_eq!(every_sub_range_draws(&path, 0, 31_000), tiles, "{fps} fps");
+    }
 }
 
 // ---------------------------------------------------------------------------
