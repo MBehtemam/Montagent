@@ -41,6 +41,13 @@ status: accepted
 > object — prints up to three member ids per group, in the group's own order and never
 > sorted, then `+K more — see --json`. The census itself and the canonical JSON are unchanged.
 
+> **Amended by [ADR-0120](./0120-a-fact-that-bears-on-one-branch-of-a-refuse-fork-is-a-repair-by-another-name.md)**, which states what a
+> refuse-class finding may not carry besides a `repair` value: *a fact that bears on only one
+> branch of its fork, or names something the author could adopt, is a repair by another name.*
+> A census that partitions the siblings without ranking them is not one — this ADR's gravity
+> census stays the model. `E-FONT-NO-GLYPH`'s list of covering fonts is dropped under it, and
+> five other codes whose messages conflict with it are named there and left open.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this

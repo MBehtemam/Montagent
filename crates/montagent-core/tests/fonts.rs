@@ -646,6 +646,61 @@ fn a_character_no_file_in_the_chain_maps_is_a_refuse_class_error() {
 }
 
 #[test]
+fn a_missing_glyph_names_no_other_chain_even_where_one_would_draw_it() {
+    // ADR-0120. The fork this finding refuses on is *the chain is short a file* or *the
+    // text carries a character it was not meant to*, and a list of the project's other
+    // chains that do map the characters bears on the first branch only — a menu for it,
+    // which is a repair by another name. So the finding carries no such list, even here,
+    // where a second declared chain maps every one of them.
+    let dir = common::tempdir(line!());
+    std::fs::create_dir_all(dir.join("fonts")).unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../docs/research/prototypes/thai-vertical-metrics/fonts/NotoSansThai-Regular.ttf",
+        ),
+        dir.join("fonts/NotoSansThai-Regular.ttf"),
+    )
+    .unwrap();
+    let thai = "\u{0E01}\u{0E02}";
+    let mut drawn: serde_json::Value =
+        serde_json::from_str(&typeset_element("thai-chain", "thai", thai)).unwrap();
+    drawn["start"] = 1000.into();
+    drawn["end"] = 2000.into();
+    let elements = format!("{}, {drawn}", typeset_element("latin-chain", "brand", thai));
+    let fonts = r#"{"brand": [{"file": "fonts/OpenRunde-Bold.otf"}], "thai": [{"file": "fonts/NotoSansThai-Regular.ttf"}]}"#;
+    let project = typeset(&dir, fonts, &elements);
+
+    let report = montagent_core::validate_with_cache(&project, &cache(&dir));
+    let found = findings(&report, "E-FONT-NO-GLYPH");
+    // The precondition, so the absence below is not vacuous: the `thai` chain draws what
+    // `brand` cannot.
+    assert_eq!(found.len(), 1, "{:?}", report.findings);
+    assert_eq!(found[0].location.element.as_deref(), Some("latin-chain"));
+
+    assert!(found[0].census.is_none(), "{:?}", found[0]);
+    let json = report.to_json();
+    let emitted = json["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "E-FONT-NO-GLYPH")
+        .unwrap();
+    assert!(
+        emitted.get("census").is_none_or(serde_json::Value::is_null),
+        "{emitted}"
+    );
+    let prose = montagent_core::text::render(&json, montagent_core::text::Options::verbose())
+        .expect("every finding renders");
+    // `N-FONT-CENSUS` rightly prints a census here — the text is set in two fonts — so
+    // the text-form check reads this finding's own block only.
+    let block = prose
+        .split("\n\n")
+        .find(|b| b.contains("E-FONT-NO-GLYPH"))
+        .expect("the finding prints");
+    assert!(!block.contains("census"), "{block}");
+}
+
+#[test]
 fn text_the_declared_font_can_draw_never_fires() {
     // The must-not-fire half, and with it the characters no font is short of for not
     // mapping: the format's own `\n` line break (ADR-0008) and ADR-0007's ZWJ, which is
