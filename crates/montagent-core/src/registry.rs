@@ -291,10 +291,15 @@ scaffold somewhere else.",
         repair: Some(NotAboutDocument),
         threshold: Internal,
         adr: "ADR-0105",
+        //
+        // Live since #488, with `from`, `to`, `states` (the visual states needing a tile),
+        // `fits` (the most tiles the sheet holds), `limit` and `limit_px` (ADR-0125). The
+        // sub-ranges that would fit are #489's, which adds them to this template.
         template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
-and the sheet holds {fits} before {limit} stops a tile showing a defect. It never thins, splits \
-or reshapes the sheet (ADR-0095). Ask for these ranges instead: {sub_ranges}.",
-        status: Declared,
+and the sheet holds {fits} before its {limit} limit of {limit_px} px served stops a tile \
+showing a defect. It never thins, splits or reshapes the sheet (ADR-0095); ask for a narrower \
+range.",
+        status: Live,
         census: None,
         sets: &[],
     },
@@ -1072,9 +1077,9 @@ minimum caption duration",
         // frame, so no element vanishes and no track gains a gap, yet the combination the
         // document declares is never on screen. `validate`'s quantization check raises it
         // (#437) through `checks::quantization::unpainted_states`, over the one selection of
-        // visual states; `frame`'s range mode is to raise it for each `no-grid-frame` skipped
-        // run through the same function (#488), so the state has one identity whichever verb
-        // saw it. One finding
+        // visual states; `frame`'s range mode raises it for each `no-grid-frame` skipped run
+        // through the same function (#488), so the state has one identity whichever verb saw
+        // it. One finding
         // per state, carrying `from`, `to`, `present` and `boundaries` (each `at` with the
         // elements `entering` and `leaving`, by element and track) beside the template's
         // three fields; `changed` is always 2, the state's own boundaries. ADR-0118 ratifies

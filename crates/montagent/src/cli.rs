@@ -710,6 +710,9 @@ where
                 full,
                 png,
                 out: Some(out),
+                // The range mode reaches this surface with #493.
+                from: None,
+                to: None,
             };
             match run_verb(|| montagent_core::verbs::frame::frame(&project, &ask)) {
                 Ok(answer) => {

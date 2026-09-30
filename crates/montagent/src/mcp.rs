@@ -572,6 +572,9 @@ impl Montagent {
                         // The CLI's flag, and not this surface's: a picture that came back as a
                         // path would be a picture an agent cannot see.
                         out: None,
+                        // The range mode reaches this surface with #493.
+                        from: None,
+                        to: None,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query` and `measure`.

@@ -195,7 +195,7 @@ pub fn verify(path: &Path) -> Answer {
         ));
     };
     let output = project_dir.join(declared);
-    let Some(extent) = crate::verbs::render::extent(&document) else {
+    let Some(extent) = crate::exact::extent(&document) else {
         return refused(Report::rejected(
             TOOL,
             project,
@@ -838,11 +838,11 @@ fn audible_spans(element: &Value, from: i64, to: i64, fps: i64) -> Option<(Vec<(
     let mut peak: f64 = 0.0;
     let mut n = first;
     loop {
-        let instant = crate::verbs::render::instant_of(n, fps);
+        let instant = crate::exact::instant_of(n, fps);
         if instant >= to {
             break;
         }
-        let next = crate::verbs::render::instant_of(n + 1, fps).min(to);
+        let next = crate::exact::instant_of(n + 1, fps).min(to);
         let v = resolve::at(&volume, instant).ok()?;
         if v > 0.0 {
             peak = peak.max(v);

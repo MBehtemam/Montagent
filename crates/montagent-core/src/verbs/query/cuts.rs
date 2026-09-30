@@ -158,10 +158,10 @@ pub fn cuts(document: &Loose, from: i64, to: i64) -> Cuts {
 ///
 /// ADR-0074 kept this out of `query` itself — *"a caller that wants the visual cut list
 /// filters one field of an answer it already has"* — and `validate`'s quantization check
-/// is that caller, as `frame`'s range mode will be (#488). The two are to share this one
-/// function rather than each filtering for itself, because an unpainted visual state is `N-QUANTIZATION` from
-/// both (ADR-0105 §5), and one fact has one identity only if both verbs cut the clock at
-/// the same places.
+/// is that caller, as `frame`'s range mode is (#488). The two share this one function
+/// rather than each filtering for itself, because an unpainted visual state is
+/// `N-QUANTIZATION` from both (ADR-0105 §5), and one fact has one identity only if both
+/// verbs cut the clock at the same places.
 ///
 /// The filter is one line; the re-merge is the work, and it is [`merged`] — the same join
 /// the cut list's own intervals went through. Dropping narration makes neighbours that

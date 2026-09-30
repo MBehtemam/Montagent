@@ -148,6 +148,13 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&frame_block(frame));
     }
 
+    // `frame`'s range answer: the sheet, its provenance list and its disclosure, in full at
+    // every verbosity (ADR-0097 §6). Above the findings, which are about the states it
+    // skipped.
+    if let Some(sheet) = report.get("sheet").filter(|view| !view.is_null()) {
+        out.push_str(&sheet_block(sheet));
+    }
+
     // `query`'s whole answer, on the same rule as `timeline`'s view: it prints wherever it
     // is present and at any verbosity, because a verb whose output is the answer has nothing
     // left to say if the answer is filtered out.
@@ -1489,6 +1496,180 @@ fn frame_block(frame: &Value) -> String {
             continue;
         }
         out.push_str(&row(format!("{label:<11} {}", files.join(", "))));
+    }
+    out
+}
+
+/// `frame --from --to`'s block (#488): the sheet, then the provenance list that is its
+/// complete record, then what the rule dropped and could not see.
+///
+/// **Nothing here is summarised or behind a verbosity switch** (ADR-0097 §6): the plain-text
+/// path is the one an agent reaching for pixels takes, so it carries the disclosure's full
+/// content — every provenance line, every skipped state, every dropped boundary by name, and
+/// all six blind spots on a perfect answer too (ADR-0094 §6). Each blind spot's sentence
+/// prints on one line, unwrapped, so the text and the JSON hold the same string.
+fn sheet_block(sheet: &Value) -> String {
+    let number = |value: &Value| value.as_i64().unwrap_or_default();
+    let ids = |value: &Value| -> String {
+        value
+            .as_array()
+            .map(|ids| ids.iter().map(named).collect::<Vec<_>>().join(", "))
+            .unwrap_or_default()
+    };
+    let (from, to) = (number(&sheet["from"]), number(&sheet["to"]));
+    let provenance = sheet["provenance"].as_array().cloned().unwrap_or_default();
+    let coverage = &sheet["coverage"];
+    let picture = &sheet["picture"];
+
+    let mut out = if picture.is_null() {
+        format!("\nSHEET  [{from}, {to}) \u{2014} no tile: no frame is painted in [{from}, {to})\n")
+    } else {
+        format!(
+            "\nSHEET  [{from}, {to}) \u{2014} {} of {}, {} {}x{}, {} x {}\n",
+            plural(provenance.len() as u64, "tile"),
+            plural(number(&coverage["states"]) as u64, "visual state"),
+            picture["encoding"].as_str().unwrap_or("?"),
+            number(&picture["width"]),
+            number(&picture["height"]),
+            plural(number(&picture["columns"]) as u64, "column"),
+            plural(number(&picture["rows"]) as u64, "row"),
+        )
+    };
+    out.push_str(&row(format!(
+        "rule        {} v{}: {}",
+        named(&sheet["rule"]["name"]),
+        number(&sheet["rule"]["version"]),
+        named(&sheet["rule"]["sentence"]),
+    )));
+    if !picture.is_null() {
+        out.push_str(&row(format!(
+            "tiles       served {} px wide, {} rung (every tile {} px or more), painted at {}x{}",
+            number(&picture["served_tile_width"]),
+            named(&picture["rung"]),
+            number(&picture["rung_px"]),
+            number(&sheet["rasterized"]["width"]),
+            number(&sheet["rasterized"]["height"]),
+        )));
+        if let Some(path) = picture["path"].as_str() {
+            out.push_str(&row(format!(
+                "written to  {path} ({})",
+                plural(number(&picture["bytes"]) as u64, "byte")
+            )));
+        }
+    }
+    for (key, label) in [("sources", "sources"), ("fonts", "fonts")] {
+        let files = ids(&sheet[key]);
+        if !files.is_empty() {
+            out.push_str(&row(format!("{label:<11} {files}")));
+        }
+    }
+
+    out.push_str(
+        "\nPROVENANCE  one line per tile, the complete record; the sheet is a picture of it\n",
+    );
+    if provenance.is_empty() {
+        out.push_str(&row("no tiles".to_string()));
+    }
+    for tile in &provenance {
+        out.push_str(&row(format!(
+            "{:>3}  {}  {}  at {} ms  state {}..{}  {}",
+            number(&tile["index"]),
+            named(&tile["class"]),
+            named(&tile["why"]),
+            number(&tile["instant_ms"]),
+            number(&tile["run"]["start"]),
+            number(&tile["run"]["end"]),
+            ids(&tile["present"]),
+        )));
+        for (key, label) in [
+            ("painted_partially", "in part"),
+            ("not_painted", "not painted"),
+        ] {
+            for entry in tile[key].as_array().into_iter().flatten() {
+                out.push_str(&row(format!(
+                    "       {label} {} \u{2014} {}",
+                    named(&entry["element"]),
+                    named(&entry["code"]),
+                )));
+            }
+        }
+    }
+    let classes = &sheet["classes"];
+    out.push_str(&row(format!(
+        "classes     {} run, {} keyframe, {} infill",
+        number(&classes["run"]),
+        number(&classes["keyframe"]),
+        number(&classes["infill"]),
+    )));
+
+    out.push_str("\nDISCLOSED\n");
+    let skipped = sheet["skipped"].as_array().cloned().unwrap_or_default();
+    if skipped.is_empty() {
+        out.push_str(&row("skipped     none".to_string()));
+    }
+    for (i, state) in skipped.iter().enumerate() {
+        out.push_str(&row(format!(
+            "{}{}..{}  {} \u{2014} present: {}",
+            if i == 0 {
+                "skipped     "
+            } else {
+                "            "
+            },
+            number(&state["run"]["start"]),
+            number(&state["run"]["end"]),
+            named(&state["reason"]),
+            ids(&state["present"]),
+        )));
+    }
+    let dropped = &sheet["audio_boundaries_dropped"];
+    let count = number(&dropped["count"]);
+    let named_boundaries: Vec<String> = dropped["boundaries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|boundary| {
+            let signed = |key: &str, sign: char| -> Vec<String> {
+                boundary[key]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|id| format!("{sign}{}", named(id)))
+                    .collect()
+            };
+            let mut changed = signed("leaving", '-');
+            changed.extend(signed("entering", '+'));
+            format!("{} ms ({})", number(&boundary["at"]), changed.join(" "))
+        })
+        .collect();
+    out.push_str(&row(format!(
+        "audio       {} dropped{}",
+        match count {
+            1 => "1 audio-only boundary".to_string(),
+            n => format!("{n} audio-only boundaries"),
+        },
+        if named_boundaries.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", named_boundaries.join(", "))
+        }
+    )));
+    out.push_str(&row(format!(
+        "coverage    {} ms in {}: {} tiled, {} skipped; {} ms depicted, {} ms not depicted",
+        number(&coverage["range_ms"]),
+        plural(number(&coverage["states"]) as u64, "visual state"),
+        number(&coverage["tiled"]),
+        number(&coverage["skipped"]),
+        number(&coverage["depicted_ms"]),
+        number(&coverage["not_depicted_ms"]),
+    )));
+
+    out.push_str("\nBLIND TO\n");
+    for spot in sheet["blind_to"].as_array().into_iter().flatten() {
+        out.push_str(&row(format!(
+            "{:<18}{}",
+            named(&spot["token"]),
+            named(&spot["sentence"])
+        )));
     }
     out
 }

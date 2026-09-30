@@ -122,7 +122,7 @@ use serde_json::{Value, json};
 use montagent_render::canvas::{Canvas, Rgba};
 use montagent_render::encode::{self, Encoder, Spec};
 
-use crate::exact::{self, Decimal};
+use crate::exact::{self, Decimal, extent, instant_of};
 use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
@@ -1025,7 +1025,14 @@ fn refused(report: Report) -> Answer {
 /// The range asked for, or `None` for the whole project — or the one sentence saying why
 /// the flags ask for no render.
 pub(crate) fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
-    match (ask.from, ask.to) {
+    range(ask.from, ask.to)
+}
+
+/// A `--from`/`--to` pair as every verb that takes one reads it: both or neither, half-open,
+/// and not before the clock starts. `frame`'s range mode reads its pair here too (#488), so
+/// the two verbs cannot disagree about what a range is (ADR-0097 §1).
+pub(crate) fn range(from: Option<i64>, to: Option<i64>) -> Result<Option<(i64, i64)>, String> {
+    match (from, to) {
         (None, None) => Ok(None),
         (Some(from), Some(to)) => {
             if from < 0 {
@@ -1044,22 +1051,6 @@ pub(crate) fn request(ask: &Ask) -> Result<Option<(i64, i64)>, String> {
         (Some(_), None) => Err("`--from` needs a `--to`: a range is half-open `[from, to)`".into()),
         (None, Some(_)) => Err("`--to` needs a `--from`: a range is half-open `[from, to)`".into()),
     }
-}
-
-/// The instant the whole render ends at: the declared `duration`, or the last boundary
-/// any element states — the same derived `duration` [`crate::slack`] uses.
-pub(crate) fn extent(document: &Loose) -> Option<i64> {
-    document
-        .value()
-        .get("duration")
-        .and_then(Value::as_i64)
-        .or_else(|| {
-            document
-                .elements()
-                .filter_map(|element| element.get("end").and_then(Value::as_i64))
-                .max()
-        })
-        .filter(|end| *end > 0)
 }
 
 /// Where the video goes (ADR-0011, stories 55 and 56).
@@ -1537,15 +1528,6 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
-}
-
-/// The whole millisecond frame `n` is painted at: `⌊n × 1000 / fps⌋`.
-///
-/// The one place the module doc's floor is spelled, for the frame loop and for the
-/// `volume` commands alike — the two must sample the same instants, or a fade would be
-/// heard on a different clock from the one it is seen on.
-pub(crate) fn instant_of(n: i64, fps: i64) -> i64 {
-    ((i128::from(n) * 1000) / i128::from(fps)) as i64
 }
 
 /// Milliseconds as `ffmpeg`'s decimal seconds — in the string, never through a float
