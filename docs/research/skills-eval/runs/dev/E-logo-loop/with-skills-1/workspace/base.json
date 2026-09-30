@@ -1,0 +1,246 @@
+{
+  "frame": {
+    "width": 1080,
+    "height": 1080
+  },
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 6000,
+  "loop": true,
+  "output": "deliverable.mp4",
+  "fonts": {
+    "title": [
+      {
+        "file": "fonts/Inter-Bold.ttf"
+      }
+    ]
+  },
+  "fontVendor": {
+    "fonts/Inter-Bold.ttf": {
+      "licence": "OFL-1.1",
+      "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-eg5h7zxi/work/fonts/Inter-Bold.ttf",
+      "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"
+    }
+  },
+  "tracks": [
+    {
+      "name": "tile-tl",
+      "layer": 10,
+      "elements": [
+        {
+          "id": "tile-tl",
+          "type": "rect",
+          "start": 200,
+          "end": 5600,
+          "x": [
+            {
+              "t": 200,
+              "v": -138
+            },
+            {
+              "t": 800,
+              "v": 155,
+              "ease": [
+                0.34,
+                1.25,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "y": 465,
+          "origin": "center",
+          "width": 138,
+          "height": 138,
+          "fill": "#101418",
+          "radius": 29,
+          "scale": [
+            {
+              "t": 5266,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 5566,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dot-tr",
+      "layer": 11,
+      "elements": [
+        {
+          "id": "dot-tr",
+          "type": "ellipse",
+          "start": 366,
+          "end": 5500,
+          "x": 305,
+          "y": [
+            {
+              "t": 366,
+              "v": -138
+            },
+            {
+              "t": 966,
+              "v": 465,
+              "ease": [
+                0.34,
+                1.25,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "origin": "center",
+          "width": 138,
+          "height": 138,
+          "fill": "#FF5A36",
+          "scale": [
+            {
+              "t": 5166,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 5466,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tile-bl",
+      "layer": 12,
+      "elements": [
+        {
+          "id": "tile-bl",
+          "type": "rect",
+          "start": 533,
+          "end": 5400,
+          "x": 155,
+          "y": [
+            {
+              "t": 533,
+              "v": 1218
+            },
+            {
+              "t": 1133,
+              "v": 615,
+              "ease": [
+                0.34,
+                1.25,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "origin": "center",
+          "width": 138,
+          "height": 138,
+          "fill": "#101418",
+          "radius": 29,
+          "scale": [
+            {
+              "t": 5066,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 5366,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tile-br",
+      "layer": 13,
+      "elements": [
+        {
+          "id": "tile-br",
+          "type": "rect",
+          "start": 700,
+          "end": 5300,
+          "x": [
+            {
+              "t": 700,
+              "v": 1218
+            },
+            {
+              "t": 2000,
+              "v": 305,
+              "ease": [
+                0.3,
+                0.3,
+                0.5,
+                1
+              ]
+            }
+          ],
+          "y": 615,
+          "origin": "center",
+          "width": 138,
+          "height": 138,
+          "fill": "#101418",
+          "radius": 29,
+          "rotation": [
+            {
+              "t": 700,
+              "v": 0
+            },
+            {
+              "t": 2000,
+              "v": 1080,
+              "ease": [
+                0.3,
+                0.3,
+                0.5,
+                1
+              ]
+            }
+          ],
+          "scale": [
+            {
+              "t": 4966,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 5266,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
