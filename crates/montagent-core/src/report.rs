@@ -16,6 +16,25 @@ pub const NOT_CHECKED: &str = "This file was not compared against any prior vers
 verifies that the file is internally legal; it cannot tell you whether it says what you \
 meant it to say.";
 
+/// Add a verb's own limits to a report's boundary, under `not_checked_also` (ADR-0117).
+///
+/// ADR-0006's block is the same sentence on every report, and stays so: this does not edit
+/// it. A verb whose answer has limits of its own — `verify`'s one mixed track, `render`'s
+/// deliverable that nothing has yet measured — states them beside it, as a list that is
+/// absent rather than empty on every other verb, so no report grows a key it has nothing to
+/// put in.
+pub fn extend_boundary(json: &mut Value, lines: &[&str]) {
+    let Some(object) = json.as_object_mut() else {
+        return;
+    };
+    let list = object
+        .entry("not_checked_also")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Value::Array(list) = list {
+        list.extend(lines.iter().map(|line| Value::String(line.to_string())));
+    }
+}
+
 /// ADR-0011's five exit codes, distinguished by what the caller does next.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

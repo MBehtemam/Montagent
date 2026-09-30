@@ -127,7 +127,7 @@ use crate::finding::{Class, Finding};
 use crate::media::established::Established;
 use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
-use crate::media::{Source, attest, display_local, probe, tools};
+use crate::media::{Source, attest, digest, display_local, probe, tools};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
@@ -140,6 +140,17 @@ const TOOL: &str = "render";
 /// The mix bus's sample rate. Every input is resampled to it first, which is what makes a
 /// loop's sample count computable from the document alone.
 const MIX_RATE: i64 = 48_000;
+
+/// ADR-0117: what `render` states it did not check, beside ADR-0006's sentence — and the verb
+/// that does.
+///
+/// `render` asks *"did I intend to put X in?"*; nothing in it measured the file it wrote. It
+/// does not run `verify` itself: a `verify` `error` in this report would sit beside a file
+/// already published, which breaks ADR-0093's *"a file at the output path is a zero-error
+/// render"*, and a witness sharing this process's parsed model is not independent.
+pub const NOT_VERIFIED: &str = "Whether the file written carries what this document says it \
+should. render reports what it intended to put in; run `montagent verify <project>` to measure \
+the deliverable with the decoder before calling it done.";
 
 /// What one `render` invocation is asking.
 #[derive(Debug, Clone, Default)]
@@ -229,13 +240,15 @@ impl Answer {
     /// the render was refused or failed, so a consumer reads the absence off a key that is
     /// always there.
     pub fn to_json(&self) -> Value {
-        self.report.to_json_with(
+        let mut json = self.report.to_json_with(
             "render",
             match &self.video {
                 Some(video) => serde_json::to_value(video).unwrap_or(Value::Null),
                 None => Value::Null,
             },
-        )
+        );
+        crate::report::extend_boundary(&mut json, &[NOT_VERIFIED]);
+        json
     }
 }
 
@@ -414,12 +427,24 @@ pub fn render_cancellable(
     // pre-flightable is pre-flighted, so the render that must not happen costs no wall
     // clock. The injury this prevents is measured in ninety-minute encodes, and discovering
     // it at promotion time would prevent the destruction while still spending the clock.
-    let stamp = attest::stamp(FilePath::new(document.path()));
-    match attest::of(&probe::ProcessRunner, &resolved, &output, &stamp) {
+    //
+    // ADR-0117: the stamp now also records what was rendered — the digest `verify` compares
+    // — and ownership is still the project identity alone, so a `montagent/1` deliverable
+    // from before the digest existed is `Mine` here like any other.
+    let stamp = attest::stamp(
+        FilePath::new(document.path()),
+        digest::of(&document).known(),
+    );
+    match attest::of(
+        &probe::ProcessRunner,
+        &resolved,
+        &output,
+        FilePath::new(document.path()),
+    ) {
         // Nothing there, or this project's own last answer. Re-rendering over yourself is
         // the normal loop — four attempts at one cut is what the source incident describes —
         // and is never a finding.
-        attest::Attestation::Vacant | attest::Attestation::Mine => {}
+        attest::Attestation::Vacant | attest::Attestation::Mine(_) => {}
         attest::Attestation::Foreign { project } => {
             report.push(
                 Finding::new("E-OUTPUT-FOREIGN")

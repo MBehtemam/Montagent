@@ -1030,12 +1030,42 @@ project's attestation is refused **before the encoder is spawned**; one bearing 
 is a `review`, because *no evidence* is weaker than *evidence of someone else* and
 `error` means the render is refused or **guaranteed** wrong. A **preview** never
 attests: it is not a deliverable, and a stamp would hand the next `render` a forged
-licence to clobber.
+licence to clobber. Since `montagent/2` it also carries a **staleness digest** and the
+engine version, so it says *what* was rendered as well as *who* rendered it; ownership
+is still the project identity alone, and a `montagent/1` stamp is still this project's.
 ([ADR-0104](docs/adr/0104-the-output-path-is-checked-for-a-foreign-deliverable-before-the-encoder-runs.md),
-[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md))
+[ADR-0057](docs/adr/0057-font-vendoring-licence-gate-and-path-keyed-attestation.md),
+[ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
 _Avoid_: watermark (it is metadata, not pixels), signature (nothing is verified
 cryptographically and nothing is meant to resist forgery), ownership, provenance
 (too broad — this is one question, not a history)
+
+**Stale**:
+Said of a **deliverable** whose **attestation** is this project's and whose staleness
+digest no longer matches the project as it stands: the document in canonical (`fmt`)
+form, every local source's content fingerprint, and every font's `sha256`. A
+whitespace or key-order edit is not staleness, because it renders identically; a
+source swapped on disk is, even with its size and mtime unchanged (a **renumbering
+shuffle**). The engine version is not in the digest, so an upgrade stales nothing.
+`verify` reports a stale file as **one** `error` and measures nothing, because every
+mismatch it would find descends from that one change. A digest that could not be
+computed, or a stamp with none, is *staleness unknown*, never stale.
+([ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
+_Avoid_: out of date (says nothing about which input moved), dirty (git's word),
+outdated render
+
+**Should be heard**:
+Where `verify` expects the mix to carry energy: an `audio` or `video` element is in
+range, its source has an audio stream, and its resolved `volume` is above 0 on that
+frame. A keyframed fade to 0 stops it being heard, and without `overrun: "loop"` an
+element stops being heard where its source runs out. It is a claim about **spans**,
+not elements: the file carries one mixed track, so a silent element under an audible
+one cannot be seen in it, and `verify` says so in its `NOT CHECKED`. Where the mix is
+below R128's −70 LUFS gate inside such a span for at least a 400 ms block, the census
+splits the elements by whether their own source is silent there (the author's
+material) or audible (the engine).
+([ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
+_Avoid_: audible (a measurement, not an expectation), expected audio, has sound
 
 **NOT CHECKED**:
 The block every report ends with, unconditionally, clean runs included: this
@@ -1044,9 +1074,12 @@ cannot tell you whether it says what you meant it to say. It is there because
 without it a clean run is read as *"the file is right"*, which is the rejected
 `sequence` label wearing a `validate` label instead. A report that did not
 complete both of validate's check sets also says here which did not run, so a
-verb that checks nothing does not end with `validate`'s statement of scope.
+verb that checks nothing does not end with `validate`'s statement of scope. A verb
+with limits of its own lists them beneath it, one bullet each (`not_checked_also`):
+`render` names `verify`, and `verify` states what one mixed track cannot show.
 ([ADR-0006](docs/adr/0006-validate-reports-facts-and-render-enforces.md),
-[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md))
+[ADR-0112](docs/adr/0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md),
+[ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md))
 _Avoid_: caveat, disclaimer, limitations
 
 **Resource**:
@@ -1069,11 +1102,11 @@ _Avoid_: asset, document, endpoint, attachment; and never for an element's
 
 **Verb**:
 One operation on the surface — `validate`, `query`, `frame`, `measure`,
-`compare`, `render`, `preview`, `shift`, `create_project`, `probe`, `fmt`,
+`compare`, `render`, `preview`, `verify`, `shift`, `create_project`, `probe`, `fmt`,
 `timeline`. The surface's job is to make reading, checking, comparing and
 rendering cheap, not to provide editing verbs: the agent edits the file with the
-tools it is already strongest with. Nine are MCP tools and twelve are CLI
-commands, and the asymmetry is deliberate — an MCP schema costs context on every
+tools it is already strongest with. Ten are MCP tools and thirteen are CLI
+commands (nine and twelve until `verify`, [ADR-0117](docs/adr/0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md)), and the asymmetry is deliberate — an MCP schema costs context on every
 turn, a CLI subcommand costs nothing until invoked. Every write verb returns the
 new state's findings, never an `ok`. (`preview` was missing from ADR-0011's
 table, which this entry calls authoritative;

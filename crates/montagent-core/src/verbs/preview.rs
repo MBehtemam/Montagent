@@ -388,10 +388,12 @@ pub fn preview_cancellable(
     // refusing it would refuse the second preview of every project.
     match tools::resolve() {
         Ok(resolved) => {
-            let stamp = attest::stamp(FilePath::new(document.path()));
-            if let attest::Attestation::Foreign { project } =
-                attest::of(&probe::ProcessRunner, &resolved, &output, &stamp)
-            {
+            if let attest::Attestation::Foreign { project } = attest::of(
+                &probe::ProcessRunner,
+                &resolved,
+                &output,
+                FilePath::new(document.path()),
+            ) {
                 return refused(Report::rejected(
                     TOOL,
                     Some(document.path().to_string()),
