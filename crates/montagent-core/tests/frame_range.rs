@@ -582,6 +582,16 @@ fn at_with_a_range_is_refused() {
 }
 
 #[test]
+fn a_call_naming_neither_mode_is_refused_naming_both() {
+    // ADR-0097: nothing in the argument list says "sheet", so the refusal an agent meets
+    // with no instant — including over MCP, where an argument the schema does not know is
+    // dropped rather than refused — is where the range mode is taught.
+    let reason = refused(&Ask::default());
+    assert!(reason.contains("`--at <t>`"), "{reason}");
+    assert!(reason.contains("`--from <t> --to <t>`"), "{reason}");
+}
+
+#[test]
 fn full_with_a_range_is_refused_with_the_tier_fact() {
     let reason = refused(&Ask {
         full: true,

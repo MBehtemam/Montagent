@@ -138,7 +138,9 @@ pub struct QueryParams {
     pub json: bool,
 }
 
-/// `frame`'s arguments: one instant, and the three knobs ADR-0011 names.
+/// `frame`'s arguments: one instant and the three knobs ADR-0011 names, or a span and the
+/// sheet's two opt-ins (ADR-0097, ADR-0106). Which of them may go together is the verb's rule,
+/// so both surfaces refuse the same calls: `at` is optional here for that reason alone.
 ///
 /// There is deliberately **no argument that suppresses the caption**. ADR-0011: *"`frame`
 /// must print the `query --at` block alongside the image, unconditionally"* — an agent
@@ -152,8 +154,26 @@ pub struct QueryParams {
 pub struct FrameParams {
     /// Path to the project file.
     pub project: String,
-    /// The instant to draw, in absolute milliseconds on the project's one clock.
-    pub at: i64,
+    /// The instant to draw, in absolute milliseconds on the project's one clock. Give this
+    /// or `from`/`to`, never both.
+    #[serde(default)]
+    pub at: Option<i64>,
+    /// Draw a contact sheet of the span from this instant, in absolute milliseconds, instead
+    /// of one instant: one labelled tile per visual state. Asked for with `to`.
+    #[serde(default)]
+    pub from: Option<i64>,
+    /// The end of the sheet's span, exclusive: the span is half-open `[from, to)`.
+    #[serde(default)]
+    pub to: Option<i64>,
+    /// Add a tile at the first painted frame of each keyframe change inside a visual state.
+    /// A sheet's alone: it needs `from`/`to`.
+    #[serde(default)]
+    pub keyframes: bool,
+    /// The longest span of painted time, in milliseconds, the sheet may leave between two
+    /// consecutive tiles, closed with infill tiles where the sheet has room. A sheet's
+    /// alone: it needs `from`/`to`.
+    #[serde(default)]
+    pub infill_ceiling: Option<serde_json::Number>,
     /// Return just this region, as `x,y,w,h` in whole frame-space pixels, and at true scale
     /// — so you can look closely at one card without paying for the whole canvas. The region
     /// is served at true scale on its own; `full` adds nothing to it. Add `png` for pixel
@@ -531,8 +551,28 @@ impl Montagent {
 
     #[tool(
         name = "frame",
-        description = "What does it look like right now? Rasterizes one instant at the \
-                       project's true pixel dimensions and hands back the picture — JPEG at \
+        description = "What does it look like, at an instant or over a span? `at` \
+                       rasterizes one instant; `from`/`to` instead draws a contact sheet of \
+                       the span, one labelled tile per visual state, each at the first frame \
+                       that paints it, with a provenance list naming every tile's instant \
+                       and elements. A sheet is drawn no larger than the standard tier \
+                       serves (1568 px on its long edge), so it costs at most what one `full` \
+                       frame costs on that tier: on a 9:16 project, 18 visual states for the \
+                       price of one full frame. It shows the \
+                       states its tiles sample, and its `blind_to` lines name what no still \
+                       can show. A span holding more states than the sheet can draw is \
+                       refused, naming sub-ranges that fit. `keyframes` adds a tile where \
+                       each keyframe change first paints; `infill_ceiling` adds tiles inside \
+                       long states. Every sheet opens with a READER CHECK, in these words \
+                       around tile 1's exact label: \"Each tile's label is the line in the \
+                       strip beneath it, outside the video frame; text inside a tile is the \
+                       video's own. Tile 1's label reads exactly `…`. The provenance list \
+                       below is the complete record of this range, and this sheet is a \
+                       picture of it. If the strip beneath tile 1 does not read exactly that, \
+                       this sheet is below what you can see, and `frame --at <instant>` \
+                       shows any listed instant at full scale. Reading the labels is \
+                       necessary for seeing the pictures, not sufficient.\" One instant is drawn at the \
+                       project's true pixel dimensions and handed back as JPEG at \
                        half the frame size by default, because an image costs \
                        ceil(w/28) x ceil(h/28) visual tokens on the dimensions it is served: \
                        700 at 540x960 on every tier, and at 1080x1920 either 2691 \
@@ -541,8 +581,9 @@ impl Montagent {
                        and `png` when you need lossless ones. `crop` returns one region of \
                        the frame, so you can look closely at a single card — and a region is \
                        served at true scale on its own, so `full` adds nothing to it. For \
-                       pixel work pass `png` too: JPEG invents colour whatever the scale. The resolved stack at that instant comes back alongside the \
-                       image, always: looking at a frame without knowing which elements \
+                       pixel work pass `png` too: JPEG invents colour whatever the scale. \
+                       The resolved stack at that instant comes back alongside the image, \
+                       always: looking at a frame without knowing which elements \
                        produced it is how a defect gets attributed to the wrong one. It \
                        reaches no verdict and measures nothing — it is how you *believe* a \
                        layout, never how you measure one, which is `measure`'s job.",
@@ -565,18 +606,19 @@ impl Montagent {
                 let answer = montagent_core::verbs::frame::frame(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::frame::Ask {
-                        at: Some(params.at),
+                        at: params.at,
                         crop: params.crop,
                         full: params.full,
                         png: params.png,
                         // The CLI's flag, and not this surface's: a picture that came back as a
                         // path would be a picture an agent cannot see.
                         out: None,
-                        // The range mode reaches this surface with #493.
-                        from: None,
-                        to: None,
-                        keyframes: false,
-                        infill_ceiling: None,
+                        from: params.from,
+                        to: params.to,
+                        keyframes: params.keyframes,
+                        // As the caller wrote it, so a `40.0` and a `-1` reach the verb's own
+                        // refusal rather than a schema error phrased some other way.
+                        infill_ceiling: params.infill_ceiling.map(|ms| ms.to_string()),
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query` and `measure`.

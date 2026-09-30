@@ -806,8 +806,14 @@ fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
         );
     }
     let Some(instant) = ask.at else {
+        // ADR-0097: the refusal is where the range mode is taught, since no argument's name
+        // says "sheet" — and over MCP an argument the schema does not know is dropped, so a
+        // guessed one lands here rather than at an unknown-argument refusal.
         return Err(
-            "`frame` needs the instant to draw: `--at <t>`, in absolute milliseconds".into(),
+            "`frame` needs what to draw: `--at <t>` for one instant, or `--from <t> --to <t>` \
+             for a contact sheet of the span, one tile per visual state, in absolute \
+             milliseconds"
+                .into(),
         );
     };
     let crop = match &ask.crop {

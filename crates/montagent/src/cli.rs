@@ -169,7 +169,26 @@ enum Command {
         json: bool,
     },
 
-    /// What does it look like right now?
+    /// What does it look like, at an instant or over a span?
+    ///
+    /// `--at` draws one instant; `--from --to` draws a contact sheet of the span instead
+    /// (ADR-0097): one labelled tile per visual state, each at the first frame that paints
+    /// it, with a provenance list naming every tile's instant and elements. A sheet is
+    /// drawn no larger than the standard tier serves (1568 px on its long edge), so it costs
+    /// at most what one `--full` frame costs on that tier: on a 9:16 project, 18 visual
+    /// states for the price of one full frame. It shows the states its tiles sample and says what it does not: its
+    /// `blind_to` lines name what no still can show. Where the span holds more states than
+    /// the sheet can draw, it refuses and names sub-ranges that fit. `--keyframes` adds a
+    /// tile where each keyframe change first paints; `--infill-ceiling <MS>` adds tiles
+    /// inside long states.
+    ///
+    /// Every sheet opens with a READER CHECK, in these words around tile 1's exact label:
+    /// "Each tile's label is the line in the strip beneath it, outside the video frame; text
+    /// inside a tile is the video's own. Tile 1's label reads exactly `…`. The provenance
+    /// list below is the complete record of this range, and this sheet is a picture of it.
+    /// If the strip beneath tile 1 does not read exactly that, this sheet is below what you
+    /// can see, and `frame --at <instant>` shows any listed instant at full scale. Reading
+    /// the labels is necessary for seeing the pictures, not sufficient."
     ///
     /// One instant, rasterized at the project's true pixel dimensions and answered as
     /// **JPEG at half that size** — full scale and PNG are behind flags, because an image
@@ -182,9 +201,10 @@ enum Command {
     /// (ADR-0101), because a region has already spent the budget the half-scale default
     /// exists to spend.
     ///
-    /// The `query --at` block prints alongside the picture **unconditionally** — there is no
-    /// flag that suppresses it, because looking at a frame without knowing which elements
-    /// produced it is how a defect gets attributed to the wrong one.
+    /// The `query --at` block prints alongside one frame **unconditionally**, as the
+    /// provenance list does alongside a sheet — there is no flag that suppresses either,
+    /// because looking at a frame without knowing which elements produced it is how a defect
+    /// gets attributed to the wrong one.
     ///
     /// It offers no verbosity switch, for the same reason `query` offers none: the answer
     /// itself is the output and is never collapsed.
@@ -194,7 +214,23 @@ enum Command {
         /// The instant to draw, in absolute milliseconds.
         #[arg(long, value_name = "MS")]
         at: Option<i64>,
-        /// Where to write the picture.
+        /// Draw a contact sheet of the span from this instant, in absolute milliseconds,
+        /// instead of one instant. Asked for with `--to`.
+        #[arg(long, value_name = "MS")]
+        from: Option<i64>,
+        /// The end of the sheet's span, exclusive: the span is half-open `[from, to)`.
+        #[arg(long, value_name = "MS")]
+        to: Option<i64>,
+        /// Add a tile at the first painted frame of each keyframe change inside a visual
+        /// state. A sheet's alone: it needs `--from`/`--to`.
+        #[arg(long)]
+        keyframes: bool,
+        /// The longest span of painted time the sheet may leave between two consecutive
+        /// tiles, closed with infill tiles where the sheet has room. A sheet's alone: it
+        /// needs `--from`/`--to`.
+        #[arg(long, value_name = "MS")]
+        infill_ceiling: Option<String>,
+        /// Where to write the picture — the frame, or the sheet.
         ///
         /// Required, and deliberately not defaulted: no ADR names a filename for this, and
         /// a verb that invented one would be writing a file into somebody's project
@@ -506,18 +542,32 @@ enum FontsCommand {
     },
 }
 
+/// What an unknown argument on `frame` is told: the range mode is arguments, not a flag.
+const FRAME_UNKNOWN_ARGUMENT_HINT: &str = "\n\n`frame` draws one instant with `--at <MS>`, or a \
+    contact sheet of a span with `--from <MS> --to <MS>`, one tile per visual state; \
+    `--keyframes` and `--infill-ceiling <MS>` add tiles to a sheet.";
+
 pub fn run<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let cli = match Cli::try_parse_from(args) {
+    let args: Vec<OsString> = args.into_iter().map(Into::into).collect();
+    let cli = match Cli::try_parse_from(&args) {
         Ok(cli) => cli,
         Err(e) if e.use_stderr() => {
             // ADR-0011: an invocation error is a finding, with the same object and the
             // same stable codes as everything else, so there is exactly one thing to
             // parse across the surface.
-            let report = Report::bad_invocation(e.to_string().trim_end());
+            let mut reason = e.to_string().trim_end().to_string();
+            if e.kind() == clap::error::ErrorKind::UnknownArgument
+                && args.get(1).is_some_and(|verb| verb == "frame")
+            {
+                // ADR-0097: nothing in `frame`'s arguments says "sheet", so an agent
+                // reaching for one by another name is taught here, by the refusal.
+                reason.push_str(FRAME_UNKNOWN_ARGUMENT_HINT);
+            }
+            let report = Report::bad_invocation(reason);
             eprint!("{}", montagent_core::wire::render(&report, PLAIN));
             return exit_code(&report);
         }
@@ -691,6 +741,10 @@ where
         Command::Frame {
             project,
             at,
+            from,
+            to,
+            keyframes,
+            infill_ceiling,
             out,
             crop,
             full,
@@ -700,21 +754,20 @@ where
             // `--verbose` is deliberately absent, so `false` here is the only form there is
             // rather than a flag the adapter decided for the caller.
             let form = Wire::from_flags(json, false);
-            // Whether the flags ask for a frame at all — a missing `--at`, an unparseable
-            // `--crop` — is the verb's rule and not argv's: the MCP surface takes the same
-            // arguments with no `clap` to arrange them, and a `clap` requirement here would
-            // leave that surface uncovered (ADR-0011).
+            // Whether the flags ask for a picture at all — a missing `--at`, an unparseable
+            // `--crop`, `--at` beside `--from`/`--to` — is the verb's rule and not argv's:
+            // the MCP surface takes the same arguments with no `clap` to arrange them, and a
+            // `clap` requirement here would leave that surface uncovered (ADR-0011).
             let ask = montagent_core::verbs::frame::Ask {
                 at,
                 crop,
                 full,
                 png,
                 out: Some(out),
-                // The range mode reaches this surface with #493.
-                from: None,
-                to: None,
-                keyframes: false,
-                infill_ceiling: None,
+                from,
+                to,
+                keyframes,
+                infill_ceiling,
             };
             match run_verb(|| montagent_core::verbs::frame::frame(&project, &ask)) {
                 Ok(answer) => {
