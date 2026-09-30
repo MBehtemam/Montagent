@@ -874,11 +874,15 @@ document, the media on disk and the published rendering semantics.
 *Refuse-class* states `"none"`, when the fix depends on knowing what the author
 meant — and that refusal is a guarantee no flag, force mode or write tool may
 lift. Which of the two a check emits is decided once, when the check is written,
-and holds for every instance it matches, including the ones that look safe. A
-fact that bears on only one branch of a refuse fork, or names something the
-author could adopt, is a repair by another name, and a refuse-class finding does
-not carry it; a census that partitions the siblings without ranking them is not
-one. It is orthogonal to class, not a fourth severity. Whether the binary reaches
+and holds for every instance it matches, including the ones that look safe.
+Where the refusal is an intent fork, a fact that bears on only one branch, or
+names a concrete candidate for one branch, is a repair by another name, and the
+finding does not carry it; naming the complete set of legal options, unranked
+and covering every branch, or the refusal's own consent handle is not one, and
+nor is a census. A consent handle names the fact the finding reported and is
+refused when it does not match; anything that lifts a refusal without naming
+what it consents to is a bypass, and there is none. It is orthogonal to class,
+not a fourth severity. Whether the binary reaches
 findings that are not about a document at all — a file that would not parse, an
 invocation that was wrong — is open
 ([#224](https://github.com/MBehtemam/Montagent/issues/224)).

@@ -48,6 +48,12 @@ status: accepted
 > census stays the model. `E-FONT-NO-GLYPH`'s list of covering fonts is dropped under it, and
 > five other codes whose messages conflict with it are named there and left open.
 
+> **Amended by [ADR-0123](./0123-the-one-branch-rule-holds-on-intent-forks-and-release-is-not-a-bypass.md)**, which states that `shift`'s
+> `release` is **not** a bypass of the no-override guarantee below: it changes the edit rather
+> than lifting the finding, names the exact fact the finding reported, and is refused when it
+> does not match. A flag that lifts a finding without naming what it consents to remains
+> forbidden. Whether an agent may type `release` on its own authority is left to #506.
+
 **Ticket:** [#78](https://github.com/MBehtemam/Montagent/issues/78)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (report format),
 [ADR-0016](./0016-no-format-version-the-unknown-key-error-is-the-mechanism.md) (names this
