@@ -266,22 +266,22 @@ fn codes_that_attach_a_census() -> Vec<String> {
 fn every_code_that_carries_a_census_declares_how_it_renders() {
     // ADR-0111: whether a census names its members in the text form is decided per code,
     // in the registry, by whoever authors the check. A census-bearing code with no mode is
-    // one whose author skipped that decision.
-    //
-    // `E-FONT-NO-GLYPH` is the one exception, and declares **no** mode: all its groups hold
-    // the same codepoints, so its grouping partitions nothing and is not a census (#427
-    // ruling 6, and the glossary's **Census**).
+    // one whose author skipped that decision. There is no exception: `E-FONT-NO-GLYPH`
+    // was one while it carried a census-shaped list of covering fonts, and ADR-0120
+    // dropped the list.
     let emitting = codes_that_attach_a_census();
     assert!(
-        emitting.iter().any(|c| c == "E-FONT-NO-GLYPH"),
-        "the scan finds the exception, so it is reading the source: {emitting:?}"
+        emitting.iter().any(|c| c == "N-FONT-CENSUS"),
+        "the scan finds a code known to carry a census, so it is reading the source: \
+{emitting:?}"
+    );
+    assert!(
+        !emitting.iter().any(|c| c == "E-FONT-NO-GLYPH"),
+        "E-FONT-NO-GLYPH carries no census (ADR-0120)"
     );
     for code in &emitting {
         let spec = registry::spec(code).expect("a registered code");
-        match code.as_str() {
-            "E-FONT-NO-GLYPH" => assert_eq!(spec.census, None, "{code} is not a census"),
-            _ => assert!(spec.census.is_some(), "{code} carries a census and no mode"),
-        }
+        assert!(spec.census.is_some(), "{code} carries a census and no mode");
     }
 
     // And the other way: a mode on a code that never carries a census is a declaration

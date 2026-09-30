@@ -169,9 +169,7 @@ pub struct CheckSpec {
     pub template: &'static str,
     pub status: Status,
     /// How the census renders in the text form, on a code that emits one; `None` on every
-    /// other code. `E-FONT-NO-GLYPH` carries a `census` field and declares no mode, because
-    /// its grouping is not a census: every group holds the same codepoints, so it
-    /// partitions nothing (#427 ruling 6). ADR-0111.
+    /// other code. ADR-0111.
     pub census: Option<CensusMode>,
     /// The check sets whose run can raise this code (ADR-0112). Empty on a code no check
     /// raises: a refusal, a failure of Montagent's own, or a verb's answer about something
@@ -1246,6 +1244,12 @@ kept, never pruned: remove it yourself if the file is gone for good.",
         // character it was never meant to. Nothing in the document says which, and a check
         // that advised one would be guessing at the author's meaning — the per-instance
         // triage that ADR forbids.
+        //
+        // **No census, and no list of the other chains that do map the characters.** That
+        // list rode here once, shaped like a census, and it partitioned nothing (#427 ruling
+        // 6). Worse, it bore on one branch of the fork only, which is a repair by another
+        // name (ADR-0120). The census this code *could* carry is recorded there and not
+        // built: the elements on this key, fully mapped against short.
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0007",
@@ -1310,12 +1314,11 @@ every hand-placed break in them was taken against different metrics.",
         // differ.
         //
         // **No sibling census, and ADR-0043 says a refuse-class finding carries one.**
-        // `E-ANCHOR-CHAIN` and the two schema codes are already refuse-class
-        // without one, so the practice is that the census attaches where a sibling group
-        // exists. Here none does: the fault is one boundary inside one element's own
-        // string, and there is no observable other elements could be grouped by that would
-        // narrow it. `E-FONT-NO-GLYPH` is the contrast — its group, the project's other
-        // chains that do map the characters, is real and it carries one.
+        // `E-ANCHOR-CHAIN`, `E-FONT-NO-GLYPH` and the two schema codes are already
+        // refuse-class without one, so the practice is that the census attaches where a
+        // sibling group exists. Here none does: the fault is one boundary inside one
+        // element's own string, and there is no observable other elements could be grouped
+        // by that would narrow it.
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0007",
