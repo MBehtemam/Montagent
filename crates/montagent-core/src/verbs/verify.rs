@@ -69,6 +69,7 @@ use crate::media::{Source, display_local};
 use crate::model::{Animatable, Keyframe, Volume};
 use crate::parse;
 use crate::permissive::Loose;
+use crate::registry::CheckSet;
 use crate::report::Report;
 use crate::resolve;
 
@@ -387,6 +388,9 @@ pub fn verify(path: &Path) -> Answer {
             }
         }
     }
+    // ADR-0112, as this ticket extends it: the measurement has completed. A refusal above
+    // returned before it and records nothing.
+    report.record(CheckSet::Deliverable);
 
     Answer {
         report,

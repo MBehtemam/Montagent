@@ -5,6 +5,11 @@ amends: 0006 (the NOT CHECKED block stays unconditional but stops being one fixe
 
 # A report names the check sets that ran, and prints no zero it did not earn
 
+> **Amended by [ADR-0119](0119-verify-s-measurement-is-a-fifth-check-set-and-a-checkless-verb-s-finding-prints-after-its-scope.md)**: there is a fifth set, `deliverable`, which `verify`
+> records when its measurement completes. A verb that records no set and still raises a finding
+> prints the count after its scope clause (`no checks run (validate runs them); 1 review`). The
+> class column below is derived from the registry, which puts no `note` under `disk`.
+
 [#403](https://github.com/MBehtemam/Montagent/issues/403), found while evaluating
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Decided by three juries of three
 models each, ratified by the human; ballots verbatim in

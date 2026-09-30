@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use montagent_core::finding::{Class, Finding};
+use montagent_core::registry::CheckSet;
 use montagent_core::report::ExitCode;
+use montagent_core::text;
 use montagent_core::verbs::render::{Ask, Progress, render};
 use montagent_core::verbs::verify::{Answer, verify};
 
@@ -141,6 +143,16 @@ fn a_fresh_render_of_this_document_verifies_clean() {
     assert_eq!(measured.attestation, "mine");
     assert_eq!(measured.frames, 75);
     assert_eq!((measured.width, measured.height), (160, 120));
+
+    // The measurement is a check set of its own, so a clean verify earns its zeros.
+    assert_eq!(answer.report().check_sets(), [CheckSet::Deliverable]);
+    let prose = text::render(&answer.to_json(), text::Options::default()).unwrap();
+    assert!(
+        prose.starts_with(
+            "deliverable checks only (validate's checks not run); 0 errors, 0 reviews, 0 notes — "
+        ),
+        "{prose}"
+    );
 }
 
 #[test]
@@ -155,6 +167,7 @@ fn nothing_at_the_output_path_is_one_error_and_nothing_is_measured() {
     let answer = verify(&project);
     assert_eq!(codes(&answer), vec!["E-VERIFY-NO-OUTPUT"]);
     assert!(answer.measured().is_none());
+    assert_eq!(answer.report().check_sets(), [], "nothing was measured");
 }
 
 /// **Acceptance 1.** The shape *"silent at 0:30"* most likely takes: the mix is cut short.
@@ -198,6 +211,7 @@ fn a_document_edited_after_the_render_is_one_stale_error_and_no_measurement() {
     let answer = verify(&edited);
     assert_eq!(codes(&answer), vec!["E-VERIFY-STALE"]);
     assert!(answer.measured().is_none(), "nothing was measured");
+    assert_eq!(answer.report().check_sets(), []);
 }
 
 /// A whitespace or key-order edit renders identically, so it is not staleness.

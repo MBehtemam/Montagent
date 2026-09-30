@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::finding::{Class, Finding};
 use crate::media::probe::Probe;
 use crate::media::session::CacheMiss;
-use crate::registry::{self, RepairClass};
+use crate::registry::{self, CheckSet, RepairClass};
 
 /// ADR-0006's `NOT CHECKED` block, verbatim.
 ///
@@ -104,6 +104,13 @@ pub struct Report {
     /// the reader to re-derive them — and because the fit checks downstream consume exactly
     /// these dimensions rather than probing a second time.
     pub media: Vec<Probe>,
+    /// The check sets that ran to completion, in the order they completed. ADR-0112.
+    ///
+    /// Private, and only [`Report::record`] adds to it: the field is marked by the code
+    /// that runs a set, when the set completes, and never declared per verb. A new report
+    /// starts at `[]`, which is the safe direction — a verb that forgets to record reads
+    /// *"no checks run"* rather than claiming a run it never made.
+    check_sets: Vec<CheckSet>,
     terminal: Option<Terminal>,
 }
 
@@ -115,6 +122,7 @@ impl Report {
             findings: Vec::new(),
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: None,
         }
     }
@@ -129,6 +137,7 @@ impl Report {
             findings: vec![finding],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::Unparseable),
         }
     }
@@ -147,6 +156,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
         }
     }
@@ -227,6 +237,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             terminal: Some(Terminal::Internal),
         }
     }
@@ -246,6 +257,7 @@ impl Report {
             ],
             misses: Vec::new(),
             media: Vec::new(),
+            check_sets: Vec::new(),
             // Same exit code as `E-INTERNAL` (ADR-0011, unchanged by ADR-0091): the run
             // did not finish either way.
             terminal: Some(Terminal::Internal),
@@ -334,6 +346,18 @@ impl Report {
         self.findings.push(finding);
     }
 
+    /// A check set has run to completion. Called at the four run sites and nowhere else.
+    pub fn record(&mut self, set: CheckSet) {
+        if !self.check_sets.contains(&set) {
+            self.check_sets.push(set);
+        }
+    }
+
+    /// The check sets this run completed.
+    pub fn check_sets(&self) -> &[CheckSet] {
+        &self.check_sets
+    }
+
     pub fn summary(&self) -> Summary {
         let mut summary = Summary::default();
         for finding in &self.findings {
@@ -393,6 +417,10 @@ impl Report {
         json!({
             "tool": self.tool,
             "project": self.project,
+            // ADR-0112: what ran, beside what it found. `summary` keeps all six keys and
+            // its meaning, so a zero there is only a claim where a set named here could
+            // have raised that class.
+            "check_sets": self.check_sets.iter().map(|set| set.as_str()).collect::<Vec<_>>(),
             "summary": {
                 "error": summary.error,
                 "review": summary.review,

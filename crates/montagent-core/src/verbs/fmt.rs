@@ -33,6 +33,7 @@ use std::path::Path;
 use crate::checks;
 use crate::finding::Finding;
 use crate::parse;
+use crate::registry::CheckSet;
 use crate::report::Report;
 use crate::write;
 
@@ -90,12 +91,16 @@ pub fn fmt(path: &Path, mode: Mode) -> Report {
     let canonical = checks::layout::canonical(&document);
 
     if written == canonical {
+        // The comparison above is the layout check, and it found nothing (ADR-0112).
+        report.record(CheckSet::Layout);
         return report;
     }
 
     // The same findings `validate` produces, from the same function — `fmt --check` is a
     // second place to *ask*, never a second rule (ADR-0041).
     checks::layout::check(&document, &mut report);
+    // Recorded before the write: the check completed whether or not the file then lands.
+    report.record(CheckSet::Layout);
 
     // On success the findings stay in the report — they are what the run changed, and an
     // agent that asked for a rewrite is owed the list.
