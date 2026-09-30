@@ -6,7 +6,10 @@ development briefs: A (launch spot), B (talking head), C (mascot character short
 Montagent at all (`reference-1`), where the model built the video however it liked. B's
 no-skills runs are numbered 1, 3 and 4 (see "Superseded runs"). C was added to the
 development set after the other three had run; its runs are pinned to `65308d57`, whose
-binary is identical to `6f684fc8` and whose pack adds the owl rig. The write-up records what
+binary is identical to `6f684fc8` and whose pack adds the owl rig. That rig's torso was
+defective (C-1), so C was run again on the fixed pack, pinned to `0404eb8d` (same binary):
+`no-skills-4` to `6` and `reference-2` are C's baseline, and the first runs are kept as
+evidence of the defect. The write-up records what
 an agent using Montagent without skills gets wrong, and what that costs in turns or in
 output quality. Its purpose is to decide which skills get written.
 
@@ -63,6 +66,20 @@ that was never rendered; `render.mp4` shows the defect the agent had already fou
 
 ### C: mascot character short (8 s, 16:9, voice line, pre-cut owl rig)
 
+On the fixed pack (`0404eb8d`), C's baseline:
+
+| Run | Turns | Cost | Wall | Cache read | Before create | Renders | `frame` calls | Elements | Final validate |
+|---|---|---|---|---|---|---|---|---|---|
+| no-skills-4 | 34 | $1.66 | 307 s | 2.12 M | 13 (no scaffold; generator at #14) | 1 (11.1 s, MCP) | 6 | 64 | 0 err, 609 review (`R-EASE-INERT` 598, `R-KEYFRAME-UNREACHED` 11) |
+| no-skills-5 | 38 | $1.91 | 2163 s | 2.46 M | 9 (no scaffold; generator at #10) | 2 (CLI, 9.7 s each) + 1 MCP render that failed after 1782.5 s (#31) | 9 | 65 | 0 err, 613 review (`R-EASE-INERT` 603, `R-KEYFRAME-UNREACHED` 10) |
+| no-skills-6 | 40 | $1.84 | 348 s | 2.44 M | 12 | 1 (10.1 s, MCP) | 6 | 65 | 0 err, 595 review (`R-EASE-INERT` 595) |
+| reference-2 | 40 | $1.48 | 353 s | 1.51 M | — | — | — | — | — |
+
+Each no-skills run also has 6 `N-TRACK-GAP` notes. Nobody spent a call on the shoulders, and
+turns and cost fell to about half of the first runs' (see "C on the fixed pack" below).
+
+On the defective torso (`65308d57`), kept as evidence of C-1:
+
 | Run | Turns | Cost | Wall | Cache read | Before create | Renders | `frame` calls | Elements | Final validate |
 |---|---|---|---|---|---|---|---|---|---|
 | no-skills-1 | 81 | $4.12 | 1330 s | 7.98 M | 10 (no scaffold; generator at #11) | 4 (15–17 s, 12.5 s) + 1 hung CLI render (#62) | 9 | 72 | 0 err, 698 review (`R-EASE-INERT` 625, `R-KEYFRAME-UNREACHED` 73) |
@@ -71,7 +88,7 @@ that was never rendered; `render.mp4` shows the defect the agent had already fou
 | reference-1 | 86 | $3.95 | 909 s | 6.75 M | — | — | — | — | — |
 
 C1 and C2 never called `create_project`: their generators wrote `hoot.json` directly. **The
-torso art is defective**, and it drove most of C's cost (see "Brief C" below).
+torso art was defective**, and it drove most of these runs' cost (see "Brief C" below).
 
 ### E: logo reveal loop (6 s, 1:1, silent)
 
@@ -128,14 +145,13 @@ into every later turn.
 |---|---|---|---|
 | A | +27 to +41 % | −3 to +5 | Mostly context. Cache read was +0.70–0.84 M tokens over a similar number of turns, carrying the schema and help text above. The reference spent 7 calls of its own looking for a Python install with Pillow and numpy, so the call counts come out close. A1 and A3 each re-rendered once after a review of frames pulled from the MP4. |
 | B | +60 to +157 % | +13 to +48 | Chroma tuning took 8–13 key- or green-related calls in B1 and B3, and about 45 of B4's 92, against 7 in the reference. Hand-written green-pixel scans of the output. Flipbook wipes in B1 (90 elements) and B4 (17 image slices) (pattern 3). A second render of 149 s in B1, and a 324 s render in B4 from its five keyed copies of the presenter. Context grew to 4.5–8.7 M cache-read tokens, against 1.8 M. |
-| C | −33 to +6 % | −36 to −2 | Nothing: here the reference cost as much as the Montagent runs. It hit the same torso defect (C-1) and repaired the art with a script, redrawing both upper arms and the body's shoulder outline (`build/repair.py`). Then it wrote its own renderer (`build/render.py`: PIL frames piped to ffmpeg). C2, which confined the arms rather than fixing the torso, was the cheapest run of the four. Cache read was 3.5–8.0 M in the Montagent runs, against 6.8 M. |
+| C | +12 to +29 % | −6 to 0 | Mostly context: cache read was 2.1–2.5 M, against 1.5 M, over the same number of turns, carrying the schema. The reference wrote its own affine renderer that follows `rig.json`'s parents (Pillow frames piped to ffmpeg), and did not touch the art. C5's failed 30-minute MCP render cost wall clock, not money. On the defective torso the gap was −33 to +6 %: the reference hit C-1 too and repaired the art by script (`build/repair.py`). |
 | E | −3 to +57 % | −6 to +9 | E1 beat the reference on both turns and cost. E2 and E3 each re-rendered after finding a problem in their own contact sheet (pattern 5). E3 also re-rendered to fix frame-grid rounding (pattern 7). |
 
 On pure motion graphics (E), Montagent without skills can already match the reference. The
 gap opens on footage-heavy work (B), where the agent has to tune and verify things that
-Montagent does not measure for it. C matches the reference too, but only because the
-defective torso cost both arms alike. Its numbers say little until C is re-run on fixed art
-([#516](https://github.com/MBehtemam/Montagent/issues/516)).
+Montagent does not measure for it. The character short (C) sits close to the reference, a
+little above it, and the extra is context rather than turns.
 
 ## Recurring patterns, ranked
 
@@ -384,8 +400,38 @@ disc and an elbow cap. The sleeve between them is painted onto the body … Once
 lowers or raises an arm, a gap opens at the shoulder". It repaired the art by script before
 animating. This is neither a skill nor a product gap: it is our art, raised as
 [Asset pack: the owl's torso shows its shoulder cut once an arm is raised](https://github.com/MBehtemam/Montagent/issues/516).
-These runs are kept as they are, and C is re-run on the fixed pack there. Until then, C's
-cost mostly measures the workaround.
+These runs are kept as they are. The art was fixed in `0404eb8d`: each upper arm's shoulder
+end is a capsule round its pivot, the torso keeps only the round socket under it, and the
+cut script checks that the torso hides nothing of a sleeve outside its socket.
+
+### C on the fixed pack (C4–C6, reference-2)
+
+- **The shoulder cost nothing, 3 of 3.** No masks, shoulder plates, alpha maps or arm limits.
+  The only mentions are routine joint checks: C4 #24 "Joints look intact at the shoulders and
+  elbows", C5 #20–#23 "Joints are clean", C6 #27–#28 "Joints hold at every pose checked".
+  Arms swing well past the old −22…+2° range: each arm sweeps 100–125°, arms down at −45 to
+  −58°, waves at +30 to +38°, cheers at ±38 to ±63°. 229–239 of 240 frames sit outside
+  it. Frame pulls at the most-raised poses (C4 frames 45, 135, 216, 231; C5 frames 45, 60,
+  110, 208, 222, 232; C6 frames 45, 120, 214, 229; reference-2 frames 45, 135, 213, 219)
+  show round shoulders with no notch, stub, gap or spur.
+- **C-2, C-3 and the centre-origin trap of C-4 reproduce, 3 of 3.** Each run baked every part
+  on every frame (150–224 KB projects, 595–603 `R-EASE-INERT` reviews), and needed 47 mouth
+  elements and 4 three-frame blinks. The backdrop landed off-frame first in each (C4
+  #16–#17, C5 #12–#14, C6 #19–#20). A hand hidden behind the head, and a music bed the brief
+  did not ask for, turned up in all four runs.
+- **C-5 and C-6 did not recur (0 of 3).** No run called `preview`. C5 had the opposite render
+  failure (see C-5).
+- **reference-2** used only Bash, Read, Write and Edit. It wrote a Pillow renderer that
+  follows `rig.json`'s parents (`_build/rig.py`), checked the rig on pose sheets, then piped
+  the frames to ffmpeg. It loaded the parts read-only.
+- **A leftover flaw at the elbow, not the shoulder.** Each upper arm's elbow end has short
+  outline steps where the elbow cap's ring meets the drawn sleeve, and a tiny spur. They show
+  in renders as 1–3 px ticks near the elbow (C4 frames 45 and 135, C5 frames 45 and 60;
+  C4 called it "a slight nick in the outline where the upper arm overlaps the forearm"). The
+  pre-fix parts have the same steps, so it is older than #516. It is cosmetic, with no gap.
+- **The harness refused one call in C5 (#24):** "Permission to use Bash has been denied
+  because Claude Code is running in don't ask mode", on a compound heredoc edit with a
+  render loop. The agent split it into Read and Edit calls (#25–#27).
 
 ### C-2. The scene graph, flattened by a script (3 of 3, right first time)
 
@@ -441,6 +487,12 @@ That cost about 10 calls and 9 minutes. It left a 56 MB `.montagent-partial` beh
 deliverable is not stale. Whether Montagent, the sandbox or the backgrounding is at fault is
 open:
 [A CLI render of the owl short hung for 9 minutes; the same project rendered in 12.5 s over MCP](https://github.com/MBehtemam/Montagent/issues/517).
+
+C5, on the fixed pack, had the opposite: its MCP `render` at #31 blocked for **1782.5 s**,
+then returned `E-INTERNAL` ("ffmpeg exited with exit status: 244 … Error submitting a packet
+to the muxer: Cannot allocate memory … Error writing trailer"). The unchanged project then
+rendered over the CLI in **9.7 s** (#32). One hang on each front end points at the shared
+render and encode path, or at the machine, rather than at the CLI.
 
 ### C-6. `preview` refused (C2)
 
@@ -601,11 +653,14 @@ listed.
    mouth elements.
 10. **A CLI render hung for 9 minutes; the same project rendered in 12.5 s over MCP**
     ([#517](https://github.com/MBehtemam/Montagent/issues/517), a candidate, not yet
-    diagnosed).
+    diagnosed). C5 then saw the reverse: an MCP render failed after 30 minutes on an ffmpeg
+    muxer "Cannot allocate memory", and the CLI rendered the same project in 9.7 s.
 
-**Asset-pack issue.** The owl's torso shows its shoulder cut once an arm is raised
-([#516](https://github.com/MBehtemam/Montagent/issues/516)). It cost the C runs 17–40 calls
-each. Fix it, and re-run C's baseline, before any skills or verdict run uses the rig.
+**Asset-pack issue, fixed.** The owl's torso showed its shoulder cut once an arm was raised
+([#516](https://github.com/MBehtemam/Montagent/issues/516)). It cost the first C runs 17–40
+calls each. Fixed in `0404eb8d`, and C's baseline was re-run on it: the shoulder now costs
+nothing. Any run that uses the rig (C, and the held-out owl brief) must be pinned at
+`0404eb8d` or later. The held-out hashes cover only the brief texts, so they are unchanged.
 
 **Eval-harness issues, not product gaps.**
 
