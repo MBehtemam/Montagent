@@ -51,7 +51,9 @@ loads only that directory's settings and only the Montagent MCP server: no user 
 plugins, settings or MCP servers, and auto-memory starts empty because it is keyed to the new
 directory. The harness refuses to run while a global `~/.claude/CLAUDE.md` exists. The run's
 own transcript records what the session loaded, and any deviation from its arm's setup is an
-**isolation problem**. `harness/run_arm.py check` proves the sandbox (web blocked, registries
+**isolation problem**. Runs never overlap: Claude Code's sandbox gives every session the same
+per-user temp directory, so the harness holds a lock for the length of a run and moves
+whatever the run left in that directory into the run's own scratch afterwards. `harness/run_arm.py check` proves the sandbox (web blocked, registries
 reachable, home not writable) and is run before the verdict runs.
 
 ## Briefs

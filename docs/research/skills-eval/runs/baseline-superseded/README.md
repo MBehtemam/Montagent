@@ -9,4 +9,10 @@ working around it. That cost belongs to a fixed product bug, not to missing skil
 runs were repeated on a build that has the fix. The reference runs do not use Montagent and
 were kept.
 
+`B-talking-head/no-skills-2-shared-tmp` is from the repeated batch. Claude Code's sandbox
+points every session's temp directory at one shared per-user directory, and the runs then
+went three at a time: this run executed a `gen.py` that a concurrent logo-loop run had
+written there, and abandoned its own generator. It was repeated after the harness made runs
+wait for each other and sweep that directory after each run.
+
 `pair.py` and `verdict.py` read only `runs/<phase>/`, so nothing here is paired or tallied.

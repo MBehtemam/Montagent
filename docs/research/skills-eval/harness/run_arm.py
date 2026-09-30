@@ -33,7 +33,9 @@ loads, so `pins.json`'s `builtin_skills` can be refreshed when Claude Code's pin
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
+import fcntl
 import json
 import os
 import shutil
@@ -46,7 +48,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
-    ARMS, EVAL, MONTAGENT_ARMS, PHASES, REPO, RUNS, brief_id, encode_720p, ffprobe,
+    ARMS, CACHE, EVAL, MONTAGENT_ARMS, PHASES, REPO, RUNS, brief_id, encode_720p, ffprobe,
     isolation_problems, load_pins, tool_uses, montagent_signals, pinned_build, read_jsonl, rel, sh,
     sha256_file, sha256_text, skill_names, transcript_signals, write_json,
 )
@@ -144,6 +146,39 @@ def claude_argv(pins: dict, arm: str, prompt: str, build: dict | None) -> list[s
 def make_prompt(pins: dict, arm: str, brief_text: str) -> str:
     tools = pins["prompt"]["tools"]["reference" if arm == "reference" else "montagent"]
     return pins["prompt"]["common"].format(tools=tools, brief=brief_text.strip())
+
+
+# Claude Code's sandbox points every session's TMPDIR at this one per-user directory, and no
+# setting moves it. Runs that overlap would read each other's temp files (it happened: one
+# baseline run executed another's `gen.py`), so runs hold a lock and never overlap, and
+# whatever a run leaves at the top of this directory is swept into its own scratch.
+SANDBOX_TMP = Path(f"/private/tmp/claude-{os.getuid()}")
+LOCK = CACHE / "run.lock"
+
+
+@contextlib.contextmanager
+def one_run_at_a_time():
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOCK, "w") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("another run holds the lock; waiting for it to finish…", flush=True)
+            fcntl.flock(f, fcntl.LOCK_EX)
+        yield
+
+
+def sandbox_tmp_entries() -> set[str]:
+    return {p.name for p in SANDBOX_TMP.iterdir()} if SANDBOX_TMP.is_dir() else set()
+
+
+def sweep_sandbox_tmp(before: set[str], dest: Path) -> list[str]:
+    """Move what appeared at the top of the shared sandbox temp dir into this run's scratch."""
+    new = sorted(sandbox_tmp_entries() - before)
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in new:
+        shutil.move(str(SANDBOX_TMP / name), str(dest / name))
+    return new
 
 
 def run_claude(argv, env, cwd, transcript: Path, stderr: Path, wall_clock_s: int) -> dict:
@@ -267,7 +302,8 @@ def check(pins: dict) -> None:
         prompt = ("Run each of these commands with the Bash tool, one call per command, exactly as "
                   "written, then reply: done.\n" + "\n".join(c for _, c, _ in CHECKS))
         argv = claude_argv({**pins, "model": "haiku", "effort": "low"}, "no-skills", prompt, build)
-        r = subprocess.run(argv, cwd=work, env=env, capture_output=True, text=True, timeout=300)
+        with one_run_at_a_time():
+            r = subprocess.run(argv, cwd=work, env=env, capture_output=True, text=True, timeout=300)
     events = [json.loads(l) for l in r.stdout.splitlines() if l.strip().startswith("{")]
     commands = {b["id"]: b["input"].get("command", "") for b in tool_uses(events) if b.get("name") == "Bash"}
     outputs = {}
@@ -349,10 +385,13 @@ def main() -> None:
         except FileExistsError:
             record = parent / f"{args.arm}-{next_index(parent, args.arm)}"
     print(f"{args.arm} on {bid} → {rel(record)}  (scratch {scratch})", flush=True)
-    started = now()
-    outcome = run_claude(argv, env, work, record / "transcript.jsonl", record / "stderr.log",
-                         pins["caps"]["wall_clock_s"])
-    ended = now()
+    with one_run_at_a_time():
+        tmp_before = sandbox_tmp_entries()
+        started = now()
+        outcome = run_claude(argv, env, work, record / "transcript.jsonl", record / "stderr.log",
+                             pins["caps"]["wall_clock_s"])
+        ended = now()
+        swept = sweep_sandbox_tmp(tmp_before, scratch / "sandbox-tmp")
 
     deliverable = work / pins["deliverable"]
     probe_info = ffprobe(deliverable) if deliverable.exists() else None
@@ -389,6 +428,7 @@ def main() -> None:
         "deliverable": probe_info,
         "project": str(project.relative_to(work)) if project else None,
         "omitted_files": omitted,
+        "sandbox_tmp_swept": swept,
         "isolation_problems": isolation_problems(sig, args.arm, ours, pins["builtin_skills"]),
         "signals": {
             **sig,
