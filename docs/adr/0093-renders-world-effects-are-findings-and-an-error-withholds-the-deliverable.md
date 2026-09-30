@@ -27,8 +27,12 @@ amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: 
 > The ruling survives in a weaker form, because ADR-0096's clamp removes the case it was about;
 > what is left pre-flightable is the coarse question *"does this source end more than a window
 > before the declared range?"*, raised as
-> [#413](https://github.com/MBehtemam/Montagent/issues/413). `E-NOT-PAINTED-UNDECODABLE` keeps
-> the case either way, and this ADR still withholds the deliverable for it.
+> [#413](https://github.com/MBehtemam/Montagent/issues/413) and **already discharged**: `render`
+> runs `validate`'s check engine before the frame loop and refuses on `E-SOURCE-OVERRUN`, which
+> measures `source_end` against the probed video stream at a threshold of zero rather than a
+> window. What reaches the loop is only a stream whose probed duration overstates its real last
+> frame — the fine predicate again, which no probe number can see. `E-NOT-PAINTED-UNDECODABLE`
+> keeps that case, and this ADR still withholds the deliverable for it.
 >
 > **Amended by [ADR-0107](0107-an-empty-range-is-validates-error-under-renders-code.md).**
 > The empty range is no longer a `render`-only finding: `validate` states `E-EMPTY-RANGE` under
