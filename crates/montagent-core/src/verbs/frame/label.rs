@@ -20,7 +20,9 @@
 
 use std::collections::BTreeSet;
 
-use montagent_render::canvas::{Canvas, Extent, Fill, Glyph, PathEl, Region, Rgba, Transform};
+use montagent_render::canvas::{
+    Canvas, Extent, Fill, Glyph, PathEl, Region, Rgba, Shape, Transform,
+};
 use montagent_text::engine::VerticalOrigin;
 use montagent_text::{Align, Fonts, Run, Spec};
 use serde_json::Value;
@@ -42,8 +44,17 @@ use super::sizing::LABEL_INSET;
 /// read as an element's name, whatever the document calls its elements (ADR-0128 §3).
 pub(super) const NO_CHANGE: &str = "=";
 
-/// The ink a label is drawn in, on the strip's `#1A1A1A`.
+/// The ink a run tile's label is drawn in, on the strip's `#1A1A1A`.
 const INK: Rgba = Rgba([0xF2, 0xF2, 0xF2, 0xFF]);
+
+/// A keyframe or infill tile's mark: its strip inverted, this ink on [`MARKED_GROUND`]
+/// (ADR-0128 §5). A change of luminance rather than hue, so it survives greyscale, and in
+/// the strip, so the tile's pixels stay `frame --at`'s.
+const MARKED_INK: Rgba = Rgba([0x1A, 0x1A, 0x1A, 0xFF]);
+const MARKED_GROUND: Rgba = Rgba([0xE6, 0xE6, 0xE6, 0xFF]);
+
+/// ADR-0128 §5's sigil for a keyframe tile, in the label's second place.
+const KEYFRAME_SIGIL: &str = "K";
 
 /// Both forms of one tile's label, before the sizing picks one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +76,19 @@ impl Label {
         };
         Label {
             whole: format!("{core} {field}"),
+            core,
+        }
+    }
+
+    /// A keyframe tile's label: `index` counted from 1, sampled at `instant` for change
+    /// points the earliest of which is at `first`. The offset is from that change point, the
+    /// boundary this tile exists for, so it says how far past the change the frame is. There
+    /// is no identifying field, so the label ends after the offset and both forms are one
+    /// (ADR-0106 D7): nothing here can drive the sheet-wide elision.
+    pub(super) fn keyframe(index: usize, instant: i64, first: i64) -> Label {
+        let core = format!("{index} {KEYFRAME_SIGIL} {instant}ms +{}", instant - first);
+        Label {
+            whole: core.clone(),
             core,
         }
     }
@@ -159,14 +183,23 @@ fn moved<'s>(from: &'s [Named], to: &'s [Named]) -> impl Iterator<Item = &'s str
 
 /// Draw `text` at `size` px in the chrome face, into `strip` of `sheet`: left-aligned past
 /// the inset, centred on the strip's height, and clipped to it, so that no glyph reaches a
-/// tile's pixels. `Err` carries the reason the face would not lay the text out.
+/// tile's pixels. A `marked` tile's strip is inverted first. `Err` carries the reason the
+/// face would not lay the text out.
 pub(super) fn draw(
     sheet: &mut Canvas,
     fonts: &mut Fonts,
     text: &str,
     size: i64,
     strip: Region,
+    marked: bool,
 ) -> Result<(), String> {
+    let ink = match marked {
+        true => {
+            invert(sheet, strip);
+            MARKED_INK
+        }
+        false => INK,
+    };
     let runs = [Run {
         text,
         font: None,
@@ -188,7 +221,7 @@ pub(super) fn draw(
     )
     .map_err(|e| format!("a tile label could not be laid out in the chrome face: {e}"))?;
     let paint = Fill {
-        fill: Some(INK),
+        fill: Some(ink),
         stroke: None,
         stroke_width: 0.0,
     };
@@ -228,6 +261,32 @@ pub(super) fn draw(
     Ok(())
 }
 
+/// Paint `strip` in [`MARKED_GROUND`]: a keyframe or infill tile's mark (ADR-0128 §5).
+fn invert(sheet: &mut Canvas, strip: Region) {
+    sheet.shape(
+        Shape::Rect { radius: 0.0 },
+        Extent {
+            width: strip.width as f64,
+            height: strip.height as f64,
+        },
+        &Transform {
+            x: strip.x as f64,
+            y: strip.y as f64,
+            origin: (0.0, 0.0),
+            scale: (1.0, 1.0),
+            rotation: 0.0,
+            opacity: 1.0,
+        },
+        &Fill {
+            fill: Some(MARKED_GROUND),
+            stroke: None,
+            stroke_width: 0.0,
+        },
+        None,
+        &[],
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,5 +307,13 @@ mod tests {
         };
         assert_eq!(Label::run(1, 0, 0, Some(&departed)).whole, "1 0ms +0 -a");
         assert_eq!(Label::run(2, 40, 40, None).whole, "2 40ms +0 =");
+    }
+
+    #[test]
+    fn a_keyframe_label_carries_its_sigil_and_no_id() {
+        // ADR-0106 D10's worked example, a keyframe at 1013 ms on a 25 fps grid.
+        let label = Label::keyframe(12, 1040, 1013);
+        assert_eq!(label.whole, "12 K 1040ms +27");
+        assert_eq!(label.core, label.whole);
     }
 }

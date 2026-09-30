@@ -9,6 +9,11 @@ amends: 0011 (the `frame` row's range arguments gain two opt-ins, `--keyframes` 
 > `=` fills a run tile's slot where nothing nameable changed, and a keyframe or infill tile's
 > label ends after its offset.
 
+> **Amended by [ADR-0129](0129-an-untiled-keyframe-point-is-named-in-the-census-and-never-in-skipped.md).** Decision 8's `untiled` is a count whose members are named in
+> `untiled_points`, never in `skipped[]`; a point with no tile only because the flag was not passed
+> is `not-requested`; `volume` is not in the population. Decision 9's fields are `keyframe_tiles`,
+> `fits_without_keyframes` and `keyframe_tiles_admitted`.
+
 [#418](https://github.com/MBehtemam/Montagent/issues/418), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Put to **two juries** of three models —
 Opus 5.5, Sonnet 5.5 and Fable 5.1 — on the same day. The first took ten questions about the two

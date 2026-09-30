@@ -298,10 +298,21 @@ scaffold somewhere else.",
         // exactly, which the text renders as a prose list (ADR-0126). `limit` is `tile-width`
         // or, since #490, `type-floor`: the tiles are wide enough and a label's numeric core
         // still cannot be drawn at 8 px beneath them (ADR-0098 §5).
-        template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
+        //
+        // Since #491, a refusal under `--keyframes` adds `keyframe_tiles`,
+        // `fits_without_keyframes` and `keyframe_tiles_admitted` (ADR-0106 D9), and only then
+        // do the template's `{?…}`/`{!…}` clauses print: the cheaper remedy may be dropping
+        // the flag, and nothing else in the refusal tells the two cases apart (ADR-0129).
+        template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each\
+{?keyframe_tiles} and `--keyframes` adds {keyframe_tiles} keyframe tiles{/keyframe_tiles}, \
 and the sheet holds {fits} before it passes its {limit} limit of {limit_px} px served, \
 below which a tile or its label is not legible. It never thins, splits or reshapes the \
-sheet (ADR-0095). Ask for these instead, each a sheet that fits: {sub_ranges}.",
+sheet (ADR-0095).{?fits_without_keyframes} Without `--keyframes` the range fits; with it, \
+the sheet holds {keyframe_tiles_admitted} keyframe tiles beside the run tiles and never \
+drops one to fit.{/fits_without_keyframes}{!fits_without_keyframes} It does not fit without \
+`--keyframes` either; with it, the sheet holds {keyframe_tiles_admitted} keyframe tiles \
+beside the run tiles and never drops one to fit.{/fits_without_keyframes} Ask for these \
+instead, each a sheet that fits: {sub_ranges}.",
         status: Live,
         census: None,
         sets: &[],

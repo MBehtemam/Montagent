@@ -201,17 +201,30 @@ pub(crate) struct Overflow {
 /// `states` are the range's visual states, consecutive and in order, and a state needs a
 /// tile when the grid paints a frame inside it. At least one does; a range with nothing to
 /// tile draws no sheet, and the verb does not ask.
+///
+/// `keyframes` counts the keyframe tiles each state adds beside its run tile, one count per
+/// state, or is empty where none were asked for (ADR-0106). They are counted like any tile
+/// and never dropped to make the sheet fit; a sub-range keeps every one of its states'.
 pub(crate) fn size(
     frame: (i64, i64),
     fps: i64,
     states: &[(i64, i64)],
+    keyframes: &[usize],
     labels: LabelWidths,
 ) -> Result<Fit, Overflow> {
-    let tiled: Vec<bool> = states
+    // A state no frame paints holds no keyframe tile either: a keyframe tile is a painted
+    // frame inside its state.
+    let weights: Vec<usize> = states
         .iter()
-        .map(|&(start, end)| exact::holds_a_sampled_frame(start, end, fps) == Some(true))
+        .enumerate()
+        .map(|(i, &(start, end))| {
+            match exact::holds_a_sampled_frame(start, end, fps) == Some(true) {
+                true => 1 + keyframes.get(i).copied().unwrap_or(0),
+                false => 0,
+            }
+        })
         .collect();
-    let tiles = tiled.iter().filter(|&&tiled| tiled).count();
+    let tiles: usize = weights.iter().sum();
     let target = Rung::Target.px(frame.0);
     let refusal = Rung::Degraded.px(frame.0);
     let fit = grid(frame, tiles);
@@ -257,9 +270,7 @@ pub(crate) fn size(
         tiles,
         admitted,
         limit,
-        sub_ranges: shares(tiles, admitted, &fits)
-            .map(|shares| cut(states, &tiled, &shares))
-            .unwrap_or_default(),
+        sub_ranges: split(states, &weights, admitted, &fits).unwrap_or_default(),
     })
 }
 
@@ -274,53 +285,80 @@ fn type_px(fit: &Fit, units: u32) -> i64 {
     strip.min(room * i64::from(chrome::UNITS_PER_EM) / spaced)
 }
 
-/// How many tiles each sub-range takes (ADR-0126 §1): the fewest sub-ranges whose shares,
-/// as even as they go, each fit, the larger shares first. `None` when not even one tile fits.
+/// The sub-ranges of an overflow (ADR-0126): the fewest whose tiles, shared as evenly as
+/// the states' own counts allow, each fit. `None` when no split fits: not even one tile, or
+/// one state's run and keyframe tiles are more than a sheet holds.
 ///
 /// Starting at `⌈tiles / admitted⌉` finds the answer at once whenever a smaller sheet never
-/// serves narrower, which the research model bears out. Checking each share rather than
-/// assuming it keeps "every sub-range fits" true of the construction, not of that model.
-fn shares(tiles: usize, admitted: usize, fits: &dyn Fn(usize) -> bool) -> Option<Vec<usize>> {
+/// serves narrower, which the research model bears out. Checking each sub-range's own count
+/// rather than assuming it keeps "every sub-range fits" true of the construction, not of
+/// that model, and true where a state weighs more than one tile.
+fn split(
+    states: &[(i64, i64)],
+    weights: &[usize],
+    admitted: usize,
+    fits: &dyn Fn(usize) -> bool,
+) -> Option<Vec<(i64, i64)>> {
+    let tiles: usize = weights.iter().sum();
     if admitted == 0 {
         return None;
     }
-    let count = (tiles.div_ceil(admitted)..=tiles)
-        .find(|&count| fits(tiles.div_ceil(count)) && fits(tiles / count))?;
-    let (share, larger) = (tiles / count, tiles % count);
-    Some(
-        (0..count)
-            .map(|i| share + usize::from(i < larger))
-            .collect(),
-    )
+    (tiles.div_ceil(admitted)..=tiles).find_map(|count| {
+        let (ranges, counts) = cut(states, weights, &shares(tiles, count));
+        counts.iter().all(|&n| fits(n)).then_some(ranges)
+    })
 }
 
-/// The ranges `shares` cut `states` into (ADR-0126 §2): each after the first opens at the
-/// start of its first tiled state, so an untiled state goes with the range before it, and
-/// the first and last run to the range's own ends.
-fn cut(states: &[(i64, i64)], tiled: &[bool], shares: &[usize]) -> Vec<(i64, i64)> {
+/// `tiles` shared as evenly as they go between `count` sub-ranges, the larger shares first
+/// (ADR-0126 §1).
+fn shares(tiles: usize, count: usize) -> Vec<usize> {
+    let (share, larger) = (tiles / count, tiles % count);
+    (0..count)
+        .map(|i| share + usize::from(i < larger))
+        .collect()
+}
+
+/// The ranges `shares` cut `states` into, and the tiles each one holds (ADR-0126 §2, as
+/// ADR-0129 weighs it): a sub-range after the first opens at the start of the first tiled
+/// state reached once the sub-ranges before it hold their shares, so an untiled state goes
+/// with the range before it, and the first and last run to the range's own ends. With one
+/// tile a state the counts are the shares exactly; a state carrying keyframe tiles is never
+/// cut, so the counts are as near the shares as its weight lets them be.
+fn cut(
+    states: &[(i64, i64)],
+    weights: &[usize],
+    shares: &[usize],
+) -> (Vec<(i64, i64)>, Vec<usize>) {
     let mut starts = vec![states[0].0];
+    let mut counts = vec![0];
     let mut seen = 0;
     let mut next = shares.iter().scan(0, |total, share| {
         *total += share;
         Some(*total)
     });
     let mut boundary = next.next();
-    for (&(start, _), &tiled) in states.iter().zip(tiled) {
-        if !tiled {
+    for (&(start, _), &weight) in states.iter().zip(weights) {
+        if weight == 0 {
             continue;
         }
-        if Some(seen) == boundary {
+        if boundary.is_some_and(|boundary| seen >= boundary) {
             starts.push(start);
-            boundary = next.next();
+            counts.push(0);
+            // A heavy state may carry the count past more than one share.
+            while boundary.is_some_and(|boundary| seen >= boundary) {
+                boundary = next.next();
+            }
         }
-        seen += 1;
+        seen += weight;
+        *counts.last_mut().expect("one range at least") += weight;
     }
     let end = states[states.len() - 1].1;
-    starts
+    let ranges = starts
         .iter()
         .zip(starts.iter().skip(1).chain([&end]))
         .map(|(&from, &to)| (from, to))
-        .collect()
+        .collect();
+    (ranges, counts)
 }
 
 /// The most tiles below `tiles` whose near-square grid `fits`: serves at `refusal` px, with
@@ -452,7 +490,7 @@ mod tests {
     }
 
     fn sized(frame: (i64, i64), tiles: usize) -> Result<Fit, Overflow> {
-        size(frame, 25, &states(tiles), fixture_labels())
+        size(frame, 25, &states(tiles), &[], fixture_labels())
     }
 
     fn fit(frame: (i64, i64), tiles: usize) -> Fit {
@@ -531,6 +569,36 @@ mod tests {
                 assert!(sheet.tile_height <= sheet.cell_height);
             }
         }
+    }
+
+    #[test]
+    fn keyframe_tiles_count_like_any_tile_and_a_sub_range_keeps_its_states_keyframes() {
+        // #407's measurement: 18 states hold 12 keyframe tiles, and the 13th refuses.
+        let mut keyframes = vec![1; 12];
+        keyframes.resize(18, 0);
+        let sheet = size(PORTRAIT, 25, &states(18), &keyframes, fixture_labels()).unwrap();
+        assert_eq!((sheet.rung, sheet.tile_width), (Rung::Degraded, 141));
+
+        keyframes[12] = 1;
+        let refused = size(PORTRAIT, 25, &states(18), &keyframes, fixture_labels()).unwrap_err();
+        assert_eq!((refused.tiles, refused.admitted), (31, 30));
+        // Sixteen and fifteen, as without keyframes: the first eight states weigh two each.
+        assert_eq!(refused.sub_ranges, [(0, 1600), (1600, 3600)]);
+
+        // A state is never cut, so a heavy one moves the cut past the even share.
+        let mut heavy = vec![0; 18];
+        heavy[7] = 5;
+        let refused = size(PORTRAIT, 25, &states(18), &heavy, fixture_labels());
+        assert!(refused.is_ok(), "23 tiles fit: {refused:?}");
+        let mut heavy = vec![0; 31];
+        heavy[14] = 4;
+        let refused = size(PORTRAIT, 25, &states(31), &heavy, fixture_labels()).unwrap_err();
+        assert_eq!(refused.tiles, 35);
+        assert_eq!(refused.sub_ranges, [(0, 3000), (3000, 6200)]);
+
+        // One state with more tiles than a sheet holds names no sub-range.
+        let refused = size(PORTRAIT, 25, &states(1), &[40], fixture_labels()).unwrap_err();
+        assert_eq!(refused.sub_ranges, []);
     }
 
     #[test]
@@ -649,7 +717,7 @@ mod tests {
         ];
         for (length, fps, ranges, shares) in table {
             let states = seconds(length);
-            let refused = size(PORTRAIT, fps, &states, fixture_labels()).unwrap_err();
+            let refused = size(PORTRAIT, fps, &states, &[], fixture_labels()).unwrap_err();
             assert_eq!(refused.sub_ranges, ranges, "{length} s at {fps} fps");
             assert_eq!(
                 split(&refused, fps, &states),
@@ -658,7 +726,7 @@ mod tests {
             );
         }
         // At 24 fps, 20 seconds is 20 tiles, which fit.
-        assert!(size(PORTRAIT, 24, &seconds(20), fixture_labels()).is_ok());
+        assert!(size(PORTRAIT, 24, &seconds(20), &[], fixture_labels()).is_ok());
     }
 
     #[test]
@@ -666,7 +734,7 @@ mod tests {
         // `[1, 40)` holds no frame at 25 fps: it needs no tile, and the range still starts at 1.
         let mut states = vec![(1, 40)];
         states.extend((0..31).map(|i| (40 + i * 200, 40 + (i + 1) * 200)));
-        let refused = size(PORTRAIT, 25, &states, fixture_labels()).unwrap_err();
+        let refused = size(PORTRAIT, 25, &states, &[], fixture_labels()).unwrap_err();
         assert_eq!(refused.tiles, 31);
         assert_eq!(refused.sub_ranges, vec![(1, 3240), (3240, 6240)]);
     }
@@ -674,7 +742,7 @@ mod tests {
     #[test]
     fn a_frame_too_tall_for_one_tile_names_no_sub_range() {
         // One 100 × 20000 tile serves about 7 px wide, under even its own 100 px width.
-        let refused = size((100, 20000), 25, &states(2), fixture_labels()).unwrap_err();
+        let refused = size((100, 20000), 25, &states(2), &[], fixture_labels()).unwrap_err();
         assert_eq!((refused.admitted, refused.sub_ranges.len()), (0, 0));
     }
 
@@ -688,7 +756,7 @@ mod tests {
         assert_eq!((small.tile_width, small.rung), (100, Rung::Target));
         // But a tile too short for an 8 px strip is refused on the type floor, whatever the
         // count: a 60 px tile's strip is 6 px (ADR-0128 §4).
-        let short = size((100, 60), 25, &states(1), fixture_labels()).unwrap_err();
+        let short = size((100, 60), 25, &states(1), &[], fixture_labels()).unwrap_err();
         assert_eq!((short.limit, short.admitted), (Limit::TypeFloor, 0));
         assert!(short.sub_ranges.is_empty());
     }
@@ -748,7 +816,7 @@ mod tests {
             (short, LANDSCAPE, 1, 86, Ids::Carried),
         ];
         for (labels, frame, tiles, type_px, ids) in table {
-            let sheet = size(frame, 25, &states(tiles), labels).unwrap();
+            let sheet = size(frame, 25, &states(tiles), &[], labels).unwrap();
             assert_eq!(
                 (sheet.type_px, sheet.ids),
                 (type_px, ids),
@@ -768,7 +836,7 @@ mod tests {
             8,
             "20 tiles still draw at the floor"
         );
-        let refused = size(LETTERBOX, 25, &states(30), fixture_labels()).unwrap_err();
+        let refused = size(LETTERBOX, 25, &states(30), &[], fixture_labels()).unwrap_err();
         assert_eq!((refused.limit, refused.admitted), (Limit::TypeFloor, 22));
         assert_eq!(
             (refused.limit.as_str(), refused.limit.px()),
@@ -777,7 +845,7 @@ mod tests {
         let shares = split(&refused, 25, &states(30));
         assert_eq!(shares, [15, 15]);
         for share in shares {
-            let sheet = size(LETTERBOX, 25, &states(share), fixture_labels())
+            let sheet = size(LETTERBOX, 25, &states(share), &[], fixture_labels())
                 .unwrap_or_else(|e| panic!("a sub-range of {share} fits: {e:?}"));
             assert!(sheet.type_px >= TYPE_FLOOR_PX);
         }
@@ -786,7 +854,7 @@ mod tests {
     #[test]
     fn a_label_with_no_room_at_all_is_refused_on_the_type_floor_not_divided_by() {
         // A 10 px project's tile leaves 6 px of room and a 1 px strip.
-        let refused = size((10, 10), 25, &states(1), fixture_labels()).unwrap_err();
+        let refused = size((10, 10), 25, &states(1), &[], fixture_labels()).unwrap_err();
         assert_eq!((refused.limit, refused.admitted), (Limit::TypeFloor, 0));
         assert!(refused.sub_ranges.is_empty());
     }

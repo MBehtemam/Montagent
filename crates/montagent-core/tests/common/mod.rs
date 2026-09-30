@@ -92,6 +92,20 @@ pub fn unpainted_fixture() -> PathBuf {
         .join("../../fixtures/unpainted-visual-state/unpainted-visual-state.montagent.json")
 }
 
+/// The constructed document for ADR-0106 D11 (#491): at 25 fps, a change point that
+/// samples at a run tile's own frame, two that share one painted frame, and one on the grid.
+pub fn keyframe_coincidence_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/keyframe-coincidence/keyframe-coincidence.montagent.json")
+}
+
+/// The constructed document for ADR-0106 D12 (#491): at 25 fps, two change points with no
+/// painted frame left in their run, one on an element visible in the next run and one not.
+pub fn keyframe_cross_boundary_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/keyframe-cross-boundary/keyframe-cross-boundary.montagent.json")
+}
+
 /// A project file written into the fixture's own directory and removed again, even when
 /// the assertion between the two panics.
 ///

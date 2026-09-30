@@ -708,6 +708,11 @@ fn reason_words(reason: &Value) -> String {
 }
 
 /// Fill `{name}` from the finding's field set, falling back to its location.
+///
+/// `{?name}…{/name}` prints its clause only where the finding carries field `name` and it
+/// is not `false`, and `{!name}…{/name}` only where it carries it as `false`. A field the
+/// finding does not carry prints neither: a clause that belongs to one flag's refusal is
+/// absent, not negated, without that flag (ADR-0129). Clauses do not nest.
 fn interpolate(template: &str, finding: &Value, code: &str) -> Result<String, RenderError> {
     let mut out = String::new();
     let mut rest = template;
@@ -718,6 +723,26 @@ fn interpolate(template: &str, finding: &Value, code: &str) -> Result<String, Re
             .ok_or_else(|| RenderError(format!("{code}: unterminated `{{` in its template")))?
             + open;
         let name = &rest[open + 1..close];
+        if let Some((wanted, field)) = name
+            .strip_prefix('?')
+            .map(|field| (true, field))
+            .or_else(|| name.strip_prefix('!').map(|field| (false, field)))
+        {
+            let end = format!("{{/{field}}}");
+            let body_end = rest[close..].find(&end).ok_or_else(|| {
+                RenderError(format!("{code}: its template never closes `{{{name}}}`"))
+            })? + close;
+            let clause = match finding["fields"].get(field) {
+                Some(Value::Bool(false)) => !wanted,
+                Some(_) => wanted,
+                None => false,
+            };
+            if clause {
+                out.push_str(&interpolate(&rest[close + 1..body_end], finding, code)?);
+            }
+            rest = &rest[body_end + end.len()..];
+            continue;
+        }
         let value = finding["fields"]
             .get(name)
             .or_else(|| finding["location"].get(name))
@@ -1624,6 +1649,10 @@ fn sheet_block(sheet: &Value) -> String {
             named(&tile["label"]),
             ids(&tile["present"]),
         )));
+        let points = ids(&tile["keyframes"]);
+        if !points.is_empty() {
+            out.push_str(&row(format!("       keyframes {points}")));
+        }
         for (key, label) in [
             ("painted_partially", "in part"),
             ("not_painted", "not painted"),
@@ -1705,6 +1734,25 @@ fn sheet_block(sheet: &Value) -> String {
         number(&coverage["depicted_ms"]),
         number(&coverage["not_depicted_ms"]),
     )));
+
+    // The census, on every answer, flag or not (ADR-0106 D8): every untiled change point by
+    // name, beside `skipped` and never in it, because none is a finding (ADR-0129).
+    let census = &sheet["keyframes"];
+    out.push_str(&row(format!(
+        "keyframes   {} tiled, {} untiled",
+        number(&census["tiled"]),
+        number(&census["untiled"]),
+    )));
+    for point in census["untiled_points"].as_array().into_iter().flatten() {
+        out.push_str(&row(format!(
+            "            {} at {} ms, state {}..{} \u{2014} {}",
+            named(&point["point"]),
+            number(&point["sample_ms"]),
+            number(&point["run"]["start"]),
+            number(&point["run"]["end"]),
+            named(&point["reason"]),
+        )));
+    }
 
     out.push_str("\nBLIND TO\n");
     for spot in sheet["blind_to"].as_array().into_iter().flatten() {
@@ -2368,6 +2416,18 @@ fn vendor_block(vendor: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_conditional_clause_prints_only_where_its_field_says_so() {
+        let template = "a{?k} k={k}{/k}{!k} not k{/k}.";
+        let read = |fields: Value| {
+            interpolate(template, &serde_json::json!({ "fields": fields }), "X").unwrap()
+        };
+        assert_eq!(read(serde_json::json!({"k": true})), "a k=true.");
+        assert_eq!(read(serde_json::json!({"k": false})), "a not k.");
+        assert_eq!(read(serde_json::json!({})), "a.", "absent is neither");
+        assert!(interpolate("{?k} never closed", &serde_json::json!({"fields": {}}), "X").is_err());
+    }
 
     #[test]
     fn only_sub_ranges_reads_as_prose_ranges() {

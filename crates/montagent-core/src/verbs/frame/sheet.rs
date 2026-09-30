@@ -24,7 +24,13 @@
 //! spots. The plain-text form carries all of it; `--json` changes its form, never its
 //! presence. The key names no ADR spells are ADR-0125's.
 //!
-//! Not yet here: keyframe tiles (#491), infill (#492).
+//! **Keyframe tiles are added only with `--keyframes`** (ADR-0106), at the first painted
+//! frame of each keyframe change point inside a state, and [`keyframes`] places every
+//! change point; the census of them is on every answer, flag or not. A keyframe tile is
+//! marked, carries no identifying field, and is counted like any tile: never dropped to
+//! make the sheet fit (ADR-0129).
+//!
+//! Not yet here: infill (#492).
 
 use std::collections::BTreeMap;
 use std::path::Path as FilePath;
@@ -45,6 +51,7 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at;
 use crate::verbs::query::cuts::{self, Interval};
 
+use super::keyframes::{self, KeyframeCensus, Placed, Point};
 use super::label::{self, Changes, Label};
 use super::sizing::{self, Fit, Ids, LabelWidths, Overflow};
 use super::{Answer, Ask, NotPainted, Painter, Rasterized, TOOL, not_a_frame};
@@ -129,6 +136,9 @@ pub struct Sheet {
     pub provenance: Vec<Tile>,
     /// How many tiles of each class, zeros asserted (ADR-0098 §6).
     pub classes: Classes,
+    /// The keyframe change points interior to a state on a visible element, split by
+    /// whether a tile of this sheet shows them: on every answer, flag or not (ADR-0106 D8).
+    pub keyframes: KeyframeCensus,
     /// Every state in the range that drew no tile, and why (ADR-0105 §4).
     pub skipped: Vec<Skipped>,
     /// The boundaries inside the range that only audio crosses, which the selection drops
@@ -199,10 +209,14 @@ pub struct Tile {
     pub instant_ms: i64,
     /// The visual state the tile stands for.
     pub run: Span,
-    /// Why the tile exists: `boundary`, a visual state's own opening.
+    /// Why the tile exists: `boundary`, a visual state's own opening, or `keyframe`, a
+    /// change point inside it.
     pub why: &'static str,
-    /// The unabbreviated class token: `run`.
+    /// The unabbreviated class token: `run` or `keyframe`.
     pub class: &'static str,
+    /// The change points this tile shows, as `element.property@t`, in clock order. A run
+    /// tile's are the points sampled at its frame; it keeps its class (ADR-0106 D11).
+    pub keyframes: Vec<String>,
     /// The exact string drawn in the strip beneath the tile, after the sheet-wide elision.
     pub label: String,
     /// The visual presence set as element ids, in full on every line (ADR-0098 §7).
@@ -307,63 +321,64 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
 
     let cut_list = cuts::cuts(&document, from, to);
     let states = cuts::visual_states(&cut_list);
+    // Each state's run tile, `None` where the grid paints no frame inside it.
+    let painted: Vec<Option<i64>> = states
+        .iter()
+        .map(|state| first_painted(state, fps))
+        .collect();
     let (runs, skipped): (Vec<(&Interval, i64)>, Vec<&Interval>) = {
         let mut runs = Vec::new();
         let mut skipped = Vec::new();
-        for state in &states {
-            match first_painted(state, fps) {
-                Some(instant) => runs.push((state, instant)),
+        for (state, painted) in states.iter().zip(&painted) {
+            match painted {
+                Some(instant) => runs.push((state, *instant)),
                 None => skipped.push(state),
             }
         }
         (runs, skipped)
     };
 
-    // Every label, in both forms, before the sheet is sized: whether they fit is the
-    // sizing's to decide, in the chrome face's own units.
+    // Every change point placed, whether or not keyframe tiles were asked for: the census
+    // is on every answer (ADR-0106 D8).
+    let placed = keyframes::place(&document, &states, &painted, fps, ask.keyframes);
     let changes = Changes::of(&document, to);
-    let labels: Vec<Label> = runs
-        .iter()
-        .enumerate()
-        .map(|(i, (state, instant))| {
-            Label::run(
-                i + 1,
-                *instant,
-                state.start,
-                changes.at(state.start).as_ref(),
-            )
-        })
-        .collect();
-    let metrics = chrome::metrics();
-    let longest = |form: fn(&Label) -> &String| {
-        labels
-            .iter()
-            .map(|label| metrics.advance(form(label)))
-            .max()
-            .unwrap_or(0)
-    };
-    let widths = LabelWidths {
-        core: longest(|label| &label.core),
-        whole: longest(|label| &label.whole),
-    };
+    let bounds: Vec<(i64, i64)> = states.iter().map(bounds).collect();
 
     // Sized before anything is painted: a range that does not fit is refused whole, and
-    // never thinned, split or reshaped (ADR-0095 §4).
-    let fit = match runs.len() {
+    // never thinned, split or reshaped (ADR-0095 §4), and a keyframe tile is never dropped
+    // to make it fit (ADR-0106 D9).
+    let planned = plan(&states, &painted, &placed, &changes);
+    let fit = match planned.len() {
         0 => None,
         _ => match sizing::size(
             frame,
             fps,
-            &states.iter().map(bounds).collect::<Vec<_>>(),
-            widths,
+            &bounds,
+            &placed.per_state(states.len()),
+            widths(&planned),
         ) {
             Ok(fit) => Some(fit),
             Err(overflow) => {
-                return Answer::refused(Report::refused_invocation(
-                    TOOL,
-                    project,
-                    overflowed(from, to, overflow),
-                ));
+                let mut refusal = overflowed(from, to, runs.len(), &overflow);
+                if ask.keyframes {
+                    // Would dropping the flag be the cheaper remedy? The run tiles alone,
+                    // sized as a sheet without the flag would size them.
+                    let without = sizing::size(
+                        frame,
+                        fps,
+                        &bounds,
+                        &[],
+                        widths(&plan(&states, &painted, &Placed::default(), &changes)),
+                    );
+                    refusal = refusal
+                        .field("keyframe_tiles", json!(placed.tiles.len()))
+                        .field("fits_without_keyframes", json!(without.is_ok()))
+                        .field(
+                            "keyframe_tiles_admitted",
+                            json!(overflow.admitted.saturating_sub(runs.len())),
+                        );
+                }
+                return Answer::refused(Report::refused_invocation(TOOL, project, refusal));
             }
         },
     };
@@ -390,9 +405,10 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         provenance: Vec::new(),
         classes: Classes {
             run: runs.len(),
-            keyframe: 0,
+            keyframe: placed.tiles.len(),
             infill: 0,
         },
+        keyframes: placed.census_over(&states),
         skipped: skipped
             .iter()
             .map(|state| Skipped {
@@ -428,14 +444,14 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         };
     };
 
-    let drawn: Vec<String> = labels
-        .into_iter()
-        .map(|label| match fit.ids {
-            Ids::Carried => label.whole,
-            Ids::Elided => label.core,
+    let drawn: Vec<String> = planned
+        .iter()
+        .map(|tile| match fit.ids {
+            Ids::Carried => tile.label.whole.clone(),
+            Ids::Elided => tile.label.core.clone(),
         })
         .collect();
-    let painted = match paint(&document, frame, fit, &runs, &drawn, &mut report) {
+    let painted = match paint(&document, frame, fit, &planned, &drawn, &mut report) {
         Some(painted) => painted,
         None => return Answer::refused(report),
     };
@@ -514,6 +530,114 @@ fn first_painted(state: &Interval, fps: i64) -> Option<i64> {
     exact::frame_at_or_after(state.start, fps).map(|frame| instant_of(frame.frame, fps))
 }
 
+/// Why a tile is on the sheet: ADR-0098 §6's class, and everything that follows from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Class {
+    /// A visual state's first painted frame.
+    Run,
+    /// A painted frame inside a state, where a keyframe change point first paints.
+    Keyframe,
+}
+
+impl Class {
+    /// What put the instant on the sheet (ADR-0094 §6).
+    fn why(self) -> &'static str {
+        match self {
+            Class::Run => "boundary",
+            Class::Keyframe => "keyframe",
+        }
+    }
+
+    /// The unabbreviated class token (ADR-0098 §6).
+    fn token(self) -> &'static str {
+        match self {
+            Class::Run => "run",
+            Class::Keyframe => "keyframe",
+        }
+    }
+
+    /// Whether its strip carries the mark: a run tile is the unmarked default.
+    fn marked(self) -> bool {
+        self != Class::Run
+    }
+}
+
+/// One tile the sheet will draw, before it is painted.
+struct Planned<'a> {
+    state: &'a Interval,
+    instant: i64,
+    class: Class,
+    /// The change points it shows.
+    points: Vec<Point>,
+    label: Label,
+}
+
+/// Every tile, run and keyframe, in clock order and so in reading order, each with both
+/// forms of its label. `painted` is each state's run tile, `None` where it has none.
+fn plan<'a>(
+    states: &'a [Interval],
+    painted: &[Option<i64>],
+    placed: &Placed,
+    changes: &Changes,
+) -> Vec<Planned<'a>> {
+    let runs = states
+        .iter()
+        .zip(painted)
+        .enumerate()
+        .filter_map(|(i, (state, painted))| {
+            let points = placed.on_run_tiles.get(&i).cloned().unwrap_or_default();
+            Some((state, (*painted)?, Class::Run, points))
+        });
+    let keyframe_tiles = placed.tiles.iter().map(|tile| {
+        (
+            &states[tile.state],
+            tile.instant,
+            Class::Keyframe,
+            tile.points.clone(),
+        )
+    });
+    let mut tiles: Vec<_> = runs.chain(keyframe_tiles).collect();
+    // A keyframe tile is never at its state's run tile's frame, so no two share an instant.
+    tiles.sort_by_key(|&(_, instant, ..)| instant);
+    tiles
+        .into_iter()
+        .enumerate()
+        .map(|(i, (state, instant, class, points))| Planned {
+            state,
+            instant,
+            class,
+            label: match class {
+                Class::Keyframe => Label::keyframe(i + 1, instant, points[0].at),
+                Class::Run => Label::run(
+                    i + 1,
+                    instant,
+                    state.start,
+                    changes.at(state.start).as_ref(),
+                ),
+            },
+            points,
+        })
+        .collect()
+}
+
+/// The longest label on the sheet, in both forms, in the chrome face's units: whether they
+/// fit is the sizing's to decide. A keyframe tile has no identifying field, so it counts in
+/// both forms at its one length and cannot force the sheet-wide elision (ADR-0106 D7).
+fn widths(planned: &[Planned]) -> LabelWidths {
+    let metrics = chrome::metrics();
+    let longest = |form: fn(&Label) -> &String| {
+        planned
+            .iter()
+            .map(|tile| metrics.advance(form(&tile.label)))
+            .max()
+            .unwrap_or(0)
+    };
+    LabelWidths {
+        core: longest(|label| &label.core),
+        whole: longest(|label| &label.whole),
+    }
+}
+
 /// The sheet with every tile painted on it, and the record of what was painted.
 struct Painted {
     canvas: Canvas,
@@ -528,7 +652,7 @@ fn paint(
     document: &Loose,
     frame: (i64, i64),
     fit: Fit,
-    runs: &[(&Interval, i64)],
+    planned: &[Planned],
     labels: &[String],
     report: &mut Report,
 ) -> Option<Painted> {
@@ -546,12 +670,13 @@ fn paint(
     sheet.background(GUTTER);
     let mut chrome = chrome::fonts();
 
-    let mut painter = Painter::new(document, runs[0].1, frame);
+    let mut painter = Painter::new(document, planned[0].instant, frame);
     // One finding per `(element, code)` over the whole sheet, as `render` keeps one over a
     // whole span: the same element declining for the same reason on every tile is one fact.
     let mut declined: BTreeMap<(String, String), Finding> = BTreeMap::new();
-    let mut tiles = Vec::with_capacity(runs.len());
-    for (i, (state, instant)) in runs.iter().enumerate() {
+    let mut tiles = Vec::with_capacity(planned.len());
+    for (i, planned) in planned.iter().enumerate() {
+        let (state, instant) = (planned.state, &planned.instant);
         // The caption `frame --at` paints from, so a tile and that frame cannot disagree
         // about which frame of a clip is on screen.
         let view = match at::answer(document, *instant) {
@@ -610,7 +735,14 @@ fn paint(
             width: fit.tile_width,
             height: fit.strip(),
         };
-        if let Err(reason) = label::draw(&mut sheet, &mut chrome, &labels[i], fit.type_px, strip) {
+        if let Err(reason) = label::draw(
+            &mut sheet,
+            &mut chrome,
+            &labels[i],
+            fit.type_px,
+            strip,
+            planned.class.marked(),
+        ) {
             report.fail_internally(reason);
             return None;
         }
@@ -618,8 +750,9 @@ fn paint(
             index: i + 1,
             instant_ms: *instant,
             run: span(state),
-            why: "boundary",
-            class: "run",
+            why: planned.class.why(),
+            class: planned.class.token(),
+            keyframes: planned.points.iter().map(Point::name).collect(),
             label: labels[i].clone(),
             present: ids(state),
             not_painted: painter.not_painted.clone(),
@@ -639,8 +772,8 @@ fn paint(
 }
 
 /// ADR-0105 §1's refusal, with the fields its template reads and the sub-ranges an agent
-/// loops over (ADR-0126).
-fn overflowed(from: i64, to: i64, overflow: Overflow) -> Finding {
+/// loops over (ADR-0126). `states` counts the visual states needing a run tile.
+fn overflowed(from: i64, to: i64, states: usize, overflow: &Overflow) -> Finding {
     let sub_ranges: Vec<Value> = overflow
         .sub_ranges
         .iter()
@@ -649,7 +782,7 @@ fn overflowed(from: i64, to: i64, overflow: Overflow) -> Finding {
     Finding::new("E-SHEET-OVERFLOW")
         .field("from", json!(from))
         .field("to", json!(to))
-        .field("states", json!(overflow.tiles))
+        .field("states", json!(states))
         .field("fits", json!(overflow.admitted))
         .field("limit", json!(overflow.limit.as_str()))
         .field("limit_px", json!(overflow.limit.px()))
