@@ -1079,14 +1079,16 @@ impl<'a> Painter<'a> {
                     Finding::new("E-EFFECT-UNKNOWN")
                         .field("index", json!(i))
                         // The declared spelling, so the message names what the author
-                        // wrote rather than the vocabulary they missed.
+                        // wrote rather than the vocabulary they missed. An effect is
+                        // tagged on `name` (`model::Effect`), not on `kind` as a
+                        // transition is (#460).
                         .field(
                             "effect",
                             json!(
                                 value
-                                    .get("kind")
+                                    .get("name")
                                     .and_then(Value::as_str)
-                                    .unwrap_or("(no `kind`)")
+                                    .unwrap_or("(no `name`)")
                             ),
                         ),
                 ),

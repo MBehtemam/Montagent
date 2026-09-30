@@ -600,6 +600,7 @@ fn an_effect_the_vocabulary_does_not_admit_is_named_beside_the_picture() {
             findings.iter().any(|finding| {
                 finding["code"].as_str() == Some("E-EFFECT-UNKNOWN")
                     && finding["fields"]["index"].as_i64() == Some(0)
+                    && finding["fields"]["effect"].as_str() == Some("grayscale")
             })
         })
         .unwrap_or(false);
@@ -608,6 +609,64 @@ fn an_effect_the_vocabulary_does_not_admit_is_named_beside_the_picture() {
         "the finding did not say which member was dropped: {}",
         serde_json::to_string_pretty(&json["findings"]).unwrap_or_default()
     );
+}
+
+/// The one `E-EFFECT-UNKNOWN` finding `frame` raised for `effects`, and the report's text
+/// form, which is where the declared spelling has to reach the reader.
+#[track_caller]
+fn unknown_effect(line: u32, effects: &str) -> (Value, String) {
+    let (json, _) = answered(line, &square_with(effects), 500);
+    let found: Vec<&Value> = json["findings"]
+        .as_array()
+        .map(|findings| {
+            findings
+                .iter()
+                .filter(|finding| finding["code"].as_str() == Some("E-EFFECT-UNKNOWN"))
+                .collect()
+        })
+        .unwrap_or_default();
+    assert_eq!(
+        found.len(),
+        1,
+        "expected one E-EFFECT-UNKNOWN: {}",
+        serde_json::to_string_pretty(&json["findings"]).unwrap_or_default()
+    );
+    let text = montagent_core::text::render(&json, montagent_core::text::Options::verbose())
+        .expect("the report renders");
+    (found[0].clone(), text)
+}
+
+#[test]
+fn the_unknown_effect_is_named_by_the_name_the_author_wrote() {
+    // #460: an effect is tagged on `name` (the transition beside it is keyed by `kind`),
+    // so the finding reads `name`. An invented member is named as written, and so is a real
+    // member whose parameters the vocabulary refuses.
+    for (effects, declared) in [
+        (r##"{"name":"glow"}"##, "glow"),
+        (r##"{"name":"mask","shape":"circle","radius":20}"##, "mask"),
+    ] {
+        let (finding, text) = unknown_effect(line!(), effects);
+        assert_eq!(
+            finding["fields"]["effect"].as_str(),
+            Some(declared),
+            "{effects}"
+        );
+        assert!(
+            text.contains(&format!("`{declared}`")),
+            "the message did not name `{declared}`:\n{text}"
+        );
+        assert!(!text.contains("`kind`"), "an effect has no `kind`:\n{text}");
+    }
+}
+
+#[test]
+fn an_effect_with_no_name_says_so_in_the_effect_vocabulary() {
+    for effects in [r##"{"amount":1}"##, r##"{"name":7}"##] {
+        let (finding, text) = unknown_effect(line!(), effects);
+        let said = finding["fields"]["effect"].as_str().unwrap_or_default();
+        assert!(said.contains("`name`"), "{effects} fell back to {said:?}");
+        assert!(!text.contains("`kind`"), "an effect has no `kind`:\n{text}");
+    }
 }
 
 // ---------------------------------------------------------------------------
