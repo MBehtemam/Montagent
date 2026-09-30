@@ -59,8 +59,10 @@ pub struct Coverage {
     /// without it, so it travels with the numbers it produced.
     pub fps: i64,
     /// The rate the source was sampled at, in **source** frames per second of source time:
-    /// `fps × speed`. Stated because it is not `fps` whenever the element is retimed, and a
-    /// reader comparing two elements' series needs to know they are on different clocks.
+    /// `fps ÷ speed`, because a frame of timeline moves `speed / fps` seconds through the
+    /// source. Stated because it is not `fps` whenever the element is retimed, and a reader
+    /// comparing two elements' series needs to know they are on different clocks. Until
+    /// ADR-0127 this said `fps × speed` and the run was sampled at it.
     pub source_fps: f64,
     /// One entry per sampled frame, in time order.
     pub frames: Vec<Sample>,
@@ -219,7 +221,10 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
         &path.to_string_lossy(),
         decoder,
         run.from_ms,
-        run.source_fps,
+        decode::Pace {
+            fps,
+            speed: run.speed,
+        },
         width as u32,
         height as u32,
     )?;
@@ -336,8 +341,10 @@ fn sample(
 struct Run {
     /// Where the run starts, in **source** milliseconds.
     from_ms: i64,
-    /// Source frames per second of source time — `fps × speed`.
+    /// Source frames per second of source time — `fps ÷ speed` — as the answer states it.
     source_fps: f64,
+    /// `speed` as the exact rational `(numerator, denominator)` the run is sampled at.
+    speed: (i128, i128),
     /// How many frames the element's own range shows.
     count: usize,
     /// The element's `start`, so a sample can name the instant it is shown at.
@@ -376,6 +383,7 @@ fn run_of(element: &Value, declared: &str, fps: i64) -> Result<Run, String> {
         return Ok(Run {
             from_ms: 0,
             source_fps: fps as f64,
+            speed: (1, 1),
             count: 1,
             start,
         });
@@ -418,18 +426,19 @@ fn run_of(element: &Value, declared: &str, fps: i64) -> Result<Run, String> {
     let count = usize::try_from(ticks / 1000 + i64::from(ticks % 1000 != 0))
         .map_err(|_| "the element shows more frames than can be counted".to_string())?;
 
-    // **The one float in this function, and it is `ffmpeg`'s argument rather than an
-    // instant.** Every time in the answer above is derived in exact integer arithmetic; the
-    // `fps=` filter takes a rate and takes it as a decimal, so the rate is converted here,
-    // at the boundary, and nothing is derived from it afterwards. Converted from the same
-    // `Decimal` the arithmetic above ran on rather than re-read off the element — a second
-    // reading of one field is a second chance for the two to disagree about what `speed` is,
-    // and the one with the looser refusal would win.
-    let source_fps = speed.as_f64() * fps as f64;
+    // **The run is sampled on the exact ratio**, the same one `source_advance` above and the
+    // renderer's own offset-into-source are computed on (ADR-0127); `frames_from` takes it as
+    // integers so no float stands between the two. `source_fps` is the one float, and it is
+    // the answer's statement of the clock rather than an input to anything.
+    let speed_ratio = speed
+        .as_ratio()
+        .ok_or("`speed` could not be read as an exact ratio")?;
+    let source_fps = fps as f64 / speed.as_f64();
 
     Ok(Run {
         from_ms: source_start,
         source_fps,
+        speed: speed_ratio,
         count,
         start,
     })

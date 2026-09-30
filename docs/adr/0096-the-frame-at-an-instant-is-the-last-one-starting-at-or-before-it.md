@@ -5,6 +5,11 @@ amends: 0093 (corrects ruling 6 condition 1: the failed-seek predicate is **not*
 
 # The frame at an instant is the last one starting at or before it
 
+> **Amended by [ADR-0127](0127-a-run-of-frames-is-the-frames-the-render-paints.md).**
+> The rule holds for a *run* of frames too. `frames_from` now samples the frames `frame_at`
+> returns at `render`'s own instants. Before, it was a plain `-ss` into `fps=`, which disagreed
+> with the render on 501 of 504 measured runs.
+
 > **Amended by [ADR-0113](0113-a-seek-whose-ffmpeg-failed-is-refused-never-read-as-no-frame.md).**
 > §5's fallback is reached only by a `select` run that *succeeded* and wrote no frame. A run
 > that exited non-zero is a refusal. On ffmpeg 9, which removed `-vsync`, reading the failure as
