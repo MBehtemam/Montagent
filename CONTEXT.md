@@ -780,8 +780,11 @@ off the document; whether one is **tiled** is a fact about the sheet. It is samp
 at **the first frame the grid paints at or after it** — the only frame that shows a `step` at
 all — so several may share one tile, one may land on a run's own tile and add nothing, and one
 with no frame left in its run lands on the next run's tile. Every answer reports `tiled` and
-`untiled`; `--keyframes` asks for the untiled ones to get tiles of their own. Never an easing
-midpoint or a curve's extremum: those are computed, not stated.
+`untiled`, and names each untiled one with its reason, `not-requested` or `no-grid-frame`, apart
+from skipped states: an untiled change point is never a finding
+([ADR-0129](docs/adr/0129-an-untiled-keyframe-point-is-named-in-the-census-and-never-in-skipped.md)).
+`--keyframes` gives each `not-requested` one a tile of its own. Never an easing midpoint or a
+curve's extremum: those are computed, not stated. A `volume` change is audible, so it is not one.
 _Avoid_: keyframe (the record, not the instant), keyframe tile (the picture, not the instant),
 animation point
 

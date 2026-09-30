@@ -12,6 +12,10 @@ amends: 0094 (section 6's structured disclosure is spelled — the JSON key name
 > `label_floor_px` and `ids`, and the sheet gains `reader_check`. The strip carries the label, and
 > `E-SHEET-OVERFLOW` raises `type-floor`.
 
+> **Amended by [ADR-0129](0129-an-untiled-keyframe-point-is-named-in-the-census-and-never-in-skipped.md).** Provenance entries gain `keyframes`, `why` and `class` gain
+> `keyframe`, the sheet gains the `keyframes` census, and `E-SHEET-OVERFLOW`'s `states` counts run
+> tiles alone.
+
 [#488](https://github.com/MBehtemam/Montagent/issues/488), the tracer bullet under spec
 [#486](https://github.com/MBehtemam/Montagent/issues/486). It builds `frame --from --to`: one
 contact sheet with one tile per visual state, its disclosure, and its refusals. The ADRs from

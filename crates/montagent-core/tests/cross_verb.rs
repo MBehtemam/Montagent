@@ -433,6 +433,11 @@ fn validates_unpainted_states_are_the_visual_states_query_implies_no_frame_paint
 
 /// The sheet of `[from, to)`, as JSON and PNG bytes.
 fn sheet(path: &Path, from: i64, to: i64) -> (serde_json::Value, Vec<u8>) {
+    sheet_asking(path, from, to, false)
+}
+
+/// The sheet of `[from, to)`, with keyframe tiles where `keyframes` asks for them.
+fn sheet_asking(path: &Path, from: i64, to: i64, keyframes: bool) -> (serde_json::Value, Vec<u8>) {
     use montagent_core::verbs::frame::{Ask, frame};
     let answer = frame(
         path,
@@ -440,6 +445,7 @@ fn sheet(path: &Path, from: i64, to: i64) -> (serde_json::Value, Vec<u8>) {
             from: Some(from),
             to: Some(to),
             png: true,
+            keyframes,
             ..Ask::default()
         },
     );
@@ -491,9 +497,6 @@ fn the_sheets_visual_states_are_querys_cut_list_filtered_and_re_merged() {
 
 #[test]
 fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
-    use montagent_core::verbs::frame::{Ask, frame};
-    use montagent_render::canvas::{Canvas, Encoding, Raster, Region, Scale};
-
     let fixture = common::fixture_project();
     let duration = common::document(&fixture)["duration"].as_i64().unwrap();
     let (json, bytes) = sheet(&fixture, 0, duration);
@@ -515,41 +518,9 @@ fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
 
     for tile in json["sheet"]["provenance"].as_array().unwrap() {
         let instant = tile["instant_ms"].as_i64().unwrap();
-        let single = frame(
-            &fixture,
-            &Ask {
-                at: Some(instant),
-                full: true,
-                png: true,
-                ..Ask::default()
-            },
-        );
-
-        // The frame `frame --at` returns, composited into a tile by the sheet's own
-        // compositor, is the tile on the sheet, byte for byte.
-        let raster = Raster::decode(&single.image().unwrap().bytes).expect("a PNG");
-        let whole = Region {
-            x: 0,
-            y: 0,
-            width: tile_w,
-            height: tile_h,
-        };
-        let mut alone = Canvas::new(tile_w, tile_h).unwrap();
-        alone.composite(&raster, whole);
-        let expected = image::load_from_memory(
-            &alone
-                .encode(None, Scale::Full, Encoding::Png)
-                .unwrap()
-                .bytes,
-        )
-        .unwrap()
-        .to_rgba8();
+        let single = tile_is_frame_at(&fixture, &json, &drawn, tile);
         let index = tile["index"].as_i64().unwrap() - 1;
         let (x, y) = ((index % columns) * tile_w, (index / columns) * cell_h);
-        let on_sheet =
-            image::imageops::crop_imm(&drawn, x as u32, y as u32, tile_w as u32, tile_h as u32)
-                .to_image();
-        assert!(on_sheet == expected, "tile {} at {instant} ms", index + 1);
 
         // Its label is drawn in the strip beneath it, which is not the tile's (ADR-0098 §1).
         let strip = image::imageops::crop_imm(
@@ -579,5 +550,88 @@ fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
         present.sort();
         stacked.sort();
         assert_eq!(stacked, present, "tile {} at {instant} ms", index + 1);
+    }
+}
+
+/// Assert that `tile` of the sheet `json` drew as `drawn` is `frame --at <its instant>`,
+/// composited into a tile by the sheet's own compositor, byte for byte. Returns that frame.
+#[track_caller]
+fn tile_is_frame_at(
+    path: &Path,
+    json: &serde_json::Value,
+    drawn: &image::RgbaImage,
+    tile: &serde_json::Value,
+) -> montagent_core::verbs::frame::Answer {
+    use montagent_core::verbs::frame::{Ask, frame};
+    use montagent_render::canvas::{Canvas, Encoding, Raster, Region, Scale};
+
+    let picture = &json["sheet"]["picture"];
+    let number = |key: &str| picture[key].as_i64().unwrap();
+    let (columns, tile_w, tile_h) = (
+        number("columns"),
+        number("served_tile_width"),
+        number("served_tile_height"),
+    );
+    let cell_h = number("height") / number("rows");
+    let instant = tile["instant_ms"].as_i64().unwrap();
+    let single = frame(
+        path,
+        &Ask {
+            at: Some(instant),
+            full: true,
+            png: true,
+            ..Ask::default()
+        },
+    );
+    let raster = Raster::decode(&single.image().unwrap().bytes).expect("a PNG");
+    let whole = Region {
+        x: 0,
+        y: 0,
+        width: tile_w,
+        height: tile_h,
+    };
+    let mut alone = Canvas::new(tile_w, tile_h).unwrap();
+    alone.composite(&raster, whole);
+    let expected = image::load_from_memory(
+        &alone
+            .encode(None, Scale::Full, Encoding::Png)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap()
+    .to_rgba8();
+    let index = tile["index"].as_i64().unwrap() - 1;
+    let (x, y) = ((index % columns) * tile_w, (index / columns) * cell_h);
+    let on_sheet =
+        image::imageops::crop_imm(drawn, x as u32, y as u32, tile_w as u32, tile_h as u32)
+            .to_image();
+    assert!(on_sheet == expected, "tile {} at {instant} ms", index + 1);
+    single
+}
+
+#[test]
+fn a_keyframe_tile_is_frame_at_its_painted_millisecond() {
+    // ADR-0106 D10: the label prints the painted millisecond, and `frame --at` it reproduces
+    // the tile exactly.
+    let path = common::keyframe_coincidence_fixture();
+    let (json, bytes) = sheet_asking(&path, 0, 2000, true);
+    let drawn = image::load_from_memory(&bytes).unwrap().to_rgba8();
+    let keyframe_tiles: Vec<&serde_json::Value> = json["sheet"]["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|tile| tile["class"] == "keyframe")
+        .collect();
+    assert_eq!(keyframe_tiles.len(), 2);
+    for tile in keyframe_tiles {
+        let instant = tile["instant_ms"].as_i64().unwrap();
+        assert!(
+            tile["label"]
+                .as_str()
+                .unwrap()
+                .contains(&format!(" {instant}ms ")),
+            "{tile}"
+        );
+        tile_is_frame_at(&path, &json, &drawn, tile);
     }
 }

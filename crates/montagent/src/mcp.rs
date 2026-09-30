@@ -575,6 +575,7 @@ impl Montagent {
                         // The range mode reaches this surface with #493.
                         from: None,
                         to: None,
+                        keyframes: false,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query` and `measure`.

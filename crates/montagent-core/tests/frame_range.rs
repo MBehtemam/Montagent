@@ -16,7 +16,10 @@ use montagent_core::verbs::frame::{Answer, Ask, frame};
 use serde_json::{Value, json};
 
 mod common;
-use common::{Scratch, fixture_project, tempdir, unpainted_fixture, write_project};
+use common::{
+    Scratch, fixture_project, keyframe_coincidence_fixture, keyframe_cross_boundary_fixture,
+    tempdir, unpainted_fixture, write_project,
+};
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -985,4 +988,427 @@ fn a_label_core_the_type_floor_cannot_hold_is_refused_on_the_type_floor() {
         let sheet = drawn(&path, &range(from, to)).to_json();
         assert!(sheet["sheet"]["picture"]["label_px"].as_i64().unwrap() >= 8);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Keyframe tiles: `--keyframes` (#491, ADR-0106, ADR-0129)
+// ---------------------------------------------------------------------------
+
+fn keyframed(from: i64, to: i64) -> Ask {
+    Ask {
+        keyframes: true,
+        ..range(from, to)
+    }
+}
+
+/// Each provenance line as `(index, class, why, instant, label, keyframes)`.
+fn tiles(json: &Value) -> Vec<(i64, String, String, i64, String, Vec<String>)> {
+    json["sheet"]["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tile| {
+            (
+                tile["index"].as_i64().unwrap(),
+                tile["class"].as_str().unwrap().to_string(),
+                tile["why"].as_str().unwrap().to_string(),
+                tile["instant_ms"].as_i64().unwrap(),
+                tile["label"].as_str().unwrap().to_string(),
+                serde_json::from_value(tile["keyframes"].clone()).unwrap(),
+            )
+        })
+        .collect()
+}
+
+fn tile(
+    index: i64,
+    class: &str,
+    why: &str,
+    instant: i64,
+    label: &str,
+    keyframes: &[&str],
+) -> (i64, String, String, i64, String, Vec<String>) {
+    (
+        index,
+        class.into(),
+        why.into(),
+        instant,
+        label.into(),
+        keyframes.iter().map(|point| point.to_string()).collect(),
+    )
+}
+
+#[test]
+fn keyframe_tiles_sample_the_first_painted_frame_and_share_it_and_a_run_tile_keeps_its_class() {
+    // ADR-0106 D10–11 on the constructed coincidence document.
+    let json = drawn(&keyframe_coincidence_fixture(), &keyframed(0, 2000)).to_json();
+    assert_eq!(
+        tiles(&json),
+        [
+            tile(1, "run", "boundary", 0, "1 0ms +0 +a", &[]),
+            // b.x@1020 samples at 1040, the run tile's own frame: it joins that line, and
+            // the tile stays a run tile with its boundary and its label.
+            tile(2, "run", "boundary", 1040, "2 1040ms +37 +b", &["b.x@1020"]),
+            // Two change points on two elements, one painted frame: one tile.
+            tile(
+                3,
+                "keyframe",
+                "keyframe",
+                1440,
+                "3 K 1440ms +30",
+                &["b.x@1410", "c.y@1425"]
+            ),
+            tile(
+                4,
+                "keyframe",
+                "keyframe",
+                1600,
+                "4 K 1600ms +0",
+                &["b.x@1600"]
+            ),
+        ]
+    );
+    let sheet = &json["sheet"];
+    assert_eq!(
+        sheet["classes"],
+        json!({"run": 2, "keyframe": 2, "infill": 0})
+    );
+    assert_eq!(sheet["keyframes"]["tiled"], 4);
+    assert_eq!(sheet["keyframes"]["untiled"], 0);
+    assert_eq!(sheet["keyframes"]["untiled_points"], json!([]));
+    // A keyframe tile's run is the visual state it samples inside.
+    assert_eq!(
+        sheet["provenance"][2]["run"],
+        json!({"start": 1003, "end": 2000})
+    );
+    assert_eq!(sheet["coverage"]["tiled"], 2, "coverage counts states");
+
+    let text = prose(&json);
+    for words in [
+        "keyframe  keyframe  at 1440 ms",
+        "keyframes b.x@1410, c.y@1425",
+        "classes     2 run, 2 keyframe, 0 infill",
+        "keyframes   4 tiled, 0 untiled",
+    ] {
+        assert!(text.contains(words), "`{words}` missing: {text}");
+    }
+}
+
+#[test]
+fn without_the_flag_the_census_is_still_asserted_and_interior_points_are_untiled() {
+    let json = drawn(&keyframe_coincidence_fixture(), &range(0, 2000)).to_json();
+    let sheet = &json["sheet"];
+    assert_eq!(sheet["classes"]["keyframe"], 0);
+    assert_eq!(sheet["provenance"].as_array().unwrap().len(), 2);
+    // The run tile's change point is tiled without the flag (ADR-0106 D8's split is a
+    // fact about the sheet).
+    assert_eq!(sheet["provenance"][1]["keyframes"], json!(["b.x@1020"]));
+    assert_eq!(sheet["keyframes"]["tiled"], 1);
+    assert_eq!(sheet["keyframes"]["untiled"], 3);
+    let reasons: Vec<(String, String)> = sheet["keyframes"]["untiled_points"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|point| {
+            (
+                point["point"].as_str().unwrap().to_string(),
+                point["reason"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        reasons,
+        [
+            ("b.x@1410".to_string(), "not-requested".to_string()),
+            ("c.y@1425".to_string(), "not-requested".to_string()),
+            ("b.x@1600".to_string(), "not-requested".to_string()),
+        ]
+    );
+    assert_eq!(
+        json["findings"],
+        json!([]),
+        "an untiled point is not a finding"
+    );
+    let text = prose(&json);
+    assert!(text.contains("keyframes   1 tiled, 3 untiled"), "{text}");
+    assert!(
+        text.contains("b.x@1410 at 1440 ms, state 1003..2000 \u{2014} not-requested"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_change_point_with_no_frame_left_in_its_run_is_tiled_by_the_next_run_only_where_visible() {
+    // ADR-0106 D12 on the constructed cross-boundary document.
+    let path = keyframe_cross_boundary_fixture();
+    let json = drawn(&path, &keyframed(0, 2000)).to_json();
+    assert_eq!(
+        tiles(&json),
+        [
+            tile(1, "run", "boundary", 0, "1 0ms +0 +a", &[]),
+            tile(2, "run", "boundary", 520, "2 520ms +20 +p", &[]),
+            // p.y@1015 has no painted frame left in 500..1030; 1040 is the next run's tile,
+            // and p is on screen there.
+            tile(3, "run", "boundary", 1040, "3 1040ms +10 +c", &["p.y@1015"]),
+        ]
+    );
+    let sheet = &json["sheet"];
+    assert_eq!(sheet["classes"]["keyframe"], 0, "the rule adds no tile");
+    assert_eq!(sheet["keyframes"]["tiled"], 1);
+    assert_eq!(sheet["keyframes"]["untiled"], 1);
+    // a.x@1020 would sample at 1040 too, where `a` has gone.
+    assert_eq!(
+        sheet["keyframes"]["untiled_points"],
+        json!([{
+            "point": "a.x@1020", "element": "a", "property": "x", "at": 1020,
+            "sample_ms": 1040, "run": {"start": 500, "end": 1030}, "reason": "no-grid-frame",
+        }])
+    );
+    // Disclosure only, never a finding: neither in the report nor in `skipped[]`.
+    assert_eq!(json["findings"], json!([]));
+    assert_eq!(sheet["skipped"], json!([]));
+
+    // With the next run outside the range, the visible one is untiled too.
+    let json = drawn(&path, &keyframed(0, 1030)).to_json();
+    let sheet = &json["sheet"];
+    assert_eq!(sheet["provenance"].as_array().unwrap().len(), 2);
+    assert_eq!(sheet["keyframes"]["tiled"], 0);
+    assert_eq!(sheet["keyframes"]["untiled"], 2);
+    let points: Vec<&str> = sheet["keyframes"]["untiled_points"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|point| {
+            assert_eq!(point["reason"], "no-grid-frame");
+            point["point"].as_str().unwrap()
+        })
+        .collect();
+    assert_eq!(points, ["p.y@1015", "a.x@1020"]);
+    assert_eq!(json["findings"], json!([]));
+}
+
+#[test]
+fn across_an_unpainted_state_the_next_painted_run_decides_whether_a_point_is_tiled() {
+    // At 25 fps: `a` leaves at 1010 and `c` enters at 1030, so `1010..1030` is a state no
+    // frame paints. `e` and `f` each change at 1003/1005, with no frame left in `500..1010`,
+    // and both sample at 1040: `f` is on screen there and `e` left at 1030.
+    let dir = tempdir(line!());
+    let rect = |id: &str, start: i64, end: i64| {
+        json!({"id": id, "type": "rect", "start": start, "end": end, "x": 0, "y": 0,
+               "origin": "top-left", "width": 200, "height": 200, "fill": "#808080"})
+    };
+    let mut e = rect("e", 500, 1030);
+    e["y"] = json!([{"t": 500, "v": 0}, {"t": 1005, "v": 400, "ease": "linear"}]);
+    let mut f = rect("f", 500, 2000);
+    f["x"] = json!([{"t": 500, "v": 0}, {"t": 1003, "v": 400, "ease": "linear"}]);
+    let path = write_project(
+        &dir,
+        "middle.montagent.json",
+        &json!({
+            "frame": {"width": 1080, "height": 1920}, "fps": 25, "background": "#000000",
+            "tracks": [
+                {"name": "a", "layer": 0, "elements": [rect("a", 0, 1010)]},
+                {"name": "e", "layer": 1, "elements": [e]},
+                {"name": "f", "layer": 2, "elements": [f]},
+                {"name": "c", "layer": 3, "elements": [rect("c", 1030, 2000)]},
+            ],
+        })
+        .to_string(),
+    );
+
+    let json = drawn(&path, &keyframed(0, 2000)).to_json();
+    let sheet = &json["sheet"];
+    assert_eq!(
+        sheet["skipped"][0]["run"],
+        json!({"start": 1010, "end": 1030})
+    );
+    let last = &sheet["provenance"][2];
+    assert_eq!(
+        (last["instant_ms"].as_i64(), last["class"].as_str()),
+        (Some(1040), Some("run"))
+    );
+    assert_eq!(last["keyframes"], json!(["f.x@1003"]));
+    assert_eq!(sheet["keyframes"]["tiled"], 1);
+    assert_eq!(sheet["keyframes"]["untiled_points"][0]["point"], "e.y@1005");
+    assert_eq!(
+        sheet["keyframes"]["untiled_points"][0]["reason"],
+        "no-grid-frame"
+    );
+    // The one finding is the unpainted state's, and no change point adds one.
+    let codes: Vec<&str> = json["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|finding| finding["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["N-QUANTIZATION"]);
+}
+
+#[test]
+fn the_fixture_declares_no_interior_change_point_with_or_without_the_flag() {
+    let (json, _) = fixture_sheet();
+    assert_eq!(
+        json["sheet"]["keyframes"],
+        json!({"tiled": 0, "untiled": 0, "untiled_points": []})
+    );
+    assert!(prose(json).contains("keyframes   0 tiled, 0 untiled"));
+
+    let project = fixture_project();
+    let duration = common::document(&project)["duration"].as_i64().unwrap();
+    let flagged = drawn(&project, &keyframed(0, duration)).to_json();
+    assert_eq!(flagged["sheet"]["keyframes"], json["sheet"]["keyframes"]);
+    assert_eq!(flagged["sheet"]["provenance"].as_array().unwrap().len(), 18);
+}
+
+/// `states_project`'s 18 cards, the first `keyed` of which move once at 100 ms into their
+/// own 200 ms: an interior change point each, sampled at 120 ms in.
+fn keyed_project(dir: &Path, keyed: usize) -> PathBuf {
+    let path = states_project(dir, 18);
+    let mut document = common::document(&path);
+    for (i, card) in document["tracks"][0]["elements"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+        .take(keyed)
+    {
+        let start = i as i64 * 200;
+        card["x"] = json!([{"t": start, "v": 0}, {"t": start + 100, "v": 40, "ease": "linear"}]);
+    }
+    write_project(dir, "keyed.montagent.json", &document.to_string())
+}
+
+#[test]
+fn a_thirteenth_keyframe_tile_on_eighteen_states_is_refused_naming_the_flag() {
+    let dir = tempdir(line!());
+
+    // Twelve fit: 30 tiles, the most the refusal width admits.
+    let twelve = keyed_project(&dir, 12);
+    let json = drawn(&twelve, &keyframed(0, 3600)).to_json();
+    assert_eq!(json["sheet"]["classes"]["keyframe"], 12);
+    assert_eq!(json["sheet"]["picture"]["rung"], "degraded");
+
+    let thirteen = keyed_project(&dir, 13);
+    let answer = frame(&thirteen, &keyframed(0, 3600));
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    let json = answer.to_json();
+    let refusal = &json["findings"][0];
+    assert_eq!(refusal["code"], "E-SHEET-OVERFLOW", "{json}");
+    let fields = &refusal["fields"];
+    assert_eq!(fields["states"], 18);
+    assert_eq!(fields["keyframe_tiles"], 13);
+    assert_eq!(fields["fits"], 30);
+    assert_eq!(fields["fits_without_keyframes"], true);
+    assert_eq!(fields["keyframe_tiles_admitted"], 12);
+    let text = prose(&json);
+    for words in [
+        "18 visual states",
+        "13 keyframe tiles",
+        "Without `--keyframes` the range fits",
+        "12 keyframe tiles",
+    ] {
+        assert!(text.contains(words), "`{words}` missing: {text}");
+    }
+
+    // Keyframe tiles are never dropped to fit: every sub-range, asked with the flag, draws
+    // every keyframe tile counted for it.
+    let ranges = fields["sub_ranges"].as_array().unwrap();
+    assert!(ranges.len() >= 2, "{fields}");
+    let mut keyframe_tiles = 0;
+    for sub_range in ranges {
+        let (from, to) = (
+            sub_range["from"].as_i64().unwrap(),
+            sub_range["to"].as_i64().unwrap(),
+        );
+        let sheet = drawn(&thirteen, &keyframed(from, to)).to_json()["sheet"].clone();
+        keyframe_tiles += sheet["classes"]["keyframe"].as_u64().unwrap();
+        assert_eq!(sheet["keyframes"]["untiled"], 0, "[{from}, {to})");
+    }
+    assert_eq!(keyframe_tiles, 13);
+
+    // Without the flag the range draws, and the census still counts all thirteen.
+    let json = drawn(&thirteen, &range(0, 3600)).to_json();
+    assert_eq!(json["sheet"]["provenance"].as_array().unwrap().len(), 18);
+    assert_eq!(json["sheet"]["keyframes"]["untiled"], 13);
+}
+
+#[test]
+fn an_overflow_without_the_flag_carries_no_keyframe_field() {
+    let dir = tempdir(line!());
+    let path = states_project(&dir, 31);
+    let json = frame(&path, &range(0, 31 * 200)).to_json();
+    let fields = &json["findings"][0]["fields"];
+    assert_eq!(json["findings"][0]["code"], "E-SHEET-OVERFLOW");
+    for key in [
+        "fits_without_keyframes",
+        "keyframe_tiles_admitted",
+        "keyframe_tiles",
+    ] {
+        assert!(
+            fields.get(key).is_none(),
+            "`{key}` without the flag: {fields}"
+        );
+    }
+    assert!(!prose(&json).contains("--keyframes"));
+}
+
+#[test]
+fn a_keyframe_tile_is_marked_by_an_inverted_strip() {
+    let json_and_bytes = {
+        let answer = drawn(
+            &keyframe_coincidence_fixture(),
+            &Ask {
+                png: true,
+                ..keyframed(0, 2000)
+            },
+        );
+        (answer.to_json(), answer.image().unwrap().bytes.clone())
+    };
+    let (json, bytes) = json_and_bytes;
+    let picture = &json["sheet"]["picture"];
+    let number = |key: &str| picture[key].as_i64().unwrap();
+    let (columns, tile_w, tile_h) = (
+        number("columns"),
+        number("served_tile_width"),
+        number("served_tile_height"),
+    );
+    let cell_h = number("height") / number("rows");
+    let drawn = image::load_from_memory(&bytes).unwrap().to_rgba8();
+    // The strip's corner, past the inset and clear of any glyph: the ground it was drawn on.
+    let ground = |index: i64| {
+        let (x, y) = (
+            (index % columns) * tile_w,
+            (index / columns) * cell_h + tile_h,
+        );
+        drawn
+            .get_pixel((x + tile_w - 1) as u32, (y + cell_h - tile_h - 1) as u32)
+            .0
+    };
+    assert_eq!(
+        ground(0),
+        [0x1A, 0x1A, 0x1A, 0xFF],
+        "a run tile is unmarked"
+    );
+    assert_eq!(
+        ground(1),
+        [0x1A, 0x1A, 0x1A, 0xFF],
+        "and stays so with a change point"
+    );
+    assert_eq!(
+        ground(2),
+        [0xE6, 0xE6, 0xE6, 0xFF],
+        "a keyframe tile's strip is inverted"
+    );
+    assert_eq!(ground(3), [0xE6, 0xE6, 0xE6, 0xFF]);
+}
+
+#[test]
+fn keyframes_without_a_range_is_refused() {
+    let reason = refused(&Ask {
+        at: Some(500),
+        keyframes: true,
+        ..Ask::default()
+    });
+    assert!(reason.contains("`--keyframes`"), "{reason}");
+    assert!(reason.contains("`--from`/`--to`"), "{reason}");
 }

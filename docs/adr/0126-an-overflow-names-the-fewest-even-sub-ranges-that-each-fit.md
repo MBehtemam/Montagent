@@ -5,6 +5,9 @@ amends: 0095 (section 3's "names sub-ranges that would fit" is given its algorit
 
 # An overflow names the fewest even sub-ranges that each fit
 
+> **Amended by [ADR-0129](0129-an-untiled-keyframe-point-is-named-in-the-census-and-never-in-skipped.md).** A state carrying keyframe tiles weighs more than one tile, and
+> the cut is made on those weights, each sub-range's own count checked.
+
 [#489](https://github.com/MBehtemam/Montagent/issues/489), a ticket under spec
 [#486](https://github.com/MBehtemam/Montagent/issues/486). ADR-0095 §3 says a range that does not
 fit at the tile-width refusal is refused, *"and the refusal names sub-ranges that would fit"*.

@@ -127,6 +127,7 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at::{self, At};
 use crate::verbs::query::geometry::{self, Rect};
 
+mod keyframes;
 mod label;
 mod sheet;
 mod sizing;
@@ -168,6 +169,9 @@ pub struct Ask {
     /// either is refused here, in the verb, so both surfaces inherit the rule (ADR-0097 §2).
     pub from: Option<i64>,
     pub to: Option<i64>,
+    /// Add a keyframe tile at the first painted frame of each keyframe change point inside
+    /// a visual state (ADR-0106). A range call's alone: without `from`/`to` it is refused.
+    pub keyframes: bool,
 }
 
 /// One `frame` invocation's answer: the picture, its caption, and the report every verb
@@ -736,6 +740,14 @@ fn at_request(ask: &Ask) -> Result<(i64, Option<Region>), String> {
     // after it ends — the answer there is the background and an empty caption, which is a
     // fact about the document rather than a malformed call. `query --at` takes the same
     // view, and the two must agree about what an instant is.
+    if ask.keyframes {
+        // ADR-0106 D14: a keyframe tile is a tile of a sheet, and one frame has none.
+        return Err(
+            "`--keyframes` adds keyframe tiles to a contact sheet, and needs `--from`/`--to`; \
+             to see one keyframe, `frame --at` the instant its sheet lists"
+                .into(),
+        );
+    }
     let Some(instant) = ask.at else {
         return Err(
             "`frame` needs the instant to draw: `--at <t>`, in absolute milliseconds".into(),
