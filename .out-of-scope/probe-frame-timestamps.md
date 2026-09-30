@@ -33,8 +33,7 @@ element with one `ffmpeg` process per frame (`decode::frame_at`). `decode::frame
 measured that at ~13 s against ~0.4 s for one process per run (140 frames at
 1080p, about 30×), and ADR-0127 makes a streamed run exact **without** any
 timestamp reading. If render speed on video sources matters, streaming decode
-in `render` is the change to make, not this reading. That is tracked as its own
-issue.
+in `render` is the change to make, not this reading. That is tracked as #532.
 
 ## When to revisit
 
