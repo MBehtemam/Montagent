@@ -232,7 +232,19 @@ shipped; recorded as fact, not as a thing to reproduce.
 In the lower card:
 
 - the **word** line, centred at (540, 1373) at 88 px — shown as `target  -  bridge`,
-  so `cobweb  -  cobweb` here
+  so `cobweb  -  cobweb` here (`skeleton  -  skeleton` is drawn smaller, at 80 px)
+- **except item 08**, whose word line is split onto two lines instead: the target at
+  49 px, the bridge at 35 px beneath it, the pair still centred on 1373
+  (`reference/subtitles/08-lights.ass`: `\fs49}string of lights\N{\fs35}string of lights`).
+  The dash form `string of lights  -  string of lights` at 88 px does not fit the
+  element's 984 px `width` — `measure` gives 1371 px in the vendored `brand` font — which
+  is presumably why the source pipeline split it; the files record only the result.
+  That result is what shipped, so the project file reproduces it: `word-08-target`
+  (y 1352) on the `caption` track, and `word-08-bridge` (y 1398) on a `caption-overflow`
+  track that exists only to hold it, because children of one track may not overlap in
+  time. The two lines read the same only because this edition's target and bridge are
+  the same string ([below](#the-degenerate-bilingual-case)). This is not a leftover
+  ([#404](https://github.com/MBehtemam/Montagent/issues/404)).
 - before the word is revealed, the **hook question** occupies the same slot, centred
   slightly lower at (540, 1470), two lines broken on an explicit `\N`
 - the **sentence** on a dark navy card (`#1E344C`) spanning (48, 1453)–(1032, 1622),
