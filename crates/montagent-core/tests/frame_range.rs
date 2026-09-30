@@ -816,9 +816,23 @@ fn a_perfect_answer_carries_the_reader_check_first_quoting_tile_ones_label_exact
 #[test]
 fn nothing_a_range_answer_prints_names_a_model() {
     // ADR-0114 §4: the readers #422 measured are dated evidence in the ADRs, never words
-    // in an answer.
+    // in an answer. Montagent's own words only: the answer also echoes file paths, and
+    // where the checkout happens to live is no part of what `frame` says.
     let (json, _) = fixture_sheet();
-    let everything = format!("{json}\n{}", prose(json)).to_lowercase();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("the workspace root")
+        .display()
+        .to_string();
+    let everything = format!("{json}\n{}", prose(json))
+        .replace(&root, "<root>")
+        .replace(&root.replace('\\', "\\\\"), "<root>")
+        .to_lowercase();
+    assert!(
+        everything.contains("<root>"),
+        "the paths were found to strip"
+    );
     for name in [
         "claude", "haiku", "sonnet", "opus", "fable", "gpt", "gemini", "model",
     ] {
