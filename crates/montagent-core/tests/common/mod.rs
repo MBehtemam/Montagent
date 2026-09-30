@@ -106,6 +106,13 @@ pub fn keyframe_cross_boundary_fixture() -> PathBuf {
         .join("../../fixtures/keyframe-cross-boundary/keyframe-cross-boundary.montagent.json")
 }
 
+/// The constructed document for `--infill-ceiling` (#492): at 25 fps, a one-second state
+/// and an eight-second one holding a single change point, at 4010 ms.
+pub fn long_state_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/long-state/long-state.montagent.json")
+}
+
 /// A project file written into the fixture's own directory and removed again, even when
 /// the assertion between the two panics.
 ///

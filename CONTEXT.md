@@ -795,10 +795,12 @@ tiles **of any class** — document-derived, keyframe or infill alike — asked 
 **bound, not a count and not a period**: infill tiles are inserted only where the tiles the
 document already produced sit further apart than the ceiling, so a busy range may gain none and
 an empty one many. Infill is what closes the span; the span itself is measured across every
-tile. Infill is fitted into the slots left at the rung the other tiles fixed and never degrades
-the sheet, so a request may be honoured only coarser than asked — and then the answer states the
-**achieved** ceiling beside the requested one, uniform across the whole sheet, never a ceiling
-that holds in some stretches and not others.
+tile, and the last tile's span runs to the end of the range. Infill is fitted into the slots
+left at the rung the other tiles fixed — the tiles that rung still admits, so a single long state
+has seventeen — and never degrades the sheet, so a request may be honoured only coarser than
+asked — and then the answer states the **achieved** ceiling beside the requested one, uniform
+across the whole sheet, never a ceiling that holds in some stretches and not others
+([ADR-0130](docs/adr/0130-infill-fills-the-rung-not-the-grid-at-the-latest-frame-within-the-ceiling.md)).
 _Avoid_: gap ceiling (**Gap** is a stretch of a track with no element — a different thing),
 max gap, infill count, infill interval / period
 

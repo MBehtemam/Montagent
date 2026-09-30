@@ -714,6 +714,7 @@ where
                 from: None,
                 to: None,
                 keyframes: false,
+                infill_ceiling: None,
             };
             match run_verb(|| montagent_core::verbs::frame::frame(&project, &ask)) {
                 Ok(answer) => {

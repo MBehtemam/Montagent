@@ -53,8 +53,9 @@ const INK: Rgba = Rgba([0xF2, 0xF2, 0xF2, 0xFF]);
 const MARKED_INK: Rgba = Rgba([0x1A, 0x1A, 0x1A, 0xFF]);
 const MARKED_GROUND: Rgba = Rgba([0xE6, 0xE6, 0xE6, 0xFF]);
 
-/// ADR-0128 §5's sigil for a keyframe tile, in the label's second place.
+/// ADR-0128 §5's sigils for a keyframe and an infill tile, in the label's second place.
 const KEYFRAME_SIGIL: &str = "K";
+const INFILL_SIGIL: &str = "I";
 
 /// Both forms of one tile's label, before the sizing picks one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,6 +88,18 @@ impl Label {
     /// (ADR-0106 D7): nothing here can drive the sheet-wide elision.
     pub(super) fn keyframe(index: usize, instant: i64, first: i64) -> Label {
         let core = format!("{index} {KEYFRAME_SIGIL} {instant}ms +{}", instant - first);
+        Label {
+            whole: core.clone(),
+            core,
+        }
+    }
+
+    /// An infill tile's label: `index` counted from 1, sampled at `instant` inside a state
+    /// that opens at `start`. The offset is from that boundary, as a run tile's is: an infill
+    /// tile stands for no change, so the state's opening is the one boundary it has
+    /// (ADR-0130). No identifying field, as for a keyframe tile (ADR-0106 D7).
+    pub(super) fn infill(index: usize, instant: i64, start: i64) -> Label {
+        let core = format!("{index} {INFILL_SIGIL} {instant}ms +{}", instant - start);
         Label {
             whole: core.clone(),
             core,
@@ -314,6 +327,13 @@ mod tests {
         // ADR-0106 D10's worked example, a keyframe at 1013 ms on a 25 fps grid.
         let label = Label::keyframe(12, 1040, 1013);
         assert_eq!(label.whole, "12 K 1040ms +27");
+        assert_eq!(label.core, label.whole);
+    }
+
+    #[test]
+    fn an_infill_label_carries_its_sigil_its_offset_into_the_state_and_no_id() {
+        let label = Label::infill(3, 3000, 1000);
+        assert_eq!(label.whole, "3 I 3000ms +2000");
         assert_eq!(label.core, label.whole);
     }
 }

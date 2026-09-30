@@ -16,6 +16,10 @@ amends: 0094 (section 6's structured disclosure is spelled — the JSON key name
 > `keyframe`, the sheet gains the `keyframes` census, and `E-SHEET-OVERFLOW`'s `states` counts run
 > tiles alone.
 
+> **Amended by [ADR-0130](0130-infill-fills-the-rung-not-the-grid-at-the-latest-frame-within-the-ceiling.md).** `why` and `class` gain `infill`, the sheet gains
+> `infill {requested_ms, achieved_ms}` when the ceiling is passed, and an `infill-evicted` entry in
+> `skipped[]` carries `evicted`, its count.
+
 [#488](https://github.com/MBehtemam/Montagent/issues/488), the tracer bullet under spec
 [#486](https://github.com/MBehtemam/Montagent/issues/486). It builds `frame --from --to`: one
 contact sheet with one tile per visual state, its disclosure, and its refusals. The ADRs from
