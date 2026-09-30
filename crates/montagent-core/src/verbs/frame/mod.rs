@@ -117,6 +117,7 @@ use montagent_render::decode::Decoder;
 
 use crate::finding::{Class, Finding};
 use crate::media::Source;
+use crate::media::established::{self, Use};
 use crate::media::session::Session;
 use crate::media::tools::{self, Missing};
 use crate::model::{self, Colour, Origin};
@@ -1460,16 +1461,14 @@ impl<'a> Painter<'a> {
             self.defer(name, undrawable("it states no `source`"));
             return;
         };
-        let path = match Source::resolve(source, &self.project_dir) {
-            Source::Local(path) => path,
-            // ADR-0056 keeps the remote half to `probe`'s session, which fetches ranges
-            // rather than whole files. Drawing one would be the unsolicited network call
-            // this surface promises not to make.
-            Source::Remote(url) => {
-                self.defer(
-                    name,
-                    Finding::new("E-NOT-PAINTED-REMOTE").field("source", json!(url)),
-                );
+        // ADR-0056 keeps the remote half to `probe`'s session, which fetches ranges rather
+        // than whole files. Drawing one would be the unsolicited network call this surface
+        // promises not to make, and ADR-0131 defers fetching one for `render` as well.
+        let path = match established::local(Source::resolve(source, &self.project_dir), Use::Paint)
+        {
+            Ok(path) => path,
+            Err(finding) => {
+                self.defer(name, *finding);
                 return;
             }
         };

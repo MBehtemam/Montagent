@@ -31,6 +31,7 @@ use serde_json::{Value, json};
 
 use crate::finding::Finding;
 use crate::media::Source;
+use crate::media::established::{self, Use};
 use crate::media::probe::Probe;
 use crate::media::session::Session;
 use crate::media::tools::Missing;
@@ -77,6 +78,14 @@ fn probe_every_source(
         // The four outcomes ADR-0053 and ADR-0056 fix, ADR-0093's fifth, and the facts
         // where there is no defect — one mapping, shared with the `probe` verb.
         crate::media::probe::record(&outcome, source, &resolved, report);
+        // ADR-0131: whatever the probe established, `render` mixes and draws local sources
+        // only. Asked of the same function `render` and `frame` ask, so `validate` cannot
+        // pass a source clean that either verb then declines.
+        for used in Use::of(element["type"].as_str()) {
+            if let Err(finding) = established::local(resolved.clone(), *used) {
+                report.push(*finding);
+            }
+        }
         locate(report, before, document.path(), id);
 
         // Only a source that actually answered can be overrun.

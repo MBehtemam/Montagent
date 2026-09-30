@@ -3,6 +3,11 @@ status: accepted
 amends: 0002 (settles the resolution-base, assetRoot, absolute-path and missing-source questions that ADR left open)
 ---
 
+> **Amended by [ADR-0131](./0131-render-and-frame-use-local-sources-only-and-validate-says-so.md)**,
+> which records that `render` and `frame` use local sources only. Rewriting `source` to URLs
+> is still how a project refers to a remote store, but that project does not render until
+> each source is a local copy again. `validate` probes the URLs and says so.
+
 > **Amended by [ADR-0056](./0056-remote-source-probe-session-scoped-no-persistent-cache.md)**,
 > which discharges the four remote-specific questions this ADR deferred: probe
 > cadence, what a remote probe fetches, cache key, and what a probe *failure*

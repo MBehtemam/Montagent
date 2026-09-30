@@ -166,3 +166,73 @@ pub fn elements(document: &serde_json::Value) -> impl Iterator<Item = &serde_jso
         .iter()
         .flat_map(|track| track["elements"].as_array().expect("elements"))
 }
+
+/// Serve `dir` over plain HTTP on a loopback port, and hand back the base URL.
+///
+/// A remote source that answers is the only way to reach a question about URLs that is not
+/// already a network finding: an unreachable URL is `U-SOURCE-UNPROBEABLE`, so a test built
+/// on one passes whether or not the question it asks was answered (#456). The server lives
+/// for the test process — a detached thread, one request per connection, `Range: bytes=N-`
+/// and `bytes=N-M` honoured because `ffprobe` seeks.
+pub fn serve(dir: &Path) -> String {
+    use std::io::{BufRead, BufReader, Write};
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("a loopback port");
+    let base = format!("http://{}", listener.local_addr().expect("bound"));
+    let dir = dir.to_path_buf();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let mut reader = BufReader::new(stream.try_clone().expect("stream"));
+            let mut request = String::new();
+            if reader.read_line(&mut request).is_err() {
+                continue;
+            }
+            let mut range = None;
+            loop {
+                let mut header = String::new();
+                if reader.read_line(&mut header).unwrap_or(0) == 0 || header.trim().is_empty() {
+                    break;
+                }
+                if let Some(value) = header.to_ascii_lowercase().strip_prefix("range: bytes=") {
+                    range = value.trim().split_once('-').map(|(from, to)| {
+                        (from.parse::<usize>().unwrap_or(0), to.parse::<usize>().ok())
+                    });
+                }
+            }
+            let name = request.split_whitespace().nth(1).unwrap_or("/");
+            let mut stream = stream;
+            let Ok(body) = std::fs::read(dir.join(name.trim_start_matches('/'))) else {
+                let _ = stream.write_all(
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                );
+                continue;
+            };
+            let total = body.len();
+            let (status, from, to) = match range {
+                Some((from, to)) if from < total => (
+                    "206 Partial Content",
+                    from,
+                    to.map_or(total, |to| (to + 1).min(total)),
+                ),
+                _ => ("200 OK", 0, total),
+            };
+            let mut head = format!(
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\n\
+                 Connection: close\r\n",
+                to - from
+            );
+            if status.starts_with("206") {
+                head.push_str(&format!(
+                    "Content-Range: bytes {from}-{}/{total}\r\n",
+                    to - 1
+                ));
+            }
+            head.push_str("\r\n");
+            let _ = stream.write_all(head.as_bytes());
+            if !request.starts_with("HEAD") {
+                let _ = stream.write_all(&body[from..to]);
+            }
+        }
+    });
+    base
+}
