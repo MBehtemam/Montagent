@@ -1522,8 +1522,12 @@ fn frame_block(frame: &Value) -> String {
     out
 }
 
-/// `frame --from --to`'s block (#488): the sheet, then the provenance list that is its
-/// complete record, then what the rule dropped and could not see.
+/// `frame --from --to`'s block (#488): the READER CHECK, the sheet, then the provenance
+/// list that is its complete record, then what the rule dropped and could not see.
+///
+/// **The READER CHECK comes first**, directly under the header, where a reader that stops
+/// early still meets it (ADR-0114 §3). Like a blind spot's sentence it prints on one line,
+/// so the label it quotes is byte for byte the JSON's.
 ///
 /// **Nothing here is summarised or behind a verbosity switch** (ADR-0097 §6): the plain-text
 /// path is the one an agent reaching for pixels takes, so it carries the disclosure's full
@@ -1543,7 +1547,11 @@ fn sheet_block(sheet: &Value) -> String {
     let coverage = &sheet["coverage"];
     let picture = &sheet["picture"];
 
-    let mut out = if picture.is_null() {
+    let mut out = String::new();
+    if let Some(sentence) = sheet["reader_check"]["sentence"].as_str() {
+        out.push_str(&format!("\nREADER CHECK  {sentence}\n"));
+    }
+    out.push_str(&if picture.is_null() {
         format!("\nSHEET  [{from}, {to}) \u{2014} no tile: no frame is painted in [{from}, {to})\n")
     } else {
         format!(
@@ -1556,7 +1564,7 @@ fn sheet_block(sheet: &Value) -> String {
             plural(number(&picture["columns"]) as u64, "column"),
             plural(number(&picture["rows"]) as u64, "row"),
         )
-    };
+    });
     out.push_str(&row(format!(
         "rule        {} v{}: {}",
         named(&sheet["rule"]["name"]),
@@ -1571,6 +1579,18 @@ fn sheet_block(sheet: &Value) -> String {
             number(&picture["rung_px"]),
             number(&sheet["rasterized"]["width"]),
             number(&sheet["rasterized"]["height"]),
+        )));
+        out.push_str(&row(format!(
+            "labels      in the strip beneath each tile, outside the video frame, at {} px \
+             (never under {} px); {}",
+            number(&picture["label_px"]),
+            number(&picture["label_floor_px"]),
+            match picture["ids"].as_str() {
+                Some("elided") =>
+                    "ids elided on every tile: the longest label does not fit at the floor \
+                     with its id",
+                _ => "ids carried",
+            },
         )));
         if let Some(path) = picture["path"].as_str() {
             out.push_str(&row(format!(
@@ -1594,13 +1614,14 @@ fn sheet_block(sheet: &Value) -> String {
     }
     for tile in &provenance {
         out.push_str(&row(format!(
-            "{:>3}  {}  {}  at {} ms  state {}..{}  {}",
+            "{:>3}  {}  {}  at {} ms  state {}..{}  label `{}`  {}",
             number(&tile["index"]),
             named(&tile["class"]),
             named(&tile["why"]),
             number(&tile["instant_ms"]),
             number(&tile["run"]["start"]),
             number(&tile["run"]["end"]),
+            named(&tile["label"]),
             ids(&tile["present"]),
         )));
         for (key, label) in [

@@ -16,7 +16,7 @@ use montagent_core::verbs::frame::{Answer, Ask, frame};
 use serde_json::{Value, json};
 
 mod common;
-use common::{fixture_project, tempdir, unpainted_fixture, write_project};
+use common::{Scratch, fixture_project, tempdir, unpainted_fixture, write_project};
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -279,11 +279,12 @@ fn a_perfect_answer_carries_every_disclosure_in_the_json_and_in_the_text() {
             .map(|id| id.as_str().unwrap())
             .collect();
         let line = format!(
-            "{:>3}  run  boundary  at {} ms  state {}..{}  {}",
+            "{:>3}  run  boundary  at {} ms  state {}..{}  label `{}`  {}",
             tile["index"].as_i64().unwrap(),
             tile["instant_ms"],
             tile["run"]["start"],
             tile["run"]["end"],
+            tile["label"].as_str().unwrap(),
             present.join(", ")
         );
         assert!(text.contains(&line), "missing `{line}`:\n{text}");
@@ -660,7 +661,11 @@ fn a_range_with_no_painted_frame_answers_with_no_picture_and_says_why() {
     assert_eq!(json["sheet"]["provenance"], json!([]));
     assert_eq!(json["sheet"]["skipped"].as_array().unwrap().len(), 1);
     assert_eq!(json["summary"]["review"], 1);
-    assert!(prose(&json).contains("no tile: no frame is painted in [1010, 1030)"));
+    // No tile 1, so nothing for a READER CHECK to quote (ADR-0128 §6).
+    assert_eq!(json["sheet"]["reader_check"], Value::Null);
+    let text = prose(&json);
+    assert!(text.contains("no tile: no frame is painted in [1010, 1030)"));
+    assert!(!text.contains("READER CHECK"), "{text}");
 }
 
 #[test]
@@ -719,4 +724,265 @@ fn a_translucent_background_shows_the_same_tile_whatever_came_before_it() {
     let [r, _, b, _] = sheet.get_pixel(second.0, second.1).0;
     assert_eq!(r, 0, "the red tile shows through the blue one");
     assert!(b > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Labels and the READER CHECK (#490)
+// ---------------------------------------------------------------------------
+
+/// The fixture's 18 labels at the target rung: `docs/research/tile-label/OUTPUT.txt`'s
+/// instants, offsets and topmost-layer picks, which ADR-0098 §8 chose.
+const FIXTURE_LABELS: [&str; 18] = [
+    "1 0ms +0 +intro-title",
+    "2 3040ms +22 +hook-05",
+    "3 5320ms +4 +word-05",
+    "4 10480ms +12 +sentence-05",
+    "5 17480ms +8 +word-06",
+    "6 22640ms +18 +sentence-06",
+    "7 30640ms +37 +word-07",
+    "8 35760ms +7 +sentence-07",
+    "9 42800ms +37 +word-08-bridge",
+    "10 47360ms +17 +sentence-08",
+    "11 53880ms +24 +quiz-question",
+    "12 56120ms +4 +count-5",
+    "13 57120ms +4 +count-4",
+    "14 58120ms +4 +count-3",
+    "15 59120ms +4 +count-2",
+    "16 60120ms +4 +count-1",
+    "17 61120ms +4 +word-quiz",
+    "18 64040ms +24 +hook-loop",
+];
+
+/// The fixed text of the READER CHECK around `label` (ADR-0114 §3).
+fn reader_check(label: &str) -> String {
+    format!(
+        "Each tile's label is the line in the strip beneath it, outside the video frame; \
+         text inside a tile is the video's own. Tile 1's label reads exactly `{label}`. The \
+         provenance list below is the complete record of this range, and this sheet is a \
+         picture of it. If the strip beneath tile 1 does not read exactly that, this sheet \
+         is below what you can see, and `frame --at <instant>` shows any listed instant at \
+         full scale. Reading the labels is necessary for seeing the pictures, not sufficient."
+    )
+}
+
+fn labels(json: &Value) -> Vec<String> {
+    json["sheet"]["provenance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tile| tile["label"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn the_fixtures_labels_name_the_change_at_each_boundary_with_its_id_at_the_target_rung() {
+    let (json, _) = fixture_sheet();
+    assert_eq!(labels(json), FIXTURE_LABELS);
+    let picture = &json["sheet"]["picture"];
+    assert_eq!(picture["ids"], "carried");
+    // 29 characters in 180 px of room: 10 px, over the 8 px floor.
+    assert_eq!(
+        (&picture["label_px"], &picture["label_floor_px"]),
+        (&json!(10), &json!(8))
+    );
+    let text = prose(json);
+    assert!(
+        text.contains("labels      in the strip beneath each tile, outside the video frame, at 10 px (never under 8 px); ids carried"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_perfect_answer_carries_the_reader_check_first_quoting_tile_ones_label_exactly() {
+    let (json, _) = fixture_sheet();
+    let check = &json["sheet"]["reader_check"];
+    assert_eq!(check["tile"], 1);
+    assert_eq!(check["label"], json["sheet"]["provenance"][0]["label"]);
+    assert_eq!(check["label"], "1 0ms +0 +intro-title");
+    assert_eq!(check["sentence"], reader_check("1 0ms +0 +intro-title"));
+
+    // Directly after the header, before the provenance list, on one line.
+    let text = prose(json);
+    let mut lines = text.lines();
+    lines.next().expect("the header");
+    assert_eq!(lines.next(), Some(""));
+    assert_eq!(
+        lines.next(),
+        Some(format!("READER CHECK  {}", reader_check("1 0ms +0 +intro-title")).as_str())
+    );
+    assert!(text.find("READER CHECK") < text.find("PROVENANCE"));
+}
+
+#[test]
+fn nothing_a_range_answer_prints_names_a_model() {
+    // ADR-0114 §4: the readers #422 measured are dated evidence in the ADRs, never words
+    // in an answer. Montagent's own words only: the answer also echoes file paths, and
+    // where the checkout happens to live is no part of what `frame` says.
+    let (json, _) = fixture_sheet();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("the workspace root")
+        .display()
+        .to_string();
+    let everything = format!("{json}\n{}", prose(json))
+        .replace(&root, "<root>")
+        .replace(&root.replace('\\', "\\\\"), "<root>")
+        .to_lowercase();
+    assert!(
+        everything.contains("<root>"),
+        "the paths were found to strip"
+    );
+    for name in [
+        "claude", "haiku", "sonnet", "opus", "fable", "gpt", "gemini", "model",
+    ] {
+        assert!(!everything.contains(name), "`{name}` in the answer");
+    }
+}
+
+#[test]
+fn the_fixture_at_the_refusal_width_elides_its_ids_on_every_tile() {
+    // The fixture with six small rects on a bottom track, each landing inside a long state:
+    // every one splits a state in three, so 18 states become 30, drawn at 141 px — where
+    // the 29-character label no longer fits at 8 px, and every tile gives up its id.
+    let mut document = common::document(&fixture_project());
+    let pads: Vec<Value> = [1000, 12000, 20000, 25000, 38000, 45000]
+        .iter()
+        .enumerate()
+        .map(|(i, start)| {
+            json!({"id": format!("pad-{i}"), "type": "rect", "start": start, "end": start + 200,
+                   "x": 0, "y": 0, "origin": "top-left", "width": 10, "height": 10,
+                   "fill": "#FFFFFF"})
+        })
+        .collect();
+    document["tracks"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name": "pad", "layer": -1000, "elements": pads}));
+    let scratch = Scratch::beside_the_fixture("frame-range-elided", &document.to_string());
+    let duration = document["duration"].as_i64().unwrap();
+    let json = drawn(scratch.path(), &range(0, duration)).to_json();
+
+    let picture = &json["sheet"]["picture"];
+    assert_eq!(
+        (&picture["rung"], &picture["served_tile_width"]),
+        (&json!("degraded"), &json!(141))
+    );
+    assert_eq!(picture["ids"], "elided");
+    let drawn = labels(&json);
+    assert_eq!(drawn.len(), 30);
+    for label in &drawn {
+        assert_eq!(
+            label.split(' ').count(),
+            3,
+            "index, instant and offset only: {label}"
+        );
+    }
+    // The fixture's own tiles keep their cores; only the id went.
+    assert_eq!(drawn[0], "1 0ms +0");
+    assert_eq!(
+        drawn[18], "19 42800ms +37",
+        "the fixture's busiest tile, its id gone"
+    );
+    assert_eq!(json["sheet"]["reader_check"]["label"], "1 0ms +0");
+    assert!(prose(&json).contains("ids elided on every tile"));
+}
+
+/// A 200×200 project at 25 fps whose boundaries exercise the id rule: `bg` spans the whole
+/// document; at 1000 `a`, `b` and `aa` enter on one layer; at 2000 `b` departs alone; at
+/// 3000 `lo` and `hi` enter on two layers while `a` departs.
+fn changes_project(dir: &Path) -> PathBuf {
+    let rect = |id: &str, x: i64, start: i64, end: i64| {
+        json!({"id": id, "type": "rect", "start": start, "end": end, "x": x, "y": 0,
+               "origin": "top-left", "width": 20, "height": 20, "fill": "#FFFFFF"})
+    };
+    write_project(
+        dir,
+        "changes.montagent.json",
+        &json!({
+            "frame": {"width": 200, "height": 200}, "fps": 25, "background": "#000000",
+            "duration": 4000,
+            "tracks": [
+                {"name": "bg", "layer": 0, "elements": [{"id": "bg", "type": "rect",
+                 "start": 0, "end": 4000, "x": 0, "y": 0, "origin": "top-left",
+                 "width": 200, "height": 200, "fill": "#202020"}]},
+                // Three on one layer, and the greatest id is neither first nor last in
+                // array order: the tie-break reads ids, never positions.
+                {"name": "a", "layer": 5, "elements": [rect("a", 0, 1000, 3000)]},
+                {"name": "b", "layer": 5, "elements": [rect("b", 40, 1000, 2000)]},
+                {"name": "aa", "layer": 5, "elements": [rect("aa", 80, 1000, 4000)]},
+                {"name": "lo", "layer": 1, "elements": [rect("lo", 120, 3000, 4000)]},
+                {"name": "hi", "layer": 9, "elements": [rect("hi", 160, 3000, 4000)]},
+            ],
+        })
+        .to_string(),
+    )
+}
+
+#[test]
+fn the_id_is_the_highest_layer_change_signed_by_its_side_and_tie_broken_on_id() {
+    let dir = tempdir(line!());
+    let json = drawn(&changes_project(&dir), &range(0, 4000)).to_json();
+    assert_eq!(
+        labels(&json),
+        [
+            // Only `bg` entered, and it spans the document: nothing is left to name.
+            "1 0ms +0 =",
+            // `a`, `b` and `aa` tie on layer 5: the greatest id wins.
+            "2 1000ms +0 +b",
+            // Nothing entered: the departure is named, and its sign says it is gone.
+            "3 2000ms +0 -b",
+            // `a` departs from layer 5, but what entered is named first, highest layer on top.
+            "4 3000ms +0 +hi",
+        ]
+    );
+}
+
+#[test]
+fn a_range_opening_inside_a_state_names_the_change_that_state_opened_with() {
+    // The id is a function of the document and the boundary, never of the range asked
+    // for (ADR-0098 §8); the offset is from the run the provenance line records.
+    let dir = tempdir(line!());
+    let json = drawn(&changes_project(&dir), &range(1510, 2500)).to_json();
+    assert_eq!(labels(&json), ["1 1520ms +10 +b", "2 2000ms +0 -b"]);
+    assert_eq!(json["sheet"]["provenance"][0]["run"]["start"], 1510);
+}
+
+#[test]
+fn a_label_core_the_type_floor_cannot_hold_is_refused_on_the_type_floor() {
+    // 30 states of a 1920×200 frame: 588 px tiles over 7 px strips. The tile width is
+    // nowhere near its refusal; the label is.
+    let dir = tempdir(line!());
+    let elements: Vec<Value> = (0..30)
+        .map(|i| {
+            json!({"id": format!("c{i}"), "type": "rect", "start": i * 200, "end": (i + 1) * 200,
+                   "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 200,
+                   "fill": "#404040"})
+        })
+        .collect();
+    let path = write_project(
+        &dir,
+        "letterbox.montagent.json",
+        &json!({"frame": {"width": 1920, "height": 200}, "fps": 25, "background": "#000000",
+                "tracks": [{"name": "c", "layer": 0, "elements": elements}]})
+        .to_string(),
+    );
+    let answer = frame(&path, &range(0, 6000));
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    let json = answer.to_json();
+    let refusal = &json["findings"][0];
+    assert_eq!(refusal["code"], "E-SHEET-OVERFLOW");
+    assert_eq!(refusal["fields"]["limit"], "type-floor");
+    assert_eq!(refusal["fields"]["limit_px"], 8);
+    assert_eq!(refusal["fields"]["fits"], 22);
+    let text = prose(&json);
+    assert!(text.contains("type-floor limit of 8 px served"), "{text}");
+    for sub_range in refusal["fields"]["sub_ranges"].as_array().unwrap() {
+        let (from, to) = (
+            sub_range["from"].as_i64().unwrap(),
+            sub_range["to"].as_i64().unwrap(),
+        );
+        let sheet = drawn(&path, &range(from, to)).to_json();
+        assert!(sheet["sheet"]["picture"]["label_px"].as_i64().unwrap() >= 8);
+    }
 }

@@ -5,6 +5,10 @@ amends: 0094 (section 6's unconditional disclosure gains a member that is about 
 
 # The sheet carries a reader check: a handshake on its first label that names no reader
 
+> **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** The READER CHECK prints directly under the header line, before
+> the `SHEET` block, and `reader_check` is `null` on an answer with no picture, where there is no
+> tile 1 to quote.
+
 > **Amended by [ADR-0116](0116-the-reader-check-orients-a-reader-that-can-see-and-its-pass-is-not-evidence-of-reading.md).**
 > #481 measured §5's prediction and **falsified** it: on a sheet whose tile 1 label differed from
 > the quoted string, half the weak readers confirmed the quoted string. The wording and JSON stand

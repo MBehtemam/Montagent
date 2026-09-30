@@ -34,6 +34,12 @@ amends: 0094 (decision 2's "the label prints both the sampled instant and the ru
 
 # The tile label is a floored, fitted line that names the change at its own boundary
 
+> **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** Section 8's candidates are the entrants, and a departure only
+> where nothing entered; a tie goes to the greatest element id. Section 4's fit is one type size
+> per sheet, the label and a space inside the tile and its em inside the strip. Section 2's
+> placeholder is `=`, and after section 5's elision the slot is absent. The sigils are `K` and
+> `I`, and section 6's mark is an inverted strip.
+
 [#400](https://github.com/MBehtemam/Montagent/issues/400), on the map
 [#395](https://github.com/MBehtemam/Montagent/issues/395). Resolved by a jury of three
 independent models (Opus 5, Sonnet 5, Fable 5.1) put to eight sub-questions; ballots verbatim

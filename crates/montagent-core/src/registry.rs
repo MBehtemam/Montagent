@@ -295,11 +295,13 @@ scaffold somewhere else.",
         // Live since #488, with `from`, `to`, `states` (the visual states needing a tile),
         // `fits` (the most tiles the sheet holds), `limit` and `limit_px` (ADR-0125), and
         // `sub_ranges`: the fewest `{from, to}` ranges that each fit, covering the range
-        // exactly, which the text renders as a prose list (ADR-0126).
+        // exactly, which the text renders as a prose list (ADR-0126). `limit` is `tile-width`
+        // or, since #490, `type-floor`: the tiles are wide enough and a label's numeric core
+        // still cannot be drawn at 8 px beneath them (ADR-0098 §5).
         template: "`frame` refused [{from}, {to}): its {states} visual states need a tile each, \
-and the sheet holds {fits} before its {limit} limit of {limit_px} px served stops a tile \
-showing a defect. It never thins, splits or reshapes the sheet (ADR-0095). Ask for these \
-instead, each a sheet that fits: {sub_ranges}.",
+and the sheet holds {fits} before it passes its {limit} limit of {limit_px} px served, \
+below which a tile or its label is not legible. It never thins, splits or reshapes the \
+sheet (ADR-0095). Ask for these instead, each a sheet that fits: {sub_ranges}.",
         status: Live,
         census: None,
         sets: &[],

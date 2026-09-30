@@ -420,3 +420,86 @@ fn the_bare_form_and_the_elements_own_rect_written_out_are_the_same_frame() {
         );
     }
 }
+
+/// `frame --from --to`'s sheet of `[from, to)`, decoded.
+fn sheet_of(project: &Path, from: i64, to: i64) -> image::RgbaImage {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::frame::{Ask, frame};
+    let answer = frame(
+        project,
+        &Ask {
+            from: Some(from),
+            to: Some(to),
+            png: true,
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok, "no sheet");
+    image::load_from_memory(&answer.image().expect("a sheet").bytes)
+        .expect("the bytes decode as a picture")
+        .to_rgba8()
+}
+
+#[test]
+fn a_labelled_sheet_draws_its_labels_beneath_its_tiles_the_same_way_it_did_before() {
+    // The chrome face's first pixels (#490): four labels in the strips beneath four tiles —
+    // one with no change to name, one naming an entry, one a departure, one the highest of
+    // two layers. `tests/frame_range.rs` asserts the strings; this is what they look like,
+    // in the face ADR-0122 embeds, at the size the sizing chose.
+    let dir = tempdir(line!());
+    let rect = |id: &str, x: i64, start: i64, end: i64, fill: &str| {
+        format!(
+            r##"{{"id":"{id}","type":"rect","start":{start},"end":{end},"x":{x},"y":60,
+                "origin":"top-left","width":40,"height":80,"fill":"{fill}"}}"##
+        )
+    };
+    let project = write_project(
+        &dir,
+        "labelled.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                "duration":4000,"tracks":[
+                  {{"name":"bg","layer":0,"elements":[{{"id":"bg","type":"rect","start":0,
+                    "end":4000,"x":0,"y":0,"origin":"top-left","width":200,"height":200,
+                    "fill":"#203040"}}]}},
+                  {{"name":"a","layer":5,"elements":[{}]}},
+                  {{"name":"b","layer":5,"elements":[{}]}},
+                  {{"name":"hi","layer":9,"elements":[{}]}}
+                ]}}"##,
+            rect("card-a", 20, 1000, 4000, "#E0A030"),
+            rect("card-b", 80, 1000, 2000, "#30A0E0"),
+            rect("title-hi", 140, 3000, 4000, "#E03050"),
+        )),
+    );
+    against_golden("sheet-labelled", &sheet_of(&project, 0, 4000));
+}
+
+#[test]
+fn an_elided_sheet_draws_every_label_without_its_id_the_same_way_it_did_before() {
+    // Thirty portrait states serve at 141 px, where labels carrying a 17-character id no longer fit
+    // at the 8 px floor: every strip carries its numeric core alone (ADR-0098 §5).
+    let dir = tempdir(line!());
+    let elements: Vec<String> = (0..30)
+        .map(|i| {
+            format!(
+                r##"{{"id":"a-long-card-id-{i:02}","type":"rect","start":{},"end":{},"x":0,
+                    "y":0,"origin":"top-left","width":1080,"height":1920,
+                    "fill":"#{:02X}{:02X}60"}}"##,
+                i * 200,
+                (i + 1) * 200,
+                40 + i * 6,
+                220 - i * 6
+            )
+        })
+        .collect();
+    let project = write_project(
+        &dir,
+        "elided.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"background":"#000000",
+                "tracks":[{{"name":"cards","layer":0,"elements":[{}]}}]}}"##,
+            elements.join(",")
+        )),
+    );
+    against_golden("sheet-elided", &sheet_of(&project, 0, 6000));
+}
