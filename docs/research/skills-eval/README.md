@@ -17,7 +17,9 @@ comparable to what it makes without Montagent, and better than Montagent without
 | `judging/<phase>/` | Pairs, key, ballots, the court's stills, and `verdict.json`. |
 | `verdict.py` | Re-derives the signals and the tally from the committed files, and exits non-zero if `judging/<phase>/verdict.json` no longer follows. |
 
-The held-out briefs are not here. Only their SHA-256 hashes will be, once they are written
+The held-out briefs are not here. They were written blind by a fresh agent and are kept outside
+the repo and the tracker by the human. Only their SHA-256 hashes are here, in
+`briefs/held-out.sha256`
 ([Held-out eval briefs: written blind and sealed by hash](https://github.com/MBehtemam/Montagent/issues/466)).
 
 ## Running it
