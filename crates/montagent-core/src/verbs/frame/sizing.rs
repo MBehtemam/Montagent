@@ -30,11 +30,20 @@
 //! capped at the frame's own width (ADR-0125). Without the cap, a small project could never
 //! be shown on a sheet at all.
 //!
+//! **The labels are fitted here too** (ADR-0098 §4–5), because whether a label fits is a
+//! fact about the grid: one type size for the whole sheet, the largest at which the longest
+//! label spans its tile less an inset and whose em fits the strip. If that is under the 8 px
+//! type floor with the identifying field, the field is elided on every tile; if it is under
+//! the floor without it, the sheet is refused on `type-floor`. The widths come in as font
+//! units of the chrome face, which is monospaced and ligature-free, so this is arithmetic and
+//! nothing is shaped to find it out (ADR-0122 §3).
+//!
 //! **An overflow names the fewest sub-ranges that each fit**, their tiles shared as evenly as
 //! they go and each cut at a visual state's start, so that together they cover the range
 //! exactly and each, requested alone, draws the tiles counted for it here (ADR-0126).
 
 use crate::exact;
+use crate::fonts::chrome;
 
 /// ADR-0095's target: every range gets tiles at least this wide, served, when they fit.
 const TARGET_PX: i64 = 180;
@@ -54,6 +63,21 @@ const PATCH: i64 = 28;
 
 /// The label strip beneath each tile, as a percentage of the tile's height (ADR-0098 §1).
 const STRIP_PERCENT: i64 = 11;
+
+/// ADR-0098 §4's served type floor: no label is drawn smaller; content gives way first.
+pub(crate) const TYPE_FLOOR_PX: i64 = 8;
+
+/// The room kept clear at each end of a label strip, in pixels.
+pub(crate) const LABEL_INSET: i64 = 2;
+
+/// The two widths the longest label on the sheet has, in font units of the chrome face: with
+/// its identifying field, and without it (the numeric core). Only the tiles in the
+/// sheet-wide elision fit count (ADR-0106 §7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LabelWidths {
+    pub(crate) core: u32,
+    pub(crate) whole: u32,
+}
 
 /// Which of ADR-0095's two widths the sheet cleared.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,20 +124,52 @@ pub(crate) struct Fit {
     /// The sheet the verb draws: `columns × tile_width` by `rows × cell_height`.
     pub(crate) sheet_width: i64,
     pub(crate) sheet_height: i64,
+    /// The one type size every label is drawn at, in served pixels: never under
+    /// [`TYPE_FLOOR_PX`].
+    pub(crate) type_px: i64,
+    /// Whether the labels carry their identifying field.
+    pub(crate) ids: Ids,
 }
 
-/// Which limit refused the sheet. ADR-0126 spells both values; this build raises only
-/// [`Limit::TileWidth`], and #490 adds ADR-0098's type floor as `type-floor`.
+impl Fit {
+    /// The label strip's height: the cell beneath the tile.
+    pub(crate) fn strip(&self) -> i64 {
+        self.cell_height - self.tile_height
+    }
+}
+
+/// Whether a sheet's labels carry their identifying field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Ids {
+    Carried,
+    /// ADR-0098 §5's sheet-wide elision: the longest label did not fit at the floor with it.
+    Elided,
+}
+
+impl Ids {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Ids::Carried => "carried",
+            Ids::Elided => "elided",
+        }
+    }
+}
+
+/// Which limit refused the sheet, as ADR-0126 spells it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Limit {
     /// ADR-0095's 140 px served tile width.
     TileWidth,
+    /// ADR-0098's 8 px served type: the tiles are wide enough, and a label's numeric core
+    /// still cannot be drawn legibly beneath them.
+    TypeFloor,
 }
 
 impl Limit {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Limit::TileWidth => "tile-width",
+            Limit::TypeFloor => "type-floor",
         }
     }
 
@@ -121,6 +177,7 @@ impl Limit {
     pub(crate) fn px(self) -> i64 {
         match self {
             Limit::TileWidth => REFUSAL_PX,
+            Limit::TypeFloor => TYPE_FLOOR_PX,
         }
     }
 }
@@ -138,13 +195,18 @@ pub(crate) struct Overflow {
     pub(crate) sub_ranges: Vec<(i64, i64)>,
 }
 
-/// Size a sheet of the tiles `states` need at `fps`, for a `frame`-sized picture, or refuse
-/// it naming the sub-ranges that would fit.
+/// Size a sheet of the tiles `states` need at `fps`, for a `frame`-sized picture whose
+/// longest label is `labels` wide, or refuse it naming the sub-ranges that would fit.
 ///
 /// `states` are the range's visual states, consecutive and in order, and a state needs a
 /// tile when the grid paints a frame inside it. At least one does; a range with nothing to
 /// tile draws no sheet, and the verb does not ask.
-pub(crate) fn size(frame: (i64, i64), fps: i64, states: &[(i64, i64)]) -> Result<Fit, Overflow> {
+pub(crate) fn size(
+    frame: (i64, i64),
+    fps: i64,
+    states: &[(i64, i64)],
+    labels: LabelWidths,
+) -> Result<Fit, Overflow> {
     let tiled: Vec<bool> = states
         .iter()
         .map(|&(start, end)| exact::holds_a_sampled_frame(start, end, fps) == Some(true))
@@ -153,27 +215,63 @@ pub(crate) fn size(frame: (i64, i64), fps: i64, states: &[(i64, i64)]) -> Result
     let target = Rung::Target.px(frame.0);
     let refusal = Rung::Degraded.px(frame.0);
     let fit = grid(frame, tiles);
-    if fit.tile_width >= target {
-        return Ok(Fit {
-            rung: Rung::Target,
-            ..fit
-        });
-    }
-    if fit.tile_width >= refusal {
-        return Ok(Fit {
-            rung: Rung::Degraded,
-            ..fit
-        });
-    }
-    let admitted = admitted(frame, tiles, refusal);
+    let rung = if fit.tile_width >= target {
+        Some(Rung::Target)
+    } else if fit.tile_width >= refusal {
+        Some(Rung::Degraded)
+    } else {
+        None
+    };
+    // Content gives way before type does (ADR-0098 §4): the identifying field first, on
+    // every tile at once, and the numeric core never.
+    let whole = type_px(&fit, labels.whole);
+    let core = type_px(&fit, labels.core);
+    let limit = match rung {
+        Some(rung) if whole >= TYPE_FLOOR_PX => {
+            return Ok(Fit {
+                rung,
+                type_px: whole,
+                ids: Ids::Carried,
+                ..fit
+            });
+        }
+        Some(rung) if core >= TYPE_FLOOR_PX => {
+            return Ok(Fit {
+                rung,
+                type_px: core,
+                ids: Ids::Elided,
+                ..fit
+            });
+        }
+        Some(_) => Limit::TypeFloor,
+        None => Limit::TileWidth,
+    };
+    // A sub-range's labels are never longer than these: the same instants and offsets,
+    // and an index counted from 1 again. So a share that fits `labels.core` fits.
+    let fits = |n: usize| {
+        let fit = grid(frame, n);
+        fit.tile_width >= refusal && type_px(&fit, labels.core) >= TYPE_FLOOR_PX
+    };
+    let admitted = admitted(frame, tiles, refusal, &fits);
     Err(Overflow {
         tiles,
         admitted,
-        limit: Limit::TileWidth,
-        sub_ranges: shares(frame, tiles, admitted, refusal)
+        limit,
+        sub_ranges: shares(tiles, admitted, &fits)
             .map(|shares| cut(states, &tiled, &shares))
             .unwrap_or_default(),
     })
+}
+
+/// The largest whole type size at which a label `units` wide fits `fit`'s cells: its
+/// advance and one more character's inside the tile's width less [`LABEL_INSET`] at each
+/// end, and its em inside the strip beneath the tile. The extra character keeps a space
+/// before the next tile's label: flush, `… +0` and `11 2000ms …` read as `+011`.
+fn type_px(fit: &Fit, units: u32) -> i64 {
+    let strip = fit.strip();
+    let room = (fit.tile_width - 2 * LABEL_INSET).max(0);
+    let spaced = i64::from(units) + i64::from(chrome::ADVANCE);
+    strip.min(room * i64::from(chrome::UNITS_PER_EM) / spaced)
 }
 
 /// How many tiles each sub-range takes (ADR-0126 §1): the fewest sub-ranges whose shares,
@@ -182,11 +280,10 @@ pub(crate) fn size(frame: (i64, i64), fps: i64, states: &[(i64, i64)]) -> Result
 /// Starting at `⌈tiles / admitted⌉` finds the answer at once whenever a smaller sheet never
 /// serves narrower, which the research model bears out. Checking each share rather than
 /// assuming it keeps "every sub-range fits" true of the construction, not of that model.
-fn shares(frame: (i64, i64), tiles: usize, admitted: usize, refusal: i64) -> Option<Vec<usize>> {
+fn shares(tiles: usize, admitted: usize, fits: &dyn Fn(usize) -> bool) -> Option<Vec<usize>> {
     if admitted == 0 {
         return None;
     }
-    let fits = |n: usize| grid(frame, n).tile_width >= refusal;
     let count = (tiles.div_ceil(admitted)..=tiles)
         .find(|&count| fits(tiles.div_ceil(count)) && fits(tiles / count))?;
     let (share, larger) = (tiles / count, tiles % count);
@@ -226,19 +323,20 @@ fn cut(states: &[(i64, i64)], tiled: &[bool], shares: &[usize]) -> Vec<(i64, i64
         .collect()
 }
 
-/// The most tiles below `tiles` whose near-square grid still serves at `refusal` px.
+/// The most tiles below `tiles` whose near-square grid `fits`: serves at `refusal` px, with
+/// a label core the type floor admits.
 ///
 /// Scanned rather than solved, because the research model does not assume served width
 /// falls monotonically with count. The scan is bounded: a grid serving tiles at `refusal`
 /// px has at most `1568 / refusal` columns, and at most as many rows as cells of that width
 /// stack inside 1568 px.
-fn admitted(frame: (i64, i64), tiles: usize, refusal: i64) -> usize {
+fn admitted(frame: (i64, i64), tiles: usize, refusal: i64, fits: &dyn Fn(usize) -> bool) -> usize {
     let columns = SERVED_EDGE / refusal.max(1);
     let cell = (refusal * cell_height(frame.1) / frame.0.max(1)).max(1);
     let bound = (columns * (SERVED_EDGE / cell)).max(0) as usize;
     (1..tiles.min(bound + 1))
         .rev()
-        .find(|&n| grid(frame, n).tile_width >= refusal)
+        .find(|&n| fits(n))
         .unwrap_or(0)
 }
 
@@ -274,6 +372,8 @@ fn grid(frame: (i64, i64), tiles: usize) -> Fit {
         cell_height,
         sheet_width: columns * tile_width,
         sheet_height: rows * cell_height,
+        type_px: 0,
+        ids: Ids::Elided,
     }
 }
 
@@ -330,6 +430,20 @@ mod tests {
     const LANDSCAPE: (i64, i64) = (1920, 1080);
     const SQUARE: (i64, i64) = (1080, 1080);
 
+    /// A label's width in the chrome face: every character advances [`chrome::ADVANCE`].
+    fn units(label: &str) -> u32 {
+        label.chars().count() as u32 * chrome::ADVANCE
+    }
+
+    /// The main fixture's longest labels (`docs/research/tile-label/OUTPUT.txt`): tile 9's
+    /// with its id, and tile 18's numeric core.
+    fn fixture_labels() -> LabelWidths {
+        LabelWidths {
+            core: units("18 64040ms +24"),
+            whole: units("9 42800ms +37 +word-08-bridge"),
+        }
+    }
+
     /// `tiles` consecutive 200 ms states at 25 fps, every one painted.
     fn states(tiles: usize) -> Vec<(i64, i64)> {
         (0..tiles as i64)
@@ -338,7 +452,7 @@ mod tests {
     }
 
     fn sized(frame: (i64, i64), tiles: usize) -> Result<Fit, Overflow> {
-        size(frame, 25, &states(tiles))
+        size(frame, 25, &states(tiles), fixture_labels())
     }
 
     fn fit(frame: (i64, i64), tiles: usize) -> Fit {
@@ -535,7 +649,7 @@ mod tests {
         ];
         for (length, fps, ranges, shares) in table {
             let states = seconds(length);
-            let refused = size(PORTRAIT, fps, &states).unwrap_err();
+            let refused = size(PORTRAIT, fps, &states, fixture_labels()).unwrap_err();
             assert_eq!(refused.sub_ranges, ranges, "{length} s at {fps} fps");
             assert_eq!(
                 split(&refused, fps, &states),
@@ -544,7 +658,7 @@ mod tests {
             );
         }
         // At 24 fps, 20 seconds is 20 tiles, which fit.
-        assert!(size(PORTRAIT, 24, &seconds(20)).is_ok());
+        assert!(size(PORTRAIT, 24, &seconds(20), fixture_labels()).is_ok());
     }
 
     #[test]
@@ -552,7 +666,7 @@ mod tests {
         // `[1, 40)` holds no frame at 25 fps: it needs no tile, and the range still starts at 1.
         let mut states = vec![(1, 40)];
         states.extend((0..31).map(|i| (40 + i * 200, 40 + (i + 1) * 200)));
-        let refused = size(PORTRAIT, 25, &states).unwrap_err();
+        let refused = size(PORTRAIT, 25, &states, fixture_labels()).unwrap_err();
         assert_eq!(refused.tiles, 31);
         assert_eq!(refused.sub_ranges, vec![(1, 3240), (3240, 6240)]);
     }
@@ -560,7 +674,7 @@ mod tests {
     #[test]
     fn a_frame_too_tall_for_one_tile_names_no_sub_range() {
         // One 100 × 20000 tile serves about 7 px wide, under even its own 100 px width.
-        let refused = size((100, 20000), 25, &states(2)).unwrap_err();
+        let refused = size((100, 20000), 25, &states(2), fixture_labels()).unwrap_err();
         assert_eq!((refused.admitted, refused.sub_ranges.len()), (0, 0));
     }
 
@@ -570,8 +684,111 @@ mod tests {
         let sheet = fit((200, 200), 24);
         assert_eq!((sheet.tile_width, sheet.rung), (200, Rung::Target));
         // A 100 px project is not refused for being small.
-        let small = fit((100, 60), 10);
+        let small = fit((100, 100), 10);
         assert_eq!((small.tile_width, small.rung), (100, Rung::Target));
+        // But a tile too short for an 8 px strip is refused on the type floor, whatever the
+        // count: a 60 px tile's strip is 6 px (ADR-0128 §4).
+        let short = size((100, 60), 25, &states(1), fixture_labels()).unwrap_err();
+        assert_eq!((short.limit, short.admitted), (Limit::TypeFloor, 0));
+        assert!(short.sub_ranges.is_empty());
+    }
+
+    #[test]
+    fn the_fixtures_ids_print_at_the_target_rung_and_elide_at_the_refusal_width() {
+        // ADR-0098 §5 on the main fixture: 29 characters (and a space) fit at 184 px, and
+        // not at 141 px, where every tile keeps its 14-character core instead.
+        let target = fit(PORTRAIT, 18);
+        assert_eq!((target.ids, target.type_px), (Ids::Carried, 10));
+        let degraded = fit(PORTRAIT, 19);
+        assert_eq!(
+            (degraded.rung, degraded.ids, degraded.type_px),
+            (Rung::Degraded, Ids::Carried, 9)
+        );
+        let floor = fit(PORTRAIT, 30);
+        assert_eq!((floor.tile_width, floor.ids), (141, Ids::Elided));
+        assert_eq!(
+            floor.type_px, 15,
+            "the core is fitted afresh once the id is gone"
+        );
+    }
+
+    #[test]
+    fn elision_is_decided_by_the_floor_on_the_tiles_width_less_its_insets() {
+        // 29 characters and a space at 600/1000 em each need 144 px at 8 px type: a tile of
+        // 148 px (144 px of room) carries them, and anything narrower elides — sheet-wide.
+        for tiles in 1..=30 {
+            let sheet = fit(PORTRAIT, tiles);
+            assert_eq!(
+                sheet.ids == Ids::Carried,
+                sheet.tile_width >= 148,
+                "{tiles} tiles: {sheet:?}"
+            );
+            assert!(sheet.type_px >= TYPE_FLOOR_PX, "{tiles} tiles: {sheet:?}");
+            assert!(
+                sheet.type_px <= sheet.strip(),
+                "the em fits the strip: {sheet:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn one_type_size_serves_the_sheet_and_the_strip_caps_it() {
+        // (labels, frame, tiles, type px, ids): width-bound, then strip-bound.
+        let short = LabelWidths {
+            core: units("1 0ms +0"),
+            whole: units("1 0ms +0 +a"),
+        };
+        let table = [
+            (fixture_labels(), PORTRAIT, 18, 10, Ids::Carried),
+            // 11 characters and a space in 180 px of room is 25 px; the 37 px strip does
+            // not bind.
+            (short, PORTRAIT, 18, 25, Ids::Carried),
+            // One landscape tile served 1568 px wide has an 86 px strip; 12 characters
+            // alone would fit at 217.
+            (short, LANDSCAPE, 1, 86, Ids::Carried),
+        ];
+        for (labels, frame, tiles, type_px, ids) in table {
+            let sheet = size(frame, 25, &states(tiles), labels).unwrap();
+            assert_eq!(
+                (sheet.type_px, sheet.ids),
+                (type_px, ids),
+                "{frame:?} × {tiles}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_core_that_cannot_be_drawn_at_the_floor_is_refused_on_the_type_floor() {
+        // A 1920 × 200 frame keeps its tiles wide and its strips thin. At 30 tiles each is
+        // 588 px wide, far past the tile-width refusal, over a 7 px strip: no label fits
+        // there with or without its id, so eliding cannot help and the type floor refuses.
+        const LETTERBOX: (i64, i64) = (1920, 200);
+        assert_eq!(
+            fit(LETTERBOX, 20).type_px,
+            8,
+            "20 tiles still draw at the floor"
+        );
+        let refused = size(LETTERBOX, 25, &states(30), fixture_labels()).unwrap_err();
+        assert_eq!((refused.limit, refused.admitted), (Limit::TypeFloor, 22));
+        assert_eq!(
+            (refused.limit.as_str(), refused.limit.px()),
+            ("type-floor", 8)
+        );
+        let shares = split(&refused, 25, &states(30));
+        assert_eq!(shares, [15, 15]);
+        for share in shares {
+            let sheet = size(LETTERBOX, 25, &states(share), fixture_labels())
+                .unwrap_or_else(|e| panic!("a sub-range of {share} fits: {e:?}"));
+            assert!(sheet.type_px >= TYPE_FLOOR_PX);
+        }
+    }
+
+    #[test]
+    fn a_label_with_no_room_at_all_is_refused_on_the_type_floor_not_divided_by() {
+        // A 10 px project's tile leaves 6 px of room and a 1 px strip.
+        let refused = size((10, 10), 25, &states(1), fixture_labels()).unwrap_err();
+        assert_eq!((refused.limit, refused.admitted), (Limit::TypeFloor, 0));
+        assert!(refused.sub_ranges.is_empty());
     }
 
     #[test]

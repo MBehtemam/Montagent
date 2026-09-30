@@ -12,14 +12,19 @@
 //! down onto the sheet (ADR-0095 §5). How big the sheet is, and whether it is drawn at all,
 //! is [`sizing`]'s alone.
 //!
+//! **Every tile is labelled in the strip beneath it**, never on its pixels (ADR-0098 §1):
+//! [`label`] says what the label reads and draws it, and [`sizing`] decides how big, and
+//! whether the identifying field survives, before anything is painted. The exact string
+//! drawn is each provenance line's `label`, and the READER CHECK quotes tile 1's
+//! (ADR-0114, as ADR-0116 narrows it).
+//!
 //! **The answer discloses, on every call** (ADR-0094 §6, ADR-0097 §6, ADR-0105): the rule,
 //! the served tile width and its rung, one provenance line per tile, what was skipped and
 //! why, the audio-only boundaries the selection dropped, the coverage, and six fixed blind
 //! spots. The plain-text form carries all of it; `--json` changes its form, never its
 //! presence. The key names no ADR spells are ADR-0125's.
 //!
-//! Not yet here: tile labels and the READER CHECK (#490), keyframe tiles (#491), infill
-//! (#492).
+//! Not yet here: keyframe tiles (#491), infill (#492).
 
 use std::collections::BTreeMap;
 use std::path::Path as FilePath;
@@ -32,6 +37,7 @@ use montagent_render::canvas::{Canvas, Encoding, Region, Rgba, Scale};
 use crate::checks::quantization;
 use crate::exact::{self, instant_of};
 use crate::finding::Finding;
+use crate::fonts::chrome;
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -39,7 +45,8 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at;
 use crate::verbs::query::cuts::{self, Interval};
 
-use super::sizing::{self, Fit, Overflow};
+use super::label::{self, Changes, Label};
+use super::sizing::{self, Fit, Ids, LabelWidths, Overflow};
 use super::{Answer, Ask, NotPainted, Painter, Rasterized, TOOL, not_a_frame};
 
 /// The selection rule's name and version. The version moves when the rule does, so an
@@ -50,8 +57,8 @@ const RULE_SENTENCE: &str = "one tile per visual state (query's cut list over th
 audio members dropped and equal neighbours merged), sampled at the first frame the grid \
 paints inside it, the least n with \u{230A}n\u{B7}1000/fps\u{230B} in [start, end)";
 
-/// The colour of the sheet around and beneath its tiles: the label strips, until #490 draws
-/// labels in them, and any cell the grid has no tile for.
+/// The colour of the sheet around and beneath its tiles: the label strips, and any cell the
+/// grid has no tile for.
 const GUTTER: Rgba = Rgba([0x1A, 0x1A, 0x1A, 0xFF]);
 
 /// ADR-0105 §5's six blind spots, with `between-keyframes` as ADR-0106 rewords it. Fixed
@@ -87,6 +94,22 @@ const BLIND_TO: [(&str, &str); 6] = [
     ),
 ];
 
+/// ADR-0114 §3's READER CHECK, around tile 1's exact label. Its four parts — where the
+/// label is, the exact string, which channel is the record, and the next call — and its
+/// closing sentence may be reworded, never dropped. It names no reader (ADR-0114 §4), and a
+/// reader's pass is not evidence that the sheet was read (ADR-0116), so it claims nothing
+/// of the kind.
+fn reader_sentence(label: &str) -> String {
+    format!(
+        "Each tile's label is the line in the strip beneath it, outside the video frame; \
+         text inside a tile is the video's own. Tile 1's label reads exactly `{label}`. The \
+         provenance list below is the complete record of this range, and this sheet is a \
+         picture of it. If the strip beneath tile 1 does not read exactly that, this sheet \
+         is below what you can see, and `frame --at <instant>` shows any listed instant at \
+         full scale. Reading the labels is necessary for seeing the pictures, not sufficient."
+    )
+}
+
 /// A range answer's record: everything the sheet shows, and everything it does not.
 #[derive(Debug, Clone, Serialize)]
 pub struct Sheet {
@@ -95,6 +118,9 @@ pub struct Sheet {
     pub rule: Rule,
     /// The picture, or `null` where no state in the range holds a painted frame.
     pub picture: Option<SheetPicture>,
+    /// The READER CHECK, quoting tile 1's label: `null` only with no picture, where there
+    /// is no tile 1 to quote.
+    pub reader_check: Option<ReaderCheck>,
     /// The size every tile was painted at before it was composited down: the project's
     /// true pixels (ADR-0095 §5).
     pub rasterized: Rasterized,
@@ -122,6 +148,16 @@ pub struct Rule {
     pub sentence: &'static str,
 }
 
+/// ADR-0114 §3's handshake, as the JSON carries it.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReaderCheck {
+    /// Always 1: the tile whose label is quoted.
+    pub tile: usize,
+    /// Byte for byte the string drawn beneath tile 1, and `provenance[0].label`.
+    pub label: String,
+    pub sentence: String,
+}
+
 /// The composited sheet, and what it costs to look at.
 #[derive(Debug, Clone, Serialize)]
 pub struct SheetPicture {
@@ -143,6 +179,13 @@ pub struct SheetPicture {
     /// The width that rung guarantees: 180 or 140, or the frame's own width where that is
     /// narrower (ADR-0125).
     pub rung_px: i64,
+    /// The one type size every label is drawn at, in served pixels.
+    pub label_px: i64,
+    /// ADR-0098 §4's floor, which `label_px` is never under.
+    pub label_floor_px: i64,
+    /// `carried`, or `elided` on every tile: the longest label did not fit at the floor
+    /// with its identifying field (ADR-0098 §5).
+    pub ids: &'static str,
     pub path: Option<String>,
     pub bytes: usize,
 }
@@ -160,6 +203,8 @@ pub struct Tile {
     pub why: &'static str,
     /// The unabbreviated class token: `run`.
     pub class: &'static str,
+    /// The exact string drawn in the strip beneath the tile, after the sheet-wide elision.
+    pub label: String,
     /// The visual presence set as element ids, in full on every line (ADR-0098 §7).
     pub present: Vec<String>,
     pub not_painted: Vec<NotPainted>,
@@ -274,11 +319,44 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         (runs, skipped)
     };
 
+    // Every label, in both forms, before the sheet is sized: whether they fit is the
+    // sizing's to decide, in the chrome face's own units.
+    let changes = Changes::of(&document, to);
+    let labels: Vec<Label> = runs
+        .iter()
+        .enumerate()
+        .map(|(i, (state, instant))| {
+            Label::run(
+                i + 1,
+                *instant,
+                state.start,
+                changes.at(state.start).as_ref(),
+            )
+        })
+        .collect();
+    let metrics = chrome::metrics();
+    let longest = |form: fn(&Label) -> &String| {
+        labels
+            .iter()
+            .map(|label| metrics.advance(form(label)))
+            .max()
+            .unwrap_or(0)
+    };
+    let widths = LabelWidths {
+        core: longest(|label| &label.core),
+        whole: longest(|label| &label.whole),
+    };
+
     // Sized before anything is painted: a range that does not fit is refused whole, and
     // never thinned, split or reshaped (ADR-0095 §4).
     let fit = match runs.len() {
         0 => None,
-        _ => match sizing::size(frame, fps, &states.iter().map(bounds).collect::<Vec<_>>()) {
+        _ => match sizing::size(
+            frame,
+            fps,
+            &states.iter().map(bounds).collect::<Vec<_>>(),
+            widths,
+        ) {
             Ok(fit) => Some(fit),
             Err(overflow) => {
                 return Answer::refused(Report::refused_invocation(
@@ -304,6 +382,7 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
             sentence: RULE_SENTENCE,
         },
         picture: None,
+        reader_check: None,
         rasterized: Rasterized {
             width: frame.0,
             height: frame.1,
@@ -349,7 +428,14 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         };
     };
 
-    let painted = match paint(&document, frame, fit, &runs, &mut report) {
+    let drawn: Vec<String> = labels
+        .into_iter()
+        .map(|label| match fit.ids {
+            Ids::Carried => label.whole,
+            Ids::Elided => label.core,
+        })
+        .collect();
+    let painted = match paint(&document, frame, fit, &runs, &drawn, &mut report) {
         Some(painted) => painted,
         None => return Answer::refused(report),
     };
@@ -393,8 +479,16 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
         served_tile_height: fit.tile_height,
         rung: fit.rung.as_str(),
         rung_px: fit.rung.px(frame.0),
+        label_px: fit.type_px,
+        label_floor_px: sizing::TYPE_FLOOR_PX,
+        ids: fit.ids.as_str(),
         path: written,
         bytes: encoded.bytes.len(),
+    });
+    record.reader_check = tiles.first().map(|tile| ReaderCheck {
+        tile: tile.index,
+        label: tile.label.clone(),
+        sentence: reader_sentence(&tile.label),
     });
     record.provenance = tiles;
     record.sources = sources;
@@ -428,13 +522,14 @@ struct Painted {
     fonts: Vec<String>,
 }
 
-/// Paint each tile at true pixels and composite it into its cell. `None` where the run
-/// stopped, with the report saying why.
+/// Paint each tile at true pixels and composite it into its cell, and draw its label in the
+/// strip beneath it. `None` where the run stopped, with the report saying why.
 fn paint(
     document: &Loose,
     frame: (i64, i64),
     fit: Fit,
     runs: &[(&Interval, i64)],
+    labels: &[String],
     report: &mut Report,
 ) -> Option<Painted> {
     let (Some(mut canvas), Some(mut tile), Some(mut sheet)) = (
@@ -449,6 +544,7 @@ fn paint(
         return None;
     };
     sheet.background(GUTTER);
+    let mut chrome = chrome::fonts();
 
     let mut painter = Painter::new(document, runs[0].1, frame);
     // One finding per `(element, code)` over the whole sheet, as `render` keeps one over a
@@ -506,12 +602,25 @@ fn paint(
                 ..whole
             },
         );
+        // The label is drawn from the very string the provenance line records, so the two
+        // cannot differ.
+        let strip = Region {
+            x: column * fit.tile_width,
+            y: row * fit.cell_height + fit.tile_height,
+            width: fit.tile_width,
+            height: fit.strip(),
+        };
+        if let Err(reason) = label::draw(&mut sheet, &mut chrome, &labels[i], fit.type_px, strip) {
+            report.fail_internally(reason);
+            return None;
+        }
         tiles.push(Tile {
             index: i + 1,
             instant_ms: *instant,
             run: span(state),
             why: "boundary",
             class: "run",
+            label: labels[i].clone(),
             present: ids(state),
             not_painted: painter.not_painted.clone(),
             painted_partially: painter.painted_partially.clone(),

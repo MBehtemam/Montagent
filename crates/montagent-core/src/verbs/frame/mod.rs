@@ -127,6 +127,7 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at::{self, At};
 use crate::verbs::query::geometry::{self, Rect};
 
+mod label;
 mod sheet;
 mod sizing;
 

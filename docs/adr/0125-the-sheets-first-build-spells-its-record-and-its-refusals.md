@@ -8,6 +8,10 @@ amends: 0094 (section 6's structured disclosure is spelled — the JSON key name
 
 # The sheet's first build spells its record and its refusals
 
+> **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** Provenance entries gain `label`, `picture` gains `label_px`,
+> `label_floor_px` and `ids`, and the sheet gains `reader_check`. The strip carries the label, and
+> `E-SHEET-OVERFLOW` raises `type-floor`.
+
 [#488](https://github.com/MBehtemam/Montagent/issues/488), the tracer bullet under spec
 [#486](https://github.com/MBehtemam/Montagent/issues/486). It builds `frame --from --to`: one
 contact sheet with one tile per visual state, its disclosure, and its refusals. The ADRs from

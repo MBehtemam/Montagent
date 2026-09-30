@@ -507,6 +507,12 @@ fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
     let cell_h = number("height") / number("rows");
     let drawn = image::load_from_memory(&bytes).unwrap().to_rgba8();
 
+    // The READER CHECK quotes the string tile 1's strip is drawn from, byte for byte.
+    assert_eq!(
+        json["sheet"]["reader_check"]["label"],
+        json["sheet"]["provenance"][0]["label"]
+    );
+
     for tile in json["sheet"]["provenance"].as_array().unwrap() {
         let instant = tile["instant_ms"].as_i64().unwrap();
         let single = frame(
@@ -544,6 +550,21 @@ fn every_tile_is_frame_at_its_instant_and_query_at_gives_its_stack() {
             image::imageops::crop_imm(&drawn, x as u32, y as u32, tile_w as u32, tile_h as u32)
                 .to_image();
         assert!(on_sheet == expected, "tile {} at {instant} ms", index + 1);
+
+        // Its label is drawn in the strip beneath it, which is not the tile's (ADR-0098 §1).
+        let strip = image::imageops::crop_imm(
+            &drawn,
+            x as u32,
+            (y + tile_h) as u32,
+            tile_w as u32,
+            (cell_h - tile_h) as u32,
+        )
+        .to_image();
+        assert!(
+            strip.pixels().any(|p| p.0 != [0x1A, 0x1A, 0x1A, 0xFF]),
+            "tile {}'s strip has ink",
+            index + 1
+        );
 
         // And `query --at` names the tile's presence set, audio aside.
         let stack: Vec<String> = single.to_json()["query"]["stack"]

@@ -687,7 +687,11 @@ and `-` departed, highest layer, tie-broken on element id, whole-document-span e
 excluded. "Not present in every tile of this sheet" is rejected because it is
 **range-dependent**: the same instant would label differently depending on the range asked for.
 The label is a **pointer, not a census** — one id cannot name both planted defects, and the
-provenance list is the census.
+provenance list is the census. The candidates are the elements that **entered**, and the ones
+that departed only where nothing entered; the greatest element id breaks a layer tie. Every label
+on a sheet is drawn at **one type size**, and a run tile with nothing nameable to report prints
+`=`. The arity is fixed **within a sheet**, not across sheets: after the sheet-wide elision every
+label has four fields, and the answer says so ([ADR-0128](docs/adr/0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md)).
 _Avoid_: caption (that is the single-frame block), tile title, gist, gutter text, the
 discriminating element
 
