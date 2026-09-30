@@ -98,6 +98,32 @@ fn an_unknown_key_on_an_element_is_an_error_naming_the_key() {
 }
 
 #[test]
+fn an_unknown_key_names_no_key_to_rename_it_to() {
+    // ADR-0123. The fork is a typo or a newer format's key, and a list of the keys the
+    // format publishes here serves the typo branch only — on the other it is a menu for the
+    // silent rename the message forbids. So neither the JSON nor the text carries one, even
+    // for `gravty`, where the right spelling is one letter away.
+    let report = report_on_elements(&rect("card-05", r##","gravty":"top""##));
+    let finding = only(&report, "E-SCHEMA-UNKNOWN-KEY");
+    assert!(
+        !finding.fields.contains_key("expected"),
+        "{:?}",
+        finding.fields
+    );
+
+    let prose =
+        montagent_core::text::render(&report.to_json(), montagent_core::text::Options::default())
+            .expect("the report renders");
+    let block = prose
+        .split("\n\n")
+        .find(|b| b.contains("E-SCHEMA-UNKNOWN-KEY"))
+        .expect("the finding prints");
+    assert!(block.contains("Do not delete the key"), "{block}");
+    assert!(!block.contains("publishes"), "{block}");
+    assert!(!block.contains("`width`"), "{block}");
+}
+
+#[test]
 fn the_five_conditions_the_ticket_names_all_report() {
     // #244's own list: an unknown key, an `fps` of `"abc"`, a `layer` of `1.5`, a `group`
     // written as `null`, and a missing required `width`. Every one of them validated clean
@@ -421,15 +447,19 @@ fn the_unknown_key_finding_reads_as_adr_0016_wrote_it() {
         "It may belong to a newer format revision than this binary implements",
         "Check your Montagent version before removing it",
         "Do not delete the key to make the file validate",
-        // The near-miss list, which is what turns a typo back into the key it was copied
-        // from: `gravty` against a published `gravity` that is no longer there.
-        "`x`, `y`, `origin`, `width`, `height`, `fill`",
     ] {
         assert!(
             rendered.contains(sentence),
             "missing {sentence:?}:\n{rendered}"
         );
     }
+    // The near-miss list this message used to end with is gone (ADR-0123). It turned a typo
+    // back into the key it was copied from, and on the other branch of the same fork — a
+    // newer format's key — it was a menu for the rename the sentences above forbid.
+    assert!(
+        !rendered.contains("`x`, `y`, `origin`, `width`, `height`, `fill`"),
+        "{rendered}"
+    );
 }
 
 #[test]

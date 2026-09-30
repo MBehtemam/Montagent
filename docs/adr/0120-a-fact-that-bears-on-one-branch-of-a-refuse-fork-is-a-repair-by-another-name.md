@@ -3,6 +3,12 @@ status: accepted
 amends: 0043 (states what a refuse-class finding may not carry besides a `repair` value — a fact that bears on only one branch of its fork, or names something the author could adopt — and that a census partitioning the siblings without ranking them is not such a fact), 0111 (its §6 left `E-FONT-NO-GLYPH`'s census-shaped field open; the field is dropped, so the registry's one exception to *"every code that carries a census declares a mode"* is gone)
 ---
 
+> **Amended by [ADR-0123](./0123-the-one-branch-rule-holds-on-intent-forks-and-release-is-not-a-bypass.md)**, which narrows the rule
+> below to refusals that are **intent forks**, and exempts a message naming the complete set of
+> legal options (unranked, covering every branch) or the refusal's own consent handle. Four of
+> §5's conflicts stand unchanged under it; `E-SCHEMA-UNKNOWN-KEY` drops its list of published
+> keys. It also corrects §5's claim about the gravity experiment's message.
+
 # A fact that bears on one branch of a refuse fork is a repair by another name
 
 **Ticket:** [#498](https://github.com/MBehtemam/Montagent/issues/498), building
@@ -92,7 +98,7 @@ and left for its own ticket. Read against their message templates:
 | Code | What it carries | Against §2 |
 | --- | --- | --- |
 | `E-FONT-BLOCKLISTED` | *"Known open substitutes, none of them metric-compatible: {substitutes}"* | **Conflicts.** Candidate fonts the author could adopt: the same shape as the list this ADR drops. |
-| `E-RETIRED-KEY` (refuse variant) | *"the format now says this with {replacement}"* | **Conflicts** with the second disjunct. ADR-0016 and ADR-0068 made naming the replacement a message-text property on purpose, and ADR-0043's own gravity experiment was run on such a message. |
+| `E-RETIRED-KEY` (refuse variant) | *"the format now says this with {replacement}"* | **Conflicts** with the second disjunct. ADR-0016 and ADR-0068 made naming the replacement a message-text property on purpose. Whether ADR-0043's gravity experiment showed agents such a message is suggested by its records but not preserved (corrected by ADR-0123). |
 | `E-SCHEMA-UNKNOWN-KEY` | *"Here the format publishes {expected}"* | **Conflicts** with both disjuncts. It names keys to adopt, which bears on the *typo* branch, while the same message raises the *newer format* branch. |
 | `E-SHIFT-STRADDLE` | *"The nearest legal boundaries are {start} and {end}"* | **Conflicts** with the second disjunct. Concrete values, bearing on *move the shift point* and not on *re-cut the element*. |
 | `E-SHIFT-SLACK` | *"Release it explicitly with `release: [[{from}, {to}]]` if that is intended"* | **Conflicts.** It names the adoptable value for the *intended* branch only. It is also `shift`'s consent mechanism, so it may be the case the rule has to exempt rather than the message to change. |

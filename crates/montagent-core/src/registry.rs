@@ -602,10 +602,14 @@ unanswered: the tie check measures rectangles, and a rotated footprint is not on
         // printing a bare key list squashed the photos. "Not one it has retired" is the
         // second half of the ADR's two-case requirement, and it is true here because the
         // check asks `retired::named` before it speaks.
+        //
+        // **It does not list the keys the format publishes here.** It did, and that list
+        // bore on the *typo* branch of the fork only: on the *newer format* branch it is a
+        // menu for the silent rename this message forbids — a repair by another name
+        // (ADR-0120, as narrowed by ADR-0123). ADR-0016's arms met 0/9 deletions without it.
         template: "{subject}: unknown key `{key}` — not a key this Montagent knows, and not one \
 it has retired. It may belong to a newer format revision than this binary implements. Check \
-your Montagent version before removing it. Do not delete the key to make the file validate. \
-Here the format publishes {expected}.",
+your Montagent version before removing it. Do not delete the key to make the file validate.",
         status: Live,
         census: None,
         sets: &[Document],
