@@ -19,7 +19,7 @@
 //! presence. The key names no ADR spells are ADR-0125's.
 //!
 //! Not yet here: tile labels and the READER CHECK (#490), keyframe tiles (#491), infill
-//! (#492), and the sub-ranges an overflow names (#489).
+//! (#492).
 
 use std::collections::BTreeMap;
 use std::path::Path as FilePath;
@@ -278,7 +278,7 @@ pub(super) fn sheet(path: &FilePath, ask: &Ask, from: i64, to: i64) -> Answer {
     // never thinned, split or reshaped (ADR-0095 §4).
     let fit = match runs.len() {
         0 => None,
-        tiles => match sizing::size(frame, tiles) {
+        _ => match sizing::size(frame, fps, &states.iter().map(bounds).collect::<Vec<_>>()) {
             Ok(fit) => Some(fit),
             Err(overflow) => {
                 return Answer::refused(Report::refused_invocation(
@@ -529,8 +529,14 @@ fn paint(
     })
 }
 
-/// ADR-0105 §1's refusal, with the fields its template reads.
+/// ADR-0105 §1's refusal, with the fields its template reads and the sub-ranges an agent
+/// loops over (ADR-0126).
 fn overflowed(from: i64, to: i64, overflow: Overflow) -> Finding {
+    let sub_ranges: Vec<Value> = overflow
+        .sub_ranges
+        .iter()
+        .map(|&(from, to)| json!({"from": from, "to": to}))
+        .collect();
     Finding::new("E-SHEET-OVERFLOW")
         .field("from", json!(from))
         .field("to", json!(to))
@@ -538,6 +544,7 @@ fn overflowed(from: i64, to: i64, overflow: Overflow) -> Finding {
         .field("fits", json!(overflow.admitted))
         .field("limit", json!(overflow.limit.as_str()))
         .field("limit_px", json!(overflow.limit.px()))
+        .field("sub_ranges", json!(sub_ranges))
 }
 
 /// Every boundary inside the range where the cut list changes and the visual states do
@@ -567,6 +574,11 @@ fn dropped(intervals: &[Interval], states: &[Interval]) -> Dropped {
         count: boundaries.len(),
         boundaries,
     }
+}
+
+/// A state's `[start, end)`, as the sizing module reads it.
+fn bounds(state: &Interval) -> (i64, i64) {
+    (state.start, state.end)
 }
 
 fn span(state: &Interval) -> Span {

@@ -3,6 +3,9 @@ status: accepted
 amends: 0094 (section 6's structured disclosure is spelled — the JSON key names, what `coverage` counts, and a range with no painted frame), 0095 (the degraded rung is named `degraded` and drawn at what the near-square grid serves, not at exactly 140 px; both widths are capped at the project's own width; the sheet is drawn at its served size), 0097 (a range on `frame` is read by `render`'s rule, and the refusals are given in a fixed order in which `--crop` outranks `--full`), 0105 (`E-SHEET-OVERFLOW`'s fields are named and `limit`'s first value is `tile-width`; a refused range answer carries the report alone)
 ---
 
+> **Amended by [ADR-0126](0126-an-overflow-names-the-fewest-even-sub-ranges-that-each-fit.md).** `E-SHEET-OVERFLOW` gains `sub_ranges`, and its template closes by
+> naming them instead of asking for a narrower range.
+
 # The sheet's first build spells its record and its refusals
 
 [#488](https://github.com/MBehtemam/Montagent/issues/488), the tracer bullet under spec

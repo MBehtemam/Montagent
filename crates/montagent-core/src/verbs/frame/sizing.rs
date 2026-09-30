@@ -29,6 +29,12 @@
 //! tiles at 100 px, true pixels, and loses nothing to a downscale, so each threshold is
 //! capped at the frame's own width (ADR-0125). Without the cap, a small project could never
 //! be shown on a sheet at all.
+//!
+//! **An overflow names the fewest sub-ranges that each fit**, their tiles shared as evenly as
+//! they go and each cut at a visual state's start, so that together they cover the range
+//! exactly and each, requested alone, draws the tiles counted for it here (ADR-0126).
+
+use crate::exact;
 
 /// ADR-0095's target: every range gets tiles at least this wide, served, when they fit.
 const TARGET_PX: i64 = 180;
@@ -96,7 +102,8 @@ pub(crate) struct Fit {
     pub(crate) sheet_height: i64,
 }
 
-/// Which limit refused the sheet.
+/// Which limit refused the sheet. ADR-0126 spells both values; this build raises only
+/// [`Limit::TileWidth`], and #490 adds ADR-0098's type floor as `type-floor`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Limit {
     /// ADR-0095's 140 px served tile width.
@@ -119,20 +126,30 @@ impl Limit {
 }
 
 /// A range the sheet cannot show legibly (ADR-0095 §3): never thinned, split or reshaped.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Overflow {
-    /// The tiles asked for.
+    /// The tiles asked for: the visual states the grid paints.
     pub(crate) tiles: usize,
     /// The most tiles a sheet of this frame holds without passing [`Overflow::limit`].
     pub(crate) admitted: usize,
     pub(crate) limit: Limit,
+    /// The fewest consecutive, half-open ranges that each draw a sheet, covering the range
+    /// exactly (ADR-0126). Empty only when not even one tile of this frame fits.
+    pub(crate) sub_ranges: Vec<(i64, i64)>,
 }
 
-/// Size a sheet of `tiles` tiles of a `frame`-sized picture, or refuse it.
+/// Size a sheet of the tiles `states` need at `fps`, for a `frame`-sized picture, or refuse
+/// it naming the sub-ranges that would fit.
 ///
-/// `tiles` is at least one; a range with nothing to tile draws no sheet, and the verb does
-/// not ask.
-pub(crate) fn size(frame: (i64, i64), tiles: usize) -> Result<Fit, Overflow> {
+/// `states` are the range's visual states, consecutive and in order, and a state needs a
+/// tile when the grid paints a frame inside it. At least one does; a range with nothing to
+/// tile draws no sheet, and the verb does not ask.
+pub(crate) fn size(frame: (i64, i64), fps: i64, states: &[(i64, i64)]) -> Result<Fit, Overflow> {
+    let tiled: Vec<bool> = states
+        .iter()
+        .map(|&(start, end)| exact::holds_a_sampled_frame(start, end, fps) == Some(true))
+        .collect();
+    let tiles = tiled.iter().filter(|&&tiled| tiled).count();
     let target = Rung::Target.px(frame.0);
     let refusal = Rung::Degraded.px(frame.0);
     let fit = grid(frame, tiles);
@@ -148,11 +165,65 @@ pub(crate) fn size(frame: (i64, i64), tiles: usize) -> Result<Fit, Overflow> {
             ..fit
         });
     }
+    let admitted = admitted(frame, tiles, refusal);
     Err(Overflow {
         tiles,
-        admitted: admitted(frame, tiles, refusal),
+        admitted,
         limit: Limit::TileWidth,
+        sub_ranges: shares(frame, tiles, admitted, refusal)
+            .map(|shares| cut(states, &tiled, &shares))
+            .unwrap_or_default(),
     })
+}
+
+/// How many tiles each sub-range takes (ADR-0126 §1): the fewest sub-ranges whose shares,
+/// as even as they go, each fit, the larger shares first. `None` when not even one tile fits.
+///
+/// Starting at `⌈tiles / admitted⌉` finds the answer at once whenever a smaller sheet never
+/// serves narrower, which the research model bears out. Checking each share rather than
+/// assuming it keeps "every sub-range fits" true of the construction, not of that model.
+fn shares(frame: (i64, i64), tiles: usize, admitted: usize, refusal: i64) -> Option<Vec<usize>> {
+    if admitted == 0 {
+        return None;
+    }
+    let fits = |n: usize| grid(frame, n).tile_width >= refusal;
+    let count = (tiles.div_ceil(admitted)..=tiles)
+        .find(|&count| fits(tiles.div_ceil(count)) && fits(tiles / count))?;
+    let (share, larger) = (tiles / count, tiles % count);
+    Some(
+        (0..count)
+            .map(|i| share + usize::from(i < larger))
+            .collect(),
+    )
+}
+
+/// The ranges `shares` cut `states` into (ADR-0126 §2): each after the first opens at the
+/// start of its first tiled state, so an untiled state goes with the range before it, and
+/// the first and last run to the range's own ends.
+fn cut(states: &[(i64, i64)], tiled: &[bool], shares: &[usize]) -> Vec<(i64, i64)> {
+    let mut starts = vec![states[0].0];
+    let mut seen = 0;
+    let mut next = shares.iter().scan(0, |total, share| {
+        *total += share;
+        Some(*total)
+    });
+    let mut boundary = next.next();
+    for (&(start, _), &tiled) in states.iter().zip(tiled) {
+        if !tiled {
+            continue;
+        }
+        if Some(seen) == boundary {
+            starts.push(start);
+            boundary = next.next();
+        }
+        seen += 1;
+    }
+    let end = states[states.len() - 1].1;
+    starts
+        .iter()
+        .zip(starts.iter().skip(1).chain([&end]))
+        .map(|(&from, &to)| (from, to))
+        .collect()
 }
 
 /// The most tiles below `tiles` whose near-square grid still serves at `refusal` px.
@@ -259,8 +330,19 @@ mod tests {
     const LANDSCAPE: (i64, i64) = (1920, 1080);
     const SQUARE: (i64, i64) = (1080, 1080);
 
+    /// `tiles` consecutive 200 ms states at 25 fps, every one painted.
+    fn states(tiles: usize) -> Vec<(i64, i64)> {
+        (0..tiles as i64)
+            .map(|i| (i * 200, (i + 1) * 200))
+            .collect()
+    }
+
+    fn sized(frame: (i64, i64), tiles: usize) -> Result<Fit, Overflow> {
+        size(frame, 25, &states(tiles))
+    }
+
     fn fit(frame: (i64, i64), tiles: usize) -> Fit {
-        size(frame, tiles).unwrap_or_else(|overflow| panic!("{tiles} tiles: {overflow:?}"))
+        sized(frame, tiles).unwrap_or_else(|overflow| panic!("{tiles} tiles: {overflow:?}"))
     }
 
     #[test]
@@ -290,7 +372,7 @@ mod tests {
         for (tiles, rung, width) in table {
             assert_eq!(grid(PORTRAIT, tiles).tile_width, width, "{tiles} tiles");
             assert_eq!(
-                size(PORTRAIT, tiles).ok().map(|fit| fit.rung),
+                sized(PORTRAIT, tiles).ok().map(|fit| fit.rung),
                 rung,
                 "{tiles}"
             );
@@ -324,7 +406,7 @@ mod tests {
     fn every_drawn_sheet_is_within_what_the_tier_serves_unchanged() {
         for frame in [PORTRAIT, LANDSCAPE, SQUARE, (200, 200), (640, 360)] {
             for tiles in 1..=40 {
-                let Ok(sheet) = size(frame, tiles) else {
+                let Ok(sheet) = sized(frame, tiles) else {
                     continue;
                 };
                 assert!(
@@ -339,18 +421,147 @@ mod tests {
 
     #[test]
     fn an_overflow_names_the_tile_width_limit_and_the_most_tiles_admitted() {
-        let refused = size(PORTRAIT, 31).expect_err("31 portrait tiles pass 140 px");
+        let refused = sized(PORTRAIT, 31).expect_err("31 portrait tiles pass 140 px");
         assert_eq!(
-            refused,
-            Overflow {
-                tiles: 31,
-                admitted: 30,
-                limit: Limit::TileWidth,
-            }
+            (refused.tiles, refused.admitted, refused.limit),
+            (31, 30, Limit::TileWidth)
         );
-        assert_eq!(size(PORTRAIT, 200).unwrap_err().admitted, 30);
-        assert_eq!(size(LANDSCAPE, 99).unwrap_err().admitted, 98);
-        assert_eq!(size(SQUARE, 57).unwrap_err().admitted, 56);
+        assert_eq!(sized(PORTRAIT, 200).unwrap_err().admitted, 30);
+        assert_eq!(sized(LANDSCAPE, 99).unwrap_err().admitted, 98);
+        assert_eq!(sized(SQUARE, 57).unwrap_err().admitted, 56);
+    }
+
+    /// The painted states in each of `overflow`'s sub-ranges, asserting on the way that the
+    /// sub-ranges cover `states` exactly and each one cuts at a state's start.
+    #[track_caller]
+    fn split(overflow: &Overflow, fps: i64, states: &[(i64, i64)]) -> Vec<usize> {
+        let ranges = &overflow.sub_ranges;
+        assert_eq!(ranges.first().map(|r| r.0), states.first().map(|s| s.0));
+        assert_eq!(ranges.last().map(|r| r.1), states.last().map(|s| s.1));
+        for pair in ranges.windows(2) {
+            assert_eq!(pair[0].1, pair[1].0, "consecutive: {ranges:?}");
+        }
+        ranges
+            .iter()
+            .map(|&(from, to)| {
+                assert!(
+                    states.iter().any(|s| s.0 == from),
+                    "{from} is not a state's start"
+                );
+                states
+                    .iter()
+                    .filter(|&&(start, end)| start >= from && end <= to)
+                    .filter(|&&(start, end)| {
+                        exact::holds_a_sampled_frame(start, end, fps) == Some(true)
+                    })
+                    .count()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_overflow_splits_into_the_fewest_sub_ranges_with_tiles_shared_evenly() {
+        // (frame, tiles, tiles per sub-range): the fewest sheets, the larger shares first.
+        let table: [((i64, i64), usize, &[usize]); 6] = [
+            (PORTRAIT, 31, &[16, 15]),
+            (PORTRAIT, 60, &[30, 30]),
+            (PORTRAIT, 61, &[21, 20, 20]),
+            (PORTRAIT, 200, &[29, 29, 29, 29, 28, 28, 28]),
+            (LANDSCAPE, 99, &[50, 49]),
+            (SQUARE, 57, &[29, 28]),
+        ];
+        for (frame, tiles, shares) in table {
+            let refused = sized(frame, tiles).unwrap_err();
+            assert_eq!(
+                split(&refused, 25, &states(tiles)),
+                shares,
+                "{frame:?} × {tiles}"
+            );
+            for &share in shares {
+                assert!(sized(frame, share).is_ok(), "a sub-range of {share} fits");
+            }
+        }
+        // Even, not greedy: 30 and 1 would draw a degraded sheet and a one-tile sheet.
+        assert_eq!(
+            sized(PORTRAIT, 31).unwrap_err().sub_ranges,
+            vec![(0, 3200), (3200, 6200)]
+        );
+    }
+
+    /// Per second of `seconds`: a long state, a 30 ms state and a 10 ms one. The 10 ms state
+    /// holds no frame at 24, 25 or 30 fps; the 30 ms one, `[960, 990)`, holds one at 25 and
+    /// 30 fps (960, 966.7) and none at 24 (958.3, then 1000).
+    fn seconds(seconds: i64) -> Vec<(i64, i64)> {
+        (0..seconds)
+            .flat_map(|i| {
+                let t = i * 1000;
+                [(t, t + 960), (t + 960, t + 990), (t + 990, t + 1000)]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_sub_ranges_follow_the_states_the_grid_paints_at_each_fps() {
+        // (seconds, fps, sub-ranges, tiles in each)
+        type Row = (i64, i64, &'static [(i64, i64)], &'static [usize]);
+        let table: [Row; 6] = [
+            (
+                45,
+                25,
+                &[(0, 15000), (15000, 30000), (30000, 45000)],
+                &[30, 30, 30],
+            ),
+            (
+                45,
+                30,
+                &[(0, 15000), (15000, 30000), (30000, 45000)],
+                &[30, 30, 30],
+            ),
+            (45, 24, &[(0, 23000), (23000, 45000)], &[23, 22]),
+            // The second sub-range opens on a short state: it is the 22nd tile's.
+            (
+                31,
+                25,
+                &[(0, 10960), (10960, 21000), (21000, 31000)],
+                &[21, 21, 20],
+            ),
+            (
+                31,
+                30,
+                &[(0, 10960), (10960, 21000), (21000, 31000)],
+                &[21, 21, 20],
+            ),
+            (31, 24, &[(0, 16000), (16000, 31000)], &[16, 15]),
+        ];
+        for (length, fps, ranges, shares) in table {
+            let states = seconds(length);
+            let refused = size(PORTRAIT, fps, &states).unwrap_err();
+            assert_eq!(refused.sub_ranges, ranges, "{length} s at {fps} fps");
+            assert_eq!(
+                split(&refused, fps, &states),
+                shares,
+                "{length} s at {fps} fps"
+            );
+        }
+        // At 24 fps, 20 seconds is 20 tiles, which fit.
+        assert!(size(PORTRAIT, 24, &seconds(20)).is_ok());
+    }
+
+    #[test]
+    fn an_unpainted_first_state_stays_in_the_first_sub_range() {
+        // `[1, 40)` holds no frame at 25 fps: it needs no tile, and the range still starts at 1.
+        let mut states = vec![(1, 40)];
+        states.extend((0..31).map(|i| (40 + i * 200, 40 + (i + 1) * 200)));
+        let refused = size(PORTRAIT, 25, &states).unwrap_err();
+        assert_eq!(refused.tiles, 31);
+        assert_eq!(refused.sub_ranges, vec![(1, 3240), (3240, 6240)]);
+    }
+
+    #[test]
+    fn a_frame_too_tall_for_one_tile_names_no_sub_range() {
+        // One 100 × 20000 tile serves about 7 px wide, under even its own 100 px width.
+        let refused = size((100, 20000), 25, &states(2)).unwrap_err();
+        assert_eq!((refused.admitted, refused.sub_ranges.len()), (0, 0));
     }
 
     #[test]

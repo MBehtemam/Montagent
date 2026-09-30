@@ -726,11 +726,33 @@ fn interpolate(template: &str, finding: &Value, code: &str) -> Result<String, Re
                     "{code}: its template names `{name}`, which the finding does not carry"
                 ))
             })?;
-        out.push_str(&compact(value));
+        // `sub_ranges` alone reads as a prose list of ranges (ADR-0126). Keyed on the name,
+        // not the shape, because other templates interpolate the document's own JSON.
+        let prose = (name == "sub_ranges").then(|| ranges(value)).flatten();
+        out.push_str(&prose.unwrap_or_else(|| compact(value)));
         rest = &rest[close + 1..];
     }
     out.push_str(rest);
     Ok(out)
+}
+
+/// A list of half-open `{from, to}` ranges as prose — `[0, 3200) and [3200, 6200)`, or
+/// `none` (ADR-0126). `None` for anything else.
+fn ranges(value: &Value) -> Option<String> {
+    let ranges = value
+        .as_array()?
+        .iter()
+        .map(|range| {
+            let object = range.as_object().filter(|object| object.len() == 2)?;
+            let (from, to) = (object.get("from")?.as_i64()?, object.get("to")?.as_i64()?);
+            Some(format!("[{from}, {to})"))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(match ranges.split_last() {
+        None => "none".to_string(),
+        Some((only, [])) => only.clone(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+    })
 }
 
 /// A value as it reads in prose: a string bare, everything else as compact JSON.
@@ -2320,4 +2342,25 @@ fn vendor_block(vendor: &Value) -> String {
     );
     field("chain entry", compact(&vendor["chain_entry"]));
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_sub_ranges_reads_as_prose_ranges() {
+        let finding = serde_json::json!({"fields": {
+            "sub_ranges": [{"from": 0, "to": 3200}, {"from": 3200, "to": 6200}],
+            "none": [],
+            "value": [{"from": 0, "to": 5}],
+        }});
+        let read = |template| interpolate(template, &finding, "X").unwrap();
+        assert_eq!(read("{sub_ranges}"), "[0, 3200) and [3200, 6200)");
+        // Another template's document JSON prints as written, whatever its shape.
+        assert_eq!(read("{value}"), r#"[{"from":0,"to":5}]"#);
+        assert_eq!(read("{none}"), "[]");
+        let empty = serde_json::json!({"fields": {"sub_ranges": []}});
+        assert_eq!(interpolate("{sub_ranges}", &empty, "X").unwrap(), "none");
+    }
 }
