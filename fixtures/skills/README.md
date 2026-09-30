@@ -15,6 +15,7 @@ licence attestation.
 | `media/bed.words.json` | Word timings over the bed, in the pack's `voiceover.words.json` shape. |
 | `media/bed.visemes.json` | Azure viseme ids over the bed, in the pack's `character/voice/line-1.json` shape. |
 | `media/clip.mp4` | 30 s, 320×180, 25 fps green screen with a moving subject and a tone. |
+| `type_on.montagent.json`, `type_on.spec.json` | A project with only a font, and a spec that types a name onto it with a cursor: the input to `montagent-motion`'s `type_on.py`. |
 | `rig/rig.json`, `rig/parts/` | A three-level rig (torso → head → mouth and eyes; torso → arm) in the pack's `character/rig.json` shape: parts padded so each pivot is the canvas centre, parents, and a viseme → mouth table. |
 
 Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg.
@@ -30,4 +31,4 @@ Requires Python >= 3.9
 drift-guard: rig/rig.json media/bed.visemes.json
 ```
 
-`--help` has to state the same minimum version.
+`--help` has to state the same minimum version. The guard puts the `montagent` it just built first on `PATH`, so a script that calls `montagent` (to measure text, say) gets that build.

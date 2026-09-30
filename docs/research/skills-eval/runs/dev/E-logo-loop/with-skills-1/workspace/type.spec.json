@@ -1,0 +1,38 @@
+{
+  "track": "name",
+  "layer": 30,
+  "text": "Montagent",
+  "by": "letter",
+  "font": "title",
+  "size": 104,
+  "color": "#101418",
+  "x": 424,
+  "y": 540,
+  "align": "left",
+  "times": [
+    3066,
+    3166,
+    3333,
+    3466,
+    3600,
+    3733,
+    3866,
+    4033,
+    4133
+  ],
+  "end": 5233,
+  "enter": "cut",
+  "exit": {
+    "at": 4900,
+    "ms": 300
+  },
+  "cursor": {
+    "from": 2500,
+    "to": 4833,
+    "blink": 500,
+    "width": 8,
+    "color": "#101418",
+    "height": 100,
+    "gap": 8
+  }
+}

@@ -1,0 +1,1 @@
+{"track": "hook", "layer": 40, "text": "Video your agent can read.", "by": "word", "font": "bold", "size": 120, "color": "#F5F0E6", "x": 960, "y": 540, "align": "center", "times": [0, 500, 1000, 1500, 2000], "end": 4000, "enter": "pop", "pop": {"from": 0.5, "ms": 400, "rise": 40}, "highlights": [{"unit": 5, "start": 2000, "color": "#FF5A36"}], "exit": {"at": 3500, "ms": 300}}
