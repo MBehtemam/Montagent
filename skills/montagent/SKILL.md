@@ -11,7 +11,7 @@ A Montagent video is one JSON project file. You write it with your ordinary file
 
 You need a shell with the `montagent` CLI on `PATH`, Python 3, and ideally the Montagent MCP server. The MCP tools and the CLI share their verbs, so use whichever is to hand. `fmt`, `fonts` and `probe` exist only on the CLI. <!-- workaround: #455 · replaced by: font vendoring, fmt and probe over MCP --> With MCP alone and no shell, a project that has text cannot be rendered: tell the user to install the CLI.
 
-**The binary wins.** These skills describe Montagent's `main` branch. When a finding, a refusal or `--help` disagrees with a skill, do what the binary says. An unknown-key or unknown-code error on something a skill taught means the installed binary is older than the skill: report `montagent --version`, then upgrade or use the marked workaround.
+**The binary wins.** These skills describe Montagent's `main` branch. <!-- guard-ok: main workaround --> When a finding, a refusal or `--help` disagrees with a skill, do what the binary says. An unknown-key or unknown-code error on something a skill taught means the installed binary is older than the skill: report `montagent --version`, then upgrade or use the marked workaround.
 
 ## Learning the format
 

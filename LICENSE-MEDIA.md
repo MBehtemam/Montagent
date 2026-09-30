@@ -142,6 +142,13 @@ records that the font is not covered by either the MIT grant or category 1 above
 are copied unmodified from the v4.1 release's `extras/ttf/`, with the full licence beside
 them as `Inter-LICENSE.txt`.
 
+### `fixtures/skills/fonts/`
+
+The same **Inter 4.1** Bold, copied unmodified from the pack above with its
+`Inter-LICENSE.txt` beside it, under the **SIL Open Font License, Version 1.1**. It is
+the font the skills drift guard (`crates/montagent/tests/skills.rs`) validates skill
+snippets against.
+
 ### `docs/research/prototypes/thai-vertical-metrics/fonts/`
 
 Two Thai text faces, each under the **SIL Open Font License, Version 1.1**, with the full
@@ -190,7 +197,9 @@ its keyer against, and `chroma_key_scan.sh` beside it re-derives every number fr
 ## 3. Everything else
 
 MIT, per [`LICENSE`](LICENSE). That includes every Rust source file, every markdown
-document, the JSON schemas, the scripts, and the two clean picture sets named above.
+document, the JSON schemas, the scripts, and the two clean picture sets named above. It
+also includes the synthetic media in `fixtures/skills/media/` and `fixtures/skills/rig/`,
+which `fixtures/skills/make_fixtures.py` generates from ffmpeg test sources.
 
 Third-party **code** the binary links is a separate matter with a separate document; see
 `THIRD-PARTY.md` when it lands.

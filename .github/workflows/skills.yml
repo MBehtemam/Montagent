@@ -1,0 +1,46 @@
+# The workaround half of the skills drift guard (#450, #513). The other half — names,
+# snippets and scripts — is `crates/montagent/tests/skills.rs`, in the CI suite.
+#
+# A Workaround names the issue that retires it. On a PR touching `skills/`, a marker whose
+# issue has closed fails the PR, and so does workaround wording no marker covers. On a
+# schedule, the same scan keeps one rolling "Skills: stale workarounds" issue up to date
+# instead of failing: an issue closing is not a commit, so `main` stays green.
+name: Skills
+
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "ci/skills_workarounds.py"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: skills workarounds
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every Workaround is marked, and every marked issue is still open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/skills_workarounds.py --check
+
+  report:
+    name: stale workarounds report
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update the rolling "Skills: stale workarounds" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/skills_workarounds.py --report
