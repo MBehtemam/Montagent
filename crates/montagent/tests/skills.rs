@@ -411,9 +411,17 @@ fn python(version: &str, script: &Path, args: &[&str], cwd: &Path) -> Output {
         );
         Command::new("python3")
     };
+    // A script may call `montagent` (a typing script measures its letters): this build's.
+    let path = std::env::join_paths(
+        std::iter::once(binary().parent().unwrap().to_path_buf()).chain(std::env::split_paths(
+            &std::env::var_os("PATH").unwrap_or_default(),
+        )),
+    )
+    .unwrap();
     let out = command
         .arg(script)
         .args(args)
+        .env("PATH", path)
         .current_dir(cwd)
         .output()
         .expect("run a skill script");

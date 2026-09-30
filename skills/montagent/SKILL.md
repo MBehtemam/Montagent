@@ -36,7 +36,7 @@ The video is **delivered** when `verify` passes on the last edit.
 
 ## What Montagent does, and which skill covers it
 
-Montagent layers images, video, text, rectangles, ellipses and audio on tracks. Every element's position, scale, rotation and opacity can be keyframed, with named easings or a cubic bezier (overshoot included). It has static effects (blur, shadow, mask, tint, saturation, brightness, contrast), a chroma key, timed colour on a word inside text, crossfades, a check that a loop is seamless, and per-clip volume and speed.
+Montagent layers images, video, text, rectangles, ellipses and audio on tracks. Every element's position, scale, rotation and opacity can be keyframed, with named easings or a cubic bezier (overshoot included). It has static effects (blur, shadow, mask, tint, saturation, brightness, contrast), a chroma key, timed colour on a word inside text, crossfades, a check on clips that run across a loop's join, and per-clip volume and speed.
 
 | The piece | Load |
 |---|---|
