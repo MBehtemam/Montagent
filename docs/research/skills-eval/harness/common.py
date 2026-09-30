@@ -26,7 +26,7 @@ PACK_IN_REPO = "docs/research/skills-eval/assets"
 
 ARMS = ("reference", "no-skills", "with-skills")
 MONTAGENT_ARMS = ("no-skills", "with-skills")
-PHASES = ("baseline", "verdict")
+PHASES = ("baseline", "dev", "verdict")
 
 # Built outside the repo: a pinned build is a cache, never evidence.
 CACHE = Path(os.environ.get("MONTAGENT_EVAL_CACHE", Path.home() / ".cache" / "montagent-skills-eval"))
