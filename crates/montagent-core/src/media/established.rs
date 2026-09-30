@@ -12,19 +12,77 @@
 //!
 //! > **`validate`'s unchecked set contains every source `render` declines to use.**
 //!
-//! It is a containment and not an equality on purpose. `render` mixes local sources only,
-//! so it declines a remote one that `validate` probed perfectly well — a fact about the
-//! verb, not about the file. What must never happen is the other direction: a source
-//! `render` cannot use that `validate` called a clean pass. `tests/cross_verb.rs` asserts
-//! it as a property over both verbs rather than as a unit test on either, because a unit
-//! test on one path is exactly what let the two drift apart.
+//! *Unchecked* here means *not a clean pass*: an `error` about the same source is a strictly
+//! louder statement of the same thing, and it is the class ADR-0131 gives a remote one.
 //!
-//! The containment is the reason [`Established::about`] is the only way to ask. A consumer
-//! that re-derives usability from [`Report::media`] has forked the data path again.
+//! It is a containment and not an equality: `validate` may say more than `render` declines,
+//! never less. What must never happen is a source `render` cannot use that `validate` called
+//! a clean pass. `tests/cross_verb.rs` asserts it as a property over both verbs rather than
+//! as a unit test on either, because a unit test on one path is exactly what let the two
+//! drift apart.
+//!
+//! There is no exception. ADR-0093 carved one for a remote source — `render` mixes and draws
+//! local sources only, so it declines a URL `validate` probed perfectly well — and that
+//! carve-out was the same *clean pass, then refused* the invariant exists to prevent.
+//! ADR-0131 took it out: [`local`] is the one place a consumer that mixes or draws turns a
+//! [`Source`] into a file it may open, and `validate` asks it the same question `render`
+//! and `frame` do.
+//!
+//! The containment is the reason [`Established::about`] and [`local`] are the only ways to
+//! ask. A consumer that re-derives usability from [`Report::media`], or its own reading of
+//! a `source`, has forked the data path again.
 
 use std::path::{Path, PathBuf};
 
+use serde_json::json;
+
+use crate::finding::Finding;
+use crate::media::Source;
 use crate::report::Report;
+
+/// What a verb does with a sourced element's file: `render` mixes `audio` and `video`, and
+/// the painter draws `image` and `video`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Use {
+    Mix,
+    Paint,
+}
+
+impl Use {
+    /// Every use a verb makes of an element of this `type` — both, for a `video`.
+    pub fn of(kind: Option<&str>) -> &'static [Use] {
+        match kind {
+            Some("audio") => &[Use::Mix],
+            Some("image") => &[Use::Paint],
+            Some("video") => &[Use::Mix, Use::Paint],
+            _ => &[],
+        }
+    }
+
+    /// The code a remote source is declined at, for this use.
+    fn remote(self) -> &'static str {
+        match self {
+            Use::Mix => "E-NOT-MIXED-REMOTE",
+            Use::Paint => "E-NOT-PAINTED-REMOTE",
+        }
+    }
+}
+
+/// The file a consumer that mixes or draws may open for `source`, or the finding that says
+/// why it may not.
+///
+/// ADR-0131: `render` and `frame` use **local** sources only. A URL stays legal and
+/// `validate` still probes it (ADR-0056), and whatever that probe established, nothing here
+/// fetches it — so the answer for a remote source is the refusal, at the code for `used`.
+/// `file:` URLs are local ([`Source::resolve`]), and reach here as paths.
+pub fn local(source: Source, used: Use) -> Result<PathBuf, Box<Finding>> {
+    match source {
+        Source::Local(path) => Ok(path),
+        Source::Remote(url) => Err(Box::new(
+            Finding::new(used.remote()).field("source", json!(url)),
+        )),
+    }
+}
 
 /// Everything the engine established about one file, for a consumer that has to decide
 /// whether it may use it.

@@ -236,8 +236,13 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   assets declared elsewhere and referred to by name, and no top-level field that changes
   how a `source` resolves.
 - **A relative path is always relative to the project file's own directory** (ADR-0053). An absolute
-  path is permitted and resolved as-is. Moving a project to a remote store means rewriting
-  each `source` to a URL, not editing a shared base.
+  path is permitted and resolved as-is. There is no shared base to edit: a project refers to a
+  remote store by writing each `source` as a URL.
+- **A URL `source` is probed but not rendered** (ADR-0131). `validate` probes it, and reports it
+  as an `error` (`E-NOT-MIXED-REMOTE`, `E-NOT-PAINTED-REMOTE`), because `render` and `frame`
+  draw and mix local sources only and refuse it. A remote store is for reference, not
+  rendering: to render, fetch each file and point `source` at the local copy by path. A
+  `file:` URL is a local path and renders. Fetching inside `render` is deferred, not ruled out.
 - **The document records no source duration** (ADR-0011). What the file on disk actually is gets
   established by probing it, which is why `validate` always probes and why the cache-miss
   line is printed unprompted rather than treated as an optimisation detail.

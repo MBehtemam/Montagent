@@ -1659,14 +1659,22 @@ identity value, so it keys nothing.",
         // local copy at a path only the author knows. There is no value to state: ADR-0043's
         // advise arm needs the fix *fully determined by the document*, and the one thing
         // missing here is precisely not in it.
+        //
+        // Refuse is not *"nothing you can do"*, and the refuse boilerplate's *"Do not guess
+        // one"* reads that way on its own — so the template names the remedy and says
+        // which part of it is the author's to choose (ADR-0131).
         repair: Some(Refuse),
         threshold: Internal,
-        adr: "ADR-0093",
+        adr: "ADR-0131",
         template: "`{element}` is not in the mix: `{source}` is remote, and `render` mixes \
-local sources.",
+local sources only. The remedy is a local copy: fetch the file and point `source` at it by \
+path — which path is yours to choose, and is why no repair is stated.",
         status: Live,
         census: None,
-        sets: &[],
+        // ADR-0131: `validate` states it from the disk half, through the same
+        // `media::established::local` `render` asks, so a URL is never a clean pass to one
+        // verb and a refusal from the other.
+        sets: &[Disk],
     },
     CheckSpec {
         code: "E-NOT-MIXED-UNREADABLE",
@@ -1975,12 +1983,15 @@ is nothing to render for it.",
         // Refuse, exactly as its audio sibling: the missing fact is a local path.
         repair: Some(Refuse),
         threshold: Internal,
-        adr: "ADR-0093",
-        template: "`{element}` was not painted: `{source}` is remote, and `render` draws \
-local sources.",
+        adr: "ADR-0131",
+        template: "`{element}` is not painted: `{source}` is remote, and `render` and `frame` \
+draw local sources only. The remedy is a local copy: fetch the file and point `source` at it \
+by path — which path is yours to choose, and is why no repair is stated.",
         status: Live,
         census: None,
-        sets: &[],
+        // `error` from `validate` as from `render` (ADR-0131): the deliverable is guaranteed
+        // wrong, whichever verb says so first.
+        sets: &[Disk],
     },
     CheckSpec {
         code: "E-NOT-PAINTED-UNREADABLE",

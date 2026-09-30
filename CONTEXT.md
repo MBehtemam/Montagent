@@ -389,9 +389,12 @@ The file an element draws on, written on the element itself as a path or a URL.
 There is no table of files declared elsewhere and referred to by name, and no
 top-level field that changes how a `source` resolves — a relative path is
 always relative to the project file's own directory, and an absolute path is
-permitted and resolved as-is. Relocating a project to a remote store means
-rewriting `source` to URLs, not editing a shared base
-([ADR-0053](docs/adr/0053-asset-path-resolution-no-assetroot.md)).
+permitted and resolved as-is. A project refers to a remote store by rewriting
+`source` to URLs, not by editing a shared base
+([ADR-0053](docs/adr/0053-asset-path-resolution-no-assetroot.md)). A URL is for
+reference, not rendering: `validate` probes it, and `render` and `frame` use local
+sources only, so rendering needs a local copy named by path
+([ADR-0131](docs/adr/0131-render-and-frame-use-local-sources-only-and-validate-says-so.md)).
 _Avoid_: asset, resource, media reference, assetRoot
 
 **Timeline range**:

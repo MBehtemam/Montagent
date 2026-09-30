@@ -124,7 +124,7 @@ use montagent_render::encode::{self, Encoder, Spec};
 
 use crate::exact::{self, Decimal, extent, instant_of};
 use crate::finding::{Class, Finding};
-use crate::media::established::Established;
+use crate::media::established::{self, Established, Use};
 use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
 use crate::media::{Source, attest, digest, display_local, probe, tools};
@@ -1216,7 +1216,7 @@ impl Mix {
 
         for (index, element) in document.elements().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
-            if !matches!(kind, Some("audio") | Some("video")) {
+            if !Use::of(kind).contains(&Use::Mix) {
                 continue;
             }
             let name = element
@@ -1338,14 +1338,11 @@ fn chain(
     let Some(source) = element.get("source").and_then(Value::as_str) else {
         return Err(Declined::internal(name, "no `source`"));
     };
-    let path = match Source::resolve(source, project_dir) {
-        Source::Local(path) => path,
-        Source::Remote(url) => {
-            return Err(Declined::Finding(
-                Finding::new("E-NOT-MIXED-REMOTE").field("source", json!(url)),
-            ));
-        }
-    };
+    // ADR-0131: `validate` states `E-NOT-MIXED-REMOTE` from this same function, and `render`
+    // and `preview` both refuse on the check engine's report first — so reaching a remote
+    // source here is the two halves disagreeing, which ADR-0107 made `E-INTERNAL`.
+    let path = established::local(Source::resolve(source, project_dir), Use::Mix)
+        .map_err(|_| Declined::internal(name, "a remote `source` the check engine passed"))?;
     // What `validate` established about the file, on the report this run carries. A
     // video with no audio stream is an ordinary video, not a defect — but it is still not
     // in the mix, and the answer says so.

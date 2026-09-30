@@ -3,6 +3,13 @@ status: accepted
 amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: a world-effect is now an `error` like any other finding, and the two verbs read one structure rather than two — the `validate`/`render` split this ADR designed held for the *document* and not for the disk), 0043 (adds sixteen codes whose repair form is fixed per code, and records that per-reason coding is forced by that rule rather than chosen), 0056 (amends the `UncheckedReason` enumeration with its first non-network member, `Unidentified`), 0021 (reads *"never silently"* at the level of the deliverable: an `error`-class finding withholds the file, so a file at the output path is a render with zero errors)
 ---
 
+> **Amended by [ADR-0131](0131-render-and-frame-use-local-sources-only-and-validate-says-so.md).**
+> Ruling 3's containment has no exception. The remote carve-out is gone: `render` declines a
+> URL `validate` probed perfectly well, and that was the same *clean pass, then refused* the
+> invariant exists to prevent. `validate` now states `E-NOT-MIXED-REMOTE` and
+> `E-NOT-PAINTED-REMOTE` as `error`s in its disk set, through the one function `render` and
+> `frame` ask, and `render` refuses on the check engine's report before the mix.
+
 > **Amended by [ADR-0121](0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md).** A partial render's world-effects
 > are established only inside `[from, to)`, so it may publish its file over a world-effect
 > `error` that would refuse the full render. Ruling 6 protects the deliverable, which a partial

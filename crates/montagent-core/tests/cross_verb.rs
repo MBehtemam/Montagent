@@ -9,10 +9,11 @@
 //! property is stated over the pair, and the ruling says so in as many words: *"written as a
 //! real cross-verb property, not a unit test on one path, or the divergence returns."*
 //!
-//! A **containment**, not an equality, on purpose: `render` mixes local sources only, so it
-//! declines a remote one `validate` probed perfectly well. That is a fact about the verb, not
-//! about the file. The direction that must never hold is the other one — a source `render`
-//! cannot use that `validate` called a clean pass.
+//! A **containment**, not an equality, on purpose: `validate` may say more than `render`
+//! declines, never less. The direction that must never hold is the other one — a source
+//! `render` cannot use that `validate` called a clean pass. ADR-0131 took out the one
+//! exception ADR-0093 carved: a remote source `validate` probed perfectly well is still one
+//! `render` declines, so `validate` says so.
 
 use std::path::Path;
 
@@ -29,6 +30,8 @@ use common::{fixture_dir, has_ffprobe, tempdir, write_project};
 /// The closed set is the point: before ADR-0093 this was a free-text `String` assembled at
 /// whichever arm noticed, so a test could not name the condition it was looking for.
 const DECLINED_FOR_SOURCE: &[&str] = &[
+    "E-NOT-MIXED-REMOTE",
+    "E-NOT-PAINTED-REMOTE",
     "E-NOT-MIXED-UNESTABLISHED",
     "E-NOT-MIXED-UNREADABLE",
     "E-NOT-PAINTED-UNREADABLE",
@@ -149,6 +152,126 @@ fn a_source_render_cannot_read_is_never_a_clean_pass_to_validate() {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o644));
     }
+}
+
+/// Every element `render` declined, with its source, as the verb's own run reports it —
+/// asserted non-empty, so the containment over it cannot pass on an empty set.
+fn assert_render_declines(path: &Path) {
+    let document: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).expect("project")).expect("json");
+    let rendered = render(path, &Ask::default(), &mut |_: Progress| {});
+    assert!(
+        !declined_sources(rendered.report(), &document).is_empty(),
+        "`render` used a source it declines, so the containment proves nothing: {:?}",
+        rendered.report().findings
+    );
+    assert!(
+        rendered.video().is_none(),
+        "a declined source produced a file"
+    );
+}
+
+/// ADR-0131. A remote source `ffprobe` answered for is the case ADR-0093 carved out of the
+/// containment — `validate` probed it cleanly and `render` refused it. The server answers,
+/// so a network finding cannot be what satisfies the property: an unreachable URL is
+/// `U-SOURCE-UNPROBEABLE`, and a test built on one would pass with the carve-out still in.
+#[test]
+fn a_remote_source_that_answers_is_never_a_clean_pass_to_validate() {
+    if !has_ffprobe() {
+        eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
+        return;
+    }
+    let served = tempdir(line!());
+    std::fs::copy(
+        fixture_dir().join("audio/05-cobweb.mp3"),
+        served.join("vo.mp3"),
+    )
+    .expect("copied");
+    std::fs::copy(
+        fixture_dir().join("images/05.png"),
+        served.join("still.png"),
+    )
+    .expect("copied");
+    let base = common::serve(&served);
+
+    // The mix's half, and the painter's: an `audio` element is only mixed and an `image`
+    // is only drawn, so each reaches its own `*-REMOTE` arm in `render` and not the other.
+    let dir = tempdir(line!());
+    let audio = project(&dir, &format!("{base}/vo.mp3"));
+    let checked = validate(&audio);
+    assert!(
+        checked.findings.iter().all(|f| f.class != Class::Unchecked),
+        "the server answered, so no network finding may stand in for the answer: {:?}",
+        checked.findings
+    );
+    assert_render_declines(&audio);
+    assert_containment(&audio);
+
+    let dir = tempdir(line!());
+    let image = write_project(
+        &dir,
+        "cross.montagent.json",
+        &format!(
+            r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                "duration":1000,"output":"out/cross.mp4",
+                "tracks":[{{"name":"only","layer":0,"elements":[
+                  {{"id":"still","type":"image","start":0,"end":1000,
+                    "source":"{base}/still.png","x":0,"y":0,"width":200,"height":200,
+                    "fit":"cover"}}
+                ]}}]}}"##
+        ),
+    );
+    assert_render_declines(&image);
+    assert_containment(&image);
+
+    // A `video` is both mixed and drawn, so `validate` names both refusals — and `render`,
+    // refusing on the check engine's report before any mix is built, names the same two.
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/research/chroma-key/green-screen-trex.mp4"),
+        served.join("clip.mp4"),
+    )
+    .expect("copied");
+    let dir = tempdir(line!());
+    let video = write_project(
+        &dir,
+        "cross.montagent.json",
+        &format!(
+            r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                "duration":1000,"output":"out/cross.mp4",
+                "tracks":[{{"name":"only","layer":0,"elements":[
+                  {{"id":"clip","type":"video","start":0,"end":1000,
+                    "source":"{base}/clip.mp4","source_start":0,"source_end":1000,
+                    "x":0,"y":0,"width":200,"height":200,"fit":"cover"}}
+                ]}}]}}"##
+        ),
+    );
+    assert_render_declines(&video);
+    assert_containment(&video);
+    let remote = |report: &Report| {
+        report
+            .findings
+            .iter()
+            .filter(|f| DECLINED_FOR_SOURCE.contains(&f.code.as_str()))
+            .map(|f| (f.code.clone(), f.class))
+            .collect::<Vec<_>>()
+    };
+    let both = vec![
+        ("E-NOT-MIXED-REMOTE".to_string(), Class::Error),
+        ("E-NOT-PAINTED-REMOTE".to_string(), Class::Error),
+    ];
+    assert_eq!(remote(&validate(&video)), both);
+    let rendered = render(&video, &Ask::default(), &mut |_: Progress| {});
+    assert_eq!(remote(rendered.report()), both);
+    assert!(
+        rendered
+            .report()
+            .findings
+            .iter()
+            .all(|f| f.code != "E-INTERNAL"),
+        "the mix was reached, so the check engine did not refuse first: {:?}",
+        rendered.report().findings
+    );
 }
 
 #[test]

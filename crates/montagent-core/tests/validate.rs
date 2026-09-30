@@ -3,6 +3,7 @@
 //! Every assertion here goes through `montagent_core::validate`, with a path and a
 //! typed argument struct, and reads the report back as values.
 
+use montagent_core::finding::Class;
 use montagent_core::report::ExitCode;
 use montagent_core::text;
 use montagent_core::validate;
@@ -271,4 +272,151 @@ fn a_file_that_is_not_a_project_is_named_as_one_not_dumped_as_a_schema_error() {
 #[track_caller]
 fn tempdir() -> std::path::PathBuf {
     common::tempdir(std::panic::Location::caller().line())
+}
+
+// ---------------------------------------------------------------------------
+// A remote source is probed, and `render` will not use it (#456, ADR-0131)
+// ---------------------------------------------------------------------------
+
+/// One element of each sourced type, all pointing into `base`.
+fn sourced_project(dir: &std::path::Path, base: &str) -> std::path::PathBuf {
+    write_project(
+        dir,
+        "remote.montagent.json",
+        &common::canonical(&format!(
+            r##"{{"frame":{{"width":200,"height":200}},"fps":25,"background":"#000000",
+                "duration":1000,"output":"out/remote.mp4",
+                "tracks":[{{"name":"voice","layer":0,"elements":[
+                  {{"id":"vo","type":"audio","start":0,"end":1000,
+                    "source":"{base}/vo.mp3","source_start":0,"source_end":1000}}
+                ]}},{{"name":"picture","layer":1,"elements":[
+                  {{"id":"still","type":"image","start":0,"end":1000,
+                    "source":"{base}/still.png","x":0,"y":0,"width":200,"height":200,
+                    "fit":"cover"}}
+                ]}}]}}"##
+        )),
+    )
+}
+
+fn served_media() -> std::path::PathBuf {
+    let served = common::tempdir(line!());
+    std::fs::copy(
+        common::fixture_dir().join("audio/05-cobweb.mp3"),
+        served.join("vo.mp3"),
+    )
+    .expect("copied");
+    std::fs::copy(
+        common::fixture_dir().join("images/05.png"),
+        served.join("still.png"),
+    )
+    .expect("copied");
+    served
+}
+
+#[test]
+fn a_remote_source_that_answers_is_an_error_naming_the_element_the_url_and_the_remedy() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let base = common::serve(&served_media());
+    let path = sourced_project(&common::tempdir(line!()), &base);
+
+    let report = validate(&path);
+    let remote: Vec<(&str, &str, Class, &str)> = report
+        .findings
+        .iter()
+        .filter(|f| f.code.ends_with("-REMOTE"))
+        .map(|f| {
+            (
+                f.code.as_str(),
+                f.location.element.as_deref().unwrap_or("?"),
+                f.class,
+                f.fields["source"].as_str().unwrap_or("?"),
+            )
+        })
+        .collect();
+    let (vo, still) = (format!("{base}/vo.mp3"), format!("{base}/still.png"));
+    assert_eq!(
+        remote,
+        vec![
+            ("E-NOT-MIXED-REMOTE", "vo", Class::Error, vo.as_str()),
+            (
+                "E-NOT-PAINTED-REMOTE",
+                "still",
+                Class::Error,
+                still.as_str()
+            ),
+        ],
+        "{:?}",
+        report.findings
+    );
+    assert_eq!(report.exit_code(), ExitCode::Errors);
+
+    let rendered = text::render(&report.to_json(), text::Options::default()).unwrap();
+    assert!(
+        !rendered.contains("0 errors"),
+        "a document `render` refuses is not a clean pass:\n{rendered}"
+    );
+    for element in ["vo", "still"] {
+        assert!(
+            rendered.contains(&format!("`{element}` is not")),
+            "{rendered}"
+        );
+    }
+    assert_eq!(
+        rendered
+            .matches("The remedy is a local copy: fetch the file and point `source` at it")
+            .count(),
+        2,
+        "{rendered}"
+    );
+}
+
+#[test]
+fn a_remote_video_is_neither_mixed_nor_painted() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    // Nothing is served: whatever the probe says, the refusal is about the verb, so it is
+    // stated beside the network finding rather than hidden behind it.
+    let path = write_project(
+        &common::tempdir(line!()),
+        "remote.montagent.json",
+        &common::canonical(
+            r##"{"frame":{"width":200,"height":200},"fps":25,"background":"#000000",
+                "duration":1000,"output":"out/remote.mp4",
+                "tracks":[{"name":"only","layer":0,"elements":[
+                  {"id":"clip","type":"video","start":0,"end":1000,
+                   "source":"http://127.0.0.1:9/clip.mp4","source_start":0,"source_end":1000,
+                   "x":0,"y":0,"width":200,"height":200,"fit":"cover"}
+                ]}]}"##,
+        ),
+    );
+    let report = validate(&path);
+    let codes: Vec<&str> = report
+        .findings
+        .iter()
+        .map(|f| f.code.as_str())
+        .filter(|code| code.ends_with("-REMOTE"))
+        .collect();
+    assert_eq!(codes, ["E-NOT-MIXED-REMOTE", "E-NOT-PAINTED-REMOTE"]);
+}
+
+#[test]
+fn a_file_url_is_local_and_draws_no_remote_finding() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let served = served_media();
+    let path = sourced_project(
+        &common::tempdir(line!()),
+        &format!("file://{}", served.display()),
+    );
+    let report = validate(&path);
+    assert!(
+        report.findings.iter().all(|f| !f.code.ends_with("-REMOTE")),
+        "{:?}",
+        report.findings
+    );
+    assert_eq!(report.exit_code(), ExitCode::Ok, "{:?}", report.findings);
 }
