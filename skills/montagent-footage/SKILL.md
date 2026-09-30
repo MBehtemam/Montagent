@@ -11,6 +11,8 @@ Recipes for pieces built on recorded footage. They slot into `montagent`'s loop 
 
 Before you write an element, `probe` every clip: its size, frame rate, length and whether it has sound. Then plan the piece on the voice. Its word timings are the clock every caption, cue and duck hangs from, so the timings get checked first (see [Captions](#captions-with-the-spoken-word-highlighted)).
 
+To choose a moment from a long clip (the stretch of a screen recording to show in an insert, say), put the clip alone in a scratch project and call `frame --from 0 --to <its length> --infill-ceiling <ms>`, with the ceiling at a twentieth of the length. One call gives a labelled tile every few seconds; `frame --at` any tile you want closer.
+
 ## Recipes
 
 Every recipe gives starting ranges, not answers. Each ends in a **look step**: load `montagent-craft`, then look where the step says before you move on.
@@ -47,8 +49,8 @@ Every recipe gives starting ranges, not answers. Each ends in a **look step**: l
 Check it before anything else goes on top:
 
 1. **Three lossless crops.** `frame --crop <x,y,w,h> --png` at the hair, at a shoulder or sleeve edge, and at the hands, over the ground you will deliver on. A crop comes back at true scale, so a 200–400 px box is enough. <!-- workaround: #543 · replaced by: a fringe and hole count from measure on a keyed element -->
-2. **Read them against one rule each.** The ground showing through hair, a collar or dark clothes: lower `tolerance` by 0.05. A pale or green halo around the hair: raise `tolerance` by 0.03, or `softness` by 0.03.
-3. **Stop** when the hair and collar are solid. A 1–2 px dark or olive line along an edge is where you stop: accept it. Try at most three settings, all on the one keyed element: keyed copies split by region multiply render time and still leave a seam. <!-- workaround: #543 · replaced by: a fringe and hole count from measure on a keyed element -->
+2. **Done already?** Hair, collar and hands solid, with at most a 1–2 px dark, olive or tan line along the edges: the key is done, so move on. That line is the **edge floor**: every setting from 0.12 to 0.3 leaves it, and `spill` has already turned it from green to tan, so a green-pixel count reads zero on it. <!-- workaround: #543 · replaced by: a fringe and hole count from measure on a keyed element -->
+3. **Otherwise, one fix per defect.** The ground showing through hair, a collar or dark clothes: lower `tolerance` by 0.05. A pale or green halo wider than the edge floor: raise `tolerance` by 0.03, or `softness` by 0.03. Crop again and go back to 2. Three settings at most, all on the one keyed element: keyed copies split by region multiply render time and still leave a seam.
 4. **Drift.** `measure` the keyed element. Its opaque share should stay within a point or two across the take. A step means the lighting changed there: cut the element at that frame and key each part on its own.
 
 - **Look:** `frame` the whole picture at two moments where the speaker moves most, and check the outline holds.
