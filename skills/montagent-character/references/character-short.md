@@ -30,7 +30,7 @@ For a 1920×1080, 8 s short, with a rig whose drawing is about 1500 px tall, sta
     "down": {"upper_arm_left": -50, "upper_arm_right": 50, "forearm_left": -10, "forearm_right": 10},
     "wave": {"upper_arm_right": -45, "forearm_right": -30},
     "point": {"upper_arm_right": -15, "forearm_right": 10},
-    "cheer": {"upper_arm_left": 50, "upper_arm_right": -50, "forearm_left": 40, "forearm_right": -40},
+    "cheer": {"upper_arm_left": 46, "upper_arm_right": -46, "forearm_left": 26, "forearm_right": -26},
     "nod": {"head": 4}, "level": {"head": 0}
   },
   "moves": [
