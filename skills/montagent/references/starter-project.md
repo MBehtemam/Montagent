@@ -3,7 +3,7 @@
 Copy this starter, then replace its contents with your own. It validates with no findings, and it shows the keys that pieces keep needing but that sit deep in the schema:
 
 - **`badge`**: an image that pops in on an overshoot bezier (`y` above 1 makes the overshoot), inside a static circular `mask`.
-- **`title`**: two runs, where the second changes colour partway through with `highlight`. The title fades in, then cuts out on a `step`.
+- **`title`**: two runs, where the second changes colour partway through with `highlight`. The title fades in, then cuts out on a `step`. It says `caption: false` because it is a title, not a caption.
 - **`bed`**: music at an explicit `volume`.
 
 Its times follow `montagent://format.md` § Time (half-open ranges), and each one lands on a drawn frame at 30 fps.
@@ -31,7 +31,7 @@ Its times follow `montagent://format.md` § Time (half-open ranges), and each on
       "name": "title",
       "layer": 20,
       "elements": [
-        {"id":"title","type":"text","start":300,"end":4000,"x":960,"y":760,"origin":"center","width":1400,"height":116,"font":"title","size":96,"color":"#F5F0E6","align":"center","runs":[{"text":"Made with "},{"text":"Montagent","highlight":{"start":1200,"end":4000,"color":"#FF5A36"}}],"opacity":[{"t":300,"v":0.0},{"t":600,"v":1.0,"ease":"ease-out"},{"t":3500,"v":0.0,"ease":"step"}]}
+        {"id":"title","type":"text","start":300,"end":4000,"x":960,"y":760,"origin":"center","width":1400,"height":116,"font":"title","size":96,"color":"#F5F0E6","align":"center","runs":[{"text":"Made with "},{"text":"Montagent","highlight":{"start":1200,"end":4000,"color":"#FF5A36"}}],"opacity":[{"t":300,"v":0.0},{"t":600,"v":1.0,"ease":"ease-out"},{"t":3500,"v":0.0,"ease":"step"}],"caption":false}
       ]
     },
     {

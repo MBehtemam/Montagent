@@ -68,7 +68,7 @@ Recolour a word inside its line with a `highlight` on that word's run, starting 
   "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "https://github.com/rsms/inter", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
   "tracks": [
     {"name": "line", "layer": 20, "elements": [
-      {"id": "line", "type": "text", "start": 0, "end": 3000, "x": 960, "y": 540, "origin": "center", "width": 1600, "height": 140, "font": "title", "size": 110, "color": "#F5F0E6", "align": "center", "runs": [{"text": "Video your agent can "}, {"text": "read.", "highlight": {"start": 2000, "end": 3000, "color": "#FF5A36"}}]}
+      {"id": "line", "type": "text", "start": 0, "end": 3000, "x": 960, "y": 540, "origin": "center", "width": 1600, "height": 140, "font": "title", "size": 110, "color": "#F5F0E6", "align": "center", "runs": [{"text": "Video your agent can "}, {"text": "read.", "highlight": {"start": 2000, "end": 3000, "color": "#FF5A36"}}], "caption": false}
     ]}
   ]
 }
