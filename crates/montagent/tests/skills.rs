@@ -234,7 +234,7 @@ fn schema_words(value: &serde_json::Value, words: &mut BTreeSet<String>) {
         serde_json::Value::Object(map) => {
             for (key, child) in map {
                 // Every key: property and `$defs` names, and the schema's own keywords
-                // (`properties`, `description`), which the schema note sends agents to.
+                // (`properties`, `description`), which a skill may name.
                 words.insert(key.clone());
                 if key == "const" || key == "enum" {
                     for s in std::iter::once(child).chain(child.as_array().into_iter().flatten()) {

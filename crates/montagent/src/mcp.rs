@@ -442,8 +442,8 @@ impl Montagent {
                        array, written in the canonical convention. It never overwrites an \
                        existing file, and it never writes a field you did not state. It \
                        returns the new file's findings rather than `ok` — read \
-                       `montagent://schema.json` and `montagent://format.md` before editing \
-                       what it gives you.",
+                       `montagent://format.md` and `montagent://schema/index.json` before \
+                       editing what it gives you.",
         input_schema = advertised::<CreateProjectParams>()
     )]
     async fn create_project(
@@ -1042,17 +1042,11 @@ impl ServerHandler for Montagent {
                 .build(),
         )
         .with_server_info(Implementation::new("montagent", env!("CARGO_PKG_VERSION")))
-        .with_instructions(
-            "Montagent reads, checks and renders a declarative video project. Edit the \
-             project file with your ordinary file tools — there is no CRUD API — and call \
-             these tools for the things a text editor cannot do. Read the resources \
-             `montagent://schema.json` (the format's shape) and `montagent://format.md` \
-             (the rules the schema cannot express) to learn the format, the same way you \
-             would read a `package.json` schema.",
-        )
+        .with_instructions(resources::SERVER_INSTRUCTIONS)
     }
 
-    /// The two resources ADR-0011 publishes.
+    /// The resources ADR-0011 publishes, and ADR-0137's schema index. The schema pieces the
+    /// index names are served by `read_resource` but not listed.
     ///
     /// Resources rather than tools, for a cost reason: *"every MCP tool schema occupies the
     /// agent's context and degrades tool selection on every turn"*, and a resource occupies
@@ -1086,15 +1080,14 @@ impl ServerHandler for Montagent {
         // resources`). This adapter owns the protocol and nothing else — including the fact
         // that the schema is *generated* on each read rather than loaded from the committed
         // copy, which is what keeps the published schema and the enforced one one artifact.
-        let Some(resource) = resources::find(&request.uri) else {
+        let Some(contents) = resources::serve(&request.uri) else {
             return Err(ErrorData::resource_not_found(
                 format!("no resource at {}", request.uri),
                 None,
             ));
         };
         Ok(ReadResourceResult::new(vec![
-            ResourceContents::text(resource.body(), resource.uri)
-                .with_mime_type(resource.mime_type),
+            ResourceContents::text(contents.text, request.uri).with_mime_type(contents.mime_type),
         ])
         .into())
     }

@@ -476,23 +476,31 @@ fn the_published_schema_states_the_positional_rule_too() {
     let schema = montagent_core::schema::generate();
     let defs = schema["$defs"].as_object().expect("the definitions");
 
-    assert!(
-        defs["Keyframe"]["required"]
-            .as_array()
-            .expect("required")
-            .contains(&json!("ease")),
-        "{}",
-        defs["Keyframe"],
-    );
-    assert!(
-        defs["FirstKeyframe"]["properties"]
-            .as_object()
-            .expect("properties")
-            .get("ease")
-            .is_none(),
-        "{}",
-        defs["FirstKeyframe"],
-    );
+    // Every instantiation, whatever value type it is named for (ADR-0137 §6).
+    let mut seen = 0;
+    for (name, def) in defs {
+        if name.starts_with("Keyframe") {
+            seen += 1;
+            assert!(
+                def["required"]
+                    .as_array()
+                    .expect("required")
+                    .contains(&json!("ease")),
+                "{name}: {def}",
+            );
+        } else if name.starts_with("FirstKeyframe") {
+            seen += 1;
+            assert!(
+                def["properties"]
+                    .as_object()
+                    .expect("properties")
+                    .get("ease")
+                    .is_none(),
+                "{name}: {def}",
+            );
+        }
+    }
+    assert_eq!(seen, 8, "four keyframe instantiations, first and non-first");
 }
 
 #[test]

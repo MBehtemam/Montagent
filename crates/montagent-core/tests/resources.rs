@@ -1,4 +1,5 @@
-//! The two published resources: the schema, and the rules it cannot express.
+//! The three listed resources: the schema, the rules it cannot express, and the index of
+//! the schema's pieces (ADR-0137).
 
 use montagent_core::resources;
 
@@ -133,11 +134,15 @@ fn every_adr_the_format_docs_cite_exists_and_is_still_accepted() {
 }
 
 #[test]
-fn both_resources_are_listed_and_every_listed_one_is_readable() {
+fn every_resource_is_listed_and_every_listed_one_is_readable() {
     // A listing that names a URI nothing serves is worse than no listing: an agent spends a
     // round trip discovering the gap.
     let listed = resources::all();
-    assert_eq!(listed.len(), 2, "ADR-0011 publishes two resources");
+    assert_eq!(
+        listed.len(),
+        3,
+        "ADR-0011's two resources, and ADR-0137's index"
+    );
 
     for resource in listed {
         assert!(
@@ -158,7 +163,8 @@ fn the_published_surface_is_the_one_adr_0080_names() {
     // has been told to read `montagent://schema.json` must still find it there a release
     // later. Nothing else in the suite pins these six strings, so before this test a
     // rename was a silent break in a published surface — which is exactly the failure the
-    // ADR exists to prevent.
+    // ADR exists to prevent. ADR-0137 adds the index as a third frozen URI; the pieces it
+    // lists are not listed here, and their URIs are not a promise.
     let listed = resources::all();
     let surface: Vec<(&str, &str, &str)> = listed
         .iter()
@@ -174,9 +180,14 @@ fn the_published_surface_is_the_one_adr_0080_names() {
                 "application/schema+json"
             ),
             ("montagent://format.md", "montagent-format", "text/markdown"),
+            (
+                "montagent://schema/index.json",
+                "montagent-schema-index",
+                "application/json"
+            ),
         ],
-        "the two resource URIs, names and media types are ratified by ADR-0080 and do not \
-         move; the order is shape first, then the rules over it"
+        "the resource URIs, names and media types are ratified by ADR-0080 and ADR-0137 and \
+         do not move; the order is shape, then the rules over it, then the index"
     );
 }
 

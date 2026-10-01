@@ -1,9 +1,10 @@
 # The Montagent project format: the rules the schema cannot express
 
-The JSON Schema — served beside this document as `montagent://schema.json` — is the
-authority on **shape**: which keys exist on which element type, which are required, and
-which values are admitted. It is generated from the same Rust types that parse your file,
-so it cannot fall out of step with what `validate` enforces.
+The JSON Schema — served beside this document as `montagent://schema.json`, and in pieces
+listed by `montagent://schema/index.json` — is the authority on **shape**: which keys exist
+on which element type, which are required, and which values are admitted. It is generated
+from the same Rust types that parse your file, so it cannot fall out of step with what
+`validate` enforces.
 
 This document is the other half. Everything below is a rule a schema has no way to say:
 relationships between fields, between elements, and between the file and the bytes on disk.
