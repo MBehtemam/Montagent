@@ -1138,20 +1138,43 @@ _Avoid_: caveat, disclaimer, limitations
 **Resource**:
 Something the MCP server publishes for an agent to *read* rather than to call —
 the published JSON Schema (`montagent://schema.json`) and the format docs
-(`montagent://format.md`). There are exactly two, and being resources rather than
+(`montagent://format.md`), and any smaller piece of the format published beside
+them. The count is not a rule; what is a rule is that **every resource is
+generated from the same types that parse the project, or embedded verbatim** —
+no fact about the format is written down twice. Being resources rather than
 verbs is the whole point: an MCP tool schema costs the agent context on every
 turn, and a resource costs no tool slot at all, so this is what makes *"how does
 the agent know how to edit `project.json`"* answerable the same way
 `package.json` is. The schema one is **generated on each read**, never a
 committed copy served back, so the published schema and the enforced one stay one
-artifact. Strictly the protocol's word, not the document's: an element's `source`
+artifact, and it stays **whole**: it is the full schema, its descriptions stay
+beside their keys, and pieces are cut from it rather than replacing it.
+Strictly the protocol's word, not the document's: an element's `source`
 is never a resource — that noun is on **Source**'s avoid-list and stays there.
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md); the URIs, names
 and media types are named by
 [ADR-0080](docs/adr/0080-the-scaffold-writes-what-it-was-told-and-the-two-resources-are-named.md)
-and do not move)
+and do not move; the pieces and the generation rule are
+[ADR-0137](docs/adr/0137-the-schema-is-also-served-in-pieces-through-one-index.md))
 _Avoid_: asset, document, endpoint, attachment; and never for an element's
 `source`
+
+**Schema index**:
+The **Resource** an agent reads first to learn the format's shape: every element
+type with its required keys, every effect with its required parameters, and the
+address of every **Schema piece**. It holds no rules — those stay in the pieces —
+and its address is the only one of the pieces' family that does not move.
+([ADR-0137](docs/adr/0137-the-schema-is-also-served-in-pieces-through-one-index.md))
+_Avoid_: card, cheat sheet, summary, table of contents
+
+**Schema piece**:
+One part of the published schema served as its own **Resource**, small enough to
+arrive in one tool result: the project's top-level keys, one element type, one
+effect, or one other definition. Cut from the whole schema, never written
+separately; reached through the **Schema index**, whose listing is the only
+promise about where a piece lives.
+([ADR-0137](docs/adr/0137-the-schema-is-also-served-in-pieces-through-one-index.md))
+_Avoid_: chunk, fragment, slice, sub-schema
 
 **Verb**:
 One operation on the surface — `validate`, `query`, `frame`, `measure`,
