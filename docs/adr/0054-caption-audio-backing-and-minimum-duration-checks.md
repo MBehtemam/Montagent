@@ -1,9 +1,17 @@
 ---
 status: accepted
 amends: 0034 (settles the audio-backing and minimum-duration deferrals)
+amended-by: 0136 (the scope section's open question is answered: a `text` element carrying
+  `caption: false` is out of all four caption checks)
 ---
 
 # `validate` gains two more caption checks: no audio backing, and a minimum display duration
+
+> **Amended by [ADR-0136](0136-a-text-element-opts-out-of-the-caption-checks-with-caption-false.md).**
+> The scope section below hands the caption-vs-decorative line to #135, which never drew it.
+> ADR-0136 draws it: the four caption checks skip any `text` element carrying
+> `caption: false`. Omitted, it means `true`, so the scope is unchanged for every project that
+> does not write it.
 
 [ADR-0034](./0034-caption-pace-and-repeat-duration-checks.md) named two defect
 classes it deliberately did not build — audio backing and an absolute duration

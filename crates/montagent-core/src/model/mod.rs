@@ -451,7 +451,8 @@ pub struct Video {
 }
 
 /// `x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's
-/// measured order — then the paint ADR-0014 adds, the transform properties, and `effects`.
+/// measured order — then the paint ADR-0014 adds, the transform properties, `effects`, and
+/// last `caption`, which draws nothing and so follows everything that does (ADR-0136).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextElement {
@@ -500,6 +501,14 @@ pub struct TextElement {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+    /// `false` says this text is not a caption — a title, a lower-third, a logo, a
+    /// kinetic word — and silences all four caption checks on it: `R-CAPTION-PACE`,
+    /// `R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and `R-CAPTION-REPEAT-DURATION`, whose
+    /// grouping of identical text leaves it out. Omitted means `true`: every text element
+    /// is a caption unless it says otherwise. It changes no pixel and no other check
+    /// (ADR-0136).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caption: Option<bool>,
 }
 
 /// A rounded or square rectangle.

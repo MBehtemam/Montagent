@@ -186,6 +186,13 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   *isolate* (ADR-0007): the run's own text is reordered, so a `!` at its edge takes the
   run's direction, and nothing outside the run moves. Shaping does not cross the run's edge,
   so a kern or an Arabic join across it is lost.
+- **Every text element is a caption unless it says `caption: false`** (ADR-0136). The four
+  caption checks — `R-CAPTION-PACE`, `R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and
+  `R-CAPTION-REPEAT-DURATION` — run on every `text` element, whatever its track is called.
+  Write `caption: false` on a title, a lower-third, a logo or a kinetic word, and none of
+  the four reports it; it is also left out of the repeat check's grouping of identical text.
+  Omitting the field and writing `caption: true` mean the same thing. It is one switch for
+  all four, it changes no pixel and no other check, and nothing infers it for you.
 - **Sizes are literal pixels** (ADR-0007), and a text element's `width`/`height` is a container claim
   rather than drawn geometry. Use `measure` to find out what a string actually occupies in
   the font the project declares; do not estimate it.
