@@ -87,10 +87,10 @@ A lower-third wipes on and off. Footage isn't a flat colour, so the occluder wip
       {"id": "bar-edge", "type": "rect", "start": 1000, "end": 6534, "x": 64, "y": 1160, "origin": "center-left", "width": 12, "height": 160, "fill": "#FF5A36"}
     ]},
     {"name": "bar-name", "layer": 22, "elements": [
-      {"id": "bar-name", "type": "text", "start": 1300, "end": 6266, "x": 108, "y": 1128, "origin": "center-left", "width": 400, "height": 70, "font": "bold", "size": 58, "color": "#F5F0E6", "runs": [{"text": "Montagent"}]}
+      {"id": "bar-name", "type": "text", "start": 1300, "end": 6266, "x": 108, "y": 1128, "origin": "center-left", "width": 400, "height": 70, "font": "bold", "size": 58, "color": "#F5F0E6", "runs": [{"text": "Montagent"}], "caption": false}
     ]},
     {"name": "bar-line", "layer": 22, "elements": [
-      {"id": "bar-line", "type": "text", "start": 1300, "end": 6266, "x": 108, "y": 1196, "origin": "center-left", "width": 560, "height": 44, "font": "bold", "size": 34, "color": "#F5F0E6", "runs": [{"text": "Video your agent can read"}]}
+      {"id": "bar-line", "type": "text", "start": 1300, "end": 6266, "x": 108, "y": 1196, "origin": "center-left", "width": 560, "height": 44, "font": "bold", "size": 34, "color": "#F5F0E6", "runs": [{"text": "Video your agent can read"}], "caption": false}
     ]},
     {"name": "bar-cover", "layer": 23, "elements": [
       {"id": "bar-cover-on", "type": "rect", "start": 1300, "end": 1700, "x": 800, "y": 1160, "origin": "center-right", "width": 716, "height": 140, "fill": "#101418", "scale": [{"t": 1300, "v": [1.0, 1.0]}, {"t": 1666, "v": [0.0, 1.0], "ease": [0.65, 0, 0.35, 1]}]},
