@@ -503,3 +503,147 @@ fn an_elided_sheet_draws_every_label_without_its_id_the_same_way_it_did_before()
     );
     against_golden("sheet-elided", &sheet_of(&project, 0, 6000));
 }
+
+// ---------------------------------------------------------------------------
+// The sampling rule (ADR-0132, #500)
+// ---------------------------------------------------------------------------
+//
+// The goldens above cannot see which filter reads an image: under the change from
+// bilinear to ADR-0132's rule, five of them moved by at most 0.14 mean delta and all of
+// them passed. So these two are built for the one input where the filter shows — a hard
+// alpha edge filling the frame — and are held to a tighter pair of thresholds, set from
+// what was measured when they were committed: the rule against itself across platforms
+// is #34's ~0.004, and the same frames painted with plain bilinear (no mipmaps, the
+// sampling ADR-0132 replaced) land at the deltas quoted on each test.
+
+/// The tighter pair for the two sampling goldens. The SSIM floor is the file's own; the
+/// mean delta is what separates the filters here, and sits well under what bilinear
+/// measured on either frame.
+const SAMPLING_MEAN_DELTA: f64 = 0.25;
+
+/// [`against_golden`], with the sampling goldens' tighter mean delta.
+#[track_caller]
+fn against_sampling_golden(name: &str, ours: &image::RgbaImage) {
+    against_golden(name, ours);
+    if updating() {
+        return;
+    }
+    let golden = image::open(golden_dir().join(format!("{name}.png")))
+        .expect("the golden just compared")
+        .to_rgba8();
+    let delta = mean_delta(&golden, ours);
+    assert!(
+        delta <= SAMPLING_MEAN_DELTA,
+        "{name}: mean channel delta {delta:.4} is over the sampling goldens' ceiling of \
+         {SAMPLING_MEAN_DELTA} — the filter that reads an image has changed (ADR-0132). If \
+         that is intended, look at both pictures, regenerate with UPDATE_GOLDEN=1, and \
+         put the diff in the commit."
+    );
+}
+
+/// A cut-out drawn the way #500's character parts are: a light fill inside a dark
+/// outline, on transparency — the edge a magnifying filter stair-steps and a cubic can
+/// ring on. Antialiased by 8×8 supersampling, so the source is the honest picture of the
+/// shape and not itself aliased.
+fn cut_out(size: u32, paint: impl Fn(f64, f64) -> Option<[u8; 3]>) -> image::RgbaImage {
+    const SUB: u32 = 8;
+    image::RgbaImage::from_fn(size, size, |px, py| {
+        let (mut sum, mut covered) = ([0u32; 3], 0u32);
+        for sy in 0..SUB {
+            for sx in 0..SUB {
+                let x = px as f64 + (sx as f64 + 0.5) / SUB as f64;
+                let y = py as f64 + (sy as f64 + 0.5) / SUB as f64;
+                if let Some(rgb) = paint(x, y) {
+                    covered += 1;
+                    for c in 0..3 {
+                        sum[c] += rgb[c] as u32;
+                    }
+                }
+            }
+        }
+        if covered == 0 {
+            return image::Rgba([0, 0, 0, 0]);
+        }
+        let alpha = (covered * 255 + SUB * SUB / 2) / (SUB * SUB);
+        image::Rgba([
+            (sum[0] / covered) as u8,
+            (sum[1] / covered) as u8,
+            (sum[2] / covered) as u8,
+            alpha as u8,
+        ])
+    })
+}
+
+const OUTLINE: [u8; 3] = [0x1E, 0x34, 0x4C];
+const FILL: [u8; 3] = [0xFB, 0xF3, 0xE3];
+
+/// One image element filling a square frame, its source written beside the project.
+fn sampled(dir: &Path, name: &str, frame: u32, source: &image::RgbaImage, scale: f64) -> PathBuf {
+    let png = dir.join(format!("{name}.png"));
+    source.save(&png).expect("write the source");
+    let size = source.width();
+    write_project(
+        dir,
+        &format!("{name}.montagent.json"),
+        &canonical(&format!(
+            r##"{{"frame":{{"width":{frame},"height":{frame}}},"fps":25,"background":"#F2A65A",
+                "tracks":[{{"name":"image","layer":0,"elements":[
+                  {{"id":"part","type":"image","start":0,"end":1000,"x":{half},"y":{half},
+                    "origin":"center","width":{size},"height":{size},
+                    "scale":[{scale},{scale}],"source":"{source}","fit":"cover"}}
+                ]}}]}}"##,
+            half = frame / 2,
+            source = common::with_forward_slashes(&png.display().to_string()),
+        )),
+    )
+}
+
+#[test]
+fn a_cut_out_enlarged_reads_through_the_cubic() {
+    // ×2.3, the close-up #500 measured. A 96 px part: a filled head with a 3 px outline,
+    // an eye, and a thin diagonal stroke — dark on light, the contrast where Catmull-Rom's
+    // overshoot would show as a halo if it were going to. Looked at when committed: no
+    // halo, no stair-steps. Painted with plain bilinear this frame measured a mean delta
+    // of 0.79 against the golden (SSIM 0.9965), and Mitchell 0.73.
+    let dir = tempdir(line!());
+    let source = cut_out(96, |x, y| {
+        let r = ((x - 48.0).powi(2) + (y - 50.0).powi(2)).sqrt();
+        let eye = ((x - 60.0) / 7.0).powi(2) + ((y - 42.0) / 9.0).powi(2);
+        let stroke = ((x - y) / std::f64::consts::SQRT_2).abs();
+        if eye <= 1.0 || (stroke <= 1.0 && r < 41.0 && x < 40.0) {
+            Some(OUTLINE)
+        } else if r <= 38.0 {
+            Some(FILL)
+        } else if r <= 41.0 {
+            Some(OUTLINE)
+        } else {
+            None
+        }
+    });
+    let project = sampled(&dir, "sampling-enlarged", 240, &source, 2.3);
+    against_sampling_golden(
+        "sampling-enlarged",
+        &rendered(&project, 500, /* full */ true),
+    );
+}
+
+#[test]
+fn a_fine_cut_out_shrunk_reads_through_the_mipmaps() {
+    // ×0.3, the wide shot's toast. Rings and hatching a few source pixels wide, which a
+    // filter reading four source pixels out of eleven either keeps or drops by where the
+    // grid falls — the aliasing mipmaps remove and a cubic does not. Painted with plain
+    // bilinear this frame measured a mean delta of 8.30 against the golden, and Catmull-Rom — a cubic, which ignores
+    // mipmaps — 10.04.
+    let dir = tempdir(line!());
+    let source = cut_out(400, |x, y| {
+        let r = ((x - 200.0).powi(2) + (y - 200.0).powi(2)).sqrt();
+        if r > 190.0 {
+            return None;
+        }
+        let ring = (r % 12.0) < 3.0;
+        let hatch = ((x + y) % 10.0) < 2.0 && x < 200.0;
+        Some(if ring || hatch { OUTLINE } else { FILL })
+    });
+    let project = sampled(&dir, "sampling-shrunk", 160, &source, 0.3);
+    against_sampling_golden("sampling-shrunk", &rendered(&project, 500, /* full */ true));
+}
