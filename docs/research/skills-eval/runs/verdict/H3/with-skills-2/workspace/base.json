@@ -1,0 +1,502 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "background": "#101418",
+  "duration": 8000,
+  "output": "deliverable.mp4",
+  "fonts": {
+    "bold": [
+      {
+        "file": "fonts/Inter-Bold.ttf"
+      }
+    ]
+  },
+  "fontVendor": {
+    "fonts/Inter-Bold.ttf": {
+      "licence": "OFL-1.1",
+      "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-d661zrxe/work/fonts/Inter-Bold.ttf",
+      "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"
+    }
+  },
+  "tracks": [
+    {
+      "name": "set",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "set",
+          "type": "image",
+          "start": 0,
+          "end": 8000,
+          "source": "character/study.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1920,
+          "height": 1080,
+          "fit": "literal"
+        }
+      ]
+    },
+    {
+      "name": "shadow-crate",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "shadow-crate",
+          "type": "ellipse",
+          "start": 0,
+          "end": 8000,
+          "x": 1100,
+          "y": 954,
+          "origin": "center",
+          "width": 680,
+          "height": 34,
+          "fill": "#6B4A2C55"
+        }
+      ]
+    },
+    {
+      "name": "shadow-owl",
+      "layer": 2,
+      "elements": [
+        {
+          "id": "shadow-owl",
+          "type": "ellipse",
+          "start": 0,
+          "end": 8000,
+          "x": 660,
+          "y": 990,
+          "origin": "center",
+          "width": 300,
+          "height": 40,
+          "fill": "#6B4A2C66",
+          "scale": [
+            {
+              "t": 5600,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 5834,
+              "v": [
+                0.72,
+                0.72
+              ],
+              "ease": "ease-out"
+            },
+            {
+              "t": 6100,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "crate",
+      "layer": 3,
+      "elements": [
+        {
+          "id": "crate",
+          "type": "rect",
+          "start": 0,
+          "end": 8000,
+          "x": 800,
+          "y": 862,
+          "origin": "top-left",
+          "width": 600,
+          "height": 90,
+          "fill": "#C8925E",
+          "stroke": "#3A2A22",
+          "stroke_width": 6,
+          "radius": 8
+        }
+      ]
+    },
+    {
+      "name": "crate-seam",
+      "layer": 4,
+      "elements": [
+        {
+          "id": "crate-seam",
+          "type": "rect",
+          "start": 0,
+          "end": 8000,
+          "x": 846,
+          "y": 904,
+          "origin": "top-left",
+          "width": 508,
+          "height": 5,
+          "fill": "#8A5A36"
+        }
+      ]
+    },
+    {
+      "name": "crate-post-l",
+      "layer": 5,
+      "elements": [
+        {
+          "id": "crate-post-l",
+          "type": "rect",
+          "start": 0,
+          "end": 8000,
+          "x": 800,
+          "y": 862,
+          "origin": "top-left",
+          "width": 52,
+          "height": 90,
+          "fill": "#B07A48",
+          "stroke": "#3A2A22",
+          "stroke_width": 6,
+          "radius": 8
+        }
+      ]
+    },
+    {
+      "name": "crate-post-r",
+      "layer": 5,
+      "elements": [
+        {
+          "id": "crate-post-r",
+          "type": "rect",
+          "start": 0,
+          "end": 8000,
+          "x": 1348,
+          "y": 862,
+          "origin": "top-left",
+          "width": 52,
+          "height": 90,
+          "fill": "#B07A48",
+          "stroke": "#3A2A22",
+          "stroke_width": 6,
+          "radius": 8
+        }
+      ]
+    },
+    {
+      "name": "laptop",
+      "layer": 6,
+      "elements": [
+        {
+          "id": "laptop",
+          "type": "image",
+          "start": 0,
+          "end": 8000,
+          "source": "character/laptop.png",
+          "x": 818,
+          "y": 415,
+          "origin": "top-left",
+          "width": 566,
+          "height": 453,
+          "fit": "literal"
+        }
+      ]
+    },
+    {
+      "name": "screen-ground",
+      "layer": 7,
+      "elements": [
+        {
+          "id": "screen-session",
+          "type": "image",
+          "start": 0,
+          "end": 7400,
+          "source": "stills/session-02.png",
+          "x": 909,
+          "y": 448,
+          "origin": "top-left",
+          "width": 385,
+          "height": 217,
+          "fit": "cover",
+          "clip": [
+            914,
+            448,
+            374,
+            217
+          ]
+        },
+        {
+          "id": "screen-paper",
+          "type": "rect",
+          "start": 7400,
+          "end": 8000,
+          "x": 914,
+          "y": 448,
+          "origin": "top-left",
+          "width": 374,
+          "height": 217,
+          "fill": "#F5F0E6"
+        }
+      ]
+    },
+    {
+      "name": "screen-mark",
+      "layer": 8,
+      "elements": [
+        {
+          "id": "screen-mark",
+          "type": "image",
+          "start": 7400,
+          "end": 8000,
+          "source": "brand/mark.png",
+          "x": 1101,
+          "y": 532,
+          "origin": "center",
+          "width": 124,
+          "height": 124,
+          "fit": "literal",
+          "scale": [
+            {
+              "t": 7400,
+              "v": [
+                0.8,
+                0.8
+              ]
+            },
+            {
+              "t": 7634,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "screen-word",
+      "layer": 8,
+      "elements": [
+        {
+          "id": "screen-word",
+          "type": "image",
+          "start": 7400,
+          "end": 8000,
+          "source": "brand/wordmark.png",
+          "x": 1101,
+          "y": 626,
+          "origin": "center",
+          "width": 172,
+          "height": 36,
+          "fit": "literal",
+          "opacity": [
+            {
+              "t": 7400,
+              "v": 0.0
+            },
+            {
+              "t": 7600,
+              "v": 1.0,
+              "ease": "ease-out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tag-pill",
+      "layer": 40,
+      "elements": [
+        {
+          "id": "tag-late-pill",
+          "type": "rect",
+          "start": 3134,
+          "end": 5600,
+          "x": 1101,
+          "y": 338,
+          "origin": "center",
+          "width": 376,
+          "height": 104,
+          "scale": [
+            {
+              "t": 3134,
+              "v": [
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "t": 3434,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "fill": "#FF5A36",
+          "stroke": "#101418",
+          "stroke_width": 6,
+          "radius": 52
+        },
+        {
+          "id": "tag-fixed-pill",
+          "type": "rect",
+          "start": 5600,
+          "end": 8000,
+          "x": 1101,
+          "y": 338,
+          "origin": "center",
+          "width": 340,
+          "height": 104,
+          "scale": [
+            {
+              "t": 5600,
+              "v": [
+                0.82,
+                0.82
+              ]
+            },
+            {
+              "t": 5834,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "fill": "#FF5A36",
+          "stroke": "#101418",
+          "stroke_width": 6,
+          "radius": 52
+        }
+      ]
+    },
+    {
+      "name": "tag-text",
+      "layer": 41,
+      "elements": [
+        {
+          "id": "tag-late-text",
+          "type": "text",
+          "start": 3134,
+          "end": 5600,
+          "x": 1101,
+          "y": 338,
+          "origin": "center",
+          "width": 300,
+          "height": 72,
+          "scale": [
+            {
+              "t": 3134,
+              "v": [
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "t": 3434,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "font": "bold",
+          "size": 60,
+          "color": "#101418",
+          "align": "center",
+          "caption": false,
+          "runs": [
+            {
+              "text": "+2 frames"
+            }
+          ]
+        },
+        {
+          "id": "tag-fixed-text",
+          "type": "text",
+          "start": 5600,
+          "end": 8000,
+          "x": 1101,
+          "y": 338,
+          "origin": "center",
+          "width": 264,
+          "height": 72,
+          "scale": [
+            {
+              "t": 5600,
+              "v": [
+                0.82,
+                0.82
+              ]
+            },
+            {
+              "t": 5834,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ],
+          "font": "bold",
+          "size": 60,
+          "color": "#101418",
+          "align": "center",
+          "caption": false,
+          "runs": [
+            {
+              "text": "0 frames"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "voice",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "voice",
+          "type": "audio",
+          "start": 1000,
+          "end": 7672,
+          "source": "character/voice/line-3.wav",
+          "source_start": 0,
+          "source_end": 6672,
+          "volume": 1.0
+        }
+      ]
+    }
+  ]
+}

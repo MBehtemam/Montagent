@@ -1,0 +1,457 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#101418",
+ "duration": 8000,
+ "output": "deliverable.mp4",
+ "fonts": {
+  "bold": [
+   {
+    "file": "fonts/Inter-Bold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "fonts/Inter-Bold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-rtvvw66b/work/fonts/Inter-Bold.ttf",
+   "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"
+  }
+ },
+ "tracks": [
+  {
+   "name": "set",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "study",
+     "type": "image",
+     "start": 0,
+     "end": 8000,
+     "source": "character/study.png",
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 1920,
+     "height": 1080,
+     "fit": "literal"
+    }
+   ]
+  },
+  {
+   "name": "floor-shadow-owl",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "floor-shadow-owl",
+     "type": "ellipse",
+     "start": 0,
+     "end": 8000,
+     "x": 720,
+     "y": 968,
+     "origin": "center",
+     "width": 270,
+     "height": 34,
+     "fill": "#7A4E2C55",
+     "scale": [
+      {
+       "t": 5600,
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      {
+       "t": 5850,
+       "v": [
+        0.7,
+        0.7
+       ],
+       "ease": "ease-out"
+      },
+      {
+       "t": 6100,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": "ease-in"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "crate-shadow",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "crate-shadow",
+     "type": "ellipse",
+     "start": 0,
+     "end": 8000,
+     "x": 1051,
+     "y": 948,
+     "origin": "center",
+     "width": 507,
+     "height": 30,
+     "fill": "#7A4E2C55"
+    }
+   ]
+  },
+  {
+   "name": "crate",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "crate",
+     "type": "rect",
+     "start": 0,
+     "end": 8000,
+     "x": 823,
+     "y": 773,
+     "origin": "top-left",
+     "width": 457,
+     "height": 177,
+     "fill": "#C98B55",
+     "stroke": "#4A3226",
+     "stroke_width": 6,
+     "radius": 8
+    }
+   ]
+  },
+  {
+   "name": "crate-slat-1",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "crate-slat-1",
+     "type": "rect",
+     "start": 0,
+     "end": 8000,
+     "x": 829,
+     "y": 831,
+     "origin": "top-left",
+     "width": 445,
+     "height": 5,
+     "fill": "#4A3226"
+    }
+   ]
+  },
+  {
+   "name": "crate-slat-2",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "crate-slat-2",
+     "type": "rect",
+     "start": 0,
+     "end": 8000,
+     "x": 829,
+     "y": 889,
+     "origin": "top-left",
+     "width": 445,
+     "height": 5,
+     "fill": "#4A3226"
+    }
+   ]
+  },
+  {
+   "name": "crate-lid",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "crate-lid",
+     "type": "rect",
+     "start": 0,
+     "end": 8000,
+     "x": 813,
+     "y": 767,
+     "origin": "top-left",
+     "width": 477,
+     "height": 26,
+     "fill": "#DDA36C",
+     "stroke": "#4A3226",
+     "stroke_width": 6,
+     "radius": 6
+    }
+   ]
+  },
+  {
+   "name": "laptop",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "laptop",
+     "type": "image",
+     "start": 0,
+     "end": 8000,
+     "source": "character/laptop.png",
+     "x": 839,
+     "y": 433,
+     "origin": "top-left",
+     "width": 425,
+     "height": 340,
+     "fit": "literal"
+    }
+   ]
+  },
+  {
+   "name": "screen",
+   "layer": 6,
+   "elements": [
+    {
+     "id": "screen-session",
+     "type": "image",
+     "start": 0,
+     "end": 7333,
+     "source": "stills/session-02.png",
+     "x": 1051,
+     "y": 539,
+     "origin": "center",
+     "width": 288,
+     "height": 162,
+     "fit": "cover",
+     "clip": [
+      911,
+      458,
+      280,
+      162
+     ]
+    },
+    {
+     "id": "screen-ground",
+     "type": "rect",
+     "start": 7333,
+     "end": 8000,
+     "x": 911,
+     "y": 458,
+     "origin": "top-left",
+     "width": 280,
+     "height": 162,
+     "fill": "#F5F0E6"
+    }
+   ]
+  },
+  {
+   "name": "screen-mark",
+   "layer": 7,
+   "elements": [
+    {
+     "id": "screen-mark",
+     "type": "image",
+     "start": 7333,
+     "end": 8000,
+     "source": "brand/mark.png",
+     "x": 1051,
+     "y": 539,
+     "origin": "center",
+     "width": 116,
+     "height": 116,
+     "fit": "literal",
+     "scale": [
+      {
+       "t": 7333,
+       "v": [
+        0.6,
+        0.6
+       ]
+      },
+      {
+       "t": 7633,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "tag-bg",
+   "layer": 40,
+   "elements": [
+    {
+     "id": "tag-bg",
+     "type": "rect",
+     "start": 3133,
+     "end": 8000,
+     "x": 1051,
+     "y": 360,
+     "origin": "center",
+     "width": 320,
+     "height": 90,
+     "fill": "#FF5A36",
+     "radius": 45,
+     "scale": [
+      {
+       "t": 3133,
+       "v": [
+        0.0,
+        0.0
+       ]
+      },
+      {
+       "t": 3433,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+       ]
+      },
+      {
+       "t": 5600,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": "linear"
+      },
+      {
+       "t": 5700,
+       "v": [
+        1.12,
+        1.12
+       ],
+       "ease": "ease-out"
+      },
+      {
+       "t": 5833,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": "ease-in-out"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "tag-text",
+   "layer": 41,
+   "elements": [
+    {
+     "id": "tag-late",
+     "type": "text",
+     "start": 3133,
+     "end": 5600,
+     "caption": false,
+     "x": 1051,
+     "y": 360,
+     "origin": "center",
+     "width": 260,
+     "height": 60,
+     "font": "bold",
+     "size": 50,
+     "color": "#101418",
+     "align": "center",
+     "runs": [
+      {
+       "text": "+2 frames"
+      }
+     ],
+     "scale": [
+      {
+       "t": 3133,
+       "v": [
+        0.0,
+        0.0
+       ]
+      },
+      {
+       "t": 3433,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+       ]
+      }
+     ]
+    },
+    {
+     "id": "tag-fixed",
+     "type": "text",
+     "start": 5600,
+     "end": 8000,
+     "caption": false,
+     "x": 1051,
+     "y": 360,
+     "origin": "center",
+     "width": 230,
+     "height": 60,
+     "font": "bold",
+     "size": 50,
+     "color": "#101418",
+     "align": "center",
+     "runs": [
+      {
+       "text": "0 frames"
+      }
+     ],
+     "scale": [
+      {
+       "t": 5600,
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      {
+       "t": 5700,
+       "v": [
+        1.12,
+        1.12
+       ],
+       "ease": "ease-out"
+      },
+      {
+       "t": 5833,
+       "v": [
+        1.0,
+        1.0
+       ],
+       "ease": "ease-in-out"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "voice",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "voice",
+     "type": "audio",
+     "start": 1000,
+     "end": 7672,
+     "source": "character/voice/line-3.wav",
+     "source_start": 0,
+     "source_end": 6672,
+     "volume": 1.0
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "prefix": "owl", "layer": 10, "start": 0, "end": 8000, "scale": 0.56,
+  "place": [{"t": 0, "x": 720, "y": 968}],
+  "hops": [{"from": 5600, "to": 6100, "height": 95}],
+  "poses": {
+    "down": {"upper_arm_left": -45, "upper_arm_right": 45, "forearm_left": -10, "forearm_right": 10, "head": 0},
+    "think": {"upper_arm_left": 52, "forearm_left": 143, "head": -8},
+    "think_a": {"head": -6}, "think_b": {"head": -10},
+    "reach": {"upper_arm_left": -45, "forearm_left": -10, "upper_arm_right": -25, "forearm_right": -15, "head": 6},
+    "tap_down": {"forearm_right": 14}, "tap_up": {"forearm_right": -15},
+    "cheer": {"upper_arm_left": 46, "upper_arm_right": -46, "forearm_left": 26, "forearm_right": -26, "head": 0},
+    "nod": {"head": 4}, "level": {"head": 0}
+  },
+  "moves": [
+    {"t": 0, "pose": "down"},
+    {"t": 1300, "pose": "think", "in": 350, "ease": [0.25, 1, 0.5, 1]},
+    {"t": 2300, "pose": "think_a", "in": 300},
+    {"t": 3133, "pose": "think_b", "in": 300},
+    {"t": 4400, "pose": "reach", "in": 300, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 4600, "pose": "tap_down", "in": 150, "ease": "ease-in"},
+    {"t": 4800, "pose": "tap_up", "in": 150, "ease": "ease-out"},
+    {"t": 5000, "pose": "tap_down", "in": 150, "ease": "ease-in"},
+    {"t": 5200, "pose": "tap_up", "in": 150, "ease": "ease-out"},
+    {"t": 5700, "pose": "cheer", "in": 200, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 6900, "pose": "down", "in": 400},
+    {"t": 7100, "pose": "nod", "in": 200},
+    {"t": 7400, "pose": "level", "in": 300}
+  ],
+  "voice": {"id": "voice", "visemes": "character/voice/line-3.json", "lead": 0},
+  "min_mouth": 2,
+  "blinks": {"part": "eyes_closed", "at": [600, 2700, 4200, 6300, 7600], "frames": 3}
+}

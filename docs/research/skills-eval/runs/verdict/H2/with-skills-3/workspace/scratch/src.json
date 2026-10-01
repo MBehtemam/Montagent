@@ -1,0 +1,13 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 25,
+  "background": "#F5F0E6",
+  "duration": 55000,
+  "output": "out/src.mp4",
+  "tracks": [
+    {"name": "p", "layer": 10, "elements": [
+      {"id":"p","type":"video","start":0,"end":8920,"source":"../presenter/take-3.mp4","source_start":0,"source_end":8920,"x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"fit":"cover"},
+      {"id":"s","type":"video","start":9000,"end":55000,"source":"../screen/session.mp4","source_start":0,"source_end":46000,"x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"fit":"cover"}
+    ]}
+  ]
+}

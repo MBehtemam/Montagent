@@ -1,0 +1,175 @@
+{
+ "prefix": "owl",
+ "layer": 10,
+ "start": 0,
+ "end": 8000,
+ "scale": 0.58,
+ "place": [
+  {
+   "t": 0,
+   "x": 690,
+   "y": 1000
+  }
+ ],
+ "hops": [
+  {
+   "from": 5533,
+   "to": 6000,
+   "height": 95
+  }
+ ],
+ "poses": {
+  "down": {
+   "upper_arm_left": -50,
+   "upper_arm_right": 50,
+   "forearm_left": -10,
+   "forearm_right": 10,
+   "head": 0,
+   "torso": 0
+  },
+  "think": {
+   "upper_arm_left": -77.9,
+   "forearm_left": -125.4,
+   "head": -9
+  },
+  "think2": {
+   "head": -6
+  },
+  "think3": {
+   "head": -10
+  },
+  "left_down": {
+   "upper_arm_left": -50,
+   "forearm_left": -10,
+   "head": 0
+  },
+  "reach": {
+   "torso": 3,
+   "head": 6,
+   "upper_arm_right": -0.9,
+   "forearm_right": -4.1
+  },
+  "tap": {
+   "upper_arm_right": 1.1,
+   "forearm_right": 15.9
+  },
+  "lift": {
+   "upper_arm_right": -2.9,
+   "forearm_right": -10.1
+  },
+  "cheer": {
+   "torso": 0,
+   "head": 0,
+   "upper_arm_left": 60,
+   "upper_arm_right": -60,
+   "forearm_left": 30,
+   "forearm_right": -30
+  },
+  "arms_down": {
+   "upper_arm_left": -50,
+   "upper_arm_right": 50,
+   "forearm_left": -10,
+   "forearm_right": 10
+  },
+  "nod": {
+   "head": 4
+  },
+  "level": {
+   "head": 0
+  }
+ },
+ "moves": [
+  {
+   "t": 0,
+   "pose": "down"
+  },
+  {
+   "t": 1300,
+   "pose": "think",
+   "in": 450
+  },
+  {
+   "t": 2000,
+   "pose": "think2",
+   "in": 300
+  },
+  {
+   "t": 2800,
+   "pose": "think3",
+   "in": 350
+  },
+  {
+   "t": 4100,
+   "pose": "left_down",
+   "in": 350
+  },
+  {
+   "t": 4450,
+   "pose": "reach",
+   "in": 400,
+   "ease": [
+    0.34,
+    1.3,
+    0.64,
+    1
+   ]
+  },
+  {
+   "t": 4600,
+   "pose": "tap",
+   "in": 133
+  },
+  {
+   "t": 4767,
+   "pose": "lift",
+   "in": 133
+  },
+  {
+   "t": 4933,
+   "pose": "tap",
+   "in": 133
+  },
+  {
+   "t": 5100,
+   "pose": "lift",
+   "in": 133
+  },
+  {
+   "t": 5667,
+   "pose": "cheer",
+   "in": 467
+  },
+  {
+   "t": 6900,
+   "pose": "arms_down",
+   "in": 400
+  },
+  {
+   "t": 7067,
+   "pose": "nod",
+   "in": 167
+  },
+  {
+   "t": 7400,
+   "pose": "level",
+   "in": 300
+  }
+ ],
+ "voice": {
+  "id": "voice",
+  "visemes": "character/voice/line-3.json",
+  "lead": 0
+ },
+ "min_mouth": 2,
+ "blinks": {
+  "part": "eyes_closed",
+  "at": [
+   633,
+   2433,
+   4267,
+   6267,
+   7633
+  ],
+  "frames": 3
+ }
+}

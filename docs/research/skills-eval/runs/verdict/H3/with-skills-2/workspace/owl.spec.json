@@ -1,0 +1,38 @@
+{
+  "prefix": "owl", "layer": 10, "start": 0, "end": 8000, "scale": 0.6,
+  "place": [{"t": 0, "x": 660, "y": 985}],
+  "hops": [{"from": 5600, "to": 6067, "height": 80}],
+  "poses": {
+    "down": {"upper_arm_left": -50, "upper_arm_right": 50, "forearm_left": -10, "forearm_right": 10, "head": 0, "torso": 0},
+    "think": {"upper_arm_left": -132, "forearm_left": -108, "head": 8},
+    "unthink": {"upper_arm_left": -50, "forearm_left": -10, "head": 0},
+    "reach": {"upper_arm_right": -15, "forearm_right": -5, "torso": 4, "head": 6},
+    "tap": {"forearm_right": 20},
+    "lift": {"forearm_right": -5},
+    "cheer": {"upper_arm_left": 46, "upper_arm_right": -46, "forearm_left": 26, "forearm_right": -26, "torso": 0, "head": 0},
+    "arms_down": {"upper_arm_left": -50, "upper_arm_right": 50, "forearm_left": -10, "forearm_right": 10},
+    "nod": {"head": 4}, "level": {"head": 0}, "tilt": {"head": -3}
+  },
+  "moves": [
+    {"t": 0, "pose": "down"},
+    {"t": 1100, "pose": "think", "in": 350, "ease": [0.3, 1.25, 0.6, 1]},
+    {"t": 4333, "pose": "unthink", "in": 367},
+    {"t": 4467, "pose": "reach", "in": 333, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 4667, "pose": "tap", "in": 133, "ease": "ease-in"},
+    {"t": 4800, "pose": "lift", "in": 133, "ease": "ease-out"},
+    {"t": 4967, "pose": "tap", "in": 133, "ease": "ease-in"},
+    {"t": 5133, "pose": "lift", "in": 133, "ease": "ease-out"},
+    {"t": 5767, "pose": "cheer", "in": 234, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 6867, "pose": "arms_down", "in": 400},
+    {"t": 7033, "pose": "nod", "in": 200},
+    {"t": 7367, "pose": "level", "in": 300},
+    {"t": 7800, "pose": "tilt", "in": 400}
+  ],
+  "swings": [
+    {"joint": "head", "from": 0, "to": 700, "degrees": 1.5, "period": 1400},
+    {"joint": "head", "from": 1300, "to": 3800, "degrees": 2.5, "period": 1300}
+  ],
+  "voice": {"id": "voice", "visemes": "character/voice/line-3.json", "lead": 0},
+  "min_mouth": 2,
+  "blinks": {"part": "eyes_closed", "at": [433, 2600, 4233, 6233, 7600], "frames": 3}
+}
