@@ -23,6 +23,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// which no amount of normalising can collapse.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(untagged)]
+#[schemars(rename = "Animatable{T}")]
 pub enum Animatable<T> {
     /// Constant for the element's whole life.
     Static(T),
@@ -202,6 +203,7 @@ fn ascending_t<T>(records: &[Keyframe<T>]) -> Result<(), String> {
 /// One `{"t","t_from","v","ease"}` record — `t_from` optional (ADR-0086).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "Keyframe{T}")]
 pub struct Keyframe<T> {
     /// Milliseconds on the project's one absolute clock. Legal outside the element's own
     /// range — that is how a trimmed move is spelled, and seven of the fixture's photo

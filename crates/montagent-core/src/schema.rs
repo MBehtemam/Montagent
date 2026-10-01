@@ -189,7 +189,7 @@ fn publish_positional_rules(schema: &mut Value) {
 
     // Recognised by shape rather than by name: a definition carrying exactly the four
     // record keys is a keyframe record whatever the generator decided to call this
-    // instantiation of it (`Keyframe`, `Keyframe2`, …).
+    // instantiation of it (`Keyframeint64`, `KeyframeVolume`, …).
     let records: Vec<String> = defs
         .iter()
         .filter(|(_, def)| is_keyframe_record(def))
