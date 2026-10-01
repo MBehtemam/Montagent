@@ -401,7 +401,7 @@ fn the_ink_box_is_tighter_than_the_nominal_size_times_line_height_box() {
 
 #[test]
 fn a_single_line_is_placed_by_origin_over_its_own_width_whatever_the_align() {
-    // ADR-0134: lines align inside the block they make, and `origin` places that block —
+    // ADR-0135: lines align inside the block they make, and `origin` places that block —
     // the declared `width` is a container claim and is never consulted. One line *is* its
     // block, so `align` has nowhere to move it.
     let start = at(&text_project("start", line!()), 0);
@@ -466,7 +466,7 @@ fn start_on_a_right_to_left_line_is_the_blocks_right_edge() {
     // override is an isolate and never the line's direction (ADR-0133). The face has no
     // Hebrew; the replacement glyphs still advance, and bidi reads the characters.
     //
-    // The edge is the block's (ADR-0134): here a wider, unstroked Latin line makes the
+    // The edge is the block's (ADR-0135): here a wider, unstroked Latin line makes the
     // block, centred on 540. The ink box is the union of the lines, so the Hebrew line is
     // seen through its stroke, which reaches 10 px past whichever block edge it sits on.
     let ink_box = |align: &str, dir: &str| {
@@ -589,7 +589,7 @@ fn the_ink_boxs_horizontal_extent_is_the_ink_frame_paints() {
 
 #[test]
 fn the_ink_box_answers_without_a_declared_width_and_refuses_a_malformed_align() {
-    // ADR-0134: the declared `width` takes no part in where text is drawn, so an element
+    // ADR-0135: the declared `width` takes no part in where text is drawn, so an element
     // without one still has an ink box — the same one it has with a declared 600.
     let with_width = placed_project(
         "start",

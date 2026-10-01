@@ -189,7 +189,7 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **Sizes are literal pixels** (ADR-0007), and a text element's `width`/`height` is a container claim
   rather than drawn geometry. Use `measure` to find out what a string actually occupies in
   the font the project declares; do not estimate it.
-- **Lines align inside the block they make, and `origin` places that block** (ADR-0134). The
+- **Lines align inside the block they make, and `origin` places that block** (ADR-0135). The
   block is the widest line's advance by the sum of the line slots. The declared `width` takes
   no part in where text is drawn, so a single line sits at the same place under every `align`,
   and `align` moves only lines narrower than the widest. `query --at`'s `ink_box` is placed

@@ -196,7 +196,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
 /// published. No fixture text ends in a space; named so the next reader does not have to
 /// discover it from a half-space offset.
 ///
-/// **Public because `query --at`'s ink box aligns with it too** (ADR-0134): the rectangle
+/// **Public because `query --at`'s ink box aligns with it too** (ADR-0135): the rectangle
 /// an agent checks overlap against is placed by this function or it is not where the text
 /// is drawn.
 pub fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {

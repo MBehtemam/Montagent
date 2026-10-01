@@ -8,7 +8,7 @@
 //! crop rectangle, the ink box and `NOT COVERED` are three questions about the same
 //! geometry, not three separate ones. A text element's declared `width`/`height` is the one
 //! exception: the ink box places the block the lines make instead, as the painter does
-//! (ADR-0134). **Rotation refuses rather than approximates**: a
+//! (ADR-0135). **Rotation refuses rather than approximates**: a
 //! rotated element's on-screen footprint is not a rectangle, and reporting one anyway
 //! would be exactly the plausible-and-wrong number ADR-0011's resolver refuses to invent
 //! for a keyframe list with no `ease` (see [`crate::resolve::Unresolvable`]). No fixture
@@ -362,7 +362,7 @@ pub fn not_covered(frame: (i64, i64), rects: &[Rect]) -> Vec<Rect> {
 /// turns a line's typographic advance into an absolute rectangle.
 ///
 /// **The lines align inside the block they make, and `origin` places that block**
-/// (ADR-0134): the widest line's advance, exactly as the painter places it. The declared
+/// (ADR-0135): the widest line's advance, exactly as the painter places it. The declared
 /// `width` is a container claim (ADR-0014) and is not read here, as the declared `height`
 /// is not read by `measure`. Each line's offset into the block is
 /// [`montagent_text::place::offset`] — the painter's own function, not a copy of it.

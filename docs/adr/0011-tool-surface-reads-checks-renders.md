@@ -138,7 +138,7 @@ status: accepted
 >   — **a tenth MCP verb, `verify`**, and a thirteenth CLI command: the counts move to 10 / 13.
 >   The CLI-only rule is for rarely used verbs, and `verify` is the last step of every agent's
 >   workflow. Its MCP schema is `project` only
-> - [ADR-0134](0134-a-text-elements-lines-align-inside-their-own-block-and-origin-places-the-block.md)
+> - [ADR-0135](0135-a-text-elements-lines-align-inside-their-own-block-and-origin-places-the-block.md)
 >   — **`query --at`'s ink box is placed where the text is drawn.** `origin` places the block
 >   the lines make, not the declared `width`, and each line is aligned inside it by the
 >   painter's own function
