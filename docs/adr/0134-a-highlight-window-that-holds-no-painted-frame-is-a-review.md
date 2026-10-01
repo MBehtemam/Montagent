@@ -31,7 +31,7 @@ borrows nothing, so it needs no citation under
 [ADR-0061](0061-validate-judgment-boundary-threshold-provenance-and-a-fenced-exception.md).
 This is [ADR-0006](0006-validate-reports-facts-and-render-enforces.md)'s *"rounds out of
 existence"*, one level down from an element: what quantization changes, never what is
-unaligned. A window that lights one frame is not reported here (see §5).
+unaligned. A window that lights one frame is not reported here (see §6).
 
 For an integer window the test is the same whether it uses the exact instant n × 1000 / fps
 or the floored one: with integer bounds `a` and `b`, ⌊x⌋ ≥ a ⟺ x ≥ a and ⌊x⌋ < b ⟺ x < b.
@@ -80,17 +80,32 @@ that state's tile, and the skip and the finding must be one identity. A highligh
 visual state, so the sheet neither draws nor skips anything for it. There is no `frame`
 output for the finding to explain.
 
-### 6. Fewer than N frames is a separate check, and only if research finds a citable N
+### 6. There is no fewer-than-N-frames check: no source gives an N
 
-A window that lights one frame (33 ms at 30 fps), which is brief B's own case, is very
-likely as invisible as one that lights none. But any N ≥ 2 is a perceptual claim, and
-ADR-0061 binds it: allowed only at `review` or `note`, with the raw measurement as its
-substance and a cited source. The glossary's **Check** keeps it out of this check, which is
-fact-only. Whether a citable source exists is
-[#553](https://github.com/MBehtemam/Montagent/issues/553)'s question, and *"no citable
-source"* is a valid answer. If that is the answer, the borrowed check is dropped with that
-reason recorded. Reading time (montagent-craft's 330 ms per word) measures something else
-and does not qualify.
+A window that lights one frame (33 ms at 30 fps), which is brief B's own case, may look as
+invisible as one that lights none. But any N ≥ 2 is a perceptual claim, and ADR-0061 binds
+it: allowed only at `review` or `note`, with the raw measurement as its substance and a
+cited source. The glossary's **Check** keeps it out of this check, which is fact-only.
+
+[#553](https://github.com/MBehtemam/Montagent/issues/553) asked whether any citable source
+gives such an N, and the answer is **no**
+([the findings](../research/highlight-visibility-floor.md)). The vision research measures
+other things:
+
+- **Chromatic critical durations** (about 100–200 ms) apply to detecting faint pulses near
+  threshold. A full-contrast highlight is far above that, so they give no floor for it.
+- **Change blindness** shows that attention, not duration, decides whether a change is
+  noticed.
+- **Rapid presentation** shows a single 13 ms frame can register, which argues against a
+  frame floor at all.
+
+The caption guides give reading and display times, which measure something else, as does
+montagent-craft's 330 ms per word. So the borrowed check is **dropped**, and it comes back
+only if a source that measures seeing a highlight change turns up.
+
+The research does support one point as guidance, not as a threshold: a highlight is most at
+risk when another change masks it at the same moment, such as a cut, a whole-frame change or
+many words changing at once. Being short matters less.
 
 ## What this does not catch
 
@@ -114,5 +129,6 @@ what it changed.
   at 30 fps does **not** fire (one frame); 2401–2433 at 30 fps fires (half-open: a window
   ending on a painted instant does not light it); several unpainted windows across two
   elements produce **one** finding listing all of them.
-- The fewer-than-N check waits on #553, and is dropped if #553 finds no citable source.
+- There is no fewer-than-N-frames check. #553 found no citable source for an N, and one
+  that measures seeing a highlight change is the only thing that would reopen it.
 - The audio-drift gap from ADR-0051 is unchanged and still open.
