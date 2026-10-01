@@ -1,0 +1,14 @@
+{
+  "track": "captions",
+  "layer": 30,
+  "voice": "voice",
+  "font": "caption",
+  "size": 64,
+  "color": "#F5F0E6",
+  "highlight": "#101418",
+  "x": 540,
+  "y": 1380,
+  "width": 600,
+  "pill": {"color": "#101418CC", "pad": [28, 16], "radius": 24},
+  "duck": {"id": "bed", "under": 0.18, "over": 0.5, "fade": 1000}
+}
