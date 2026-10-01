@@ -1,0 +1,12 @@
+{
+  "frame": {"width": 640, "height": 360},
+  "fps": 30,
+  "background": "#2E3440",
+  "duration": 4000,
+  "output": "out/rig.mp4",
+  "tracks": [
+    {"name": "voice", "layer": 0, "elements": [
+      {"id": "voice", "type": "audio", "start": 500, "end": 4000, "source": "media/bed.wav", "source_start": 0, "source_end": 3500}
+    ]}
+  ]
+}
