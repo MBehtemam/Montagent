@@ -350,14 +350,26 @@ fn the_first_records_t_from_publishes_the_rule_set_minus_after_previous() {
     );
     assert_eq!(rules("FirstDerivation"), ["\"element-start\""]);
 
-    assert_eq!(
-        defs["FirstKeyframe"]["properties"]["t_from"]["$ref"],
-        json!("#/$defs/FirstDerivation")
-    );
-    assert_eq!(
-        defs["Keyframe"]["properties"]["t_from"]["$ref"],
-        json!("#/$defs/Derivation")
-    );
+    // Every instantiation, whatever value type it is named for (ADR-0137 §6).
+    let records: Vec<&String> = defs
+        .as_object()
+        .unwrap()
+        .keys()
+        .filter(|name| name.starts_with("Keyframe") || name.starts_with("FirstKeyframe"))
+        .collect();
+    assert_eq!(records.len(), 8, "{records:?}");
+    for name in records {
+        let derivation = if name.starts_with("First") {
+            "#/$defs/FirstDerivation"
+        } else {
+            "#/$defs/Derivation"
+        };
+        assert_eq!(
+            defs[name]["properties"]["t_from"]["$ref"],
+            json!(derivation),
+            "{name}"
+        );
+    }
     assert!(
         defs["FirstDerivation"]["description"]
             .as_str()

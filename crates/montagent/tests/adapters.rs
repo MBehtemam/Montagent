@@ -2427,6 +2427,47 @@ fn mcp_create_project_onto_an_existing_file_sets_is_error_and_changes_nothing() 
 }
 
 #[test]
+fn every_montagent_uri_the_server_names_on_the_wire_is_served() {
+    // ADR-0137 §7: agents read the URIs they are told about. The instructions an agent
+    // receives on connecting, and the tool descriptions it reads every turn, both name
+    // resources; a name that reads as nothing sends it to a dead end.
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+    ]);
+    let instructions = session[&1]["result"]["instructions"]
+        .as_str()
+        .expect("server instructions")
+        .to_string();
+    assert!(
+        instructions.contains("montagent://schema/index.json"),
+        "the instructions start an agent at the index: {instructions}"
+    );
+    let mut texts = vec![instructions];
+    texts.extend(
+        session[&2]["result"]["tools"]
+            .as_array()
+            .expect("a tool list")
+            .iter()
+            .filter_map(|tool| tool["description"].as_str().map(str::to_string)),
+    );
+    for text in &texts {
+        for (at, _) in text.match_indices("montagent://") {
+            let uri: String = text[at..]
+                .chars()
+                .take_while(|c| !c.is_whitespace() && !matches!(c, '`' | ')' | ','))
+                .collect();
+            let uri = uri.trim_end_matches('.');
+            assert!(
+                montagent_core::resources::read(uri).is_some(),
+                "{uri} is named on the wire but not served"
+            );
+        }
+    }
+}
+
+#[test]
 fn mcp_publishes_the_schema_and_the_format_docs_as_resources() {
     // ADR-0011: "the schema and format docs as resources. Discoverability is the schema's
     // job, and a resource costs no tool slot. This is what makes 'how does the agent know
@@ -2452,6 +2493,11 @@ fn mcp_publishes_the_schema_and_the_format_docs_as_resources() {
             serde_json::json!({"uri": "montagent://nothing-here"}),
         ),
         request(6, "tools/list", serde_json::json!({})),
+        request(
+            7,
+            "resources/read",
+            serde_json::json!({"uri": "montagent://schema/index.json"}),
+        ),
     ]);
 
     let listed: Vec<String> = session[&2]["result"]["resources"]
@@ -2464,7 +2510,8 @@ fn mcp_publishes_the_schema_and_the_format_docs_as_resources() {
         listed,
         vec![
             "montagent://schema.json".to_string(),
-            "montagent://format.md".to_string()
+            "montagent://format.md".to_string(),
+            "montagent://schema/index.json".to_string(),
         ]
     );
 
@@ -2494,7 +2541,33 @@ fn mcp_publishes_the_schema_and_the_format_docs_as_resources() {
         session[&5]
     );
 
-    // And neither of them cost a tool slot, which is the whole reason they are resources.
+    // ADR-0137: the index, and a piece it lists, which is served though it is not listed.
+    let index: serde_json::Value = serde_json::from_str(
+        session[&7]["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("the index's bytes"),
+    )
+    .expect("the index is JSON");
+    assert_eq!(
+        session[&7]["result"]["contents"][0]["mimeType"],
+        "application/json"
+    );
+    let piece_uri = index["elements"]["text"]["uri"]
+        .as_str()
+        .expect("the text element's piece");
+    let piece = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "resources/read", serde_json::json!({"uri": piece_uri})),
+    ]);
+    let contents = &piece[&2]["result"]["contents"][0];
+    assert_eq!(contents["uri"], piece_uri);
+    let piece: serde_json::Value =
+        serde_json::from_str(contents["text"].as_str().expect("the piece's bytes"))
+            .expect("the piece is JSON");
+    assert_eq!(piece["properties"]["type"]["const"], "text");
+
+    // And none of them cost a tool slot, which is the whole reason they are resources.
     let tools: Vec<String> = session[&6]["result"]["tools"]
         .as_array()
         .unwrap()

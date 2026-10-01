@@ -307,3 +307,25 @@ fn find_open_objects(schema: &serde_json::Value, path: String, open: &mut Vec<St
         }
     }
 }
+
+#[test]
+fn no_def_name_is_a_number_the_generator_assigned() {
+    // ADR-0137 §6. schemars numbers a generic type's instantiations in the order it meets
+    // them (`Keyframe2`, `Keyframe3`, …), so reordering the Rust types renumbers them and
+    // the name says nothing about the value type. Agents read these names in the schema
+    // index and in every rewritten ref, so each one is built from its type parameter.
+    //
+    // A generator-assigned number is recognised by its shape: another definition's name
+    // with digits after it. A trailing digit alone is not one — `Keyframeint64` names its
+    // parameter, `int64`.
+    let schema = schema::generate();
+    let defs = schema["$defs"].as_object().expect("the schema's $defs");
+    let numbered: Vec<&String> = defs
+        .keys()
+        .filter(|name| {
+            let base = name.trim_end_matches(|c: char| c.is_ascii_digit());
+            base.len() < name.len() && defs.contains_key(base)
+        })
+        .collect();
+    assert!(numbered.is_empty(), "numbered $def names: {numbered:?}");
+}

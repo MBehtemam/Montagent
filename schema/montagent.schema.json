@@ -174,10 +174,10 @@
               "description": "Inline, never an asset-table reference (ADR-0002)."
             },
             "x": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "y": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -205,14 +205,14 @@
               "maxItems": 4
             },
             "scale": {
-              "$ref": "#/$defs/Animatable2"
+              "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
               "description": "Degrees clockwise, and **never normalised into `[0,360)`** — `1080` is three turns,\nand a writer that wraps it silently renders one third of the motion.",
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "effects": {
               "type": "array",
@@ -270,10 +270,10 @@
               "format": "int64"
             },
             "x": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "y": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -299,13 +299,13 @@
               "maxItems": 4
             },
             "scale": {
-              "$ref": "#/$defs/Animatable2"
+              "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "speed": {
               "$ref": "#/$defs/Speed"
@@ -315,7 +315,7 @@
             },
             "volume": {
               "description": "A video element is one element with intrinsic audio, so its embedded audio reuses\nthis same field and there is no `mute` — `volume: 0` already says silent, including\nat one instant via a keyframe (ADR-0055).",
-              "$ref": "#/$defs/Animatable4"
+              "$ref": "#/$defs/AnimatableVolume"
             },
             "effects": {
               "type": "array",
@@ -364,10 +364,10 @@
               "$ref": "#/$defs/Layer"
             },
             "x": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "y": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -415,13 +415,13 @@
               "format": "int64"
             },
             "scale": {
-              "$ref": "#/$defs/Animatable2"
+              "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "effects": {
               "type": "array",
@@ -473,10 +473,10 @@
               "$ref": "#/$defs/Layer"
             },
             "x": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "y": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -507,13 +507,13 @@
               "description": "A single integer, defaulting to 0 — one corner radius, not four.\n\nThe fixture is measurably square and the README's *\"rounded cream panel\"* was wrong,\nwhich under ADR-0003's asymmetry is **not** evidence against the field: a rounded\nrectangle is unremarkable in the CapCut/Premiere reference class, and admitting it\nnow costs one clause where admitting it later is a schema change."
             },
             "scale": {
-              "$ref": "#/$defs/Animatable2"
+              "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "effects": {
               "type": "array",
@@ -558,10 +558,10 @@
               "$ref": "#/$defs/Layer"
             },
             "x": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "y": {
-              "$ref": "#/$defs/Animatable"
+              "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
               "$ref": "#/$defs/Origin"
@@ -587,13 +587,13 @@
               "format": "int64"
             },
             "scale": {
-              "$ref": "#/$defs/Animatable2"
+              "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
-              "$ref": "#/$defs/Animatable3"
+              "$ref": "#/$defs/Animatabledouble"
             },
             "effects": {
               "type": "array",
@@ -655,7 +655,7 @@
               "$ref": "#/$defs/AudioOverrun"
             },
             "volume": {
-              "$ref": "#/$defs/Animatable4"
+              "$ref": "#/$defs/AnimatableVolume"
             }
           },
           "required": [
@@ -719,7 +719,7 @@
       ],
       "description": "The per-type field set, discriminated by `type`.\n\nADR-0012: the field set is a **function of `type`** — *\"`x` on an audio element is a\nschema error naming the replacement\"*, never a silently-ignored field. That is also why\nshapes are sibling types rather than one `shape` type with a discriminator inside it: a\nsecond, omissible discriminator would let a malformed ellipse render as a rect, silently\nand plausibly (ADR-0014)."
     },
-    "Animatable": {
+    "Animatableint64": {
       "anyOf": [
         {
           "type": "integer",
@@ -730,11 +730,11 @@
           "type": "array",
           "prefixItems": [
             {
-              "$ref": "#/$defs/FirstKeyframe"
+              "$ref": "#/$defs/FirstKeyframeint64"
             }
           ],
           "items": {
-            "$ref": "#/$defs/Keyframe"
+            "$ref": "#/$defs/Keyframeint64"
           },
           "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
@@ -742,7 +742,7 @@
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
     },
-    "FirstKeyframe": {
+    "FirstKeyframeint64": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -766,7 +766,7 @@
       ],
       "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
-    "Keyframe": {
+    "Keyframeint64": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -968,7 +968,7 @@
       ],
       "description": "A claim about how the author computed `width`/`height` — not a layout mode.\n\nADR-0015's load-bearing sentence: the declared rect is authoritative at render, so `fit`\n**never executes**. No renderer reads it; its only consumer is `validate`. It is the\nformat's first field that is purely an assertion — a provenance tag on two integers."
     },
-    "Animatable2": {
+    "AnimatableArray_size_2_of_double": {
       "anyOf": [
         {
           "type": "array",
@@ -984,11 +984,11 @@
           "type": "array",
           "prefixItems": [
             {
-              "$ref": "#/$defs/FirstKeyframe2"
+              "$ref": "#/$defs/FirstKeyframeArray_size_2_of_double"
             }
           ],
           "items": {
-            "$ref": "#/$defs/Keyframe2"
+            "$ref": "#/$defs/KeyframeArray_size_2_of_double"
           },
           "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
@@ -996,7 +996,7 @@
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
     },
-    "FirstKeyframe2": {
+    "FirstKeyframeArray_size_2_of_double": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1025,7 +1025,7 @@
       ],
       "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
-    "Keyframe2": {
+    "KeyframeArray_size_2_of_double": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1059,7 +1059,7 @@
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
-    "Animatable3": {
+    "Animatabledouble": {
       "anyOf": [
         {
           "type": "number",
@@ -1070,11 +1070,11 @@
           "type": "array",
           "prefixItems": [
             {
-              "$ref": "#/$defs/FirstKeyframe3"
+              "$ref": "#/$defs/FirstKeyframedouble"
             }
           ],
           "items": {
-            "$ref": "#/$defs/Keyframe3"
+            "$ref": "#/$defs/Keyframedouble"
           },
           "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
@@ -1082,7 +1082,7 @@
       ],
       "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
     },
-    "FirstKeyframe3": {
+    "FirstKeyframedouble": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1106,7 +1106,7 @@
       ],
       "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
-    "Keyframe3": {
+    "Keyframedouble": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1430,7 +1430,7 @@
       ],
       "description": "What a time-based element does past the end of its (possibly speed-adjusted) source.\n\nThere is no third value and no `\"none\"`: the field's presence alone signals the\ncondition, so an explicit \"no overrun\" would be indistinguishable from omission\n(ADR-0020)."
     },
-    "Animatable4": {
+    "AnimatableVolume": {
       "anyOf": [
         {
           "$ref": "#/$defs/Volume",
@@ -1440,11 +1440,11 @@
           "type": "array",
           "prefixItems": [
             {
-              "$ref": "#/$defs/FirstKeyframe4"
+              "$ref": "#/$defs/FirstKeyframeVolume"
             }
           ],
           "items": {
-            "$ref": "#/$defs/Keyframe4"
+            "$ref": "#/$defs/KeyframeVolume"
           },
           "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
           "minItems": 1
@@ -1458,7 +1458,7 @@
       "description": "A linear level multiplier: `0` is silent, `1` (the default) is the source's own level, and values above `1` amplify — clipping past that is the renderer's documented behaviour rather than a ceiling. Negative is a schema error (ADR-0055).",
       "minimum": 0.0
     },
-    "FirstKeyframe4": {
+    "FirstKeyframeVolume": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -1481,7 +1481,7 @@
       ],
       "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
     },
-    "Keyframe4": {
+    "KeyframeVolume": {
       "type": "object",
       "additionalProperties": false,
       "properties": {

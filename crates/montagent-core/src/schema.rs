@@ -189,7 +189,7 @@ fn publish_positional_rules(schema: &mut Value) {
 
     // Recognised by shape rather than by name: a definition carrying exactly the four
     // record keys is a keyframe record whatever the generator decided to call this
-    // instantiation of it (`Keyframe`, `Keyframe2`, …).
+    // instantiation of it (`Keyframeint64`, `KeyframeVolume`, …).
     let records: Vec<String> = defs
         .iter()
         .filter(|(_, def)| is_keyframe_record(def))
@@ -502,8 +502,14 @@ fn drop_null_alternative(property: &mut Value) {
 /// indent, one trailing newline. Stated here rather than at the test so the generator and
 /// the comparison cannot disagree about what "identical" means.
 pub fn generated_bytes() -> String {
+    pretty(&generate())
+}
+
+/// `value` in that form. The schema index and its pieces are served in it too, so every
+/// schema resource reads the same way.
+pub(crate) fn pretty(value: &Value) -> String {
     format!(
         "{}\n",
-        serde_json::to_string_pretty(&generate()).expect("a schema serialises")
+        serde_json::to_string_pretty(value).expect("a schema serialises")
     )
 }
