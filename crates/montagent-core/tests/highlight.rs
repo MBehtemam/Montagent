@@ -184,3 +184,121 @@ fn validate_reports_it_with_no_ffprobe_needed() {
         report.findings
     );
 }
+
+// ---- `R-HIGHLIGHT-UNPAINTED` (#554, ADR-0134). -----------------------------------------
+// At 30 fps the painted instants are ⌊n × 1000 / 30⌋: …, 2400, 2433, 2466, … — the grid
+// brief B's "Now" (2420–2440 ms, #542) sat on.
+
+#[track_caller]
+fn report_at(fps: i64, tracks: &str) -> Report {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let project = canonical(&format!(
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":{fps},"tracks":[{tracks}]}}"##
+    ));
+    let path = write_project(&dir, "p.montagent.json", &project);
+    let document = parse::read(&path).expect("the project parses");
+    let mut report = Report::new("validate", Some(document.path().to_string()));
+    montagent_core::checks::highlight::check(&document, &mut report);
+    report
+}
+
+#[test]
+fn a_window_between_two_painted_instants_fires() {
+    let report = report_at(30, &track(&text("t1", 2000, 3000, &run("Now", 2434, 2454))));
+    let findings = findings(&report, "R-HIGHLIGHT-UNPAINTED");
+    assert_eq!(findings.len(), 1, "{:?}", report.findings);
+    let finding = findings[0];
+    assert_eq!(finding.class, Class::Review);
+    assert_eq!(finding.repair, None);
+    assert_eq!(finding.fields["fps"], 30);
+    assert_eq!(finding.fields["count"], 1);
+    let detail = finding.fields["detail"].as_str().unwrap();
+    assert!(detail.contains("`t1`"), "{detail}");
+    assert!(detail.contains("\"Now\""), "{detail}");
+    assert!(detail.contains("2434..2454 ms"), "{detail}");
+    assert!(detail.contains("2433 and 2466 ms"), "{detail}");
+}
+
+#[test]
+fn brief_bs_one_frame_window_does_not_fire() {
+    // Frame 73 is painted at 2433, inside 2420..2440: one frame, which is not zero.
+    let report = report_at(30, &track(&text("t1", 2000, 3000, &run("Now", 2420, 2440))));
+    assert!(
+        findings(&report, "R-HIGHLIGHT-UNPAINTED").is_empty(),
+        "{:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn a_window_ending_on_a_painted_instant_does_not_light_it() {
+    // Half-open: 2433 is outside 2401..2433, and 2400 is before it.
+    let report = report_at(30, &track(&text("t1", 2000, 3000, &run("Now", 2401, 2433))));
+    assert_eq!(
+        findings(&report, "R-HIGHLIGHT-UNPAINTED").len(),
+        1,
+        "{:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn unpainted_windows_across_two_elements_are_one_finding() {
+    let first = text(
+        "t1",
+        2000,
+        3000,
+        &format!("{},{}", run("Now", 2434, 2454), run("then", 2700, 2900)),
+    );
+    let second = text("t2", 3000, 4000, &run("a", 3401, 3433));
+    let report = report_at(30, &track(&format!("{first},{second}")));
+    let findings = findings(&report, "R-HIGHLIGHT-UNPAINTED");
+    assert_eq!(findings.len(), 1, "{:?}", report.findings);
+    assert_eq!(findings[0].fields["count"], 2);
+    let detail = findings[0].fields["detail"].as_str().unwrap();
+    assert!(
+        detail.contains("\"Now\"") && detail.contains("\"a\""),
+        "{detail}"
+    );
+    assert!(!detail.contains("\"then\""), "{detail}");
+}
+
+#[test]
+fn a_project_whose_every_window_holds_a_frame_emits_nothing() {
+    let report = report_at(
+        30,
+        &track(&text(
+            "t1",
+            2000,
+            3000,
+            &format!("{},{}", run("Now", 2400, 2500), run("then", 2500, 2900)),
+        )),
+    );
+    assert!(
+        findings(&report, "R-HIGHLIGHT-UNPAINTED").is_empty(),
+        "{:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn validate_reports_an_unpainted_window_as_a_review() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let project = canonical(&format!(
+        r##"{{"frame":{{"width":1080,"height":1920}},"fps":30,"tracks":[{}]}}"##,
+        track(&text("t1", 2000, 3000, &run("Now", 2434, 2454)))
+    ));
+    let path = write_project(&dir, "p.montagent.json", &project);
+    let report = validate(&path);
+    let unpainted: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-HIGHLIGHT-UNPAINTED")
+        .collect();
+    assert_eq!(unpainted.len(), 1, "{:?}", report.findings);
+    assert_eq!(unpainted[0].class, Class::Review);
+    let rendered =
+        montagent_core::text::render(&report.to_json(), montagent_core::text::Options::default())
+            .unwrap();
+    assert!(rendered.contains("R-HIGHLIGHT-UNPAINTED"), "{rendered}");
+}

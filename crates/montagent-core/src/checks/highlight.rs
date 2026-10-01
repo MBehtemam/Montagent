@@ -17,12 +17,20 @@
 //! wrong — the run's window, or the element's own range — so there is no fix a check
 //! could compute rather than ask for.
 //!
+//! **Unpainted** (`R-HIGHLIGHT-UNPAINTED`, ADR-0134). A window that holds no instant the
+//! renderer paints, ⌊n × 1000 / fps⌋: the document lights the word and the video never
+//! shows it. A `review`, one finding per document listing every such window, and its own
+//! code rather than `N-QUANTIZATION`'s, since a highlight changes paint, not presence. It
+//! counts zero frames only: a window that lights one is not reported, because no source
+//! gives a floor above zero to cite (#553).
+//!
 //! **Document-only, ADR-0051's own scope**: no font, no I/O, so this needs no session and
 //! can sit anywhere in `validate`'s check list.
 
 use serde_json::{Value, json};
 
 use crate::checks::subject_of;
+use crate::exact::{self, instant_of};
 use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -34,9 +42,12 @@ struct Window {
     end: i64,
 }
 
-/// Both checks, over every `text` element that carries at least one `highlight` window.
+/// All three checks, over every `text` element that carries at least one `highlight` window.
 pub fn check(document: &Loose, report: &mut Report) {
     let file = document.path();
+    // No `fps`, no grid, so no unpainted question; the check that requires it owns that.
+    let fps = document.value().get("fps").and_then(Value::as_i64);
+    let mut unpainted: Vec<String> = Vec::new();
 
     for (track, element) in document.elements_in_tracks() {
         if element.get("type").and_then(Value::as_str) != Some("text") {
@@ -76,7 +87,46 @@ pub fn check(document: &Loose, report: &mut Report) {
         for finding in overlaps(&subject, &windows) {
             report.push(at(finding));
         }
+
+        if let Some(fps) = fps {
+            unpainted.extend(
+                windows
+                    .iter()
+                    .filter(|w| exact::holds_a_sampled_frame(w.start, w.end, fps) == Some(false))
+                    .map(|w| unpainted_detail(&subject, w, fps)),
+            );
+        }
     }
+
+    if let (Some(fps), false) = (fps, unpainted.is_empty()) {
+        report.push(
+            Finding::new("R-HIGHLIGHT-UNPAINTED")
+                .at_file(file)
+                .field("fps", json!(fps))
+                .field("count", json!(unpainted.len()))
+                .field("detail", json!(unpainted.join("; "))),
+        );
+    }
+}
+
+/// One unpainted window, with the painted instants either side so a reader can see why.
+fn unpainted_detail(subject: &str, window: &Window, fps: i64) -> String {
+    let painted = |frame: Option<exact::Sampled>| frame.map(|f| instant_of(f.frame, fps));
+    let mut detail = format!(
+        "`{subject}` run \"{}\" ({}..{} ms)",
+        window.run, window.start, window.end
+    );
+    match (
+        painted(exact::frame_before(window.start, fps)),
+        painted(exact::frame_at_or_after(window.end, fps)),
+    ) {
+        (Some(previous), Some(next)) => detail.push_str(&format!(
+            ", between the frames painted at {previous} and {next} ms"
+        )),
+        (None, Some(next)) => detail.push_str(&format!(", before the first frame at {next} ms")),
+        _ => {}
+    }
+    detail
 }
 
 /// Every run of this element that carries a `highlight` window, in document order.
