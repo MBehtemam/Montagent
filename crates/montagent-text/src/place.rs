@@ -195,7 +195,11 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
 /// readings disagree by half a space and only one of them is the number `measure` already
 /// published. No fixture text ends in a space; named so the next reader does not have to
 /// discover it from a half-space offset.
-pub(crate) fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {
+///
+/// **Public because `query --at`'s ink box aligns with it too** (ADR-0135): the rectangle
+/// an agent checks overlap against is placed by this function or it is not where the text
+/// is drawn.
+pub fn offset(align: Align, rtl: bool, block_width: f64, advance: f64) -> f64 {
     let free = (block_width - advance).max(0.0);
     match (align, rtl) {
         (Align::Start, false) | (Align::End, true) => 0.0,

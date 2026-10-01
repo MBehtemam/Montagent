@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by twenty-nine later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-two later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -138,6 +138,10 @@ status: accepted
 >   — **a tenth MCP verb, `verify`**, and a thirteenth CLI command: the counts move to 10 / 13.
 >   The CLI-only rule is for rarely used verbs, and `verify` is the last step of every agent's
 >   workflow. Its MCP schema is `project` only
+> - [ADR-0135](0135-a-text-elements-lines-align-inside-their-own-block-and-origin-places-the-block.md)
+>   — **`query --at`'s ink box is placed where the text is drawn.** `origin` places the block
+>   the lines make, not the declared `width`, and each line is aligned inside it by the
+>   painter's own function
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

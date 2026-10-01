@@ -6,7 +6,9 @@
 //! Every function here computes the frame-space rectangle an element actually occupies —
 //! `x`, `y`, `origin`, declared `width`/`height`, and the resolved `scale` — because the
 //! crop rectangle, the ink box and `NOT COVERED` are three questions about the same
-//! geometry, not three separate ones. **Rotation refuses rather than approximates**: a
+//! geometry, not three separate ones. A text element's declared `width`/`height` is the one
+//! exception: the ink box places the block the lines make instead, as the painter does
+//! (ADR-0135). **Rotation refuses rather than approximates**: a
 //! rotated element's on-screen footprint is not a rectangle, and reporting one anyway
 //! would be exactly the plausible-and-wrong number ADR-0011's resolver refuses to invent
 //! for a keyframe list with no `ease` (see [`crate::resolve::Unresolvable`]). No fixture
@@ -16,10 +18,10 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::model::{Align, Animatable, Origin};
+use crate::model::{Animatable, Origin};
 use crate::permissive::Loose;
 use crate::resolve::{self, Interpolate};
-use crate::verbs::measure::{Measurable, register, runs_of};
+use crate::verbs::measure::{Measurable, align_of, register, runs_of};
 
 /// An axis-aligned frame-space rectangle, in absolute integer pixels — the same unit
 /// every other frame-space number in the format is written in.
@@ -356,8 +358,14 @@ pub fn not_covered(frame: (i64, i64), rects: &[Rect]) -> Vec<Rect> {
 /// Built on [`montagent_text::measure`] — the same engine and the same call `measure` the
 /// verb makes (#205) — so this is the second *caller* of that arithmetic, never a second
 /// *implementation* of it. What this function adds is the half `measure` does not build:
-/// the block's horizontal placement (`x`, `origin`'s horizontal component, `width`,
-/// `align`), which turns a line's typographic advance into an absolute rectangle.
+/// the block's horizontal placement (`x`, `origin`'s horizontal component, `align`), which
+/// turns a line's typographic advance into an absolute rectangle.
+///
+/// **The lines align inside the block they make, and `origin` places that block**
+/// (ADR-0135): the widest line's advance, exactly as the painter places it. The declared
+/// `width` is a container claim (ADR-0014) and is not read here, as the declared `height`
+/// is not read by `measure`. Each line's offset into the block is
+/// [`montagent_text::place::offset`] — the painter's own function, not a copy of it.
 ///
 /// **`start` and `end` resolve against each line's base direction** (ADR-0133): the one
 /// the engine laid the line out in, read off its measurement rather than guessed here from
@@ -385,10 +393,6 @@ pub fn ink_box(
             "its resolved `scale` is {scale:?}; the ink box is not derived at a scaled size"
         ));
     }
-    let width = element
-        .get("width")
-        .and_then(Value::as_i64)
-        .ok_or("the element carries no integer `width`")?;
     let spec = Measurable::of(element)?;
 
     let mut fonts = montagent_text::Fonts::new();
@@ -398,6 +402,16 @@ pub fn ink_box(
 
     let resolved_y = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0).round() as i64;
     let runs = runs_of(element);
+    // A malformed `align` refuses rather than answer for `start`, as a malformed `origin`
+    // does below: the ink box is an answer about the document as written.
+    if let Some(value) = element.get("align").filter(|value| !value.is_null())
+        && !matches!(value.as_str(), Some("start" | "center" | "end"))
+    {
+        return Err(format!(
+            "`align` is not `start`, `center` or `end`: {value}"
+        ));
+    }
+    let align = align_of(element);
     let measured = montagent_text::measure(
         &mut fonts,
         &montagent_text::Spec {
@@ -408,12 +422,9 @@ pub fn ink_box(
             stroke_width: spec.asked.stroke_width,
             y: resolved_y,
             vertical_origin: spec.vertical_origin,
-            // This function resolves `align` itself, below, into the absolute rectangle it
-            // answers with — so the measurement it takes here needs it only for the ink
-            // seam it does not read. Set from the same element all the same: a `Spec` that
-            // said `start` about an element aligned `end` would be a lie the next reader of
-            // this call site has to discover.
-            align: crate::verbs::measure::align_of(element),
+            // Read back below, with each line's direction, through the painter's own
+            // `offset` — so the ink box and the picture align every line the same way.
+            align,
         },
     )
     .map_err(|e| e.to_string())?;
@@ -425,25 +436,18 @@ pub fn ink_box(
             .map_err(|_| format!("`origin` is not one of the nine keywords: {value}"))?,
     };
     let (fx, _) = origin_fraction(origin);
-    let block_left = resolved_x - fx * width as f64;
-
-    let align = match element.get("align") {
-        None | Some(Value::Null) => Align::Start,
-        Some(value) => serde_json::from_value(value.clone())
-            .map_err(|_| format!("`align` is not `start`, `center` or `end`: {value}"))?,
-    };
+    // The painter's block: the widest line's advance, before the stroke (ADR-0014), which
+    // is the extent `origin` pivots about in `frame`'s transform.
+    let block_width = measured.advance_width;
+    let block_left = resolved_x - fx * block_width;
 
     let mut ink_left = f64::INFINITY;
     let mut ink_right = f64::NEG_INFINITY;
     let mut ink_top = f64::INFINITY;
     let mut ink_bottom = f64::NEG_INFINITY;
     for line in &measured.lines {
-        let free = width as f64 - line.advance_width;
-        let offset = match (align, line.rtl) {
-            (Align::Start, false) | (Align::End, true) => 0.0,
-            (Align::Start, true) | (Align::End, false) => free,
-            (Align::Center, _) => free / 2.0,
-        };
+        let offset =
+            montagent_text::place::offset(align, line.rtl, block_width, line.advance_width);
         let stroke = line.stroke_width as f64;
         let left = block_left + offset - stroke;
         let right = left + line.extent_width;
