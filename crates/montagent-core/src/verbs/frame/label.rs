@@ -218,6 +218,7 @@ pub(super) fn draw(
         font: None,
         size: None,
         stroke_width: None,
+        dir: None,
     }];
     let placement = montagent_text::place(
         fonts,

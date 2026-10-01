@@ -179,6 +179,13 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **A run boundary is style only** (ADR-0008). It never implies a line break. A line break is a `\n`
   character inside a run's text — the agent chooses every break, and the renderer chooses
   none.
+- **`align`'s `start` and `end` follow each line's own direction** (ADR-0133). A line's
+  direction is the one its characters give: the first strong letter decides, and a line with
+  none is left-to-right. `start` is therefore the right edge of a Hebrew or Arabic line.
+  **A run's `dir` never changes a line's direction.** It lays that run out as a bidi
+  *isolate* (ADR-0007): the run's own text is reordered, so a `!` at its edge takes the
+  run's direction, and nothing outside the run moves. Shaping does not cross the run's edge,
+  so a kern or an Arabic join across it is lost.
 - **Sizes are literal pixels** (ADR-0007), and a text element's `width`/`height` is a container claim
   rather than drawn geometry. Use `measure` to find out what a string actually occupies in
   the font the project declares; do not estimate it.

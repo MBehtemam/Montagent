@@ -2215,7 +2215,13 @@ member of the effect vocabulary, and it was drawn as though it were not there.",
         // **One code, and the field name is a field.** The *reason* is one reason — "this
         // build parsed a declared field, validated it, and drew without it" — and ADR-0093
         // ruling 2's per-reason rule is about the condition, not about how many document
-        // keys can meet it. MONTAGENT-6 (#390) reuses this for a font chain's `index`.
+        // keys can meet it.
+        //
+        // **No field meets it today.** Its first instance, `runs[].dir`, is drawn as
+        // ADR-0007's isolate since ADR-0133 (#457), and the font chain's `index` MONTAGENT-6
+        // (#390) was to reuse it for was honoured instead (ADR-0102). Kept registered
+        // because ADR-0093 makes it *the* code for the next field a build parses and does not
+        // draw: a later one is raised here, not under a new code.
         template: "`{element}`: `{field}` was parsed and validated, and this build drew \
 without it — the picture is not what the document declares.",
         status: Live,

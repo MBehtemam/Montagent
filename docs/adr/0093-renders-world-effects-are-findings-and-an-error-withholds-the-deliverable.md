@@ -3,6 +3,12 @@ status: accepted
 amends: 0006 (closes the gap between `validate`'s classes and `render`'s prose: a world-effect is now an `error` like any other finding, and the two verbs read one structure rather than two — the `validate`/`render` split this ADR designed held for the *document* and not for the disk), 0043 (adds sixteen codes whose repair form is fixed per code, and records that per-reason coding is forced by that rule rather than chosen), 0056 (amends the `UncheckedReason` enumeration with its first non-network member, `Unidentified`), 0021 (reads *"never silently"* at the level of the deliverable: an `error`-class finding withholds the file, so a file at the output path is a render with zero errors)
 ---
 
+> **Amended by [ADR-0133](0133-a-runs-dir-is-an-isolate-and-start-and-end-follow-the-lines-own-direction.md).**
+> `E-FIELD-UNHONOURED`'s first instance, `runs[].dir`, is gone: the field is now drawn as
+> ADR-0007's isolate. The code has no instance left, since #390's font chain `index` was
+> honoured rather than reported (ADR-0102), and it stays registered for the next field a build
+> parses and does not draw.
+
 > **Amended by [ADR-0131](0131-render-and-frame-use-local-sources-only-and-validate-says-so.md).**
 > Ruling 3's containment has no exception. The remote carve-out is gone: `render` declines a
 > URL `validate` probed perfectly well, and that was the same *clean pass, then refused* the

@@ -22,6 +22,10 @@
 //!   at all. It changes no slot and moves no baseline. **The seam is compared per glyph,
 //!   where two glyphs share horizontal space** — a whole-line comparison is a
 //!   false-positive generator, and [`crate::ink`] records what it cost to learn that.
+//! - **A run's `dir` is an isolate** (ADR-0007, ADR-0133): the run is laid out as though
+//!   wrapped in LRI/RLI…PDI, and the line's base direction stays the one the author's own
+//!   characters give. The marks exist only in the string handed to `parley` — see
+//!   [`Laid`] — so no offset, line text or count published here ever includes one.
 //!
 //! # No verdict, ever
 //!
@@ -47,7 +51,10 @@
 //! rasterization"*, the same exemption ADR-0028 carves out for `scale`/`rotation`.
 //! Ascent and descent are font facts read at layout time and are `f64` from the font.
 
-use parley::{Alignment, AlignmentOptions, Layout, LayoutContext, StyleProperty};
+use std::borrow::Cow;
+use std::ops::Range;
+
+use parley::{Alignment, AlignmentOptions, FontFamily, Layout, LayoutContext, StyleProperty};
 use serde::Serialize;
 
 use crate::breaks::{SEGMENTER, Segmenter, opportunities};
@@ -70,6 +77,17 @@ pub struct Run<'a> {
     pub size: Option<i64>,
     /// ADR-0014 makes `stroke` a run-addressable paint, so the stroked extent is too.
     pub stroke_width: Option<i64>,
+    /// A direction override with **isolate** semantics only (ADR-0007): the run is laid out
+    /// as though wrapped in LRI/RLI…PDI, so it reorders nothing outside itself and never
+    /// changes the line's base direction (ADR-0133).
+    pub dir: Option<Dir>,
+}
+
+/// A run's direction override (ADR-0007). Never LRO/RLO: there is no way to spell one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dir {
+    Ltr,
+    Rtl,
 }
 
 /// Which part of the block its `y` places — `origin`'s vertical component (ADR-0013).
@@ -156,6 +174,15 @@ pub struct MeasuredLine {
     /// Every byte offset, into the element's whole text, at which this line may legally
     /// break (ADR-0008). Never a place Montagent would break it: nothing wraps.
     pub break_opportunities: Vec<usize>,
+    /// This line's base direction — what `align`'s `start`/`end` resolve against
+    /// (ADR-0133). UAX #9's P2/P3 over the author's own characters on the line, which a run's
+    /// `dir` never changes.
+    ///
+    /// Not published: `measure`'s wire shape is unchanged by #457. It is here for the
+    /// callers that align a line themselves — `query`'s ink box — so they read the
+    /// direction the painter used rather than guessing one from the characters.
+    #[serde(skip)]
+    pub rtl: bool,
 }
 
 /// What one text element occupies.
@@ -278,37 +305,34 @@ pub(crate) fn measured(
             .filter(|&i| run_ranges[i].start < line.end() && run_ranges[i].end > line.start)
             .collect();
 
-        let mut builder = layout_context.ranged_builder(
-            fonts.context(),
-            line.text,
-            1.0,
-            /* quantize */ false,
-        );
-        builder.push_default(StyleProperty::FontFamily(base_chain.clone()));
-        builder.push_default(StyleProperty::FontSize(spec.size as f32));
-        for &i in &on_line {
-            let start = run_ranges[i].start.max(line.start) - line.start;
-            let end = run_ranges[i].end.min(line.end()) - line.start;
-            if let Some(chain) = &run_chains[i] {
-                builder.push(StyleProperty::FontFamily(chain.clone()), start..end);
-            }
-            if let Some(size) = spec.runs[i].size {
-                builder.push(StyleProperty::FontSize(size as f32), start..end);
-            }
-            // The run's index, carried through the layout as parley's *brush*. Measurement
-            // has no use for it — a colour changes no number here — but drawing does, and
-            // the brush is the only channel that survives shaping: a glyph knows which
-            // cluster it came from, and the brush is how that cluster says which run's
-            // `color` and `stroke` it wears (ADR-0014's run-addressable paint). Pushed in
-            // the shared pass rather than in a second one, because a second pass is a
-            // second answer to "which run is this glyph".
-            builder.push(StyleProperty::Brush(i as u32), start..end);
+        // Each on-line run's stretch of this line, in the line's own offsets.
+        let pieces: Vec<Range<usize>> = on_line
+            .iter()
+            .map(|&i| {
+                run_ranges[i].start.max(line.start) - line.start
+                    ..run_ranges[i].end.min(line.end()) - line.start
+            })
+            .collect();
+        let style = Styles {
+            base: &base_chain,
+            size: spec.size,
+            runs: spec.runs,
+            chains: &run_chains,
+            on_line: &on_line,
+        };
+        let plain = Laid::plain(line.text, &pieces);
+        let mut layout = style.lay_out(&mut layout_context, fonts, &plain);
+        let mut marks: Vec<Range<usize>> = Vec::new();
+        // A `dir` override is laid out a second time, as an isolate, in the base direction
+        // the plain layout just read off the author's characters (ADR-0133). Only then: a
+        // line that sets no `dir` is laid out from exactly the string it always was, so no
+        // frame that does not use the field can move.
+        if on_line.iter().any(|&i| spec.runs[i].dir.is_some()) {
+            let dirs: Vec<Option<Dir>> = on_line.iter().map(|&i| spec.runs[i].dir).collect();
+            let isolated = Laid::isolated(line.text, &pieces, &dirs, layout.is_rtl());
+            layout = style.lay_out(&mut layout_context, fonts, &isolated);
+            marks = isolated.marks;
         }
-        let mut layout: Layout<u32> = builder.build(line.text);
-        // `None` is "no wrap width": the renderer never chooses a line break (ADR-0007),
-        // and the partition above has already placed every break there is.
-        layout.break_all_lines(None);
-        layout.align(Alignment::Start, AlignmentOptions::default());
 
         // ADR-0029's max-across-every-run, read off the runs rather than off parley's own
         // line metrics. Two reasons to spell it out: the rule is a decision this project
@@ -321,6 +345,13 @@ pub(crate) fn measured(
         for placed in layout.lines() {
             advance += f64::from(placed.metrics().advance);
             for run in placed.runs() {
+                // A run of nothing but isolate marks is not a run the author wrote. Its
+                // metrics are its style's, which an author's run already carries; skipped
+                // all the same, so a face the fallback chose for an invisible mark can never
+                // set a line's ascent (ADR-0029 is about the runs *on the line*).
+                if only_marks(run.text_range(), &marks) {
+                    continue;
+                }
                 ascent = ascent.max(f64::from(run.metrics().ascent));
                 descent = descent.max(f64::from(run.metrics().descent));
             }
@@ -362,8 +393,9 @@ pub(crate) fn measured(
             descent,
             size,
             stroke_width,
-            // Read off the layout rather than guessed from the characters, so a `dir`
-            // override reaches the seam the same way it reaches shaping and the renderer.
+            // Read off the layout rather than guessed from the characters. Under a `dir`
+            // override the isolated layout carries the plain one's direction by its leading
+            // mark, so this is the direction the line has without the override (ADR-0133).
             rtl: layout.is_rtl(),
             // Read off the layout this pass just built, for [`crate::place`]'s reason: the
             // glyphs whose ink is being measured must be the glyphs that will be drawn, and
@@ -416,6 +448,7 @@ pub(crate) fn measured(
                 .into_iter()
                 .map(|at| line.start + at)
                 .collect(),
+            rtl: shaped.rtl,
         });
         slot_top += slot;
     }
@@ -486,6 +519,150 @@ pub(crate) fn measured(
         },
         layouts,
     ))
+}
+
+/// The string one line is laid out from, and where each on-line run sits in it.
+///
+/// For a line that sets no `dir` this is the line itself. For one that does, it is the line
+/// with **marks** spliced in: LRI/RLI…PDI around each overridden run (ADR-0007's isolate),
+/// and one LRM or RLM in front, which pins the base direction to the one the line has
+/// without any override (ADR-0133) — UAX #9 P2 skips an isolate's contents, so a line that
+/// is all one overridden run would otherwise lose its direction to the marks around it.
+///
+/// The marks are zero-width default-ignorables, so shaping hides them and they advance by
+/// nothing. They live only here: every offset `measure` publishes is into the author's
+/// text, and is computed from [`crate::lines::Line`] rather than from this string.
+struct Laid<'a> {
+    text: Cow<'a, str>,
+    /// One range per on-line run, in [`Laid::text`]'s offsets, marks included — so a
+    /// mark is styled and brushed as the run it belongs to, and never falls back to the
+    /// element's base `size`, which the run may have replaced.
+    ranges: Vec<Range<usize>>,
+    /// Every inserted mark, in [`Laid::text`]'s offsets.
+    marks: Vec<Range<usize>>,
+}
+
+/// U+2066 LEFT-TO-RIGHT ISOLATE, U+2067 RIGHT-TO-LEFT ISOLATE, U+2069 POP DIRECTIONAL
+/// ISOLATE — never LRE/RLE/LRO/RLO, which ADR-0007 rules out.
+const LRI: char = '\u{2066}';
+const RLI: char = '\u{2067}';
+const PDI: char = '\u{2069}';
+/// U+200E LEFT-TO-RIGHT MARK and U+200F RIGHT-TO-LEFT MARK.
+const LRM: char = '\u{200E}';
+const RLM: char = '\u{200F}';
+
+impl<'a> Laid<'a> {
+    fn plain(text: &'a str, pieces: &[Range<usize>]) -> Laid<'a> {
+        Laid {
+            text: Cow::Borrowed(text),
+            ranges: pieces.to_vec(),
+            marks: Vec::new(),
+        }
+    }
+
+    /// `pieces` and `dirs` are parallel, one entry per on-line run; `rtl` is the base
+    /// direction the line has without any override.
+    fn isolated(
+        text: &str,
+        pieces: &[Range<usize>],
+        dirs: &[Option<Dir>],
+        rtl: bool,
+    ) -> Laid<'static> {
+        let mut out = String::with_capacity(text.len() + 3 * (2 * pieces.len() + 1));
+        let mut ranges = Vec::with_capacity(pieces.len());
+        let mut marks = Vec::new();
+        let mut mark = |out: &mut String, c: char| {
+            let at = out.len();
+            out.push(c);
+            marks.push(at..out.len());
+        };
+        // The base-direction mark is styled as the first run, since it sits at its start.
+        mark(&mut out, if rtl { RLM } else { LRM });
+        for (index, (piece, dir)) in pieces.iter().zip(dirs).enumerate() {
+            let start = if index == 0 { 0 } else { out.len() };
+            if let Some(dir) = dir {
+                mark(
+                    &mut out,
+                    match dir {
+                        Dir::Ltr => LRI,
+                        Dir::Rtl => RLI,
+                    },
+                );
+            }
+            out.push_str(&text[piece.clone()]);
+            if dir.is_some() {
+                mark(&mut out, PDI);
+            }
+            ranges.push(start..out.len());
+        }
+        Laid {
+            text: Cow::Owned(out),
+            ranges,
+            marks,
+        }
+    }
+}
+
+/// Whether a stretch of the laid-out string holds nothing but marks.
+///
+/// Always `false` for a line with no marks, so a plain line skips no run, however empty.
+fn only_marks(range: Range<usize>, marks: &[Range<usize>]) -> bool {
+    let mut at = range.start;
+    while at < range.end {
+        match marks.iter().find(|mark| mark.start == at) {
+            Some(mark) => at = mark.end,
+            None => return false,
+        }
+    }
+    !marks.is_empty()
+}
+
+/// What one line's layout is styled from — the same for its plain and its isolated string.
+struct Styles<'s, 'a> {
+    base: &'s FontFamily<'static>,
+    size: i64,
+    runs: &'s [Run<'a>],
+    chains: &'s [Option<FontFamily<'static>>],
+    on_line: &'s [usize],
+}
+
+impl Styles<'_, '_> {
+    fn lay_out(
+        &self,
+        layout_context: &mut LayoutContext<u32>,
+        fonts: &mut Fonts,
+        laid: &Laid<'_>,
+    ) -> Layout<u32> {
+        let text: &str = &laid.text;
+        let mut builder =
+            layout_context.ranged_builder(fonts.context(), text, 1.0, /* quantize */ false);
+        builder.push_default(StyleProperty::FontFamily(self.base.clone()));
+        builder.push_default(StyleProperty::FontSize(self.size as f32));
+        for (&i, range) in self.on_line.iter().zip(&laid.ranges) {
+            if let Some(chain) = &self.chains[i] {
+                builder.push(StyleProperty::FontFamily(chain.clone()), range.clone());
+            }
+            if let Some(size) = self.runs[i].size {
+                builder.push(StyleProperty::FontSize(size as f32), range.clone());
+            }
+            // The run's index, carried through the layout as parley's *brush*. Measurement
+            // has no use for it — a colour changes no number here — but drawing does, and
+            // the brush is the only channel that survives shaping: a glyph knows which
+            // cluster it came from, and the brush is how that cluster says which run's
+            // `color` and `stroke` it wears (ADR-0014's run-addressable paint). Pushed in
+            // the shared pass rather than in a second one, because a second pass is a
+            // second answer to "which run is this glyph". (A line with a `dir` is laid out
+            // twice, but only the isolated layout is kept; the plain one is read for its
+            // direction and nothing else.)
+            builder.push(StyleProperty::Brush(i as u32), range.clone());
+        }
+        let mut layout: Layout<u32> = builder.build(text);
+        // `None` is "no wrap width": the renderer never chooses a line break (ADR-0007),
+        // and the partition above has already placed every break there is.
+        layout.break_all_lines(None);
+        layout.align(Alignment::Start, AlignmentOptions::default());
+        layout
+    }
 }
 
 /// One line's own metrics, before it knows where in the block it sits.

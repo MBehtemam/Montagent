@@ -34,6 +34,7 @@ fn width(fonts: &mut Fonts, text: &str) -> f64 {
                 font: None,
                 size: None,
                 stroke_width: None,
+                dir: None,
             }],
             font: "k",
             size: 100,

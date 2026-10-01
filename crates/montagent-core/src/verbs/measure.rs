@@ -46,12 +46,11 @@
 //! glyphs, both of which the engine already has, and because without it an author has no
 //! way at all to see a `line_height` that puts one line's marks through the next one's.
 //!
-//! Its **horizontal** half is still not here, and the reason is unchanged: a full ink box is
-//! an absolute rect, so it needs the block's horizontal placement — `x`, `origin`'s
-//! horizontal component, and how `align`'s `start`/`end` resolve against a line's base
-//! direction under bidi. No ADR settles the last of those, and the same geometry is what
-//! `query --at`'s crop rectangle is blocked on. It belongs with that, decided once, rather
-//! than invented twice.
+//! Its **horizontal** half is not here: a full ink box is an absolute rect, so it needs the
+//! block's horizontal placement — `x`, `origin`'s horizontal component, and `align`'s
+//! `start`/`end` against each line's base direction, which ADR-0133 settles. That geometry
+//! is `query --at`'s ink box ([`crate::verbs::query::geometry::ink_box`]), and it belongs
+//! there, decided once, rather than invented twice.
 //!
 //! ADR-0088 gives `measure` an answer of a different kind: for an element carrying a
 //! `chroma` effect, the **keyed-alpha coverage** its own key produces, sampled per frame
@@ -717,6 +716,13 @@ pub(crate) fn runs_of(element: &Value) -> Vec<Run<'_>> {
             font: run.get("font").and_then(Value::as_str),
             size: run.get("size").and_then(Value::as_i64),
             stroke_width: run.get("stroke_width").and_then(Value::as_i64),
+            // A spelling the schema does not admit is `validate`'s to name and is read as no
+            // override here, on the rule `align_of` reads a malformed `align` by.
+            dir: match run.get("dir").and_then(Value::as_str) {
+                Some("ltr") => Some(montagent_text::Dir::Ltr),
+                Some("rtl") => Some(montagent_text::Dir::Rtl),
+                _ => None,
+            },
         })
         .collect()
 }

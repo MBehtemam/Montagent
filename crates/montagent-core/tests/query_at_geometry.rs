@@ -354,12 +354,17 @@ fn an_invisible_rotated_element_does_not_force_not_covered_to_refuse() {
 // ---------------------------------------------------------------------------
 
 fn text_project(align: &str, line: u32) -> PathBuf {
+    runs_project(align, r#"[{"text":"cobweb"}]"#, line)
+}
+
+/// `text_project`'s element, with `runs` spelled by the caller.
+fn runs_project(align: &str, runs: &str, line: u32) -> PathBuf {
     let dir = common::tempdir(line);
     write_project(
         &dir,
         "p.montagent.json",
         &canonical(&format!(
-            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"fonts":{{"brand":[{{"file":{:?}}}]}},"tracks":[{{"name":"t","layer":1,"elements":[{{"id":"cap","type":"text","start":0,"end":1000,"x":540,"y":100,"origin":"top-center","width":600,"height":100,"font":"brand","size":60,"align":{align:?},"runs":[{{"text":"cobweb"}}]}}]}}]}}"##,
+            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"fonts":{{"brand":[{{"file":{:?}}}]}},"tracks":[{{"name":"t","layer":1,"elements":[{{"id":"cap","type":"text","start":0,"end":1000,"x":540,"y":100,"origin":"top-center","width":600,"height":100,"font":"brand","size":60,"align":{align:?},"runs":{runs}}}]}}]}}"##,
             font_file().display().to_string()
         )),
     )
@@ -394,6 +399,57 @@ fn align_moves_the_ink_box_horizontally_inside_the_declared_width() {
     assert_eq!(x(&start), 240.0);
     assert!(x(&center) > x(&start));
     assert!(x(&end) > x(&center));
+}
+
+#[test]
+fn a_run_set_to_rtl_answers_an_ink_box_and_the_override_moves_nothing_outside_it() {
+    // #457: this refused while no ADR said how `start`/`end` resolve under bidi. ADR-0133
+    // does — against the line's base direction, which a run's isolate never changes — so
+    // a Latin line with an RTL run is still a left-to-right line, flush with the left edge.
+    let plain = at(&text_project("start", line!()), 0);
+    let isolated = at(
+        &runs_project(
+            "start",
+            r#"[{"text":"cob"},{"text":"web","dir":"rtl"}]"#,
+            line!(),
+        ),
+        0,
+    );
+    let cap = element(&isolated, "cap");
+    assert_eq!(cap["ink_box_unresolved"], Value::Null);
+    let (got, want) = (&cap["ink_box"], &element(&plain, "cap")["ink_box"]);
+    // Flush left, on the same baseline. The width is *not* asserted equal: shaping does not
+    // cross an isolate's edge, so the `b`–`w` kern is lost, and that is the isolate working.
+    assert_eq!(got["x"], 240.0);
+    assert_eq!(got["x"], want["x"]);
+    assert_eq!(got["y"], want["y"]);
+    assert_eq!(got["height"], want["height"]);
+}
+
+#[test]
+fn start_on_a_right_to_left_line_is_the_declared_boxs_right_edge() {
+    // An all-Hebrew line is right-to-left, so `start` is the right edge (ADR-0007's
+    // reason for the vocabulary) — with or without a `dir` on the run, because the
+    // override is an isolate and never the line's direction (ADR-0133). The face has no
+    // Hebrew; the replacement glyphs still advance, and bidi reads the characters.
+    let right = |view: &Value| {
+        let ink_box = &element(view, "cap")["ink_box"];
+        ink_box["x"].as_f64().unwrap() + ink_box["width"].as_f64().unwrap()
+    };
+    let plain = at(&runs_project("start", r#"[{"text":"שלום"}]"#, line!()), 0);
+    let isolated = at(
+        &runs_project("start", r#"[{"text":"שלום","dir":"ltr"}]"#, line!()),
+        0,
+    );
+    // The declared box runs from `540 - 600/2 = 240` to `840`, and no stroke widens it.
+    assert!((right(&plain) - 840.0).abs() < 1e-6, "{}", right(&plain));
+    assert!(
+        (right(&isolated) - 840.0).abs() < 1e-6,
+        "{}",
+        right(&isolated)
+    );
+    let end = at(&runs_project("end", r#"[{"text":"שלום"}]"#, line!()), 0);
+    assert_eq!(element(&end, "cap")["ink_box"]["x"].as_f64(), Some(240.0));
 }
 
 #[test]

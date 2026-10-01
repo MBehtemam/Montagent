@@ -359,12 +359,13 @@ pub fn not_covered(frame: (i64, i64), rects: &[Rect]) -> Vec<Rect> {
 /// the block's horizontal placement (`x`, `origin`'s horizontal component, `width`,
 /// `align`), which turns a line's typographic advance into an absolute rectangle.
 ///
+/// **`start` and `end` resolve against each line's base direction** (ADR-0133): the one
+/// the engine laid the line out in, read off its measurement rather than guessed here from
+/// the characters. A run's `dir` is an isolate and never changes it.
+///
 /// **Scope, stated rather than left to be discovered**: refuses on a non-zero resolved
 /// `rotation` or a resolved `scale` other than `[1,1]` (the ink box is not derived at a
-/// transformed size), and on any run declaring `dir:"rtl"` — `align`'s `start`/`end`
-/// resolve against a line's base direction, and no ADR settles that resolution
-/// (`measure`'s own module doc names this exact gap). None of the fixture's 22 text
-/// elements trips either refusal.
+/// transformed size). None of the fixture's 22 text elements trips either refusal.
 pub fn ink_box(
     document: &Loose,
     element: &Value,
@@ -384,20 +385,6 @@ pub fn ink_box(
             "its resolved `scale` is {scale:?}; the ink box is not derived at a scaled size"
         ));
     }
-    if element
-        .get("runs")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .any(|run| run.get("dir").and_then(Value::as_str) == Some("rtl"))
-    {
-        return Err(
-            "a run declares `dir:\"rtl\"`; how `align` resolves against a line's base \
-             direction is not settled by any ADR, so the ink box refuses rather than guess"
-                .to_string(),
-        );
-    }
-
     let width = element
         .get("width")
         .and_then(Value::as_i64)
@@ -451,10 +438,11 @@ pub fn ink_box(
     let mut ink_top = f64::INFINITY;
     let mut ink_bottom = f64::NEG_INFINITY;
     for line in &measured.lines {
-        let offset = match align {
-            Align::Start => 0.0,
-            Align::Center => (width as f64 - line.advance_width) / 2.0,
-            Align::End => width as f64 - line.advance_width,
+        let free = width as f64 - line.advance_width;
+        let offset = match (align, line.rtl) {
+            (Align::Start, false) | (Align::End, true) => 0.0,
+            (Align::Start, true) | (Align::End, false) => free,
+            (Align::Center, _) => free / 2.0,
         };
         let stroke = line.stroke_width as f64;
         let left = block_left + offset - stroke;
