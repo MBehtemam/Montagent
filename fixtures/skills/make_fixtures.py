@@ -44,6 +44,20 @@ def media():
         "-filter_complex", "amix=inputs=2,volume=0.3",
         "-ac", "1", str(out / "bed.wav"),
     )
+    # 8 s of drums at 100 BPM (600 ms a beat) whose first downbeat is at 300 ms: a kick on
+    # every beat, louder on each bar's first, a tick on the off-beats and a quiet pad, so
+    # the beat grid's tempo and downbeat search run on something with a known answer.
+    beat = "if(gte(t,0.3),1,0)"
+    kick = (
+        f"{beat}*(if(eq(mod(floor((t-0.3)/0.6),4),0),0.9,0.5))"
+        "*sin(2*PI*55*mod(t-0.3,0.6))*exp(-mod(t-0.3,0.6)*25)"
+    )
+    tick = "if(gte(t,0.6),1,0)*0.15*sin(2*PI*5000*mod(t-0.6,0.6))*exp(-mod(t-0.6,0.6)*120)"
+    ffmpeg(
+        "-f", "lavfi", "-i",
+        f"aevalsrc=exprs='{kick}+{tick}+0.05*sin(2*PI*220*t)':s=22050:d=8",
+        "-ac", "1", str(out / "beat.wav"),
+    )
     # ~30 s of green screen with a moving subject and a tone: a stand-in for recorded
     # footage, so chroma, trims, overrun and probed-duration checks run for real.
     ffmpeg(

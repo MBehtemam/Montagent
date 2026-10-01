@@ -70,7 +70,7 @@ Two black rects, top and bottom. For 2.39:1 in a 1920×1080 frame, each is 138 p
 
 - **Lines and frames:** thin rects, or `stroke_width` 2–3 on unfilled rects, in one accent colour at `opacity` 0.6–0.85.
 - **Rings:** unfilled ellipses with a stroke. One or two turn slowly, one turn per 8–20 s, `linear`.
-- **Readouts:** typed with `scripts/type_on.py` (letters at 30–60 ms each), in small caps text at 2–3 % of frame height.
+- **Readouts:** typed with `scripts/type_on.py` (letters at 30–60 ms each), in small caps text at 2–3 % of the short side: readouts are texture, not copy, so they sit under the reading floor.
 - **Blinks and ticks:** dots and markers that toggle on `step` every half beat.
 - **Build:** the lines draw on by growing from an edge (see `SKILL.md`), then the rings, then the readouts.
 
