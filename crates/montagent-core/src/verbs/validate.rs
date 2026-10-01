@@ -182,7 +182,8 @@ fn run_checks(
     // list.
     crate::checks::box_slack::check(document, report);
     // `E-HIGHLIGHT-RANGE`/`E-HIGHLIGHT-OVERLAP` (#202, ADR-0051): a per-word `highlight`
-    // window out of its parent run's own range, or overlapping a sibling's. And
+    // window out of its parent run's own range, or overlapping a sibling's; and
+    // `R-HIGHLIGHT-UNPAINTED` (#554, ADR-0134): a window that holds no painted frame. And
     // `E-TRANSITION-RANGE` (#202, ADR-0059): a transition's derived range drifted from
     // its two bridged elements. All three read only the document, so — like the checks
     // above — they can sit anywhere in this list.

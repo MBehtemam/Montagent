@@ -936,6 +936,26 @@ overlaps run \"{other}\" ({other_start}..{other_end}) by {overlap} ms.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0134 (#542): a window that holds no painted frame — the document lights the
+        // word and the video never shows it, ADR-0006's "rounds out of existence" one level
+        // down from an element. `review`, as every declared-but-never-painted fact is: an
+        // author can mean it. Its own code rather than a fourth `N-QUANTIZATION` condition,
+        // because every condition there is about presence and a highlight changes paint.
+        // Zero frames is the format's own arithmetic, so the threshold is internal; a
+        // fewer-than-N floor would be borrowed, and #553 found no source to cite for one.
+        code: "R-HIGHLIGHT-UNPAINTED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0134",
+        // One finding per document, `N-QUANTIZATION`'s shape for vanished elements: one bad
+        // words file leaves many windows unpainted, and the list says where to look.
+        template: "{count} highlight windows hold no painted frame at {fps} fps: {detail}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0059: a transition's range is derived, redundant data that must track the
         // two elements it bridges. Advise, unlike its two siblings above — the ADR states
         // the check as "a closed-form function of the two referenced elements' own
