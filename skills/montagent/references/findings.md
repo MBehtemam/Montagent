@@ -1,12 +1,10 @@
 # Findings guide
 
-Each finding explains itself: its text says what is wrong, and an advise-class finding also gives the repair. This guide lists only the findings that are **expected noise**: ones that fire on correct work, so you can skip them. Act on every finding it doesn't list.
+Each finding explains itself: its text says what is wrong, and an advise-class finding also gives the repair. This guide lists only the findings that fire on correct work, and what to do about each. Act on every finding it doesn't list.
 
 ## Caption checks on text that isn't a caption
 
-<!-- workaround: #458 · replaced by: caption checks that fire only on captions -->
-
-`R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO`, `R-CAPTION-PACE` and `R-CAPTION-REPEAT-DURATION` fire on every text element, because Montagent can't yet tell a caption from other text. On titles, typed letters, kinetic words, labels and HUD text they are noise, and a typing effect can raise dozens of them. On real captions (words that transcribe speech), act on them.
+`R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO`, `R-CAPTION-PACE` and `R-CAPTION-REPEAT-DURATION` fire on every text element that doesn't say `caption: false`. Write `caption: false` on titles, typed letters, kinetic words, labels and HUD text, and the four checks skip it. On real captions (words that transcribe speech), leave the field out and act on the findings.
 
 ## `R-EASE-INERT` on a deliberate hold
 

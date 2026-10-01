@@ -8,7 +8,8 @@ Standard library only.
 drift-guard: type_on.montagent.json type_on.spec.json
 
 Prints <project> with one text element per unit (each letter, or each word), placed where
-the font's own advances put it, kerning included, so the line reads as if set whole. An
+the font's own advances put it, kerning included, so the line reads as if set whole. Each
+says `caption: false`, since a typed or kinetic line is not a caption. An
 optional cursor rect blinks while idle and steps ahead of each unit. Each element gets its
 own track, named for its id (`<track>-01`, ..., `<track>-cursor`), on consecutive layers
 from `layer`; running the script again replaces the tracks it wrote before.
@@ -136,6 +137,8 @@ def main(argv):
         if exit_:
             at = on_frame(exit_["at"])
             el["opacity"] = [{"t": at, "v": 1.0}, {"t": on_frame(at + exit_["ms"]), "v": 0.0, "ease": "ease-in"}]
+        # A typed or kinetic line is not a caption: keep it out of the caption checks.
+        el["caption"] = False
         elements.append(el)
 
     cursor = spec.get("cursor")
