@@ -17,12 +17,9 @@ Open the reference file for the kind of piece before you plan it:
 
 ## Plan on a beat sheet
 
-Before you write an element, write the **beat sheet**: every entrance, colour change, cut and exit in one table, each on a beat.
+Before you write an element, write the **beat sheet**: every entrance, colour change, cut and exit in one table, each on a beat of the grid `montagent-craft` gives (its tempo, downbeat, frame snapping, and which events go on beats).
 
-- With music, a beat is `60000 / BPM` ms and a bar is four beats. Without music, use 500 ms (120 BPM): it reads as brisk and lands on whole frames at 24, 25, 30 and 60 fps.
-- Main events (a cut, a word landing, a reveal) go on beats. Secondary motion (a settle, a stagger inside a group, a label after its bar) goes on half or quarter beats.
-- Snap every time to a drawn frame, `floor(round(t * fps / 1000) * 1000 / fps)`, and confirm one with `measure --at` when in doubt.
-- Build the project with a generator script from the beat sheet, so a retime is a one-line edit.
+Build the project with a generator script from the beat sheet, so a retime is a one-line edit.
 
 ## Recipes
 
@@ -56,7 +53,7 @@ An entrance's last keyframe already holds, so a hold costs nothing. An exit star
 
 - **Exit length:** 200–350 ms, `ease-in`. Exits run faster than entrances.
 - **Exit move:** a fade plus 20–40 px of travel, or scale down to 0.9. For a hard cut, use a single `step` keyframe to the new value (see the starter project's title).
-- **Hold length:** at least one beat longer than reading takes: about 250 ms per word, and never under 1 s for a line.
+- **Hold length:** the reading time `montagent-craft` gives.
 - **Group exits:** the whole group leaves together, or staggered 30–60 ms in reading order.
 - **Look:** `frame` on the last drawn frame before the exit, and check the whole group is fully in and at rest.
 

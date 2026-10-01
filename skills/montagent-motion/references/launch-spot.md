@@ -14,7 +14,7 @@ A launch spot, product ad, intro or outro has one job: land one idea and leave t
 - **One focal thing at a time.** When a new section starts, the last one's elements have gone, or are clearly behind.
 - **Three colours:** the ground, the ink and one accent. The accent marks one thing per section (the hook's key word, the tallest bar, the brand bar). A second use of it steals the first's weight.
 - **Mark sections with the ground.** Swapping the ground between dark and light on a downbeat is a cut the viewer feels without a transition.
-- **Hook type is big:** 7–12 % of frame height (76–130 px at 1080p), bold. Labels 3.5–4.5 %. Keep type inside the safe area `montagent-craft` gives.
+- **Hook type is display size, bold;** labels are label size. Both sizes, and the safe area every word stays inside, are in `montagent-craft`.
 - **Every section change is a downbeat.** Stagger inside a section on half beats.
 - **Music:** the bed plays from 0 at a steady level (`volume` 0.6–0.9 when nothing speaks over it), then fades to 0 over the last 0.8–1.5 s, reaching 0 on the final frame.
 
