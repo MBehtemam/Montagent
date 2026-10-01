@@ -359,12 +359,19 @@ fn text_project(align: &str, line: u32) -> PathBuf {
 
 /// `text_project`'s element, with `runs` spelled by the caller.
 fn runs_project(align: &str, runs: &str, line: u32) -> PathBuf {
+    placed_project(align, "top-center", 540, runs, line)
+}
+
+/// `runs_project`'s element, with its `origin` and `x` spelled by the caller too. The
+/// declared box stays 600 wide whatever the text, so a reading that consulted it would
+/// show up as a gap between the ink box and the ink.
+fn placed_project(align: &str, origin: &str, x: i64, runs: &str, line: u32) -> PathBuf {
     let dir = common::tempdir(line);
     write_project(
         &dir,
         "p.montagent.json",
         &canonical(&format!(
-            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"fonts":{{"brand":[{{"file":{:?}}}]}},"tracks":[{{"name":"t","layer":1,"elements":[{{"id":"cap","type":"text","start":0,"end":1000,"x":540,"y":100,"origin":"top-center","width":600,"height":100,"font":"brand","size":60,"align":{align:?},"runs":{runs}}}]}}]}}"##,
+            r##"{{"frame":{{"width":1080,"height":1920}},"fps":25,"fonts":{{"brand":[{{"file":{:?}}}]}},"tracks":[{{"name":"t","layer":1,"elements":[{{"id":"cap","type":"text","start":0,"end":1000,"x":{x},"y":400,"origin":{origin:?},"width":600,"height":100,"font":"brand","size":60,"color":"#FF0000","align":{align:?},"runs":{runs}}}]}}]}}"##,
             font_file().display().to_string()
         )),
     )
@@ -387,18 +394,38 @@ fn the_ink_box_is_tighter_than_the_nominal_size_times_line_height_box() {
 }
 
 #[test]
-fn align_moves_the_ink_box_horizontally_inside_the_declared_width() {
+fn a_single_line_is_placed_by_origin_over_its_own_width_whatever_the_align() {
+    // ADR-0134: lines align inside the block they make, and `origin` places that block —
+    // the declared `width` is a container claim and is never consulted. One line *is* its
+    // block, so `align` has nowhere to move it.
     let start = at(&text_project("start", line!()), 0);
     let center = at(&text_project("center", line!()), 0);
     let end = at(&text_project("end", line!()), 0);
 
-    let x = |view: &Value| element(view, "cap")["ink_box"]["x"].as_f64().unwrap();
-    // `origin:"top-center"` at `x:540` puts the declared box's own left edge at
-    // `540 - 600/2 = 240`. `start` sits flush there; `center` and `end` sit strictly to
-    // its right, in that order, because the single short run is narrower than the box.
-    assert_eq!(x(&start), 240.0);
-    assert!(x(&center) > x(&start));
-    assert!(x(&end) > x(&center));
+    let ink_box = |view: &Value| element(view, "cap")["ink_box"].clone();
+    assert_eq!(ink_box(&center), ink_box(&start));
+    assert_eq!(ink_box(&end), ink_box(&start));
+    // `origin:"top-center"` at `x:540` centres the block on 540 — not the declared box's
+    // left edge at `540 - 600/2 = 240`, which is where #551 found it.
+    let got = ink_box(&start);
+    let middle = got["x"].as_f64().unwrap() + got["width"].as_f64().unwrap() / 2.0;
+    assert!((middle - 540.0).abs() < 1e-6, "{got}");
+}
+
+#[test]
+fn align_moves_a_shorter_line_inside_the_block_and_not_the_block() {
+    // The block is the widest line's advance, so `align` moves the short line within it and
+    // the block's extent — the ink box's horizontal extent — stays where `origin` put it.
+    let runs = r#"[{"text":"cobweb cobweb\nab"}]"#;
+    let ink_box = |align: &str| {
+        element(&at(&runs_project(align, runs, line!()), 0), "cap")["ink_box"].clone()
+    };
+    let start = ink_box("start");
+    for align in ["center", "end"] {
+        let got = ink_box(align);
+        assert_eq!(got["x"], start["x"], "{align}");
+        assert_eq!(got["width"], start["width"], "{align}");
+    }
 }
 
 #[test]
@@ -418,38 +445,145 @@ fn a_run_set_to_rtl_answers_an_ink_box_and_the_override_moves_nothing_outside_it
     let cap = element(&isolated, "cap");
     assert_eq!(cap["ink_box_unresolved"], Value::Null);
     let (got, want) = (&cap["ink_box"], &element(&plain, "cap")["ink_box"]);
-    // Flush left, on the same baseline. The width is *not* asserted equal: shaping does not
-    // cross an isolate's edge, so the `b`–`w` kern is lost, and that is the isolate working.
-    assert_eq!(got["x"], 240.0);
-    assert_eq!(got["x"], want["x"]);
+    // On the same baseline, and centred on the same `x`. The width is *not* asserted equal:
+    // shaping does not cross an isolate's edge, so the `b`–`w` kern is lost, and that is
+    // the isolate working.
+    let middle = |b: &Value| b["x"].as_f64().unwrap() + b["width"].as_f64().unwrap() / 2.0;
+    assert!((middle(got) - 540.0).abs() < 1e-6, "{got}");
+    assert!((middle(want) - 540.0).abs() < 1e-6, "{want}");
     assert_eq!(got["y"], want["y"]);
     assert_eq!(got["height"], want["height"]);
 }
 
 #[test]
-fn start_on_a_right_to_left_line_is_the_declared_boxs_right_edge() {
+fn start_on_a_right_to_left_line_is_the_blocks_right_edge() {
     // An all-Hebrew line is right-to-left, so `start` is the right edge (ADR-0007's
     // reason for the vocabulary) — with or without a `dir` on the run, because the
     // override is an isolate and never the line's direction (ADR-0133). The face has no
     // Hebrew; the replacement glyphs still advance, and bidi reads the characters.
-    let right = |view: &Value| {
-        let ink_box = &element(view, "cap")["ink_box"];
-        ink_box["x"].as_f64().unwrap() + ink_box["width"].as_f64().unwrap()
+    //
+    // The edge is the block's (ADR-0134): here a wider, unstroked Latin line makes the
+    // block, centred on 540. The ink box is the union of the lines, so the Hebrew line is
+    // seen through its stroke, which reaches 10 px past whichever block edge it sits on.
+    let ink_box = |align: &str, dir: &str| {
+        let runs = format!(
+            r##"[{{"text":"cobweb cobweb\n"}},{{"text":"שלום"{dir},"stroke":"#00FF00","stroke_width":10}}]"##
+        );
+        element(&at(&runs_project(align, &runs, line!()), 0), "cap")["ink_box"].clone()
     };
-    let plain = at(&runs_project("start", r#"[{"text":"שלום"}]"#, line!()), 0);
-    let isolated = at(
-        &runs_project("start", r#"[{"text":"שלום","dir":"ltr"}]"#, line!()),
-        0,
-    );
-    // The declared box runs from `540 - 600/2 = 240` to `840`, and no stroke widens it.
-    assert!((right(&plain) - 840.0).abs() < 1e-6, "{}", right(&plain));
+    let unstroked = element(
+        &at(
+            &runs_project("start", r#"[{"text":"cobweb cobweb"}]"#, line!()),
+            0,
+        ),
+        "cap",
+    )["ink_box"]
+        .clone();
+    let block_left = unstroked["x"].as_f64().unwrap();
+    let block_width = unstroked["width"].as_f64().unwrap();
     assert!(
-        (right(&isolated) - 840.0).abs() < 1e-6,
-        "{}",
-        right(&isolated)
+        (block_left + block_width / 2.0 - 540.0).abs() < 1e-6,
+        "{unstroked}"
     );
-    let end = at(&runs_project("end", r#"[{"text":"שלום"}]"#, line!()), 0);
-    assert_eq!(element(&end, "cap")["ink_box"]["x"].as_f64(), Some(240.0));
+
+    let near = |got: &Value, key: &str, want: f64| (got[key].as_f64().unwrap() - want).abs() < 1e-6;
+    for dir in ["", r#","dir":"ltr""#] {
+        let start = ink_box("start", dir);
+        assert!(near(&start, "x", block_left), "start{dir}: {start}");
+        assert!(
+            near(&start, "width", block_width + 10.0),
+            "start{dir}: {start}"
+        );
+        let end = ink_box("end", dir);
+        assert!(near(&end, "x", block_left - 10.0), "end{dir}: {end}");
+        assert!(near(&end, "width", block_width + 10.0), "end{dir}: {end}");
+    }
+}
+
+/// The leftmost and rightmost columns `frame` painted anything in, at true scale. "Painted"
+/// is "differs from the top-left pixel", which no test element reaches, so the reading does
+/// not depend on what colour an empty frame is.
+fn painted_columns(project: &Path) -> (u32, u32) {
+    use montagent_core::verbs::frame::{Ask, frame};
+    let answer = frame(
+        project,
+        &Ask {
+            at: Some(0),
+            full: true,
+            png: true,
+            ..Ask::default()
+        },
+    );
+    let picture = image::load_from_memory(&answer.image().expect("a picture").bytes)
+        .expect("a PNG")
+        .to_rgba8();
+    let empty = *picture.get_pixel(0, 0);
+    let columns: Vec<u32> = picture
+        .enumerate_pixels()
+        .filter(|(_, _, pixel)| **pixel != empty)
+        .map(|(x, _, _)| x)
+        .collect();
+    (
+        *columns.iter().min().expect("some ink"),
+        *columns.iter().max().expect("some ink"),
+    )
+}
+
+#[test]
+fn the_ink_boxs_horizontal_extent_is_the_ink_frame_paints() {
+    // #551: the ink box was 185 px from the ink, because it aligned inside the declared
+    // `width` and the painter aligns inside the block. Held against the picture itself so
+    // the two cannot drift apart again — a single line and a block of mixed line widths,
+    // under every `align`, at origins that pivot on the left, the centre and the right.
+    //
+    // The two stroked blocks put a narrow line's 10 px stroke past whichever block edge
+    // `align` sends it to, so the picture itself tells `start` from `end` — on a
+    // left-to-right line and on a right-to-left one.
+    //
+    // The box is advance-based and the picture is ink, so the ink sits inside the box by
+    // the edge glyphs' side bearings: 2 px at most for the Latin glyphs, and up to 6 px for
+    // the replacement glyph the face draws for Hebrew. Antialiasing can put a faint pixel
+    // one column past the box.
+    let blocks = [
+        (r#"[{"text":"cobweb"}]"#, 3.0),
+        (r#"[{"text":"cobweb cobweb\nab\ncobweb"}]"#, 3.0),
+        (
+            r##"[{"text":"cobweb cobweb\n"},{"text":"ab","stroke":"#00FF00","stroke_width":10}]"##,
+            3.0,
+        ),
+        (
+            r##"[{"text":"cobweb cobweb\n"},{"text":"שלום","stroke":"#00FF00","stroke_width":10}]"##,
+            7.0,
+        ),
+    ];
+    for (runs, slack) in blocks {
+        for (origin, x) in [
+            ("top-center", 540),
+            ("top-left", 100),
+            ("bottom-right", 1000),
+        ] {
+            for align in ["start", "center", "end"] {
+                let project = placed_project(align, origin, x, runs, line!());
+                let ink_box = element(&at(&project, 0), "cap")["ink_box"].clone();
+                let left = ink_box["x"].as_f64().unwrap();
+                let right = left + ink_box["width"].as_f64().unwrap();
+                let (ink_left, ink_right) = painted_columns(&project);
+                // The ink's last column is `ink_right`; its right edge is one past it.
+                let (ink_left, ink_right) = (f64::from(ink_left), f64::from(ink_right) + 1.0);
+                let case = format!(
+                    "{runs} {origin} x={x} {align}: box {left}→{right}, ink {ink_left}→{ink_right}"
+                );
+                assert!(
+                    ink_left >= left - 1.0 && ink_right <= right + 1.0,
+                    "ink outside the box: {case}"
+                );
+                assert!(
+                    ink_left - left <= slack && right - ink_right <= slack,
+                    "box wider than the ink: {case}"
+                );
+            }
+        }
+    }
 }
 
 #[test]

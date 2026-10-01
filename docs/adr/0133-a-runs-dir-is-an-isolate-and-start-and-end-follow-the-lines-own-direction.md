@@ -3,6 +3,11 @@ status: accepted
 amends: 0007 (`dir` is drawn, as the isolate this ADR always said it was, and it never sets the line's base direction, which is the one the author's own characters give; `align`'s `start`/`end` resolve against that direction, line by line), 0093 (`E-FIELD-UNHONOURED` loses its first instance, `runs[].dir`, and has none: it stays registered as the code for the next field a build parses and does not draw)
 ---
 
+> **Amended by [ADR-0134](0134-a-text-elements-lines-align-inside-their-own-block-and-origin-places-the-block.md).**
+> §6's recorded residual is settled. `query --at`'s ink box no longer aligns lines inside the
+> declared `width`: like the painter, it aligns them inside the block the lines make and places
+> that block by `origin`.
+
 # A run's `dir` is an isolate, and `start`/`end` follow the line's own direction
 
 [#457](https://github.com/MBehtemam/Montagent/issues/457), which closes §2 and §6 of
