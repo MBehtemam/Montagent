@@ -86,7 +86,7 @@ Lines that arrive a word or a letter at a time are set with the bundled script, 
 - **Typing:** `"by": "letter"`, 60–150 ms between letters (irregular reads more human: vary ±30 ms), and a `cursor` that blinks at 500–600 ms per cycle while idle, stays solid while typing, and steps ahead of each letter.
 - **Tracked titles:** `tracking` adds pixels after each letter. <!-- workaround: #510 · replaced by: a letter-spacing key on text --> <!-- guard-ok: times highlights cursor tracking -->
 
-It writes one element per unit, so `validate` raises the caption checks on every one of them; the findings guide covers that.
+It writes one element per unit and marks each one `caption: false`, so the caption checks skip them.
 
 - **Look:** `preview` the span of the line coming on. Then `frame` it at rest, and check the spacing reads as one line, with no gap wider at a word or letter boundary.
 

@@ -66,7 +66,7 @@ Captions come from the supplied word timings, through the bundled script, not by
 - **Placement:** below the chin and clear of the bottom 15–20 % of a tall frame, where players draw their controls. On 1080×1920 that is a centre at about `y` 1350–1450. On a wide frame, centre it 10–14 % up from the bottom.
 - **Pages** stay up until the next page starts, or 1 s past their last word when a longer pause follows.
 
-It writes real captions, so act on the caption findings `validate` raises on them (the findings guide's noise entry is for text that isn't a caption).
+It writes real captions, so act on the caption findings `validate` raises on them.
 
 - **Look:** `frame --from --to` over one page: each lit word is its own tile. Check each tile lights exactly one word, in speaking order, and the box stays clear of the face. Then `frame --at` the first frame after the longest pause, and check the new page is up and nothing is lit early.
 
