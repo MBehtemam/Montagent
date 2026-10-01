@@ -1,0 +1,214 @@
+{
+  "arm": "with-skills",
+  "brief": {
+    "id": "C-character-short",
+    "path": "docs/research/skills-eval/briefs/dev/C-character-short.md",
+    "sha256": "c0b287c0b88236ca3bf8219141a7a98aec0acfa861d286d0fe91a930a0c9fd4c"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 8.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "delivery_warnings": [],
+  "ended": "2026-10-01T06:23:10+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "dev",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "6508ca7abc7e89e1b5ea976085ff170d762df671",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [
+      "montagent",
+      "montagent-character",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "hoot.montagent.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Brief C: mascot character short\n\n**8 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nHoot, Montagent's owl mascot, introduces the product in one line, standing in a study. It\nis a cartoon, so it lives or dies on the character feeling alive: the beak moves with the\nwords, the owl blinks and gestures, and it never comes apart at the joints.\n\nEverything you need is in the asset pack; its `README.md` lists it. The owl is a cut-out\nrig in `character/`: its parts, their pivots and parents, and its mouths are described in\n`character/rig.json`. The line is `character/voice/line-1.wav`, with its words, visemes and\ntheir timings in `character/voice/line-1.json`. The set is `character/study.png`. The\nproduct pictures are in `stills/` and the brand is in `brand/`.\n\n## Beat by beat\n\n| When | What happens |\n|---|---|\n| 0\u20131 s | The study. The owl hops in from the side and lands on the floor, arms at its sides. |\n| 1 s | The line starts: \"Hi, I'm Hoot! Your agent writes the video as a file, and Montagent turns it into a movie.\" |\n| \"Hi\u2026 Hoot\" | The owl waves: one arm raised, its forearm swinging back and forth from the elbow. |\n| \"\u2026as a file\" | A card with `stills/session-01.png` on it pops in beside the owl, and the owl gestures towards it with the arm on that side. |\n| \"movie\" | The card's picture changes to `stills/session-02.png`, the video that session made. |\n| ~7 s | The brand lockup lands above the owl, and the owl lifts both arms in a small cheer. |\n| throughout | The beak moves with the words, and the owl blinks now and then. |\n\n## Acceptance checklist\n\n- [ ] The owl is built from the rig's parts and holds together: no gap or loose part at the neck, shoulders or elbows on any frame.\n- [ ] The owl stands on the study's floor and is the frame's main subject, at least half the frame tall.\n- [ ] The beak shapes follow the line's visemes: it moves while the voice speaks and is at rest in the pauses and after the line ends.\n- [ ] The wave swings the forearm from the elbow at least twice while the upper arm stays raised.\n- [ ] The owl blinks at least twice, each blink lasting only a few frames.\n- [ ] The card pops in with a small overshoot, and the owl's gesture points at it.\n- [ ] The card's picture changes on \"movie\", not before.\n- [ ] The lockup is legible and on screen from about 7 s to the end.\n- [ ] The voice is clear and starts at 1 s; nothing is clipped at the end.",
+  "prompt_sha256": "9e3c4ec06f28b285206edb2b86bc4d19d5a8c0b930648735abbb205fece04c36",
+  "run": "with-skills-1",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-g8y891m4-work",
+    "bake.txt",
+    "c1.jpg",
+    "c2.jpg",
+    "c3.jpg",
+    "f1400.jpg",
+    "f4000.jpg",
+    "f7300.jpg",
+    "f900.jpg",
+    "g1200.jpg",
+    "g1300.jpg",
+    "g3700.jpg",
+    "g6200.jpg",
+    "g7000.jpg",
+    "g7500.jpg",
+    "g7900.jpg",
+    "g800.jpg",
+    "sheet1.jpg"
+  ],
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 15,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "montagent",
+        "montagent-character",
+        "montagent-footage",
+        "montagent-motion",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate",
+        "mcp__montagent__verify"
+      ]
+    },
+    "look_loops": 9,
+    "looked_at": true,
+    "montagent": {
+      "census_type": {
+        "audio": 1,
+        "image": 54,
+        "rect": 1
+      },
+      "finding_codes": {
+        "N-TRACK-GAP": 6,
+        "R-EASE-INERT": 76
+      },
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 6,
+        "review": 76,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {
+      "fmt": 4,
+      "frame": 9,
+      "probe": 1,
+      "query": 1,
+      "render": 1,
+      "validate": 4,
+      "verify": 1
+    },
+    "result": {
+      "cache_creation_input_tokens": 71035,
+      "cache_read_input_tokens": 1341078,
+      "duration_ms": 180981,
+      "input_tokens": 46,
+      "is_error": false,
+      "num_turns": 38,
+      "output_tokens": 14451,
+      "subtype": "success",
+      "total_cost_usd": 1.1256996
+    },
+    "skill_tool_calls": [
+      "montagent",
+      "montagent-character"
+    ],
+    "skills_installed": [
+      "montagent",
+      "montagent-character",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "skills_triggered": [
+      "montagent",
+      "montagent-character"
+    ],
+    "tool_calls": {
+      "Bash": 15,
+      "Read": 16,
+      "ReadMcpResourceTool": 2,
+      "Skill": 2
+    }
+  },
+  "started": "2026-10-01T06:20:08+00:00",
+  "timed_out": false,
+  "wall_clock_s": 182.4
+}

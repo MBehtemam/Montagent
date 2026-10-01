@@ -17,6 +17,7 @@ licence attestation.
 | `media/clip.mp4` | 30 s, 320×180, 25 fps green screen with a moving subject and a tone. |
 | `type_on.montagent.json`, `type_on.spec.json` | A project with only a font, and a spec that types a name onto it with a cursor: the input to `montagent-motion`'s `type_on.py`. |
 | `rig/rig.json`, `rig/parts/` | A three-level rig (torso → head → mouth and eyes; torso → arm) in the pack's `character/rig.json` shape: parts padded so each pivot is the canvas centre, parents, and a viseme → mouth table. |
+| `rig.montagent.json`, `rig.spec.json` | A project with only a voice on the bed, and a spec that hops the fixture rig in, raises its arm, tilts its head, syncs its mouth to `media/bed.visemes.json` and blinks it: the input to `montagent-character`'s `bake_rig.py`. |
 
 Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg.
 
