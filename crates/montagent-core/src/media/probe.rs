@@ -199,7 +199,7 @@ impl Probe {
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Outcome {
     /// Real content facts.
-    Probed(Probe),
+    Probed(Box<Probe>),
     /// The source is there and nothing about its content was established. ADR-0056:
     /// *"existence confirmed (HEAD 200), duration NOT CHECKED"*.
     ExistenceOnly { source: String, detail: String },
@@ -417,7 +417,7 @@ fn interpret(
         .expect("tool_failure rejects stdout that is not JSON");
 
     Ok(match read(source, &value) {
-        Some(probe) => Outcome::Probed(probe),
+        Some(probe) => Outcome::Probed(Box::new(probe)),
         // `ffprobe` answered and the answer carries no stream at all. Something is there
         // — the reach succeeded — and nothing about its content was established.
         None => Outcome::ExistenceOnly {

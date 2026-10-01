@@ -177,7 +177,7 @@ impl Answer {
 #[serde(tag = "mode", rename_all = "lowercase")]
 pub enum View {
     /// An element, as JSON.
-    Element(Text),
+    Element(Box<Text>),
     /// A time instead (ADR-0035).
     At(Instant),
     /// A batch — `elements` or `all` (#317).
@@ -412,7 +412,7 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
 
     match try_measure_element(&document, element) {
         Ok(text) => Answer {
-            view: Some(View::Element(text)),
+            view: Some(View::Element(Box::new(text))),
             report: Report::new(TOOL, project),
         },
         Err(ElementError::Invocation(reason)) => rejected(project, reason),

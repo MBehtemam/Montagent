@@ -401,10 +401,7 @@ fn run_indices(path: &Path, from_ms: i64, fps: i64, speed: (i128, i128), count: 
         &path.to_string_lossy(),
         Decoder::Auto,
         from_ms,
-        decode::Pace {
-            fps: fps,
-            speed: speed,
-        },
+        decode::Pace { fps, speed },
         SIZE,
         SIZE,
     )
