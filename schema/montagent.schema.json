@@ -428,6 +428,10 @@
               "items": {
                 "$ref": "#/$defs/Effect"
               }
+            },
+            "caption": {
+              "type": "boolean",
+              "description": "`false` says this text is not a caption — a title, a lower-third, a logo, a\nkinetic word — and silences all four caption checks on it: `R-CAPTION-PACE`,\n`R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and `R-CAPTION-REPEAT-DURATION`, whose\ngrouping of identical text leaves it out. Omitted means `true`: every text element\nis a caption unless it says otherwise. It changes no pixel and no other check\n(ADR-0136)."
             }
           },
           "required": [
@@ -441,7 +445,7 @@
             "size",
             "runs"
           ],
-          "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the transform properties, and `effects`."
+          "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the transform properties, `effects`, and\nlast `caption`, which draws nothing and so follows everything that does (ADR-0136)."
         },
         {
           "type": "object",

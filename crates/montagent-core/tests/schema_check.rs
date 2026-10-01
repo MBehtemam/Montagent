@@ -520,3 +520,56 @@ fn a_document_the_strict_parse_accepts_produces_nothing() {
     assert!(document.strict().is_ok());
     assert!(montagent_core::checks::schema::findings(&document).is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// `caption` (#458): a boolean on `text`, and a key on nothing else.
+// ---------------------------------------------------------------------------
+
+/// A text element carrying whatever `caption` value a test splices in.
+fn text_with(caption: &str) -> String {
+    format!(
+        r##"{{"id":"title","type":"text","start":0,"end":1000,"x":0,"y":0,"width":1000,"height":200,"font":"brand","size":55,"runs":[{{"text":"Hi"}}]{caption}}}"##
+    )
+}
+
+#[test]
+fn caption_is_a_boolean_on_a_text_element() {
+    for legal in [r##","caption":false"##, r##","caption":true"##, ""] {
+        let report = report_on_elements(&text_with(legal));
+        assert!(
+            !codes(&report)
+                .iter()
+                .any(|code| code.starts_with("E-SCHEMA")),
+            "{legal}: {:?}",
+            codes(&report)
+        );
+    }
+}
+
+#[test]
+fn a_caption_that_is_not_a_boolean_is_a_schema_error_at_its_element() {
+    // Not `null`: every optional field in the format reads `null` as omitted today, and
+    // `caption` inherits that rather than being the one field that refuses it.
+    for mistyped in [
+        r##","caption":"no""##,
+        r##","caption":"false""##,
+        r##","caption":0"##,
+    ] {
+        let report = report_on_elements(&text_with(mistyped));
+        let finding = only(&report, "E-SCHEMA");
+        assert_eq!(finding.class, Class::Error);
+        assert_eq!(
+            finding.location.element.as_deref(),
+            Some("title"),
+            "{mistyped}"
+        );
+    }
+}
+
+#[test]
+fn caption_on_an_element_that_is_not_text_is_an_unknown_key() {
+    let report = report_on_elements(&rect("card-05", r##","caption":false"##));
+    let finding = only(&report, "E-SCHEMA-UNKNOWN-KEY");
+    assert_eq!(finding.fields["key"], "caption");
+    assert_eq!(finding.location.element.as_deref(), Some("card-05"));
+}

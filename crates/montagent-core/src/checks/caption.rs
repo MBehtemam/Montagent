@@ -10,9 +10,11 @@
 //! **None of them is scoped to a track named `caption`.** ADR-0054: the checks *"carry
 //! no track-name restriction anywhere in their mechanics — they operate on any element's
 //! `runs`, `start`, `end`"*, and a track name is a free-text label with no semantics
-//! elsewhere in this domain model. Whether a decorative overlay is a caption at all is
-//! [#135](https://github.com/MBehtemam/Montagent/issues/135)'s question, and whatever
-//! discriminator it settles on only narrows this scope forward.
+//! elsewhere in this domain model. Whether a title or a logo is a caption at all was
+//! left to [#135](https://github.com/MBehtemam/Montagent/issues/135), and ADR-0136 answers
+//! it with the one discriminator the author states: a `text` element carrying
+//! `caption: false` is not a caption, and none of the four sees it. Nothing infers it —
+//! not a `highlight` window, not audio overlap, not a track name.
 //!
 //! Two of the four compare a document-derived fact against a number that is not in the
 //! document, so both are [`ThresholdProvenance::External`](crate::registry::ThresholdProvenance)
@@ -40,7 +42,7 @@ const PACE_CPS: i64 = 20;
 /// human-reading-time constant is not a grid fact.
 const MIN_DURATION_MS: i64 = 834;
 
-/// All four, over every `text` element in the document.
+/// All four, over every `text` element in the document that does not say `caption: false`.
 pub fn check(document: &Loose, report: &mut Report) {
     let subjects = text_elements(document);
 
@@ -62,12 +64,10 @@ pub fn check(document: &Loose, report: &mut Report) {
 /// would mean re-reading `type` and `runs` off a document the sequence has already thrown
 /// away, and grouping by the one thing ADR-0054 says these checks must not read.
 ///
-/// **Not called a `Caption`**, though all four codes are. `CONTEXT.md`'s glossary has no
-/// **Caption** entry, and ADR-0054 is explicit that nothing in the document distinguishes
-/// "this text is a spoken-line caption" from "this text is decorative UI" — that line is
-/// [#135](https://github.com/MBehtemam/Montagent/issues/135)'s question. The codes are
-/// ADR-0034's and are fixed; a type that asserted the same thing inside the check would be
-/// asserting what the checks are scoped *not* to claim.
+/// **Not called a `Caption`**, though all four codes are, and since ADR-0136 every one of
+/// these *is* a **Caption** in `CONTEXT.md`'s sense. The name stays because the type is the
+/// reduced shape, not the role: it is built after the opt-out has already been read, and it
+/// carries nothing that says what the element is *for*.
 struct TextElement {
     element: String,
     track: Option<String>,
@@ -102,7 +102,14 @@ impl TextElement {
     }
 }
 
-/// Every `text` element, in document order.
+/// Every `text` element, in document order, except the ones stating `caption: false`.
+///
+/// **`caption: false` removes the element here, before any of the four sees it** (ADR-0136),
+/// so it is neither a member of a repeat group nor the reason one forms — filtering per
+/// check would leave `repeat_duration` grouping on text an author has said is not a caption.
+/// Only the literal `false` opts out: omitted and `true` are the default, and a value of any
+/// other type is the schema check's finding, so here it leaves the element in scope rather
+/// than letting a typo silence four checks.
 ///
 /// An element stating no integer `start` and `end`, or a range that is not a positive
 /// half-open interval, contributes nothing — [`crate::track`]'s rule and its reason: those
@@ -112,6 +119,7 @@ fn text_elements(document: &Loose) -> Vec<TextElement> {
     document
         .elements_in_tracks()
         .filter(|(_, element)| element.get("type").and_then(Value::as_str) == Some("text"))
+        .filter(|(_, element)| element.get("caption").and_then(Value::as_bool) != Some(false))
         .filter_map(|(track, element)| {
             let start = element.get("start")?.as_i64()?;
             let end = element.get("end")?.as_i64()?;

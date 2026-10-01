@@ -157,6 +157,16 @@ of runs, even when there is only one. A run boundary is *style only* — it neve
 implies a line break; a line break is a `\n` character inside a run's text.
 _Avoid_: span, segment, chunk
 
+**Caption**:
+A `text` element the four caption checks run on — `R-CAPTION-PACE`,
+`R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and `R-CAPTION-REPEAT-DURATION`. That is any
+text element that does not carry `caption: false`; omitted and `true` mean the same thing
+([ADR-0136](docs/adr/0136-a-text-element-opts-out-of-the-caption-checks-with-caption-false.md)).
+The author draws the line, and nothing infers it: not the track's name, not a `highlight`
+window, not whether audio sits under it. Unrelated to the attribution block `frame` prints
+beside a picture, which older ADRs also called a caption (see **Attribution obligation**).
+_Avoid_: subtitle, decorative text (for what an opted-out element is — it is just text)
+
 **Font**:
 An ordered chain of font *files* the project declares under a semantic name, which
 elements reference by that name. Always files, never a system family: a family name
@@ -695,7 +705,8 @@ that departed only where nothing entered; the greatest element id breaks a layer
 on a sheet is drawn at **one type size**, and a run tile with nothing nameable to report prints
 `=`. The arity is fixed **within a sheet**, not across sheets: after the sheet-wide elision every
 label has four fields, and the answer says so ([ADR-0128](docs/adr/0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md)).
-_Avoid_: caption (that is the single-frame block), tile title, gist, gutter text, the
+_Avoid_: caption (that is a **Caption**, a text element; the single-frame block is the
+**Attribution obligation**'s), tile title, gist, gutter text, the
 discriminating element
 
 **Served type floor**:

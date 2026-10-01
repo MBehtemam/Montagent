@@ -24,8 +24,13 @@ fn track(name: &str, layer: i64, elements: &str) -> String {
 /// A text element carrying one run. `\n` must reach the document as an escape, so the
 /// caller writes it as `\\n` in the literal.
 fn caption(id: &str, start: i64, end: i64, text: &str) -> String {
+    caption_with(id, start, end, text, "")
+}
+
+/// [`caption`], plus whatever a test splices in after `runs`.
+fn caption_with(id: &str, start: i64, end: i64, text: &str, extra: &str) -> String {
     format!(
-        r##"{{"id":"{id}","type":"text","start":{start},"end":{end},"x":0,"y":0,"width":1000,"height":200,"font":"brand","size":55,"runs":[{{"text":"{text}"}}]}}"##
+        r##"{{"id":"{id}","type":"text","start":{start},"end":{end},"x":0,"y":0,"width":1000,"height":200,"font":"brand","size":55,"runs":[{{"text":"{text}"}}]{extra}}}"##
     )
 }
 
@@ -853,4 +858,218 @@ fn validate_runs_all_four_on_a_project_that_references_no_media_at_all() {
         "`review` never gates a render (ADR-0006): {:?}",
         report.findings
     );
+}
+
+// ---------------------------------------------------------------------------
+// `caption: false` — the opt-out (#458).
+// ---------------------------------------------------------------------------
+
+/// A text element that says it is not a caption.
+fn not_a_caption(id: &str, start: i64, end: i64, text: &str) -> String {
+    caption_with(id, start, end, text, r#","caption":false"#)
+}
+
+/// The same element with `caption: true` written out.
+fn stated_caption(id: &str, start: i64, end: i64, text: &str) -> String {
+    caption_with(id, start, end, text, r#","caption":true"#)
+}
+
+/// The ticket's motion piece: three texts, no audio anywhere, each one tripping the pace
+/// floor, the display floor and the audio-backing check when it is in scope.
+fn motion_piece(element: fn(&str, i64, i64, &str) -> String) -> String {
+    track(
+        "titles",
+        10,
+        &[
+            element("title", 0, 500, "far too much text here"),
+            element("lower-third", 500, 1000, "far too much text here"),
+            element("logo", 1000, 1200, "far too much text here"),
+        ]
+        .join(","),
+    )
+}
+
+#[test]
+fn no_caption_check_reports_a_text_element_that_says_it_is_not_a_caption() {
+    let report = report_on(&motion_piece(not_a_caption));
+    assert_eq!(
+        caption_codes(&report),
+        Vec::<&str>::new(),
+        "{:?}",
+        report.findings
+    );
+
+    // And the same three elements in scope, so this test cannot pass on a project nothing
+    // could flag.
+    let in_scope = report_on(&motion_piece(caption));
+    let mut codes = caption_codes(&in_scope);
+    codes.sort();
+    codes.dedup();
+    assert_eq!(
+        codes,
+        [
+            "R-CAPTION-MIN-DURATION",
+            "R-CAPTION-NO-AUDIO",
+            "R-CAPTION-PACE",
+            "R-CAPTION-REPEAT-DURATION"
+        ]
+    );
+}
+
+#[test]
+fn validate_reports_no_caption_finding_on_a_project_of_opted_out_text() {
+    // The wiring, end to end: `validate` is what the CLI and the MCP tool both call.
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &project(&motion_piece(not_a_caption)),
+    );
+
+    let report = validate(&path);
+    assert_eq!(
+        caption_codes(&report),
+        Vec::<&str>::new(),
+        "{:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn caption_true_written_out_reports_byte_for_byte_what_omitting_it_does() {
+    // One path, written twice, so the report's own `file` cannot be what differs.
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let path = write_project(&dir, "p.montagent.json", &project(&motion_piece(caption)));
+    let omitted = render(&validate(&path));
+    write_project(
+        &dir,
+        "p.montagent.json",
+        &project(&motion_piece(stated_caption)),
+    );
+    let stated = render(&validate(&path));
+
+    assert!(omitted.contains("R-CAPTION-PACE"), "{omitted}");
+    assert_eq!(stated, omitted);
+}
+
+#[test]
+fn the_opt_out_changes_no_finding_but_the_caption_ones() {
+    // "The field changes no rendered pixels and no other check": the same project, opted
+    // out and not, differs only in its `R-CAPTION-*` findings.
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let path = write_project(&dir, "p.montagent.json", &project(&motion_piece(caption)));
+    let others = |report: Report| -> Vec<String> {
+        report
+            .findings
+            .iter()
+            .filter(|f| !f.code.starts_with("R-CAPTION-"))
+            .map(|f| serde_json::to_string(f).expect("a finding serializes"))
+            .collect()
+    };
+    let in_scope = others(validate(&path));
+    write_project(
+        &dir,
+        "p.montagent.json",
+        &project(&motion_piece(not_a_caption)),
+    );
+    let opted_out = others(validate(&path));
+
+    assert!(
+        !in_scope.is_empty(),
+        "the project should carry other findings"
+    );
+    assert_eq!(opted_out, in_scope);
+}
+
+#[test]
+fn an_opted_out_element_does_not_make_a_repeat_group_disagree() {
+    // The ticket's pair: one line shown twice for different lengths. Opting either one out
+    // leaves a group of one, which disagrees with nothing.
+    for (first, second) in [
+        (
+            not_a_caption("first", 0, 1000, "Hi"),
+            caption("second", 2000, 4000, "Hi"),
+        ),
+        (
+            caption("first", 0, 1000, "Hi"),
+            not_a_caption("second", 2000, 4000, "Hi"),
+        ),
+    ] {
+        let report = report_on(&format!(
+            "{},{}",
+            track("caption", 10, &format!("{first},{second}")),
+            bed(4000)
+        ));
+        assert_eq!(
+            caption_codes(&report),
+            Vec::<&str>::new(),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    // Both left at the default still disagree.
+    let report = report_on(&format!(
+        "{},{}",
+        track(
+            "caption",
+            10,
+            &format!(
+                "{},{}",
+                caption("first", 0, 1000, "Hi"),
+                caption("second", 2000, 4000, "Hi")
+            )
+        ),
+        bed(4000)
+    ));
+    assert_eq!(caption_codes(&report), ["R-CAPTION-REPEAT-DURATION"]);
+}
+
+#[test]
+fn an_opted_out_element_is_not_listed_as_a_member_of_a_group_that_does_form() {
+    let report = report_on(&format!(
+        "{},{}",
+        track(
+            "caption",
+            10,
+            &[
+                caption("first", 0, 1000, "Hi"),
+                not_a_caption("logo", 1000, 1500, "Hi"),
+                caption("second", 2000, 4000, "Hi"),
+            ]
+            .join(",")
+        ),
+        bed(4000)
+    ));
+
+    let repeat = only(&report, "R-CAPTION-REPEAT-DURATION");
+    assert_eq!(repeat.fields["count"], 2);
+    assert_eq!(repeat.fields["shortest"], 1000);
+    assert_eq!(repeat.count_of_occurrences(), 2);
+    assert!(
+        !repeat.fields["detail"].as_str().unwrap().contains("logo"),
+        "{:?}",
+        repeat.fields
+    );
+}
+
+#[test]
+fn only_the_literal_false_opts_out() {
+    // A string `"false"` is the schema check's finding, and a typo must not also silence
+    // four checks. `null` reads as omitted, as on every optional field (ADR-0136). Either
+    // way the element stays in scope.
+    for value in [r#","caption":"false""#, r#","caption":null"#] {
+        let report = report_on(&track(
+            "titles",
+            10,
+            &caption_with("title", 0, 500, "Hi", value),
+        ));
+        let mut codes = caption_codes(&report);
+        codes.sort();
+        assert_eq!(
+            codes,
+            ["R-CAPTION-MIN-DURATION", "R-CAPTION-NO-AUDIO"],
+            "{value}"
+        );
+    }
 }
