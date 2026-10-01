@@ -5,6 +5,10 @@ amends: 0048 (fulfills the deferred authoring-time-tool obligation), 0011 (confi
 
 # Word alignment is a documented external workflow; `validate` and `compare` catch the failure modes it can leave behind
 
+> **Amended by [ADR-0134](0134-a-highlight-window-that-holds-no-painted-frame-is-a-review.md)**, which adds a third check on `highlight` windows and the first that
+> reads the frame grid: `R-HIGHLIGHT-UNPAINTED`, a `review` for a window that holds no painted
+> frame. The drift against the audio named below as an open gap is still open.
+
 [ADR-0048](0048-per-word-highlighting-is-a-timed-window-on-the-run.md) settled that
 per-word (karaoke) highlight timings are literal `start`/`end` millisecond integers on a
 run, frozen at authoring time, and named an obligation it did not discharge: *"the project

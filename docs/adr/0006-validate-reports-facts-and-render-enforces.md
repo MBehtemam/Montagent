@@ -2,6 +2,11 @@
 status: accepted
 ---
 
+> **Amended by [ADR-0134](0134-a-highlight-window-that-holds-no-painted-frame-is-a-review.md)**, which adds `R-HIGHLIGHT-UNPAINTED`: a `review`, one finding per
+> document, for a run's `highlight` window that holds no painted frame. It is the *"rounds out of
+> existence"* fact one level down from an element, under its own code rather than
+> `N-QUANTIZATION`, because a highlight changes how a run is painted, not what is present.
+
 > **Amended by [ADR-0117](0117-verify-measures-the-deliverable-with-the-decoder-and-a-stale-file-is-one-error.md).** The `NOT CHECKED` block may be followed by a verb's own
 > limits, as `not_checked_also` — one bullet each in the text form. The block's sentence is not
 > edited; `render` uses it to name `verify`, and `verify` to state what an independent witness of
