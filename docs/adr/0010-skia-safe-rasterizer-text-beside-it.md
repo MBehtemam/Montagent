@@ -6,6 +6,9 @@ status: accepted
 
 > **Amended by [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md).** Names its
 > "obvious members" — blur, drop shadow — as the accepted v1 set.
+> **Amended by [ADR-0132](0132-an-image-is-sampled-by-what-its-draw-does-to-it.md).** The
+> resampler is a decision of its own, not an inheritance the golden guard preserves: an
+> image is sampled by what its draw does to it, and two goldens are built to see the filter.
 
 Montagent rasterizes with **`skia-safe`** (Rust bindings to Google's C++ Skia).
 Text is shaped and positioned by **`parley`** and scaled by **`skrifa`** *outside*

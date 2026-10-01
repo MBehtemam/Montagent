@@ -65,10 +65,10 @@
 //! reach this crate as the numbers every other element's do.
 
 use skia_safe::{
-    AlphaType, BlendMode, Color, Color4f, ColorFilter, ColorType, Data, EncodedImageFormat, ISize,
-    Image, ImageFilter, ImageInfo, Paint as SkPaint, PaintStyle, Path, PathBuilder, PathFillType,
-    RRect, Rect, RuntimeEffect, SamplingOptions, Surface, canvas::SaveLayerRec, color_filters,
-    image_filters, images, surfaces,
+    AlphaType, BlendMode, Color, Color4f, ColorFilter, ColorType, CubicResampler, Data,
+    EncodedImageFormat, ISize, Image, ImageFilter, ImageInfo, Matrix, Paint as SkPaint, PaintStyle,
+    Path, PathBuilder, PathFillType, RRect, Rect, RuntimeEffect, SamplingOptions, Surface,
+    canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
 };
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
@@ -966,7 +966,9 @@ impl Canvas {
     /// Draw `source` into `into`, resampled to exactly that rectangle — a contact sheet's
     /// tile, composited down from a frame painted at true pixels (ADR-0095 §5).
     ///
-    /// **Mipmapped**, unlike every other resample in this crate. A tile is a frame reduced
+    /// **Mipmapped, always** — it is always a reduction, and it predates the per-draw rule
+    /// ([`sampling_for`], ADR-0132) that now reaches the same answer for an element shrunk
+    /// the same way. A tile is a frame reduced
     /// five- or sixfold, and a bilinear read of that samples four source pixels out of
     /// thirty-odd: a one-pixel stroke either vanishes or survives by where it happens to
     /// fall. Reading from the mip level nearest the reduction averages every pixel, so what
@@ -1073,12 +1075,15 @@ impl Canvas {
     ) {
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             let destination = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
+            let to_device = canvas.local_to_device_as_3x3()
+                * Matrix::rect_2_rect(Rect::from(source.image.bounds()), destination, None)
+                    .unwrap_or_default();
             let paint = SkPaint::default();
             canvas.draw_image_rect_with_sampling_options(
                 &source.image,
                 None,
                 destination,
-                sampling(),
+                sampling_for(&to_device),
                 &paint,
             );
         });
@@ -1327,11 +1332,13 @@ impl Canvas {
         out.canvas().clear(Rgba::BLACK.colour());
         let snapshot = self.surface.image_snapshot();
         let paint = SkPaint::default();
+        let destination = Rect::from_xywh(0.0, 0.0, out_width as f32, out_height as f32);
+        let to_device = Matrix::rect_2_rect(region.rect(), destination, None).unwrap_or_default();
         out.canvas().draw_image_rect_with_sampling_options(
             &snapshot,
             Some((&region.rect(), skia_safe::canvas::SrcRectConstraint::Strict)),
-            Rect::from_xywh(0.0, 0.0, out_width as f32, out_height as f32),
-            sampling(),
+            destination,
+            sampling_for(&to_device),
             &paint,
         );
 
@@ -1385,10 +1392,51 @@ fn path_of(outline: &[PathEl]) -> Path {
     path.detach()
 }
 
-/// Bilinear, no mipmaps — the prototype's sampling, kept because the golden frames the
-/// oracle guards were measured with it (ADR-0010).
-fn sampling() -> SamplingOptions {
-    SamplingOptions::new(skia_safe::FilterMode::Linear, skia_safe::MipmapMode::None)
+/// How a source is read, chosen from `to_device` — the matrix taking **source pixels** to
+/// **device pixels** for this one draw, so the declared rect, the element's transform and
+/// a proxy canvas's base scale are all already in it (ADR-0132).
+///
+/// Three branches, in this order:
+///
+/// - **Identity** — no scale, no skew, no perspective, and a whole-pixel translation:
+///   nearest, so the source lands pixel for pixel. Stated here rather than left to Skia's
+///   pass-through, which is an implementation detail a `skia-safe` bump could move, and
+///   which a cubic does not take at all. Defined on the composed matrix, never on
+///   `scale`: `scale: 1` over a declared rect that is not the source's own size is a real
+///   resample.
+/// - **Minification** — the smaller singular value under 1, either axis: bilinear over
+///   linear mipmaps. Skia's cubics ignore mipmaps and alias here worse than bilinear did
+///   (#500 measured 29 dB against 38 at ×0.3), which is why one filter cannot serve both
+///   directions. A perspective matrix, which this crate never builds, lands here too: it
+///   is the branch that cannot alias.
+/// - **Magnification** — everything else: Catmull-Rom, which #500 measured at the PIL
+///   bicubic reference (40.2 dB against 40.0 at ×2.3) where bilinear stair-steps a hard
+///   edge (32.3).
+fn sampling_for(to_device: &Matrix) -> SamplingOptions {
+    /// How far from exact a matrix may be and still be the identity. f32 composition of
+    /// translate · scale(1) · translate leaves error near 1e-7; a scale wrong by 1e-6
+    /// moves the far edge of a 4K source by under a hundredth of a pixel.
+    const SCALE_EPSILON: f32 = 1e-6;
+    /// And how far from a whole pixel a translation may sit.
+    const TRANSLATE_EPSILON: f32 = 1e-3;
+
+    let near = |value: f32, target: f32| (value - target).abs() <= SCALE_EPSILON;
+    let whole = |value: f32| (value - value.round()).abs() <= TRANSLATE_EPSILON;
+    if !to_device.has_perspective()
+        && near(to_device.scale_x(), 1.0)
+        && near(to_device.scale_y(), 1.0)
+        && near(to_device.skew_x(), 0.0)
+        && near(to_device.skew_y(), 0.0)
+        && whole(to_device.translate_x())
+        && whole(to_device.translate_y())
+    {
+        return SamplingOptions::new(skia_safe::FilterMode::Nearest, skia_safe::MipmapMode::None);
+    }
+    // `min_scale` is -1 for a perspective matrix, which therefore minifies.
+    if to_device.min_scale() < 1.0 {
+        return SamplingOptions::new(skia_safe::FilterMode::Linear, skia_safe::MipmapMode::Linear);
+    }
+    SamplingOptions::from(CubicResampler::catmull_rom())
 }
 
 /// The overlap of two regions, or `None` where they do not overlap at all.
@@ -1783,5 +1831,182 @@ mod tests {
             ),
             None
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0132's sampling rule: the matrix decides, never the `scale` field
+    // -----------------------------------------------------------------------
+
+    fn nearest() -> SamplingOptions {
+        SamplingOptions::new(skia_safe::FilterMode::Nearest, skia_safe::MipmapMode::None)
+    }
+
+    fn mipmapped() -> SamplingOptions {
+        SamplingOptions::new(skia_safe::FilterMode::Linear, skia_safe::MipmapMode::Linear)
+    }
+
+    fn cubic() -> SamplingOptions {
+        SamplingOptions::from(CubicResampler::catmull_rom())
+    }
+
+    /// A source of `native` pixels drawn into a `declared` box under `transform`, as the
+    /// one matrix [`Canvas::raster`] hands the rule.
+    fn drawn(native: (f32, f32), declared: (f32, f32), transform: Matrix) -> Matrix {
+        transform
+            * Matrix::rect_2_rect(
+                Rect::from_wh(native.0, native.1),
+                Rect::from_wh(declared.0, declared.1),
+                None,
+            )
+            .expect("a non-empty source")
+    }
+
+    #[test]
+    fn an_identity_draw_at_a_whole_pixel_offset_is_nearest() {
+        for (x, y) in [(0.0, 0.0), (37.0, -12.0), (1919.0, 1079.0)] {
+            assert_eq!(
+                sampling_for(&Matrix::translate((x, y))),
+                nearest(),
+                "at ({x}, {y})"
+            );
+        }
+        // And within float drift of one, which is what f32 composition leaves.
+        let drifted = Matrix::new_all(
+            1.0 + 1e-7,
+            0.0,
+            40.0004,
+            0.0,
+            1.0 - 1e-7,
+            7.9998,
+            0.0,
+            0.0,
+            1.0,
+        );
+        assert_eq!(sampling_for(&drifted), nearest());
+    }
+
+    #[test]
+    fn a_fractional_offset_at_scale_one_is_not_the_identity() {
+        // Nearest here would move every pixel by half of one; it is a resample, and at
+        // scale 1 it is the magnification branch.
+        assert_eq!(sampling_for(&Matrix::translate((10.5, 0.0))), cubic());
+        assert_eq!(sampling_for(&Matrix::translate((0.0, 3.25))), cubic());
+    }
+
+    #[test]
+    fn scale_one_over_a_declared_rect_that_is_not_the_native_size_is_a_resample() {
+        // The case that makes the rule a fact about the matrix and not about `scale`.
+        assert_eq!(
+            sampling_for(&drawn(
+                (100.0, 100.0),
+                (120.0, 120.0),
+                Matrix::new_identity()
+            )),
+            cubic()
+        );
+        assert_eq!(
+            sampling_for(&drawn((100.0, 100.0), (80.0, 80.0), Matrix::new_identity())),
+            mipmapped()
+        );
+        // And the native size declared is the identity again.
+        assert_eq!(
+            sampling_for(&drawn(
+                (100.0, 100.0),
+                (100.0, 100.0),
+                Matrix::translate((4.0, 4.0))
+            )),
+            nearest()
+        );
+    }
+
+    #[test]
+    fn uniform_scales_fall_either_side_of_one() {
+        for (scale, expected) in [
+            (0.3, mipmapped()),
+            (0.999, mipmapped()),
+            (1.0, nearest()),
+            (1.001, cubic()),
+            (2.3, cubic()),
+        ] {
+            assert_eq!(
+                sampling_for(&Matrix::scale((scale, scale))),
+                expected,
+                "at ×{scale}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rotation_is_never_the_identity_and_its_scale_decides() {
+        let turned = |degrees: f32, scale: f32| {
+            let mut m = Matrix::new_identity();
+            m.pre_rotate(degrees, None).pre_scale((scale, scale), None);
+            m
+        };
+        assert_eq!(sampling_for(&turned(30.0, 1.0)), cubic());
+        assert_eq!(sampling_for(&turned(5.0, 2.0)), cubic());
+        assert_eq!(sampling_for(&turned(30.0, 0.58)), mipmapped());
+    }
+
+    #[test]
+    fn one_axis_under_one_is_minification_whatever_the_other_does() {
+        // The smaller singular value, not the mean: a source stretched 2× wide and
+        // squeezed to half height aliases along its height.
+        assert_eq!(sampling_for(&Matrix::scale((2.0, 0.5))), mipmapped());
+        assert_eq!(sampling_for(&Matrix::scale((0.9, 3.0))), mipmapped());
+    }
+
+    #[test]
+    fn a_perspective_matrix_takes_the_branch_that_cannot_alias() {
+        let m = Matrix::new_all(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.001, 0.0, 1.0);
+        assert_eq!(sampling_for(&m), mipmapped());
+    }
+
+    #[test]
+    fn an_identity_draw_paints_the_source_byte_for_byte() {
+        // The identity branch's promise, read off the surface: every byte of an opaque
+        // source comes back where it was, at a whole-pixel offset, through the real
+        // element path. A filter applied at 1:1 — Mitchell's blur, or a bilinear read at a
+        // half-pixel phase — fails it.
+        let (w, h) = (7u32, 5u32);
+        let source: Vec<u8> = (0..w * h)
+            .flat_map(|i| {
+                [
+                    (i * 37 % 251) as u8,
+                    (i * 91 % 241) as u8,
+                    (i * 13 % 239) as u8,
+                    0xFF,
+                ]
+            })
+            .collect();
+        let raster = Raster::from_rgba(&source, w, h).expect("a source");
+        let mut canvas = Canvas::new(12, 9).expect("a surface");
+        canvas.raster(
+            &raster,
+            Extent {
+                width: w as f64,
+                height: h as f64,
+            },
+            &Transform {
+                x: 3.0,
+                y: 2.0,
+                scale: (1.0, 1.0),
+                rotation: 0.0,
+                opacity: 1.0,
+                origin: (0.0, 0.0),
+            },
+            None,
+            &[],
+        );
+        let out = canvas.rgba().expect("the surface reads back");
+        for row in 0..h as usize {
+            let at = ((row + 2) * 12 + 3) * 4;
+            let from = row * w as usize * 4;
+            assert_eq!(
+                &out[at..at + w as usize * 4],
+                &source[from..from + w as usize * 4],
+                "row {row}"
+            );
+        }
     }
 }
