@@ -21,7 +21,7 @@ use serde_json::Value;
 use crate::model::{Animatable, Origin};
 use crate::permissive::Loose;
 use crate::resolve::{self, Interpolate};
-use crate::verbs::measure::{Measurable, register, runs_of};
+use crate::verbs::measure::{Measurable, align_of, register, runs_of};
 
 /// An axis-aligned frame-space rectangle, in absolute integer pixels — the same unit
 /// every other frame-space number in the format is written in.
@@ -402,7 +402,16 @@ pub fn ink_box(
 
     let resolved_y = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0).round() as i64;
     let runs = runs_of(element);
-    let align = crate::verbs::measure::align_of(element);
+    // A malformed `align` refuses rather than answer for `start`, as a malformed `origin`
+    // does below: the ink box is an answer about the document as written.
+    if let Some(value) = element.get("align").filter(|value| !value.is_null())
+        && !matches!(value.as_str(), Some("start" | "center" | "end"))
+    {
+        return Err(format!(
+            "`align` is not `start`, `center` or `end`: {value}"
+        ));
+    }
+    let align = align_of(element);
     let measured = montagent_text::measure(
         &mut fonts,
         &montagent_text::Spec {

@@ -68,8 +68,9 @@ against the ink in `frame`'s own full-scale PNG. It covers a single line, a bloc
 line widths, and two blocks whose narrow line carries a stroke that shows which edge `align`
 sent it to: one left-to-right, one right-to-left. Each is tested under `start`, `center` and
 `end`, at `origin`s that pivot on the left, the centre and the right. The box is advance-based
-and the picture is ink, so the ink sits inside the box by the edge glyphs' side bearings,
-which is at most 2 px for the Latin glyphs here.
+and the picture is ink, so the ink sits inside the box by the edge glyphs' side bearings.
+Those are at most 2 px for the Latin glyphs here, and up to 6 px for the replacement glyph the
+face draws for Hebrew, so the test allows 3 px and 7 px respectively.
 
 ## Consequences
 

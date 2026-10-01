@@ -365,6 +365,12 @@ fn runs_project(align: &str, runs: &str, line: u32) -> PathBuf {
 /// `runs_project`'s element, with its `origin` and `x` spelled by the caller too. The
 /// declared box stays 600 wide whatever the text, so a reading that consulted it would
 /// show up as a gap between the ink box and the ink.
+/// Whether an ink box is centred on `x:540`, the builders' `top-center` pivot.
+fn centred_on_540(ink_box: &Value) -> bool {
+    let middle = ink_box["x"].as_f64().unwrap() + ink_box["width"].as_f64().unwrap() / 2.0;
+    (middle - 540.0).abs() < 1e-6
+}
+
 fn placed_project(align: &str, origin: &str, x: i64, runs: &str, line: u32) -> PathBuf {
     let dir = common::tempdir(line);
     write_project(
@@ -408,8 +414,7 @@ fn a_single_line_is_placed_by_origin_over_its_own_width_whatever_the_align() {
     // `origin:"top-center"` at `x:540` centres the block on 540 — not the declared box's
     // left edge at `540 - 600/2 = 240`, which is where #551 found it.
     let got = ink_box(&start);
-    let middle = got["x"].as_f64().unwrap() + got["width"].as_f64().unwrap() / 2.0;
-    assert!((middle - 540.0).abs() < 1e-6, "{got}");
+    assert!(centred_on_540(&got), "{got}");
 }
 
 #[test]
@@ -448,9 +453,8 @@ fn a_run_set_to_rtl_answers_an_ink_box_and_the_override_moves_nothing_outside_it
     // On the same baseline, and centred on the same `x`. The width is *not* asserted equal:
     // shaping does not cross an isolate's edge, so the `b`–`w` kern is lost, and that is
     // the isolate working.
-    let middle = |b: &Value| b["x"].as_f64().unwrap() + b["width"].as_f64().unwrap() / 2.0;
-    assert!((middle(got) - 540.0).abs() < 1e-6, "{got}");
-    assert!((middle(want) - 540.0).abs() < 1e-6, "{want}");
+    assert!(centred_on_540(got), "{got}");
+    assert!(centred_on_540(want), "{want}");
     assert_eq!(got["y"], want["y"]);
     assert_eq!(got["height"], want["height"]);
 }
@@ -481,10 +485,7 @@ fn start_on_a_right_to_left_line_is_the_blocks_right_edge() {
         .clone();
     let block_left = unstroked["x"].as_f64().unwrap();
     let block_width = unstroked["width"].as_f64().unwrap();
-    assert!(
-        (block_left + block_width / 2.0 - 540.0).abs() < 1e-6,
-        "{unstroked}"
-    );
+    assert!(centred_on_540(&unstroked), "{unstroked}");
 
     let near = |got: &Value, key: &str, want: f64| (got[key].as_f64().unwrap() - want).abs() < 1e-6;
     for dir in ["", r#","dir":"ltr""#] {
@@ -584,6 +585,47 @@ fn the_ink_boxs_horizontal_extent_is_the_ink_frame_paints() {
             }
         }
     }
+}
+
+#[test]
+fn the_ink_box_answers_without_a_declared_width_and_refuses_a_malformed_align() {
+    // ADR-0134: the declared `width` takes no part in where text is drawn, so an element
+    // without one still has an ink box — the same one it has with a declared 600.
+    let with_width = placed_project(
+        "start",
+        "top-center",
+        540,
+        r#"[{"text":"cobweb"}]"#,
+        line!(),
+    );
+    let body = std::fs::read_to_string(&with_width).unwrap();
+    assert!(body.contains(r#""width":600,"#) && body.contains(r#""align":"start""#));
+    let without = write_project(
+        &common::tempdir(line!()),
+        "p.montagent.json",
+        &body.replace(r#""width":600,"#, ""),
+    );
+    let cap = |path: &Path| element(&at(path, 0), "cap").clone();
+    let (got, want) = (cap(&without), cap(&with_width));
+    assert_eq!(got["ink_box_unresolved"], Value::Null, "{got}");
+    assert_eq!(got["ink_box"], want["ink_box"]);
+
+    // A malformed `align` is refused rather than answered as `start`, as a malformed
+    // `origin` is: the ink box is an answer about the document as written.
+    let malformed = write_project(
+        &common::tempdir(line!()),
+        "p.montagent.json",
+        &body.replace(r#""align":"start""#, r#""align":"left""#),
+    );
+    let got = cap(&malformed);
+    assert_eq!(got["ink_box"], Value::Null, "{got}");
+    assert!(
+        got["ink_box_unresolved"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("`align`"),
+        "{got}"
+    );
 }
 
 #[test]
