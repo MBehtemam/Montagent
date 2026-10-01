@@ -17,6 +17,10 @@ amends: 0011 (names the two resource URIs, names and media types it publishes wi
 > `create_project`'s MCP handler now sets `isError` for `E-PROJECT-EXISTS`, matching the
 > CLI's exit-3 reading this ADR gives it.
 
+> **Amended by [ADR-0137](0137-the-schema-is-also-served-in-pieces-through-one-index.md).** A
+> third named, frozen URI joins §3: `montagent://schema/index.json`. §3 froze URIs, names and
+> media types, not the schema's internal `$def` keys, some of which are renamed there.
+
 **Ticket:** [#246](https://github.com/MBehtemam/Montagent/issues/246), from
 [#194](https://github.com/MBehtemam/Montagent/issues/194).
 

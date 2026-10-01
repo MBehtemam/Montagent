@@ -142,6 +142,8 @@ status: accepted
 >   — **`query --at`'s ink box is placed where the text is drawn.** `origin` places the block
 >   the lines make, not the declared `width`, and each line is aligned inside it by the
 >   painter's own function
+> - [ADR-0137](0137-the-schema-is-also-served-in-pieces-through-one-index.md) — the format is
+>   also served as a schema index and pieces beside the whole schema
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
