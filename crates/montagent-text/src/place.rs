@@ -137,7 +137,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
         // copy of `slot_centre + (ascent − descent) / 2` here is a second rule to keep in
         // step.
         let baseline = line.baseline_y - block_top;
-        let dx = offset(align, layout.is_rtl(), block_width, line.advance_width);
+        let dx = offset(align, line.rtl, block_width, line.advance_width);
 
         for placed in layout.lines() {
             for item in placed.items() {
@@ -183,7 +183,9 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
 /// **`start` and `end` are resolved against the line's own base direction**, which is what
 /// ADR-0007 bought them for — *"uses start/end rather than left/right because RTL is in
 /// v1"*. The direction is parley's, read off the layout rather than guessed from the
-/// characters, so a `dir` override on a run reaches this the same way it reaches shaping.
+/// characters, and it is **the line's base direction from the author's own characters** —
+/// a run's `dir` is an isolate, which reorders the run and never the line, so it never
+/// moves `start` to the other edge (ADR-0133).
 ///
 /// **Recorded residual: trailing whitespace is not hung.** A line's advance here is the
 /// one `measure` reports, which includes whatever whitespace the author wrote at the end

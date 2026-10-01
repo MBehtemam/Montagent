@@ -50,7 +50,7 @@ pub mod place;
 pub mod sfnt;
 
 pub use breaks::{SEGMENTER, Segmenter};
-pub use engine::{Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
+pub use engine::{Dir, Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
 pub use fonts::{FontError, FontFile, Fonts};
 pub use glyphs::Charmap;
 pub use ink::InkSeam;

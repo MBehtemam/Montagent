@@ -1965,3 +1965,51 @@ fn a_text_element_whose_chain_does_not_resolve_is_named_rather_than_drawn_in_any
          substituted face"
     );
 }
+
+#[test]
+fn a_run_with_a_dir_override_is_drawn_as_an_isolate_and_not_reported_as_partial() {
+    // #457: `dir` was parsed, validated and drawn without — `painted_partially` under
+    // `E-FIELD-UNHONOURED`, and a refused `render`. It is now ADR-0007's isolate (ADR-0133),
+    // so the element is painted in full, and the picture is not the one without it: inside
+    // an RTL isolate the trailing `!` lands on the left of `abc`.
+    let element = |dir: &str| {
+        format!(
+            r##"{{"id":"mixed","type":"text","start":0,"end":1000,"x":300,"y":200,
+                "origin":"center","width":560,"height":80,"font":"brand","size":64,
+                "runs":[{{"text":"x "}},{{"text":"abc!"{dir}}},{{"text":" y"}}]}}"##
+        )
+    };
+    let (json, isolated) = typeset(line!(), &element(r#","dir":"rtl""#));
+    let (_, plain) = typeset(line!(), &element(""));
+
+    for list in ["not_painted", "painted_partially"] {
+        assert_eq!(
+            json["frame"][list].as_array().map(Vec::len),
+            Some(0),
+            "{list}: {}",
+            json["frame"][list]
+        );
+    }
+    assert!(
+        json["frame"]["painted"]
+            .as_array()
+            .expect("a painted list")
+            .iter()
+            .any(|id| id == "mixed")
+    );
+    let unhonoured = json["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|finding| finding["code"] == "E-FIELD-UNHONOURED");
+    assert!(!unhonoured, "{}", json["findings"]);
+
+    // Same block, same ink extent — an isolate reorders inside the line and moves nothing
+    // outside it — but not the same picture.
+    let white = [0xFF, 0xFF, 0xFF];
+    assert_eq!(ink(&isolated, white), ink(&plain, white));
+    assert_ne!(
+        isolated, plain,
+        "the override changed nothing in the picture"
+    );
+}

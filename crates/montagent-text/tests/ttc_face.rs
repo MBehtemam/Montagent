@@ -135,6 +135,7 @@ fn width(path: &Path, index: Option<u32>) -> f64 {
                 font: None,
                 size: None,
                 stroke_width: None,
+                dir: None,
             }],
             font: "k",
             size: 100,

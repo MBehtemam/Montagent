@@ -1751,19 +1751,6 @@ impl<'a> Painter<'a> {
             &effects,
         );
         self.painted.push(name.to_string());
-
-        // Drawn, and then said. A `dir` override reaches neither the measurement nor the
-        // layout yet, which changes what the picture shows, so an agent comparing this
-        // frame against the document is owed the sentence.
-        if runs_with(element, "dir") {
-            // ADR-0093 ruling 1 names this shape directly — a field *"parsed, validated,
-            // and then discarded"* is an `error`, because the picture is not what the
-            // document declares. It was a sentence in a list nothing counted.
-            self.partially(
-                name,
-                Finding::new("E-FIELD-UNHONOURED").field("field", json!("runs[].dir")),
-            );
-        }
     }
 
     /// The declared box, before `scale`.
@@ -1933,13 +1920,6 @@ fn name_of(element: &Value) -> String {
         .and_then(Value::as_str)
         .map(str::to_string)
         .unwrap_or_else(|| "(element with no id)".to_string())
-}
-
-/// Does any run carry this field?
-fn runs_with(element: &Value, key: &str) -> bool {
-    crate::verbs::measure::runs_array(element)
-        .iter()
-        .any(|run| run.get(key).is_some_and(|value| !value.is_null()))
 }
 
 /// The rasterizer's spelling of one outline segment.

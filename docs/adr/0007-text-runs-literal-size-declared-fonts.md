@@ -8,6 +8,12 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0133](./0133-a-runs-dir-is-an-isolate-and-start-and-end-follow-the-lines-own-direction.md)**,
+> which draws this ADR's `dir` bullet as written: the run is laid out as an isolate and
+> reorders nothing outside itself. It adds what the bullet left open. A line's base direction
+> is the one its own characters give, and a run's `dir` never changes it. `align`'s
+> `start`/`end` resolve against that direction, line by line.
+
 > **Amended by [ADR-0102](./0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)**,
 > which implements this ADR's `index` bullet rather than changing it. The field was
 > parsed, range-checked, hashed and dropped: `fontique` registers every face of a

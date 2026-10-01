@@ -1135,3 +1135,44 @@ fn audible_windows() -> Vec<(String, i64, i64)> {
 fn ms(t: i64) -> f64 {
     t as f64 / 1000.0
 }
+
+#[test]
+fn a_run_with_a_dir_override_renders_and_is_not_an_unhonoured_field() {
+    // #457's reproduction, at the size of a test: a run set to `dir:"rtl"` passed `validate`
+    // and then `render` refused at `E-FIELD-UNHONOURED`, writing nothing. ADR-0133 draws it
+    // as ADR-0007's isolate, so the render publishes.
+    if !has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    std::fs::create_dir_all(dir.join("fonts")).expect("a fonts directory");
+    std::fs::copy(
+        fixture_dir().join("fonts/OpenRunde-Bold.otf"),
+        dir.join("fonts/OpenRunde-Bold.otf"),
+    )
+    .expect("the vendored face");
+    // The fixture's own receipt for the face (ADR-0057), so `validate` has nothing to say.
+    let receipt = &document(&fixture_project())["fontVendor"];
+    let body = project(
+        &format!(
+            r##""duration":1000,"output":"out/dir.mp4",
+                "fonts":{{"brand":[{{"file":"fonts/OpenRunde-Bold.otf"}}]}},
+                "fontVendor":{receipt},"##
+        ),
+        r##"{"id":"mixed","type":"text","start":0,"end":1000,"x":100,"y":100,
+            "width":190,"height":40,"font":"brand","size":24,"color":"#FFFFFF",
+            "runs":[{"text":"x "},{"text":"abc!","dir":"rtl"},{"text":" y"}]}"##,
+    );
+    let path = write_project(&dir, "p.montagent.json", &body);
+
+    let json = rendered(&path, &range(0, 200));
+    assert!(
+        !codes(&json).contains(&"E-FIELD-UNHONOURED".to_string()),
+        "{}",
+        json["findings"]
+    );
+    let video = &json["render"];
+    assert_eq!(video["painted"], serde_json::json!(["mixed"]), "{video}");
+    let written = video["path"].as_str().map(PathBuf::from).expect("a path");
+    assert!(written.is_file(), "{written:?} was not written");
+}
