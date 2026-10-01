@@ -556,6 +556,9 @@ fn refused(ask: &Ask) -> String {
     assert!(answer.image().is_none());
     let json = answer.to_json();
     assert_eq!(json["findings"][0]["code"], "E-INVOCATION", "{json}");
+    // ADR-0125 §5: a refusal carries the report alone — no sheet, so no tile 1 to quote and
+    // no `blind_to` for a sheet that was not drawn.
+    assert!(json.get("sheet").is_none(), "{json}");
     json["findings"][0]["fields"]["reason"]
         .as_str()
         .unwrap()
@@ -589,6 +592,35 @@ fn a_call_naming_neither_mode_is_refused_naming_both() {
     let reason = refused(&Ask::default());
     assert!(reason.contains("`--at <t>`"), "{reason}");
     assert!(reason.contains("`--from <t> --to <t>`"), "{reason}");
+}
+
+#[test]
+fn a_range_over_a_file_that_is_no_project_carries_the_report_alone() {
+    // ADR-0125 §5: the shape every refusal has holds where the document never parsed, and
+    // where it parsed as something other than a project.
+    let dir = tempdir(line!());
+    let unparseable = frame(
+        &write_project(
+            &dir,
+            "unparseable.montagent.json",
+            "{\"frame\": {\"width\": 200,",
+        ),
+        &range(0, 2000),
+    );
+    assert_eq!(unparseable.report().exit_code(), ExitCode::Unparseable);
+    let not_a_project = frame(
+        &write_project(&dir, "not-a-project.montagent.json", "[1, 2, 3]"),
+        &range(0, 2000),
+    );
+    assert_eq!(
+        not_a_project.to_json()["findings"][0]["code"],
+        "E-NOT-A-PROJECT"
+    );
+    for answer in [unparseable, not_a_project] {
+        assert!(answer.image().is_none());
+        let json = answer.to_json();
+        assert!(json.get("sheet").is_none(), "{json}");
+    }
 }
 
 #[test]
@@ -959,6 +991,21 @@ fn a_range_opening_inside_a_state_names_the_change_that_state_opened_with() {
     let json = drawn(&changes_project(&dir), &range(1510, 2500)).to_json();
     assert_eq!(labels(&json), ["1 1520ms +10 +b", "2 2000ms +0 -b"]);
     assert_eq!(json["sheet"]["provenance"][0]["run"]["start"], 1510);
+}
+
+#[test]
+fn whole_document_span_is_measured_against_the_document_never_the_range() {
+    // ADR-0128 §2: "The requested range plays no part". `a`, `b` and `aa` each span all of
+    // `[1000, 2000)` and none spans the document, so they stay candidates and `b` is named;
+    // a span measured against the range would leave nothing and print `=`.
+    let dir = tempdir(line!());
+    let project = changes_project(&dir);
+    let json = drawn(&project, &range(1000, 2000)).to_json();
+    assert_eq!(labels(&json), ["1 1000ms +0 +b"]);
+    // The other way round: `bg` spans the document and is never named, though a range
+    // running past the document's end is wider than `bg`.
+    let json = drawn(&project, &range(0, 5000)).to_json();
+    assert_eq!(labels(&json)[0], "1 0ms +0 =");
 }
 
 #[test]
