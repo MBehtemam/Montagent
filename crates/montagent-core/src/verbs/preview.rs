@@ -385,30 +385,25 @@ pub fn preview_cancellable(
     //
     // Only `Foreign` refuses. An unattested file is left alone on purpose: a preview writes
     // no stamp, so the previous preview at this path is unattested by construction, and
-    // refusing it would refuse the second preview of every project.
-    match tools::resolve() {
-        Ok(resolved) => {
-            if let attest::Attestation::Foreign { project } = attest::of(
-                &probe::ProcessRunner,
-                &resolved,
-                &output,
-                FilePath::new(document.path()),
-            ) {
-                return refused(Report::rejected(
-                    TOOL,
-                    Some(document.path().to_string()),
-                    format!(
-                        "{} was written by a different project ({project}), and a preview \
-                         may never destroy a deliverable: it is a disposable artefact \
-                         (ADR-0104)",
-                        output.display()
-                    ),
-                ));
-            }
-        }
-        // A missing `ffmpeg` is the next block's refusal to report (ADR-0091), not this
-        // one's to pre-empt.
-        Err(_) => {}
+    // refusing it would refuse the second preview of every project. A missing `ffmpeg` is
+    // the next block's refusal to report (ADR-0091), not this one's to pre-empt.
+    if let Ok(resolved) = tools::resolve()
+        && let attest::Attestation::Foreign { project } = attest::of(
+            &probe::ProcessRunner,
+            &resolved,
+            &output,
+            FilePath::new(document.path()),
+        )
+    {
+        return refused(Report::rejected(
+            TOOL,
+            Some(document.path().to_string()),
+            format!(
+                "{} was written by a different project ({project}), and a preview may never \
+                 destroy a deliverable: it is a disposable artefact (ADR-0104)",
+                output.display()
+            ),
+        ));
     }
 
     let ffmpeg = match tools::resolve() {

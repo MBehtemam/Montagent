@@ -205,7 +205,7 @@ impl Session {
             // re-resolving `Probe::source` is #385's silent audio drop.
             let mut probe = entry.probe.clone();
             probe.identity = Some(path.clone());
-            self.local.insert(key, Outcome::Probed(probe));
+            self.local.insert(key, Outcome::Probed(Box::new(probe)));
             self.seen.insert(path.clone(), (entry.size, entry.mtime_ns));
             self.recency.insert(path.clone(), entry.last_used_ns);
             if let Some(content) = &entry.content {
@@ -399,7 +399,7 @@ impl Session {
                         mtime_ns,
                         content: self.content.get(path).cloned(),
                         last_used_ns: self.recency.get(path).copied().unwrap_or(now),
-                        probe: probe.clone(),
+                        probe: (**probe).clone(),
                     },
                 ))
             })

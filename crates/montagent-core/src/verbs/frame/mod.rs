@@ -382,7 +382,7 @@ fn no_extent() -> Finding {
 /// ADR-0073's `E-INTERNAL`, and exit 70 rather than exit 1.
 pub(crate) enum Declined {
     /// A fact about the project, at its own code.
-    Finding(Finding),
+    Finding(Box<Finding>),
     /// Montagent contradicting itself, as the sentence the report fails internally with.
     Internal(String),
     /// ADR-0091: `ffmpeg` is not on `PATH` — or, ADR-0115, is and cannot do what the floor
@@ -394,6 +394,11 @@ pub(crate) enum Declined {
 }
 
 impl Declined {
+    /// The project arm. Boxed, as `Tool` is, so every `Result<_, Declined>` stays small.
+    pub(crate) fn finding(finding: Finding) -> Declined {
+        Declined::Finding(Box::new(finding))
+    }
+
     /// The invariant arm, with the sentence spelling out what has to have gone wrong.
     pub(crate) fn internal(element: &str, what: &str) -> Declined {
         Declined::Internal(format!(
@@ -1237,18 +1242,18 @@ impl<'a> Painter<'a> {
         match element.get("kind").and_then(Value::as_str) {
             Some("crossfade") => {}
             Some(other) => {
-                return Err(Declined::Finding(undrawable(format!(
+                return Err(Declined::finding(undrawable(format!(
                     "`crossfade` is the whole of v1's transition vocabulary, and this one is \
                      a `{other}`"
                 ))));
             }
-            None => return Err(Declined::Finding(undrawable("it states no `kind`"))),
+            None => return Err(Declined::finding(undrawable("it states no `kind`"))),
         }
         let (Some(from), Some(to)) = (
             element.get("from").and_then(Value::as_str),
             element.get("to").and_then(Value::as_str),
         ) else {
-            return Err(Declined::Finding(undrawable(
+            return Err(Declined::finding(undrawable(
                 "it does not name both the elements it bridges",
             )));
         };
@@ -1263,7 +1268,7 @@ impl<'a> Painter<'a> {
             // words that a dangling `from`/`to` is *"a different question this check
             // declines to answer"*, and nothing else claimed it. So it is genuinely
             // reachable, and ADR-0093 gives it a code.
-            return Err(Declined::Finding(
+            return Err(Declined::finding(
                 Finding::new("E-NOT-PAINTED-UNRESOLVED-REF")
                     .field("from", json!(from))
                     .field("to", json!(to)),
@@ -1277,7 +1282,7 @@ impl<'a> Painter<'a> {
             // refuse-class error — so a render never reaches here and only `frame` does. The
             // picture states the consequence it can see rather than borrowing that code,
             // which is about the document's own arithmetic.
-            return Err(Declined::Finding(undrawable(format!(
+            return Err(Declined::finding(undrawable(format!(
                 "`{from}` and `{to}` share no instant, so there is no window to cross over"
             ))));
         }
@@ -1371,7 +1376,7 @@ impl<'a> Painter<'a> {
     /// pick one of those, and every choice is wrong for the other two.
     fn record(&mut self, name: &str, declined: Declined) {
         match declined {
-            Declined::Finding(finding) => self.defer(name, finding),
+            Declined::Finding(finding) => self.defer(name, *finding),
             Declined::Internal(reason) => {
                 if self.internal.is_none() {
                     self.internal = Some(reason);
@@ -1515,14 +1520,14 @@ impl<'a> Painter<'a> {
                 return Ok(still.clone());
             }
             let bytes = std::fs::read(path).map_err(|e| {
-                Declined::Finding(
+                Declined::finding(
                     Finding::new("E-NOT-PAINTED-UNREADABLE")
                         .field("resolved", json!(crate::media::display_local(path)))
                         .field("detail", json!(e.to_string())),
                 )
             })?;
             let still = Raster::decode(&bytes).ok_or_else(|| {
-                Declined::Finding(
+                Declined::finding(
                     Finding::new("E-NOT-PAINTED-UNDECODABLE")
                         .field("resolved", json!(crate::media::display_local(path)))
                         .field(
@@ -1547,7 +1552,7 @@ impl<'a> Painter<'a> {
         // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
         // which draws what it is given.
         let offset = source_offset.ok_or_else(|| {
-            Declined::Finding(undrawable(
+            Declined::finding(undrawable(
                 "its offset into the source did not resolve; the caption says why",
             ))
         })?;
@@ -1557,7 +1562,7 @@ impl<'a> Painter<'a> {
         // to exactly `width`x`height`, so asking `ffmpeg` for that size is the resample
         // rather than a second one on top of it.
         let undecodable = |detail: String| {
-            Declined::Finding(
+            Declined::finding(
                 Finding::new("E-NOT-PAINTED-UNDECODABLE")
                     .field("resolved", json!(crate::media::display_local(path)))
                     .field("detail", json!(detail)),
@@ -1581,7 +1586,7 @@ impl<'a> Painter<'a> {
             extent.width as u32,
             extent.height as u32,
         )
-        .map_err(&undecodable)?;
+        .map_err(undecodable)?;
         Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height)
             .ok_or_else(|| undecodable("its decoded frame was not the size asked for".to_string()))
     }

@@ -1347,7 +1347,7 @@ fn chain(
     // video with no audio stream is an ordinary video, not a defect — but it is still not
     // in the mix, and the answer says so.
     let identity = std::fs::canonicalize(&path).map_err(|e| {
-        Declined::Finding(
+        Declined::finding(
             Finding::new("E-NOT-MIXED-UNREADABLE")
                 .field("resolved", json!(display_local(&path)))
                 .field("detail", json!(e.to_string())),
@@ -1355,7 +1355,7 @@ fn chain(
     })?;
     match established.about(&identity) {
         Some(facts) if !facts.audio => {
-            return Err(Declined::Finding(
+            return Err(Declined::finding(
                 Finding::at_class("N-NO-AUDIO-STREAM", Class::Note)
                     .field("resolved", json!(display_local(&identity))),
             ));
@@ -1373,7 +1373,7 @@ fn chain(
         // true — `validate` now reports the same file `UNCHECKED` in the same session, so
         // *"the findings above say why"* is a pointer at something that is actually there.
         None => {
-            return Err(Declined::Finding(
+            return Err(Declined::finding(
                 Finding::new("E-NOT-MIXED-UNESTABLISHED")
                     .field("resolved", json!(display_local(&identity))),
             ));
