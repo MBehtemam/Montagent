@@ -1,0 +1,15 @@
+mouth open at 1500-1533 is 1 frame(s): merged into the round before it
+mouth round at 2133-2166 is 1 frame(s): merged into the small before it
+mouth open at 3500-3533 is 1 frame(s): merged into the round before it
+mouth closed at 4900-4933 is 1 frame(s): merged into the small before it
+mouth teeth at 5833-5866 is 1 frame(s): merged into the round before it
+mouth: 36 spans from 74 visemes, the shortest 2 frames; at rest outside them
+48 elements on 8 tracks, 1503 keyframes over 300 drawn frames
+largest joint gap: 1.10 px, forearm_left at 1433
+look at each move's arrival: 0, 1633, 2133, 2466, 3300, 3666, 5466, 7000, 7500
+  torso: -1° at 2966, 1° at 1666
+  forearm_left: -10° at 3533, 65° at 1500
+  forearm_right: -65° at 1500, 10° at 0
+  upper_arm_left: -51° at 3533, 38° at 7366
+  upper_arm_right: -48° at 5300, 50° at 0
+  head: -11° at 2466, 9° at 5300

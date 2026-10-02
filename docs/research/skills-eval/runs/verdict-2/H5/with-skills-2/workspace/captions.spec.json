@@ -1,0 +1,7 @@
+{
+  "track": "captions", "layer": 30, "voice": "presenter", "font": "bold", "size": 58,
+  "color": "#F5F0E6", "highlight": "#FF5A36", "x": 540, "y": 1050, "width": 880, "lines": 2,
+  "gap": 280, "min_word": 150, "hold": 1000,
+  "pill": {"color": "#101418D9", "pad": [32, 18], "radius": 24},
+  "duck": {"id": "bed", "under": 0.15, "over": 0.45, "end": 0.85, "ramp": 200, "lead": 100, "join": 600, "fade": 1200}
+}

@@ -1,0 +1,25 @@
+{
+ "layer": 32,
+ "voice": "presenter",
+ "font": "bold",
+ "color": "#F5F0E6",
+ "highlight": "#FF5A36",
+ "x": 540,
+ "lines": 2,
+ "gap": 400,
+ "min_word": 150,
+ "hold": 1000,
+ "pill": {
+  "color": "#101418D9",
+  "pad": [
+   32,
+   18
+  ],
+  "radius": 24
+ },
+ "track": "payoff",
+ "size": 84,
+ "y": 1000,
+ "width": 900,
+ "listen": false
+}

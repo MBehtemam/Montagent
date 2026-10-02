@@ -1,0 +1,33 @@
+{
+  "prefix": "owl", "layer": 10, "start": 0, "end": 10000, "scale": 0.58,
+  "place": [{"t": 0, "x": -320, "y": 985}, {"t": 900, "x": 450, "ease": "ease-out"}],
+  "hops": [{"from": 0, "to": 330, "height": 70}, {"from": 330, "to": 630, "height": 42}, {"from": 630, "to": 900, "height": 24}],
+  "poses": {
+    "down": {"upper_arm_left": -48, "upper_arm_right": 48, "forearm_left": -10, "forearm_right": 10, "head": 0, "torso": 0},
+    "relaxed": {"upper_arm_left": -40, "upper_arm_right": 40, "forearm_left": -8, "forearm_right": 8, "head": 0},
+    "ask": {"upper_arm_left": 14, "upper_arm_right": -14, "forearm_left": 42, "forearm_right": -42, "head": -7},
+    "ask_more": {"head": -10},
+    "point_laptop": {"upper_arm_left": -44, "forearm_left": -10, "upper_arm_right": -12, "forearm_right": 4, "head": 6},
+    "nod_r": {"head": 9},
+    "point_card": {"upper_arm_right": -48, "forearm_right": -8, "head": 7},
+    "present": {"upper_arm_left": 22, "forearm_left": 28, "upper_arm_right": -28, "forearm_right": -22, "head": 5}
+  },
+  "moves": [
+    {"t": 0, "pose": "down"},
+    {"t": 1500, "pose": "ask", "in": 330, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 2400, "pose": "ask_more", "in": 300},
+    {"t": 3150, "pose": "relaxed", "in": 350},
+    {"t": 3550, "pose": "point_laptop", "in": 330, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 3950, "pose": "nod_r", "in": 200},
+    {"t": 4250, "pose": {"head": 5}, "in": 300},
+    {"t": 5350, "pose": "point_card", "in": 400, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 6800, "pose": "relaxed", "in": 400},
+    {"t": 7300, "pose": "present", "in": 330, "ease": [0.34, 1.56, 0.64, 1]}
+  ],
+  "swings": [
+    {"joint": "torso", "from": 900, "to": 10000, "degrees": 1.2, "period": 2400},
+    {"joint": "head", "from": 7500, "to": 10000, "degrees": 2.5, "period": 1800}
+  ],
+  "voice": {"id": "voice", "visemes": "character/voice/line-2.json", "lead": 0},
+  "blinks": {"part": "eyes_closed", "at": [1100, 3000, 4600, 6900, 8700], "frames": 3}
+}

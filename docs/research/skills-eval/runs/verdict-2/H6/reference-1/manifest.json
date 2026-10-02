@@ -1,0 +1,138 @@
+{
+  "arm": "reference",
+  "brief": {
+    "id": "H6",
+    "path": "/Users/mohammedehtemam/montagent-held-out-2/H6.md",
+    "sha256": "2883d762356ea248aef52df57b8940eccff105379d3937326f1ec62cdf853f85"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 10.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "delivery_warnings": [],
+  "ended": "2026-10-02T09:28:07+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "verdict-2",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "8802419123669136303652279e5b0146ecdb6bbd",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": null,
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nUse whatever tools on this machine you like.\n\n---\n\n# Brief H6: Hoot explains editing a word\n\n**10 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nA short cartoon in which Hoot, Montagent's owl mascot, tells the viewer how easy it is to\nchange a video: you edit the file and Montagent renders it again. It is a cartoon, so it\nlives on the owl feeling alive and on the picture showing what the owl is saying. A viewer\nwith the sound on should both hear and see the idea.\n\nEverything you need is in the asset pack; its `README.md` lists it. The owl is the cut-out\nrig in `character/`, described by `character/rig.json`. Hoot's line is\n`character/voice/line-2.wav`, with its words, visemes and timings in\n`character/voice/line-2.json`; use that line and no other voice line (not line-1 or\nline-3). The set is `character/study.png`, and the prop `character/laptop.png` may be used.\nThe product pictures are in `stills/`, the brand in `brand/`, and the music bed is\n`music/bed-120bpm.wav` if you want it.\n\nHow the owl enters, where it stands, how it acts the line, how the idea is illustrated and\nhow the piece is timed around the five-and-a-half-second line are yours to decide. What\nfollows is what it must deliver.\n\n## What it must deliver\n\n| Beat | Outcome |\n|---|---|\n| Setting | Hoot is in the study, standing on its floor, the clear main subject of the frame. |\n| The question | While Hoot asks \"Want to change one word in a video?\", Hoot acts it: a pose or gesture that reads as putting a question to the viewer. |\n| The answer | While Hoot says \"Just edit the file, and Montagent renders it again.\", the picture shows the idea: something on screen represents the file being edited and the video coming out of it (for example using the laptop and the stills). Hoot relates to it with a gesture or glance. |\n| Alive | Throughout, the beak follows the voice, the owl blinks, and the body is never frozen still. |\n| Brand | The piece ends with the Montagent brand on screen, together with or after Hoot. |\n| Sound | Hoot's line is heard whole and clearly. |\n\n## Acceptance checklist\n\n**Setting**\n- [ ] The owl is built from the rig's parts and holds together: no gap, loose or misplaced part at the neck, shoulders or elbows on any frame.\n- [ ] The owl's feet are on the study's floor whenever it is standing, and it is at least half the frame tall.\n\n**The question**\n- [ ] During the question, the owl makes a visible gesture or pose change that reads as asking.\n\n**The answer**\n- [ ] During the answer, an on-screen element represents the file or the edit, and a second represents the rendered video; the viewer can tell which comes from which.\n- [ ] Any still or prop used is legible, undistorted, and placed so it does not overlap the owl's face.\n- [ ] The owl gestures or looks towards the element it is talking about.\n\n**Alive**\n- [ ] The beak shapes follow the line's visemes: it moves while the voice speaks and is at rest in the pause between the two sentences and after the line ends.\n- [ ] The owl blinks at least once, each blink lasting only a few frames.\n- [ ] Every arm movement turns about the shoulder or elbow, never bending the wrong way or detaching.\n\n**Brand**\n- [ ] The brand (mark, wordmark or lockup) is legible and undistorted and on screen for at least the final second.\n\n**Sound and finish**\n- [ ] The voice is clear, starts after the first frame, is heard in full, and nothing is clipped at the end; any music sits well under it and has ended by 10 s.\n- [ ] No corner labels, watermarks, timecodes or frame chrome anywhere.",
+  "prompt_sha256": "1388afaa58c718ea2f80b08e4f887e4cb6efa7634de865125ddc2b6c077adb46",
+  "run": "reference-1",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-7ywl4jvf-work",
+    "h6"
+  ],
+  "seed": null,
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 16,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write"
+      ]
+    },
+    "look_loops": 0,
+    "looked_at": true,
+    "montagent": null,
+    "montagent_verbs": {},
+    "result": {
+      "cache_creation_input_tokens": 87609,
+      "cache_read_input_tokens": 1593382,
+      "duration_ms": 535197,
+      "input_tokens": 48,
+      "is_error": false,
+      "num_turns": 41,
+      "output_tokens": 41969,
+      "subtype": "success",
+      "total_cost_usd": 1.8591204
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 18,
+      "Edit": 3,
+      "Read": 17,
+      "Write": 1
+    }
+  },
+  "started": "2026-10-02T09:19:10+00:00",
+  "timed_out": false,
+  "wall_clock_s": 536.4
+}

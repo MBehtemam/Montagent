@@ -1,0 +1,1 @@
+{"layer": 30, "voice": "presenter", "font": "bold", "color": "#F5F0E6", "highlight": "#FF5A36", "x": 540, "min_word": 150, "lines": 2, "track": "tmp", "size": 56, "y": 1060, "width": 900, "gap": 400, "hold": 1000, "duck": {"id": "bed", "under": 0.15, "over": 0.45, "end": 0.85, "ramp": 200, "lead": 100, "join": 600, "fade": 1200}}

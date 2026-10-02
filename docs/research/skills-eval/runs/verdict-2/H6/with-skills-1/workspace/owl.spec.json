@@ -1,0 +1,36 @@
+{
+  "prefix": "owl", "layer": 10, "start": 0, "end": 10000, "scale": 0.55,
+  "place": [{"t": 0, "x": -300, "y": 945}, {"t": 900, "x": 545, "ease": "ease-out"}],
+  "hops": [{"from": 0, "to": 300, "height": 70}, {"from": 300, "to": 600, "height": 45}, {"from": 600, "to": 900, "height": 25}],
+  "poses": {
+    "down": {"upper_arm_left": -50, "upper_arm_right": 50, "forearm_left": -10, "forearm_right": 10, "head": 0},
+    "ask": {"upper_arm_left": 15, "upper_arm_right": -15, "forearm_left": 45, "forearm_right": -45, "head": -6},
+    "ask-more": {"head": -10},
+    "relax": {"upper_arm_left": -40, "upper_arm_right": 40, "forearm_left": -8, "forearm_right": 8, "head": 0},
+    "point-laptop": {"upper_arm_right": -30, "forearm_right": 0, "head": 4},
+    "point-ease": {"upper_arm_right": -12, "forearm_right": 6, "head": 2},
+    "point-video": {"upper_arm_right": -60, "forearm_right": -6, "head": 7},
+    "cheer": {"upper_arm_left": 46, "upper_arm_right": -46, "forearm_left": 26, "forearm_right": -26, "head": 0},
+    "nod": {"head": 4}, "level": {"head": 0}
+  },
+  "moves": [
+    {"t": 0, "pose": "down"},
+    {"t": 1500, "pose": "ask", "in": 330, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 2366, "pose": "ask-more", "in": 300},
+    {"t": 3200, "pose": "relax", "in": 350},
+    {"t": 3566, "pose": "point-laptop", "in": 330, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 4766, "pose": "point-ease", "in": 330},
+    {"t": 5366, "pose": "point-video", "in": 350, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 6866, "pose": "relax", "in": 400},
+    {"t": 7400, "pose": "cheer", "in": 300, "ease": [0.34, 1.56, 0.64, 1]},
+    {"t": 8300, "pose": "nod", "in": 250}, {"t": 8600, "pose": "level", "in": 300},
+    {"t": 9200, "pose": "relax", "in": 450}
+  ],
+  "swings": [
+    {"joint": "torso", "from": 1000, "to": 10000, "degrees": 1.2, "period": 2200},
+    {"joint": "head", "from": 3900, "to": 4700, "degrees": 2.5, "period": 800}
+  ],
+  "voice": {"id": "voice", "visemes": "character/voice/line-2.json", "lead": 0},
+  "min_mouth": 2,
+  "blinks": {"part": "eyes_closed", "at": [1100, 3000, 4300, 6600, 7900, 9500], "frames": 3}
+}

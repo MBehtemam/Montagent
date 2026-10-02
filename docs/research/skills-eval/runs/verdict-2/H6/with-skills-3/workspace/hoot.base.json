@@ -1,0 +1,74 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 10000,
+  "output": "deliverable.mp4",
+  "fonts": {"bold": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-wul_3mqd/work/fonts/Inter-Bold.ttf", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {
+      "name": "set",
+      "layer": 0,
+      "elements": [
+        {"id":"set","type":"image","start":0,"end":10000,"source":"character/study.png","x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"fit":"literal"}
+      ]
+    },
+    {
+      "name": "laptop",
+      "layer": 2,
+      "elements": [
+        {"id":"laptop","type":"image","start":3200,"end":7200,"source":"character/laptop.png","x":1060,"y":1005,"origin":"bottom-center","width":602,"height":481,"fit":"literal","scale":[{"t":3200,"v":[0.0,0.0]},{"t":3500,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}],"opacity":[{"t":6900,"v":1.0},{"t":7133,"v":0.0,"ease":"ease-in"}]}
+      ]
+    },
+    {
+      "name": "screen",
+      "layer": 3,
+      "elements": [
+        {"id":"screen-diff","type":"image","start":3566,"end":7200,"source":"stills/session-01.png","x":839,"y":486,"origin":"top-left","width":864,"height":486,"fit":"literal","clip":[866,563,388,222],"opacity":[{"t":3566,"v":0.0},{"t":3666,"v":1.0,"ease":"ease-out"},{"t":6900,"v":1.0,"ease":"linear"},{"t":7133,"v":0.0,"ease":"ease-in"}]}
+      ]
+    },
+    {
+      "name": "arrow",
+      "layer": 4,
+      "elements": [
+        {"id":"arrow","type":"text","start":4800,"end":7200,"x":1290,"y":455,"origin":"center","width":160,"height":160,"font":"bold","size":130,"color":"#101418","align":"center","runs":[{"text":"↗"}],"scale":[{"t":4800,"v":[0.0,0.0]},{"t":5066,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}],"opacity":[{"t":6900,"v":1.0},{"t":7133,"v":0.0,"ease":"ease-in"}],"caption":false}
+      ]
+    },
+    {
+      "name": "card",
+      "layer": 5,
+      "elements": [
+        {"id":"card-video","type":"image","start":5000,"end":7200,"source":"stills/session-02.png","x":[{"t":5000,"v":1060},{"t":5400,"v":1580,"ease":[0.25,1,0.5,1]}],"y":[{"t":5000,"v":674},{"t":5400,"v":235,"ease":[0.25,1,0.5,1]}],"origin":"center","width":480,"height":270,"fit":"contain","scale":[{"t":5000,"v":[0.2,0.2]},{"t":5400,"v":[1.0,1.0],"ease":[0.25,1,0.5,1]}],"opacity":[{"t":6900,"v":1.0},{"t":7133,"v":0.0,"ease":"ease-in"}],"effects":[{"name":"shadow","dx":0,"dy":10,"radius":18,"color":"#101418","opacity":0.35}]}
+      ]
+    },
+    {
+      "name": "playbar",
+      "layer": 6,
+      "elements": [
+        {"id":"playbar","type":"rect","start":5400,"end":7200,"x":1356,"y":350,"origin":"center-left","width":448,"height":8,"fill":"#FF5A36","radius":4,"scale":[{"t":5400,"v":[0.0,1.0]},{"t":6800,"v":[1.0,1.0],"ease":"linear"}],"opacity":[{"t":6900,"v":1.0},{"t":7133,"v":0.0,"ease":"ease-in"}]}
+      ]
+    },
+    {
+      "name": "brand",
+      "layer": 6,
+      "elements": [
+        {"id":"lockup","type":"image","start":7200,"end":10000,"source":"brand/lockup.png","x":1175,"y":420,"origin":"center","width":873,"height":202,"fit":"contain","scale":[{"t":7200,"v":[0.0,0.0]},{"t":7500,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}]}
+      ]
+    },
+    {
+      "name": "voice",
+      "layer": 0,
+      "elements": [
+        {"id":"voice","type":"audio","start":1200,"end":6720,"source":"character/voice/line-2.wav","source_start":0,"source_end":5520,"volume":1.0}
+      ]
+    },
+    {
+      "name": "music",
+      "layer": 0,
+      "elements": [
+        {"id":"bed","type":"audio","start":0,"end":9700,"source":"music/bed-120bpm.wav","source_start":0,"source_end":9700,"volume":[{"t":0,"v":0.0},{"t":400,"v":0.16,"ease":"linear"},{"t":1000,"v":0.16,"ease":"linear"},{"t":1200,"v":0.08,"ease":"linear"},{"t":6800,"v":0.08,"ease":"linear"},{"t":7200,"v":0.16,"ease":"linear"},{"t":8900,"v":0.16,"ease":"linear"},{"t":9666,"v":0.0,"ease":"linear"}]}
+      ]
+    }
+  ]
+}
