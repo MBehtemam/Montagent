@@ -443,6 +443,13 @@ excluding it. Present only when needed — there is no `"none"` value.
 ([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md))
 _Avoid_: fill (spent — see Fill), extend, pad
 
+**Feed**:
+One `ffmpeg` decoding one video element's frames in timeline order, at the
+element's declared size and a constant pace. It is opened at the first frame that
+paints the element and closed at the first frame that does not.
+_Avoid_: run (a text element's **Run**), stream (a container's audio/video
+stream, as `ffprobe` names it), run of frames (ADR-0127's phrase, retired)
+
 **Volume**:
 An `audio` or `video` element's playback level, as a linear multiplier:
 `0` is silent, `1` (the default) is the source's own level, and values

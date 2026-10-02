@@ -13,6 +13,9 @@ amends: 0011 (the verb table gains a `preview` row and the counts become nine MC
 
 # `preview` is the ninth MCP verb, and the eleven readings #218 had to pick are ratified — one with a correction
 
+> **See also [ADR-0141](0141-render-reads-each-video-element-through-a-feed-and-the-painter-takes-its-pixels-from-a-supplier.md)**: `preview` paints `video` elements through feeds, inherited
+> through `encode_span`; each rung opens fresh feeds, and an abandoned rung closes them by `Drop`.
+
 **Ticket:** [#295](https://github.com/MBehtemam/Montagent/issues/295).
 [#218](https://github.com/MBehtemam/Montagent/issues/218) built `preview` and the proxy
 ladder. The ladder is fully ADR-stated — [ADR-0021](0021-preview-budget-and-graceful-degradation.md),

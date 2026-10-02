@@ -916,6 +916,11 @@ fn region_of(rect: Rect) -> Region {
 /// only while there is one painter. A `Painter` outlives one frame: [`Painter::begin`]
 /// resets the per-frame record and keeps the font registry, the resolved `ffmpeg` and the
 /// decoded stills, none of which change between two instants of one document.
+///
+/// **One painter is one place that decides** visibility, the offset into each source, the
+/// extent and the findings (ADR-0141, amending ADR-0021). Where a `video` element's pixels
+/// come from is its [`FrameSupplier`]'s, which the verb hands it: one `frame_at` per request
+/// for `frame`, feeds for `render` and `preview` — and both answer with the same frame.
 pub(crate) struct Painter<'a> {
     document: &'a Loose,
     /// Every element in the document, with the identity the caption names it by — read
