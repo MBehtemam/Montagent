@@ -1,0 +1,202 @@
+{
+ "prefix": "owl",
+ "layer": 10,
+ "start": 0,
+ "end": 9000,
+ "scale": 0.6,
+ "place": [
+  {
+   "t": 0,
+   "x": -350,
+   "y": 975
+  },
+  {
+   "t": 600,
+   "x": 740,
+   "ease": "ease-out"
+  }
+ ],
+ "hops": [
+  {
+   "from": 0,
+   "to": 233,
+   "height": 75
+  },
+  {
+   "from": 233,
+   "to": 433,
+   "height": 50
+  },
+  {
+   "from": 433,
+   "to": 600,
+   "height": 28
+  }
+ ],
+ "poses": {
+  "down": {
+   "upper_arm_left": -50,
+   "upper_arm_right": 50,
+   "forearm_left": -10,
+   "forearm_right": 10
+  },
+  "wave": {
+   "upper_arm_left": 45,
+   "forearm_left": 30
+  },
+  "left_down": {
+   "upper_arm_left": -50,
+   "forearm_left": -10
+  },
+  "point": {
+   "upper_arm_right": -15,
+   "forearm_right": 8
+  },
+  "right_down": {
+   "upper_arm_right": 50,
+   "forearm_right": 10
+  },
+  "cheer": {
+   "upper_arm_left": 46,
+   "upper_arm_right": -46,
+   "forearm_left": 26,
+   "forearm_right": -26
+  },
+  "tilt_l": {
+   "head": -4
+  },
+  "tilt_r": {
+   "head": 4
+  },
+  "level": {
+   "head": 0
+  }
+ },
+ "moves": [
+  {
+   "t": 0,
+   "pose": "down"
+  },
+  {
+   "t": 0,
+   "pose": "level"
+  },
+  {
+   "t": 1033,
+   "pose": "wave",
+   "in": 300,
+   "ease": [
+    0.34,
+    1.56,
+    0.64,
+    1
+   ]
+  },
+  {
+   "t": 1733,
+   "pose": "tilt_r",
+   "in": 200
+  },
+  {
+   "t": 2100,
+   "pose": "level",
+   "in": 300
+  },
+  {
+   "t": 2866,
+   "pose": "left_down",
+   "in": 350
+  },
+  {
+   "t": 4166,
+   "pose": "point",
+   "in": 350,
+   "ease": [
+    0.34,
+    1.56,
+    0.64,
+    1
+   ]
+  },
+  {
+   "t": 4300,
+   "pose": "tilt_r",
+   "in": 250
+  },
+  {
+   "t": 4700,
+   "pose": "level",
+   "in": 300
+  },
+  {
+   "t": 5533,
+   "pose": "tilt_l",
+   "in": 250
+  },
+  {
+   "t": 5933,
+   "pose": "level",
+   "in": 300
+  },
+  {
+   "t": 7166,
+   "pose": "tilt_r",
+   "in": 250
+  },
+  {
+   "t": 7533,
+   "pose": "level",
+   "in": 300
+  },
+  {
+   "t": 7633,
+   "pose": "right_down",
+   "in": 300
+  },
+  {
+   "t": 8000,
+   "pose": "cheer",
+   "in": 300,
+   "ease": [
+    0.34,
+    1.56,
+    0.64,
+    1
+   ]
+  },
+  {
+   "t": 8400,
+   "pose": "tilt_l",
+   "in": 300
+  },
+  {
+   "t": 8800,
+   "pose": "level",
+   "in": 350
+  }
+ ],
+ "swings": [
+  {
+   "joint": "forearm_left",
+   "from": 1066,
+   "to": 2466,
+   "degrees": 18,
+   "period": 400
+  }
+ ],
+ "voice": {
+  "id": "voice",
+  "visemes": "character/voice/line-1.json"
+ },
+ "blinks": {
+  "part": "eyes_closed",
+  "at": [
+   700,
+   3300,
+   5233,
+   6766,
+   8533
+  ],
+  "frames": 3
+ }
+}
