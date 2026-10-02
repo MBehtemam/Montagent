@@ -9,6 +9,13 @@ stop and resume. Pairs decided by a missing video (`"auto"`) are skipped.
 
 Clips are served by random name. The page never learns which run a name is; only the server
 reads `key.json`, to find the file. Do not open `key.json` until every pair is judged.
+
+**Sittings** (`verdict-2`, whose pins set `sittings`): one sitting per brief. The first launch
+after every sealed brief is paired draws the briefs' order with the system's secure random
+source and writes it to `judging/<phase>/sittings.json`, so stopping and restarting keeps it.
+Each sitting opens on a start page, and its start time is recorded beside the order; within a
+sitting the pairs come in the order `pair.py` shuffled them into. A sitting cut short resumes
+where it stopped.
 """
 
 # /// script
@@ -21,12 +28,13 @@ import argparse
 import datetime as dt
 import html
 import json
+import random
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import JUDGING, PHASES, REPO, read_json, write_json  # noqa: E402
+from common import JUDGING, PHASES, REPO, load_pins, read_json, sealed_hashes, write_json  # noqa: E402
 
 VOTES = ("left", "right", "equal")
 
@@ -50,7 +58,7 @@ PAGE = """<!doctype html>
   pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, monospace; }
   .controls { display: flex; gap: 8px; justify-content: center; }
 </style>
-<header><h2>Pair %(done)d of %(total)d · brief %(brief)s</h2>
+<header><h2>%(sitting)sPair %(done)d of %(total)d · brief %(brief)s</h2>
 <span class="muted">%(pair_id)s</span></header>
 <p class="muted">Which is the better finished piece for this brief? Judge the whole video:
 the brief's beats, then craft (timing, motion, type, composition, polish) and defects.
@@ -91,15 +99,61 @@ DONE = """<!doctype html><meta charset="utf-8"><title>Skills eval: done</title>
 <body style="font: 16px system-ui; padding: 40px"><h2>All %(total)d pairs judged.</h2>
 <p>Ballots are in <code>%(path)s</code>. Commit them, then run <code>verdict.py --write</code>.</p>"""
 
+START = """<!doctype html><meta charset="utf-8"><title>Skills eval: sitting %(n)d</title>
+<body style="font: 16px system-ui; padding: 40px"><h2>Sitting %(n)d of %(of)d · brief %(brief)s</h2>
+<p>%(pairs)d pairs, all for this brief. Judge them in one sitting if you can; if you have to
+stop, the ballots you cast stand and the sitting resumes where it stopped.</p>
+<button style="font: inherit; padding: 10px 22px" onclick="start()">Start sitting %(n)d</button>
+<script>
+  async function start() {
+    await fetch('/start', {method: 'POST', body: JSON.stringify({brief: '%(brief)s'})});
+    location.reload();
+  }
+</script>"""
+
+
+def now() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+
+
+def draw_sittings(out: Path, pins: dict, pairs: list[dict]) -> dict:
+    """The briefs' order, one sitting each: drawn once, when every sealed brief is paired."""
+    path = out / "sittings.json"
+    if path.exists():
+        return read_json(path)
+    paired = {p["brief"] for p in pairs}
+    unpaired = sorted(set(sealed_hashes(pins).values()) - paired)
+    if unpaired:
+        sys.exit(f"not every sealed brief is paired yet ({', '.join(unpaired)}); the sittings are "
+                 "drawn once all are")
+    order = sorted(paired)
+    random.SystemRandom().shuffle(order)
+    sittings = {"order": order, "started": {}}
+    write_json(path, sittings)
+    return sittings
+
 
 def make_handler(phase: str, briefs: dict[str, str]):
     out = JUDGING / phase
+    pins = load_pins(phase)
     key = read_json(out / "key.json")
     pairs = [p for p in read_json(out / "pairs.json") if "auto" not in p]
     ballots_path = out / "ballots" / "human.json"
+    sittings_path = out / "sittings.json"
+    if pins.get("sittings"):
+        order = draw_sittings(out, pins, read_json(out / "pairs.json"))["order"]
+        pairs.sort(key=lambda p: order.index(p["brief"]))  # stable: keeps pair.py's order within a brief
 
     def ballots() -> dict:
         return read_json(ballots_path) if ballots_path.exists() else {}
+
+    def sitting(p: dict) -> tuple[str, list[dict]]:
+        """For a pair's brief: the header prefix and that sitting's pairs."""
+        if not pins.get("sittings"):
+            return "", pairs
+        order = read_json(sittings_path)["order"]
+        mine = [q for q in pairs if q["brief"] == p["brief"]]
+        return f"Sitting {order.index(p['brief']) + 1} of {len(order)} · ", mine
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -139,8 +193,16 @@ def make_handler(phase: str, briefs: dict[str, str]):
                 page = DONE % {"total": len(pairs), "path": ballots_path.relative_to(REPO)}
                 return self.send(200, page.encode())
             p = todo[0]
+            prefix, block = sitting(p)
+            if prefix and p["brief"] not in read_json(sittings_path)["started"]:
+                order = read_json(sittings_path)["order"]
+                page = START % {"n": order.index(p["brief"]) + 1, "of": len(order),
+                                "brief": html.escape(p["brief"]), "pairs": len(block)}
+                return self.send(200, page.encode())
+            left_in_block = sum(q["id"] not in cast for q in block)
             page = PAGE % {
-                "done": len(pairs) - len(todo) + 1, "total": len(pairs), "brief": html.escape(p["brief"]),
+                "sitting": prefix, "done": len(block) - left_in_block + 1, "total": len(block),
+                "brief": html.escape(p["brief"]),
                 "pair_id": p["id"], "left": p["left"], "right": p["right"],
                 "brief_text": html.escape(briefs.get(p["brief"], "(brief text not supplied: pass --briefs)")),
             }
@@ -148,11 +210,19 @@ def make_handler(phase: str, briefs: dict[str, str]):
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if self.path == "/start":
+                if not pins.get("sittings"):
+                    return self.send(400, b"this phase has no sittings")
+                sittings = read_json(sittings_path)
+                if body.get("brief") not in sittings["order"]:
+                    return self.send(400, b"no such sitting")
+                sittings["started"].setdefault(body["brief"], now())
+                write_json(sittings_path, sittings)
+                return self.send(204, b"")
             if body.get("vote") not in VOTES or body.get("pair") not in {p["id"] for p in pairs}:
                 return self.send(400, b"bad ballot")
             cast = ballots()
-            cast[body["pair"]] = {"vote": body["vote"],
-                                  "at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+            cast[body["pair"]] = {"vote": body["vote"], "at": now()}
             write_json(ballots_path, cast)
             self.send(204, b"")
 

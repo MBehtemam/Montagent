@@ -14,8 +14,8 @@ comparable to what it makes without Montagent, and better than Montagent without
 | `RUBRIC.md` | The first verdict's pre-registered rubric and decision rule, frozen. `harness/pins.json` is part of it. |
 | `RUBRIC-v2.md` | The second verdict's (phase `verdict-2`). `harness/pins-v2.json` is part of it. |
 | `harness/` | The scripts that run the arms, pair the runs blind, serve the judging page and convene the court. |
-| `runs/<phase>/<brief>/<arm>-<n>/` | One recorded run: manifest, transcript, workspace, 720p render. `<phase>` is `baseline` (development briefs, exploratory) or `verdict` (held-out briefs). |
-| `judging/<phase>/` | Pairs, key, ballots, the court's stills, and `verdict.json`. |
+| `runs/<phase>/<brief>/<arm>-<n>/` | One recorded run: manifest, transcript, workspace, 720p render. `<phase>` is `baseline` (development briefs, exploratory), `verdict` (held-out briefs) or `verdict-2` (the second held-out briefs). |
+| `judging/<phase>/` | Pairs, key, ballots, the court's stills, and `verdict.json`; for `verdict-2` also `sample.json` (the lift sample, which names arms like the key) and `sittings.json` (the briefs' judging order). |
 | `verdict.py` | Re-derives the signals and the tally from the committed files, and exits non-zero if `judging/<phase>/verdict.json` no longer follows. |
 
 The held-out briefs are not here. They were written blind by a fresh agent and are kept outside
@@ -44,6 +44,12 @@ uv run $H/court.py --phase verdict --briefs <held-out briefs>
 uv run docs/research/skills-eval/verdict.py --phase verdict --write
 uv run docs/research/skills-eval/verdict.py --phase verdict
 ```
+
+The second verdict is the same steps with `--phase verdict-2`, which reads
+`harness/pins-v2.json`. There, `run_arm.py` refuses a brief not in
+`briefs/held-out-2.sha256` and a commit without the end-card fix, and `pair.py` pairs each
+brief once all of its runs are in, using the cyclic lift sample. `judge.py` serves one sitting
+per brief, in an order drawn when every brief is paired. There is no top-up.
 
 `run_arm.py probe` prints what an isolated session loads (one tiny Haiku call); use it to
 refresh `builtin_skills` when Claude Code's pin moves. `--dry-run` sets a run up

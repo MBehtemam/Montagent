@@ -48,9 +48,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
-    ARMS, CACHE, EVAL, MONTAGENT_ARMS, PHASES, REPO, RUNS, brief_id, encode_720p, ffprobe,
-    isolation_problems, load_pins, tool_uses, montagent_signals, pinned_build, read_jsonl, rel, sh,
-    sha256_file, sha256_text, skill_names, transcript_signals, write_json,
+    ARMS, CACHE, EVAL, MONTAGENT_ARMS, PHASES, REPO, RUNS, VERDICT_PHASES, brief_id, commit_contains,
+    encode_720p, ffprobe, isolation_problems, load_pins, tool_uses, montagent_signals, pinned_build,
+    read_jsonl, rel, resolve_commit, sealed_hashes, sh, sha256_file, sha256_text, skill_names,
+    transcript_signals, write_json,
 )
 
 MAX_KEPT_BYTES = 2 * 1024 * 1024
@@ -266,17 +267,19 @@ def next_index(parent: Path, arm: str) -> int:
     return max(taken, default=0) + 1
 
 
-def check_verdict_preconditions(brief_sha: str) -> None:
-    """A verdict run needs its rubric committed and its brief sealed by hash beforehand."""
-    rubric = EVAL / "RUBRIC.md"
+def check_verdict_preconditions(phase: str, pins: dict, brief_sha: str, commit: str) -> None:
+    """A verdict run needs its rubric committed and its brief sealed by hash beforehand, and,
+    where the phase names one, a Montagent commit that contains a given fix."""
+    rubric = EVAL / pins["rubric"]
     tracked = sh("git", "ls-files", "--error-unmatch", rubric, cwd=REPO, check=False).returncode == 0
     clean = sh("git", "diff", "--quiet", "HEAD", "--", rubric, cwd=REPO, check=False).returncode == 0
     if not (tracked and clean):
-        sys.exit("verdict runs need RUBRIC.md committed, unchanged, before any run")
-    sealed = EVAL / "briefs" / "held-out.sha256"
-    hashes = sealed.read_text().split() if sealed.exists() else []
-    if brief_sha not in hashes:
-        sys.exit(f"verdict runs need a held-out brief whose SHA-256 is in {rel(sealed)}")
+        sys.exit(f"{phase} runs need {pins['rubric']} committed, unchanged, before any run")
+    if brief_sha not in sealed_hashes(pins):
+        sys.exit(f"{phase} runs need a held-out brief whose SHA-256 is in {pins['sealed_briefs']}")
+    needed = pins["montagent_commit_contains"]
+    if needed and not commit_contains(commit, needed):
+        sys.exit(f"{phase} runs need a Montagent commit that contains {needed[:8]}; {commit[:12]} does not")
 
 
 def probe(pins: dict) -> None:
@@ -348,7 +351,7 @@ def main() -> None:
                     help="`probe`: print what an isolated Haiku session loads; `check`: prove the sandbox; then exit")
     args = ap.parse_args()
 
-    pins = load_pins()
+    pins = load_pins(args.phase)
     if args.command == "probe":
         return probe(pins)
     if args.command == "check":
@@ -358,14 +361,14 @@ def main() -> None:
 
     version = sh("claude", "--version").stdout.split()[0]
     if version != pins["claude_code_version"]:
-        sys.exit(f"Claude Code is {version}; pins.json pins {pins['claude_code_version']}. "
+        sys.exit(f"Claude Code is {version}; the pins file pins {pins['claude_code_version']}. "
                  "Re-pin deliberately (and re-run `probe`) rather than mix versions.")
     check_no_global_instructions()
 
     brief_text = args.brief.read_text()
     brief_sha = sha256_text(brief_text)
-    if args.phase == "verdict":
-        check_verdict_preconditions(brief_sha)
+    if args.phase in VERDICT_PHASES:
+        check_verdict_preconditions(args.phase, pins, brief_sha, resolve_commit(args.commit))
 
     build = pinned_build(args.commit)
     ours = skill_names(build["skills"])
