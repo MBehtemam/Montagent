@@ -76,10 +76,9 @@ pub fn of(document: &Loose) -> Digest {
     // Document order, first appearance only: the order is a property of the document, so two
     // runs over one document feed the same sequence.
     let mut seen = BTreeSet::new();
-    for element in document.elements() {
-        let Some(spelled) = element.get("source").and_then(Value::as_str) else {
-            continue;
-        };
+    // #614 (prototype): every swap's file too, or a changed swap image would leave the
+    // digest — and every cache keyed on it — unchanged.
+    for spelled in document.elements().flat_map(crate::swaps::sources) {
         if !seen.insert(spelled.to_string()) {
             continue;
         }

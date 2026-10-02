@@ -403,8 +403,27 @@ pub struct Image {
     pub rotation: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
+    /// PROTOTYPE (#614, on the resolution of #595): timed windows in which this element
+    /// draws a different file in the same box. Images only — every other type's
+    /// `deny_unknown_fields` refuses the key. Never interpolated, never a second box: a
+    /// swap re-spells a run of hard cuts and adds no capability.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swaps: Option<Vec<Swap>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+}
+
+/// One timed window of an image's `swaps` (#614, prototype). Times are absolute
+/// milliseconds, like keyframe `t`. Without `end`, a swap runs until the next swap's
+/// `start` or the element's own `end`; with one, the base `source` shows again after it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Swap {
+    pub start: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<i64>,
+    /// Inline, never an asset-table reference (ADR-0002).
+    pub source: String,
 }
 
 /// An image that also has a clock.

@@ -67,39 +67,58 @@ fn probe_every_source(
     let base = crate::checks::project_dir(document);
 
     for element in document.elements() {
-        let Some(source) = element["source"].as_str() else {
-            continue;
-        };
         let id = element["id"].as_str().unwrap_or("<no id>");
-
-        let resolved = Source::resolve(source, &base);
-        let outcome = session.probe(&resolved)?;
-        let before = report.findings.len();
-        // The four outcomes ADR-0053 and ADR-0056 fix, ADR-0093's fifth, and the facts
-        // where there is no defect — one mapping, shared with the `probe` verb.
-        crate::media::probe::record(&outcome, source, &resolved, report);
-        // ADR-0131: whatever the probe established, `render` mixes and draws local sources
-        // only. Asked of the same function `render` and `frame` ask, so `validate` cannot
-        // pass a source clean that either verb then declines.
-        for used in Use::of(element["type"].as_str()) {
-            if let Err(finding) = established::local(resolved.clone(), *used) {
-                report.push(*finding);
+        // #614 (prototype): the base `source` and every swap's, each probed — a swap's file
+        // is drawn into the same box, so a missing one is the same defect.
+        let mut seen: Vec<&str> = Vec::new();
+        for source in crate::swaps::sources(element) {
+            if seen.contains(&source) {
+                continue;
             }
-        }
-        locate(report, before, document.path(), id);
-
-        // Only a source that actually answered can be overrun.
-        if let Some(finding) = outcome
-            .probe()
-            .and_then(|probe| overrun(element, probe, source))
-        {
-            report.push(finding.at_file(document.path()).at_element(id));
+            seen.push(source);
+            probe_one(document, session, report, element, id, source, &base)?;
         }
     }
 
     // ADR-0006's cache-miss line, on the report rather than behind a flag. Every probe that
     // actually ran says so, and a source that changed says *that*.
     report.misses = session.misses().to_vec();
+    Ok(())
+}
+
+/// One referenced file: what the disk says about it, located on the element.
+fn probe_one(
+    document: &Loose,
+    session: &mut Session,
+    report: &mut Report,
+    element: &Value,
+    id: &str,
+    source: &str,
+    base: &std::path::Path,
+) -> Result<(), Box<Missing>> {
+    let resolved = Source::resolve(source, base);
+    let outcome = session.probe(&resolved)?;
+    let before = report.findings.len();
+    // The four outcomes ADR-0053 and ADR-0056 fix, ADR-0093's fifth, and the facts
+    // where there is no defect — one mapping, shared with the `probe` verb.
+    crate::media::probe::record(&outcome, source, &resolved, report);
+    // ADR-0131: whatever the probe established, `render` mixes and draws local sources
+    // only. Asked of the same function `render` and `frame` ask, so `validate` cannot
+    // pass a source clean that either verb then declines.
+    for used in Use::of(element["type"].as_str()) {
+        if let Err(finding) = established::local(resolved.clone(), *used) {
+            report.push(*finding);
+        }
+    }
+    locate(report, before, document.path(), id);
+
+    // Only a source that actually answered can be overrun.
+    if let Some(finding) = outcome
+        .probe()
+        .and_then(|probe| overrun(element, probe, source))
+    {
+        report.push(finding.at_file(document.path()).at_element(id));
+    }
     Ok(())
 }
 

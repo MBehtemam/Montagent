@@ -109,7 +109,12 @@ struct Adjacent<'a> {
     /// The `source` exactly as the document spells it — what the finding quotes. Identity
     /// is decided on the *resolved* path ([`same_source`]); this is the author's own text,
     /// which is what a reader will search the file for.
-    source: &'a str,
+    ///
+    /// #614 (prototype): with `swaps`, the file showing as the element *leaves* the seam
+    /// (its last instant) and as it *enters* one (its `start`) can differ, so both are
+    /// kept. Without swaps they are the same `source`.
+    source_out: &'a str,
+    source_in: &'a str,
 }
 
 /// Which seam a pair meets at.
@@ -244,11 +249,14 @@ pub fn check(document: &Loose, report: &mut Report) {
 /// put about it at all. A malformed range is the schema check's fact, and an adjacency
 /// that cannot be computed is never reported as one that is there.
 fn read(element: &Value) -> Option<Adjacent<'_>> {
+    let start = element.get("start")?.as_i64()?;
+    let end = element.get("end")?.as_i64()?;
     Some(Adjacent {
         id: element.get("id")?.as_str()?,
-        start: element.get("start")?.as_i64()?,
-        end: element.get("end")?.as_i64()?,
-        source: element.get("source")?.as_str()?,
+        start,
+        end,
+        source_out: crate::swaps::showing(element, end - 1)?,
+        source_in: crate::swaps::showing(element, start)?,
         element,
     })
 }
@@ -362,7 +370,7 @@ fn pop(
             // The out-element's own spelling. Identity was decided on the resolved path,
             // which may differ from either spelling; what a reader searches the file for
             // is the text that is in it.
-            .field("source", json!(a.source))
+            .field("source", json!(a.source_out))
             .field("seam", json!(seam.words()))
             .field("instant", json!(seam.instant()))
             .field("wrap", json!(seam.is_wrap()))
@@ -404,7 +412,7 @@ fn row_noting(label: &str, out: f64, into: f64, note: &str) -> String {
 /// fixture, being all stills, never exercises it, and why it is written now rather than
 /// discovered on the first project with video in it.
 fn same_source(a: &Adjacent<'_>, b: &Adjacent<'_>, base: &std::path::Path) -> bool {
-    if Source::resolve(a.source, base) != Source::resolve(b.source, base) {
+    if Source::resolve(a.source_out, base) != Source::resolve(b.source_in, base) {
         return false;
     }
     if !is_time_based(a.element) && !is_time_based(b.element) {

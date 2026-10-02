@@ -60,9 +60,6 @@ pub fn check(
         let Some(rule) = fit_rule(element) else {
             continue;
         };
-        let Some(source) = element.get("source").and_then(Value::as_str) else {
-            continue;
-        };
         let Some((box_width, box_height)) = clip_dimensions(element) else {
             // No `clip` (or a malformed one): there is no box to derive against. ADR-0015
             // makes an unclipped `cover`/`contain` a schema error of its own, which is not
@@ -70,32 +67,41 @@ pub fn check(
             continue;
         };
 
-        let outcome = session.probe(&Source::resolve(source, &base))?;
-        let Outcome::Probed(probe) = &outcome else {
-            // Existence-only, a confirmed miss, or genuinely unprobeable: nothing about
-            // the source's real dimensions was established, so the deviation question is
-            // unanswerable rather than failed (ADR-0015).
-            continue;
-        };
-        let Some(dimensions) = probe.dimensions else {
-            continue;
-        };
+        // #614 (prototype): every swap's file is stretched into the same declared box, so
+        // each one is held to the rule the base is held to.
+        let mut seen: Vec<&str> = Vec::new();
+        for source in crate::swaps::sources(element) {
+            if seen.contains(&source) {
+                continue;
+            }
+            seen.push(source);
+            let outcome = session.probe(&Source::resolve(source, &base))?;
+            let Outcome::Probed(probe) = &outcome else {
+                // Existence-only, a confirmed miss, or genuinely unprobeable: nothing about
+                // the source's real dimensions was established, so the deviation question is
+                // unanswerable rather than failed (ADR-0015).
+                continue;
+            };
+            let Some(dimensions) = probe.dimensions else {
+                continue;
+            };
 
-        let Some(finding) = deviation(
-            element,
-            rule,
-            (i64::from(dimensions.width), i64::from(dimensions.height)),
-            (box_width, box_height),
-            source,
-        ) else {
-            continue;
-        };
+            let Some(finding) = deviation(
+                element,
+                rule,
+                (i64::from(dimensions.width), i64::from(dimensions.height)),
+                (box_width, box_height),
+                source,
+            ) else {
+                continue;
+            };
 
-        let mut finding = finding.at_file(document.path());
-        if let Some(track) = track {
-            finding = finding.at_track(track);
+            let mut finding = finding.at_file(document.path());
+            if let Some(track) = track {
+                finding = finding.at_track(track);
+            }
+            report.push(finding);
         }
-        report.push(finding);
     }
     Ok(())
 }

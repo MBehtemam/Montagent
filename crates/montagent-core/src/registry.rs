@@ -918,6 +918,46 @@ outside the element's own range {element_start}..{element_end}.",
         census: None,
         sets: &[Document],
     },
+    // ---- PROTOTYPE (#614): an image's `swaps`, on the resolution of #595. -----------
+    // Refuse, on `E-HIGHLIGHT-OVERLAP`'s reasoning: the document does not say which of the
+    // two numbers is the wrong one. No ADR yet — it waits on the score (#597) — so these
+    // cite ADR-0002, the fixed `source` a swap would amend.
+    CheckSpec {
+        code: "E-SWAP-ORDER",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0002",
+        template: "{element}: swap {index} starts at {start}, before the swap ahead of it \
+at {previous_start}; `swaps` must be sorted by `start`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-SWAP-OVERLAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0002",
+        template: "{element}: swap {index} ({start}..{end}) overlaps swap {other} \
+({other_start}..{other_end}) by {overlap} ms.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-SWAP-RANGE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0002",
+        template: "{element}: swap {index} ({start}..{end}) is not a window inside the \
+element: {reason}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     CheckSpec {
         // ADR-0051's non-overlap check. Its own code rather than an instance of the one
         // above — a window sliced against the wrong sentence is legal containment and

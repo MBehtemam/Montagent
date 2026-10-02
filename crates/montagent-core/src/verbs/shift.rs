@@ -290,6 +290,7 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
         element.start += delta;
         element.end += delta;
         shift_all_keyframes(&mut element.body, delta);
+        split_swaps(&mut element.body, i64::MIN, delta);
         return Outcome::Moved;
     }
     // `start < at < end`: a straddler.
@@ -298,7 +299,35 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
     }
     element.end += delta;
     split_all_keyframes(&mut element.body, at, delta);
+    split_swaps(&mut element.body, at, delta);
     Outcome::Moved
+}
+
+/// #614 (prototype): an image's `swaps` move exactly as its keyframes do (#595).
+///
+/// Every instant *after* `at` moves by `delta` — a swap's `start`, and an explicit `end`.
+/// So on a straddler, a swap holding `at` lengthens (its `end` moves, or it lengthens
+/// implicitly because the next `start` moved), and a swap starting exactly at `at` stays
+/// and lengthens, as SPLIT holds a keyframe at `t == at` through the inserted span. An
+/// `end` exactly at `at` stays: half-open, it is before `at`. Called with `i64::MIN` for an
+/// element that moves whole, which moves every instant.
+///
+/// Removal (a negative `delta`) is not built: `shift` refuses one outright (see the module
+/// note), so there is nothing for the drop-and-shorten half of the rule to attach to.
+fn split_swaps(body: &mut Body, at: i64, delta: i64) {
+    let Body::Image(image) = body else {
+        return;
+    };
+    for swap in image.swaps.iter_mut().flatten() {
+        if swap.start > at {
+            swap.start += delta;
+        }
+        if let Some(end) = swap.end.as_mut()
+            && *end > at
+        {
+            *end += delta;
+        }
+    }
 }
 
 /// Does this element's source carry a clock? `video` and `audio` do (ADR-0005); every
@@ -444,6 +473,35 @@ fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
                     property: None,
                     effect: "before `at` (half-open): stays".to_string(),
                 });
+            }
+            if let Body::Image(image) = &element.body {
+                for (index, swap) in image.swaps.iter().flatten().enumerate() {
+                    for (instant, role, effect) in [
+                        (
+                            Some(swap.start),
+                            "start",
+                            "carried with its element: moves if the element starts at or \
+                             after `at`, else stays at `at` and lengthens by `delta`, as a \
+                             keyframe at `t == at` holds (#614, prototype)",
+                        ),
+                        (
+                            swap.end,
+                            "end",
+                            "before `at` (half-open): stays, unless its element starts at or \
+                             after `at` (#614, prototype)",
+                        ),
+                    ] {
+                        if instant == Some(at) {
+                            out.push(CoincidentRecord {
+                                element: element.id.clone(),
+                                kind: "swap",
+                                role,
+                                property: Some(format!("swaps[{index}]")),
+                                effect: effect.to_string(),
+                            });
+                        }
+                    }
+                }
             }
             for (property, times) in animatable_lists(&element.body) {
                 if times.is_empty() {

@@ -135,6 +135,10 @@ pub struct Present {
     /// declared it.
     pub source_offset: Option<i64>,
     pub source_offset_unresolved: Option<String>,
+    /// **The source showing** (#614, prototype) — the file a raster element draws at this
+    /// instant: the swap whose window holds it, else the base `source`, exactly as the
+    /// document spells it. `null` on every type that draws no file.
+    pub source: Option<String>,
     /// **The crop rectangle** — which part of the *source file's own pixels* survive onto
     /// the screen, in source pixel space, for a raster element carrying `cover`/`contain`
     /// and a `clip` (ADR-0013, ADR-0015). `null` where the element carries no raster
@@ -345,6 +349,12 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
 
         let (source_offset, source_offset_unresolved) =
             source_offset(element, kind, start, instant);
+        let source = match kind {
+            Some("image") | Some("video") => {
+                crate::swaps::showing(element, instant).map(str::to_string)
+            }
+            _ => None,
+        };
         let (crop, crop_unresolved) = match frame {
             _ if detail == Detail::Presence => (None, Some(NOT_DERIVED.to_string())),
             Some(frame) => crop_for(
@@ -386,6 +396,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             values: values(element, instant),
             source_offset,
             source_offset_unresolved,
+            source,
             crop,
             crop_unresolved,
             ink_box,
@@ -547,7 +558,8 @@ fn crop_for(
     if !matches!(kind, Some("image") | Some("video")) {
         return (None, None);
     }
-    let Some(source) = element.get("source").and_then(Value::as_str) else {
+    // #614 (prototype): the crop is of the file showing, which a swap may have changed.
+    let Some(source) = crate::swaps::showing(element, instant) else {
         return (None, Some("the element carries no `source`".to_string()));
     };
     // `fit` itself is not read: ADR-0015's load-bearing sentence is that the declared

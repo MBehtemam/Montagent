@@ -35,6 +35,7 @@ pub mod runs;
 pub mod schema;
 pub mod source;
 pub mod speed;
+pub mod swaps;
 pub mod tie;
 pub mod track;
 pub mod transition;

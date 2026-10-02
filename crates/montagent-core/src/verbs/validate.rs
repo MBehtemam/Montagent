@@ -188,6 +188,8 @@ fn run_checks(
     // its two bridged elements. All three read only the document, so — like the checks
     // above — they can sit anywhere in this list.
     crate::checks::highlight::check(document, report);
+    // #614 (prototype): an image's `swaps` — order, overlap and range. Document-only.
+    crate::checks::swaps::check(document, report);
     crate::checks::transition::check(document, report);
     // ADR-0007's three text-byte checks (#206): a run boundary inside a grapheme cluster,
     // the invisible-character census, and two canonically-equivalent spellings of one
@@ -258,7 +260,10 @@ fn run_checks(
     // find. Whether one needs to be opened at all is decided once, here, rather than per
     // check: `crate::checks::fit` needs the identical session `crate::checks::source`
     // does, and a project referencing no media has nothing to ask either of them.
-    if !document.elements().any(|e| e["source"].is_string()) {
+    if !document
+        .elements()
+        .any(|e| !crate::swaps::sources(e).is_empty())
+    {
         // ADR-0112 §4: the disk half was entered, found nothing to probe, and completed.
         // A no-media run is complete on the wire because it is complete in fact.
         report.record(CheckSet::Disk);

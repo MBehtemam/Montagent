@@ -2117,6 +2117,11 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(unresolved) = element["layer_unresolved"].as_str() {
         cells.push(format!("no layer: {unresolved}"));
     }
+    // #614 (prototype): the file a raster element draws at this instant, which `swaps` can
+    // change. First, because every value after it is read against that file's pixels.
+    if let Some(source) = element["source"].as_str() {
+        cells.push(format!("source {source}"));
+    }
     for value in element["values"]
         .as_array()
         .map(Vec::as_slice)

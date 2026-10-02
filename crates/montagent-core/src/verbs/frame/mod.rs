@@ -1468,7 +1468,9 @@ impl<'a> Painter<'a> {
             self.defer(name, no_extent());
             return;
         };
-        let Some(source) = element.get("source").and_then(Value::as_str) else {
+        // #614 (prototype): the swap showing at this instant, else the base `source` —
+        // stretched into the one declared box like any other source.
+        let Some(source) = crate::swaps::showing(element, self.instant) else {
             self.defer(name, undrawable("it states no `source`"));
             return;
         };

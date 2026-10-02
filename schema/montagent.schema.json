@@ -214,6 +214,13 @@
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swaps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Swap"
+              },
+              "description": "PROTOTYPE (#614, on the resolution of #595): timed windows in which this element\ndraws a different file in the same box. Images only — every other type's\n`deny_unknown_fields` refuses the key. Never interpolated, never a second box: a\nswap re-spells a run of hard cuts and adds no capability."
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -1134,6 +1141,29 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "Swap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string",
+          "description": "Inline, never an asset-table reference (ADR-0002)."
+        }
+      },
+      "required": [
+        "start",
+        "source"
+      ],
+      "description": "One timed window of an image's `swaps` (#614, prototype). Times are absolute\nmilliseconds, like keyframe `t`. Without `end`, a swap runs until the next swap's\n`start` or the element's own `end`; with one, the base `source` shows again after it."
     },
     "Effect": {
       "oneOf": [
