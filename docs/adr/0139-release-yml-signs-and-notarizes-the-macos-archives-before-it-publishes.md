@@ -88,6 +88,20 @@ already-Developer-ID-signed binary, so it can't undo CI's work.
   the release.
 - **Certificate expiry and key revocation break releases loudly.** `sign-macos` fails rather
   than publishing unsigned. Renewing means re-exporting the `.p12` and replacing two secrets.
+- **The current certificate expires on 2027-02-01** (`notAfter=Feb 1 22:12:15 2027 GMT`,
+  read from the exported certificate on 2026-10-02). ADR-0138 says a Developer ID Application
+  certificate lasts five years; this one doesn't. Renew before that date: create a new
+  certificate in Xcode, re-export the `.p12`, and replace `MACOS_CERT_P12_BASE64` and
+  `MACOS_CERT_P12_PASSWORD`. Binaries signed before expiry stay valid, thanks to the secure
+  timestamp.
+- **The CI path is proven.** A `v0.0.0-citest` pre-release run on 2026-10-02:
+  - all six legs passed;
+  - `sign-macos` imported the `.p12`, and both binaries were notarized in about a minute;
+  - the release was a draft and pre-release, and crates.io was skipped;
+  - a fresh download of the draft passed all six checksums, and both macOS binaries
+    satisfied `codesign --check-notarization -R=notarized`.
+
+  The draft and the tag were then deleted.
 - **The `.p12` export is a new artefact.** It should exist only in the environment secret and
   in the dev's password manager, never on disk afterwards and never in the repository.
 - **A first notarization can still be slow.** Notarizing for a new team or a new key can
