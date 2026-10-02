@@ -9,6 +9,10 @@
 > archives, but the two macOS ones are signed and notarized afterwards on the dev's Mac by
 > `ci/sign_macos_release.py`, not in CI, and stay a bare binary in the same `.tar.gz`.
 
+> **Amended by [ADR-0139](./0139-release-yml-signs-and-notarizes-the-macos-archives-before-it-publishes.md)**: signing moved into `release.yml` before publishing;
+> a pre-release tag (`-` in it) is a draft that never reaches crates.io, and `cargo publish`
+> runs after the release.
+
 ## Status
 
 Accepted

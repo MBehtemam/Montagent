@@ -1,6 +1,11 @@
 # Cuts a GitHub Release for a `v*` tag: one `montagent` binary per desktop tier-1 target
-# (ADR-0064), a `SHA256SUMS` file over all of them, and — when a crates.io token is
+# (ADR-0064), the two macOS ones signed and notarized before anything is published
+# (ADR-0139), a `SHA256SUMS` file over all of them, and — when a crates.io token is
 # configured — `cargo publish` of the four workspace crates in dependency order.
+#
+# A tag with a pre-release suffix (`v0.2.0-rc1`, any `-`) is published as a **draft**
+# and never reaches crates.io, so the whole pipeline can be exercised without a public
+# release or an irreversible publish.
 #
 # Native runners only, same six legs as `ci.yml`'s matrix and for the same reason: a
 # cross-compiled job resolves `skia-safe`'s prebuilt for the target but cannot run
@@ -134,19 +139,117 @@ jobs:
           mv "$(dirname "$stage")/${archive}" .
           echo "path=${archive}" >> "$GITHUB_OUTPUT"
 
+      # macOS archives go to `sign-macos` first; only `dist-*` artifacts are published,
+      # so an unsigned macOS build can never reach the release.
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
+          name: ${{ runner.os == 'macOS' && 'unsigned' || 'dist' }}-${{ matrix.target }}
           path: ${{ steps.package.outputs.path }}
           if-no-files-found: error
 
+  # ADR-0139: the same procedure as the dev's local fallback (ADR-0138), run by
+  # `ci/sign_macos_release.py --archives`. The Developer ID identity (a `.p12`) and the
+  # App Store Connect API key live only in the `release` environment, which only `v*`
+  # tags and `main` can use. The identity goes into a throwaway keychain that is deleted
+  # at the end, whatever happened.
+  sign-macos:
+    name: sign and notarize the macOS archives
+    needs: build
+    runs-on: macos-15
+    environment: release
+    # A team's first notarization took about two hours (#586); later ones take a minute.
+    timeout-minutes: 240
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      # The script from the commit this run is for: on a tag push that is the tag; on
+      # `workflow_dispatch` it is `main`, so an old tag is re-signed with today's script.
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-*
+          path: unsigned
+          merge-multiple: true
+
+      - name: Are the signing credentials configured?
+        id: gate
+        env:
+          CONFIGURED: ${{ secrets.MACOS_CERT_P12_BASE64 != '' && secrets.MACOS_CERT_P12_PASSWORD != '' && secrets.NOTARY_API_KEY_P8_BASE64 != '' && vars.NOTARY_API_KEY_ID != '' && vars.NOTARY_API_ISSUER != '' }}
+        run: |
+          if [ "$CONFIGURED" = true ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REPOSITORY" = MBehtemam/Montagent ]; then
+            echo "::error::the release environment is missing a signing secret or variable (ADR-0139); refusing to publish unsigned macOS builds"
+            exit 1
+          else
+            echo "::warning::no signing credentials in this fork; its macOS archives are published unsigned"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import the Developer ID identity into a throwaway keychain
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERT_P12_PASSWORD }}
+          P8_BASE64: ${{ secrets.NOTARY_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          keychain_password="$(openssl rand -base64 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/identity.p12"
+          printf '%s' "$P8_BASE64" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          security create-keychain -p "$keychain_password" "$RUNNER_TEMP/signing.keychain-db"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/signing.keychain-db"
+          security unlock-keychain -p "$keychain_password" "$RUNNER_TEMP/signing.keychain-db"
+          security import "$RUNNER_TEMP/identity.p12" -k "$RUNNER_TEMP/signing.keychain-db" -P "$P12_PASSWORD" -f pkcs12 -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$RUNNER_TEMP/signing.keychain-db" > /dev/null
+          rm "$RUNNER_TEMP/identity.p12"
+          # Put it first in the search list, so `find-identity` and `codesign` see it.
+          existing="$(security list-keychains -d user | tr -d '"' | xargs)"
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "$RUNNER_TEMP/signing.keychain-db" $existing
+
+      - name: Sign and notarize
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          KEY_ID: ${{ vars.NOTARY_API_KEY_ID }}
+          ISSUER: ${{ vars.NOTARY_API_ISSUER }}
+        run: >-
+          python3 ci/sign_macos_release.py "$TAG" --archives unsigned --out dist
+          --api-key "$RUNNER_TEMP/notary.p8" --api-key-id "$KEY_ID" --api-issuer "$ISSUER"
+          --poll-seconds 30
+
+      - name: Pass the archives through unsigned (forks without credentials only)
+        if: steps.gate.outputs.configured != 'true'
+        run: mkdir -p dist && cp unsigned/* dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-aarch64-apple-darwin
+          path: dist/*-aarch64-apple-darwin.tar.gz
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-x86_64-apple-darwin
+          path: dist/*-x86_64-apple-darwin.tar.gz
+          if-no-files-found: error
+
+      - name: Delete the keychain and the API key
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/identity.p12"
+
   release:
     name: publish the GitHub Release
-    needs: build
+    needs: [build, sign-macos]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: dist-*
           path: dist
           merge-multiple: true
 
@@ -162,6 +265,8 @@ jobs:
           files: |
             dist/*
           fail_on_unmatched_files: true
+          draft: ${{ contains(inputs.tag || github.ref_name, '-') }}
+          prerelease: ${{ contains(inputs.tag || github.ref_name, '-') }}
 
   # `cargo publish --workspace` of the four workspace crates (#361, #366). Skipped
   # entirely — not failed — when no token is configured, so a fork or an early tag can
@@ -185,10 +290,15 @@ jobs:
   # leaves the workspace partially published, and a published version can only be
   # yanked, never replaced. Strictly better than the loop — it cannot fail on
   # ordering — but the first publish is still not risk-free.
+  # After the release, not beside it: a version on crates.io can never be replaced, so it
+  # waits until every archive is built, signed and published. The token lives in the
+  # `release` environment with the signing secrets. Pre-release tags never publish.
   publish-crates:
     name: cargo publish
-    needs: build
+    needs: release
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
     runs-on: ubuntu-24.04
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:
