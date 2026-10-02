@@ -38,12 +38,17 @@ rather than linking it in (its codecs are GPL; Montagent's binary isn't), and it
 asked for when you actually render — validating or scaffolding a project needs nothing
 but the `montagent` binary itself.
 
-### macOS: the binary is unsigned
+### macOS: signed and notarized after v0.1.0
 
-If you downloaded the tarball instead of building with `cargo`, macOS quarantines the
-extracted binary and refuses to run it — not with a dialog you can click through, but a
-silent kill on the first attempt and, after that, a silent kill with no dialog at all.
-Before running it the first time:
+Release binaries after v0.1.0 are signed with a Developer ID and notarized by Apple
+(ADR-0138), so the binary in the tarball runs as extracted — including when an MCP client
+starts it. macOS checks it with Apple the first time it runs, which needs an internet
+connection.
+
+**v0.1.0 is unsigned.** macOS quarantines its extracted binary and kills it silently — not
+with a dialog you can click through, but a kill on the first attempt and, after that, a
+kill with no dialog at all. The same fix also covers a signed binary whose first run has
+to happen offline. Before running it the first time:
 
 ```
 xattr -d com.apple.quarantine ./montagent
@@ -51,6 +56,9 @@ xattr -d com.apple.quarantine ./montagent
 
 No sudo, no GUI, and nothing to click. `cargo install` never hits this — `cargo` builds
 the binary on your machine rather than downloading a quarantined one.
+
+Don't use `spctl --assess` to check the binary: it reports `rejected` for every
+command-line tool, signed and notarized or not.
 
 ## Wire it up to an agent
 
