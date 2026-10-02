@@ -638,3 +638,94 @@ fn preview_runs_the_same_checks_render_runs_and_refuses_on_an_error() {
         assert!(answer.preview().is_none(), "a refused preview has no video");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Feeds (ADR-0141): `preview` inherits `render`'s feed supplier through `encode_span`
+// ---------------------------------------------------------------------------
+
+/// [`project`] with one `video` element over its whole 200 ms, on a generated H.264 source.
+fn project_with_video(dir: &Path) -> std::path::PathBuf {
+    let tools = montagent_core::media::tools::resolve().expect("ffmpeg");
+    let clip = dir.join("clip.mp4");
+    let made = Command::new(&tools.ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi"])
+        .args(["-i", "testsrc2=s=64x48:r=25", "-frames:v", "25"])
+        .args(["-c:v", "libx264", "-pix_fmt", "yuv420p"])
+        .arg(&clip)
+        .status()
+        .expect("ffmpeg runs");
+    assert!(made.success(), "the source could not be generated");
+    let source = clip.display().to_string().replace('\\', "/");
+    write_project(
+        dir,
+        "project.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":2000,"height":1000}},"fps":25,"background":"#000000",
+                "duration":200,"output":"out/video.mp4",
+                "tracks":[{{"name":"only","layer":0,"elements":[
+                  {{"id":"clip","type":"video","start":0,"end":200,"source":"{source}",
+                    "source_start":0,"source_end":200,"x":1000,"y":500,"width":640,
+                    "height":480,"fit":"literal","volume":0}}]}}]}}"##
+        )),
+    )
+}
+
+#[test]
+fn a_preview_over_a_video_element_opens_one_feed_and_leaves_none_open() {
+    use montagent_core::verbs::frame::supply;
+    if !has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let path = project_with_video(&dir);
+
+    // One span, one feed: not one `ffmpeg` per frame.
+    supply::reset_counts();
+    let json = previewed(&path, &Ask::default());
+    let counts = supply::counts();
+    assert_eq!((counts.opened, counts.reopened, counts.frame_at), (1, 0, 0));
+    assert_eq!(counts.open, 0);
+    assert_eq!(json["preview"]["decoded_per_frame"], serde_json::json!([]));
+
+    // Abandoned at an artificially short deadline, on both rungs: the miss is reported as it
+    // always was, and the feeds went with the abandoned spans — `Drop`, and nothing else.
+    supply::reset_counts();
+    let answer = run(
+        &path,
+        &Ask {
+            clock: Clock::Stated(vec![Duration::ZERO]),
+            ..Ask::default()
+        },
+    );
+    assert!(answer.preview().is_none());
+    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    assert!(
+        refusal(&answer).contains("gives up"),
+        "{}",
+        refusal(&answer)
+    );
+    assert_eq!(
+        supply::counts().open,
+        0,
+        "an abandoned span leaves no feed open"
+    );
+
+    // 720p misses and 540p lands: each attempt builds its own painter, so the retry opens a
+    // fresh feed at the span's first frame, and neither is left open.
+    supply::reset_counts();
+    let json = previewed(
+        &path,
+        &Ask {
+            clock: Clock::Stated(vec![Duration::ZERO, Duration::from_secs(600)]),
+            ..Ask::default()
+        },
+    );
+    assert_eq!(json["preview"]["tier"]["name"], "540p");
+    let counts = supply::counts();
+    assert_eq!(
+        (counts.opened, counts.reopened),
+        (2, 0),
+        "one feed per attempt"
+    );
+    assert_eq!(counts.open, 0, "a successful degrade leaves no feed open");
+}

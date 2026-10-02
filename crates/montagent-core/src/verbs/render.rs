@@ -103,14 +103,18 @@
 //!   as timed commands rather than re-expressed in `ffmpeg`'s expression language
 //!   (ADR-0055).
 //!
-//! **Not a reading, and deliberately unratified** — ADR-0077 records it as a cost:
+//! ## Where a `video` element's pixels come from (ADR-0141)
 //!
-//! - **A `video` element is decoded through one `ffmpeg` seek per frame**, the same call
-//!   `frame` makes. It is correct and it is slow — a spawn per frame — and a streaming
-//!   decode is an optimisation this ticket does not take. The only render wall clock this
-//!   project has measured is over the committed fixture, which has no `video` element
-//!   (`montagent_render::budget::RENDER_REFERENCES`), so what a spawn per frame costs a
-//!   project that does is unmeasured and the saving would be invented.
+//! ADR-0077 recorded *"one `ffmpeg` seek per frame"* as a cost and left it unmeasured; on a
+//! real six-minute project with three videos on screen it was most of an hour (#532). So
+//! [`encode_span`] builds its painter with the **feed** supplier: each `video` element is read
+//! through one long-lived `ffmpeg` in timeline order, opened at the first frame that paints
+//! it and closed at the first that does not, inside a 2 GiB per-painter memory budget. An
+//! element that does not fit is decoded per frame through `frame_at` — the same pixels, a
+//! capacity decision rather than a fallback — and [`Video::decoded_per_frame`] names it. The
+//! painter is unchanged: it still decides everything the picture shows, and `frame` still
+//! gets its pixels one `frame_at` at a time
+//! ([`crate::verbs::frame::supply`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path as FilePath, PathBuf};
@@ -132,7 +136,7 @@ use crate::model::{Animatable, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
 use crate::resolve;
-use crate::verbs::frame::{Declined, NotPainted, Painter};
+use crate::verbs::frame::{Declined, Feeds, NotPainted, Painter};
 use crate::verbs::query::at;
 
 const TOOL: &str = "render";
@@ -313,6 +317,15 @@ pub struct Video {
     pub not_painted: Vec<NotPainted>,
     /// Every element painted without something it asked for, likewise.
     pub painted_partially: Vec<NotPainted>,
+    /// Every `video` element decoded one frame at a time because the feed budget was full
+    /// when it was painted (ADR-0141), by id, in the order first so decoded. `[]` when every
+    /// element had a feed.
+    ///
+    /// **Still painted**, with the same pixels — such an element is in `painted` as well; it
+    /// only cost more wall clock. The feed budget is the only reason an element appears here:
+    /// a feed that *failed* is refused (`E-NOT-PAINTED-UNDECODABLE`), never listed. Not a
+    /// finding, because findings describe the picture and the picture is unchanged.
+    pub decoded_per_frame: Vec<String>,
     /// Every media file opened, in the order first opened.
     pub sources: Vec<String>,
     /// Every font file opened (ADR-0007).
@@ -742,6 +755,7 @@ pub(crate) struct Painted {
     painted: Vec<String>,
     not_painted: Vec<NotPainted>,
     painted_partially: Vec<NotPainted>,
+    decoded_per_frame: Vec<String>,
     /// ADR-0093: every world-effect the span discovered, as findings the caller pushes onto
     /// its report. The mid-loop half of the set — the pre-flightable half never gets this
     /// far, having stopped the span at [`Stop::Refused`].
@@ -792,6 +806,7 @@ impl Painted {
             painted: self.painted,
             not_painted: self.not_painted,
             painted_partially: self.painted_partially,
+            decoded_per_frame: self.decoded_per_frame,
             sources: self.sources,
             fonts: self.fonts,
         })
@@ -873,21 +888,27 @@ pub(crate) fn encode_span(
         }
     };
 
-    let Some(mut canvas) = span.surface.canvas() else {
+    let Some(canvas) = span.surface.canvas() else {
         return Err(Stop::Internal(format!(
             "no raster surface could be made at {}x{}",
             span.surface.width, span.surface.height
         )));
     };
-    let mut painter = Painter::for_a_deliverable(span.document, span.from, (width, height));
-    let mut painted: Vec<String> = Vec::new();
-    let mut not_painted: BTreeSet<(String, String)> = BTreeSet::new();
-    let mut painted_partially: BTreeSet<(String, String)> = BTreeSet::new();
-    // ADR-0093: one finding per `(element, code)` over the whole span, not one per frame.
-    // The same element declining for the same reason on 1631 consecutive frames is one fact
-    // about the project, and the two lists above already dedupe on exactly this key — so
-    // they and the findings cannot come out naming different sets.
-    let mut declined: BTreeMap<(String, String), Finding> = BTreeMap::new();
+    // ADR-0141: `render` and `preview` take their pixels from feeds. `Span` carries no
+    // supplier of its own, so the two verbs still differ only in the surface and the clock;
+    // and each span builds its own painter, so `preview`'s 540p retry opens fresh feeds and
+    // an abandoned span closes its feeds by `Drop` on the way out of this function.
+    let mut producer = Producer::new(
+        span.document,
+        span.fps,
+        canvas,
+        Painter::for_a_deliverable(
+            span.document,
+            span.from,
+            (width, height),
+            Box::new(Feeds::new()),
+        ),
+    );
 
     progress(Progress {
         done: 0,
@@ -901,45 +922,16 @@ pub(crate) fn encode_span(
         if span.cancelled() {
             return Err(Stop::Cancelled { done: done as u64 });
         }
-        let instant = instant_of(n, span.fps);
-        let view = at::presence(span.document, instant);
-        painter.begin(instant);
-        painter.paint(&mut canvas, &view);
-        for name in &painter.painted {
-            if !painted.contains(name) {
-                painted.push(name.clone());
-            }
-        }
-        for entry in &painter.not_painted {
-            not_painted.insert((entry.element.clone(), entry.code.clone()));
-        }
-        for entry in &painter.painted_partially {
-            painted_partially.insert((entry.element.clone(), entry.code.clone()));
-        }
-        for finding in &painter.declined {
-            let key = (
-                finding.location.element.clone().unwrap_or_default(),
-                finding.code.clone(),
-            );
-            declined.entry(key).or_insert_with(|| finding.clone());
-        }
-        if let Some(reason) = painter.internal.take() {
-            return Err(Stop::Internal(reason));
-        }
-        if let Some(missing) = painter.tool_missing.take() {
-            return Err(Stop::ToolMissing(missing));
-        }
-
-        let Some(rgb) = canvas.rgb() else {
-            return Err(Stop::Internal(format!(
-                "frame {n} could not be read back off the canvas"
-            )));
-        };
+        // Producing frame `n` and pushing it are two steps (#627 §7), so a writer thread can
+        // take the second without reshaping the loop. Nothing runs in parallel yet.
+        let rgb = producer.produce(n)?;
+        let pushed = Instant::now();
         if let Err(reason) = encoder.push(&rgb) {
             // The encoder is dropped on the way out, and the temp file with it: the
             // declared path is untouched.
             return Err(Stop::Internal(format!("frame {n}: {reason}")));
         }
+        producer.stages.encode_wait += pushed.elapsed();
 
         let done = done as u64 + 1;
         let tenth = done * 10 / span.frames;
@@ -963,7 +955,11 @@ pub(crate) fn encode_span(
 
     // Sealed, not published: the whole span is in the temp file and whether it becomes the
     // deliverable is ADR-0093 ruling 6's question, which only the caller's report can answer.
-    let sealed = match encoder.seal() {
+    let sealing = Instant::now();
+    let sealed = encoder.seal();
+    producer.stages.seal = sealing.elapsed();
+    producer.report_stages(span.frames);
+    let sealed = match sealed {
         Ok(sealed) => sealed,
         Err(reason) => {
             return Err(Stop::Internal(format!(
@@ -997,20 +993,246 @@ pub(crate) fn encode_span(
             .map(|(element, code)| NotPainted { element, code })
             .collect()
     };
+    let decoded_per_frame = producer.painter.decoded_per_frame();
     Ok(Painted {
         sealed,
         mixed,
         not_mixed,
-        painted,
-        not_painted: entries(not_painted),
-        painted_partially: entries(painted_partially),
+        painted: producer.painted,
+        not_painted: entries(producer.not_painted),
+        painted_partially: entries(producer.painted_partially),
+        decoded_per_frame,
         declined: mix_declined
             .into_iter()
-            .chain(declined.into_values())
+            .chain(producer.declined.into_values())
             .collect(),
-        sources: painter.sources,
-        fonts: painter.fonts,
+        sources: producer.painter.sources,
+        fonts: producer.painter.fonts,
     })
+}
+
+/// The half of [`encode_span`]'s loop that **produces** frame `n` — paints it and reads it off
+/// the canvas — apart from the half that pushes it to the encoder (#627 §7).
+///
+/// Everything that decides the frame's pixels or the record of what reached them lives here:
+/// the painter (with its feeds), the canvas, and the union over the span of what each frame
+/// painted and declined. The encoder does not. A writer thread, if #627's first step is ever
+/// built, takes what [`Producer::produce`] returns and nothing else.
+struct Producer<'a> {
+    document: &'a Loose,
+    fps: i64,
+    canvas: Canvas,
+    painter: Painter<'a>,
+    painted: Vec<String>,
+    not_painted: BTreeSet<(String, String)>,
+    painted_partially: BTreeSet<(String, String)>,
+    /// ADR-0093: one finding per `(element, code)` over the whole span, not one per frame.
+    /// The same element declining for the same reason on 1631 consecutive frames is one fact
+    /// about the project, and the two sets above already dedupe on exactly this key — so they
+    /// and the findings cannot come out naming different sets.
+    declined: BTreeMap<(String, String), Finding>,
+    stages: Stages,
+}
+
+impl<'a> Producer<'a> {
+    fn new(document: &'a Loose, fps: i64, canvas: Canvas, painter: Painter<'a>) -> Producer<'a> {
+        Producer {
+            document,
+            fps,
+            canvas,
+            painter,
+            painted: Vec::new(),
+            not_painted: BTreeSet::new(),
+            painted_partially: BTreeSet::new(),
+            declined: BTreeMap::new(),
+            stages: Stages::default(),
+        }
+    }
+
+    /// Frame `n`, painted and read back as the encoder's RGB.
+    fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
+        let instant = instant_of(n, self.fps);
+        let view = at::presence(self.document, instant);
+        let painting = Instant::now();
+        self.painter.begin_frame(n, instant);
+        self.painter.paint(&mut self.canvas, &view);
+        self.stages.paint += painting.elapsed();
+        for name in &self.painter.painted {
+            if !self.painted.contains(name) {
+                self.painted.push(name.clone());
+            }
+        }
+        for entry in &self.painter.not_painted {
+            self.not_painted
+                .insert((entry.element.clone(), entry.code.clone()));
+        }
+        for entry in &self.painter.painted_partially {
+            self.painted_partially
+                .insert((entry.element.clone(), entry.code.clone()));
+        }
+        for finding in &self.painter.declined {
+            let key = (
+                finding.location.element.clone().unwrap_or_default(),
+                finding.code.clone(),
+            );
+            self.declined.entry(key).or_insert_with(|| finding.clone());
+        }
+        if let Some(reason) = self.painter.internal.take() {
+            return Err(Stop::Internal(reason));
+        }
+        if let Some(missing) = self.painter.tool_missing.take() {
+            return Err(Stop::ToolMissing(missing));
+        }
+
+        let reading = Instant::now();
+        let Some(rgb) = self.canvas.rgb() else {
+            return Err(Stop::Internal(format!(
+                "frame {n} could not be read back off the canvas"
+            )));
+        };
+        self.stages.readback += reading.elapsed();
+        Ok(rgb)
+    }
+
+    /// [`STAGES_VAR`]'s one line on stderr, where it is set.
+    fn report_stages(&self, frames: u64) {
+        if std::env::var_os(STAGES_VAR).is_none() {
+            return;
+        }
+        let decode = self.painter.decoding();
+        let ms = |d: Duration| d.as_millis() as u64;
+        let counts = crate::verbs::frame::supply::counts();
+        eprintln!(
+            "{STAGES_VAR} {}",
+            json!({
+                "frames": frames,
+                "decode_ms": ms(decode),
+                "paint_ms": ms(self.stages.paint.saturating_sub(decode)),
+                "readback_ms": ms(self.stages.readback),
+                "encode_wait_ms": ms(self.stages.encode_wait),
+                "seal_ms": ms(self.stages.seal),
+                "feeds_opened": counts.opened,
+                "feeds_reopened": counts.reopened,
+                "frame_at": counts.frame_at,
+            })
+        );
+    }
+}
+
+/// Which supplier [`paint_span`] paints through.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Supplying {
+    /// `frame`'s: one `frame_at` per request.
+    PerFrame,
+    /// `render`'s and `preview`'s: feeds, inside the feed budget.
+    Feeds,
+}
+
+/// What [`paint_span`] painted: each frame as the encoder would have received it, and the
+/// record of the span.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rasters {
+    /// Every frame's RGB, in timeline order — the bytes `encode_span` pushes.
+    pub frames: Vec<Vec<u8>>,
+    pub painted: Vec<String>,
+    pub decoded_per_frame: Vec<String>,
+    /// Every finding the painter made, as `code: detail`.
+    pub declined: Vec<String>,
+}
+
+/// Paint the frames of `[from, to)` of the project at `path` through [`encode_span`]'s own
+/// producing half, with the supplier named, and encode nothing.
+///
+/// `#[doc(hidden)]` evidence for ADR-0141's standing byte-equality test: the rasters a feed
+/// paints are compared, byte for byte and before any encoder could quantize a difference
+/// away, with the rasters `frame`'s per-frame supplier paints. No checks run — the fixtures
+/// are the tests' own — so this is never a way to render.
+#[doc(hidden)]
+pub fn paint_span(
+    path: &FilePath,
+    from: i64,
+    to: i64,
+    supplying: Supplying,
+) -> Result<Rasters, String> {
+    let document = crate::parse::read(path).map_err(|finding| format!("{finding:?}"))?;
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .ok_or("the project states no integer `fps`")?;
+    let (width, height) =
+        at::frame_dimensions(&document).ok_or("the project states no legal `frame`")?;
+    let (Some(first), Some(last)) = (
+        exact::frame_at_or_after(from, fps),
+        exact::frame_before(to, fps),
+    ) else {
+        return Err(format!(
+            "no frame at {fps} fps falls inside {from}..{to} ms"
+        ));
+    };
+    let canvas = Surface::declared(width, height)
+        .canvas()
+        .ok_or("no raster surface")?;
+    let supplier: Box<dyn crate::verbs::frame::FrameSupplier> = match supplying {
+        Supplying::PerFrame => Box::new(crate::verbs::frame::PerFrame::default()),
+        Supplying::Feeds => Box::new(Feeds::new()),
+    };
+    let painter = Painter::for_a_deliverable(&document, from, (width, height), supplier);
+    let mut producer = Producer::new(&document, fps, canvas, painter);
+    let mut frames = Vec::new();
+    for n in first.frame..=last.frame {
+        match producer.produce(n) {
+            Ok(rgb) => frames.push(rgb),
+            Err(Stop::Internal(reason)) => return Err(reason),
+            Err(Stop::ToolMissing(missing)) => return Err(missing.reason()),
+            Err(_) => return Err("the span stopped".to_string()),
+        }
+    }
+    Ok(Rasters {
+        frames,
+        painted: producer.painted.clone(),
+        decoded_per_frame: producer.painter.decoded_per_frame(),
+        declined: producer
+            .declined
+            .values()
+            .map(|finding| {
+                format!(
+                    "{}: {}",
+                    finding.code,
+                    finding
+                        .fields
+                        .iter()
+                        .find(|(name, _)| *name == "detail")
+                        .map(|(_, value)| value.to_string())
+                        .unwrap_or_default()
+                )
+            })
+            .collect(),
+    })
+}
+
+/// The environment variable that makes a span print where its wall clock went.
+///
+/// `#[doc(hidden)]` measurement plumbing for ADR-0142's protocol (`tests/render_target.rs`
+/// records it as `"stages"`), and deliberately not an answer field: what `render` reports
+/// about its own speed is the speed ticket's public shape to set. Set, a span prints one line
+/// to stderr after its seal: `MONTAGENT_STAGES {json}`, with cumulative milliseconds for
+/// decode (time waiting on feeds and `frame_at`), paint (the painter's own work, decode taken
+/// out), readback (canvas to RGB), encode wait (blocked pushing to the encoder) and the seal,
+/// plus this thread's feed counts. Unset, the cost is four clock reads per frame.
+#[doc(hidden)]
+pub const STAGES_VAR: &str = "MONTAGENT_STAGES";
+
+/// Where a span's wall clock went, cumulatively.
+#[derive(Debug, Default)]
+struct Stages {
+    /// `Painter::paint`, decode included — [`Producer::report_stages`] takes it out.
+    paint: Duration,
+    readback: Duration,
+    encode_wait: Duration,
+    seal: Duration,
 }
 
 /// An answer with no video: the report says why.

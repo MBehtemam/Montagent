@@ -71,9 +71,14 @@
 //! | `MONTAGENT_RENDER_TARGET_RUNS` | timed runs after the warm-up (default 5; fewer refuses to judge) |
 //! | `MONTAGENT_RENDER_TARGET_SEQUENTIAL_FRAMEMD5` | a sequential render's `framemd5`, the hash reference |
 //!
-//! TODO(stages): ADR-0142 records a per-stage breakdown (decode, paint, encode wait).
-//! `render` exposes no stage timing today, so the record carries `"stages": null`. Fill it
-//! from whatever the streaming feeds expose.
+//! ## The per-stage breakdown
+//!
+//! Every render here runs with `MONTAGENT_STAGES` set (`montagent_core::verbs::render::
+//! STAGES_VAR`, `#[doc(hidden)]`, ADR-0141), so each span prints one line on stderr with its
+//! cumulative decode, paint, readback, encode-wait and seal milliseconds and its feed counts.
+//! Each run's line is recorded with the run, and `"stages"` is the median run's. It is
+//! measurement plumbing rather than an answer field: what `render` reports about its own
+//! speed is the speed ticket's to shape. Unset, it costs four clock reads a frame.
 
 // macOS only: the protocol reads `/usr/bin/time -l`, `pmset`, `sysctl` and `sw_vers`, and
 // the number is stated for one Mac. Elsewhere this file compiles to nothing.
@@ -247,6 +252,7 @@ fn the_benchmark_project_renders_within_the_target() {
             "user_s": r.user_s,
             "sys_s": r.sys_s,
             "max_rss_bytes": r.max_rss_bytes,
+            "stages": r.stages,
         })).collect::<Vec<_>>(),
         "median_ms": ms(median),
         "min_ms": ms(walls[0]),
@@ -260,7 +266,11 @@ fn the_benchmark_project_renders_within_the_target() {
             "frames": reference.len(),
             "equal": mismatched.is_empty(),
         },
-        "stages": null,
+        "stages": timed
+            .iter()
+            .find(|r| r.wall == median)
+            .map(|r| r.stages.clone())
+            .unwrap_or(Value::Null),
         "render": timed.last().map(|r| r.answer["render"].clone()),
     });
     println!("{record}");
@@ -310,6 +320,8 @@ struct Run {
     sys_s: f64,
     max_rss_bytes: u64,
     answer: Value,
+    /// The span's `MONTAGENT_STAGES` line, or `null` where it printed none.
+    stages: Value,
 }
 
 /// Render `project` to `output` under `/usr/bin/time -l`, with a fresh probe sidecar.
@@ -327,7 +339,8 @@ fn render(project: &Path, output: &Path, cache: &Path, shims: Option<&Shims>) ->
         .arg("--output")
         .arg(output)
         .arg("--json")
-        .env(montagent_core::media::sidecar::CACHE_DIR_VAR, cache);
+        .env(montagent_core::media::sidecar::CACHE_DIR_VAR, cache)
+        .env(montagent_core::verbs::render::STAGES_VAR, "1");
     if let Some(shims) = shims {
         command.env("PATH", shims.path());
     }
@@ -362,12 +375,18 @@ fn render(project: &Path, output: &Path, cache: &Path, shims: Option<&Shims>) ->
         .and_then(|l| l.split_whitespace().next())
         .and_then(|n| n.parse().ok())
         .expect("/usr/bin/time -l's maximum resident set size");
+    let stages = stderr
+        .lines()
+        .find_map(|l| l.strip_prefix(montagent_core::verbs::render::STAGES_VAR))
+        .and_then(|json| serde_json::from_str(json.trim()).ok())
+        .unwrap_or(Value::Null);
     Run {
         wall,
         user_s: field("user"),
         sys_s: field("sys"),
         max_rss_bytes,
         answer,
+        stages,
     }
 }
 

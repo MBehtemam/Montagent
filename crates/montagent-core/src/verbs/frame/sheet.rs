@@ -787,7 +787,12 @@ fn paint(
     sheet.background(GUTTER);
     let mut chrome = chrome::fonts();
 
-    let mut painter = Painter::new(document, planned[0].instant, frame);
+    let mut painter = Painter::new(
+        document,
+        planned[0].instant,
+        frame,
+        Box::new(super::PerFrame::default()),
+    );
     // One finding per `(element, code)` over the whole sheet, as `render` keeps one over a
     // whole span: the same element declining for the same reason on every tile is one fact.
     let mut declined: BTreeMap<(String, String), Finding> = BTreeMap::new();
