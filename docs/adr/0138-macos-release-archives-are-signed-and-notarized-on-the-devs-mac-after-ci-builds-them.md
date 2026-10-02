@@ -5,6 +5,9 @@ amends: 0064 (the release pipeline still builds all six archives, but the two ma
 
 # macOS release archives are signed and notarized on the dev's Mac after CI builds them
 
+> **Amended by [ADR-0139](./0139-release-yml-signs-and-notarizes-the-macos-archives-before-it-publishes.md)**: signing now runs in `release.yml`'s `sign-macos`
+> job before the release is published; this ADR's local script stays as the fallback.
+
 [#604](https://github.com/MBehtemam/Montagent/issues/604), on the map
 [#583](https://github.com/MBehtemam/Montagent/issues/583). Decisions from
 [#587](https://github.com/MBehtemam/Montagent/issues/587) and
