@@ -19,8 +19,13 @@ the shape decided in [Does origin accept a free pivot point?](https://github.com
   involved, the box-local resolved points are compared, so `"top-left"` against `[0, 0]`
   is not a trigger.
 - **`fmt`** leaves both forms as written.
-- **`format.md`** documents the point. **The baker** (`bake_rig.py`) takes an optional
-  `joint` per part and writes it as the point.
+- **`format.md`** documents the point.
+- **The baker** (`bake_rig.py`) takes an optional `joint` per part and writes it as the
+  point. Its `--trim <dir>` mode cuts a padded rig to its art and writes the joints, using
+  a standard-library PNG codec (see below).
+- **The `montagent-character` skill** teaches both, for #598's arm B: trimmed parts with a
+  `joint`, `--trim`, and why not to trim by hand. Arm A keeps its own earlier pin, so it
+  is unaffected.
 
 Tests are in `crates/montagent-core/tests/origin_point.rs`. The rest of the suite passes
 unchanged, golden frames included.
@@ -29,7 +34,7 @@ unchanged, golden frames included.
 
 | What | Where |
 |---|---|
-| Unpadded parts for the score, 5-px grid | `docs/research/skills-eval/assets/character/unpadded/` (`rig.json` + `parts/`) |
+| Unpadded parts for the score, the output of `bake_rig.py --trim` | `docs/research/skills-eval/assets/character/unpadded/` (`rig.json` + `parts/`) |
 | Its bake, from the pinned `hoot.base.json` and `hoot.spec.json` | `hoot.unpadded.montagent.json` |
 | Parts for the equivalence pair, even grid with a 4-px margin | `docs/research/skills-eval/assets/character/unpadded-even/` |
 | The equivalence pair | `hoot.padded.exact.montagent.json`, `hoot.unpadded-even.exact.montagent.json` |
@@ -37,16 +42,27 @@ unchanged, golden frames included.
 The bake commands and the counts:
 
 ```sh
-python3 unpad.py ../../skills-eval/assets/character/rig.json <out> 5 0
-python3 unpad.py ../../skills-eval/assets/character/rig.json <out> 2 4 zero
 # in a workspace holding brand/, character/, stills/ and the pinned run's hoot.*.json:
-python3 bake_rig.py hoot.base.json character/unpadded/rig.json hoot.spec.json
+python3 bake_rig.py hoot.base.json character/rig.json hoot.spec.json --trim character/unpadded
+# the equivalence pair's cut, and its exact-scale encoding:
+python3 unpad.py character/rig.json character/unpadded-even 2 4 zero
+python3 bake_rig.py hoot.base.json character/unpadded-even/rig.json hoot.spec.json > even.json
+python3 exact.py even.json character/unpadded-even/rig.json hoot.unpadded-even.exact.montagent.json
+python3 exact.py hoot.montagent.json character/rig.json hoot.padded.exact.montagent.json
 ```
+
+**`--trim` cuts on a grid through each joint, with a 4 px transparent margin.** The grid's
+step is the denominator of the spec's `scale`: 5 px at 0.6 = 3/5. That keeps every box
+and joint a whole number of frame pixels.
+
+A first version cut at even offsets instead, so the baker had to round boxes and joints
+(474 × 0.6 = 284.4). Against the pinned owl that cost up to 169/255 on 136k pixels per
+frame, about twice the box-rounding floor. The scale grid brings it back to that floor.
 
 - **The score's owl counts exactly what #592 counted.** The body has 6 elements and 594
   keyframes, the face 44 elements and 109 keyframes, the scene 6 and 6. `validate` gives
   76 `R-EASE-INERT` and 6 `N-TRACK-GAP`, as before.
-- **Only `origin`, `width`, `height` and `source` differ.** The body is 21,766 bytes against
+- **Only `origin`, `width`, `height` and `source` differ.** The body is 21,768 bytes against
   21,715, and the face 11,888 against 11,604.
 - **The baker's joint gap is unchanged** at 1.21 px (forearm_left at 2566).
 
@@ -77,7 +93,7 @@ keeps a 4-px transparent margin, so edge clamping doesn't bleed art outward.
 | Pair | Pixels differing per frame (of 2,073,600) | Largest difference |
 |---|---|---|
 | **Equivalence:** padded vs unpadded, both exact-scale | median 161, max 311 | **1 / 255** |
-| Score owl (`hoot.unpadded`) vs the pinned owl | median 78,637, max 81,938 | 64 / 255 |
+| Score owl (`hoot.unpadded`, from `--trim`) vs the pinned owl | median 81,084, max 84,699 | 67 / 255 |
 | Encoding alone: the pinned owl vs the padded exact-scale owl | median 62,931, max 65,699 | 58 / 255 |
 
 What the rows show:
@@ -96,5 +112,8 @@ What the rows show:
   12/255. An agent trimming its own art would hit both, so it matters for any skill that
   teaches the point form.
 - **A coarse grid cut into the art.** Clamping the crop to the PNG first cut a few pixels
-  off `forearm_left`. Now the crop may run past the PNG edge, and `unpad.py` asserts that
-  the art is kept.
+  off `forearm_left`. Now the crop may run past the PNG edge (both `unpad.py` and
+  `--trim`), and `unpad.py` asserts that the art is kept.
+- **A cut that doesn't land on whole pixels at the bake's scale is rounded by the baker.**
+  See the note on `--trim` above. That is why the skill tells the agent to use `--trim`
+  rather than crop by hand.

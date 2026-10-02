@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Bake a cut-out character rig's poses, lip sync and blinks into flat Montagent elements.
 
-    python3 bake_rig.py <project> <rig> <spec>
+    python3 bake_rig.py <project> <rig> <spec> [--trim <dir>]
 
 Requires Python >= 3.9
 Standard library only.
 # workaround: #499 · replaced by: parenting or a group transform
 # workaround: #518 · replaced by: an image that changes over time
-drift-guard: rig.montagent.json rig/rig.json rig.spec.json
+drift-guard: rig.montagent.json rig/rig.json rig.spec.json --trim rig/trimmed
 
 Montagent has no parenting, so every part's on-screen transform is computed here, from
 its parents, at every drawn frame, and written as `x`, `y` and `rotation` keyframes. An
@@ -18,9 +18,19 @@ a report on stderr. Running it again replaces the tracks it wrote (those named
 
 <rig> is the rig's JSON: `drawing`, `draw_order` (back to front), and `parts`, each with
 `file` (relative to the rig), `width`, `height`, `pivot` (where the part's joint sits in
-the drawing), optional `joint` (where the joint sits in the part's own PNG, in its pixels;
-absent means the PNG is padded so the joint is its centre) and `parent`; and `visemes`, mapping Azure viseme ids to a mouth
-name, or to null for the mouth at rest. Mouth "open" is the part "mouth_open".
+the drawing), optional `joint` (where the joint sits in the part's own PNG, in its
+pixels) and `parent`; and `visemes`, mapping Azure viseme ids to a mouth name, or to null
+for the mouth at rest. Mouth "open" is the part "mouth_open". A part with no `joint` is
+padded so that its joint is its PNG's centre, and is written at `origin` "center"; a part
+with one is written with that point as its `origin`, so its PNG needs no padding.
+
+--trim <dir> trims a padded rig first: each part's PNG is cut to its art plus a 4 px
+transparent margin and written to <dir>/parts/ with <dir>/rig.json, whose parts carry
+the `joint` the padding used to stand for. The bake then draws the trimmed parts. The
+margin keeps the edge of the art from smearing outward when the part is resampled. The
+cut lies on a grid through the joint whose step makes the spec's `scale` land on whole
+pixels (5 px at 0.6, 2 at 0.5), so each box and joint is exact rather than rounded. RGBA
+8-bit PNGs only.
 
 <spec> is a JSON file (times are milliseconds on the project's timeline; angles are
 degrees, positive turns clockwise on screen, as Montagent's `rotation` does; eases are
@@ -82,6 +92,13 @@ TOLERANCE = {"x": 0.25, "y": 0.25, "rotation": 0.05, "scale": 0.0005}
 
 
 def main(argv):
+    trim_dir = None
+    if "--trim" in argv:
+        i = argv.index("--trim")
+        if i + 1 >= len(argv):
+            sys.exit("--trim needs a directory")
+        trim_dir = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
     if "--help" in argv or "-h" in argv or len(argv) != 3:
         print(__doc__)
         return 0 if "--help" in argv or "-h" in argv else 2
@@ -92,6 +109,9 @@ def main(argv):
         rig = json.load(f)
     with open(spec_path) as f:
         spec = json.load(f)
+    if trim_dir is not None:
+        rig = trim(rig, os.path.dirname(os.path.abspath(rig_path)), trim_dir, spec["scale"])
+        rig_path = os.path.join(trim_dir, "rig.json")
     fps = project["fps"]
     parts = rig["parts"]
     prefix = spec["prefix"]
@@ -382,6 +402,136 @@ def main(argv):
     project["tracks"] += tracks
     print(json.dumps(project, indent=1))
     return 0
+
+
+# ---- trimming -----------------------------------------------------------------------
+
+MARGIN = 4
+
+
+def trim(rig, rig_dir, out_dir, scale):
+    """Cut each padded part to its art, write <out_dir>, and return the rig with joints."""
+    from fractions import Fraction
+    os.makedirs(os.path.join(out_dir, "parts"), exist_ok=True)
+    exact = Fraction(scale).limit_denominator(64)
+    step = exact.denominator if abs(exact - Fraction(scale)) < 1e-9 else 1
+    if step == 1 and scale != int(scale):
+        print(f"trim: scale {scale} is no fraction over 64 or less, so boxes and joints "
+              f"are rounded to whole pixels", file=sys.stderr)
+    rig = json.loads(json.dumps(rig))
+    for name, part in rig["parts"].items():
+        if "joint" in part:
+            sys.exit(f"part {name!r} already has a joint: --trim is for a padded rig")
+        width, height, rows = read_png(os.path.join(rig_dir, part["file"]))
+        if (width, height) != (part["width"], part["height"]):
+            sys.exit(f"part {name!r}: its PNG is {width}x{height}, the rig says "
+                     f"{part['width']}x{part['height']}")
+        box = alpha_box(width, height, rows)
+        if box is None:
+            sys.exit(f"part {name!r}: its PNG is fully transparent")
+        # On the grid through the joint, and room for the margin even past the PNG's own
+        # edge: a crop beyond it is transparent, which is what the padding there was.
+        cx, cy = width // 2, height // 2
+
+        def down(v, c):
+            return c - -(-(c - v) // step) * step
+
+        def up(v, c):
+            return c + -(-(v - c) // step) * step
+
+        left, top = down(box[0] - MARGIN, cx), down(box[1] - MARGIN, cy)
+        right, bottom = up(box[2] + MARGIN, cx), up(box[3] + MARGIN, cy)
+        out = []
+        for y in range(top, bottom):
+            row = bytearray(4 * (right - left))
+            if 0 <= y < height:
+                a, b = max(left, 0), min(right, width)
+                row[4 * (a - left):4 * (b - left)] = rows[y][4 * a:4 * b]
+            out.append(bytes(row))
+        file = f"parts/{name}.png"
+        write_png(os.path.join(out_dir, file), right - left, bottom - top, out)
+        joint = [width / 2 - left, height / 2 - top]
+        part.update(file=file, width=right - left, height=bottom - top,
+                    joint=[int(v) if v == int(v) else v for v in joint])
+        print(f"trimmed {name}: {width}x{height} -> {right - left}x{bottom - top}, "
+              f"joint {part['joint']}", file=sys.stderr)
+    with open(os.path.join(out_dir, "rig.json"), "w") as f:
+        json.dump(rig, f, indent=1)
+    return rig
+
+
+def alpha_box(width, height, rows):
+    """(left, top, right, bottom) of the pixels that are not fully transparent."""
+    left, top, right, bottom = width, height, 0, 0
+    for y, row in enumerate(rows):
+        alpha = row[3::4]
+        xs = [x for x, a in enumerate(alpha) if a]
+        if xs:
+            left, right = min(left, xs[0]), max(right, xs[-1] + 1)
+            top, bottom = min(top, y), y + 1
+    return None if right == 0 else (left, top, right, bottom)
+
+
+def read_png(path):
+    """(width, height, rows) of an RGBA 8-bit, non-interlaced PNG."""
+    import struct
+    import zlib
+    with open(path, "rb") as f:
+        data = f.read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        sys.exit(f"{path}: not a PNG")
+    pos, idat, header = 8, [], None
+    while pos < len(data):
+        length, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        chunk = data[pos + 8:pos + 8 + length]
+        if kind == b"IHDR":
+            header = struct.unpack(">IIBBBBB", chunk)
+        elif kind == b"IDAT":
+            idat.append(chunk)
+        pos += 12 + length
+    width, height, depth, colour, _, _, interlace = header
+    if (depth, colour, interlace) != (8, 6, 0):
+        sys.exit(f"{path}: --trim reads RGBA 8-bit non-interlaced PNGs only")
+    raw = zlib.decompress(b"".join(idat))
+    stride = 4 * width
+    rows, previous = [], bytearray(stride)
+    for y in range(height):
+        start = y * (stride + 1)
+        kind, row = raw[start], bytearray(raw[start + 1:start + 1 + stride])
+        if kind == 1:
+            for i in range(4, stride):
+                row[i] = (row[i] + row[i - 4]) & 255
+        elif kind == 2:
+            row = bytearray((a + b) & 255 for a, b in zip(row, previous))
+        elif kind == 3:
+            for i in range(stride):
+                left = row[i - 4] if i >= 4 else 0
+                row[i] = (row[i] + ((left + previous[i]) >> 1)) & 255
+        elif kind == 4:
+            for i in range(stride):
+                a = row[i - 4] if i >= 4 else 0
+                b, c = previous[i], previous[i - 4] if i >= 4 else 0
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                row[i] = (row[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append(bytes(row))
+        previous = row
+    return width, height, rows
+
+
+def write_png(path, width, height, rows):
+    import struct
+    import zlib
+
+    def chunk(kind, body):
+        return (struct.pack(">I", len(body)) + kind + body
+                + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF))
+
+    raw = b"".join(b"\x00" + row for row in rows)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n"
+                + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
 # ---- helpers ------------------------------------------------------------------------

@@ -9,7 +9,9 @@ Recipes for a character built from a rig of parts: a body, a head, arms in two p
 
 ## What the rig must give you
 
-Read the rig's description before anything else. You need, for every part: its image, its size, its **pivot** (the joint it turns about, as a point in the original drawing), its **parent**, and the order the parts draw in, back to front. You also need a table from the voice's viseme ids to the mouth shapes. Each part's image must be padded so that its pivot is the exact centre of its canvas. The face overlays share the head's canvas and pivot.
+Read the rig's description before anything else. You need, for every part: its image, its size, its **pivot** (the joint it turns about, as a point in the original drawing), its **parent**, and the order the parts draw in, back to front. You also need a table from the voice's viseme ids to the mouth shapes. The face overlays share the head's pivot.
+
+Each part's image is either **padded**, so that its pivot is the exact centre of its canvas, or **trimmed** to its art, with a `joint`: the pivot's position in the image's own pixels. <!-- guard-ok: joint --> A padded rig bakes as it is, or trimmed first (below). Either way the baked part's `origin` is the pivot: `center` for a padded image, the point `[px, py]` for a trimmed one.
 
 If the brief supplies only a single drawing, with no parts or pivots, you can't cut a rig blind. Tell the user, and ask for a pre-cut rig.
 
@@ -20,13 +22,15 @@ If the brief supplies only a single drawing, with no parts or pivots, you can't 
 
 Montagent has no parenting, and an element can't change its image. So a character is baked: the bundled script works out every part's on-screen position and rotation from its parents at every drawn frame, and writes each mouth shape and blink as its own element, shown for its own span with the head's transform. Don't write this yourself.
 
-`python3 scripts/bake_rig.py <project> <rig> <spec>` prints the project with one track per part added. Run it with `--help` for the spec: where the character stands, named poses, the moves between them, swings, hops, the voice and its viseme file, and the blinks. Run it again after every change to the spec. It replaces only the tracks it wrote. Keep the spec next to the project: it is the character's real source.
+`python3 scripts/bake_rig.py <project> <rig> <spec>` prints the project with one track per part added. Add `--trim <dir>` to a padded rig's bake, and it first cuts each part to its art, writes the trimmed rig to `<dir>`, and bakes that. <!-- guard-ok: --trim dir --> Run it with `--help` for the spec: where the character stands, named poses, the moves between them, swings, hops, the voice and its viseme file, and the blinks. Run it again after every change to the spec. It replaces only the tracks it wrote. Keep the spec next to the project: it is the character's real source.
 
 **Read its report.** It lists every mouth span it merged, the largest gap between any child and its parent over every drawn frame, and the instants to look at: each move's arrival and each joint's extreme angles. Positions are whole pixels, so a gap of up to about 1.5 px is rounding, hidden by the round joints. A larger gap means the rig's pivots are wrong.
 
+**Don't trim the parts by hand.** A crop flush with the art smears its edge outward when the part is resampled, so the script keeps a 4 px transparent margin. A crop whose size or joint doesn't land on whole pixels at the spec's `scale` is rounded, which shifts and stretches the part by a fraction of a pixel. So the script cuts on a grid through the joint that does land on them: 5 px at a scale of 0.6. Trim once; re-bake with the trimmed rig after that.
+
 `validate` reports `R-EASE-INERT` on each pose the character holds, and `N-TRACK-GAP` on the mouth and blink tracks between spans. Both are expected (see the findings guide).
 
-The baked result looks like this: each part is centred on its pivot, with keyframes only where it moves, and each mouth or blink element copies the head's transform over its span.
+The baked result looks like this: each part is placed by its pivot, with keyframes only where it moves, and each mouth or blink element copies the head's transform over its span. Here the parts are trimmed, so each `origin` is the joint's point in the part's box, and the mouth's lies below its own small box, at the head's pivot.
 
 ```json
 {
@@ -36,13 +40,13 @@ The baked result looks like this: each part is centred on its pivot, with keyfra
       {"id": "set", "type": "image", "start": 0, "end": 2000, "source": "media/still.png", "x": 0, "y": 0, "origin": "top-left", "width": 640, "height": 360, "fit": "literal"}
     ]},
     {"name": "puppet-torso", "layer": 10, "elements": [
-      {"id": "puppet-torso", "type": "image", "start": 0, "end": 2000, "source": "rig/parts/torso.png", "x": 320, "y": 330, "origin": "center", "fit": "literal", "width": 80, "height": 280}
+      {"id": "puppet-torso", "type": "image", "start": 0, "end": 2000, "source": "rig/trimmed/parts/torso.png", "x": 320, "y": 330, "origin": [44, 144], "fit": "literal", "width": 88, "height": 148}
     ]},
     {"name": "puppet-head", "layer": 12, "elements": [
-      {"id": "puppet-head", "type": "image", "start": 0, "end": 2000, "source": "rig/parts/head.png", "x": 320, "y": 190, "origin": "center", "fit": "literal", "width": 90, "height": 160, "rotation": [{"t": 0, "v": 0}, {"t": 500, "v": 6.0, "ease": "linear"}, {"t": 1000, "v": 0.0, "ease": "linear"}]}
+      {"id": "puppet-head", "type": "image", "start": 0, "end": 2000, "source": "rig/trimmed/parts/head.png", "x": 320, "y": 190, "origin": [49, 84], "fit": "literal", "width": 98, "height": 88, "rotation": [{"t": 0, "v": 0}, {"t": 500, "v": 6.0, "ease": "linear"}, {"t": 1000, "v": 0.0, "ease": "linear"}]}
     ]},
     {"name": "puppet-mouth", "layer": 13, "elements": [
-      {"id": "puppet-mouth-0", "type": "image", "start": 400, "end": 700, "source": "rig/parts/mouth_open.png", "x": 320, "y": 190, "origin": "center", "fit": "literal", "width": 24, "height": 60, "rotation": [{"t": 400, "v": 4.8}, {"t": 500, "v": 6.0, "ease": "linear"}, {"t": 666, "v": 4.0, "ease": "linear"}]}
+      {"id": "puppet-mouth-0", "type": "image", "start": 400, "end": 700, "source": "rig/trimmed/parts/mouth_open.png", "x": 320, "y": 190, "origin": [16, 34], "fit": "literal", "width": 32, "height": 24, "rotation": [{"t": 400, "v": 4.8}, {"t": 500, "v": 6.0, "ease": "linear"}, {"t": 666, "v": 4.0, "ease": "linear"}]}
     ]}
   ]
 }

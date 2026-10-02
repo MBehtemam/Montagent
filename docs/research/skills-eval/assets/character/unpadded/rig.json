@@ -20,22 +20,22 @@
  "parts": {
   "torso": {
    "file": "parts/torso.png",
-   "width": 465,
-   "height": 710,
+   "width": 475,
+   "height": 720,
    "pivot": [
     512,
     1322
    ],
    "parent": null,
    "joint": [
-    230,
-    700
+    235,
+    705
    ]
   },
   "forearm_left": {
    "file": "parts/forearm_left.png",
    "width": 290,
-   "height": 240,
+   "height": 245,
    "pivot": [
     264,
     776
@@ -48,106 +48,64 @@
   },
   "forearm_right": {
    "file": "parts/forearm_right.png",
-   "width": 290,
-   "height": 235,
+   "width": 295,
+   "height": 245,
    "pivot": [
     753,
     778
    ],
    "parent": "upper_arm_right",
    "joint": [
-    50,
-    55
+    55,
+    60
    ]
   },
   "upper_arm_left": {
    "file": "parts/upper_arm_left.png",
-   "width": 210,
-   "height": 160,
+   "width": 220,
+   "height": 170,
    "pivot": [
     356,
     736
    ],
    "parent": "torso",
    "joint": [
-    145,
-    65
+    150,
+    70
    ]
   },
   "upper_arm_right": {
    "file": "parts/upper_arm_right.png",
-   "width": 205,
-   "height": 160,
+   "width": 215,
+   "height": 170,
    "pivot": [
     666,
     736
    ],
    "parent": "torso",
    "joint": [
-    65,
-    65
+    70,
+    70
    ]
   },
   "head": {
    "file": "parts/head.png",
-   "width": 605,
-   "height": 545,
+   "width": 615,
+   "height": 555,
    "pivot": [
     512,
     648
    ],
    "parent": "torso",
    "joint": [
-    305,
-    495
+    310,
+    500
    ]
   },
   "mouth_open": {
    "file": "parts/mouth_open.png",
-   "width": 90,
-   "height": 90,
-   "pivot": [
-    512,
-    648
-   ],
-   "parent": "head",
-   "joint": [
-    50,
-    95
-   ]
-  },
-  "mouth_round": {
-   "file": "parts/mouth_round.png",
-   "width": 70,
-   "height": 65,
-   "pivot": [
-    512,
-    648
-   ],
-   "parent": "head",
-   "joint": [
-    40,
-    80
-   ]
-  },
-  "mouth_small": {
-   "file": "parts/mouth_small.png",
-   "width": 75,
-   "height": 60,
-   "pivot": [
-    512,
-    648
-   ],
-   "parent": "head",
-   "joint": [
-    40,
-    85
-   ]
-  },
-  "mouth_teeth": {
-   "file": "parts/mouth_teeth.png",
    "width": 100,
-   "height": 60,
+   "height": 100,
    "pivot": [
     512,
     648
@@ -155,13 +113,13 @@
    "parent": "head",
    "joint": [
     55,
-    90
+    100
    ]
   },
-  "mouth_closed": {
-   "file": "parts/mouth_closed.png",
+  "mouth_round": {
+   "file": "parts/mouth_round.png",
    "width": 80,
-   "height": 45,
+   "height": 70,
    "pivot": [
     512,
     648
@@ -172,18 +130,60 @@
     85
    ]
   },
-  "eyes_closed": {
-   "file": "parts/eyes_closed.png",
-   "width": 475,
-   "height": 260,
+  "mouth_small": {
+   "file": "parts/mouth_small.png",
+   "width": 80,
+   "height": 70,
    "pivot": [
     512,
     648
    ],
    "parent": "head",
    "joint": [
-    225,
-    335
+    45,
+    90
+   ]
+  },
+  "mouth_teeth": {
+   "file": "parts/mouth_teeth.png",
+   "width": 110,
+   "height": 70,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    60,
+    95
+   ]
+  },
+  "mouth_closed": {
+   "file": "parts/mouth_closed.png",
+   "width": 85,
+   "height": 55,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    45,
+    90
+   ]
+  },
+  "eyes_closed": {
+   "file": "parts/eyes_closed.png",
+   "width": 485,
+   "height": 270,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    230,
+    340
    ]
   }
  },
