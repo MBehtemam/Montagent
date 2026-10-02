@@ -1,0 +1,254 @@
+{
+  "p001": {
+    "cost_usd": 0.0302976,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"The LEFT video clearly shows the accent-coloured strike-through bar striking through \\\"Timelines.\\\" at 0.875 s, growing as specified between 0.5\u20131 s. The RIGHT video fails to display this bar clearly or at all, missing a primary beat and explicit acceptance criterion. Both videos otherwise appear to follow the brief's structure and timing, but this opening defect in the RIGHT video is material and unavoidable.\"}",
+    "reasoning": "The LEFT video clearly shows the accent-coloured strike-through bar striking through \"Timelines.\" at 0.875 s, growing as specified between 0.5\u20131 s. The RIGHT video fails to display this bar clearly or at all, missing a primary beat and explicit acceptance criterion. Both videos otherwise appear to follow the brief's structure and timing, but this opening defect in the RIGHT video is material and unavoidable.",
+    "vote": "left"
+  },
+  "p002": {
+    "cost_usd": 0.039816199999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT better fulfils the acceptance criterion \\\"During 'Hmm.' the owl's hand is at its beak and its head is visibly tilted.\\\" At 1.5s, LEFT shows a pronounced head tilt that reads as contemplative and alive; RIGHT's head remains nearly upright despite the hand position, losing the character's emotional clarity at this key beat. Both videos match the brief well otherwise\u2014correct poses, tag changes, rig integrity, and final screen\u2014but since the brief emphasizes character feeling alive through poses and acting (\\\"it lives or dies on the character feeling alive\\\"), LEFT's more expressive thinking pose gives it the edge.\"}",
+    "reasoning": "LEFT better fulfils the acceptance criterion \"During 'Hmm.' the owl's hand is at its beak and its head is visibly tilted.\" At 1.5s, LEFT shows a pronounced head tilt that reads as contemplative and alive; RIGHT's head remains nearly upright despite the hand position, losing the character's emotional clarity at this key beat. Both videos match the brief well otherwise\u2014correct poses, tag changes, rig integrity, and final screen\u2014but since the brief emphasizes character feeling alive through poses and acting (\"it lives or dies on the character feeling alive\"), LEFT's more expressive thinking pose gives it the edge.",
+    "vote": "left"
+  },
+  "p003": {
+    "cost_usd": 0.0315894,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"The LEFT video successfully executes all required beats. The RIGHT video has a critical failure: the \\\"+2 frames\\\" tag never transitions to \\\"0 frames\\\" and remains visible through frame 8 (7.5s). By the brief, the tag should change to \\\"0 frames\\\" on \\\"Fixed!\\\" and stay that way through to the final Montagent mark reveal\u2014instead, RIGHT shows \\\"+2 frames\\\" persisting to the end. This violates the explicit checklist requirement: \\\"The tag reads '0 frames' from 'Fixed!' on, not before.\\\"\\n\\nLEFT demonstrates: thinking pose with hand at beak, correct tag timing (transitions from +2 to 0), visible hop with raised arms, proper arm lowering, and the Montagent mark appearing alone on the final frame. LEFT shows no gaps at joints and clean stage composition throughout.\\n\\nRIGHT's tag bug is not a minor craft issue\u2014it's a fundamental failure to deliver the core animation sequence the brief specifies.\"}",
+    "reasoning": "The LEFT video successfully executes all required beats. The RIGHT video has a critical failure: the \"+2 frames\" tag never transitions to \"0 frames\" and remains visible through frame 8 (7.5s). By the brief, the tag should change to \"0 frames\" on \"Fixed!\" and stay that way through to the final Montagent mark reveal\u2014instead, RIGHT shows \"+2 frames\" persisting to the end. This violates the explicit checklist requirement: \"The tag reads '0 frames' from 'Fixed!' on, not before.\"\n\nLEFT demonstrates: thinking pose with hand at beak, correct tag timing (transitions from +2 to 0), visible hop with raised arms, proper arm lowering, and the Montagent mark appearing alone on the final frame. LEFT shows no gaps at joints and clean stage composition throughout.\n\nRIGHT's tag bug is not a minor craft issue\u2014it's a fundamental failure to deliver the core animation sequence the brief specifies.",
+    "vote": "left"
+  },
+  "p004": {
+    "cost_usd": 0.0360571,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT follows the brief's exact phrasing (\\\"behind a mouse.\\\" as specified) and maintains tighter caption discipline with consistent 2\u20134 word counts, while RIGHT adds extraneous words (\\\"the video behind a mouse.\\\") and has looser phrasing throughout that suggests timing or transcription misalignment. Both handle keying, disc, punch-in/out, and product card correctly, but LEFT's caption control and fidelity to the stated beats makes it the better execution.\"}",
+    "reasoning": "LEFT follows the brief's exact phrasing (\"behind a mouse.\" as specified) and maintains tighter caption discipline with consistent 2\u20134 word counts, while RIGHT adds extraneous words (\"the video behind a mouse.\") and has looser phrasing throughout that suggests timing or transcription misalignment. Both handle keying, disc, punch-in/out, and product card correctly, but LEFT's caption control and fidelity to the stated beats makes it the better execution.",
+    "vote": "left"
+  },
+  "p005": {
+    "cost_usd": 0.0379421,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"RIGHT delivers the brief more completely with superior visual polish and rendering while maintaining the cartoon aesthetic. Both videos hit the key animation beats and checklist items, but RIGHT's enhanced dimensionality, tonal depth, and character definition create a more professional and readable finished piece. LEFT has authentic cartoon charm but is visually simpler; RIGHT balances cartoon feeling with production quality that better serves a professional brief.\"}",
+    "reasoning": "RIGHT delivers the brief more completely with superior visual polish and rendering while maintaining the cartoon aesthetic. Both videos hit the key animation beats and checklist items, but RIGHT's enhanced dimensionality, tonal depth, and character definition create a more professional and readable finished piece. LEFT has authentic cartoon charm but is visually simpler; RIGHT balances cartoon feeling with production quality that better serves a professional brief.",
+    "vote": "right"
+  },
+  "p006": {
+    "cost_usd": 0.04089520000000001,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers superior character acting, particularly in the thinking pose at \\\"Hmm.\\\" (frame 2), where a visible head tilt and exaggerated hand-to-beak gesture make the owl feel alive and intentional. The brief emphasizes that the piece \\\"lives or dies on the character feeling alive\\\"\u2014the thinking moment is critical to this. While RIGHT's arm extension toward the laptop is slightly more visually obvious, LEFT's stronger character presence and more convincing emotional beats outweigh this minor advantage. Both handle tag timing and Montagent mark placement correctly.\"}",
+    "reasoning": "LEFT delivers superior character acting, particularly in the thinking pose at \"Hmm.\" (frame 2), where a visible head tilt and exaggerated hand-to-beak gesture make the owl feel alive and intentional. The brief emphasizes that the piece \"lives or dies on the character feeling alive\"\u2014the thinking moment is critical to this. While RIGHT's arm extension toward the laptop is slightly more visually obvious, LEFT's stronger character presence and more convincing emotional beats outweigh this minor advantage. Both handle tag timing and Montagent mark placement correctly.",
+    "vote": "left"
+  },
+  "p007": {
+    "cost_usd": 0.0366397,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT meets all acceptance checklist requirements, including the accent-colour styling of \\\"mouse.\\\" in the captions. RIGHT fails this requirement by rendering the entire phrase \\\"the video behind a mouse.\\\" in uniform white text rather than highlighting \\\"mouse.\\\" in the accent colour. Both videos handle keying, ground, disc placement, punch-in/out timing, product card, and end card similarly, but RIGHT's caption styling violation is a clear checklist failure.\"}",
+    "reasoning": "LEFT meets all acceptance checklist requirements, including the accent-colour styling of \"mouse.\" in the captions. RIGHT fails this requirement by rendering the entire phrase \"the video behind a mouse.\" in uniform white text rather than highlighting \"mouse.\" in the accent colour. Both videos handle keying, ground, disc placement, punch-in/out timing, product card, and end card similarly, but RIGHT's caption styling violation is a clear checklist failure.",
+    "vote": "left"
+  },
+  "p008": {
+    "cost_usd": 0.0326435,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT executes the brief's core edit beats precisely: the product card slides in cleanly at \\\"hands\\\" and slides back out by \\\"the truth,\\\" maintaining the tempo of the narration. RIGHT fails the checklist on card timing\u2014the card is still on screen at frame 6 (6.875s), well after it should have exited at ~6.2s. This timing error is a visible defect that undermines the entire edit structure. LEFT also presents the card more prominently and polished. LEFT meets the acceptance criteria; RIGHT has a material violation.\"}",
+    "reasoning": "LEFT executes the brief's core edit beats precisely: the product card slides in cleanly at \"hands\" and slides back out by \"the truth,\" maintaining the tempo of the narration. RIGHT fails the checklist on card timing\u2014the card is still on screen at frame 6 (6.875s), well after it should have exited at ~6.2s. This timing error is a visible defect that undermines the entire edit structure. LEFT also presents the card more prominently and polished. LEFT meets the acceptance criteria; RIGHT has a material violation.",
+    "vote": "left"
+  },
+  "p009": {
+    "cost_usd": 0.030166200000000004,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT executes the brief more completely. It clearly shows the tag changing from \\\"+2 frames\\\" to \\\"0 frames\\\" on the \\\"Fixed!\\\" beat, a specific requirement in the acceptance checklist. RIGHT fails this requirement\u2014the tag appears to stay at \\\"+2 frames\\\" through multiple frames where it should have changed. Both show the basic character poses and movements, but LEFT's cleaner execution of the tag progression and more legible beat sequencing make it the better delivery of this brief.\"}",
+    "reasoning": "LEFT executes the brief more completely. It clearly shows the tag changing from \"+2 frames\" to \"0 frames\" on the \"Fixed!\" beat, a specific requirement in the acceptance checklist. RIGHT fails this requirement\u2014the tag appears to stay at \"+2 frames\" through multiple frames where it should have changed. Both show the basic character poses and movements, but LEFT's cleaner execution of the tag progression and more legible beat sequencing make it the better delivery of this brief.",
+    "vote": "left"
+  },
+  "p010": {
+    "cost_usd": 0.035029199999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers the complete brief with the Montagent mark correctly assembled from all four tiles (three squares + one accent circle top right). RIGHT is missing the accent circle from the final mark, a clear checklist violation in the brand's most critical visual component. Both are otherwise well-executed, but RIGHT's incomplete mark is a disqualifying defect for a branded ad.\"}",
+    "reasoning": "LEFT delivers the complete brief with the Montagent mark correctly assembled from all four tiles (three squares + one accent circle top right). RIGHT is missing the accent circle from the final mark, a clear checklist violation in the brand's most critical visual component. Both are otherwise well-executed, but RIGHT's incomplete mark is a disqualifying defect for a branded ad.",
+    "vote": "left"
+  },
+  "p011": {
+    "cost_usd": 0.040152099999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers the brief's core dynamic edits with clear punch-in at \\\"Montagent\\\" (frame 3) and punch-out at \\\"the truth\\\" (frame 6), proper product card timing (visible frames 3\u20135, gone by frame 6), and accent-colour caption styling. RIGHT lacks visible punch-in/out framing changes\u2014the presenter's size remains constant across frames 1\u20137\u2014and the product card lingers too long (still on screen at frame 6 when it should be sliding out). The brief explicitly requires instant zoom jumps as key edits; LEFT delivers this, RIGHT does not.\"}",
+    "reasoning": "LEFT delivers the brief's core dynamic edits with clear punch-in at \"Montagent\" (frame 3) and punch-out at \"the truth\" (frame 6), proper product card timing (visible frames 3\u20135, gone by frame 6), and accent-colour caption styling. RIGHT lacks visible punch-in/out framing changes\u2014the presenter's size remains constant across frames 1\u20137\u2014and the product card lingers too long (still on screen at frame 6 when it should be sliding out). The brief explicitly requires instant zoom jumps as key edits; LEFT delivers this, RIGHT does not.",
+    "vote": "left"
+  },
+  "p012": {
+    "cost_usd": 0.034564399999999995,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT correctly assembles the Montagent mark with three black squares and one red accent circle positioned top-right, meeting the explicit acceptance criteria. RIGHT constructs the mark as four black squares without the required accent circle, which is a clear violation of the brief's specifications and acceptance checklist.\"}",
+    "reasoning": "LEFT correctly assembles the Montagent mark with three black squares and one red accent circle positioned top-right, meeting the explicit acceptance criteria. RIGHT constructs the mark as four black squares without the required accent circle, which is a clear violation of the brief's specifications and acceptance checklist.",
+    "vote": "left"
+  },
+  "p013": {
+    "cost_usd": 0.0473501,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT better executes the brief's technical requirements. The critical difference is product card timing: LEFT has the card completely cleared by 6.875s (frame 6), matching the specification that it slides out at \\\"the truth\\\" (~6.2s). RIGHT appears to still have the card partially visible at frame 6, violating this timing requirement. Both videos share the same caption-coloring shortfall (both fail to color \\\"mouse.\\\" in accent), and both have clean keying, proper disc placement, and correct punch-in/out transitions. RIGHT's advantage in caption completeness does not outweigh LEFT's technical compliance with a key beat.\"}",
+    "reasoning": "LEFT better executes the brief's technical requirements. The critical difference is product card timing: LEFT has the card completely cleared by 6.875s (frame 6), matching the specification that it slides out at \"the truth\" (~6.2s). RIGHT appears to still have the card partially visible at frame 6, violating this timing requirement. Both videos share the same caption-coloring shortfall (both fail to color \"mouse.\" in accent), and both have clean keying, proper disc placement, and correct punch-in/out transitions. RIGHT's advantage in caption completeness does not outweigh LEFT's technical compliance with a key beat.",
+    "vote": "left"
+  },
+  "p014": {
+    "cost_usd": 0.0374592,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"equal\",\"reasoning\":\"Both videos deliver the brief identically across all eight sampled frames. They match the beat-by-beat timeline, execute the acceptance checklist requirements, and show equivalent craft in layout, typography, colour, and polish. No visible defects or differentiation emerges from the stills. Without audible differences or motion artifacts visible in this frame comparison, neither is preferable to the other.\"}",
+    "reasoning": "Both videos deliver the brief identically across all eight sampled frames. They match the beat-by-beat timeline, execute the acceptance checklist requirements, and show equivalent craft in layout, typography, colour, and polish. No visible defects or differentiation emerges from the stills. Without audible differences or motion artifacts visible in this frame comparison, neither is preferable to the other.",
+    "vote": "equal"
+  },
+  "p015": {
+    "cost_usd": 0.0420999,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT clearly executes the punch-in shot change at \\\"Montagent\\\"\u2014the presenter's face noticeably enlarges and the framing tightens by frame 3.125s. RIGHT shows no obvious punch-in; the framing remains nearly identical throughout. The punch-in is a key visual beat in the brief, and LEFT delivers it as an instant, impactful jump. Both videos appear to miss accent-color highlighting on \\\"mouse.\\\" and \\\"truth,\\\" and both may fail the punch-out (still in tight framing at 8.125s), but the punch-in is the more prominent and memorable moment, where LEFT succeeds and RIGHT does not.\"}",
+    "reasoning": "LEFT clearly executes the punch-in shot change at \"Montagent\"\u2014the presenter's face noticeably enlarges and the framing tightens by frame 3.125s. RIGHT shows no obvious punch-in; the framing remains nearly identical throughout. The punch-in is a key visual beat in the brief, and LEFT delivers it as an instant, impactful jump. Both videos appear to miss accent-color highlighting on \"mouse.\" and \"truth,\" and both may fail the punch-out (still in tight framing at 8.125s), but the punch-in is the more prominent and memorable moment, where LEFT succeeds and RIGHT does not.",
+    "vote": "left"
+  },
+  "p016": {
+    "cost_usd": 0.0310554,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"The RIGHT video correctly executes the Montagent brand mark with three black rounded squares and one orange accent circle in the top right, meeting the explicit acceptance checklist requirement. The LEFT video's mark lacks or fails to properly display the accent circle, representing a specification failure on a key visual element. Both videos are otherwise similarly polished and well-paced, but RIGHT's correct implementation of the brand mark is the decisive factor.\"}",
+    "reasoning": "The RIGHT video correctly executes the Montagent brand mark with three black rounded squares and one orange accent circle in the top right, meeting the explicit acceptance checklist requirement. The LEFT video's mark lacks or fails to properly display the accent circle, representing a specification failure on a key visual element. Both videos are otherwise similarly polished and well-paced, but RIGHT's correct implementation of the brand mark is the decisive factor.",
+    "vote": "right"
+  },
+  "p017": {
+    "cost_usd": 0.0314836,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT is stronger because RIGHT fails a critical checklist requirement: the strikethrough bar on \\\"Timelines.\\\" is not the accent colour (appears dark rather than orange). This is a direct, unambiguous miss on the brief's specifications. LEFT's orange accent bar reads confidently and on-brand, while LEFT also shows crisper mark assembly and more polished overall execution. Both complete the structural beats, but LEFT delivers the brief's visual intent more faithfully.\"}",
+    "reasoning": "LEFT is stronger because RIGHT fails a critical checklist requirement: the strikethrough bar on \"Timelines.\" is not the accent colour (appears dark rather than orange). This is a direct, unambiguous miss on the brief's specifications. LEFT's orange accent bar reads confidently and on-brand, while LEFT also shows crisper mark assembly and more polished overall execution. Both complete the structural beats, but LEFT delivers the brief's visual intent more faithfully.",
+    "vote": "left"
+  },
+  "p018": {
+    "cost_usd": 0.05924700000000001,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"equal\",\"reasoning\":\"Both videos deliver the brief's beats identically well: the thinking pose, tag transitions, laptop interaction, hop, and final mark swap are all executed cleanly in both. The owl rig integrity is solid in both with no gaps or misalignments visible at any joint. Environment positioning, character scale, screen content sizing, and overall polish are equivalent. Without access to audio, full motion, or any visible defects to differentiate them, these appear to be equal-quality executions of the same brief.\"}",
+    "reasoning": "Both videos deliver the brief's beats identically well: the thinking pose, tag transitions, laptop interaction, hop, and final mark swap are all executed cleanly in both. The owl rig integrity is solid in both with no gaps or misalignments visible at any joint. Environment positioning, character scale, screen content sizing, and overall polish are equivalent. Without access to audio, full motion, or any visible defects to differentiate them, these appear to be equal-quality executions of the same brief.",
+    "vote": "equal"
+  },
+  "p019": {
+    "cost_usd": 0.0328514,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"The LEFT video correctly builds the Montagent mark from four separate tiles (three black squares + one orange circle) arriving one per beat between 10\u201311.5 s, and assembles into the proper final lockup by 13.125 s. The RIGHT video shows only a single tile at the equivalent point (11.375 s) and never completes the mark assembly correctly, violating two explicit acceptance checklist items: \\\"the four tiles of the mark arrive one after another, not all at once\\\" and \\\"Assembled, the mark matches the pack's construction.\\\" The LEFT video delivers the brief; the RIGHT video has a visible structural defect in its climax.\"}",
+    "reasoning": "The LEFT video correctly builds the Montagent mark from four separate tiles (three black squares + one orange circle) arriving one per beat between 10\u201311.5 s, and assembles into the proper final lockup by 13.125 s. The RIGHT video shows only a single tile at the equivalent point (11.375 s) and never completes the mark assembly correctly, violating two explicit acceptance checklist items: \"the four tiles of the mark arrive one after another, not all at once\" and \"Assembled, the mark matches the pack's construction.\" The LEFT video delivers the brief; the RIGHT video has a visible structural defect in its climax.",
+    "vote": "left"
+  },
+  "p020": {
+    "cost_usd": 0.037527200000000004,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"RIGHT executes the brief's core requirement\u2014character aliveness\u2014more effectively. At the critical thinking pose (1.5s / \\\"Hmm.\\\"), RIGHT shows a more pronounced and readable hand-to-beak gesture with a clearer head tilt, making the character's intent and emotional state more apparent. Both videos handle the structural beats and technical requirements competently (tag changes, screen updates, rig integrity), but RIGHT's superior character expression at this key moment gives it the edge, directly addressing the brief's emphasis that success hinges on the character feeling genuinely alive and present.\"}",
+    "reasoning": "RIGHT executes the brief's core requirement\u2014character aliveness\u2014more effectively. At the critical thinking pose (1.5s / \"Hmm.\"), RIGHT shows a more pronounced and readable hand-to-beak gesture with a clearer head tilt, making the character's intent and emotional state more apparent. Both videos handle the structural beats and technical requirements competently (tag changes, screen updates, rig integrity), but RIGHT's superior character expression at this key moment gives it the edge, directly addressing the brief's emphasis that success hinges on the character feeling genuinely alive and present.",
+    "vote": "right"
+  },
+  "p021": {
+    "cost_usd": 0.04185319999999999,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"RIGHT executes the brief with superior visual impact. It uses vibrant accent orange prominently on \\\"Timelines.\\\" and \\\"Text.\\\"\u2014creating the \\\"punchy and graphic\\\" energy the brief requests\u2014while LEFT uses muted, neutral tones that lack punch. The strike-through bar is far more legible and visible in RIGHT, better fulfilling the checklist requirement that it \\\"is the accent colour and grows from left to right.\\\" Both videos meet the beat-by-beat structure and timing requirements, but RIGHT's bolder colour palette and more prominent brand accent usage deliver a more effective, energetic final piece.\"}",
+    "reasoning": "RIGHT executes the brief with superior visual impact. It uses vibrant accent orange prominently on \"Timelines.\" and \"Text.\"\u2014creating the \"punchy and graphic\" energy the brief requests\u2014while LEFT uses muted, neutral tones that lack punch. The strike-through bar is far more legible and visible in RIGHT, better fulfilling the checklist requirement that it \"is the accent colour and grows from left to right.\" Both videos meet the beat-by-beat structure and timing requirements, but RIGHT's bolder colour palette and more prominent brand accent usage deliver a more effective, energetic final piece.",
+    "vote": "right"
+  },
+  "p022": {
+    "cost_usd": 0.04038989999999999,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"RIGHT better fulfills the acceptance checklist: it correctly shows \\\"truth\\\" in accent colour (required), maintains the product card until the proper exit point (~6.2s/\\\"the truth\\\"), and times the punch-in/punch-out transitions to match the brief. LEFT's product card disappears prematurely (by 5.625s, not ~6.2s) and fails to display \\\"truth\\\" in the required accent colour\u2014both explicit checklist failures. While both are visually clean and bright, RIGHT's stricter adherence to the brief's beat-by-beat timing and checklist requirements makes it the stronger execution.\"}",
+    "reasoning": "RIGHT better fulfills the acceptance checklist: it correctly shows \"truth\" in accent colour (required), maintains the product card until the proper exit point (~6.2s/\"the truth\"), and times the punch-in/punch-out transitions to match the brief. LEFT's product card disappears prematurely (by 5.625s, not ~6.2s) and fails to display \"truth\" in the required accent colour\u2014both explicit checklist failures. While both are visually clean and bright, RIGHT's stricter adherence to the brief's beat-by-beat timing and checklist requirements makes it the stronger execution.",
+    "vote": "right"
+  },
+  "p023": {
+    "cost_usd": 0.0494705,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT executes the brief correctly throughout. RIGHT fails a key acceptance checklist item: the Montagent mark's accent element appears to be a rounded square rather than the required circle, violating \\\"three ink rounded squares and one accent circle, top right.\\\" All other elements (timing, layout, typography, animation beats, screen recording, list items, captions) are executed similarly well in both, so the mark construction defect is the differentiating factor.\"}",
+    "reasoning": "LEFT executes the brief correctly throughout. RIGHT fails a key acceptance checklist item: the Montagent mark's accent element appears to be a rounded square rather than the required circle, violating \"three ink rounded squares and one accent circle, top right.\" All other elements (timing, layout, typography, animation beats, screen recording, list items, captions) are executed similarly well in both, so the mark construction defect is the differentiating factor.",
+    "vote": "left"
+  },
+  "p024": {
+    "cost_usd": 0.05215159999999999,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"equal\",\"reasoning\":\"Both videos deliver all brief requirements identically across the eight sample frames: correct text, accurate timing to beats, proper brand colours, legible typography, rounded frames with shadows, mark geometry, and no visible chrome. No defects detected in either. Layout, spacing, and polish appear equivalent. Cannot differentiate from stills alone.\"}",
+    "reasoning": "Both videos deliver all brief requirements identically across the eight sample frames: correct text, accurate timing to beats, proper brand colours, legible typography, rounded frames with shadows, mark geometry, and no visible chrome. No defects detected in either. Layout, spacing, and polish appear equivalent. Cannot differentiate from stills alone.",
+    "vote": "equal"
+  },
+  "p025": {
+    "cost_usd": 0.032683399999999994,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT is superior because RIGHT critically fails the acceptance checklist: at 0.875s, the strike-through bar should be clearly visible growing across \\\"Timelines.\\\" but is completely absent in RIGHT. This is the opening beat and a hard requirement. LEFT also makes the stronger design choice of rendering \\\"Text.\\\" in the accent colour for continuity. Both otherwise execute the middle and end sections adequately, but RIGHT's missing strike-through bar is a decisive defect.\"}",
+    "reasoning": "LEFT is superior because RIGHT critically fails the acceptance checklist: at 0.875s, the strike-through bar should be clearly visible growing across \"Timelines.\" but is completely absent in RIGHT. This is the opening beat and a hard requirement. LEFT also makes the stronger design choice of rendering \"Text.\" in the accent colour for continuity. Both otherwise execute the middle and end sections adequately, but RIGHT's missing strike-through bar is a decisive defect.",
+    "vote": "left"
+  },
+  "p026": {
+    "cost_usd": 0.041177399999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"equal\",\"reasoning\":\"Both versions execute the brief's beats and checklist with equivalent quality. They show identical scene composition, correct character poses at each beat (\\\"Hmm.\\\" thinking pose, tapping, hop with raised arms), proper tag animations (\\\"+2 frames\\\" appearing with overshoot, changing to \\\"0 frames\\\"), solid rig integrity with no visible gaps, and appropriate Montagent mark placement. Polish, typography, color work, and framing are comparable. Without assessing motion smoothness, voice timing, or blink patterns\u2014which the stills cannot show\u2014both appear to be competent, professional executions at the same level.\"}",
+    "reasoning": "Both versions execute the brief's beats and checklist with equivalent quality. They show identical scene composition, correct character poses at each beat (\"Hmm.\" thinking pose, tapping, hop with raised arms), proper tag animations (\"+2 frames\" appearing with overshoot, changing to \"0 frames\"), solid rig integrity with no visible gaps, and appropriate Montagent mark placement. Polish, typography, color work, and framing are comparable. Without assessing motion smoothness, voice timing, or blink patterns\u2014which the stills cannot show\u2014both appear to be competent, professional executions at the same level.",
+    "vote": "equal"
+  },
+  "p027": {
+    "cost_usd": 0.0340149,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"The RIGHT video fulfills the brief's specific requirement to set \\\"mouse.\\\" and \\\"truth\\\" in accent colour, which is visible in frame 6 (\\\"truth\\\" in orange). The LEFT video fails this requirement\u2014all caption words are uniformly dark. Beyond this checklist gap, RIGHT demonstrates stronger typographic craft with larger, more legible captions better proportioned to the square format and branded aesthetic. Both handle keying, disc placement, and product card insertion correctly, but RIGHT's caption implementation\u2014both in meeting specs and visual polish\u2014makes it the more finished piece for this brief.\"}",
+    "reasoning": "The RIGHT video fulfills the brief's specific requirement to set \"mouse.\" and \"truth\" in accent colour, which is visible in frame 6 (\"truth\" in orange). The LEFT video fails this requirement\u2014all caption words are uniformly dark. Beyond this checklist gap, RIGHT demonstrates stronger typographic craft with larger, more legible captions better proportioned to the square format and branded aesthetic. Both handle keying, disc placement, and product card insertion correctly, but RIGHT's caption implementation\u2014both in meeting specs and visual polish\u2014makes it the more finished piece for this brief.",
+    "vote": "right"
+  },
+  "p028": {
+    "cost_usd": 0.0316,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers the brief's checklist accurately, particularly the crucial \\\"0 frames\\\" tag change that signals the \\\"Fixed!\\\" moment at the correct time (~4.5s). RIGHT has a critical timing failure: the \\\"+2 frames\\\" tag persists through 4.5\u20135.5s when it should have changed to \\\"0 frames\\\" by the \\\"Fixed!\\\" beat, violating the acceptance criteria and breaking the narrative payoff of the sequence. LEFT also shows cleaner execution of the thinking pose, forearm taps, and hop, with better overall polish and structural integrity of the character.\"}",
+    "reasoning": "LEFT delivers the brief's checklist accurately, particularly the crucial \"0 frames\" tag change that signals the \"Fixed!\" moment at the correct time (~4.5s). RIGHT has a critical timing failure: the \"+2 frames\" tag persists through 4.5\u20135.5s when it should have changed to \"0 frames\" by the \"Fixed!\" beat, violating the acceptance criteria and breaking the narrative payoff of the sequence. LEFT also shows cleaner execution of the thinking pose, forearm taps, and hop, with better overall polish and structural integrity of the character.",
+    "vote": "left"
+  },
+  "p029": {
+    "cost_usd": 0.031999200000000005,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"RIGHT fails a critical acceptance item: the \\\"+2 frames\\\" tag never changes to \\\"0 frames\\\" across all eight frames. The tag remains \\\"+2\\\" in red/orange throughout, violating the requirement that it \\\"reads '0 frames' from 'Fixed!' on.\\\" This tag change is central to the brief's narrative\u2014it's the visual proof the fix worked. LEFT correctly executes the tag transition by the final frames, showing the before-and-after state. Both pieces show comparable construction and layout, but RIGHT abandons a mandatory story beat, making it an incomplete delivery against the brief's checklist. LEFT delivers the full brief.\"}",
+    "reasoning": "RIGHT fails a critical acceptance item: the \"+2 frames\" tag never changes to \"0 frames\" across all eight frames. The tag remains \"+2\" in red/orange throughout, violating the requirement that it \"reads '0 frames' from 'Fixed!' on.\" This tag change is central to the brief's narrative\u2014it's the visual proof the fix worked. LEFT correctly executes the tag transition by the final frames, showing the before-and-after state. Both pieces show comparable construction and layout, but RIGHT abandons a mandatory story beat, making it an incomplete delivery against the brief's checklist. LEFT delivers the full brief.",
+    "vote": "left"
+  },
+  "p030": {
+    "cost_usd": 0.0401029,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers all brief requirements correctly. RIGHT fails the acceptance checklist: it has missing caption words at multiple points (frames 2, 4, 7), showing incomplete phrases where LEFT shows complete ones at the same timestamps. This violates \\\"Each word appears as it is spoken.\\\"\"}",
+    "reasoning": "LEFT delivers all brief requirements correctly. RIGHT fails the acceptance checklist: it has missing caption words at multiple points (frames 2, 4, 7), showing incomplete phrases where LEFT shows complete ones at the same timestamps. This violates \"Each word appears as it is spoken.\"",
+    "vote": "left"
+  },
+  "p031": {
+    "cost_usd": 0.031801300000000005,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT delivers the cleaner, more focused execution the brief demands. It includes all required elements\u2014presenter keying, orange disc, captions with accent-color words, punch-in/out, product card, and centered end card\u2014without unnecessary branding clutter. RIGHT adds a persistent Montagent logo in the upper left throughout the presenter section (not called for in the brief), which makes the frame busier and distracts from the presenter and captions. For a piece designed to feel like the brand's own channel content, LEFT's uncluttered approach executes the brief's design intent more faithfully.\"}",
+    "reasoning": "LEFT delivers the cleaner, more focused execution the brief demands. It includes all required elements\u2014presenter keying, orange disc, captions with accent-color words, punch-in/out, product card, and centered end card\u2014without unnecessary branding clutter. RIGHT adds a persistent Montagent logo in the upper left throughout the presenter section (not called for in the brief), which makes the frame busier and distracts from the presenter and captions. For a piece designed to feel like the brand's own channel content, LEFT's uncluttered approach executes the brief's design intent more faithfully.",
+    "vote": "left"
+  },
+  "p032": {
+    "cost_usd": 0.0380007,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT executes the punch-out transition and product card removal correctly at the \\\"the truth\\\" moment (~6.2s), as specified in the brief. By frame 6 (6.875s), the shot has returned to wide framing and the card has slid away. RIGHT fails this timing\u2014at the same frame, the shot is still punched in and the product card is still on screen, missing the intended visual beat by nearly a second. Both videos are clean and polished otherwise, but the timing of this cut is essential to the brief's rhythm and impact. LEFT delivers; RIGHT misses a critical requirement.\"}",
+    "reasoning": "LEFT executes the punch-out transition and product card removal correctly at the \"the truth\" moment (~6.2s), as specified in the brief. By frame 6 (6.875s), the shot has returned to wide framing and the card has slid away. RIGHT fails this timing\u2014at the same frame, the shot is still punched in and the product card is still on screen, missing the intended visual beat by nearly a second. Both videos are clean and polished otherwise, but the timing of this cut is essential to the brief's rhythm and impact. LEFT delivers; RIGHT misses a critical requirement.",
+    "vote": "left"
+  },
+  "p033": {
+    "cost_usd": 0.0291082,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT passes the acceptance checklist; RIGHT fails a critical requirement. The \\\"+2 frames\\\" tag in RIGHT never changes to \\\"0 frames\\\" after \\\"Fixed!\\\" is spoken, remaining visible through the end of the video. This violates the explicit requirement \\\"The tag reads '0 frames' from 'Fixed!' on, not before.\\\" LEFT correctly transitions the tag, performs a visible hop with raised arms, and shows the Montagent mark on the final frames. LEFT's pose progression and beat timing are also clearer throughout the sequence.\"}",
+    "reasoning": "LEFT passes the acceptance checklist; RIGHT fails a critical requirement. The \"+2 frames\" tag in RIGHT never changes to \"0 frames\" after \"Fixed!\" is spoken, remaining visible through the end of the video. This violates the explicit requirement \"The tag reads '0 frames' from 'Fixed!' on, not before.\" LEFT correctly transitions the tag, performs a visible hop with raised arms, and shows the Montagent mark on the final frames. LEFT's pose progression and beat timing are also clearer throughout the sequence.",
+    "vote": "left"
+  },
+  "p034": {
+    "cost_usd": 0.035952899999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"LEFT adheres to the creative brief by using the correct presenter take with specified words, while RIGHT introduces unauthorized dialogue (\\\"to your agent,\\\") that isn't part of the brief's requirements. Both execute similarly on the structural beats, keying, caption placement, and visual polish, but LEFT's fidelity to the specification makes it the better delivery.\"}",
+    "reasoning": "LEFT adheres to the creative brief by using the correct presenter take with specified words, while RIGHT introduces unauthorized dialogue (\"to your agent,\") that isn't part of the brief's requirements. Both execute similarly on the structural beats, keying, caption placement, and visual polish, but LEFT's fidelity to the specification makes it the better delivery.",
+    "vote": "left"
+  },
+  "p035": {
+    "cost_usd": 0.0412184,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"left\",\"reasoning\":\"The LEFT video correctly displays the tag as \\\"0 frames\\\" (without the plus sign) from the \\\"Fixed!\\\" moment onward, adhering to the brief's explicit requirement. The RIGHT video appears to retain the plus sign, showing \\\"+0 frames\\\" through frames 5\u20137, which is a clear violation of the checklist item: \\\"The tag reads '0 frames' from 'Fixed!' on, not before.\\\" Both videos demonstrate solid character rigging, composition, and timing, but LEFT executes the brief requirements more accurately.\"}",
+    "reasoning": "The LEFT video correctly displays the tag as \"0 frames\" (without the plus sign) from the \"Fixed!\" moment onward, adhering to the brief's explicit requirement. The RIGHT video appears to retain the plus sign, showing \"+0 frames\" through frames 5\u20137, which is a clear violation of the checklist item: \"The tag reads '0 frames' from 'Fixed!' on, not before.\" Both videos demonstrate solid character rigging, composition, and timing, but LEFT executes the brief requirements more accurately.",
+    "vote": "left"
+  },
+  "p036": {
+    "cost_usd": 0.046976699999999996,
+    "model": "claude-haiku-4-5-20251001",
+    "raw": "{\"vote\":\"right\",\"reasoning\":\"Both videos execute the brief's beats, timing, and layout nearly identically with high production quality. The distinguishing factor is the accent colour: RIGHT uses an orange-red accent, LEFT uses a magenta-pink accent. Since the brief requires using the provided brand colours, this is a material difference. RIGHT's orange-red accent is more typical and energetic for a developer tool brand and appears more professionally appropriate, giving it the edge. However, this judgment assumes RIGHT has matched the correct brand colour\u2014if the pack's accent is actually the magenta LEFT used, that assessment reverses.\"}",
+    "reasoning": "Both videos execute the brief's beats, timing, and layout nearly identically with high production quality. The distinguishing factor is the accent colour: RIGHT uses an orange-red accent, LEFT uses a magenta-pink accent. Since the brief requires using the provided brand colours, this is a material difference. RIGHT's orange-red accent is more typical and energetic for a developer tool brand and appears more professionally appropriate, giving it the edge. However, this judgment assumes RIGHT has matched the correct brand colour\u2014if the pack's accent is actually the magenta LEFT used, that assessment reverses.",
+    "vote": "right"
+  }
+}
