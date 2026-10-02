@@ -1,0 +1,421 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 10000,
+  "output": "deliverable.mp4",
+  "tracks": [
+    {
+      "name": "set",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "set",
+          "type": "image",
+          "start": 0,
+          "end": 10000,
+          "source": "character/study.png",
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1920,
+          "height": 1080,
+          "fit": "literal"
+        }
+      ]
+    },
+    {
+      "name": "laptop",
+      "layer": 5,
+      "elements": [
+        {
+          "id": "laptop-0",
+          "type": "image",
+          "start": 2733,
+          "end": 3400,
+          "source": "media/laptop-0.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal",
+          "scale": [
+            {
+              "t": 2733,
+              "v": [
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "t": 3033,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "id": "laptop-1",
+          "type": "image",
+          "start": 3400,
+          "end": 3500,
+          "source": "media/laptop-1.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal"
+        },
+        {
+          "id": "laptop-2",
+          "type": "image",
+          "start": 3500,
+          "end": 3600,
+          "source": "media/laptop-2.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal"
+        },
+        {
+          "id": "laptop-3",
+          "type": "image",
+          "start": 3600,
+          "end": 3700,
+          "source": "media/laptop-3.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal"
+        },
+        {
+          "id": "laptop-4",
+          "type": "image",
+          "start": 3700,
+          "end": 3800,
+          "source": "media/laptop-4.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal"
+        },
+        {
+          "id": "laptop-5",
+          "type": "image",
+          "start": 3800,
+          "end": 3900,
+          "source": "media/laptop-5.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal"
+        },
+        {
+          "id": "laptop-6",
+          "type": "image",
+          "start": 3900,
+          "end": 6800,
+          "source": "media/laptop-6.png",
+          "x": 1200,
+          "y": 965,
+          "origin": "bottom-center",
+          "width": 708,
+          "height": 566,
+          "fit": "literal",
+          "scale": [
+            {
+              "t": 6566,
+              "v": [
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "t": 6766,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "card",
+      "layer": 6,
+      "elements": [
+        {
+          "id": "card",
+          "type": "image",
+          "start": 5000,
+          "end": 6800,
+          "source": "stills/session-02.png",
+          "x": [
+            {
+              "t": 5000,
+              "v": 1200
+            },
+            {
+              "t": 5566,
+              "v": 1200,
+              "ease": [
+                0.25,
+                1,
+                0.5,
+                1
+              ]
+            }
+          ],
+          "y": [
+            {
+              "t": 5000,
+              "v": 575
+            },
+            {
+              "t": 5566,
+              "v": 222,
+              "ease": [
+                0.25,
+                1,
+                0.5,
+                1
+              ]
+            }
+          ],
+          "origin": "center",
+          "width": 576,
+          "height": 324,
+          "fit": "literal",
+          "scale": [
+            {
+              "t": 5000,
+              "v": [
+                0.25,
+                0.25
+              ]
+            },
+            {
+              "t": 5566,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            },
+            {
+              "t": 6566,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": "linear"
+            },
+            {
+              "t": 6766,
+              "v": [
+                0.0,
+                0.0
+              ],
+              "ease": "ease-in"
+            }
+          ],
+          "effects": [
+            {
+              "name": "shadow",
+              "dx": 0,
+              "dy": 10,
+              "radius": 18,
+              "color": "#101418",
+              "opacity": 0.35
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bar-track",
+      "layer": 7,
+      "elements": [
+        {
+          "id": "bar-track",
+          "type": "rect",
+          "start": 5566,
+          "end": 6566,
+          "x": 936,
+          "y": 362,
+          "origin": "center-left",
+          "width": 528,
+          "height": 8,
+          "fill": "#F5F0E64D",
+          "radius": 4
+        }
+      ]
+    },
+    {
+      "name": "bar-fill",
+      "layer": 8,
+      "elements": [
+        {
+          "id": "bar-fill",
+          "type": "rect",
+          "start": 5600,
+          "end": 6566,
+          "x": 936,
+          "y": 362,
+          "origin": "center-left",
+          "width": 528,
+          "height": 8,
+          "fill": "#FF5A36",
+          "radius": 4,
+          "scale": [
+            {
+              "t": 5600,
+              "v": [
+                0.0,
+                1.0
+              ]
+            },
+            {
+              "t": 6200,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": "ease-in-out"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "brand",
+      "layer": 6,
+      "elements": [
+        {
+          "id": "lockup",
+          "type": "image",
+          "start": 6700,
+          "end": 10000,
+          "source": "brand/lockup.png",
+          "x": 1215,
+          "y": 470,
+          "origin": "center",
+          "width": 778,
+          "height": 180,
+          "fit": "contain",
+          "scale": [
+            {
+              "t": 6700,
+              "v": [
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "t": 7000,
+              "v": [
+                1.0,
+                1.0
+              ],
+              "ease": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "voice",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "voice",
+          "type": "audio",
+          "start": 1000,
+          "end": 6520,
+          "source": "character/voice/line-2.wav",
+          "source_start": 0,
+          "source_end": 5520
+        }
+      ]
+    },
+    {
+      "name": "music",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "bed",
+          "type": "audio",
+          "start": 0,
+          "end": 10000,
+          "source": "music/bed-120bpm.wav",
+          "source_start": 0,
+          "source_end": 10000,
+          "volume": [
+            {
+              "t": 0,
+              "v": 0.5
+            },
+            {
+              "t": 900,
+              "v": 0.12,
+              "ease": "linear"
+            },
+            {
+              "t": 6500,
+              "v": 0.12,
+              "ease": "linear"
+            },
+            {
+              "t": 7000,
+              "v": 0.5,
+              "ease": "linear"
+            },
+            {
+              "t": 8500,
+              "v": 0.5,
+              "ease": "linear"
+            },
+            {
+              "t": 9900,
+              "v": 0.0,
+              "ease": "linear"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

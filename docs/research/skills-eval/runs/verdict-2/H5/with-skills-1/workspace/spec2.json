@@ -1,0 +1,1 @@
+{"track": "payoff", "layer": 34, "voice": "presenter", "font": "bold", "size": 80, "color": "#F5F0E6", "highlight": "#FF5A36", "x": 540, "y": 1050, "width": 900, "lines": 2, "gap": 400, "min_word": 150, "hold": 1000, "pill": {"color": "#101418", "pad": [40, 24], "radius": 28}, "listen": false}

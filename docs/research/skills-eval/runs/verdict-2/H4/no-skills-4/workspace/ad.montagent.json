@@ -1,0 +1,103 @@
+{
+  "frame": {"width": 1080, "height": 1080},
+  "fps": 30,
+  "background": "#101418",
+  "duration": 15000,
+  "output": "deliverable.mp4",
+  "fonts": {"bold": [{"file": "fonts/Inter-Bold.ttf"}], "regular": [{"file": "fonts/Inter-Regular.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-7rkvazmm/work/fonts/Inter-Bold.ttf", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}, "fonts/Inter-Regular.ttf": {"licence": "OFL-1.1", "source": "/private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montagent-eval-7rkvazmm/work/fonts/Inter-Regular.ttf", "sha256": "40d692fce188e4471e2b3cba937be967878f631ad3ebbbdcd587687c7ebe0c82"}},
+  "tracks": [
+    {
+      "name": "hook-1",
+      "layer": 10,
+      "elements": [
+        {"id":"hook-1","type":"text","start":0,"end":3000,"x":90,"y":[{"t":0,"v":340},{"t":350,"v":300,"ease":"ease-out"}],"origin":"top-left","width":900,"height":139,"font":"bold","size":124,"line_height":1.1,"color":"#F5F0E6","runs":[{"text":"Your AI agent"}],"opacity":[{"t":0,"v":0.0},{"t":350,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "hook-2",
+      "layer": 11,
+      "elements": [
+        {"id":"hook-2","type":"text","start":500,"end":3000,"x":90,"y":[{"t":500,"v":480},{"t":850,"v":440,"ease":"ease-out"}],"origin":"top-left","width":900,"height":139,"font":"bold","size":124,"line_height":1.1,"color":"#F5F0E6","runs":[{"text":"edits "},{"text":"video","color":"#FF5A36"}],"opacity":[{"t":500,"v":0.0},{"t":850,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "hook-3",
+      "layer": 12,
+      "elements": [
+        {"id":"hook-3","type":"text","start":1000,"end":3000,"x":90,"y":[{"t":1000,"v":620},{"t":1350,"v":580,"ease":"ease-out"}],"origin":"top-left","width":900,"height":139,"font":"bold","size":124,"line_height":1.1,"color":"#F5F0E6","runs":[{"text":"like code."}],"opacity":[{"t":1000,"v":0.0},{"t":1350,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "kicker",
+      "layer": 10,
+      "elements": [
+        {"id":"kicker","type":"text","start":3000,"end":9750,"x":60,"y":108,"origin":"top-left","width":600,"height":36,"font":"regular","size":28,"line_height":1.2,"color":"#F5F0E6A6","runs":[{"text":"A REAL CLAUDE CODE SESSION"}],"opacity":[{"t":3000,"v":0.0},{"t":3250,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "label",
+      "layer": 11,
+      "elements": [
+        {"id":"label-ask","type":"text","start":3000,"end":5000,"x":60,"y":[{"t":3000,"v":176},{"t":3250,"v":156,"ease":"ease-out"}],"origin":"top-left","width":972,"height":65,"font":"bold","size":52,"line_height":1.2,"color":"#F5F0E6","runs":[{"text":"You ask for a subtitle."}],"opacity":[{"t":3000,"v":0.0},{"t":3250,"v":1.0,"ease":"ease-out"}],"caption":false},
+        {"id":"label-edit","type":"text","start":5000,"end":7500,"x":60,"y":[{"t":5000,"v":176},{"t":5250,"v":156,"ease":"ease-out"}],"origin":"top-left","width":972,"height":65,"font":"bold","size":52,"line_height":1.2,"color":"#F5F0E6","runs":[{"text":"The agent edits the file."}],"opacity":[{"t":5000,"v":0.0},{"t":5250,"v":1.0,"ease":"ease-out"}],"caption":false},
+        {"id":"label-render","type":"text","start":7500,"end":9750,"x":60,"y":[{"t":7500,"v":176},{"t":7750,"v":156,"ease":"ease-out"}],"origin":"top-left","width":972,"height":65,"font":"bold","size":52,"line_height":1.2,"color":"#F5F0E6","runs":[{"text":"Montagent renders the result."}],"opacity":[{"t":7500,"v":0.0},{"t":7750,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "screen",
+      "layer": 2,
+      "elements": [
+        {"id":"shot-ask","type":"video","start":3000,"end":5000,"source":"screen/session.mp4","source_start":6000,"source_end":9800,"x":[{"t":3000,"v":60},{"t":4150,"v":60,"ease":"ease-out"},{"t":4950,"v":-650,"ease":"linear"}],"y":380,"origin":"top-left","width":1920,"height":1080,"fit":"literal","clip":[60,380,960,480],"opacity":[{"t":3000,"v":0.0},{"t":3250,"v":1.0,"ease":"ease-out"}],"speed":1.9},
+        {"id":"shot-edit","type":"video","start":5000,"end":7500,"source":"screen/session.mp4","source_start":33600,"source_end":36100,"x":[{"t":5000,"v":-8},{"t":5250,"v":-8,"ease":"ease-out"},{"t":7450,"v":-416,"ease":"ease-in-out"}],"y":188,"origin":"top-left","width":1632,"height":918,"fit":"literal","clip":[60,260,960,720]},
+        {"id":"result","type":"image","start":7500,"end":10000,"source":"stills/session-02.png","x":540,"y":620,"origin":"center","width":960,"height":540,"fit":"literal","scale":[{"t":7500,"v":[0.86,0.86]},{"t":7850,"v":[0.94,0.94],"ease":"ease-out"}],"opacity":[{"t":7500,"v":0.0},{"t":7700,"v":1.0,"ease":"ease-out"}]}
+      ]
+    },
+    {
+      "name": "result-path",
+      "layer": 12,
+      "elements": [
+        {"id":"result-path","type":"text","start":7750,"end":9750,"x":540,"y":906,"origin":"top-center","width":250,"height":36,"font":"regular","size":28,"line_height":1.2,"color":"#F5F0E6A6","runs":[{"text":"out/hello-text.mp4"}],"opacity":[{"t":7750,"v":0.0},{"t":8000,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "screen-edge",
+      "layer": 3,
+      "elements": [
+        {"id":"screen-edge-ask","type":"rect","start":3000,"end":5000,"x":60,"y":380,"origin":"top-left","width":960,"height":480,"stroke":"#F5F0E633","stroke_width":2,"opacity":[{"t":3000,"v":0.0},{"t":3250,"v":1.0,"ease":"ease-out"}]},
+        {"id":"screen-edge-edit","type":"rect","start":5000,"end":7500,"x":60,"y":260,"origin":"top-left","width":960,"height":720,"stroke":"#F5F0E633","stroke_width":2},
+        {"id":"result-edge","type":"rect","start":7500,"end":10000,"x":540,"y":620,"origin":"center","width":968,"height":548,"stroke":"#FF5A36","stroke_width":4,"scale":[{"t":7500,"v":[0.86,0.86]},{"t":7850,"v":[0.94,0.94],"ease":"ease-out"}],"opacity":[{"t":7500,"v":0.0},{"t":7700,"v":1.0,"ease":"ease-out"}]}
+      ]
+    },
+    {
+      "name": "paper",
+      "layer": 20,
+      "elements": [
+        {"id":"paper","type":"rect","start":9750,"end":15000,"x":0,"y":[{"t":9750,"v":1080},{"t":10000,"v":0,"ease":"ease-in-out"}],"origin":"top-left","width":1080,"height":1080,"fill":"#F5F0E6"}
+      ]
+    },
+    {
+      "name": "line-1",
+      "layer": 30,
+      "elements": [
+        {"id":"claim-1","type":"text","start":10000,"end":13000,"x":540,"y":[{"t":10000,"v":450},{"t":10300,"v":420,"ease":"ease-out"}],"origin":"top-center","width":780,"height":103,"font":"bold","size":84,"line_height":1.2,"color":"#101418","align":"center","runs":[{"text":"Your video is a "},{"text":"file","color":"#FF5A36"},{"text":"."}],"opacity":[{"t":10000,"v":0.0},{"t":10300,"v":1.0,"ease":"ease-out"}],"caption":false},
+        {"id":"lockup","type":"image","start":13000,"end":15000,"source":"brand/lockup.png","x":540,"y":500,"origin":"center","width":780,"height":180,"fit":"literal","scale":[{"t":13000,"v":[0.94,0.94]},{"t":13400,"v":[1.0,1.0],"ease":"ease-out"}],"opacity":[{"t":13000,"v":0.0},{"t":13300,"v":1.0,"ease":"ease-out"}]}
+      ]
+    },
+    {
+      "name": "line-2",
+      "layer": 31,
+      "elements": [
+        {"id":"claim-2","type":"text","start":10500,"end":13000,"x":540,"y":[{"t":10500,"v":570},{"t":10800,"v":540,"ease":"ease-out"}],"origin":"top-center","width":900,"height":103,"font":"bold","size":84,"line_height":1.2,"color":"#101418","align":"center","runs":[{"text":"Your agent can edit it."}],"opacity":[{"t":10500,"v":0.0},{"t":10800,"v":1.0,"ease":"ease-out"}],"caption":false},
+        {"id":"tagline","type":"text","start":13500,"end":15000,"x":540,"y":[{"t":13500,"v":666},{"t":13800,"v":650,"ease":"ease-out"}],"origin":"top-center","width":620,"height":50,"font":"regular","size":40,"line_height":1.2,"color":"#101418","align":"center","runs":[{"text":"The video editor AI agents drive."}],"opacity":[{"t":13500,"v":0.0},{"t":13800,"v":1.0,"ease":"ease-out"}],"caption":false}
+      ]
+    },
+    {
+      "name": "music",
+      "layer": 0,
+      "elements": [
+        {"id":"music","type":"audio","start":0,"end":15000,"source":"music/bed-120bpm.wav","source_start":0,"source_end":15000,"volume":[{"t":0,"v":1.0},{"t":14000,"v":1.0,"ease":"linear"},{"t":14950,"v":0.0,"ease":"linear"}]}
+      ]
+    }
+  ]
+}

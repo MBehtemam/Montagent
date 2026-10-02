@@ -1,0 +1,92 @@
+[
+ {
+  "word": "Here's",
+  "start": 0,
+  "end": 180
+ },
+ {
+  "word": "the",
+  "start": 180,
+  "end": 300
+ },
+ {
+  "word": "trick.",
+  "start": 300,
+  "end": 520
+ },
+ {
+  "word": "Every",
+  "start": 1260,
+  "end": 1500
+ },
+ {
+  "word": "element",
+  "start": 1500,
+  "end": 1820
+ },
+ {
+  "word": "in",
+  "start": 1820,
+  "end": 2060
+ },
+ {
+  "word": "the",
+  "start": 2060,
+  "end": 2180
+ },
+ {
+  "word": "video",
+  "start": 2180,
+  "end": 2480
+ },
+ {
+  "word": "is",
+  "start": 2480,
+  "end": 2780
+ },
+ {
+  "word": "one",
+  "start": 2780,
+  "end": 3160
+ },
+ {
+  "word": "line",
+  "start": 3160,
+  "end": 3400
+ },
+ {
+  "word": "of",
+  "start": 3400,
+  "end": 3560
+ },
+ {
+  "word": "text,",
+  "start": 3560,
+  "end": 3880
+ },
+ {
+  "word": "so",
+  "start": 4168,
+  "end": 4320
+ },
+ {
+  "word": "my",
+  "start": 4320,
+  "end": 4480
+ },
+ {
+  "word": "agent",
+  "start": 4480,
+  "end": 4800
+ },
+ {
+  "word": "can",
+  "start": 4800,
+  "end": 5060
+ },
+ {
+  "word": "change",
+  "start": 5060,
+  "end": 5480
+ }
+]
