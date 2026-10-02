@@ -47,12 +47,13 @@ Then every time is moved to the frame the project draws it on. Line breaks come 
                                   pause (ms); "listen": false skips the check
       "pill": {"color": "#101418CC", "pad": [28, 16], "radius": 24},   optional box
                                   behind each page, on track "<track>-bg" one layer below
-      "duck": {"id": "bed", "under": 0.18, "over": 0.5, "ramp": 200, "lead": 100,
-               "join": 600, "fade": 1000}      optional: rewrites that audio element's
-                                  `volume`: `under` while the voice speaks, `over` in pauses
-                                  of at least `join` ms, ramps of `ramp` ms starting `lead`
-                                  ms ahead of the voice, and a fade to 0 over the last
-                                  `fade` ms that lands on the element's last drawn frame
+      "duck": {"id": "bed", "under": 0.18, "over": 0.5, "end": 0.85, "ramp": 200,
+               "lead": 100, "join": 600, "fade": 1000}      optional: rewrites that audio
+                                  element's `volume`: `under` while the voice speaks, `over`
+                                  in pauses of at least `join` ms, `end` after the last word
+                                  (an end card), ramps of `ramp` ms starting `lead` ms ahead
+                                  of the voice, and a fade to 0 over the last `fade` ms that
+                                  lands on the element's last drawn frame
     }
 
 """
@@ -258,9 +259,9 @@ def main(argv):
 
 
 def ducked(bed, words, duck, on_frame, last_drawn, report):
-    """`under` while the voice speaks, `over` in pauses of at least `join` ms, and a fade to
-    0 that lands on the bed's last drawn frame."""
-    under, over = duck.get("under", 0.18), duck.get("over", 0.5)
+    """`under` while the voice speaks, `over` in pauses of at least `join` ms, `end` after the
+    last word, and a fade to 0 that lands on the bed's last drawn frame."""
+    under, over, end = duck.get("under", 0.18), duck.get("over", 0.5), duck.get("end", 0.85)
     ramp, lead, join = duck.get("ramp", 200), duck.get("lead", 100), duck.get("join", 600)
     spans = []
     for w in words:
@@ -270,8 +271,9 @@ def ducked(bed, words, duck, on_frame, last_drawn, report):
             spans.append([w["start"], w["end"]])
     start, stop = bed["start"], last_drawn(bed["end"])
     points = [(start, over)]
-    for s, e in spans:
-        points += [(s - lead - ramp, over), (s - lead, under), (e + lead, under), (e + lead + ramp, over)]
+    for n, (s, e) in enumerate(spans):
+        after = end if n + 1 == len(spans) else over
+        points += [(s - lead - ramp, over), (s - lead, under), (e + lead, under), (e + lead + ramp, after)]
         report(f"duck: voice {s}-{e}")
     points = [(on_frame(max(start, min(t, stop))), v) for t, v in points]
     if points[1][0] <= start:
@@ -285,6 +287,12 @@ def ducked(bed, words, duck, on_frame, last_drawn, report):
 
     fade_from = on_frame(stop - duck.get("fade", 1000))
     fade_level = level(fade_from)
+    if spans:
+        up = points[-1][0]
+        if up < fade_from:
+            report(f"duck: {end} after the last word, from {up} until the fade at {fade_from}")
+        else:
+            report(f"duck: no end level, the fade at {fade_from} starts before the music is back up")
     points = [p for p in points if p[0] < fade_from] + [(fade_from, fade_level), (stop, 0.0)]
     keys = []
     for t, v in points:

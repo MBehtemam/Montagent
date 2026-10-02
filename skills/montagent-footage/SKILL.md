@@ -140,6 +140,7 @@ The music ducks while the voice speaks and comes back up in the pauses. The capt
 - **Levels,** with the voice at 1.0: the music at 0.15–0.2 while the voice speaks, and 0.4–0.6 in pauses.
 - **Pauses:** only a pause of 600 ms or more comes back up. Shorter ones stay down, or the music pumps.
 - **Ramps:** 150–250 ms, starting 100 ms before the voice, so the first syllable is already clear.
-- **End:** a fade to 0 over the last 0.8–1.5 s, landing on the piece's last drawn frame.
+- **After the last word:** an end card or a closing hold has nothing left to duck for, so the music comes back up near full, 0.8–1.0, not to the pause level. Left at 0.5 it plays 5 dB quieter than a mix that brings it back up. The spec's `end` sets it, 0.85 if you leave it out.
+- **End:** a fade to 0 over the last 0.8–1.5 s, landing on the piece's last drawn frame. When the voice speaks almost to the end, the fade starts before the music is back up, and the script reports that there is no end level.
 - It writes each held level as two equal keyframes, which `validate` reports as `R-EASE-INERT`; the findings guide covers that.
-- **Look:** `query --at` in the middle of a spoken phrase, in the longest pause and on the last drawn frame, and check the music's `volume` reads under, over and 0.
+- **Look:** `query --at` in the middle of a spoken phrase, in the longest pause and on the last drawn frame, and check the music's `volume` reads under, over and 0. With an end card, also check it reads the end level in the middle of the card.

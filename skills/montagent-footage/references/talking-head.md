@@ -17,7 +17,7 @@ A speaker to camera, cut for a feed or a page: a social clip, a presenter spot, 
 - **The first 1–2 s** decide whether anyone stays: the speaker is already talking at frame 0, with the first caption page up. No logo intro and no fade from black.
 - **The name bar** arrives on the first pause or at 1 s, whichever is first, and holds 4–6 s, long enough to read twice.
 - **An insert** arrives on the word that names what it shows, and leaves on a pause, never mid-word. One insert on screen at a time.
-- **The end:** the last word is followed by 0.3–1 s of hold (the speaker, or an end card of the lockup), with the music fading out under it.
+- **The end:** the last word is followed by 0.3–1 s of hold (the speaker, or an end card of the lockup), with the music back up under it (see "Music under a voice" in SKILL.md), fading out on the last drawn frame.
 - **Cuts inside a take** go on a pause of 150 ms or more. A cut mid-word jolts even when the picture matches.
 
 ## With the sound off
