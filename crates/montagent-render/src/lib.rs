@@ -60,4 +60,5 @@ pub mod canvas;
 pub mod decode;
 pub mod encode;
 pub mod floor;
+pub mod prof;
 pub mod proxy;

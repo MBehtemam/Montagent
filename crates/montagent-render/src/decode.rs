@@ -194,6 +194,8 @@ pub fn frame_at(
             "{source}: a frame was asked for at {width}x{height}, which is no frame at all"
         ));
     }
+    let prof_started = std::time::Instant::now();
+    crate::prof::FRAME_AT_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let at_ms = at_ms.max(0);
     let from_ms = (at_ms - SEEK_WINDOW_MS).max(0);
     // The read has to reach the instant itself, and the window is shorter than
@@ -217,7 +219,9 @@ pub fn frame_at(
     // One spawn of `ffmpeg` over the window, with whichever output-side arguments pick the
     // frame wanted out of it.
     let over_window = |output_args: &[&str]| -> Result<std::process::Output, String> {
-        Command::new(ffmpeg)
+        let spawned = std::time::Instant::now();
+        crate::prof::SPAWNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let out = Command::new(ffmpeg)
             .args(["-hide_banner", "-loglevel", "error"])
             // Before `-i`, because a decoder choice is an option about the *input* — after
             // it, `ffmpeg` reads it as an encoder for the output and the decode is
@@ -230,7 +234,9 @@ pub fn frame_at(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
-            .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()))
+            .map_err(|e| format!("{source}: {} could not be run: {e}", ffmpeg.display()));
+        crate::prof::add(&crate::prof::SPAWN_NS, spawned);
+        out
     };
 
     // **A spawn that failed is a refusal, never an empty answer.** Its stdout is empty for the
@@ -280,9 +286,14 @@ pub fn frame_at(
     //
     // Only a run that *succeeded* and wrote no frame reaches the fallback: that is the one
     // outcome that means *"no frame at or before"*.
+    crate::prof::FRAMES_PIPED.fetch_add(
+        (at_or_before.stdout.len() / expected) as u64,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     let (output, at_or_after) = if at_or_before.stdout.len() >= expected {
         (at_or_before, false)
     } else {
+        crate::prof::FALLBACKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         (
             succeeded(over_window(&["-frames:v", "1", "-vf", &scale])?)?,
             true,
@@ -334,6 +345,7 @@ pub fn frame_at(
     } else {
         output.stdout[(whole - 1) * expected..].to_vec()
     };
+    crate::prof::add(&crate::prof::FRAME_AT_NS, prof_started);
     Ok(DecodedFrame {
         rgba: taken,
         width,

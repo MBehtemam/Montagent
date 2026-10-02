@@ -904,7 +904,10 @@ pub(crate) fn encode_span(
         let instant = instant_of(n, span.fps);
         let view = at::presence(span.document, instant);
         painter.begin(instant);
+        let prof_t = Instant::now();
         painter.paint(&mut canvas, &view);
+        montagent_render::prof::add(&montagent_render::prof::PAINT_NS, prof_t);
+        montagent_render::prof::FRAMES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         for name in &painter.painted {
             if !painted.contains(name) {
                 painted.push(name.clone());
@@ -930,12 +933,18 @@ pub(crate) fn encode_span(
             return Err(Stop::ToolMissing(missing));
         }
 
-        let Some(rgb) = canvas.rgb() else {
+        let prof_t = Instant::now();
+        let rgb = canvas.rgb();
+        montagent_render::prof::add(&montagent_render::prof::READBACK_NS, prof_t);
+        let Some(rgb) = rgb else {
             return Err(Stop::Internal(format!(
                 "frame {n} could not be read back off the canvas"
             )));
         };
-        if let Err(reason) = encoder.push(&rgb) {
+        let prof_t = Instant::now();
+        let pushed = encoder.push(&rgb);
+        montagent_render::prof::add(&montagent_render::prof::PUSH_NS, prof_t);
+        if let Err(reason) = pushed {
             // The encoder is dropped on the way out, and the temp file with it: the
             // declared path is untouched.
             return Err(Stop::Internal(format!("frame {n}: {reason}")));
@@ -963,7 +972,11 @@ pub(crate) fn encode_span(
 
     // Sealed, not published: the whole span is in the temp file and whether it becomes the
     // deliverable is ADR-0093 ruling 6's question, which only the caller's report can answer.
-    let sealed = match encoder.seal() {
+    let prof_t = Instant::now();
+    let sealed = encoder.seal();
+    montagent_render::prof::add(&montagent_render::prof::SEAL_NS, prof_t);
+    montagent_render::prof::dump(started.elapsed());
+    let sealed = match sealed {
         Ok(sealed) => sealed,
         Err(reason) => {
             return Err(Stop::Internal(format!(

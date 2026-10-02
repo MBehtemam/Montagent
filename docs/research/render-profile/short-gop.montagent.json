@@ -1,0 +1,33 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 30,
+  "background": "#101418",
+  "duration": 64000,
+  "output": "out/short-gop.mp4",
+  "fonts": {"bold": [{"file": "../skills-eval/assets/fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"../skills-eval/assets/fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "docs/research/skills-eval/assets/fonts/Inter-Bold.ttf", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {
+      "name": "main",
+      "layer": 0,
+      "elements": [
+        {"id":"screen","type":"video","start":0,"end":55000,"source":"short/session.mp4","source_start":0,"source_end":55000,"x":0,"y":0,"width":1920,"height":1080,"fit":"literal"},
+        {"id":"presenter","type":"video","start":55000,"end":64000,"source":"short/take-1.mp4","source_start":0,"source_end":9000,"x":0,"y":0,"width":1920,"height":1080,"fit":"literal","volume":1.0}
+      ]
+    },
+    {
+      "name": "bar",
+      "layer": 10,
+      "elements": [
+        {"id":"bar","type":"rect","start":0,"end":64000,"x":60,"y":900,"width":760,"height":120,"fill":"#101418D9","radius":12}
+      ]
+    },
+    {
+      "name": "title",
+      "layer": 11,
+      "elements": [
+        {"id":"title","type":"text","start":0,"end":64000,"x":90,"y":920,"width":700,"height":80,"font":"bold","size":56,"color":"#F5F0E6","runs":[{"text":"Render profile, #623"}]}
+      ]
+    }
+  ]
+}
