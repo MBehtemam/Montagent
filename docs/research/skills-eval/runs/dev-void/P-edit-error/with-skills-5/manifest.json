@@ -1,0 +1,185 @@
+{
+  "arm": "with-skills",
+  "brief": {
+    "id": "P-edit-error",
+    "path": "docs/research/skills-eval/briefs/edit/P-edit-error.md",
+    "sha256": "d55f66236f4165446fc2875a9e48a79a4706ec0099159d246057940db24a3bb7"
+  },
+  "deliverable": null,
+  "delivery_warnings": [],
+  "ended": "2026-10-02T12:37:16+00:00",
+  "exit_code": 1,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "dev",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "cc2300ab3f835d0a2428157829be3bcd91df4de4",
+    "montagent_version": "montagent 0.1.1",
+    "setting_sources": "project",
+    "skills": [
+      "montagent",
+      "montagent-character",
+      "montagent-craft",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "phone.montagent.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Change request on the phone demo: show the error screen\n\n**About 7 seconds \u00b7 1920\u00d71080 \u00b7 25 fps \u00b7 16:9.** Deliver one MP4. It has no sound.\n\nThis directory already holds a finished 6-second product shot. `phone.montagent.json` is its\nproject: a phone mock-up that steps through four app screenshots from `screens/` (home, a tap\non the button, loading, done) while the camera slowly pushes in on the phone.\n\n## The change\n\nThe client wants the demo to show what happens when the request fails. Insert\n`screens/error.png` **between loading and done**, on screen for **1.2 seconds**. Done follows\nthe error screen and stays on screen exactly as long as it does now, so the video runs\n1.2 seconds longer. The push-in keeps its pace and runs on through the extra time, with no\njump. Nothing else should change.",
+  "prompt_sha256": "67efe760753570dfd08ec8ac990df2c16f54074a095abda8d75d687c4874cfb8",
+  "run": "with-skills-5",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-16l3gcbs-work",
+    "meta.txt"
+  ],
+  "seed": {
+    "files": {
+      "phone.montagent.json": "1952d6dce9e00604754de17ff11fb99f2659266a1cdab326d57563ea91ed7da8",
+      "screens/done.png": "b7df16e322bc817e0cf35d168f9e4f8424ab911c84e1a382d91995e65682df95",
+      "screens/error.png": "d59562f489c256b7af20afcc79670ec07ea59674e8f763e6bceaba96e7bb58c2",
+      "screens/home.png": "efe5db93f6e80e50d88be474fa0e6ffa995f6c54fba1b9e61fef15db938d1cd8",
+      "screens/loading.png": "43129278ae6dc879188ecb28a1f9e00f1ec880a1db5a96c450855ddb0d6bf5d3",
+      "screens/tap.png": "695a48565e772424a5fdac3f2282f5e37b89340f1d99e6ceb79c21253efde3af"
+    },
+    "run": "docs/research/prototypes/swaps/seeds/P-swaps"
+  },
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 0,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "montagent",
+        "montagent-character",
+        "montagent-craft",
+        "montagent-footage",
+        "montagent-motion",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate",
+        "mcp__montagent__verify"
+      ]
+    },
+    "look_loops": 0,
+    "looked_at": false,
+    "montagent": {
+      "census_type": {
+        "image": 1,
+        "rect": 1
+      },
+      "finding_codes": {},
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 0,
+        "review": 0,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {},
+    "result": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "duration_ms": 382,
+      "input_tokens": 0,
+      "is_error": true,
+      "num_turns": 1,
+      "output_tokens": 0,
+      "subtype": "success",
+      "total_cost_usd": 0
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [
+      "montagent",
+      "montagent-character",
+      "montagent-craft",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "skills_triggered": [],
+    "tool_calls": {}
+  },
+  "started": "2026-10-02T12:37:14+00:00",
+  "timed_out": false,
+  "wall_clock_s": 2.2
+}
