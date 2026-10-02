@@ -1,0 +1,32 @@
+# Marks every issue and PR opened by someone outside the repository with `external`,
+# so the dev can tell at a glance what came from the public (#364). "Outside" is
+# GitHub's own `author_association`: anything but OWNER, MEMBER or COLLABORATOR.
+#
+# `pull_request_target` runs in this repository's context so it can write the label
+# on a fork's PR. That is safe here only because the job never checks out or runs the
+# PR's code: it reads the event payload and calls the labels API, nothing else.
+name: Label external contributions
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    if: >-
+      !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+        github.event.issue.author_association || github.event.pull_request.author_association)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Add the external label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: gh api "repos/$REPO/issues/$NUMBER/labels" -f "labels[]=external" --silent
