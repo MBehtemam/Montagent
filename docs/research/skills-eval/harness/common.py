@@ -26,7 +26,9 @@ PACK_IN_REPO = "docs/research/skills-eval/assets"
 
 ARMS = ("reference", "no-skills", "with-skills")
 MONTAGENT_ARMS = ("no-skills", "with-skills")
-PHASES = ("baseline", "dev", "verdict")
+PHASES = ("baseline", "dev", "verdict", "verdict-2")
+# Phases that count: each has its rubric committed and its briefs sealed before its first run.
+VERDICT_PHASES = ("verdict", "verdict-2")
 
 # Built outside the repo: a pinned build is a cache, never evidence.
 CACHE = Path(os.environ.get("MONTAGENT_EVAL_CACHE", Path.home() / ".cache" / "montagent-skills-eval"))
@@ -269,8 +271,28 @@ def transcript_signals(events: list[dict], our_skills: list[str]) -> dict:
     }
 
 
-def load_pins() -> dict:
-    return read_json(EVAL / "harness" / "pins.json")
+def load_pins(phase: str | None = None) -> dict:
+    """`pins-v2.json` for the second verdict; `pins.json`, frozen, for every earlier phase.
+
+    The first verdict's file predates `rubric`, `sealed_briefs` and the required commit, so
+    they are filled in here; `pins-v2.json` states its own."""
+    if phase == "verdict-2":
+        return read_json(EVAL / "harness" / "pins-v2.json")
+    return {"rubric": "RUBRIC.md", "sealed_briefs": "briefs/held-out.sha256",
+            "montagent_commit_contains": None, **read_json(EVAL / "harness" / "pins.json")}
+
+
+def sealed_hashes(pins: dict) -> dict[str, str]:
+    """{sha256: brief id} from the phase's sealed-briefs file."""
+    path = EVAL / pins["sealed_briefs"]
+    if not path.exists():
+        return {}
+    return {sha: brief_id(Path(name)) for sha, name in
+            (line.split() for line in path.read_text().splitlines() if line.strip())}
+
+
+def commit_contains(commit: str, ancestor: str) -> bool:
+    return sh("git", "merge-base", "--is-ancestor", ancestor, commit, cwd=REPO, check=False).returncode == 0
 
 
 def montagent_signals(binary: Path, project: Path) -> dict:

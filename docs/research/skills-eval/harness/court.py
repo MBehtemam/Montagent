@@ -136,7 +136,7 @@ def main() -> None:
                     help="brief files for the pairs' briefs (development briefs are found in the repo)")
     args = ap.parse_args()
 
-    pins = load_pins()
+    pins = load_pins(args.phase)
     out = JUDGING / args.phase
     key = read_json(out / "key.json")
     pairs = [p for p in read_json(out / "pairs.json") if "auto" not in p]

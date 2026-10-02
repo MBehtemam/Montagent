@@ -21,6 +21,15 @@ It reads only what is committed under this directory, plus the pinned commit's b
    to 5 runs per arm. The court's ballots are tallied the same way and set beside the
    human's, with every disagreement listed.
 
+**The second verdict** (`--phase verdict-2`, under `RUBRIC-v2.md` and `harness/pins-v2.json`)
+differs where that rubric does. Its preconditions are `RUBRIC-v2.md` and
+`briefs/held-out-2.sha256` committed before the first run, a Montagent commit containing the
+end-card fix, and exactly the pinned run count per brief and arm. There is no top-up, so a
+complete tally is `pass` or `fail`. The lift pairs must be exactly the cyclic sample recorded
+in `sample.json`. It also reports per-brief and per-run tallies, and each juror's agreement
+with the human (the share of the pairs the human judged on which it cast the same ballot)
+and whether it is retired (below `court.retire_below_agreement`). None of these is decisive.
+
 The result is written to `judging/<phase>/verdict.json` with `--write`. Without it, the
 script compares what it derives against that committed file and exits non-zero if they
 differ, or if the file is missing: the committed verdict must keep following from the
@@ -34,6 +43,7 @@ committed evidence.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import shutil
 import sys
@@ -42,8 +52,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "harness"))
 from common import (  # noqa: E402
-    EVAL, JUDGING, PHASES, REPO, RUNS, ffprobe, isolation_problems, load_pins, montagent_signals,
-    pinned_build, read_json, read_jsonl, rel, sh, skill_names, transcript_signals, write_json,
+    EVAL, JUDGING, PHASES, REPO, RUNS, VERDICT_PHASES, commit_contains, ffprobe, isolation_problems,
+    load_pins, montagent_signals, pinned_build, read_json, read_jsonl, rel, sealed_hashes, sh,
+    skill_names, transcript_signals, write_json,
 )
 
 PARITY_MAX_REFERENCE_SHARE = 0.40
@@ -64,24 +75,35 @@ def preconditions(phase: str, manifests: list[dict], pins: dict) -> list[str]:
     for m in manifests:
         for p in m.get("isolation_problems", []):
             problems.append(f"{m['brief']['id']}/{m['run']}: {p}")
-    if phase != "verdict":
+    if phase not in VERDICT_PHASES:
         return problems
     for field in ("montagent_commit", "claude_code_version", "model"):
         values = sorted({m["pins"][field] for m in manifests})
         if len(values) > 1:
             problems.append(f"runs differ in {field}: {values}")
-    first_run = min((m["started"] for m in manifests), default=None)
-    sealed = EVAL / "briefs" / "held-out.sha256"
-    for path in (EVAL / "RUBRIC.md", sealed):
+    # As instants: git reports commit times in the committer's offset, runs record UTC, so the
+    # strings do not sort as the times do.
+    first_run = min((m["started"] for m in manifests), key=dt.datetime.fromisoformat, default=None)
+    sealed = EVAL / pins["sealed_briefs"]
+    for path in (EVAL / pins["rubric"], sealed):
         t = first_commit_time(path)
         if t is None:
             problems.append(f"{rel(path)} is not committed")
-        elif first_run and t > first_run:
+        elif first_run and dt.datetime.fromisoformat(t) > dt.datetime.fromisoformat(first_run):
             problems.append(f"{rel(path)} was first committed at {t}, after the first run ({first_run})")
-    hashes = set(sealed.read_text().split()) if sealed.exists() else set()
+    hashes = sealed_hashes(pins)
     for m in manifests:
         if m["brief"]["sha256"] not in hashes:
             problems.append(f"{m['brief']['id']}/{m['run']}: brief is not one of the sealed held-out briefs")
+    needed = pins["montagent_commit_contains"]
+    for commit in sorted({m["pins"]["montagent_commit"] for m in manifests}) if needed else []:
+        if not commit_contains(commit, needed):
+            problems.append(f"Montagent commit {commit[:12]} does not contain {needed[:8]}")
+    want = pins.get("runs_per_brief")
+    for brief in sorted(set(hashes.values())) if want else []:
+        have = {arm: sum(m["brief"]["id"] == brief and m["arm"] == arm for m in manifests) for arm in want}
+        if have != want:
+            problems.append(f"{brief}: runs {have}, the rubric fixes {want}")
     return problems
 
 
@@ -183,7 +205,64 @@ def near(pairs, votes, key, arms, human_ids) -> dict:
     return flips
 
 
-def tally(phase: str, runs: dict[str, dict]) -> dict:
+def sample_problems(pairs: list[dict], key: dict, arms: dict, sample: dict) -> list[str]:
+    """The pairs must be exactly the recorded cyclic sample: per brief, the reference against
+    each with-skills run, and W[i] against N[i] and N[(i+1) % n]."""
+    problems = []
+    for brief in sorted({p["brief"] for p in pairs} - set(sample)):
+        problems.append(f"{brief}: paired, but has no recorded sample")
+    for brief, order in sorted(sample.items()):
+        w, n = order["with-skills"], order["no-skills"]
+        for arm, names in order.items():
+            wrong = [x for x in names if arm_of(x, key, arms) != arm]
+            if wrong:
+                problems.append(f"{brief}: sample lists {wrong} as {arm}")
+        mine = [p for p in pairs if p["brief"] == brief]
+        lift = [frozenset((p["left"], p["right"])) for p in mine
+                if {arm_of(p["left"], key, arms), arm_of(p["right"], key, arms)} == {"with-skills", "no-skills"}]
+        parity = sorted(x for p in mine for x in (p["left"], p["right"])
+                        if "reference" in {arm_of(p["left"], key, arms), arm_of(p["right"], key, arms)}
+                        and arm_of(x, key, arms) == "with-skills")
+        cyclic = {frozenset((w[i], n[(i + k) % len(n)])) for i in range(len(w)) for k in (0, 1)}
+        if set(lift) != cyclic or len(lift) != len(cyclic):
+            problems.append(f"{brief}: the lift pairs are not the recorded cyclic sample")
+        if parity != sorted(w):
+            problems.append(f"{brief}: the parity pairs are not the reference against each with-skills run once")
+    return problems
+
+
+def per_run(pairs: list[dict], votes: dict[str, str], key: dict, arms: dict) -> dict:
+    """Each Montagent run's lift wins, losses and equal votes, and each with-skills run's
+    parity ballot."""
+    out = {}
+    for name, run in sorted(key.items(), key=lambda kv: kv[1]):
+        arm = arms[run]
+        if arm == "reference":
+            continue
+        out[run] = {"arm": arm, "lift": {"wins": 0, "losses": 0, "equal": 0}}
+        if arm == "with-skills":
+            out[run]["parity"] = None
+    for p in pairs:
+        v = votes.get(p["id"])
+        if v not in VOTES:
+            continue
+        sides = {p["left"]: arm_of(p["left"], key, arms), p["right"]: arm_of(p["right"], key, arms)}
+        winner = None if v == "equal" else p[v]
+        for name, arm in sides.items():
+            if arm == "reference":
+                continue
+            r = out[key[name]]
+            if "reference" in sides.values():
+                r["parity"] = "equal" if winner is None else ("with_skills_better" if winner == name else "reference_better")
+            else:
+                r["lift"]["equal" if winner is None else ("wins" if winner == name else "losses")] += 1
+    return out
+
+
+def tally(phase: str, runs: dict[str, dict], pins: dict) -> dict:
+    # The second rubric fixes the run count (no top-up) and reports more; the first's tally
+    # is unchanged, so its committed verdict keeps following.
+    fixed = pins.get("runs_per_brief")
     out = JUDGING / phase
     if not (out / "pairs.json").exists():
         return {"status": "unpaired"}
@@ -200,6 +279,25 @@ def tally(phase: str, runs: dict[str, dict]) -> dict:
 
     o = outcomes(pairs, votes, key, arms)
     result = {**o, "passes": passes(o), "auto_decided": len(auto), "unjudged": unjudged}
+    if fixed:
+        # A ballot that is not left, right or equal does not count: the pair stays unjudged.
+        result["unjudged"] = unjudged = [p["id"] for p in pairs if votes.get(p["id"]) not in VOTES]
+        sample_path = out / "sample.json"
+        design = sample_problems(pairs, key, arms, read_json(sample_path) if sample_path.exists() else {})
+        result["design_problems"] = design
+        result["per_brief"] = {}
+        for brief in sorted({p["brief"] for p in pairs}):
+            bo = outcomes([p for p in pairs if p["brief"] == brief], votes, key, arms)
+            result["per_brief"][brief] = {**bo, "passes": passes(bo)}
+        result["per_run"] = per_run(pairs, votes, key, arms)
+        if design:
+            result["status"] = "invalid"
+        elif unjudged:
+            result["status"] = "incomplete"
+        else:
+            result["status"] = "pass" if all(result["passes"].values()) else "fail"
+        result["court"] = court_tally(out, pairs, key, arms, human, auto, pins["court"]["retire_below_agreement"])
+        return result
     runs_per_arm = {}
     for s in runs.values():
         runs_per_arm[s["arm"]] = runs_per_arm.get(s["arm"], 0) + 1
@@ -213,8 +311,15 @@ def tally(phase: str, runs: dict[str, dict]) -> dict:
             result["status"] = "top-up"
         else:
             result["status"] = "pass" if all(result["passes"].values()) else "fail"
+    result["court"] = court_tally(out, pairs, key, arms, human, auto, None)
+    return result
 
+
+def court_tally(out: Path, pairs, key, arms, human: dict, auto: dict, retire_below: float | None) -> dict:
+    """Each juror's tally and disagreements; with `retire_below`, also its agreement with the
+    human over the pairs the human judged, and whether that retires it."""
     court = {}
+    judged = [pid for pid, v in human.items() if v in VOTES]
     for path in sorted((out / "ballots" / "court").glob("*.json")):
         cv = {pid: b.get("vote") for pid, b in read_json(path).items()}
         co = outcomes(pairs, {**cv, **auto}, key, arms)
@@ -222,8 +327,11 @@ def tally(phase: str, runs: dict[str, dict]) -> dict:
             **co, "passes": passes(co),
             "disagrees_with_human": sorted(pid for pid, v in cv.items() if pid in human and v != human[pid]),
         }
-    result["court"] = court
-    return result
+        if retire_below is not None:
+            agreement = round(sum(cv.get(pid) == human[pid] for pid in judged) / len(judged), 4) if judged else None
+            court[path.stem]["agreement_with_human"] = agreement
+            court[path.stem]["retired"] = agreement is not None and agreement < retire_below
+    return court
 
 
 def main() -> None:
@@ -232,20 +340,25 @@ def main() -> None:
     ap.add_argument("--write", action="store_true", help="write judging/<phase>/verdict.json")
     args = ap.parse_args()
 
-    pins = load_pins()
+    pins = load_pins(args.phase)
     manifests = {m.parent: read_json(m) for m in sorted((RUNS / args.phase).glob("*/*/manifest.json"))}
     if not manifests:
         sys.exit(f"no runs under {rel(RUNS / args.phase)}")
 
     builds: dict = {}
     runs = {rel(run): run_signals(run, man, builds, pins) for run, man in manifests.items()}
+    rule = {"parity_max_reference_share": PARITY_MAX_REFERENCE_SHARE, "lift": "with-skills wins > no-skills wins"}
+    if pins.get("runs_per_brief"):
+        rule.update(runs_per_brief=pins["runs_per_brief"], top_up=None, lift_sample=pins["lift_sample"]["rule"],
+                    retire_juror_below_agreement=pins["court"]["retire_below_agreement"])
+    else:
+        rule["top_up_runs_per_arm"] = TOP_UP_RUNS
     verdict = {
         "phase": args.phase,
-        "rule": {"parity_max_reference_share": PARITY_MAX_REFERENCE_SHARE,
-                 "lift": "with-skills wins > no-skills wins", "top_up_runs_per_arm": TOP_UP_RUNS},
+        "rule": rule,
         "preconditions": preconditions(args.phase, list(manifests.values()), pins),
         "runs": runs,
-        "tally": tally(args.phase, runs),
+        "tally": tally(args.phase, runs, pins),
     }
     if verdict["preconditions"] and verdict["tally"].get("status") in ("pass", "fail", "top-up"):
         verdict["tally"]["status"] = "invalid"
