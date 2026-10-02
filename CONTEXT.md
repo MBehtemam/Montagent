@@ -405,7 +405,18 @@ permitted and resolved as-is. A project refers to a remote store by rewriting
 reference, not rendering: `validate` probes it, and `render` and `frame` use local
 sources only, so rendering needs a local copy named by path
 ([ADR-0131](docs/adr/0131-render-and-frame-use-local-sources-only-and-validate-says-so.md)).
+An image may name other files for timed windows of its range; its `source` is
+what it draws outside them (see **Swap**).
 _Avoid_: asset, resource, media reference, assetRoot
+
+**Swap**:
+A timed window in which an image element draws a different file in the same box,
+falling back to its `source` outside every window. It changes the file and never
+the box, and it steps rather than blends, so a run of swaps draws exactly what a
+run of abutting image elements would. It is a highlight's counterpart for images:
+a window over a base, not a keyframe
+([ADR-0140](docs/adr/0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md)).
+_Avoid_: frame (a rendered picture), sprite, source keyframe, replacement
 
 **Timeline range**:
 Where an element sits on the project's one absolute clock, as a `start` and an
