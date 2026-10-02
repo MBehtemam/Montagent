@@ -11,7 +11,8 @@ comparable to what it makes without Montagent, and better than Montagent without
 | `assets/` | The fixed asset pack. Every run starts from a copy of this directory and nothing else. Its `README.md` is the manifest, and is part of the pack. |
 | `pack-src/` | The scripts that made the pack's generated files (brand, music bed, voiceover, presenter word timings, the screen-recording tape), and in `character/` the owl's FLUX drawings and the scripts that cut its rig, voiced its lines and prepared its set. They are not part of the pack. |
 | `RECORDING.md` | How the pack's footage was made: the presenter takes and their scripts, and the screen recording. |
-| `RUBRIC.md` | The pre-registered rubric and decision rule. `harness/pins.json` is part of it. |
+| `RUBRIC.md` | The first verdict's pre-registered rubric and decision rule, frozen. `harness/pins.json` is part of it. |
+| `RUBRIC-v2.md` | The second verdict's (phase `verdict-2`). `harness/pins-v2.json` is part of it. |
 | `harness/` | The scripts that run the arms, pair the runs blind, serve the judging page and convene the court. |
 | `runs/<phase>/<brief>/<arm>-<n>/` | One recorded run: manifest, transcript, workspace, 720p render. `<phase>` is `baseline` (development briefs, exploratory) or `verdict` (held-out briefs). |
 | `judging/<phase>/` | Pairs, key, ballots, the court's stills, and `verdict.json`. |
