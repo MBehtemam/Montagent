@@ -5,6 +5,13 @@ amends: 0021 (retires the render half's enforced reading and records the measure
 
 # The render budget is retired, not replaced
 
+> **Amended by [ADR-0142](0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md)**,
+> which gives `render` a target: the benchmark project (6 minutes of 1080p30, three videos
+> visible at once) in ≤ 3 minutes median wall clock on the dev's M1 Pro, `RENDER_TARGET` in
+> `budget.rs`. It is one absolute number for one project, never a rate, and it is judged by an
+> `#[ignore]`d test run on purpose, not by CI. `Budget::Render.limit()` stays `None`, which
+> now means *not enforced in CI*, not *no target*. The retired figure stays retired.
+
 [Ticket #217](https://github.com/MBehtemam/Montagent/issues/217), from
 [#168](https://github.com/MBehtemam/Montagent/issues/168).
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) opens by naming the

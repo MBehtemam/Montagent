@@ -9,8 +9,8 @@
 
 use montagent_render::budget::{
     Budget, FRAME_LIMIT, FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
-    RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, SCRUB_PREVIEW_LIMIT, SHIPPED_RASTERIZER,
-    Verdict, Work, nearest_reference,
+    RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, RENDER_TARGET, SCRUB_PREVIEW_LIMIT,
+    SHIPPED_RASTERIZER, Verdict, Work, nearest_reference,
 };
 use std::time::Duration;
 
@@ -54,22 +54,31 @@ fn the_scrub_preview_ceiling_is_flat_across_span_lengths() {
     }
 }
 
-/// The retired figure, and why `render` has no ceiling at all (#217).
+/// `render`'s target is ADR-0142's: the benchmark project in at most 3 minutes,
+/// median wall clock, on the dev's M1 Pro. One number, for one project — not a
+/// rate, and not a CI ceiling.
+#[test]
+fn the_render_target_is_three_minutes_for_the_benchmark_project() {
+    assert_eq!(RENDER_TARGET, Duration::from_secs(180));
+}
+
+/// Why `render` has no CI ceiling (#217, ADR-0142).
 ///
 /// *"A 60 s video in under two minutes"* was written for 1080x1920/30 and never
 /// re-derived after ADR-0003 generalised the scope to an editor where 4K is
-/// ordinary; ADR-0021 amended the preview half of that budget and left the
-/// replacement for this half **deferred**. Reading the retired pair linearly as a
-/// rate would encode a number no measurement stands behind, so there is no
-/// ceiling here to encode and a run of any length is an observation.
+/// ordinary, and ADR-0072 retired it. ADR-0142 states a target, [`RENDER_TARGET`],
+/// for one project on one machine, which the shared CI runner cannot judge — so
+/// `limit()` is `None`, meaning *not enforced in CI*, and a run of any length here
+/// is an observation. The target is judged by the `#[ignore]`d `render_target.rs`.
 #[test]
-fn render_has_no_ceiling_because_its_replacement_is_deferred() {
+fn render_is_not_enforced_in_ci() {
     assert_eq!(Budget::Render.limit(Work::span(60_000)), None);
     assert_eq!(Budget::Render.limit(Work::span(10_000)), None);
     assert!(!Budget::Render.is_enforced());
 
     // Twenty minutes for 60 s of output is a number worth a human's attention and
-    // is still not a failure: nothing here is entitled to say what "too slow" is.
+    // is still not a CI failure: the target is a number for one project on one
+    // machine, not a rate this harness may apply to any span.
     let verdict = Budget::Render.judge(Work::span(60_000), Duration::from_secs(1_200));
     assert!(!verdict.is_failure(), "{verdict:?}");
     assert!(matches!(verdict, Verdict::Observed { .. }));
@@ -122,7 +131,7 @@ fn the_enforced_arms_are_the_two_with_a_stated_number() {
     for budget in [Budget::Render, Budget::FullResolutionPreview] {
         assert!(
             !budget.is_enforced(),
-            "{} has no measured number behind a ceiling",
+            "{} has no ceiling CI enforces",
             budget.name()
         );
     }

@@ -11,12 +11,13 @@
 //! against a number nothing measured is not a regression gate — it is the retired claim
 //! wearing an assertion.
 //!
-//! **The gap, named:** `render` has no performance target, and this test does not invent
-//! one. What it does is take the measurement an ADR would need in order to write one, and
-//! record it in [`montagent_render::budget::RENDER_REFERENCES`] where a later reader can
-//! find every number this project has taken. A target also needs numbers at the frame
-//! sizes ADR-0003 put in scope, and the fixture is one frame size; that is the rest of the
-//! gap and it is a measurement ticket, not an assertion.
+//! **The target is not judged here.** ADR-0142 states one —
+//! [`montagent_render::budget::RENDER_TARGET`], for the benchmark project on the dev's M1
+//! Pro — and `render_target.rs` judges it, `#[ignore]`d and run on purpose, because a
+//! shared CI runner cannot. This test stays what it was: it takes a measurement of the
+//! committed fixture on whatever machine runs the suite and records it against
+//! [`montagent_render::budget::RENDER_REFERENCES`], where a later reader can find every
+//! number this project has taken.
 //!
 //! What *is* asserted: that the render succeeded, that it produced exactly the span the
 //! recorded references were taken over, and that the harness consulted **no ceiling** —
@@ -112,8 +113,8 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
     } = measured.verdict
     else {
         panic!(
-            "`render` was judged against a ceiling: {measured}. #217 retired the only \
-             number there was, and no measurement has replaced it."
+            "`render` was judged against a ceiling: {measured}. ADR-0142's target is for \
+             the benchmark project on one machine and is never a CI ceiling."
         );
     };
     let reference = reference.expect("a recorded render reference to compare against");
@@ -127,8 +128,8 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
     );
     match drift {
         Some(drift) => eprintln!(
-            "  {drift:.2}× the recorded {} ms [{}] — recorded, not judged: `render` has no \
-             target, and a target needs its own ADR with a measurement behind it",
+            "  {drift:.2}× the recorded {} ms [{}] — recorded, not judged: `render`'s target \
+             is for the benchmark project (ADR-0142), judged by render_target.rs",
             reference.elapsed_ms, reference.source
         ),
         None => eprintln!("  no comparable recorded measurement"),
@@ -136,7 +137,7 @@ fn the_whole_fixture_renders_and_its_wall_clock_is_recorded() {
     if measured.verdict.is_notable() {
         eprintln!(
             "  ^ past the {}× drift ADR-0021 names as worth a human's attention. Still not \
-             a failure: nothing here is entitled to say what \"too slow\" is.",
+             a failure: this fixture has no target of its own.",
             montagent_render::budget::OBSERVATIONAL_DRIFT_FACTOR
         );
     }
