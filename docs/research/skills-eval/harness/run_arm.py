@@ -18,6 +18,11 @@ The record lands in `runs/<phase>/<brief>/<arm>-<n>/`:
   source), minus caches and anything over 2 MB, which the manifest lists by hash instead
 - `render.mp4`: the deliverable, re-encoded to 720p (short side), if one was delivered
 
+`--seed <run dir>` starts the run from an earlier run's kept `workspace/`, copied over the
+pack, so a brief can be a change request on finished work. The manifest records the seed
+run and each seeded file's hash, and the kept workspace includes the seeded files whether
+or not the agent changed them.
+
 It uses the machine's normal Claude Code login. It refuses to run while a global
 `~/.claude/CLAUDE.md` exists, since nothing in the transcript would show it was loaded.
 
@@ -345,6 +350,8 @@ def main() -> None:
     ap.add_argument("--arm", choices=ARMS)
     ap.add_argument("--phase", choices=PHASES, default="baseline")
     ap.add_argument("--commit", default="HEAD", help="the Montagent commit that pins binary, skills and pack")
+    ap.add_argument("--seed", type=Path,
+                    help="an earlier run's directory; its kept workspace/ is copied over the pack")
     ap.add_argument("--keep", action="store_true", help="keep the scratch directory for inspection")
     ap.add_argument("--dry-run", action="store_true", help="set everything up and print the command; call no model")
     ap.add_argument("command", nargs="?", choices=["probe", "check"],
@@ -382,6 +389,15 @@ def main() -> None:
     scratch = Path(tempfile.mkdtemp(prefix="montagent-eval-"))
     work = scratch / "work"
     shutil.copytree(build["pack"], work)
+    seeded = None
+    if args.seed:
+        seed_ws = args.seed.resolve() / "workspace"
+        if not seed_ws.is_dir():
+            sys.exit(f"--seed {args.seed} has no workspace/")
+        shutil.copytree(seed_ws, work, dirs_exist_ok=True)
+        seeded = {"run": rel(args.seed.resolve()),
+                  "files": {str(p.relative_to(seed_ws)): sha256_file(p)
+                            for p in sorted(seed_ws.rglob("*")) if p.is_file()}}
     (scratch / "tmp").mkdir()
     if args.arm == "with-skills":
         shutil.copytree(build["skills"], work / ".claude" / "skills")
@@ -418,6 +434,12 @@ def main() -> None:
     if probe_info:
         encode_720p(deliverable, record / "render.mp4")
     omitted = keep_workspace(work, build["pack"], record / "workspace", pins["deliverable"])
+    # A seeded run's record is self-contained: the seed's own record may be anywhere.
+    if seeded:
+        for r in seeded["files"]:
+            if (work / r).is_file() and not (record / "workspace" / r).exists():
+                (record / "workspace" / r).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(work / r, record / "workspace" / r)
 
     events = read_jsonl(record / "transcript.jsonl")
     sig = transcript_signals(events, ours)
@@ -439,6 +461,7 @@ def main() -> None:
             "web_tools": "removed (WebFetch, WebSearch)",
             "setting_sources": "project",
         },
+        "seed": seeded,
         "prompt": prompt,
         "prompt_sha256": sha256_text(prompt),
         "started": started,
