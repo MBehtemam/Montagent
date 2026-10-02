@@ -1,6 +1,7 @@
 """Score edit-test runs (#593): what the agent changed against the seed, and how.
 
     python3 docs/research/skills-eval/edit_score.py <run dir> [...]
+    EDIT_SCORE_SEED=<seed project> python3 ... (#598's arm B, seeded from the unpadded owl)
 
 Run dirs are relative to the repo root. For each run it prints cost, turns, how many times
 the agent ran bake_rig.py, which files it edited with Edit/Write, how many elements and
@@ -8,10 +9,10 @@ pretty-printed lines of the project changed against the seed, when each arm firs
 rest angle (seed, now), the voice element, the mouth count and last mouth end, the duration,
 and which non-owl elements changed.
 """
-import json, sys, difflib
+import json, os, sys, difflib
 from pathlib import Path
 WT = Path(__file__).resolve().parents[3]
-SEED = WT / "docs/research/skills-eval/runs/dev/C-character-short/with-skills-1/workspace/hoot.montagent.json"
+SEED = WT / os.environ.get("EDIT_SCORE_SEED", "docs/research/skills-eval/runs/dev/C-character-short/with-skills-1/workspace/hoot.montagent.json")
 def els(d): return {e["id"]: e for t in d["tracks"] for e in t["elements"]}
 def first_move(e, rest_tol=0.5):
     v = e.get("rotation")
