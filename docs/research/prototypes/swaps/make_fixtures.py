@@ -278,3 +278,23 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ---- Seeds for #597's edit test: a finished PiP, one per spelling. ------------------
+
+
+def seeds():
+    """`--seed` directories for `run_arm.py`: each `workspace/` holds `phone.montagent.json`
+    in one spelling and the five screens. Every screen is 1080x2340 here, so the seed
+    validates and renders clean; the odd-sized `done.png` above exists only to prove the
+    fit check, and in a seed it would be a defect the agent stops to fix."""
+    for spelling in ("split", "swaps", "swaps-ended"):
+        work = HERE / "seeds" / f"P-{spelling}" / "workspace"
+        (work / "screens").mkdir(parents=True, exist_ok=True)
+        for name in ["home", "tap", "loading", "done", "error"]:
+            screen(name, (W, H)).save(work / "screens" / f"{name}.png", optimize=True)
+        dump(work / "phone.montagent.json", pip(spelling))
+
+
+if __name__ == "__main__":
+    seeds()
