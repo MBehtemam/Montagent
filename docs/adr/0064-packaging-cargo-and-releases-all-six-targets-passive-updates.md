@@ -5,6 +5,10 @@
 > while macOS and Windows keep installing the newest release, so both ends of the supported
 > range are tested.
 
+> **Amended by [ADR-0138](./0138-macos-release-archives-are-signed-and-notarized-on-the-devs-mac-after-ci-builds-them.md)**: the release pipeline still builds all six
+> archives, but the two macOS ones are signed and notarized afterwards on the dev's Mac by
+> `ci/sign_macos_release.py`, not in CI, and stay a bare binary in the same `.tar.gz`.
+
 ## Status
 
 Accepted
