@@ -1,0 +1,12 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 9000,
+  "output": "out/look.mp4",
+  "tracks": [
+    {"name": "p", "layer": 10, "elements": [
+      {"id":"p","type":"video","start":0,"end":8900,"source":"../presenter/take-3.mp4","source_start":0,"source_end":8900,"x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"fit":"contain"}
+    ]}
+  ]
+}

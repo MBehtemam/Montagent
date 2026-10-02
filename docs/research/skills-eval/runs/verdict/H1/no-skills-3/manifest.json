@@ -1,0 +1,184 @@
+{
+  "arm": "no-skills",
+  "brief": {
+    "id": "H1",
+    "path": "/Users/mohammedehtemam/montagent-heldout/H1.md",
+    "sha256": "f173b00ccb18734feeefc93841bbf20017967f46a4030b298380a243e828c72c"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 14.0,
+    "height": 1080,
+    "width": 1920
+  },
+  "delivery_warnings": [],
+  "ended": "2026-10-01T10:23:51+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "verdict",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "886dc25102b188f30cb783a63a1be1e2c315d83e",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "ad.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Brief H1: Montagent \"one file\" ad\n\n**14 seconds \u00b7 1920\u00d71080 \u00b7 30 fps \u00b7 16:9.** Deliver one MP4 with sound.\n\nA short ad for Montagent, the video editor that agents drive, to run before a developer\ntalk. Its message is a before and after: editing video used to mean a timeline; with\nMontagent it means text your agent writes. It should feel punchy and graphic, with real\nproduct footage in the middle, and end on the brand.\n\nEverything you need is in the asset pack; its `README.md` lists it. The music is\n`music/bed-120bpm.wav` at 120 BPM. Use the pack's fonts and brand colours, the brand files in\n`brand/`, the screen recording `screen/session.mp4`, and the two product screenshots in\n`stills/`.\n\n## Beat by beat\n\nThe ad is cut to the music. At 120 BPM a beat is 0.5 s and a bar is 2 s, and the first\ndownbeat is at 0 s. The ground is the brand's dark colour until 10 s.\n\n| When | What happens |\n|---|---|\n| 0 s | The word **\"Timelines.\"** is on screen, large and centred, from the first frame. |\n| 0.5\u20131 s | A bar in the accent colour strikes through the word, growing from its left end to its right end. |\n| 1.5\u20132 s | The struck-through word drops down and out of the bottom of the frame. |\n| 2 s | **\"Text.\"** lands in its place with a small overshoot and settles. |\n| 2.5 s | Beneath it, **\"Your agent edits video the way it edits code.\"** slides up into place. |\n| 3.5\u20134 s | Both lines clear. |\n| 4 s | The screen recording enters from the right in a rounded frame with a soft shadow, filling about the right two-thirds of the frame. It plays fast-forward, so the whole session goes by in about four seconds. |\n| 4.5, 5.5, 6.5, 7.5 s | On the left, a numbered list builds one item per beat, each with a small accent-coloured dot: **1 Reads the format**, **2 Edits one file**, **3 Checks the frames**, **4 Renders**. |\n| 8 s | Cut to a split screen. The first screenshot slides in from the left edge, captioned **One line changed.** |\n| 8.5 s | The second screenshot slides in from the right edge, captioned **One video out.** Both sit in rounded frames. |\n| 10 s | Cut to the light ground. The Montagent mark assembles from its four tiles, one tile per beat (10, 10.5, 11, 11.5 s), each dropping in from above and settling with a small bounce. |\n| 12 s | The assembled mark slides left and the name **Montagent** appears beside it, forming the lockup. |\n| 12.5 s | Beneath the lockup, **The video editor your agent drives.** fades in. Everything holds to the end. |\n| 13\u201314 s | The music fades out over the last second. |\n\n## Acceptance checklist\n\n- [ ] \"Timelines.\" is fully legible on the first frame.\n- [ ] The strike-through bar is the accent colour and grows from left to right across the word between 0.5 and 1 s; it does not fade in.\n- [ ] \"Timelines.\" leaves by moving down out of the frame, and is gone by 2 s.\n- [ ] \"Text.\" lands at 2 s with a visible overshoot.\n- [ ] The screen recording is moving footage running visibly faster than real time, in a frame with rounded corners and a soft shadow.\n- [ ] The four list items appear one at a time, in order, at 4.5, 5.5, 6.5 and 7.5 s, and none of them overlaps the recording.\n- [ ] The two screenshots slide in from opposite edges at 8 s and 8.5 s, both in rounded frames, with their captions legible.\n- [ ] From 10 s the ground is light, and the four tiles of the mark arrive one after another, not all at once.\n- [ ] Assembled, the mark matches the pack's construction: three ink rounded squares and one accent circle, top right.\n- [ ] The lockup and the line beneath it are legible and fully on screen from about 12.5 s to the end.\n- [ ] The music is audible throughout and has faded to silence by 14 s.\n- [ ] No corner labels, watermarks, timecodes or frame chrome anywhere.\n- [ ] Every cut and every entrance falls on a beat.",
+  "prompt_sha256": "de18fafaaaf565a87fa94312cb195680db50f360d173bc17b862b74c0b6d5b6e",
+  "run": "no-skills-3",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-xei-t6kl-work"
+  ],
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 6,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate",
+        "mcp__montagent__verify"
+      ]
+    },
+    "look_loops": 3,
+    "looked_at": true,
+    "montagent": {
+      "census_type": {
+        "audio": 1,
+        "ellipse": 5,
+        "image": 2,
+        "rect": 5,
+        "text": 11,
+        "video": 1
+      },
+      "finding_codes": {
+        "N-FONT-CENSUS": 1,
+        "R-EASE-INERT": 3
+      },
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 1,
+        "review": 3,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {
+      "create-project": 2,
+      "fmt": 4,
+      "fonts": 4,
+      "frame": 3,
+      "measure": 2,
+      "probe": 3,
+      "render": 1,
+      "validate": 3,
+      "verify": 1
+    },
+    "result": {
+      "cache_creation_input_tokens": 83393,
+      "cache_read_input_tokens": 1491658,
+      "duration_ms": 246725,
+      "input_tokens": 50,
+      "is_error": false,
+      "num_turns": 30,
+      "output_tokens": 19663,
+      "subtype": "success",
+      "total_cost_usd": 1.3589356000000001
+    },
+    "skill_tool_calls": [],
+    "skills_installed": [],
+    "skills_triggered": [],
+    "tool_calls": {
+      "Bash": 17,
+      "Grep": 1,
+      "Read": 6,
+      "ReadMcpResourceTool": 2,
+      "ToolSearch": 1
+    }
+  },
+  "started": "2026-10-01T10:19:43+00:00",
+  "timed_out": false,
+  "wall_clock_s": 248.0
+}

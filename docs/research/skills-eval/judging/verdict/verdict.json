@@ -1,0 +1,1480 @@
+{
+  "phase": "verdict",
+  "preconditions": [],
+  "rule": {
+    "lift": "with-skills wins > no-skills wins",
+    "parity_max_reference_share": 0.4,
+    "top_up_runs_per_arm": 5
+  },
+  "runs": {
+    "docs/research/skills-eval/runs/verdict/H1/no-skills-1": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 7,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 3,
+          "rect": 8,
+          "text": 10,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 2,
+          "R-KEYFRAME-UNREACHED": 2
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 4,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create_project": 1,
+        "fmt": 7,
+        "fonts": 4,
+        "frame": 7,
+        "measure": 3,
+        "probe": 2,
+        "query": 1,
+        "render": 1,
+        "validate": 5,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 84635,
+        "cache_read_input_tokens": 2159825,
+        "duration_ms": 263810,
+        "input_tokens": 62,
+        "is_error": false,
+        "num_turns": 40,
+        "output_tokens": 20145,
+        "subtype": "success",
+        "total_cost_usd": 1.5121930000000001
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/no-skills-2": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 8,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 3,
+          "rect": 8,
+          "text": 10,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 2
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 2,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create_project": 1,
+        "fmt": 5,
+        "fonts": 4,
+        "frame": 8,
+        "measure": 3,
+        "probe": 2,
+        "render": 2,
+        "validate": 5,
+        "verify": 2
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 110544,
+        "cache_read_input_tokens": 2787312,
+        "duration_ms": 341402,
+        "input_tokens": 64,
+        "is_error": false,
+        "num_turns": 42,
+        "output_tokens": 23280,
+        "subtype": "success",
+        "total_cost_usd": 1.9076703999999998
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/no-skills-3": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 3,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 2,
+          "rect": 5,
+          "text": 11,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 3
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 3,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fmt": 4,
+        "fonts": 4,
+        "frame": 3,
+        "measure": 2,
+        "probe": 3,
+        "render": 1,
+        "validate": 3,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 83393,
+        "cache_read_input_tokens": 1491658,
+        "duration_ms": 246725,
+        "input_tokens": 50,
+        "is_error": false,
+        "num_turns": 30,
+        "output_tokens": 19663,
+        "subtype": "success",
+        "total_cost_usd": 1.3589356000000001
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/reference-1": {
+      "arm": "reference",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 0,
+      "looked_at": true,
+      "montagent": null,
+      "montagent_matches_run_time": null,
+      "montagent_verbs": {},
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 66797,
+        "cache_read_input_tokens": 932221,
+        "duration_ms": 275949,
+        "input_tokens": 38,
+        "is_error": false,
+        "num_turns": 28,
+        "output_tokens": 25614,
+        "subtype": "success",
+        "total_cost_usd": 1.2332522
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/with-skills-1": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 12,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 3,
+          "rect": 8,
+          "text": 14,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 3
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 3,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fmt": 5,
+        "fonts": 3,
+        "frame": 12,
+        "measure": 3,
+        "probe": 6,
+        "render": 1,
+        "schema": 1,
+        "validate": 4,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 119922,
+        "cache_read_input_tokens": 2978113,
+        "duration_ms": 355873,
+        "input_tokens": 68,
+        "is_error": false,
+        "num_turns": 49,
+        "output_tokens": 28517,
+        "subtype": "success",
+        "total_cost_usd": 2.1256106000000003
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-craft",
+        "montagent-motion"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/with-skills-2": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 9,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 3,
+          "rect": 8,
+          "text": 10,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 6
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 6,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 5,
+        "fonts": 2,
+        "frame": 9,
+        "measure": 3,
+        "probe": 2,
+        "render": 1,
+        "schema": 1,
+        "validate": 3,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 108697,
+        "cache_read_input_tokens": 2258380,
+        "duration_ms": 461851,
+        "input_tokens": 58,
+        "is_error": false,
+        "num_turns": 48,
+        "output_tokens": 24856,
+        "subtype": "success",
+        "total_cost_usd": 1.818604
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-craft",
+        "montagent-motion"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H1/with-skills-3": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 17,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 5,
+          "image": 3,
+          "rect": 9,
+          "text": 10,
+          "video": 1
+        },
+        "finding_codes": {
+          "N-FONT-CENSUS": 1,
+          "R-EASE-INERT": 3,
+          "R-KEYFRAME-UNREACHED": 3
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 1,
+          "review": 6,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fmt": 3,
+        "fonts": 3,
+        "frame": 11,
+        "measure": 3,
+        "preview": 6,
+        "probe": 3,
+        "render": 1,
+        "schema": 1,
+        "validate": 3,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 14.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 127386,
+        "cache_read_input_tokens": 3762774,
+        "duration_ms": 447271,
+        "input_tokens": 82,
+        "is_error": false,
+        "num_turns": 64,
+        "output_tokens": 32262,
+        "subtype": "success",
+        "total_cost_usd": 2.4172108000000008
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-craft",
+        "montagent-motion"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/no-skills-1": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 11,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 3,
+          "image": 1,
+          "rect": 8,
+          "text": 25,
+          "video": 4
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 4,
+          "R-CAPTION-MIN-DURATION": 25,
+          "R-CAPTION-PACE": 25,
+          "R-CAPTION-REPEAT-DURATION": 7,
+          "R-EASE-INERT": 6,
+          "R-SOURCE-CUT-POP": 2
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 4,
+          "review": 65,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fmt": 10,
+        "fonts": 3,
+        "frame": 11,
+        "measure": 7,
+        "probe": 3,
+        "render": 2,
+        "validate": 4,
+        "verify": 2
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 126524,
+        "cache_read_input_tokens": 4577946,
+        "duration_ms": 675725,
+        "input_tokens": 102,
+        "is_error": false,
+        "num_turns": 70,
+        "output_tokens": 40698,
+        "subtype": "success",
+        "total_cost_usd": 2.7421491999999996
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/no-skills-2": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 12,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 1,
+          "image": 1,
+          "rect": 8,
+          "text": 25,
+          "video": 2
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 4,
+          "R-CAPTION-MIN-DURATION": 25,
+          "R-CAPTION-PACE": 24,
+          "R-CAPTION-REPEAT-DURATION": 7,
+          "R-EASE-INERT": 6
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 4,
+          "review": 62,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fonts": 3,
+        "frame": 12,
+        "measure": 3,
+        "probe": 1,
+        "render": 2,
+        "validate": 5,
+        "verify": 2
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 123024,
+        "cache_read_input_tokens": 4789327,
+        "duration_ms": 582034,
+        "input_tokens": 102,
+        "is_error": false,
+        "num_turns": 58,
+        "output_tokens": 33939,
+        "subtype": "success",
+        "total_cost_usd": 2.6212454000000003
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/no-skills-3": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 13,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 1,
+          "image": 2,
+          "rect": 9,
+          "text": 25,
+          "video": 2
+        },
+        "finding_codes": {
+          "N-QUANTIZATION": 1,
+          "N-TRACK-GAP": 4,
+          "R-CAPTION-MIN-DURATION": 25,
+          "R-CAPTION-PACE": 24,
+          "R-CAPTION-REPEAT-DURATION": 7,
+          "R-EASE-INERT": 4
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 4,
+          "review": 61,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create_project": 1,
+        "fmt": 2,
+        "fonts": 3,
+        "frame": 13,
+        "measure": 4,
+        "probe": 3,
+        "query": 1,
+        "render": 2,
+        "timeline": 1,
+        "validate": 8,
+        "verify": 2
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 120336,
+        "cache_read_input_tokens": 4975631,
+        "duration_ms": 616527,
+        "input_tokens": 106,
+        "is_error": false,
+        "num_turns": 62,
+        "output_tokens": 36967,
+        "subtype": "success",
+        "total_cost_usd": 2.6975781999999997
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/reference-1": {
+      "arm": "reference",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 0,
+      "looked_at": true,
+      "montagent": null,
+      "montagent_matches_run_time": null,
+      "montagent_verbs": {},
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 94568,
+        "cache_read_input_tokens": 1739697,
+        "duration_ms": 577224,
+        "input_tokens": 62,
+        "is_error": false,
+        "num_turns": 47,
+        "output_tokens": 35716,
+        "subtype": "success",
+        "total_cost_usd": 1.8190514
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/with-skills-1": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 13,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 2,
+          "ellipse": 3,
+          "image": 1,
+          "rect": 27,
+          "text": 25,
+          "video": 4
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 16,
+          "R-CAPTION-MIN-DURATION": 8,
+          "R-CAPTION-REPEAT-DURATION": 2,
+          "R-EASE-INERT": 6,
+          "R-SOURCE-CUT-POP": 2
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 16,
+          "review": 18,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 6,
+        "fonts": 1,
+        "frame": 13,
+        "measure": 4,
+        "probe": 1,
+        "query": 2,
+        "render": 1,
+        "validate": 7,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 110551,
+        "cache_read_input_tokens": 3407423,
+        "duration_ms": 527050,
+        "input_tokens": 78,
+        "is_error": false,
+        "num_turns": 50,
+        "output_tokens": 32019,
+        "subtype": "success",
+        "total_cost_usd": 2.2065846
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-footage"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/with-skills-2": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 16,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 1,
+          "image": 1,
+          "rect": 15,
+          "text": 7,
+          "video": 2
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 10,
+          "R-CAPTION-PACE": 2,
+          "R-EASE-INERT": 6
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 10,
+          "review": 8,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 4,
+        "fonts": 2,
+        "frame": 12,
+        "measure": 2,
+        "preview": 4,
+        "probe": 4,
+        "render": 1,
+        "validate": 5,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 110006,
+        "cache_read_input_tokens": 3754647,
+        "duration_ms": 615464,
+        "input_tokens": 88,
+        "is_error": false,
+        "num_turns": 56,
+        "output_tokens": 34833,
+        "subtype": "success",
+        "total_cost_usd": 2.3279894000000008
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-craft",
+        "montagent-footage"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H2/with-skills-3": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 13,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 2,
+          "ellipse": 3,
+          "image": 1,
+          "rect": 9,
+          "text": 25,
+          "video": 4
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 18,
+          "R-CAPTION-MIN-DURATION": 12,
+          "R-CAPTION-REPEAT-DURATION": 2,
+          "R-EASE-INERT": 6,
+          "R-SOURCE-CUT-POP": 2
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 18,
+          "review": 22,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 1,
+        "fonts": 1,
+        "frame": 12,
+        "measure": 2,
+        "preview": 1,
+        "probe": 3,
+        "query": 1,
+        "render": 1,
+        "schema": 1,
+        "validate": 5,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 10.0,
+        "height": 720,
+        "width": 720
+      },
+      "result": {
+        "cache_creation_input_tokens": 111834,
+        "cache_read_input_tokens": 3481353,
+        "duration_ms": 485287,
+        "input_tokens": 80,
+        "is_error": false,
+        "num_turns": 51,
+        "output_tokens": 26583,
+        "subtype": "success",
+        "total_cost_usd": 2.1229225999999994
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-craft",
+        "montagent-footage"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/no-skills-1": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 12,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 2,
+          "ellipse": 2,
+          "image": 56,
+          "rect": 8,
+          "text": 2
+        },
+        "finding_codes": {
+          "N-QUANTIZATION": 1,
+          "N-TRACK-GAP": 7,
+          "R-EASE-INERT": 324,
+          "R-KEYFRAME-UNREACHED": 6
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 7,
+          "review": 331,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create-project": 2,
+        "fmt": 7,
+        "fonts": 2,
+        "frame": 12,
+        "measure": 3,
+        "render": 3,
+        "validate": 4,
+        "verify": 3
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 139610,
+        "cache_read_input_tokens": 4247965,
+        "duration_ms": 525378,
+        "input_tokens": 86,
+        "is_error": false,
+        "num_turns": 52,
+        "output_tokens": 44064,
+        "subtype": "success",
+        "total_cost_usd": 2.8480969999999997
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/no-skills-2": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 17,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 2,
+          "ellipse": 2,
+          "image": 52,
+          "rect": 7,
+          "text": 2
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 7,
+          "R-EASE-INERT": 179,
+          "R-KEYFRAME-UNREACHED": 1
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 7,
+          "review": 180,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create_project": 1,
+        "fmt": 5,
+        "fonts": 3,
+        "frame": 17,
+        "measure": 2,
+        "render": 1,
+        "validate": 7,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 197377,
+        "cache_read_input_tokens": 5713776,
+        "duration_ms": 540156,
+        "input_tokens": 88,
+        "is_error": false,
+        "num_turns": 57,
+        "output_tokens": 48810,
+        "subtype": "success",
+        "total_cost_usd": 3.698323200000001
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/no-skills-3": {
+      "arm": "no-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 15,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 2,
+          "ellipse": 2,
+          "image": 58,
+          "rect": 11,
+          "text": 2
+        },
+        "finding_codes": {
+          "N-QUANTIZATION": 2,
+          "N-TRACK-GAP": 10,
+          "R-EASE-INERT": 115,
+          "R-KEYFRAME-UNREACHED": 6
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 10,
+          "review": 123,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "create_project": 1,
+        "fmt": 8,
+        "fonts": 3,
+        "frame": 15,
+        "measure": 3,
+        "render": 2,
+        "validate": 6,
+        "verify": 2
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 151201,
+        "cache_read_input_tokens": 5302332,
+        "duration_ms": 602494,
+        "input_tokens": 98,
+        "is_error": false,
+        "num_turns": 55,
+        "output_tokens": 50275,
+        "subtype": "success",
+        "total_cost_usd": 3.275966399999999
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/reference-1": {
+      "arm": "reference",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 0,
+      "looked_at": true,
+      "montagent": null,
+      "montagent_matches_run_time": null,
+      "montagent_verbs": {},
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 84220,
+        "cache_read_input_tokens": 1507915,
+        "duration_ms": 422524,
+        "input_tokens": 48,
+        "is_error": false,
+        "num_turns": 31,
+        "output_tokens": 38940,
+        "subtype": "success",
+        "total_cost_usd": 1.7543350000000006
+      },
+      "skills_triggered": null,
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/with-skills-1": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 11,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 2,
+          "image": 4,
+          "rect": 6,
+          "text": 2
+        },
+        "finding_codes": {
+          "L-KEY-ORDER": 2,
+          "L-LAYOUT": 1,
+          "R-EASE-INERT": 1
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 3,
+          "note": 0,
+          "review": 1,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 6,
+        "fonts": 2,
+        "frame": 11,
+        "measure": 2,
+        "query": 2,
+        "render": 1,
+        "validate": 3,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 128453,
+        "cache_read_input_tokens": 3343509,
+        "duration_ms": 492654,
+        "input_tokens": 74,
+        "is_error": false,
+        "num_turns": 45,
+        "output_tokens": 35179,
+        "subtype": "success",
+        "total_cost_usd": 2.4002018
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-character"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/with-skills-2": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 9,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 2,
+          "image": 54,
+          "rect": 7,
+          "text": 2
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 8,
+          "R-EASE-INERT": 175
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 8,
+          "review": 175,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 3,
+        "fonts": 2,
+        "frame": 8,
+        "measure": 4,
+        "preview": 1,
+        "query": 1,
+        "render": 1,
+        "validate": 3,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 121923,
+        "cache_read_input_tokens": 2828509,
+        "duration_ms": 461058,
+        "input_tokens": 66,
+        "is_error": false,
+        "num_turns": 44,
+        "output_tokens": 38177,
+        "subtype": "success",
+        "total_cost_usd": 2.3048897999999998
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-character"
+      ],
+      "timed_out": false
+    },
+    "docs/research/skills-eval/runs/verdict/H3/with-skills-3": {
+      "arm": "with-skills",
+      "background_tasks_killed": 0,
+      "cap_hit": false,
+      "delivered": true,
+      "delivery_warnings": [],
+      "isolation_problems": [],
+      "look_loops": 12,
+      "looked_at": true,
+      "montagent": {
+        "census_type": {
+          "audio": 1,
+          "ellipse": 2,
+          "image": 53,
+          "rect": 8,
+          "text": 2
+        },
+        "finding_codes": {
+          "N-TRACK-GAP": 8,
+          "R-EASE-INERT": 190
+        },
+        "validate": {
+          "drift": 0,
+          "error": 0,
+          "layout": 0,
+          "note": 8,
+          "review": 190,
+          "unchecked": 0
+        },
+        "validate_exit": 0
+      },
+      "montagent_matches_run_time": true,
+      "montagent_verbs": {
+        "fmt": 1,
+        "fonts": 1,
+        "frame": 12,
+        "measure": 3,
+        "render": 1,
+        "schema": 1,
+        "validate": 6,
+        "verify": 1
+      },
+      "render_720p": {
+        "audio": true,
+        "duration_s": 8.0,
+        "height": 720,
+        "width": 1280
+      },
+      "result": {
+        "cache_creation_input_tokens": 114260,
+        "cache_read_input_tokens": 4088055,
+        "duration_ms": 537454,
+        "input_tokens": 92,
+        "is_error": false,
+        "num_turns": 60,
+        "output_tokens": 39101,
+        "subtype": "success",
+        "total_cost_usd": 2.514079000000001
+      },
+      "skills_triggered": [
+        "montagent",
+        "montagent-character",
+        "montagent-craft"
+      ],
+      "timed_out": false
+    }
+  },
+  "tally": {
+    "auto_decided": 0,
+    "court": {
+      "claude-haiku-4-5-20251001": {
+        "disagrees_with_human": [
+          "p001",
+          "p002",
+          "p003",
+          "p006",
+          "p007",
+          "p008",
+          "p009",
+          "p010",
+          "p011",
+          "p012",
+          "p013",
+          "p015",
+          "p016",
+          "p017",
+          "p019",
+          "p020",
+          "p021",
+          "p023",
+          "p025",
+          "p028",
+          "p029",
+          "p030",
+          "p031",
+          "p032",
+          "p033",
+          "p034",
+          "p035",
+          "p036"
+        ],
+        "lift": {
+          "equal": 4,
+          "no_skills_wins": 11,
+          "pairs": 27,
+          "with_skills_wins": 12
+        },
+        "parity": {
+          "equal": 0,
+          "pairs": 9,
+          "reference_better": 7,
+          "with_skills_better": 2
+        },
+        "passes": {
+          "lift": true,
+          "parity": false
+        }
+      },
+      "claude-opus-5-5": {
+        "disagrees_with_human": [
+          "p001",
+          "p003",
+          "p004",
+          "p007",
+          "p008",
+          "p009",
+          "p010",
+          "p011",
+          "p012",
+          "p015",
+          "p016",
+          "p017",
+          "p018",
+          "p020",
+          "p021",
+          "p023",
+          "p026",
+          "p027",
+          "p028",
+          "p030",
+          "p031",
+          "p033",
+          "p035",
+          "p036"
+        ],
+        "lift": {
+          "equal": 6,
+          "no_skills_wins": 3,
+          "pairs": 27,
+          "with_skills_wins": 18
+        },
+        "parity": {
+          "equal": 0,
+          "pairs": 9,
+          "reference_better": 4,
+          "with_skills_better": 5
+        },
+        "passes": {
+          "lift": true,
+          "parity": false
+        }
+      },
+      "claude-sonnet-5-5": {
+        "disagrees_with_human": [
+          "p001",
+          "p002",
+          "p003",
+          "p004",
+          "p006",
+          "p007",
+          "p008",
+          "p009",
+          "p010",
+          "p011",
+          "p012",
+          "p015",
+          "p016",
+          "p017",
+          "p018",
+          "p019",
+          "p020",
+          "p021",
+          "p023",
+          "p024",
+          "p027",
+          "p028",
+          "p030",
+          "p033",
+          "p034",
+          "p035",
+          "p036"
+        ],
+        "lift": {
+          "equal": 4,
+          "no_skills_wins": 6,
+          "pairs": 27,
+          "with_skills_wins": 17
+        },
+        "parity": {
+          "equal": 0,
+          "pairs": 9,
+          "reference_better": 7,
+          "with_skills_better": 2
+        },
+        "passes": {
+          "lift": true,
+          "parity": false
+        }
+      }
+    },
+    "lift": {
+      "equal": 17,
+      "no_skills_wins": 6,
+      "pairs": 27,
+      "with_skills_wins": 4
+    },
+    "parity": {
+      "equal": 5,
+      "pairs": 9,
+      "reference_better": 2,
+      "with_skills_better": 2
+    },
+    "passes": {
+      "lift": false,
+      "parity": true
+    },
+    "status": "fail",
+    "unjudged": [],
+    "within_one_pick": {
+      "lift": false,
+      "parity": false
+    }
+  }
+}

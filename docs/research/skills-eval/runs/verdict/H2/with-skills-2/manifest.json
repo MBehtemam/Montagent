@@ -1,0 +1,209 @@
+{
+  "arm": "with-skills",
+  "brief": {
+    "id": "H2",
+    "path": "/Users/mohammedehtemam/montagent-heldout/H2.md",
+    "sha256": "5e2df30855b706f7d96b25d73c1d1bdbbf7562e009b28edc71bac3d72690c7ae"
+  },
+  "deliverable": {
+    "audio": true,
+    "duration_s": 10.0,
+    "height": 1080,
+    "width": 1080
+  },
+  "delivery_warnings": [],
+  "ended": "2026-10-01T11:42:22+00:00",
+  "exit_code": 0,
+  "isolation_problems": [],
+  "omitted_files": [],
+  "phase": "verdict",
+  "pins": {
+    "allowed_domains": [
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "cdn.playwright.dev",
+      "playwright.download.prss.microsoft.com"
+    ],
+    "caps": {
+      "budget_usd": 30,
+      "wall_clock_s": 3600
+    },
+    "claude_code_version": "2.1.284",
+    "effort": "high",
+    "model": "claude-opus-5-5",
+    "montagent_commit": "886dc25102b188f30cb783a63a1be1e2c315d83e",
+    "montagent_version": "montagent 0.1.0",
+    "setting_sources": "project",
+    "skills": [
+      "montagent",
+      "montagent-character",
+      "montagent-craft",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "web_tools": "removed (WebFetch, WebSearch)"
+  },
+  "project": "project.json",
+  "prompt": "You are working alone in this directory. It holds a client's asset pack; its README.md lists what is in it. Make the video that the brief below describes. Nobody will answer questions, so make your own decisions and see it through to the end. There is no web access. Deliver the finished video as `deliverable.mp4` in this directory.\n\nMake it with Montagent, the video editor: its MCP server is connected, and the `montagent` CLI is on your PATH.\n\n---\n\n# Brief H2: square talking-head cut\n\n**10 seconds \u00b7 1080\u00d71080 \u00b7 30 fps \u00b7 1:1.** Deliver one MP4 with sound.\n\nA square clip for a feed: a presenter makes one point about Montagent to camera, then the\nbrand closes it. Most people will watch it muted, so the captions carry the words. It should\nlook designed and bright, like a brand's own channel, with the edit doing some of the work.\n\nEverything you need is in the asset pack; its `README.md` lists it. The presenter is\n`presenter/take-3.mp4`, filmed against a green screen; its words and their timings are in\n`presenter/take-3.words.json`. The music is `music/bed-120bpm.wav`. The product clip is\n`screen/session.mp4`, and the brand is in `brand/`.\n\n## Beat by beat\n\nThe take starts at 0 s, so its word timings are the clip's.\n\n| When | What happens |\n|---|---|\n| 0\u20139 s | The presenter is keyed off the green screen and stands over the light brand ground, with a large disc in the accent colour behind the head and shoulders. |\n| 0\u20139 s | Captions sit in the lower part of the frame, two to five words at a time. Each word appears as it is spoken, and a caption clears once its phrase is done. |\n| \"mouse.\" and \"truth\" | These two words are set in the accent colour in their captions; every other caption word is dark. |\n| \"Montagent\" (~2.7 s) | The shot punches in: a sudden jump to a closer framing of the presenter. |\n| \"hands\" (~3.1 s) | A card showing the moving product footage slides in from the right edge into the upper right, in a rounded frame. |\n| \"the truth\" (~6.2 s) | The card slides back out to the right, and the shot punches back out to the wide framing. |\n| 9\u201310 s | Cut to an end card on the light ground: the Montagent lockup, centred, growing very slightly until the end. |\n| throughout | The music sits under the voice, dips while the presenter speaks, comes back up for the end card, and fades out at the end. |\n\n## Acceptance checklist\n\n- [ ] No green is left around the presenter, including at the hair and shoulders, on any frame.\n- [ ] The ground is the light brand colour, and an accent-coloured disc sits behind the presenter's head and shoulders.\n- [ ] Each caption word appears when it is spoken, not before, and no caption ever shows more than five words.\n- [ ] \"mouse.\" and \"truth\" are in the accent colour; no other caption word is.\n- [ ] The captions never cover the presenter's face.\n- [ ] The punch-in at \"Montagent\" and the punch-out at \"the truth\" are instant jumps, not slow zooms, and neither shows any edge of the source or any green.\n- [ ] The product card shows moving footage, has rounded corners, slides in from and out to the right edge, and never covers the presenter's face.\n- [ ] The end card's lockup is legible and on screen from 9 s to the end.\n- [ ] The voice is clear over the music; the music is noticeably lower while the presenter speaks.\n- [ ] The music has faded to silence by 10 s.",
+  "prompt_sha256": "b760e60b2179045ed041e8902837f0e3a95d377aa10222d07a305bb3d04f9a6e",
+  "run": "with-skills-2",
+  "sandbox_tmp_swept": [
+    "-private-var-folders-bk-5qm8ch691nz6vjb-4h98-4vw0000gn-T-montagent-eval-027mcaie-work"
+  ],
+  "signals": {
+    "background_tasks_killed": 0,
+    "image_reads": 13,
+    "init": {
+      "api_key_source": "none",
+      "claude_code_version": "2.1.284",
+      "mcp_servers": [
+        "montagent"
+      ],
+      "model": "claude-opus-5-5",
+      "plugins": [
+        "agents-md@builtin",
+        "telemetry@builtin"
+      ],
+      "skills": [
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "deep-research",
+        "design",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "loop",
+        "montagent",
+        "montagent-character",
+        "montagent-craft",
+        "montagent-footage",
+        "montagent-motion",
+        "run",
+        "run-skill-generator",
+        "schedule",
+        "simplify",
+        "update-config",
+        "verify",
+        "workflow-authoring"
+      ],
+      "tools": [
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "DesignSync",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "ListMcpResourcesTool",
+        "Monitor",
+        "NotebookEdit",
+        "PushNotification",
+        "Read",
+        "ReadMcpResourceDirTool",
+        "ReadMcpResourceTool",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "Task",
+        "TaskStop",
+        "ToolSearch",
+        "Workflow",
+        "Write",
+        "mcp__montagent__compare",
+        "mcp__montagent__create_project",
+        "mcp__montagent__frame",
+        "mcp__montagent__measure",
+        "mcp__montagent__preview",
+        "mcp__montagent__query",
+        "mcp__montagent__render",
+        "mcp__montagent__shift",
+        "mcp__montagent__validate",
+        "mcp__montagent__verify"
+      ]
+    },
+    "look_loops": 16,
+    "looked_at": true,
+    "montagent": {
+      "census_type": {
+        "audio": 1,
+        "ellipse": 1,
+        "image": 1,
+        "rect": 15,
+        "text": 7,
+        "video": 2
+      },
+      "finding_codes": {
+        "N-TRACK-GAP": 10,
+        "R-CAPTION-PACE": 2,
+        "R-EASE-INERT": 6
+      },
+      "validate": {
+        "drift": 0,
+        "error": 0,
+        "layout": 0,
+        "note": 10,
+        "review": 8,
+        "unchecked": 0
+      },
+      "validate_exit": 0
+    },
+    "montagent_verbs": {
+      "fmt": 4,
+      "fonts": 2,
+      "frame": 12,
+      "measure": 2,
+      "preview": 4,
+      "probe": 4,
+      "render": 1,
+      "validate": 5,
+      "verify": 1
+    },
+    "result": {
+      "cache_creation_input_tokens": 110006,
+      "cache_read_input_tokens": 3754647,
+      "duration_ms": 615464,
+      "input_tokens": 88,
+      "is_error": false,
+      "num_turns": 56,
+      "output_tokens": 34833,
+      "subtype": "success",
+      "total_cost_usd": 2.3279894000000008
+    },
+    "skill_tool_calls": [
+      "montagent",
+      "montagent-footage",
+      "montagent-craft"
+    ],
+    "skills_installed": [
+      "montagent",
+      "montagent-character",
+      "montagent-craft",
+      "montagent-footage",
+      "montagent-motion"
+    ],
+    "skills_triggered": [
+      "montagent",
+      "montagent-craft",
+      "montagent-footage"
+    ],
+    "tool_calls": {
+      "Bash": 32,
+      "Read": 14,
+      "ReadMcpResourceTool": 2,
+      "Skill": 3
+    }
+  },
+  "started": "2026-10-01T11:32:05+00:00",
+  "timed_out": false,
+  "wall_clock_s": 617.0
+}
