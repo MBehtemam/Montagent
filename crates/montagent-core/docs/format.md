@@ -114,6 +114,14 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `top-right`, `center-left`, `center`, `center-right`, `bottom-left`, `bottom-center`,
   `bottom-right`. The middle elides to `center` alone — `center-center` is an error naming
   it, because two spellings of one value break the write-read round trip.
+- **On `image`, `video`, `rect` and `ellipse`, `origin` may instead be a point `[px, py]`**
+  (prototype #612): two integers, in pixels of the element's own unscaled box measured from
+  its top-left — so a rig part's joint can be its pivot without padding the PNG to centre
+  it. The point may lie outside the box, and it is static. `x`,`y` place the point, so
+  changing it moves the element at rest; edit the two together. A keyword and a point at
+  the same spot are two different claims, and both stand: a keyword follows the box when
+  `width`/`height` change, a point does not. **Text takes the nine keywords only**, because
+  its `origin` also places the line block vertically.
 - **There is exactly one transform per element, and it is flat** (ADR-0012). `x`, `y`, `origin`,
   `scale`, `rotation`, `opacity`, as fields on the element. No transform is nested,
   inherited or composed, and no element's transform is relative to another's.
@@ -139,7 +147,7 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   no effect parameter is keyframable in v1.
 - **A `mask`'s `x`, `y`, `width`, `height` are element-local, and their identity value is the
   element's own rect** (ADR-0084). `(0, 0)` is the element rect's top-left **whatever the
-  `origin` keyword is** — `origin` places the box, it does not re-parameterise the box's
+  `origin` keyword or point is** — `origin` places the box, it does not re-parameterise the box's
   interior — and they are unscaled element units, not frame pixels. Omit all four and the
   rect is `(0, 0, width, height)`, which is what makes `{"name": "mask", "shape": "circle"}`
   the largest circle inscribed in the element's rect. The two arities are two declarations,

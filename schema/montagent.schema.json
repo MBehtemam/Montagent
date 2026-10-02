@@ -180,7 +180,7 @@
               "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
-              "$ref": "#/$defs/Origin"
+              "$ref": "#/$defs/BoxOrigin"
             },
             "width": {
               "type": "integer",
@@ -276,7 +276,7 @@
               "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
-              "$ref": "#/$defs/Origin"
+              "$ref": "#/$defs/BoxOrigin"
             },
             "width": {
               "type": "integer",
@@ -479,7 +479,7 @@
               "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
-              "$ref": "#/$defs/Origin"
+              "$ref": "#/$defs/BoxOrigin"
             },
             "width": {
               "type": "integer",
@@ -564,7 +564,7 @@
               "$ref": "#/$defs/Animatableint64"
             },
             "origin": {
-              "$ref": "#/$defs/Origin"
+              "$ref": "#/$defs/BoxOrigin"
             },
             "width": {
               "type": "integer",
@@ -933,6 +933,23 @@
       ],
       "description": "Each name is published in the schema as its cubic bezier (ADR-0012)."
     },
+    "BoxOrigin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Origin"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ],
+      "description": "`origin` on `image`, `video`, `rect` and `ellipse`: one of the nine keywords, or a free\npoint `[px, py]` — integer pixels in the element's own unscaled box, measured from its\ntop-left, and free to lie outside it (prototype #612).\n\n**Two claims, not two spellings.** A keyword follows the box when `width`/`height`\nchange and a point does not, so `\"top-left\"` and `[0, 0]` are both legal, distinct, and\nnever converted into each other — unlike `center-center`, which ADR-0013 rejected as a\nsecond spelling of one value.\n\nStatic: a point is not keyframeable, so `shift` has nothing new to move."
+    },
     "Origin": {
       "type": "string",
       "enum": [
@@ -1270,7 +1287,7 @@
             },
             "description": "`radius` is a field of `shape: \"rect\"` only: an inscribed circle or ellipse has no corners to round, and a field the renderer cannot honour is worse than no field (ADR-0084, ADR-0014, ADR-0007)."
           },
-          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\n**One rect, shared by all three shapes** (ADR-0084). `x`, `y`, `width`, `height`\nname the rect the shape is inscribed in — `circle` is the largest circle inscribed\nin it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn\nthere, never which fields exist. The four are **all-or-none**, element-local\nintegers measured from the element rect's top-left whatever the `origin` keyword\nis, and their identity value is the element's own rect: a bare\n`{\"name\": \"mask\", \"shape\": \"circle\"}` (ADR-0068's form) is the same declaration\nreached by the same arithmetic, not a legacy spelling beside this one.\n\n`radius` rounds the corners of a `rect` mask, identity `0`. On `circle` or\n`ellipse` it is an unknown key naming its reason, exactly as `radius` is on a drawn\nellipse (ADR-0014): an inscribed ellipse has no corners to round.\n\nThe mask is declared inside the element's box in unscaled units, so the element's\n`scale` grows it and its `rotation` turns it — the rule a `blur` radius and a\n`stroke_width` already follow. The fields stay literal integers on every frame, so\nthat is not a keyframed effect parameter."
+          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\n**One rect, shared by all three shapes** (ADR-0084). `x`, `y`, `width`, `height`\nname the rect the shape is inscribed in — `circle` is the largest circle inscribed\nin it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn\nthere, never which fields exist. The four are **all-or-none**, element-local\nintegers measured from the element rect's top-left whatever the `origin` keyword or point\nis, and their identity value is the element's own rect: a bare\n`{\"name\": \"mask\", \"shape\": \"circle\"}` (ADR-0068's form) is the same declaration\nreached by the same arithmetic, not a legacy spelling beside this one.\n\n`radius` rounds the corners of a `rect` mask, identity `0`. On `circle` or\n`ellipse` it is an unknown key naming its reason, exactly as `radius` is on a drawn\nellipse (ADR-0014): an inscribed ellipse has no corners to round.\n\nThe mask is declared inside the element's box in unscaled units, so the element's\n`scale` grows it and its `rotation` turns it — the rule a `blur` radius and a\n`stroke_width` already follow. The fields stay literal integers on every frame, so\nthat is not a keyframed effect parameter."
         },
         {
           "type": "object",

@@ -18,7 +18,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::model::{Animatable, Origin};
+use crate::model::{Animatable, BoxOrigin, Origin};
 use crate::permissive::Loose;
 use crate::resolve::{self, Interpolate};
 use crate::verbs::measure::{Measurable, align_of, register, runs_of};
@@ -98,16 +98,12 @@ pub fn drawn_rect(
     let y = number::<i64>(element, "y", instant, frame_height as f64 / 2.0);
     let [scale_x, scale_y] = number::<[f64; 2]>(element, "scale", instant, [1.0, 1.0]);
 
-    let origin = match element.get("origin") {
-        None | Some(Value::Null) => Origin::Center,
-        Some(value) => serde_json::from_value(value.clone()).ok()?,
-    };
-    let (fx, fy) = origin_fraction(origin);
+    let (ox, oy) = origin_offset(element, width as f64, height as f64)?;
 
     let scaled_width = width as f64 * scale_x;
     let scaled_height = height as f64 * scale_y;
-    let left = x - fx * scaled_width;
-    let top = y - fy * scaled_height;
+    let left = x - ox * scale_x;
+    let top = y - oy * scale_y;
 
     Some(Ok(Rect {
         x: left.round() as i64,
@@ -145,18 +141,22 @@ where
 /// the frame the agent looks at must be placed by the same nine numbers the `query --at`
 /// block beside it was computed from.
 pub(crate) fn origin_fraction(origin: Origin) -> (f64, f64) {
-    let (h, v) = match origin {
-        Origin::TopLeft => (0.0, 0.0),
-        Origin::TopCenter => (0.5, 0.0),
-        Origin::TopRight => (1.0, 0.0),
-        Origin::CenterLeft => (0.0, 0.5),
-        Origin::Center => (0.5, 0.5),
-        Origin::CenterRight => (1.0, 0.5),
-        Origin::BottomLeft => (0.0, 1.0),
-        Origin::BottomCenter => (0.5, 1.0),
-        Origin::BottomRight => (1.0, 1.0),
+    origin.fraction()
+}
+
+/// The point `x`,`y` place, as pixels from the top-left of the unscaled `width`×`height`
+/// box: a keyword resolved against this box, or a free `[px, py]` as written (#612). An
+/// absent `origin` is `center` (ADR-0012); `None` where `origin` is malformed, which is the
+/// schema check's to report.
+///
+/// `pub(crate)` for the same reason as [`origin_fraction`]: the renderer pivots about
+/// exactly the point this module measures rectangles from.
+pub(crate) fn origin_offset(element: &Value, width: f64, height: f64) -> Option<(f64, f64)> {
+    let origin = match element.get("origin") {
+        None | Some(Value::Null) => BoxOrigin::Keyword(Origin::Center),
+        Some(value) => serde_json::from_value(value.clone()).ok()?,
     };
-    (h, v)
+    Some(origin.resolve(width, height))
 }
 
 /// Whether this element type has a frame-space footprint at all — audio and `transition`

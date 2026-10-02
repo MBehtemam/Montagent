@@ -120,7 +120,7 @@ use crate::media::Source;
 use crate::media::established::{self, Use};
 use crate::media::session::Session;
 use crate::media::tools::{self, Missing};
-use crate::model::{self, Colour, Origin};
+use crate::model::{self, Colour};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -1439,7 +1439,7 @@ impl<'a> Painter<'a> {
         canvas.shape(
             shape,
             extent,
-            &self.transform(element),
+            &self.transform(element, extent),
             &paint,
             None,
             &effects,
@@ -1499,7 +1499,7 @@ impl<'a> Painter<'a> {
         canvas.raster(
             &raster,
             extent,
-            &self.transform(element),
+            &self.transform(element, extent),
             self.clip(element),
             &effects,
         );
@@ -1744,14 +1744,15 @@ impl<'a> Painter<'a> {
             .collect();
 
         let effects = self.effects_of(name, element);
+        let block = Extent {
+            width: placement.width,
+            height: placement.height,
+        };
         canvas.text(
             &glyphs,
             &outlines,
-            Extent {
-                width: placement.width,
-                height: placement.height,
-            },
-            &self.transform(element),
+            block,
+            &self.transform(element, block),
             None,
             &effects,
         );
@@ -1771,16 +1772,17 @@ impl<'a> Painter<'a> {
     /// The resolved transform, through the same reading the `query --at` block's geometry
     /// uses — ADR-0012's defaults included, since this is *where the element actually is*
     /// rather than *what the document declares*.
-    fn transform(&self, element: &Value) -> Transform {
+    ///
+    /// `extent` is the box `origin` resolves against: the declared rect, or a text
+    /// element's typographic block.
+    fn transform(&self, element: &Value, extent: Extent) -> Transform {
         let (frame_width, frame_height) = self.frame;
-        let origin = match element.get("origin") {
-            None | Some(Value::Null) => Origin::Center,
-            Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
-        };
+        let origin = geometry::origin_offset(element, extent.width, extent.height)
+            .unwrap_or((extent.width / 2.0, extent.height / 2.0));
         Transform {
             x: geometry::number::<i64>(element, "x", self.instant, frame_width as f64 / 2.0),
             y: geometry::number::<i64>(element, "y", self.instant, frame_height as f64 / 2.0),
-            origin: geometry::origin_fraction(origin),
+            origin,
             scale: {
                 let [sx, sy] =
                     geometry::number::<[f64; 2]>(element, "scale", self.instant, [1.0, 1.0]);

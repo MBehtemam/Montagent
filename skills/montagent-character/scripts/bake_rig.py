@@ -17,8 +17,9 @@ a report on stderr. Running it again replaces the tracks it wrote (those named
 "<prefix>-...").
 
 <rig> is the rig's JSON: `drawing`, `draw_order` (back to front), and `parts`, each with
-`file` (relative to the rig), `width`, `height`, `pivot` (where the part's canvas centre
-sits in the drawing) and `parent`; and `visemes`, mapping Azure viseme ids to a mouth
+`file` (relative to the rig), `width`, `height`, `pivot` (where the part's joint sits in
+the drawing), optional `joint` (where the joint sits in the part's own PNG, in its pixels;
+absent means the PNG is padded so the joint is its centre) and `parent`; and `visemes`, mapping Azure viseme ids to a mouth
 name, or to null for the mouth at rest. Mouth "open" is the part "mouth_open".
 
 <spec> is a JSON file (times are milliseconds on the project's timeline; angles are
@@ -227,10 +228,17 @@ def main(argv):
         el = {"id": eid, "type": "image", "start": s, "end": e, "source": source(name)}
         for prop in ("x", "y"):
             el[prop] = written(transform[prop], None)
-        el["origin"] = "center"
+        part = parts[name]
+        width, height = round(part["width"] * base), round(part["height"] * base)
+        if "joint" in part:
+            # The joint as a point in the element's own box: the PNG need not be padded.
+            el["origin"] = [round(part["joint"][0] * width / part["width"]),
+                            round(part["joint"][1] * height / part["height"])]
+        else:
+            el["origin"] = "center"
         el["fit"] = "literal"
-        el["width"] = round(parts[name]["width"] * base)
-        el["height"] = round(parts[name]["height"] * base)
+        el["width"] = width
+        el["height"] = height
         rot = written(transform["rotation"], 2)
         if rot != 0:
             el["rotation"] = rot

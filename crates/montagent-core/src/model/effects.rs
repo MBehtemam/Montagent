@@ -62,7 +62,7 @@ pub enum Effect {
     /// name the rect the shape is inscribed in — `circle` is the largest circle inscribed
     /// in it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn
     /// there, never which fields exist. The four are **all-or-none**, element-local
-    /// integers measured from the element rect's top-left whatever the `origin` keyword
+    /// integers measured from the element rect's top-left whatever the `origin` keyword or point
     /// is, and their identity value is the element's own rect: a bare
     /// `{"name": "mask", "shape": "circle"}` (ADR-0068's form) is the same declaration
     /// reached by the same arithmetic, not a legacy spelling beside this one.

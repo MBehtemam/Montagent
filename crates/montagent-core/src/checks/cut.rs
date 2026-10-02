@@ -287,7 +287,7 @@ fn pop(
     // reader who is told the reference frames disagree has been told why the numbers are
     // not comparable before being shown any.
     let (out_origin, in_origin) = (origin_of(a.element), origin_of(b.element));
-    if out_origin != in_origin {
+    if !same_origin(a.element, b.element) {
         rows.push(format!(
             "`origin` {out_origin} \u{2192} {in_origin} \u{2014} the reference frames disagree"
         ));
@@ -436,6 +436,28 @@ fn is_time_based(element: &Value) -> bool {
 /// numbers against the same frame, and an element that omits the key reads against exactly
 /// the same frame as one that writes `"center"`. ADR-0030's presence-is-content rule is
 /// about what the *document declares*, and this comparison is about where the pixels land.
+///
+/// Two keywords compare as keywords, as they always have. Once either side is a free point
+/// `[px, py]` (#612), the comparison is of the **box-local resolved point**, each keyword
+/// resolved against its own element's `width`/`height`: `"top-left"` against `[0, 0]` is
+/// the same reference frame written as two different claims, and not a trigger. That
+/// extends the absent-equals-`center` rule above rather than replacing it.
+fn same_origin(a: &Value, b: &Value) -> bool {
+    let is_point = |element: &Value| element.get("origin").is_some_and(Value::is_array);
+    if !is_point(a) && !is_point(b) {
+        return origin_of(a) == origin_of(b);
+    }
+    let resolved = |element: &Value| {
+        let width = element.get("width").and_then(Value::as_i64)? as f64;
+        let height = element.get("height").and_then(Value::as_i64)? as f64;
+        geometry::origin_offset(element, width, height)
+    };
+    match (resolved(a), resolved(b)) {
+        (Some(out), Some(into)) => out == into,
+        _ => origin_of(a) == origin_of(b),
+    }
+}
+
 fn origin_of(element: &Value) -> String {
     match element.get("origin") {
         None | Some(Value::Null) => "\"center\"".to_string(),

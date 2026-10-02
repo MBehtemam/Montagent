@@ -138,6 +138,108 @@ pub enum Origin {
     BottomRight,
 }
 
+/// `origin` on `image`, `video`, `rect` and `ellipse`: one of the nine keywords, or a free
+/// point `[px, py]` — integer pixels in the element's own unscaled box, measured from its
+/// top-left, and free to lie outside it (prototype #612).
+///
+/// **Two claims, not two spellings.** A keyword follows the box when `width`/`height`
+/// change and a point does not, so `"top-left"` and `[0, 0]` are both legal, distinct, and
+/// never converted into each other — unlike `center-center`, which ADR-0013 rejected as a
+/// second spelling of one value.
+///
+/// Static: a point is not keyframeable, so `shift` has nothing new to move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BoxOrigin {
+    Keyword(Origin),
+    Point([i64; 2]),
+}
+
+impl BoxOrigin {
+    /// The point in the unscaled box that `x`,`y` place and that scale and rotation pivot
+    /// about, as pixels from the box's top-left.
+    pub fn resolve(self, width: f64, height: f64) -> (f64, f64) {
+        match self {
+            BoxOrigin::Keyword(keyword) => {
+                let (h, v) = keyword.fraction();
+                (h * width, v * height)
+            }
+            BoxOrigin::Point([px, py]) => (px as f64, py as f64),
+        }
+    }
+}
+
+impl Origin {
+    /// `(horizontal, vertical)` fractions of the box — `0` at left/top, `0.5` at centre,
+    /// `1` at right/bottom.
+    pub fn fraction(self) -> (f64, f64) {
+        match self {
+            Origin::TopLeft => (0.0, 0.0),
+            Origin::TopCenter => (0.5, 0.0),
+            Origin::TopRight => (1.0, 0.0),
+            Origin::CenterLeft => (0.0, 0.5),
+            Origin::Center => (0.5, 0.5),
+            Origin::CenterRight => (1.0, 0.5),
+            Origin::BottomLeft => (0.0, 1.0),
+            Origin::BottomCenter => (0.5, 1.0),
+            Origin::BottomRight => (1.0, 1.0),
+        }
+    }
+}
+
+const NINE_KEYWORDS: &str = "`top-left`, `top-center`, `top-right`, `center-left`, `center`, \
+     `center-right`, `bottom-left`, `bottom-center` or `bottom-right`";
+
+impl<'de> Deserialize<'de> for BoxOrigin {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let refuse = |why: &str| {
+            D::Error::custom(format!(
+                "`origin` is {value}: {why}. Write one of the nine keywords — \
+                 {NINE_KEYWORDS} — or a point `[px, py]`, two integers in pixels from the \
+                 box's top-left"
+            ))
+        };
+        match &value {
+            serde_json::Value::String(_) => serde_json::from_value::<Origin>(value.clone())
+                .map(BoxOrigin::Keyword)
+                .map_err(|_| refuse("not one of the nine keywords")),
+            serde_json::Value::Array(items) => {
+                if items.len() != 2 {
+                    return Err(refuse(&format!(
+                        "a point has two coordinates, not {}",
+                        items.len()
+                    )));
+                }
+                match (items[0].as_i64(), items[1].as_i64()) {
+                    (Some(px), Some(py)) => Ok(BoxOrigin::Point([px, py])),
+                    _ => Err(refuse(
+                        "a point's coordinates are integer pixels (ADR-0012), and the exact \
+                         centre of an odd-sized box is the keyword's to say",
+                    )),
+                }
+            }
+            _ => Err(refuse("neither a keyword nor a point")),
+        }
+    }
+}
+
+/// `origin` on `text`: the nine keywords only. A text element's `origin` also chooses the
+/// line block's vertical placement inside the shaper, and a point has no mapping onto that
+/// — so the message names only the keywords, rather than offer a form text cannot take.
+fn text_origin<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Origin>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    serde_json::from_value::<Origin>(value.clone())
+        .map(Some)
+        .map_err(|_| {
+            D::Error::custom(format!(
+                "`origin` is {value}: text takes one of the nine keywords only — \
+                 {NINE_KEYWORDS}. Its `origin` also places the line block vertically, \
+                 which a point cannot say"
+            ))
+        })
+}
+
 /// A claim about how the author computed `width`/`height` — not a layout mode.
 ///
 /// ADR-0015's load-bearing sentence: the declared rect is authoritative at render, so `fit`
@@ -384,7 +486,7 @@ pub struct Image {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<Origin>,
+    pub origin: Option<BoxOrigin>,
     /// Required, never defaulted: the source's dimensions are not in the document, so a
     /// natural-size default would make the element's rendered rect unreadable — and it
     /// would fail *quietly*, because a centre-cropped photo looks plausible (ADR-0012).
@@ -425,7 +527,7 @@ pub struct Video {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<Origin>,
+    pub origin: Option<BoxOrigin>,
     pub width: i64,
     pub height: i64,
     pub fit: Fit,
@@ -460,7 +562,11 @@ pub struct TextElement {
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "text_origin",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub origin: Option<Origin>,
     /// The box the text must fit inside — required, because an omitted `height` would be
     /// indistinguishable from a decision not to check (ADR-0014). It is a *container
@@ -539,7 +645,7 @@ pub struct Rect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<Origin>,
+    pub origin: Option<BoxOrigin>,
     pub width: i64,
     pub height: i64,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
@@ -596,7 +702,7 @@ pub struct Ellipse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<Origin>,
+    pub origin: Option<BoxOrigin>,
     pub width: i64,
     pub height: i64,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither

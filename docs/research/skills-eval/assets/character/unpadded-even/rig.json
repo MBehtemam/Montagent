@@ -1,0 +1,214 @@
+{
+ "drawing": {
+  "width": 1024,
+  "height": 1536
+ },
+ "draw_order": [
+  "torso",
+  "forearm_left",
+  "forearm_right",
+  "upper_arm_left",
+  "upper_arm_right",
+  "head",
+  "mouth_open",
+  "mouth_round",
+  "mouth_small",
+  "mouth_teeth",
+  "mouth_closed",
+  "eyes_closed"
+ ],
+ "parts": {
+  "torso": {
+   "file": "parts/torso.png",
+   "width": 474,
+   "height": 716,
+   "pivot": [
+    512,
+    1322
+   ],
+   "parent": null,
+   "joint": [
+    234,
+    702
+   ]
+  },
+  "forearm_left": {
+   "file": "parts/forearm_left.png",
+   "width": 292,
+   "height": 242,
+   "pivot": [
+    264,
+    776
+   ],
+   "parent": "upper_arm_left",
+   "joint": [
+    236,
+    56
+   ]
+  },
+  "forearm_right": {
+   "file": "parts/forearm_right.png",
+   "width": 294,
+   "height": 242,
+   "pivot": [
+    753,
+    778
+   ],
+   "parent": "upper_arm_right",
+   "joint": [
+    54,
+    59
+   ]
+  },
+  "upper_arm_left": {
+   "file": "parts/upper_arm_left.png",
+   "width": 214,
+   "height": 168,
+   "pivot": [
+    356,
+    736
+   ],
+   "parent": "torso",
+   "joint": [
+    147,
+    68
+   ]
+  },
+  "upper_arm_right": {
+   "file": "parts/upper_arm_right.png",
+   "width": 210,
+   "height": 166,
+   "pivot": [
+    666,
+    736
+   ],
+   "parent": "torso",
+   "joint": [
+    68,
+    68
+   ]
+  },
+  "head": {
+   "file": "parts/head.png",
+   "width": 614,
+   "height": 550,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "torso",
+   "joint": [
+    310,
+    498
+   ]
+  },
+  "mouth_open": {
+   "file": "parts/mouth_open.png",
+   "width": 96,
+   "height": 96,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    52,
+    98
+   ]
+  },
+  "mouth_round": {
+   "file": "parts/mouth_round.png",
+   "width": 76,
+   "height": 70,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    42,
+    84
+   ]
+  },
+  "mouth_small": {
+   "file": "parts/mouth_small.png",
+   "width": 80,
+   "height": 68,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    44,
+    90
+   ]
+  },
+  "mouth_teeth": {
+   "file": "parts/mouth_teeth.png",
+   "width": 108,
+   "height": 64,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    58,
+    92
+   ]
+  },
+  "mouth_closed": {
+   "file": "parts/mouth_closed.png",
+   "width": 84,
+   "height": 52,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    46,
+    90
+   ]
+  },
+  "eyes_closed": {
+   "file": "parts/eyes_closed.png",
+   "width": 478,
+   "height": 264,
+   "pivot": [
+    512,
+    648
+   ],
+   "parent": "head",
+   "joint": [
+    226,
+    336
+   ]
+  }
+ },
+ "visemes": {
+  "0": null,
+  "1": "open",
+  "2": "open",
+  "3": "round",
+  "4": "small",
+  "5": "small",
+  "6": "small",
+  "7": "round",
+  "8": "round",
+  "9": "open",
+  "10": "round",
+  "11": "open",
+  "12": "small",
+  "13": "round",
+  "14": "small",
+  "15": "teeth",
+  "16": "round",
+  "17": "small",
+  "18": "teeth",
+  "19": "small",
+  "20": "small",
+  "21": "closed"
+ }
+}

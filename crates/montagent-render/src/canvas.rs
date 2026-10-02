@@ -100,9 +100,10 @@ impl Rgba {
 pub struct Transform {
     pub x: f64,
     pub y: f64,
-    /// `origin`'s two fractions of the element's own box, `(horizontal, vertical)` — `0` at
-    /// left/top, `0.5` at centre, `1` at right/bottom. The nine keywords are the core's to
-    /// spell; what reaches the canvas is the pair they mean.
+    /// `origin`, resolved: the point of the element's own unscaled box that `x`,`y` place
+    /// and that scale and rotation pivot about, in pixels from the box's top-left. It may
+    /// lie outside the box. The nine keywords and the free `[px, py]` point are the core's
+    /// to spell; what reaches the canvas is the point they mean.
     ///
     /// There is deliberately no `Default` for this type. ADR-0012 publishes a default for
     /// every one of these properties, but two of them — `x` and `y`, at the frame's centre
@@ -1221,10 +1222,7 @@ impl Canvas {
             canvas.rotate(transform.rotation as f32, None);
         }
         canvas.scale((transform.scale.0 as f32, transform.scale.1 as f32));
-        canvas.translate((
-            (-transform.origin.0 * extent.width) as f32,
-            (-transform.origin.1 * extent.height) as f32,
-        ));
+        canvas.translate(((-transform.origin.0) as f32, (-transform.origin.1) as f32));
         Canvas::through(canvas, extent, effects, draw);
         if layered {
             canvas.restore();
