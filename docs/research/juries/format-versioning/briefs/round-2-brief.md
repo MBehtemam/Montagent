@@ -12,7 +12,7 @@ that round was voided. Weigh each position on its argument alone.
 Read the round-1 brief first, for the project context, the standing principles,
 the anti-drift rule and the worked example of breaking it:
 
-`/private/tmp/claude-501/-Users-mohammedehtemam-projects-github-Montagent/6e22850c-f895-4fb4-bef7-dbe42e44211c/scratchpad/jury-14/BRIEF.md`
+`/private/tmp/claude-501/-Users-<dev>-projects-github-Montagent/6e22850c-f895-4fb4-bef7-dbe42e44211c/scratchpad/jury-14/BRIEF.md`
 
 Everything in that brief still applies **except the corrections below**, which
 supersede it. Do not read any other juror's scratchpad directory. You have your

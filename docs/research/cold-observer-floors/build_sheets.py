@@ -4,7 +4,8 @@ put random realistic ADR-0098 labels at a fixed served type size under 140 px ti
 import json, math, os, random
 from PIL import Image, ImageDraw, ImageFont
 SP = os.path.dirname(os.path.abspath(__file__))  # expects tiles/ (doctored) and clean/ frames beside it; see FINDINGS.md
-FONT = "/Users/mohammedehtemam/projects/github/Montagent/fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf"
+REPO = os.path.abspath(os.path.join(SP, "..", "..", ".."))
+FONT = os.path.join(REPO, "fixtures/en-halloween-decorating/fonts/OpenRunde-Bold.otf")
 INST = [0,3018,5316,10468,17472,22622,30603,35753,42763,47343,53856,56116,57116,58116,59116,60116,61116,64016]
 SRC_W, SRC_H = 1080, 1920; LAB_H = int(SRC_H*0.11); COLS, ROWS = 6, 3
 def painted(t): return math.ceil(t*25/1000)*40
@@ -37,7 +38,7 @@ for w in (184, 160, 148, 140, 130, 120, 92):
 name = "pctrl"+"".join(rnd.choice("abcdefghjkmnpqrstuvwxyz") for _ in range(3))
 manifest[name] = dict(kind="control-clean", tile_w=184, size=out(clean, 184, name))
 # label sheets: random realistic labels, full ADR-0098 form, fixed served type size at 140 px tiles
-fx = json.load(open("/Users/mohammedehtemam/projects/github/Montagent/fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json"))
+fx = json.load(open(os.path.join(REPO, "fixtures/en-halloween-decorating/en-halloween-decorating.montagent.json")))
 ids = sorted({e["id"] for t in fx["tracks"] for e in t.get("elements",[])})
 for s in (5, 6, 7, 8, 10):
     ts = sorted(rnd.sample(range(0, 65000), 18)); lab = []

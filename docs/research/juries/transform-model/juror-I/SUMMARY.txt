@@ -1,7 +1,7 @@
 JURY I - FINAL DELIVERABLE
 Montagent Project Format: Agent Author Assessment
 
-All work completed in: /private/tmp/claude-501/-Users-mohammedehtemam-projects-github-Montagent/7048e0be-e79c-41a9-82e7-1840334a59c1/scratchpad/juror-I/
+All work completed in: /private/tmp/claude-501/-Users-<dev>-projects-github-Montagent/7048e0be-e79c-41a9-82e7-1840334a59c1/scratchpad/juror-I/
 
 FILES PRODUCED:
 - VERDICT.md (complete verdict with all findings)
