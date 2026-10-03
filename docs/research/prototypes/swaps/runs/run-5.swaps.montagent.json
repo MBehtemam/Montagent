@@ -1,0 +1,23 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 25,
+  "background": "#20242B",
+  "duration": 7200,
+  "output": "deliverable.mp4",
+  "tracks": [
+    {
+      "name": "phone",
+      "layer": 1,
+      "elements": [
+        {"id":"phone-body","type":"rect","start":0,"end":7200,"x":960,"y":540,"origin":"center","width":542,"height":1168,"fill":"#0E0F12","radius":56,"scale":[{"t":0,"v":[0.6,0.6]},{"t":7160,"v":[0.958,0.958],"ease":"linear"}]}
+      ]
+    },
+    {
+      "name": "screen",
+      "layer": 2,
+      "elements": [
+        {"id":"screen","type":"image","start":0,"end":7200,"source":"screens/home.png","x":960,"y":540,"origin":"center","width":498,"height":1080,"fit":"contain","clip":[0,0,1920,1080],"scale":[{"t":0,"v":[0.6,0.6]},{"t":7160,"v":[0.958,0.958],"ease":"linear"}],"swaps":[{"start":1200,"source":"screens/tap.png"},{"start":1360,"source":"screens/loading.png"},{"start":3360,"source":"screens/error.png"},{"start":4560,"source":"screens/done.png"}]}
+      ]
+    }
+  ]
+}

@@ -5,6 +5,10 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0140](./0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md)**: an image's `swaps` change its file over time
+> as timed windows, not keyframes, so keyframes stay transform-only. `shift` moves a swap
+> exactly as it moves a keyframe.
+
 > **Amended by [ADR-0086](0086-recorded-intent-is-one-pattern-and-the-time-axis-instantiates-it.md)**: the zero-element-to-element-references invariant
 > this ADR established is restated as zero ***live*** references. A recorded,
 > renderer-ignored reference is a different object, spendable **per axis** only on a

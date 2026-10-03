@@ -1,15 +1,17 @@
 ---
 status: accepted
-amended-by: 0007 (fonts carve-out), 0053 (resolution base, no assetRoot, absolute paths permitted, missing-source severity)
+amended-by: 0007 (fonts carve-out), 0053 (resolution base, no assetRoot, absolute paths permitted, missing-source severity), 0140 (an image may name other files, inline, for timed windows)
 ---
 
 # Elements name their files inline; there is no asset table
 
-> **Amended by two later ADRs.** Read them before relying on anything below.
+> **Amended by three later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0007](0007-text-runs-literal-size-declared-fonts.md) — fonts carve-out
 > - [ADR-0053](0053-asset-path-resolution-no-assetroot.md) — settles the resolution-base,
 >   assetRoot, absolute-path and missing-source questions that ADR left open
+> - [ADR-0140](0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md) — an image's `swaps` name other files, inline, each for a
+>   timed window; `source` is what it draws outside them
 
 An element's `source` is written on the element itself — a relative path today, a
 URL where the file lives elsewhere. Montagent has no `assets` block declaring

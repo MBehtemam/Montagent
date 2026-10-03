@@ -1,0 +1,348 @@
+{
+ "run": "with-skills-1",
+ "spelling": "split",
+ "cost": 0.3465982,
+ "turns": 13,
+ "wall_s": 43.7,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\nimport json",
+  "montagent compare --help | head -30; montagent compare $TMPDIR/phone.orig.json p",
+  "montagent frame --help | sed -n 1,40p; montagent frame phone.montagent.json --fr",
+  "montagent frame phone.montagent.json --from 3000 --to 7200 --keyframes --out $TM",
+  "montagent render phone.montagent.json 2>&1 | tail -8 && montagent verify phone.m"
+ ],
+ "elements": [
+  5,
+  6
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen-done",
+  "screen-error"
+ ],
+ "diff_lines": 68,
+ "duration": 7200,
+ "bytes": [
+  1494,
+  1775
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-1/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-2",
+ "spelling": "swaps",
+ "cost": 0.47614819999999997,
+ "turns": 13,
+ "wall_s": 44.3,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "montagent validate phone.montagent.json; montagent schema --help 2>&1 | head -20",
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\np='phone.mo",
+  "for t in 3320 4520 4560; do montagent query phone.montagent.json --at $t 2>&1 | ",
+  "montagent render phone.montagent.json 2>&1 | tail -15 && montagent verify phone."
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 30,
+ "duration": 7200,
+ "bytes": [
+  815,
+  957
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-2/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-3",
+ "spelling": "swaps-ended",
+ "cost": 0.43480139999999995,
+ "turns": 14,
+ "wall_s": 47.5,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\np='phone.mo",
+  "python3 - <<'EOF'\np='phone.montagent.json'\ns=open(p).read()\na='{\"start\":3360,\"en",
+  "montagent frame --help | head -30; montagent frame phone.montagent.json --from 0",
+  "montagent frame phone.montagent.json --from 0 --to 7200 --out $TMPDIR/sheet.jpg ",
+  "for t in 3320 3360 4520 4560; do montagent frame phone.montagent.json --at $t --",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -30"
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 29,
+ "duration": 7200,
+ "bytes": [
+  848,
+  911
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-3/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-4",
+ "spelling": "split",
+ "cost": 0.35013800000000006,
+ "turns": 13,
+ "wall_s": 73.2,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\nimport json",
+  "montagent frame --help | grep -E '^\\s+--' | head -20; montagent frame phone.mont",
+  "montagent frame phone.montagent.json --from 0 --to 7200 --out $TMPDIR/sheet.png ",
+  "montagent frame phone.montagent.json --at 7160 --out $TMPDIR/last.png 2>&1 | hea",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -25"
+ ],
+ "elements": [
+  5,
+  6
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen-done",
+  "screen-error"
+ ],
+ "diff_lines": 68,
+ "duration": 7200,
+ "bytes": [
+  1494,
+  1775
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-4/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-5",
+ "spelling": "swaps",
+ "cost": 0.3532536,
+ "turns": 15,
+ "wall_s": 45.7,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "python3 - <<'EOF'\nimport json\np='phone.montagent.json'\nd=json.load(open(p))\nd['d",
+  "montagent fmt --verbose phone.montagent.json 2>&1 | head -30; montagent frame --",
+  "montagent frame --at 3960 --out $TMPDIR/err.jpg phone.montagent.json >/dev/null;",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -25"
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 26,
+ "duration": 7200,
+ "bytes": [
+  815,
+  867
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-5/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-6",
+ "spelling": "swaps-ended",
+ "cost": 0.4176244,
+ "turns": 14,
+ "wall_s": 40.9,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\np='phone.mo",
+  "montagent frame phone.montagent.json --from 0 --to 7200 --out $TMPDIR/sheet.jpg ",
+  "for t in 3320 3360 4520 4560; do montagent frame phone.montagent.json --at $t --",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -30"
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 29,
+ "duration": 7200,
+ "bytes": [
+  848,
+  911
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-6/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-7",
+ "spelling": "split",
+ "cost": 0.34967119999999996,
+ "turns": 14,
+ "wall_s": 42.1,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\nimport json",
+  "montagent frame --help | head -30; montagent frame phone.montagent.json --from 0",
+  "montagent frame phone.montagent.json --from 0 --to 7200 --out $TMPDIR/sheet.jpg ",
+  "echo $TMPDIR; cd /private/var/folders/bk/5qm8ch691nz6vjb_4h98_4vw0000gn/T/montag",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -30"
+ ],
+ "elements": [
+  5,
+  6
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen-done",
+  "screen-error"
+ ],
+ "diff_lines": 68,
+ "duration": 7200,
+ "bytes": [
+  1494,
+  1775
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-7/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-8",
+ "spelling": "swaps",
+ "cost": 0.34678500000000007,
+ "turns": 13,
+ "wall_s": 45.0,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json $TMPDIR/phone.orig.json && python3 - <<'EOF'\nimport json",
+  "cat phone.montagent.json && montagent fmt phone.montagent.json --verbose 2>&1 | ",
+  "montagent frame phone.montagent.json --from 0 --to 7200 --out $TMPDIR/sheet.jpg ",
+  "for t in 3320 3360 4520 4560 7160; do montagent frame phone.montagent.json --at ",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -30"
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 26,
+ "duration": 7200,
+ "bytes": [
+  815,
+  867
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-8/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
+{
+ "run": "with-skills-9",
+ "spelling": "swaps-ended",
+ "cost": 0.3551266,
+ "turns": 14,
+ "wall_s": 47.5,
+ "delivered": true,
+ "warnings": [],
+ "edits": [],
+ "scripted_writes": [
+  "cp phone.montagent.json \"$TMPDIR/phone.orig.json\" && montagent --version && mont",
+  "python3 - <<'EOF'\nimport json\np='phone.montagent.json'\nd=json.load(open(p))\nd['d",
+  "montagent render phone.montagent.json 2>&1 | tail -15",
+  "montagent verify phone.montagent.json 2>&1 | head -30"
+ ],
+ "elements": [
+  2,
+  2
+ ],
+ "elements_changed": [
+  "phone-body",
+  "screen"
+ ],
+ "diff_lines": 29,
+ "duration": 7200,
+ "bytes": [
+  848,
+  911
+ ],
+ "validate": "0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout \u2014 docs/research/skills-eval/runs/dev/P-edit-error/with-skills-9/workspace/phone.montagent.json",
+ "frames": 180,
+ "wrong_screen": [],
+ "wrong_screen_n": 0,
+ "off_pace": [],
+ "off_pace_n": 0,
+ "verdict": "landed"
+}
