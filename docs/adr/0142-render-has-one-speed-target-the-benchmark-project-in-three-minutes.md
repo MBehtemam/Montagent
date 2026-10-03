@@ -184,7 +184,7 @@ element-frames, each one `frame_at` spawn.
 | benchmark project, 1080p30 | `42bceacb` | one observed run, load 6.0 → 9.7, no warm-up | **135.4 s** | 749.6 + 51.7 s | 743 MiB | 20 feeds, 0 reopens, 0 `frame_at` | **within 3 min** (observed, upper bound) |
 | 2160p30 (observed) | — | **not measured** | | | | | — |
 | one video, 1080p30 (observed) | — | **not measured** | | | | | — |
-| the dev's real project, by shape (observed) | — | **not measured** | | | | | — |
+| the dev's real project, a 6:33 cut (observed) | `6a5f3aab` | one observed run by the dev, installed binary | **171 s** | — | — | — | about 0.43 render minutes per minute of video |
 
 - The after run's per-stage breakdown (ADR-0141 §9), summed over 10,800 frames: decode
   45.0 s, paint 54.6 s, readback 13.1 s, encode wait 20.4 s, seal 0.2 s. `decoded_per_frame`
@@ -197,6 +197,16 @@ element-frames, each one `frame_at` spawn.
   and one-video variants were not measured, so ADR-0072's "numbers at more than one frame
   size" is **still open** for the benchmark project. The first protocol run of a gated step
   should take them.
+- **The dev's real project** was confirmed by one observed run of `montagent` 0.1.2 built at
+  `6a5f3aab`. That build also carries ADR-0143's encoder pin. A 6:33 cut rendered in
+  2 min 51 s. Before that, 0.1.0 rendered an earlier 4:53 cut in 24 min 25 s, which is about
+  5.0 render minutes per minute of video, against about 0.43 now: roughly 11.5× faster. A
+  6:43 cut on 0.1.0 took 44 min 11 s while another render shared the machine, so it is not
+  used. The cuts differ, so this is indicative rather than an exact A/B. The project's
+  shape (frame size, videos on screen at once, source codecs) was not recorded with the run,
+  and neither were CPU time, peak memory or the spawn counts. Its smaller speed-up than the
+  benchmark project's is consistent with fewer videos on screen at once, though that is
+  unconfirmed. Scaled to six minutes, it would take about 2.6 min, inside `RENDER_TARGET`.
 
 **Verdict:** the benchmark project renders within `RENDER_TARGET` on this evidence. The
 gated parallel-paint steps (#627) are not triggered by a miss. Whether one is still worth
