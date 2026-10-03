@@ -201,7 +201,15 @@ pub const RENDER_REFERENCES: &[Reference] = &[
 /// a baseline: the benchmark project is judged only by `render_target.rs`
 /// against [`RENDER_TARGET`]. Each entry's `conditions` names its variant, frame
 /// size and rate.
-pub const BENCHMARK_REFERENCES: &[Reference] = &[];
+pub const BENCHMARK_REFERENCES: &[Reference] = &[Reference {
+    rasterizer: "skia-safe",
+    conditions: "1920x1080/30 fps, the benchmark project (ADR-0142), cold with an empty \
+        probe sidecar, release build, M1 Pro; OBSERVED under load 6.0 rising to 9.7, one run \
+        and no warm-up, so an upper bound and not the protocol's median",
+    output_ms: 360_000,
+    elapsed_ms: 135_360,
+    source: "ADR-0142 and ADR-0141 §8, the streaming PR's observed after-run",
+}];
 
 /// What every entry in [`RENDER_REFERENCES`] was taken over.
 ///

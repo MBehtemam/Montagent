@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 amends: 0021 ("one painter" is one place that decides visibility, offset, extent and findings; the pixels come through a frame supplier, per frame for `frame` and from feeds for `render` and `preview`), 0127 ("run of frames" becomes **feed**; the run now supplies `render`, anchored at the element's own origin so it can open partway through one; `tests/feeds.rs`'s byte-equality and spawn-count test joins `seek_clamp.rs`)
 ---
 
@@ -199,10 +199,15 @@ tenth of what it costs. So the estimate gains a declared-pixel term; that is the
 **The thread count is 1** (`decode::FEED_THREADS`). At one thread a feed uses 45–55% of the
 default's memory and still decodes several hundred frames a second against the 30 the
 timeline asks for (#636's 800 fps; #624's 150–500). `frame_at` keeps the default threads,
-since there one process runs alone. TODO(measure): the rate half of *"the lowest that leaves
-clear headroom over the rate the painter needs"* is a wall-clock reading, taken with §8's
-before/after; 2 replaces 1 only if that reading says so. The standing byte-equality test runs
-at this setting, because it is the only setting a feed has.
+since there one process runs alone. The rate half of *"the lowest that leaves clear headroom
+over the rate the painter needs"*: a feed-shaped `ffmpeg` on the benchmark project's lane A
+(1080x1920 painted at 576x1024, 1800 frames read as fast as it writes) delivered **377 fps at
+`-threads 1`**, at load 1.48. The 3-minute target needs 10,800 frames in 180 s, **60 fps per
+feed**, so one thread leaves about 6× headroom, and 2 does not replace it. That is the only
+clean reading; the 2-thread and 4K (2160x3840 at 1152x2048) runs were taken at load 3–5 and
+are not evidence. Read only as a direction, they gave about 575 fps at 2 threads and about
+105 fps at 1 thread on the 4K source, 1.7× over 60. The standing byte-equality test runs at
+this setting, because it is the only setting a feed has.
 
 **The estimate** (`supply::feed_bytes`) is a pure function of the probe and the document:
 
@@ -331,19 +336,38 @@ too (20 reopens).
 
 ### 8. The measurements
 
-TODO(measure): fill from `render_target.rs`'s JSON line (ADR-0142's protocol), then set
-`status: accepted`. The benchmark project's measurement records `decoded_per_frame: []`.
+The benchmark project, 1080p30. **Not ADR-0142's five-run quiet protocol**: by the dev's
+decision, this acceptance rests on one observed run under load and a derived "before", for
+the reason ADR-0142's *The measurements* gives. ffmpeg 9.0.2, macOS 27.0 (26A428), the dev's
+M1 Pro, `available_parallelism` 10, AC power.
 
-| | commit | median | min–max | peak memory | spawns | `decoded_per_frame` |
-|---|---|---|---|---|---|---|
-| before (base commit) | TODO(measure) | | | | | — |
-| after (this ADR's head) | TODO(measure) | | | | | |
+| | commit | how | wall | user+sys | peak memory | decode spawns | `decoded_per_frame` |
+|---|---|---|---|---|---|---|---|
+| before | `97751b08` (no feeds) | **derived, not timed** | about 50–60 min | — | — | 30,600 `frame_at` | — |
+| after | `42bceacb` | **one observed run, load 6.0 → 9.7, no warm-up** | **135.4 s** | 749.6 + 51.7 s | 743 MiB | 20 feeds, 0 reopens, 0 `frame_at` | `[]` |
 
-The chosen feed `-threads`: TODO(measure) — 1 on memory (§4), confirmed or raised by the rate
-reading.
+- **Before** is derived from #623's profile: decode was 95% of the wall at 93–113 ms per frame
+  per visible video element, about 18–21 minutes per element for six minutes. The benchmark
+  project has 30,600 video element-frames (20 elements, three on screen for 330 of 360 s), so
+  30,600 `frame_at` spawns at that cost.
+- **After** was taken under load, so it is an upper bound. Its stage breakdown (§9), summed
+  over 10,800 frames: decode 45.0 s, paint 54.6 s, readback 13.1 s, encode wait 20.4 s, seal
+  0.2 s. Peak memory is the largest single process (`/usr/bin/time -l`). The `ffprobe`,
+  encoder and audio spawns were not counted on this run; `render_spawns.rs` holds their
+  structure in CI.
+- **Pixels.** This run's frame hashes were not compared with a sequential render's. The
+  pixels are held equal by §7's standing byte-equality test instead.
 
-**`preview`** — one observed wall time over a video span, before and after, recorded here and
-not in `budget.rs`, so it never reads as a ceiling: TODO(measure).
+The chosen feed `-threads` is **1** (§4), confirmed by the rate reading.
+
+**`preview`** over 20,000–23,000 ms of the benchmark project (90 frames, all three videos on
+screen), cold, one run each and observed under load (2.1–4.5). This is recorded here and not
+in `budget.rs`, so it never reads as a ceiling:
+
+- **before** (`97751b08`): **refused after 11.2 s**. 720p ran to 5.1 s and 540p to 5.0 s,
+  past the 5 s scrub budget.
+- **after** (`42bceacb`): **5.7 s**, finished at 720p with no degrade and 3 feeds. Stages:
+  decode 3.3 s, paint 1.3 s.
 
 ### 9. Producing a frame, apart from pushing it
 

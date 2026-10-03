@@ -352,9 +352,9 @@ const EXACT_SPEED_TERM: i128 = 1_000_000;
 /// one thread a feed still decodes several hundred frames a second, against the 30 the
 /// timeline asks for. [`frame_at`] keeps the default, because there one process runs alone.
 ///
-/// TODO(measure): pinned at 1 from the memory measurements in ADR-0141. The rate half of
-/// "the lowest that leaves clear headroom over the rate the painter needs" is a wall-clock
-/// measurement, taken with the before/after timing; raise this to 2 only if it says so.
+/// Pinned at 1 by both halves of ADR-0141 §4. Memory: one thread uses 45–55% of the
+/// default's. Rate: at one thread a benchmark-project feed delivered 377 fps, and the
+/// 3-minute target needs 60 per feed.
 pub const FEED_THREADS: u32 = 1;
 
 fn gcd(a: i128, b: i128) -> i128 {

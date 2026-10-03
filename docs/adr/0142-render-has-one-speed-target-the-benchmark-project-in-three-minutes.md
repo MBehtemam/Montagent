@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 amends: 0072 (render gets a target: one absolute number for one project on one machine, judged by an `#[ignore]`d test run on purpose; `Budget::Render.limit()` stays `None`, which now means not enforced in CI rather than no target)
 ---
 
@@ -157,28 +157,50 @@ cargo test --release -p montagent --test render_target -- --ignored --nocapture
 
 ## The measurements
 
-TODO(measure): fill both tables from the JSON line `render_target.rs` prints, then set
-`status: accepted`. Append the 2160p30 and one-video readings to `BENCHMARK_REFERENCES`.
+**This first acceptance did not use §5's protocol.** By the dev's decision, it rests on one
+observed run under load and a derived "before", in place of a warm-up and five timed runs at
+load < 1.5. The reason is the machine: with a desktop running, this Mac's 1-minute load
+average went under 1.5 once in about five hours of watching. The protocol test stays **the**
+measurement for every later gated step (#627) and for the encoder ticket (#628), which judge
+against the same number. An observed number under load is an upper bound on the quiet one,
+so it can confirm a target it is inside of; it could not have recorded a miss.
 
-**Before** — the streaming PR's base commit, with this generator. One run is enough to show
-the gap (`MONTAGENT_RENDER_TARGET_RUNS=1`, about an hour today); the test records it and
-refuses to judge it.
+Conditions: ffmpeg 9.0.2, macOS 27.0 (26A428), the dev's M1 Pro (8P+2E, 16 GB),
+`available_parallelism` 10, AC power, release build with a private `CARGO_TARGET_DIR`.
 
-| scenario | commit | runs | median | min–max | user+sys | peak memory | spawns |
+**Before** — the render path without feeds (`97751b08`). **Derived, not timed.** #623's
+profile put decode at 95% of the wall, at 93–113 ms per frame per visible video element, or
+about 18–21 minutes per element for six minutes. The benchmark project has 30,600 video
+element-frames, each one `frame_at` spawn.
+
+| scenario | commit | how | wall | spawns |
+|---|---|---|---|---|
+| benchmark project, 1080p30 | `97751b08` | derived from #623 | about 50–60 min | 30,600 `frame_at` |
+
+**After** — the streaming PR (ADR-0141).
+
+| scenario | commit | how | wall | user+sys | peak memory | decode spawns | verdict |
 |---|---|---|---|---|---|---|---|
-| benchmark project, 1080p30 | TODO(measure) | | | | | | |
+| benchmark project, 1080p30 | `42bceacb` | one observed run, load 6.0 → 9.7, no warm-up | **135.4 s** | 749.6 + 51.7 s | 743 MiB | 20 feeds, 0 reopens, 0 `frame_at` | **within 3 min** (observed, upper bound) |
+| 2160p30 (observed) | — | **not measured** | | | | | — |
+| one video, 1080p30 (observed) | — | **not measured** | | | | | — |
+| the dev's real project, by shape (observed) | — | **not measured** | | | | | — |
 
-**After** — the streaming PR's head, full protocol.
+- The after run's per-stage breakdown (ADR-0141 §9), summed over 10,800 frames: decode
+  45.0 s, paint 54.6 s, readback 13.1 s, encode wait 20.4 s, seal 0.2 s. `decoded_per_frame`
+  is `[]`.
+- Peak memory is the largest single process (`/usr/bin/time -l`). The `ffprobe`, encoder and
+  audio spawns were not counted; `render_spawns.rs` holds their structure in CI.
+- Its frame hashes were not compared with a sequential render's. Pixel identity rests on
+  ADR-0141 §7's standing byte-equality test.
+- `BENCHMARK_REFERENCES` records this reading, labelled as observed under load. The 2160p30
+  and one-video variants were not measured, so ADR-0072's "numbers at more than one frame
+  size" is **still open** for the benchmark project. The first protocol run of a gated step
+  should take them.
 
-| scenario | commit | runs | median | min–max | user+sys | peak memory | spawns | verdict |
-|---|---|---|---|---|---|---|---|---|
-| benchmark project, 1080p30 | TODO(measure) | 5 | | | | | | |
-| 2160p30 (observed) | TODO(measure) | 5 | | | | | | — |
-| one video, 1080p30 (observed) | TODO(measure) | 5 | | | | | | — |
-| the dev's real project, by shape (observed) | TODO(measure) | 1 | | | | | | — |
-
-Conditions: TODO(measure) — macOS version, ffmpeg version, `available_parallelism`, load
-before and after, power.
+**Verdict:** the benchmark project renders within `RENDER_TARGET` on this evidence. The
+gated parallel-paint steps (#627) are not triggered by a miss. Whether one is still worth
+building is the dev's call, made with the protocol.
 
 ## Consequences
 
