@@ -1,0 +1,27 @@
+# Throwaway spike for #644. NOT a workspace member: the empty `[workspace]` below keeps
+# it out of the Montagent workspace, so `cargo test --workspace` never builds it.
+#
+# It restates the workspace's `skia-safe` pin (version AND the exact feature list from
+# the root `Cargo.toml`) because the question is about *that* Skia build's bytes. If the
+# root pin moves, this file is stale evidence, not a second pin to keep in step.
+#
+# Build with a private target dir, e.g.:
+#   CARGO_TARGET_DIR=<scratch>/target cargo run --release --manifest-path docs/research/skia-filtered-raster-reuse/spike/Cargo.toml
+[package]
+name = "skia-reuse-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+skia-safe = { version = "=0.153.2", default-features = false, features = [
+    "binary-cache",
+    "embed-icudtl",
+    "pdf",
+    "jpeg",
+] }
+
+[profile.release]
+opt-level = 3

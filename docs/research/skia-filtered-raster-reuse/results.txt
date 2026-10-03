@@ -1,0 +1,521 @@
+## Bit identity vs the live save_layer draw (1920x1080 RGBA8888 premul)
+
+blur r16 | integer base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (44 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | integer base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (41 bytes differ, max |d| 1)
+  C snapshot, alpha layer, linear  : FAIL (41 bytes differ, max |d| 1)
+  C snapshot, paint alpha, nearest : FAIL (41 bytes differ, max |d| 1)
+blur r16 | integer base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (346794 bytes differ, max |d| 11)
+  C snapshot, alpha layer, linear  : FAIL (277909 bytes differ, max |d| 11)
+  C snapshot, paint alpha, nearest : FAIL (346794 bytes differ, max |d| 11)
+blur r16 | integer base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (15 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | integer base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (21 bytes differ, max |d| 1)
+  C snapshot, alpha layer, linear  : FAIL (21 bytes differ, max |d| 1)
+  C snapshot, paint alpha, nearest : FAIL (21 bytes differ, max |d| 1)
+blur r16 | integer base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (518481 bytes differ, max |d| 13)
+  C snapshot, alpha layer, linear  : FAIL (475058 bytes differ, max |d| 8)
+  C snapshot, paint alpha, nearest : FAIL (518481 bytes differ, max |d| 13)
+blur r16 | fractional base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | fractional base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | fractional base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (287186 bytes differ, max |d| 11)
+  C snapshot, alpha layer, linear  : FAIL (279188 bytes differ, max |d| 9)
+  C snapshot, paint alpha, nearest : FAIL (287186 bytes differ, max |d| 11)
+blur r16 | fractional base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | fractional base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | fractional base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (44 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (512734 bytes differ, max |d| 11)
+  C snapshot, alpha layer, linear  : FAIL (474587 bytes differ, max |d| 8)
+  C snapshot, paint alpha, nearest : FAIL (512734 bytes differ, max |d| 11)
+blur r16 | rotated 7deg base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (97 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | rotated 7deg base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (87 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (197 bytes differ, max |d| 1)
+  C snapshot, alpha layer, linear  : FAIL (197 bytes differ, max |d| 1)
+  C snapshot, paint alpha, nearest : FAIL (197 bytes differ, max |d| 1)
+blur r16 | rotated 7deg base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (107 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (408521 bytes differ, max |d| 7)
+  C snapshot, alpha layer, linear  : FAIL (139917 bytes differ, max |d| 2)
+  C snapshot, paint alpha, nearest : FAIL (408521 bytes differ, max |d| 7)
+blur r16 | rotated 7deg base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (63 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+blur r16 | rotated 7deg base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (47 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (123 bytes differ, max |d| 1)
+  C snapshot, alpha layer, linear  : FAIL (123 bytes differ, max |d| 1)
+  C snapshot, paint alpha, nearest : FAIL (123 bytes differ, max |d| 1)
+blur r16 | rotated 7deg base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (93 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (533105 bytes differ, max |d| 12)
+  C snapshot, alpha layer, linear  : FAIL (491065 bytes differ, max |d| 8)
+  C snapshot, paint alpha, nearest : FAIL (533105 bytes differ, max |d| 12)
+MEM blur r16: snapshot 1010x290 = 1171600 bytes; full-frame snapshot would be 8294400 bytes; SkPicture approximate_bytes_used = 692 bytes (5 ops)
+
+shadow 12,14 r24 | integer base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (11 bytes differ, max |d| 2)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | integer base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (26 bytes differ, max |d| 4)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (34 bytes differ, max |d| 5)
+  C snapshot, alpha layer, linear  : FAIL (34 bytes differ, max |d| 5)
+  C snapshot, paint alpha, nearest : FAIL (34 bytes differ, max |d| 5)
+shadow 12,14 r24 | integer base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (76853 bytes differ, max |d| 222)
+  C snapshot, alpha layer, linear  : FAIL (77033 bytes differ, max |d| 138)
+  C snapshot, paint alpha, nearest : FAIL (76853 bytes differ, max |d| 222)
+shadow 12,14 r24 | integer base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (7 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | integer base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (22 bytes differ, max |d| 2)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (31 bytes differ, max |d| 3)
+  C snapshot, alpha layer, linear  : FAIL (31 bytes differ, max |d| 3)
+  C snapshot, paint alpha, nearest : FAIL (31 bytes differ, max |d| 3)
+shadow 12,14 r24 | integer base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (82007 bytes differ, max |d| 222)
+  C snapshot, alpha layer, linear  : FAIL (91121 bytes differ, max |d| 179)
+  C snapshot, paint alpha, nearest : FAIL (82007 bytes differ, max |d| 222)
+shadow 12,14 r24 | fractional base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | fractional base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | fractional base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (68668 bytes differ, max |d| 221)
+  C snapshot, alpha layer, linear  : FAIL (85965 bytes differ, max |d| 137)
+  C snapshot, paint alpha, nearest : FAIL (68668 bytes differ, max |d| 221)
+shadow 12,14 r24 | fractional base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | fractional base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | fractional base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (6 bytes differ, max |d| 5)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (90722 bytes differ, max |d| 222)
+  C snapshot, alpha layer, linear  : FAIL (102262 bytes differ, max |d| 163)
+  C snapshot, paint alpha, nearest : FAIL (90722 bytes differ, max |d| 222)
+shadow 12,14 r24 | rotated 7deg base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (153 bytes differ, max |d| 3)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | rotated 7deg base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (269 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (311 bytes differ, max |d| 3)
+  C snapshot, alpha layer, linear  : FAIL (311 bytes differ, max |d| 3)
+  C snapshot, paint alpha, nearest : FAIL (311 bytes differ, max |d| 3)
+shadow 12,14 r24 | rotated 7deg base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (171 bytes differ, max |d| 5)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (117495 bytes differ, max |d| 118)
+  C snapshot, alpha layer, linear  : FAIL (98872 bytes differ, max |d| 96)
+  C snapshot, paint alpha, nearest : FAIL (117495 bytes differ, max |d| 118)
+shadow 12,14 r24 | rotated 7deg base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (81 bytes differ, max |d| 3)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+shadow 12,14 r24 | rotated 7deg base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (145 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (178 bytes differ, max |d| 2)
+  C snapshot, alpha layer, linear  : FAIL (178 bytes differ, max |d| 2)
+  C snapshot, paint alpha, nearest : FAIL (178 bytes differ, max |d| 2)
+shadow 12,14 r24 | rotated 7deg base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (166 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (132330 bytes differ, max |d| 188)
+  C snapshot, alpha layer, linear  : FAIL (134302 bytes differ, max |d| 154)
+  C snapshot, paint alpha, nearest : FAIL (132330 bytes differ, max |d| 188)
+MEM shadow 12,14 r24: snapshot 1034x314 = 1298704 bytes; full-frame snapshot would be 8294400 bytes; SkPicture approximate_bytes_used = 692 bytes (5 ops)
+
+glow 0,0 r30 | integer base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (40 bytes differ, max |d| 4)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | integer base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (38 bytes differ, max |d| 5)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | integer base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (174840 bytes differ, max |d| 179)
+  C snapshot, alpha layer, linear  : FAIL (145261 bytes differ, max |d| 112)
+  C snapshot, paint alpha, nearest : FAIL (174840 bytes differ, max |d| 179)
+glow 0,0 r30 | integer base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (22 bytes differ, max |d| 3)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | integer base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (20 bytes differ, max |d| 3)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | integer base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (185730 bytes differ, max |d| 180)
+  C snapshot, alpha layer, linear  : FAIL (162123 bytes differ, max |d| 144)
+  C snapshot, paint alpha, nearest : FAIL (185730 bytes differ, max |d| 180)
+glow 0,0 r30 | fractional base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | fractional base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | fractional base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (162577 bytes differ, max |d| 179)
+  C snapshot, alpha layer, linear  : FAIL (150135 bytes differ, max |d| 110)
+  C snapshot, paint alpha, nearest : FAIL (162577 bytes differ, max |d| 179)
+glow 0,0 r30 | fractional base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | fractional base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : PASS
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | fractional base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (12 bytes differ, max |d| 4)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (204089 bytes differ, max |d| 178)
+  C snapshot, alpha layer, linear  : FAIL (177886 bytes differ, max |d| 133)
+  C snapshot, paint alpha, nearest : FAIL (204089 bytes differ, max |d| 178)
+glow 0,0 r30 | rotated 7deg base | same transform
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (211 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | rotated 7deg base | translate +37,-23 (integer)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (158 bytes differ, max |d| 3)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (318 bytes differ, max |d| 3)
+  C snapshot, alpha layer, linear  : FAIL (318 bytes differ, max |d| 3)
+  C snapshot, paint alpha, nearest : FAIL (318 bytes differ, max |d| 3)
+glow 0,0 r30 | rotated 7deg base | translate +0.5,+0.25 (subpixel)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (177 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (218204 bytes differ, max |d| 101)
+  C snapshot, alpha layer, linear  : FAIL (147798 bytes differ, max |d| 78)
+  C snapshot, paint alpha, nearest : FAIL (218204 bytes differ, max |d| 101)
+glow 0,0 r30 | rotated 7deg base | opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (131 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : PASS
+  C snapshot, alpha layer, linear  : PASS
+  C snapshot, paint alpha, nearest : PASS
+glow 0,0 r30 | rotated 7deg base | translate +37,-23 and opacity 0.6
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (97 bytes differ, max |d| 2)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (192 bytes differ, max |d| 2)
+  C snapshot, alpha layer, linear  : FAIL (192 bytes differ, max |d| 2)
+  C snapshot, paint alpha, nearest : FAIL (192 bytes differ, max |d| 2)
+glow 0,0 r30 | rotated 7deg base | scale x1.1 (control)
+  live repeated             : PASS
+  A reused ImageFilter      : PASS
+  (side) save_layer bounds hint : FAIL (150 bytes differ, max |d| 1)
+  B SkPicture playback      : PASS
+  C snapshot, alpha layer, nearest : FAIL (254065 bytes differ, max |d| 152)
+  C snapshot, alpha layer, linear  : FAIL (227805 bytes differ, max |d| 125)
+  C snapshot, paint alpha, nearest : FAIL (254065 bytes differ, max |d| 152)
+MEM glow 0,0 r30: snapshot 1052x332 = 1397056 bytes; full-frame snapshot would be 8294400 bytes; SkPicture approximate_bytes_used = 692 bytes (5 ops)
+
+## Skia's own caches
+
+purge_all_caches before the frame vs warm: PASS
+  live, fresh filter per frame       : median 50.053 ms (min 49.045, max 52.485)
+  live, save_layer bounds hint       : median 7.525 ms (min 7.250, max 14.412)
+  live, one reused filter            : median 50.358 ms (min 49.096, max 53.297)
+  SkPicture playback                 : median 49.957 ms (min 48.974, max 52.154)
+  snapshot redraw                    : median 0.643 ms (min 0.628, max 0.883)
+  background only (floor)            : median 0.525 ms (min 0.494, max 0.821)
+  Image::with_filter, same filter+src: median 0.205 ms (min 0.188, max 46.614)
+  Image::with_filter, fresh filter   : median 47.992 ms (min 45.842, max 51.801)
+
+## Determinism: K threads, own surface each, vs one sequential surface
+
+sequential: 96 frames in 65.46 s
+fresh surface per frame, same thread: IDENTICAL
+K=2 interleaved: IDENTICAL (0/96 frames differ) in 33.75 s
+K=2 chunked: IDENTICAL (0/96 frames differ) in 35.22 s
+K=4 interleaved: IDENTICAL (0/96 frames differ) in 16.78 s
+K=4 chunked: IDENTICAL (0/96 frames differ) in 18.16 s
+K=8 interleaved: IDENTICAL (0/96 frames differ) in 10.58 s
+K=8 chunked: IDENTICAL (0/96 frames differ) in 10.67 s
+
+## Probe: integer translation of a snapshot, where the bytes differ
+
+no-op offset filter | integer base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | integer base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | integer base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | integer base | d=(4.0, 4.0): 3 px differ, bbox Some((1435, 456, 1435, 629)) (snapshot at (479, 419))
+no-op offset filter | integer base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | integer base | d=(37.0, -23.0): 6 px differ, bbox Some((525, 429, 1468, 606)) (snapshot at (479, 419))
+no-op offset filter | integer base | d=(-200.0, 100.0): 3 px differ, bbox Some((1231, 552, 1231, 725)) (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(37.0, -23.0): 0 px differ, bbox None (snapshot at (479, 419))
+no-op offset filter | fractional base | d=(-200.0, 100.0): 0 px differ, bbox None (snapshot at (479, 419))
+blur r16 | integer base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | integer base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | integer base | d=(2.0, 0.0): 38 px differ, bbox Some((477, 448, 508, 638)) (snapshot at (455, 395))
+blur r16 | integer base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | integer base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | integer base | d=(37.0, -23.0): 35 px differ, bbox Some((512, 425, 543, 612)) (snapshot at (455, 395))
+blur r16 | integer base | d=(-200.0, 100.0): 41 px differ, bbox Some((1216, 537, 1243, 735)) (snapshot at (455, 395))
+blur r16 | fractional base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(37.0, -23.0): 0 px differ, bbox None (snapshot at (455, 395))
+blur r16 | fractional base | d=(-200.0, 100.0): 0 px differ, bbox None (snapshot at (455, 395))
+shadow 12,14 r24 | integer base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(37.0, -23.0): 16 px differ, bbox Some((525, 429, 1497, 634)) (snapshot at (455, 397))
+shadow 12,14 r24 | integer base | d=(-200.0, 100.0): 4 px differ, bbox Some((288, 554, 323, 757)) (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(37.0, -23.0): 0 px differ, bbox None (snapshot at (455, 397))
+shadow 12,14 r24 | fractional base | d=(-200.0, 100.0): 0 px differ, bbox None (snapshot at (455, 397))
+glow 0,0 r30 | integer base | d=(1.0, 0.0): 20 px differ, bbox Some((1404, 425, 1453, 645)) (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(2.0, 0.0): 40 px differ, bbox Some((475, 425, 1454, 666)) (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(4.0, 4.0): 39 px differ, bbox Some((477, 429, 1456, 670)) (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(37.0, -23.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | integer base | d=(-200.0, 100.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(1.0, 0.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(0.0, 1.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(2.0, 0.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(4.0, 4.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(16.0, 0.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(37.0, -23.0): 0 px differ, bbox None (snapshot at (434, 374))
+glow 0,0 r30 | fractional base | d=(-200.0, 100.0): 0 px differ, bbox None (snapshot at (434, 374))
