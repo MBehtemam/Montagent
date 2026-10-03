@@ -1841,6 +1841,18 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
         "bytes       {}",
         video["bytes"].as_u64().unwrap_or_default()
     )));
+    // ADR-0143 §6: what wrote the bytes, on every render and preview.
+    if let Some(encoder) = video["encoder"].as_str() {
+        out.push_str(&row(format!(
+            "encoder     {encoder}, preset {}, CRF {}, {} threads, ffmpeg {}",
+            video["preset"].as_str().unwrap_or("?"),
+            video["crf"].as_u64().unwrap_or_default(),
+            video["threads"].as_u64().unwrap_or_default(),
+            video["ffmpeg_version"]
+                .as_str()
+                .unwrap_or("of unknown version"),
+        )));
+    }
 
     let names = |key: &str| -> Vec<String> {
         video[key]

@@ -145,6 +145,37 @@ fn capability_named_in(said: &str) -> &'static str {
     }
 }
 
+/// The version `ffmpeg` gives for itself: the word after `ffmpeg version` on the first line
+/// of `ffmpeg -version` — `9.0.2`, or a git build's `N-12345-g<hash>`, or a distribution's
+/// suffixed string, as printed.
+///
+/// **A label for the answer, never a test of anything** (ADR-0143 §6): what this `ffmpeg`
+/// can do is [`qualify`]'s question, for the reason the module header gives. `None` where
+/// it cannot be run or prints something else first.
+pub fn version(ffmpeg: &Path) -> Option<String> {
+    let output = Command::new(ffmpeg)
+        .arg("-version")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    // ADR-0115 §2: a failed spawn is never an answer, so the status is read first.
+    if !output.status.success() {
+        return None;
+    }
+    version_in(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn version_in(said: &str) -> Option<String> {
+    said.lines()
+        .next()?
+        .trim()
+        .strip_prefix("ffmpeg version ")?
+        .split_whitespace()
+        .next()
+        .map(str::to_string)
+}
+
 /// The last few non-empty lines of `said`, bounded in characters.
 fn tail(said: &str) -> String {
     let lines: Vec<&str> = said
@@ -236,6 +267,20 @@ mod tests {
         // An `ffmpeg` built without `--enable-gpl`.
         assert!(capability_named_in("Unknown encoder 'libx264'").contains("libx264"));
         assert!(capability_named_in("something else entirely").starts_with("a null encode"));
+    }
+
+    #[test]
+    fn the_version_is_the_word_ffmpeg_prints_after_its_name() {
+        assert_eq!(
+            version_in("ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers\n"),
+            Some("9.0.2".to_string())
+        );
+        assert_eq!(
+            version_in("ffmpeg version N-118000-g1234abcd Copyright (c)"),
+            Some("N-118000-g1234abcd".to_string())
+        );
+        assert_eq!(version_in("ffprobe version 9.0.2"), None);
+        assert_eq!(version_in(""), None);
     }
 
     #[test]

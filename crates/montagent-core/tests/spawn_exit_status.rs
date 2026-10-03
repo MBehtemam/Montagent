@@ -28,8 +28,9 @@ const AUDITED: &[(&str, usize, &str)] = &[
     ),
     (
         "montagent-render/src/floor.rs",
-        1,
-        "the tool qualification: a non-zero exit *is* the verdict (ADR-0115)",
+        2,
+        "the tool qualification: a non-zero exit *is* the verdict (ADR-0115); `version` \
+         reads stdout only after a zero exit and answers `None` otherwise (ADR-0143 §6)",
     ),
     (
         "montagent-core/src/media/probe.rs",

@@ -5,6 +5,12 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 
 # The nine `render` readings are ratified
 
+> **Amended by [ADR-0143](0143-render-keeps-libx264-medium-crf-20-pins-five-encoder-threads-and-says-so.md)**,
+> which keeps reading 7's libx264, CRF 20 and preset `medium` as a measured choice rather than
+> a default, pins libx264 to `-threads 5` instead of ffmpeg's automatic count, and makes the
+> `render` and `preview` answers disclose the encoder, preset, CRF, threads and ffmpeg
+> version. VideoToolbox is rejected; none of it is exposed as an option.
+
 **Ticket:** [#287](https://github.com/MBehtemam/Montagent/issues/287), from
 [#215](https://github.com/MBehtemam/Montagent/issues/215).
 

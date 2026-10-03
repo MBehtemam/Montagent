@@ -654,7 +654,8 @@ impl Montagent {
                        finished. Always at the declared frame size; never downsampled. \
                        `from`/`to` render one half-open range to `out/<name>.<from>-<to>.mp4` \
                        and can never land on the deliverable. The result carries the path, \
-                       duration, frame count, wall time and realtime factor, and beneath it \
+                       duration, frame count, wall time and realtime factor, the encoder \
+                       settings and ffmpeg version that wrote the file, and beneath it \
                        the `review` findings the render did not refuse on plus the NOT \
                        CHECKED footer: exit 0 never means the video is right. Run `verify` on \
                        the result before calling a deliverable done.",
