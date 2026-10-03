@@ -484,6 +484,15 @@ fn every_preview_discloses_its_tier_whether_or_not_it_degraded() {
             !tier["disclosure"].as_str().unwrap_or_default().is_empty(),
             "the sentence is never empty"
         );
+
+        // ADR-0143 §6: `preview` answers through `render`'s block, so it discloses the
+        // same encoder settings, and they are the production ones.
+        let block = &json["preview"];
+        assert_eq!(block["encoder"], "libx264");
+        assert_eq!(block["preset"], "medium");
+        assert_eq!(block["crf"], 20);
+        assert_eq!(block["threads"], montagent_render::encode::THREADS.get());
+        assert!(block["ffmpeg_version"].is_string(), "{block}");
     }
 }
 

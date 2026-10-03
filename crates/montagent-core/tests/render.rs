@@ -289,6 +289,82 @@ fn a_full_render_writes_the_declared_output_via_a_temp_path_and_leaves_nothing_e
     );
 }
 
+/// ADR-0143 §6: the answer says which encoder settings wrote the file, and the file agrees.
+///
+/// The agreement is read from the bitstream rather than trusted from the answer: libx264
+/// writes its options into an SEI message (`x264 - core … threads=N … crf=20.0`), so a
+/// thread count disclosed but not passed, or passed but not disclosed, fails here.
+#[test]
+fn the_answer_discloses_the_encoder_settings_the_file_was_written_with() {
+    if !has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let body = project(
+        r##""duration":400,"output":"out/settings.mp4","##,
+        &rect("card", 0, 400),
+    );
+    let path = write_project(&dir, "p.montagent.json", &body);
+
+    let (answer, _) = run(&path, &full());
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let json = answer.to_json();
+    let video = &json["render"];
+    let threads = montagent_render::encode::THREADS.get();
+    assert_eq!(video["encoder"], "libx264");
+    assert_eq!(video["preset"], "medium");
+    assert_eq!(video["crf"], 20);
+    assert_eq!(video["threads"], threads, "the pinned count, never auto");
+
+    let ffmpeg = montagent_core::media::tools::resolve()
+        .expect("ffmpeg, since ffprobe was found")
+        .ffmpeg;
+    let said = std::process::Command::new(&ffmpeg)
+        .arg("-version")
+        .output()
+        .expect("ffmpeg -version");
+    let first = String::from_utf8_lossy(&said.stdout)
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .to_string();
+    let version = video["ffmpeg_version"]
+        .as_str()
+        .expect("the version of the ffmpeg that encoded the file");
+    assert!(
+        first.starts_with(&format!("ffmpeg version {version} ")),
+        "{version:?} is not what {} says: {first}",
+        ffmpeg.display()
+    );
+
+    let bytes = std::fs::read(dir.join("out/settings.mp4")).expect("the deliverable");
+    let sei = String::from_utf8_lossy(&bytes);
+    let options = sei
+        .find("x264 - core")
+        .map(|at| &sei[at..])
+        .expect("libx264's options SEI");
+    for option in [
+        format!(" threads={threads} "),
+        " crf=20.0 ".to_string(),
+        // `medium` is x264's defaults, so its signature is their values: 3 B-frames,
+        // `subme=7`, `rc_lookahead=40`.
+        " bframes=3 ".to_string(),
+        " subme=7 ".to_string(),
+        " rc_lookahead=40 ".to_string(),
+    ] {
+        assert!(options.contains(&option), "{option:?} not in the SEI");
+    }
+
+    let text =
+        montagent_core::wire::render_video(&answer, montagent_core::Wire::Text { verbose: false });
+    assert!(
+        text.contains(&format!(
+            "encoder     libx264, preset medium, CRF 20, {threads} threads, ffmpeg {version}"
+        )),
+        "{text}"
+    );
+}
+
 #[test]
 fn an_interrupted_render_leaves_no_partial_file_at_the_declared_path() {
     if !has_ffprobe() {

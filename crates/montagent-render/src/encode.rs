@@ -39,12 +39,72 @@
 //!   frame.
 //! - **AAC at 160 kb/s, 48 kHz stereo** for the mix bus, which is the rate the mix graph is
 //!   built at so that every sample count in it is exact without a probe.
+//!
+//! ## One thread count, pinned (ADR-0143, #628)
+//!
+//! ADR-0143 keeps the three choices above, now measured, and adds a fourth: libx264 is
+//! always given **`-threads` [`THREADS`]**, never `ffmpeg`'s automatic count (1.5x the
+//! CPUs). x264 is deterministic for one input, settings and thread count but not across
+//! thread counts, so the automatic count made the same project write different bytes on
+//! machines with different core counts, and left the encoder's share of the cores unbounded.
+//! [`Settings`] is the whole set, [`Settings::PRODUCTION`] is the only one `render` and
+//! `preview` use, and the answer discloses it. There is no project field and no CLI or MCP
+//! option for any of it; a test that needs another thread count builds its own `Settings`.
 
 use std::io::Write;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 
 use crate::canvas::Rgba;
+
+/// The libx264 thread count every deliverable is encoded with (ADR-0143).
+///
+/// The smallest count for which the encode stayed off the critical path of the benchmark
+/// project on the dev's M1 Pro. Changing it changes the bytes of every MP4 Montagent
+/// writes, so it moves only with a superseding ADR. Non-zero by type, because `-threads 0`
+/// is how `ffmpeg` spells *"pick for me"*, which is what this constant exists to rule out.
+pub const THREADS: NonZeroU32 = match NonZeroU32::new(5) {
+    Some(n) => n,
+    None => panic!("a thread count of zero is ffmpeg's automatic count"),
+};
+
+/// The video encoder's settings: what the encode is asked for, and what the answer says
+/// was used (ADR-0077, ADR-0143).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Settings {
+    pub encoder: &'static str,
+    pub preset: &'static str,
+    pub crf: u8,
+    pub threads: NonZeroU32,
+}
+
+impl Settings {
+    /// The one set `render` and `preview` encode with. Not reachable from a project, the
+    /// CLI or MCP (ADR-0143 §5).
+    pub const PRODUCTION: Settings = Settings {
+        encoder: crate::floor::VIDEO_ENCODER,
+        preset: "medium",
+        crf: 20,
+        threads: THREADS,
+    };
+
+    /// The output-side video arguments these settings become, in the order `ffmpeg` is
+    /// given them. `-threads` follows `-c:v`, so it is the encoder's thread count and not
+    /// the raw input's.
+    pub fn args(&self) -> Vec<String> {
+        vec![
+            "-c:v".to_string(),
+            self.encoder.to_string(),
+            "-preset".to_string(),
+            self.preset.to_string(),
+            "-crf".to_string(),
+            self.crf.to_string(),
+            "-threads".to_string(),
+            self.threads.to_string(),
+        ]
+    }
+}
 
 /// What one encode is asked to produce.
 #[derive(Debug, Clone)]
@@ -61,6 +121,8 @@ pub struct Spec {
     /// (ADR-0104). `None` writes no stamp: a **preview** is not a deliverable and must not
     /// leave an attestation a later `render` would read as its own.
     pub stamp: Option<String>,
+    /// The video encoder's settings: [`Settings::PRODUCTION`] everywhere but a test.
+    pub settings: Settings,
 }
 
 /// One audio mix: the files to open, in input order, and the filter graph that turns
@@ -95,6 +157,8 @@ pub struct Finished {
     pub bytes: u64,
     /// `Some` only where the declared frame was padded to even.
     pub encoded: Option<Encoded>,
+    /// The settings the file was encoded with.
+    pub settings: Settings,
 }
 
 /// A complete encode that has not been published.
@@ -111,6 +175,7 @@ pub struct Sealed {
     frames: u64,
     bytes: u64,
     encoded: Option<Encoded>,
+    settings: Settings,
 }
 
 impl Sealed {
@@ -136,6 +201,7 @@ impl Sealed {
             frames: self.frames,
             bytes: self.bytes,
             encoded: self.encoded,
+            settings: self.settings,
         })
     }
 
@@ -157,6 +223,7 @@ pub struct Encoder {
     frame_bytes: usize,
     frames: u64,
     encoded: Option<Encoded>,
+    settings: Settings,
 }
 
 impl Encoder {
@@ -227,18 +294,8 @@ impl Encoder {
                 &format!("pad={width}:{height}:0:0:color=0x{r:02X}{g:02X}{b:02X}"),
             ]);
         }
-        command.args([
-            "-c:v",
-            crate::floor::VIDEO_ENCODER,
-            "-preset",
-            "medium",
-            "-crf",
-            "20",
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            &spec.fps.to_string(),
-        ]);
+        command.args(spec.settings.args());
+        command.args(["-pix_fmt", "yuv420p", "-r", &spec.fps.to_string()]);
         if spec.audio.is_some() {
             command.args(["-map", "[mix]", "-c:a", "aac", "-b:a", "160k"]);
         } else {
@@ -288,6 +345,7 @@ impl Encoder {
             frame_bytes: spec.width as usize * spec.height as usize * 3,
             frames: 0,
             encoded,
+            settings: spec.settings,
         })
     }
 
@@ -369,6 +427,7 @@ impl Encoder {
             frames: self.frames,
             bytes,
             encoded: self.encoded,
+            settings: self.settings,
         })
     }
 
@@ -515,6 +574,49 @@ mod tests {
         names
     }
 
+    /// ADR-0143 §3: the production encode always names its thread count, and never the
+    /// automatic one. `-threads 0` is `ffmpeg`'s *"pick for me"*, and leaving the option
+    /// out means the same; either would make the bytes depend on the machine's core count.
+    #[test]
+    fn the_production_encode_pins_libx264s_thread_count_and_never_asks_for_auto() {
+        let args = Settings::PRODUCTION.args();
+        let at = |flag: &str| {
+            let i = args.iter().position(|a| a == flag);
+            i.map(|i| args[i + 1].as_str())
+        };
+        assert_eq!(at("-c:v"), Some(crate::floor::VIDEO_ENCODER));
+        assert_eq!(at("-preset"), Some("medium"), "ADR-0077, kept by ADR-0143");
+        assert_eq!(at("-crf"), Some("20"), "ADR-0077, kept by ADR-0143");
+        assert_eq!(
+            at("-threads"),
+            Some(THREADS.to_string().as_str()),
+            "the encoder is given a thread count: {args:?}"
+        );
+        assert_eq!(THREADS.get(), 5, "changing N needs a superseding ADR");
+        assert_eq!(args.iter().filter(|a| *a == "-threads").count(), 1);
+        assert!(
+            !["0", "auto"].contains(&at("-threads").unwrap_or("0")),
+            "{args:?}"
+        );
+        assert!(
+            args.iter().position(|a| a == "-threads") > args.iter().position(|a| a == "-c:v"),
+            "an output option after the encoder, so it is libx264's thread count"
+        );
+    }
+
+    /// A test can pin another thread count through the same settings, and the encode
+    /// carries exactly what it was given (#627 §8's byte test needs this).
+    #[test]
+    fn a_tests_own_settings_reach_the_arguments() {
+        let settings = Settings {
+            threads: NonZeroU32::new(2).expect("two"),
+            ..Settings::PRODUCTION
+        };
+        let args = settings.args();
+        let i = args.iter().position(|a| a == "-threads").expect("pinned");
+        assert_eq!(args[i + 1], "2");
+    }
+
     #[test]
     fn the_temp_file_is_a_dotted_sibling_and_the_target_is_never_opened() {
         let dir = scratch("sibling");
@@ -577,6 +679,7 @@ mod tests {
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
+                settings: Settings::PRODUCTION,
             },
         )
         .err()
@@ -608,6 +711,7 @@ mod tests {
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
+                settings: Settings::PRODUCTION,
             },
         )
         .expect("spawned");
@@ -654,6 +758,7 @@ mod tests {
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
+                settings: Settings::PRODUCTION,
             },
         )
         .expect("spawned");

@@ -302,6 +302,19 @@ pub struct Video {
     /// The frame the file actually carries, where padding to even made it differ.
     pub encoded: Option<Encoded>,
     pub bytes: u64,
+    /// The video encoder the file was written with (ADR-0143 §6), and the four settings
+    /// beside it: `libx264`, preset `medium`, CRF 20 and a pinned thread count. Not
+    /// choosable — no project field, flag or MCP parameter reaches them — and disclosed
+    /// so that a file's bytes can be traced to what made them.
+    pub encoder: &'static str,
+    pub preset: &'static str,
+    pub crf: u8,
+    /// libx264's thread count, never `ffmpeg`'s automatic one.
+    pub threads: u32,
+    /// The version the `ffmpeg` that encoded the file gives for itself, as it prints it;
+    /// `null` where it printed something else. A label, not a capability check
+    /// (ADR-0115's qualification is that).
+    pub ffmpeg_version: Option<String>,
     pub wall_ms: u64,
     /// `duration_ms / wall_ms` — how many seconds of video each second of wall clock
     /// produced, so the caller can budget the next call.
@@ -795,6 +808,11 @@ impl Painted {
                 height: i64::from(e.height),
             }),
             bytes: finished.bytes,
+            encoder: finished.settings.encoder,
+            preset: finished.settings.preset,
+            crf: finished.settings.crf,
+            threads: finished.settings.threads.get(),
+            ffmpeg_version: montagent_render::floor::version(span.ffmpeg),
             wall_ms,
             realtime: if wall_ms == 0 {
                 f64::INFINITY
@@ -878,6 +896,8 @@ pub(crate) fn encode_span(
             background: span.background,
             audio: mix.audio,
             stamp: span.stamp.clone(),
+            // ADR-0143: one set, never a field of the project or an option of the caller.
+            settings: encode::Settings::PRODUCTION,
         },
     ) {
         Ok(encoder) => encoder,
