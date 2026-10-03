@@ -27,3 +27,6 @@ probe-cache.json*
 
 # Raw footage for the skills-eval pack, before it is trimmed and encoded into assets/.
 docs/research/skills-eval/assets/incoming/
+
+# The spy-trailer fixture's score, synthesised by its score.py (fixtures/benchmark/spy-trailer/README.md).
+fixtures/benchmark/spy-trailer/score.wav

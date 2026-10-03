@@ -27,6 +27,13 @@ real input instead of plausible invented input, and that is the only use granted
     photography or recorded voice in another work, and any use to train a generative
     model, requires the copyright holder's written permission.
 
+Every file under fixtures/benchmark/spy-trailer/ EXCEPT its fonts/ (named under "Third
+party" below) and its two scripts, score.py and plan.py, which are code and MIT. These
+are a synthetic spy-trailer prototype's assets: six stills generated with FLUX.2-pro and
+six voice lines from Azure AI Speech (synthetic voices) on the maintainer's
+subscription, seven synthesised effect plates, the JSON that composes them, and its frame
+hashes. The same grant applies.
+
 fixtures/video-decode/ holds no media of its own -- its source is the published MP4
 above, reached by a relative path -- but anything rendered from it is derived from that
 MP4 and carries the same terms.
@@ -46,3 +53,9 @@ fixtures/en-halloween-decorating/fonts/OpenRunde-LICENSE.txt
     Open Runde, derived from Inter. Copyright (c) 2016 The Inter Project Authors, under
     the SIL Open Font License, Version 1.1. The full licence ships beside the font in
     OpenRunde-LICENSE.txt. Neither the MIT grant nor the reservation above applies to it.
+
+fixtures/benchmark/spy-trailer/fonts/
+
+    Cinzel and Oswald, from google/fonts, under the SIL Open Font License, Version 1.1.
+    The full licences ship beside them as OFL-Cinzel.txt and OFL-Oswald.txt. Neither the
+    MIT grant nor the reservation above applies to them.

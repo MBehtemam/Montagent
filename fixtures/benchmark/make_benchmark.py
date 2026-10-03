@@ -39,6 +39,7 @@ import argparse
 import hashlib
 import json
 import math
+import random
 import shutil
 import subprocess
 import sys
@@ -53,6 +54,17 @@ FONT = HALLOWEEN / "fonts" / "OpenRunde-Bold.otf"
 FONT_LICENCE = HALLOWEEN / "fonts" / "OpenRunde-LICENSE.txt"
 FONT_SOURCE = "https://github.com/lauridskern/open-runde"
 BED = FIXTURES / "skills" / "media" / "bed.wav"
+
+# The paint bench (`--paint`) borrows the trailer fixture's assets, so its plate is the same
+# 2400x1400 alpha grain the trailer moves and its glow is the trailer's own.
+TRAILER = HERE / "spy-trailer"
+PAINT_BACKDROP = TRAILER / "img" / "lair.jpg"
+PAINT_PLATE = TRAILER / "fx" / "grain.png"
+PAINT_FONT = TRAILER / "fonts" / "Oswald-SemiBold.ttf"
+PAINT_FONT_LICENCE = TRAILER / "fonts" / "OFL-Oswald.txt"
+PAINT_FONT_SOURCE = "google/fonts ofl/oswald, instanced wght=600"
+PAINT_DURATION_MS = 36_000
+PLATES = ("off", "still", "moving")
 
 FPS = 30
 DURATION_MS = 6 * 60 * 1000
@@ -150,11 +162,12 @@ def sources(out, height, force):
     return files
 
 
-def copy_shared(out):
+def copy_shared(out, shared=None):
     """Copy what the projects use, unchanged. A file already there with the same bytes is
     left alone, so a re-run does not touch its mtime and invalidate the probe cache."""
-    shared = [(FONT, "fonts"), (FONT_LICENCE, "fonts"), (BED, "audio")]
-    shared += [(clip, "audio") for clip in NARRATION]
+    if shared is None:
+        shared = [(FONT, "fonts"), (FONT_LICENCE, "fonts"), (BED, "audio")]
+        shared += [(clip, "audio") for clip in NARRATION]
     for src, sub in shared:
         dst = out / sub / src.name
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -283,6 +296,80 @@ def project(height, files, video_ms, lanes):
     }
 
 
+def paint_project(blur_texts, glow_texts, plate, extra_tracks):
+    """The paint bench: 36 s of 1920x1080 at 30 fps with no `video` and no audio, so paint
+    is all a render does. One knob per suspect the spy trailer raised (#641). With every
+    knob at zero it is a still photo, the floor the knobs are measured from."""
+    tracks = [{"name": "backdrop", "layer": 1, "elements": [
+        {"id": "backdrop", "type": "image", "start": 0, "end": PAINT_DURATION_MS,
+         "source": f"img/{PAINT_BACKDROP.name}", "origin": "center",
+         "width": 1920, "height": 1088, "fit": "literal"},
+    ]}]
+
+    # The texts sit on a grid, each on its own track (they overlap for the whole timeline)
+    # and each drifting left, as the trailer's cards do, so no two frames place one alike.
+    # The effects are the trailer's: a 14 px blur, and a zero-offset shadow glow.
+    looks = [("blur", {"name": "blur", "radius": 14})] * blur_texts
+    looks += [("glow", {"name": "shadow", "dx": 0, "dy": 0, "radius": 16,
+                        "color": "#FFD58A", "opacity": 0.35})] * glow_texts
+    for n, (kind, effect) in enumerate(looks):
+        row, column = divmod(n, 6)
+        x, y = 210 + column * 300, 80 + (row % 10) * 100
+        tracks.append({"name": f"text-{n + 1:03}", "layer": 10 + n, "elements": [
+            {"id": f"{kind}-{n + 1:03}", "type": "text", "start": 0, "end": PAINT_DURATION_MS,
+             "x": [{"t": 0, "v": x},
+                   {"t": PAINT_DURATION_MS - 1_000, "v": x - 120, "ease": "linear"}],
+             "y": y, "origin": "center", "width": 280, "height": block(56),
+             "font": "oswald", "size": 56, "line_height": 1.1, "color": "#E8E2D0",
+             "align": "center", "runs": [{"text": f"AGENT {n + 1:03}"}],
+             "effects": [effect], "caption": False},
+        ]})
+
+    # The trailer's grain: a 2400x1400 alpha plate over the whole frame, either still or
+    # jumping to a new seeded offset every other frame, which is how the trailer moves it.
+    if plate != "off":
+        x, y = 960, 540
+        if plate == "moving":
+            jitter = random.Random(704)
+            steps = range(1, PAINT_DURATION_MS * FPS // 2000)
+            x = [{"t": 0, "v": 960}] + [
+                {"t": round(n * 2000 / FPS), "v": 960 + jitter.randint(-220, 220), "ease": "step"}
+                for n in steps]
+            y = [{"t": 0, "v": 540}] + [
+                {"t": round(n * 2000 / FPS), "v": 540 + jitter.randint(-150, 150), "ease": "step"}
+                for n in steps]
+        tracks.append({"name": "grain", "layer": 900, "elements": [
+            {"id": "grain", "type": "image", "start": 0, "end": PAINT_DURATION_MS,
+             "source": f"fx/{PAINT_PLATE.name}", "x": x, "y": y, "origin": "center",
+             "width": 2400, "height": 1400, "fit": "literal"},
+        ]})
+
+    # Track count apart from paint: each extra track holds one small rect on screen for 1 s,
+    # staggered across the timeline on 100 ms (three-frame) steps, so a frame walks every
+    # track but paints about one in 36.
+    for n in range(extra_tracks):
+        start = n * (PAINT_DURATION_MS - 1_000) // extra_tracks // 100 * 100
+        tracks.append({"name": f"extra-{n + 1:03}", "layer": 1000 + n, "elements": [
+            {"id": f"tick-{n + 1:03}", "type": "rect", "start": start, "end": start + 1_000,
+             "x": 40 + (n % 46) * 40, "y": 1050, "origin": "center", "width": 24,
+             "height": 24, "fill": "#FF3B30"},
+        ]})
+
+    name = f"paint-b{blur_texts}-g{glow_texts}-{plate}-t{extra_tracks}"
+    font = f"fonts/{PAINT_FONT.name}"
+    return name, {
+        "frame": {"width": 1920, "height": 1080},
+        "fps": FPS,
+        "background": "#000000",
+        "duration": PAINT_DURATION_MS,
+        "output": f"out/{name}.mp4",
+        "fonts": {"oswald": [{"file": font}]},
+        "fontVendor": {font: {"licence": "OFL-1.1", "source": PAINT_FONT_SOURCE,
+                              "sha256": sha256(PAINT_FONT)}},
+        "tracks": tracks,
+    }
+
+
 def canonical(document):
     """The document in the house layout (ADR-0042): one element per line, keys in schema
     order, so `montagent fmt --check` has nothing to say about a generated file."""
@@ -319,9 +406,33 @@ def main():
     parser.add_argument("--only-1080", action="store_true",
                         help="skip the 2160p30 variant, whose sources take longest to encode")
     parser.add_argument("--force", action="store_true", help="re-encode the sources")
+    paint = parser.add_argument_group(
+        "the paint bench", "--paint writes one paint-heavy project with no video instead of "
+        "the benchmark projects; the other options set its knobs, all off by default")
+    paint.add_argument("--paint", action="store_true", help="build the paint bench")
+    paint.add_argument("--blur-texts", type=int, default=0, metavar="N",
+                       help="texts carrying a 14 px blur")
+    paint.add_argument("--glow-texts", type=int, default=0, metavar="N",
+                       help="texts carrying a zero-offset shadow glow")
+    paint.add_argument("--plate", choices=PLATES, default="off",
+                       help="the full-frame 2400x1400 alpha grain plate")
+    paint.add_argument("--extra-tracks", type=int, default=0, metavar="N",
+                       help="tracks of one brief small rect each, for track count")
     args = parser.parse_args()
+    knobs = (args.blur_texts, args.glow_texts, args.plate != "off", args.extra_tracks)
+    if any(knobs) and not args.paint:
+        parser.error("--blur-texts, --glow-texts, --plate and --extra-tracks need --paint")
+    if min(args.blur_texts, args.glow_texts, args.extra_tracks) < 0:
+        parser.error("a count cannot be negative")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
+
+    if args.paint:
+        copy_shared(out, [(PAINT_BACKDROP, "img"), (PAINT_PLATE, "fx"), (PAINT_FONT, "fonts"),
+                          (PAINT_FONT_LICENCE, "fonts")])
+        write(out, *paint_project(args.blur_texts, args.glow_texts, args.plate,
+                                  args.extra_tracks))
+        return
 
     copy_shared(out)
     print(f"ffmpeg: {ffmpeg_version()}", file=sys.stderr)
