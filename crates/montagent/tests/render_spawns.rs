@@ -13,7 +13,7 @@
 //!
 //! It catches a reopen storm too: a feed reopened on every frame is a spawn per frame again.
 //! It does not catch a slowdown that keeps the same structure; that shows as drift against
-//! `RENDER_REFERENCES`, re-measured whenever render's hot path changes (ADR-0142).
+//! the benchmark readings (`BENCHMARK_REFERENCES`), re-measured whenever render's hot path changes (ADR-0142).
 
 // The shims are shell scripts.
 #![cfg(unix)]

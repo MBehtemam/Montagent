@@ -74,7 +74,7 @@ pub const SCRUB_PREVIEW_LIMIT: Duration = Duration::from_secs(5);
 /// power, or frame hashes that differ from a sequential render's.
 ///
 /// Only 1080p30 is committed. The 2160p30 and one-video variants are measured
-/// and recorded in [`RENDER_REFERENCES`] with no ceiling.
+/// and recorded in [`BENCHMARK_REFERENCES`] with no ceiling.
 ///
 /// [ADR-0142]: ../../../../docs/adr/0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md
 pub const RENDER_TARGET: Duration = Duration::from_secs(3 * 60);
@@ -159,13 +159,13 @@ pub const FULL_RESOLUTION_PREVIEW_REFERENCES: &[Reference] = &[
 /// variation surfaces as drift above 1.0 rather than hiding beneath it.
 ///
 /// `budget.rs`'s `the_recorded_spread_is_the_one_the_prose_states` re-derives
-/// every number in the paragraph above from the entries themselves, so the prose
-/// cannot drift away from the list it describes.
+/// every number in the paragraph above from the [`FIXTURE_CONDITIONS`] entries
+/// themselves, so the prose cannot drift away from the list it describes.
 ///
 /// **None of these is the target.** [`RENDER_TARGET`] is stated for the benchmark
-/// project, not derived from this list, and ADR-0142's observations — the
-/// benchmark project's 2160p30 and one-video variants, and the per-element rate —
-/// are appended here on the same terms as every other entry.
+/// project, not derived from this list. ADR-0142's observations of the benchmark
+/// project are kept apart, in [`BENCHMARK_REFERENCES`], so that a reading of a
+/// different project is never this list's baseline or part of its spread.
 pub const RENDER_REFERENCES: &[Reference] = &[
     Reference {
         rasterizer: "skia-safe",
@@ -190,7 +190,20 @@ pub const RENDER_REFERENCES: &[Reference] = &[
     },
 ];
 
-/// What every render reference above was taken over.
+/// Every observed `render` of the **benchmark project** (ADR-0142): its 2160p30
+/// and one-video variants, recorded with no ceiling.
+///
+/// Kept apart from [`RENDER_REFERENCES`] rather than appended to it. Those are
+/// the committed fixture's readings, and [`nearest_reference`] scores a run by
+/// output length alone, so a six-minute benchmark reading there would become the
+/// baseline for any long render and would move the fixture's recorded spread.
+/// Here a reading is a record, appended on the same terms and never consulted as
+/// a baseline: the benchmark project is judged only by `render_target.rs`
+/// against [`RENDER_TARGET`]. Each entry's `conditions` names its variant, frame
+/// size and rate.
+pub const BENCHMARK_REFERENCES: &[Reference] = &[];
+
+/// What every entry in [`RENDER_REFERENCES`] was taken over.
 ///
 /// One fixture, and that is worth seeing: it is a single frame size, so these
 /// numbers say nothing about the 4K [`Budget::Render`] names as the rest of the
@@ -269,9 +282,9 @@ pub enum Budget {
     /// absolute number for one project, not seconds per output second, because
     /// render cost is not linear in length, frame size or element count.
     ///
-    /// No measurement in [`RENDER_REFERENCES`] is entitled to become a ceiling by
-    /// sitting in this file; the 2160p30 and one-video observations ADR-0142 adds
-    /// to it carry none.
+    /// No measurement in [`RENDER_REFERENCES`] or [`BENCHMARK_REFERENCES`] is
+    /// entitled to become a ceiling by sitting in this file; the 2160p30 and
+    /// one-video observations ADR-0142 records carry none.
     ///
     /// [ADR-0003]: ../../../../docs/adr/0003-general-video-editor-not-channel-tooling.md
     /// [ADR-0142]: ../../../../docs/adr/0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md

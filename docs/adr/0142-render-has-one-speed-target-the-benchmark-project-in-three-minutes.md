@@ -41,7 +41,7 @@ time, and 20× better than the hour.
   about 160–290 fps, from *Research: encoder and decoder throughput for render on Apple
   silicon* ([#624](https://github.com/MBehtemam/Montagent/issues/624)).
 - **Frame sizes:** only 1080p30 is committed. 2160p30 is measured and recorded in
-  `RENDER_REFERENCES` with no ceiling, which meets ADR-0072's "numbers at more than one frame
+  `BENCHMARK_REFERENCES`, beside `RENDER_REFERENCES`, with no ceiling, which meets ADR-0072's "numbers at more than one frame
   size". A 4K number waits for a later ADR, because its floor is the encoder's, and that is
   the encoder ticket's question.
 
@@ -95,7 +95,7 @@ or names, since the repository is public.
   feeds opened plus their reopens, never one per frame. It catches the structural regression
   that caused the hour, and reopen storms. It lands with the streaming feeds.
 - It doesn't catch slowdowns that keep the same structure. Those show as drift against
-  `RENDER_REFERENCES`. **Re-measure whenever render's hot path changes.**
+  the readings recorded here and in `BENCHMARK_REFERENCES`. **Re-measure whenever render's hot path changes.**
 
 ### 5. The measurement protocol
 
@@ -138,7 +138,11 @@ cargo test --release -p montagent --test render_target -- --ignored --nocapture
   ≥ 1.5 at the start, battery power (`pmset -g batt`), a machine other than the M1 Pro, fewer
   than 5 timed runs, or frame hashes or a report that differ from a sequential render's. The
   last also fails the test: different pixels are wrong before they are slow.
-- New observations go into `RENDER_REFERENCES`.
+- New observations of the benchmark project go into **`BENCHMARK_REFERENCES`**, a list of
+  their own beside `RENDER_REFERENCES`. That list holds the committed fixture's readings, and
+  `nearest_reference` scores a run by output length alone, so a six-minute benchmark reading
+  there would become the baseline for any long render and move the fixture's recorded
+  spread. A benchmark reading is a record and never a baseline.
 
 ### 7. On a miss
 
@@ -154,7 +158,7 @@ cargo test --release -p montagent --test render_target -- --ignored --nocapture
 ## The measurements
 
 TODO(measure): fill both tables from the JSON line `render_target.rs` prints, then set
-`status: accepted`. Append the 2160p30 and one-video readings to `RENDER_REFERENCES`.
+`status: accepted`. Append the 2160p30 and one-video readings to `BENCHMARK_REFERENCES`.
 
 **Before** — the streaming PR's base commit, with this generator. One run is enough to show
 the gap (`MONTAGENT_RENDER_TARGET_RUNS=1`, about an hour today); the test records it and

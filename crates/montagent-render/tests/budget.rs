@@ -8,7 +8,8 @@
 //! references.
 
 use montagent_render::budget::{
-    Budget, FRAME_LIMIT, FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
+    BENCHMARK_REFERENCES, Budget, FIXTURE_CONDITIONS, FRAME_LIMIT,
+    FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
     RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, RENDER_TARGET, SCRUB_PREVIEW_LIMIT,
     SHIPPED_RASTERIZER, Verdict, Work, nearest_reference,
 };
@@ -307,7 +308,7 @@ fn the_recorded_references_are_measurements_rather_than_targets() {
 /// with no frame size behind it is not comparable to anything.
 #[test]
 fn every_render_reference_states_the_frame_it_was_measured_at() {
-    for r in RENDER_REFERENCES {
+    for r in RENDER_REFERENCES.iter().chain(BENCHMARK_REFERENCES) {
         assert!(
             r.conditions.contains('x') && r.conditions.contains("fps"),
             "{}: conditions `{}` do not state a frame size and rate",
@@ -408,8 +409,13 @@ fn an_observation_reports_its_reference_rather_than_a_ceiling() {
 /// the half that rots when someone appends a reading and leaves the prose alone.
 #[test]
 fn the_recorded_spread_is_the_one_the_prose_states() {
+    // The paragraph is about the committed fixture's readings, and only those.
+    let fixture: Vec<_> = RENDER_REFERENCES
+        .iter()
+        .filter(|r| r.conditions == FIXTURE_CONDITIONS)
+        .collect();
     let ms = |source_prefix: &str| -> Vec<u64> {
-        RENDER_REFERENCES
+        fixture
             .iter()
             .filter(|r| r.source.starts_with(source_prefix))
             .map(|r| r.elapsed_ms)
@@ -423,16 +429,8 @@ fn the_recorded_spread_is_the_one_the_prose_states() {
     assert_eq!(ms("#215"), vec![17_300], "#215's reading moved");
 
     // "the list spans 1.14x end to end".
-    let slowest = RENDER_REFERENCES
-        .iter()
-        .map(|r| r.elapsed_ms)
-        .max()
-        .unwrap();
-    let fastest = RENDER_REFERENCES
-        .iter()
-        .map(|r| r.elapsed_ms)
-        .min()
-        .unwrap();
+    let slowest = fixture.iter().map(|r| r.elapsed_ms).max().unwrap();
+    let fastest = fixture.iter().map(|r| r.elapsed_ms).min().unwrap();
     let spread = slowest as f64 / fastest as f64;
     assert!(
         (spread - 1.14).abs() < 0.005,
@@ -444,4 +442,31 @@ fn the_recorded_spread_is_the_one_the_prose_states() {
     let chosen = nearest_reference(Budget::Render, Work::span(RENDER_REFERENCE_OUTPUT_MS))
         .expect("a render baseline");
     assert_eq!(chosen.elapsed_ms, fastest);
+}
+
+/// ADR-0142's benchmark readings are records, never a baseline: no span, however
+/// long, is scored against one, and the fixture's list holds none of them.
+#[test]
+fn a_benchmark_reading_is_never_a_render_baseline() {
+    for r in BENCHMARK_REFERENCES {
+        assert!(
+            !RENDER_REFERENCES.contains(r),
+            "{}: a benchmark reading sits in the fixture's list",
+            r.source
+        );
+        let chosen =
+            nearest_reference(Budget::Render, Work::span(r.output_ms)).expect("a render baseline");
+        assert!(
+            RENDER_REFERENCES.contains(&chosen),
+            "{}: a {} ms span was baselined against {chosen:?}",
+            r.source,
+            r.output_ms
+        );
+    }
+    assert!(
+        RENDER_REFERENCES
+            .iter()
+            .all(|r| r.conditions == FIXTURE_CONDITIONS),
+        "RENDER_REFERENCES holds the committed fixture's readings only"
+    );
 }

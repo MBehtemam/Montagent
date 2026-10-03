@@ -307,7 +307,7 @@ fn the_benchmark_project_renders_within_the_target() {
         }
         "observed" => eprintln!(
             "render-target [{variant}]: median {median:.2?}, observed — ADR-0142 states no \
-             number for this variant; record it in RENDER_REFERENCES"
+             number for this variant; record it in BENCHMARK_REFERENCES"
         ),
         _ => {}
     }
