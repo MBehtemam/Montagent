@@ -344,6 +344,19 @@ pub fn frame_at(
 /// The largest term of a `speed` ratio [`frames_from`] samples exactly — see its bound.
 const EXACT_SPEED_TERM: i128 = 1_000_000;
 
+/// The decoder threads one **feed** runs with: the `-threads` every run of frames passes.
+///
+/// ADR-0141. A feed is one `ffmpeg` per visible video element, so its memory is paid once
+/// per element on screen, and `ffmpeg`'s default — about ten decoder threads on the M1 Pro
+/// — roughly doubles a feed's peak resident memory for a rate the painter cannot use: at
+/// one thread a feed still decodes several hundred frames a second, against the 30 the
+/// timeline asks for. [`frame_at`] keeps the default, because there one process runs alone.
+///
+/// Pinned at 1 by both halves of ADR-0141 §4. Memory: one thread uses 45–55% of the
+/// default's. Rate: at one thread a benchmark-project feed delivered 377 fps, and the
+/// 3-minute target needs 60 per feed.
+pub const FEED_THREADS: u32 = 1;
+
 fn gcd(a: i128, b: i128) -> i128 {
     if b == 0 { a } else { gcd(b, a % b) }
 }
@@ -357,6 +370,63 @@ pub struct Pace {
     /// The element's `speed` as the exact rational `(numerator, denominator)` the document's
     /// decimal is — never a float, because the render's offset into the source is not one.
     pub speed: (i128, i128),
+}
+
+/// The instant a run's arithmetic is measured from: timeline millisecond `timeline_ms`
+/// plays source millisecond `source_ms`.
+///
+/// For a `video` element that is its own `start` and `source_start` — or, past a loop
+/// wrap, the instant the current pass began and `source_start` again. Measuring from
+/// there rather than from wherever a run happens to open is what keeps a run's offsets
+/// the render's: `round_half_up` does not distribute over a sum, so `o0 + advance(b)` is
+/// not `advance(a + b)` at a `speed` like 0.5, and a run measured from its own first frame
+/// would disagree with the render by a millisecond on about half its frames.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Origin {
+    pub timeline_ms: i64,
+    pub source_ms: i64,
+}
+
+/// Whether a run can sample `pace` at all, and exactly: a positive rate and a positive
+/// `speed` whose terms, in lowest terms, are at most a million (ADR-0127 §2). The same test
+/// [`frames_at`] refuses on, for a caller that would rather not open a run it will refuse.
+pub fn exact_pace(pace: Pace) -> bool {
+    let (num, den) = pace.speed;
+    if pace.fps <= 0 || num <= 0 || den <= 0 {
+        return false;
+    }
+    let common = gcd(num, den);
+    num / common <= EXACT_SPEED_TERM && den / common <= EXACT_SPEED_TERM
+}
+
+/// `⌊n × 1000 / fps⌋`: the millisecond the render paints timeline frame `n` at (ADR-0035,
+/// ADR-0077).
+fn instant(n: i64, fps: i64) -> i64 {
+    ((i128::from(n) * 1000) / i128::from(fps)) as i64
+}
+
+/// `source_ms + round_half_up((instant(n) − timeline_ms) × speed)`: the offset into the
+/// source a run anchored at `origin` is showing at timeline frame `n`.
+///
+/// **The one function a run's frames are defined by**, and public so that a caller deciding
+/// whether a run's next frame is the one it wants asks this rather than a copy of it: the
+/// filter [`frames_at`] builds is this function's inverse, frame for frame. It is
+/// `montagent_core::exact::source_advance`'s arithmetic on the render's instant, which is
+/// what ADR-0127 holds the run to.
+pub fn offset_at(origin: Origin, pace: Pace, n: i64) -> i64 {
+    let (num, den) = pace.speed;
+    let elapsed = i128::from(instant(n, pace.fps) - origin.timeline_ms);
+    // `floor((2 × elapsed × num + den) / 2den)`, the half-up tie-break folded into one floored
+    // division as `exact::round_half_up` folds it.
+    let doubled = 2 * elapsed * num + den;
+    let divisor = 2 * den;
+    let quotient = doubled / divisor;
+    let advance = if doubled % divisor != 0 && doubled < 0 {
+        quotient - 1
+    } else {
+        quotient
+    };
+    origin.source_ms + advance as i64
 }
 
 /// A **run** of frames out of one `ffmpeg`, starting at `from_ms` into the source: frame `n`
@@ -392,19 +462,8 @@ pub struct Pace {
 ///   through its source per frame, so a `speed: 2` series sampled four times too densely
 ///   and covered a quarter of the range it named.
 ///
-/// So the run asks the renderer's question in the renderer's arithmetic, with no rate in it:
-///
-/// - `-ss` lands [`SEEK_WINDOW_MS`] before `from_ms` with `-copyts`, [`frame_at`]'s window,
-///   so the frame already showing at `from_ms` is decoded and compared in source time;
-/// - `settb` puts every timestamp on the microsecond, and `setpts` rewrites each frame's to
-///   the first **timeline** millisecond the render shows it at — `ceil(p − 1 µs)` in source
-///   milliseconds is [`frame_at`]'s at-or-before with its slack, and the inverse of
-///   `round_half_up(t × speed)` is `ceil((2q − 1) × den / 2 × num)` — every operand an
-///   integer, so the float the expression evaluator works in is exact;
-/// - `fps=<fps>:round=up:start_time=0` then paints each tick with the last frame whose
-///   timeline start is at or before it, which on integer milliseconds is exactly
-///   *"at or before `⌊n × 1000 / fps⌋`"*. Before the first frame, `start_time` holds the
-///   earliest one, [`frame_at`]'s symmetric clamp.
+/// So the run asks the renderer's question in the renderer's arithmetic, with no rate in it.
+/// [`frames_at`] says how; this is its case for a run anchored at timeline frame 0.
 ///
 /// The run may end a frame later than the element does; the caller counts the frames its
 /// range shows and stops there.
@@ -413,6 +472,63 @@ pub fn frames_from(
     source: &str,
     decoder: Decoder,
     from_ms: i64,
+    pace: Pace,
+    width: u32,
+    height: u32,
+) -> Result<Frames, String> {
+    frames_at(
+        ffmpeg,
+        source,
+        decoder,
+        Origin {
+            timeline_ms: 0,
+            source_ms: from_ms.max(0),
+        },
+        0,
+        pace,
+        width,
+        height,
+    )
+}
+
+/// A run of frames anchored at `origin`, starting at timeline frame `first`: the run's
+/// `k`-th frame is the last source frame starting at or before
+/// [`offset_at`]`(origin, pace, first + k)`. This is a **feed** (ADR-0141) when `render`
+/// opens it for a `video` element at the first frame that paints it.
+///
+/// [`frames_from`] is the case `origin = (0, from_ms)`, `first = 0`. The general case is what
+/// lets a feed open partway through an element — a partial render, a re-entry, the pass
+/// after a loop wrap — and still deliver exactly the frames the render's own arithmetic
+/// names, rather than frames measured from wherever it opened (see [`Origin`]).
+///
+/// - `-ss` lands [`SEEK_WINDOW_MS`] before the first frame's offset with `-copyts`,
+///   [`frame_at`]'s window, so the frame already showing there is decoded and compared in
+///   source time.
+/// - `settb` puts every timestamp on the microsecond, and `setpts` rewrites each frame's to
+///   the first **timeline** millisecond the render shows it at — `ceil(p − 1 µs)` in source
+///   milliseconds is [`frame_at`]'s at-or-before with its slack, and the inverse of
+///   `source_ms + round_half_up((t − timeline_ms) × speed)` is
+///   `timeline_ms + ceil((2(q − source_ms) − 1) × den / 2 × num)` — every operand an integer,
+///   so the float the expression evaluator works in is exact.
+/// - A second `settb` moves that millisecond onto a clock of `1 / (1000 × fps)` seconds, where
+///   it is `t × fps` exactly, and a second `setpts` subtracts `first × 1000`. Timeline frame
+///   `first + k` is then tick `k` of the output, with no fractional start time for `fps=` to
+///   round: frame `n`'s tick, `n × 1000 / fps` ms, is not a whole millisecond or microsecond
+///   at most rates, and a `start_time` spelled in either would put a frame that starts
+///   exactly on a tick onto the next one.
+/// - `fps=<fps>:round=up:start_time=0` then paints each tick with the last frame whose
+///   timeline start is at or before it, which on integer milliseconds is exactly *"at or
+///   before `⌊n × 1000 / fps⌋`"*. Before the first frame, `start_time` holds the earliest
+///   one, [`frame_at`]'s symmetric clamp.
+/// - `-threads` is [`FEED_THREADS`] (ADR-0141): a feed runs beside others, one per visible
+///   element, and its memory is what the feed budget counts.
+#[allow(clippy::too_many_arguments)]
+pub fn frames_at(
+    ffmpeg: &Path,
+    source: &str,
+    decoder: Decoder,
+    origin: Origin,
+    first: i64,
     pace: Pace,
     width: u32,
     height: u32,
@@ -446,23 +562,38 @@ pub fn frames_from(
              sample exactly; six decimal places is the most it reads"
         ));
     }
+    let pace = Pace {
+        fps,
+        speed: (num, den),
+    };
+    let first = first.max(0);
 
-    let from_ms = from_ms.max(0);
+    let from_ms = offset_at(origin, pace, first).max(0);
     let window_ms = (from_ms - SEEK_WINDOW_MS).max(0);
     // [`frame_at`]'s conversion, for [`frame_at`]'s reason: integer milliseconds to
     // `ffmpeg`'s decimal seconds through the string, never through a float.
     let window = format!("{}.{:03}", window_ms / 1000, window_ms % 1000);
 
+    let Origin {
+        timeline_ms,
+        source_ms,
+    } = origin;
     let filter = format!(
         "settb=1/1000000,\
-         setpts='ceil((2*(ceil((PTS-1)/1000)-{from_ms})-1)*{den}/(2*{num}))*1000',\
+         setpts='(ceil((2*(ceil((PTS-1)/1000)-{source_ms})-1)*{den}/(2*{num}))+{timeline_ms})*1000',\
+         settb=1/{tick_base},\
+         setpts='PTS-{first_tick}',\
          fps={fps}:round=up:start_time=0,\
-         scale={width}:{height}"
+         scale={width}:{height}",
+        tick_base = 1000 * i128::from(fps),
+        first_tick = 1000 * i128::from(first),
     );
+    let threads = FEED_THREADS.to_string();
     let mut child = Command::new(ffmpeg)
         .args(["-hide_banner", "-loglevel", "error"])
         // [`frame_at`]'s placement, for [`frame_at`]'s reason: an input option goes before
-        // the input it is about.
+        // the input it is about. `-threads` too, which before `-i` is the decoder's.
+        .args(["-threads", &threads])
         .args(decoder.args())
         .args(["-ss", &window, "-copyts", "-i", source, "-vf", &filter])
         // Every frame the filter paints, none duplicated or dropped again by the muxer
@@ -494,6 +625,7 @@ pub fn frames_from(
         child,
         stdout,
         stderr,
+        said: None,
         source: source.to_string(),
         width,
         height,
@@ -510,6 +642,8 @@ pub struct Frames {
     child: std::process::Child,
     stdout: std::process::ChildStdout,
     stderr: Option<std::thread::JoinHandle<String>>,
+    /// What `ffmpeg` said on stderr, once the run has ended and the drain was joined.
+    said: Option<String>,
     source: String,
     width: u32,
     height: u32,
@@ -567,14 +701,10 @@ impl Frames {
             .child
             .wait()
             .map_err(|e| format!("{}: ffmpeg could not be waited for: {e}", self.source))?;
+        let said = self.stderr();
         if status.success() {
             return Ok(());
         }
-        let said = self
-            .stderr
-            .take()
-            .and_then(|thread| thread.join().ok())
-            .unwrap_or_default();
         let said = said.trim();
         Err(format!(
             "{}: ffmpeg stopped reading its frames: it exited with {status}{}",
@@ -585,6 +715,26 @@ impl Frames {
                 format!(" — {said}")
             }
         ))
+    }
+}
+
+impl Frames {
+    /// What `ffmpeg` wrote on stderr. Complete only once the run has ended — before that it
+    /// waits for the drain thread, which finishes when `ffmpeg` closes the pipe.
+    ///
+    /// For a caller that must say *why* a run that ended cleanly ended where it did
+    /// (ADR-0141's early-end refusal): a clean exit is not a reason, and what `ffmpeg` said
+    /// on the way out is the nearest thing to one.
+    pub fn stderr(&mut self) -> String {
+        if self.said.is_none() {
+            self.said = Some(
+                self.stderr
+                    .take()
+                    .and_then(|thread| thread.join().ok())
+                    .unwrap_or_default(),
+            );
+        }
+        self.said.clone().unwrap_or_default()
     }
 }
 

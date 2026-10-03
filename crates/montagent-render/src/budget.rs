@@ -13,8 +13,9 @@
 //! measured reference example is a **better** regression baseline than a guessed
 //! ceiling — it flags a real 2× drift that a loose invented bound would pass, and
 //! it does not false-alarm on legitimately heavier input. `render` is unenforced
-//! for a different reason, and one worth reading before adding a number back:
-//! see [`Budget::Render`].
+//! **in CI** for a different reason: it has a target, [`RENDER_TARGET`], but the
+//! target is stated for one machine and is judged by a test run on purpose there,
+//! never by the suite. See [`Budget::Render`].
 //!
 //! An unenforced arm reports drift against its own recorded measurements —
 //! [`FULL_RESOLUTION_PREVIEW_REFERENCES`] and [`RENDER_REFERENCES`] — and never
@@ -50,6 +51,33 @@ pub const FRAME_LIMIT: Duration = Duration::from_millis(500);
 /// hard-fails if that still misses (ADR-0067). The ladder is the `preview`
 /// ticket's; this constant is only the number the ladder is measured against.
 pub const SCRUB_PREVIEW_LIMIT: Duration = Duration::from_secs(5);
+
+/// `render`'s speed target: **the benchmark project renders in at most this,
+/// median wall clock, on the dev's M1 Pro** ([ADR-0142]). The one place the
+/// number lives.
+///
+/// **The benchmark project** is what `fixtures/benchmark/make_benchmark.py`
+/// builds from the committed fixtures: 6 minutes of 1920x1080 at 30 fps, three
+/// `video` elements visible at once for most of the timeline (sources re-encoded
+/// to a pinned codec, profile and 10 s GOP), text, rects and an audio mix. It is
+/// never the "reference project": [`RENDER_REFERENCES`] already means reference
+/// *measurements*.
+///
+/// Half of real time, and fixed: the first clean measurement confirms it and does
+/// not adjust it, and only a superseding ADR changes it. It is stated for one
+/// scenario on one machine (8P+2E, 16 GB), so it is **not enforced in CI** —
+/// [`Budget::Render`]'s [`Budget::limit`] stays `None`. It is judged by
+/// `crates/montagent/tests/render_target.rs`, an `#[ignore]`d test run on purpose
+/// with `cargo test --release -- --ignored`, which follows ADR-0142's protocol
+/// (one discarded warm-up, five timed whole `montagent render` runs, the median
+/// judged) and refuses to judge on a debug build, a loaded machine, battery
+/// power, or frame hashes that differ from a sequential render's.
+///
+/// Only 1080p30 is committed. The 2160p30 and one-video variants are measured
+/// and recorded in [`BENCHMARK_REFERENCES`] with no ceiling.
+///
+/// [ADR-0142]: ../../../../docs/adr/0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md
+pub const RENDER_TARGET: Duration = Duration::from_secs(3 * 60);
 
 /// A measured example of what one arm's work actually cost.
 ///
@@ -131,12 +159,13 @@ pub const FULL_RESOLUTION_PREVIEW_REFERENCES: &[Reference] = &[
 /// variation surfaces as drift above 1.0 rather than hiding beneath it.
 ///
 /// `budget.rs`'s `the_recorded_spread_is_the_one_the_prose_states` re-derives
-/// every number in the paragraph above from the entries themselves, so the prose
-/// cannot drift away from the list it describes.
+/// every number in the paragraph above from the [`FIXTURE_CONDITIONS`] entries
+/// themselves, so the prose cannot drift away from the list it describes.
 ///
-/// **These are what a replacement ceiling would have to be derived from.** Until
-/// an ADR does that derivation, they are the whole of what this project knows
-/// about how long a render takes.
+/// **None of these is the target.** [`RENDER_TARGET`] is stated for the benchmark
+/// project, not derived from this list. ADR-0142's observations of the benchmark
+/// project are kept apart, in [`BENCHMARK_REFERENCES`], so that a reading of a
+/// different project is never this list's baseline or part of its spread.
 pub const RENDER_REFERENCES: &[Reference] = &[
     Reference {
         rasterizer: "skia-safe",
@@ -161,7 +190,28 @@ pub const RENDER_REFERENCES: &[Reference] = &[
     },
 ];
 
-/// What every render reference above was taken over.
+/// Every observed `render` of the **benchmark project** (ADR-0142): its 2160p30
+/// and one-video variants, recorded with no ceiling.
+///
+/// Kept apart from [`RENDER_REFERENCES`] rather than appended to it. Those are
+/// the committed fixture's readings, and [`nearest_reference`] scores a run by
+/// output length alone, so a six-minute benchmark reading there would become the
+/// baseline for any long render and would move the fixture's recorded spread.
+/// Here a reading is a record, appended on the same terms and never consulted as
+/// a baseline: the benchmark project is judged only by `render_target.rs`
+/// against [`RENDER_TARGET`]. Each entry's `conditions` names its variant, frame
+/// size and rate.
+pub const BENCHMARK_REFERENCES: &[Reference] = &[Reference {
+    rasterizer: "skia-safe",
+    conditions: "1920x1080/30 fps, the benchmark project (ADR-0142), cold with an empty \
+        probe sidecar, release build, M1 Pro; OBSERVED under load 6.0 rising to 9.7, one run \
+        and no warm-up, so an upper bound and not the protocol's median",
+    output_ms: 360_000,
+    elapsed_ms: 135_360,
+    source: "ADR-0142 and ADR-0141 §8, the streaming PR's observed after-run",
+}];
+
+/// What every entry in [`RENDER_REFERENCES`] was taken over.
 ///
 /// One fixture, and that is worth seeing: it is a single frame size, so these
 /// numbers say nothing about the 4K [`Budget::Render`] names as the rest of the
@@ -222,25 +272,30 @@ pub enum Budget {
     /// `preview` with the explicit full-resolution escape hatch. Observational.
     FullResolutionPreview,
     /// `render` — the deliverable, always at full declared resolution.
-    /// **Observational, and deliberately without a ceiling.**
+    /// **Observational in CI: `limit() == None` means not enforced in CI, not "no
+    /// target".**
+    ///
+    /// The target is [`RENDER_TARGET`], stated by [ADR-0142] for one scenario —
+    /// the benchmark project — on one machine, and judged by the `#[ignore]`d
+    /// `render_target.rs` run on purpose there. CI gets no wall-clock gate: its
+    /// `macos-15` runner is a shared 3-vCPU M1, and ADR-0021 keeps the expensive
+    /// arms observational. ADR-0142 gives CI a deterministic spawn-count test
+    /// instead, which catches the structural regression (one `ffmpeg` per frame)
+    /// and lands with the streaming feeds.
     ///
     /// The budget this arm inherited was *"a 60 s video renders in under two
     /// minutes"*. ADR-0021 records that pair as *"written for 1080x1920/30 and
-    /// never re-derived"* after [ADR-0003] generalised the scope to a
-    /// CapCut/Premiere-class editor where 4K is ordinary — it amended the preview
-    /// half and left this half's replacement **deferred**. Read linearly as a rate
-    /// it would let a short test assert something, which is precisely why it was
-    /// tempting and precisely the unmeasured-claim-as-settled-fact pattern
-    /// ADR-0021 refuses elsewhere in its own text.
+    /// never re-derived"* after [ADR-0003] generalised the scope, and ADR-0072
+    /// retired it. **It does not come back as a rate**: `RENDER_TARGET` is an
+    /// absolute number for one project, not seconds per output second, because
+    /// render cost is not linear in length, frame size or element count.
     ///
-    /// **The gap, stated plainly: `render` has no performance target.** Nothing
-    /// regresses against a number here, and no measurement in
-    /// [`RENDER_REFERENCES`] is entitled to become one by sitting in this file. A
-    /// target needs its own ADR with a measurement behind it — across the frame
-    /// sizes ADR-0003 put in scope, not just the one the retired figure was
-    /// written for (#217).
+    /// No measurement in [`RENDER_REFERENCES`] or [`BENCHMARK_REFERENCES`] is
+    /// entitled to become a ceiling by sitting in this file; the 2160p30 and
+    /// one-video observations ADR-0142 records carry none.
     ///
     /// [ADR-0003]: ../../../../docs/adr/0003-general-video-editor-not-channel-tooling.md
+    /// [ADR-0142]: ../../../../docs/adr/0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md
     Render,
 }
 
@@ -252,8 +307,9 @@ impl Budget {
         !matches!(self, Budget::Frame)
     }
 
-    /// The wall-clock ceiling for this much work, or `None` when the budget is
-    /// observational and there is deliberately no ceiling to encode.
+    /// The wall-clock ceiling CI enforces for this much work, or `None` when the
+    /// budget is observational there. For [`Budget::Render`] that is not the
+    /// absence of a target: see [`RENDER_TARGET`].
     ///
     /// # Panics
     ///

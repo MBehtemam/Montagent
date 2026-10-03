@@ -5,6 +5,13 @@ amends: 0096 (its at-or-before rule now governs a *run* of frames as well as a s
 
 # A run of frames is the frames the render paints
 
+> **Amended by [ADR-0141](0141-render-reads-each-video-element-through-a-feed-and-the-painter-takes-its-pixels-from-a-supplier.md)**.
+> The run now supplies `render` and `preview` too, as a **feed** — the term that retires *"run
+> of frames"* where the renderer uses it. It can open partway through an element, anchored at
+> the element's own origin (`decode::frames_at`), so its offsets stay the render's at every
+> `speed`. `tests/feeds.rs`, a byte comparison of feed and `frame_at` rasters with spawn
+> counts, joins `seek_clamp.rs` as this ADR's evidence.
+
 [#414](https://github.com/MBehtemam/Montagent/issues/414). ADR-0096 measured that `ffmpeg`'s
 input seek returns the first frame at or *after* an instant, and it fixed `frame_at`, the
 single-frame decode, to return the frame the source is *showing*. `frames_from` was neither

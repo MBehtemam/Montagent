@@ -113,7 +113,7 @@ use montagent_render::canvas::{
     Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskRect, MaskShape, PathEl, Raster,
     Region, Rgba, Scale, Shape, Transform,
 };
-use montagent_render::decode::Decoder;
+use montagent_render::decode::Pace;
 
 use crate::finding::{Class, Finding};
 use crate::media::Source;
@@ -132,6 +132,10 @@ mod keyframes;
 mod label;
 mod sheet;
 mod sizing;
+#[doc(hidden)]
+pub mod supply;
+
+pub(crate) use supply::{Feeds, FrameSupplier, PerFrame};
 
 const TOOL: &str = "frame";
 
@@ -579,7 +583,12 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         };
     };
 
-    let mut painter = Painter::new(&document, instant, (frame_width, frame_height));
+    let mut painter = Painter::new(
+        &document,
+        instant,
+        (frame_width, frame_height),
+        Box::new(PerFrame::default()),
+    );
     painter.paint(&mut canvas, &view);
 
     // ADR-0093: the picture's `not_painted`/`painted_partially` rows carry a code, and the
@@ -907,6 +916,11 @@ fn region_of(rect: Rect) -> Region {
 /// only while there is one painter. A `Painter` outlives one frame: [`Painter::begin`]
 /// resets the per-frame record and keeps the font registry, the resolved `ffmpeg` and the
 /// decoded stills, none of which change between two instants of one document.
+///
+/// **One painter is one place that decides** visibility, the offset into each source, the
+/// extent and the findings (ADR-0141, amending ADR-0021). Where a `video` element's pixels
+/// come from is its [`FrameSupplier`]'s, which the verb hands it: one `frame_at` per request
+/// for `frame`, feeds for `render` and `preview` — and both answer with the same frame.
 pub(crate) struct Painter<'a> {
     document: &'a Loose,
     /// Every element in the document, with the identity the caption names it by — read
@@ -976,19 +990,35 @@ pub(crate) struct Painter<'a> {
     /// a `render` paints the fixture's 6 MB PNGs on 1631 consecutive frames and would
     /// otherwise decode each of them 1631 times.
     stills: std::collections::HashMap<PathBuf, Raster>,
-    /// Which decoder each video source needs (ADR-0089), by path.
+    /// What each video source's probe says a supplier needs — ADR-0089's decoder, where its
+    /// video stream ends and its decoded size — by path.
     ///
     /// Memoised for [`Painter::stills`]'s reason, one axis over: the answer is a probe,
     /// and a `render` that asked it per frame would `ffprobe` the same clip once for every
     /// frame the clip appears on. It cannot change within a frame, and a source that
     /// changed mid-`render` is ADR-0069's cache-miss story rather than this map's.
-    decoders: std::collections::HashMap<PathBuf, Decoder>,
+    videos: std::collections::HashMap<PathBuf, supply::Video>,
+    /// Where a `video` element's pixels come from (ADR-0141): [`PerFrame`] for `frame`,
+    /// [`Feeds`] for `render` and `preview`. The painter decides everything the picture
+    /// shows; the supplier only answers *"the frame at this offset"*.
+    supplier: Box<dyn FrameSupplier>,
+    /// The project's `fps`, for the supplier's arithmetic. `1` where the document states
+    /// none, which only `frame` can be painting, and [`PerFrame`] never reads it.
+    fps: i64,
+    /// The timeline frame being painted, where this painter paints frames rather than
+    /// instants — set by [`Painter::begin_frame`].
+    frame_number: Option<i64>,
 }
 
 impl<'a> Painter<'a> {
     /// A painter for `frame`: its findings are `review`, and it answers with a picture.
-    pub(crate) fn new(document: &'a Loose, instant: i64, frame: (i64, i64)) -> Painter<'a> {
-        Painter::at_class(document, instant, frame, Class::Review)
+    pub(crate) fn new(
+        document: &'a Loose,
+        instant: i64,
+        frame: (i64, i64),
+        supplier: Box<dyn FrameSupplier>,
+    ) -> Painter<'a> {
+        Painter::at_class(document, instant, frame, Class::Review, supplier)
     }
 
     /// A painter for a verb that is producing a file — `render` and `preview`, whose
@@ -997,11 +1027,18 @@ impl<'a> Painter<'a> {
         document: &'a Loose,
         instant: i64,
         frame: (i64, i64),
+        supplier: Box<dyn FrameSupplier>,
     ) -> Painter<'a> {
-        Painter::at_class(document, instant, frame, Class::Error)
+        Painter::at_class(document, instant, frame, Class::Error, supplier)
     }
 
-    fn at_class(document: &'a Loose, instant: i64, frame: (i64, i64), class: Class) -> Painter<'a> {
+    fn at_class(
+        document: &'a Loose,
+        instant: i64,
+        frame: (i64, i64),
+        class: Class,
+        supplier: Box<dyn FrameSupplier>,
+    ) -> Painter<'a> {
         Painter {
             document,
             elements: document
@@ -1025,7 +1062,15 @@ impl<'a> Painter<'a> {
             registry: montagent_text::Fonts::new(),
             ffmpeg: None,
             stills: std::collections::HashMap::new(),
-            decoders: std::collections::HashMap::new(),
+            videos: std::collections::HashMap::new(),
+            supplier,
+            fps: document
+                .value()
+                .get("fps")
+                .and_then(Value::as_i64)
+                .filter(|fps| *fps > 0)
+                .unwrap_or(1),
+            frame_number: None,
         }
     }
 
@@ -1036,6 +1081,7 @@ impl<'a> Painter<'a> {
     /// painter has opened, and a still decoded on frame 0 and painted on frame 400 was
     /// opened once. A `render` reads them after its last frame as the whole run's list.
     pub(crate) fn begin(&mut self, instant: i64) {
+        self.frame_number = None;
         self.instant = instant;
         self.painted.clear();
         self.not_painted.clear();
@@ -1043,6 +1089,37 @@ impl<'a> Painter<'a> {
         self.declined.clear();
         self.crossfades.clear();
         self.fades.clear();
+    }
+
+    /// Start timeline frame `n`, painted at `instant` — [`Painter::begin`], plus the frame
+    /// number a supplier keeps its feeds by. The supplier closes here every feed the last
+    /// frame did not ask for (ADR-0141), so a paint that returned early cannot leak a child
+    /// process past the next frame.
+    pub(crate) fn begin_frame(&mut self, n: i64, instant: i64) {
+        self.begin(instant);
+        self.frame_number = Some(n);
+        self.supplier.begin_frame(n);
+    }
+
+    /// The elements painted per frame because the feed budget was full (ADR-0141), by name,
+    /// in the order first so decoded.
+    pub(crate) fn decoded_per_frame(&self) -> Vec<String> {
+        self.supplier
+            .decoded_per_frame()
+            .iter()
+            .filter_map(|key| self.elements.get(*key))
+            .map(|(named, _)| {
+                named
+                    .id
+                    .clone()
+                    .unwrap_or_else(|| "(element with no id)".to_string())
+            })
+            .collect()
+    }
+
+    /// The wall clock spent waiting for decoded frames so far.
+    pub(crate) fn decoding(&self) -> std::time::Duration {
+        self.supplier.decoding()
     }
 
     /// Paint the frame, in the caption's own order.
@@ -1063,7 +1140,7 @@ impl<'a> Painter<'a> {
                 .id
                 .clone()
                 .unwrap_or_else(|| "(element with no id)".to_string());
-            let Some(element) = self.element_named(&present.named).copied() else {
+            let Some((key, element)) = self.element_named(&present.named) else {
                 // A caption row with no element behind it means this pass and the view
                 // disagree about the document, which is a bug in Montagent rather than a
                 // fact about the project — but the picture still owes the row an answer.
@@ -1073,7 +1150,12 @@ impl<'a> Painter<'a> {
                 );
                 continue;
             };
-            self.element(canvas, &name, element, present.source_offset);
+            let playhead = Playhead {
+                key,
+                offset: present.source_offset,
+                origin: present.source_origin,
+            };
+            self.element(canvas, &name, element, playhead);
         }
     }
 
@@ -1091,20 +1173,14 @@ impl<'a> Painter<'a> {
     /// By `id` where there is one — ADR-0019 requires it to be unique — and by identity
     /// otherwise, which is what an id-less element has. An element that cannot be found is
     /// not silently skipped: the caption row exists, so the picture owes an explanation.
-    fn element_named(&self, named: &Named) -> Option<&&'a Value> {
+    fn element_named(&self, named: &Named) -> Option<(usize, &'a Value)> {
         self.elements
             .iter()
-            .find(|(candidate, _)| candidate == named)
-            .map(|(_, element)| element)
+            .position(|(candidate, _)| candidate == named)
+            .map(|key| (key, self.elements[key].1))
     }
 
-    fn element(
-        &mut self,
-        canvas: &mut Canvas,
-        name: &str,
-        element: &Value,
-        source_offset: Option<i64>,
-    ) {
+    fn element(&mut self, canvas: &mut Canvas, name: &str, element: &Value, playhead: Playhead) {
         let kind = element.get("type").and_then(Value::as_str);
         match kind {
             // No frame-space footprint at all. Not listed as unpainted: an audio element
@@ -1118,9 +1194,7 @@ impl<'a> Painter<'a> {
             // unpainted would say the picture is missing something it is not.
             Some("transition") => {}
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
-            Some("image") | Some("video") => {
-                self.raster(canvas, name, element, kind, source_offset)
-            }
+            Some("image") | Some("video") => self.raster(canvas, name, element, kind, playhead),
             // Reachable, because `frame` reads the document permissively and never calls
             // `document.strict()` — see `E-NOT-PAINTED-UNDRAWABLE`.
             Some(other) => self.defer(
@@ -1462,7 +1536,7 @@ impl<'a> Painter<'a> {
         name: &str,
         element: &Value,
         kind: Option<&str>,
-        source_offset: Option<i64>,
+        playhead: Playhead,
     ) {
         let Some(extent) = self.extent(element) else {
             self.defer(name, no_extent());
@@ -1484,7 +1558,7 @@ impl<'a> Painter<'a> {
             }
         };
 
-        let raster = match self.decoded(&path, kind, extent, source_offset) {
+        let raster = match self.decoded(&path, element, kind, extent, playhead) {
             Ok(raster) => raster,
             Err(declined) => {
                 self.record(name, declined);
@@ -1511,9 +1585,10 @@ impl<'a> Painter<'a> {
     fn decoded(
         &mut self,
         path: &FilePath,
+        element: &Value,
         kind: Option<&str>,
         extent: Extent,
-        source_offset: Option<i64>,
+        playhead: Playhead,
     ) -> Result<Raster, Declined> {
         if kind != Some("video") {
             if let Some(still) = self.stills.get(path) {
@@ -1551,13 +1626,13 @@ impl<'a> Painter<'a> {
         // rather than repeating it. Unreachable from `render`, whose mix pre-flight refuses
         // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
         // which draws what it is given.
-        let offset = source_offset.ok_or_else(|| {
+        let offset = playhead.offset.ok_or_else(|| {
             Declined::finding(undrawable(
                 "its offset into the source did not resolve; the caption says why",
             ))
         })?;
         let ffmpeg = self.ffmpeg().map_err(Declined::Tool)?;
-        let decoder = self.decoder(path);
+        let video = self.video(path);
         // Decoded straight to the declared box: ADR-0013 settled that a source is resampled
         // to exactly `width`x`height`, so asking `ffmpeg` for that size is the resample
         // rather than a second one on top of it.
@@ -1578,35 +1653,54 @@ impl<'a> Painter<'a> {
         // So does an `ffmpeg` that failed outright (ADR-0113): a refusal that blames the
         // source for the tool, which is loud where it used to paint a frame up to a window
         // early, and which #477's up-front check is to name correctly.
-        let decoded = montagent_render::decode::frame_at(
-            &ffmpeg,
-            &path.to_string_lossy(),
-            decoder,
+        //
+        // ADR-0141: the frame comes from this painter's supplier — a `frame_at` per request for
+        // `frame`, a feed for `render` — and is the frame `frame_at` returns at `offset` either
+        // way. A feed that failed, or ended before the source does, arrives here as well, with
+        // where it opened and how far it got.
+        let request = supply::Request {
+            key: playhead.key,
+            frame: self.frame_number,
             offset,
-            extent.width as u32,
-            extent.height as u32,
-        )
-        .map_err(undecodable)?;
+            origin: playhead.origin,
+            width: extent.width as u32,
+            height: extent.height as u32,
+            ffmpeg: &ffmpeg,
+            source: path,
+            video,
+            pace: Pace {
+                fps: self.fps,
+                speed: speed_of(element),
+            },
+        };
+        let decoded = self
+            .supplier
+            .supply(&request)
+            .map_err(|failure| undecodable(failure.detail()))?;
         Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height)
             .ok_or_else(|| undecodable("its decoded frame was not the size asked for".to_string()))
     }
 
-    /// Which decoder this source needs, probed once per path (ADR-0089).
+    /// What this source's probe says a supplier needs, probed once per path: the decoder
+    /// (ADR-0089), where the video stream ends and its decoded size (ADR-0141).
     ///
-    /// A source whose probe fails decodes with [`Decoder::Auto`], which is what every
-    /// source did before ADR-0089. The picture is not the place to report an unprobeable
-    /// source — `validate` is — and a frame that refused to paint over it would be this
-    /// path inventing a finding of its own.
-    fn decoder(&mut self, path: &FilePath) -> Decoder {
-        if let Some(decoder) = self.decoders.get(path) {
-            return *decoder;
+    /// A source whose probe fails decodes with `Decoder::Auto`, which is what every
+    /// source did before ADR-0089, and with no end and no size. The picture is not the place
+    /// to report an unprobeable source — `validate` is — and a frame that refused to paint
+    /// over it would be this path inventing a finding of its own.
+    fn video(&mut self, path: &FilePath) -> supply::Video {
+        if let Some(video) = self.videos.get(path) {
+            return *video;
         }
-        let decoder = Session::open()
-            .ok()
-            .and_then(|mut session| session.decoder_for(&Source::Local(path.to_path_buf())).ok())
-            .unwrap_or_default();
-        self.decoders.insert(path.to_path_buf(), decoder);
-        decoder
+        let probe = Session::open().ok().and_then(|mut session| {
+            session
+                .probe(&Source::Local(path.to_path_buf()))
+                .ok()
+                .and_then(|outcome| outcome.probe().cloned())
+        });
+        let video = probe.as_ref().map(video_of).unwrap_or_default();
+        self.videos.insert(path.to_path_buf(), video);
+        video
     }
 
     /// `ffmpeg`, resolved once per run and only where a video element needs one.
@@ -1831,6 +1925,52 @@ const DEFAULT_INK: Rgba = Rgba::BLACK;
 /// is painted with, and ADR-0014 makes them one vocabulary. What differs between the two
 /// is which side of the outline the stroke falls on, and that is the rasterizer's rule
 /// rather than the paint's.
+/// Which element is asking, and where in its source the caption says this instant plays.
+#[derive(Debug, Clone, Copy)]
+struct Playhead {
+    /// The element's index in [`Painter::elements`], which a supplier keeps its feed under.
+    key: usize,
+    offset: Option<i64>,
+    origin: Option<(i64, i64)>,
+}
+
+/// An element's `speed` as the exact ratio a supplier's arithmetic takes — `1` where it
+/// states none. An unreadable `speed` never reaches a supplier: the caption's offset does not
+/// resolve without one, and the painter declines before asking.
+fn speed_of(element: &Value) -> (i128, i128) {
+    element
+        .get("speed")
+        .and_then(Value::as_number)
+        .and_then(crate::exact::Decimal::of)
+        .filter(|speed| speed.is_positive())
+        .and_then(|speed| speed.as_ratio())
+        .unwrap_or((1, 1))
+}
+
+/// A probe, read for a supplier (ADR-0141).
+///
+/// The end is `start_time + video_stream_ms` — never the container's duration where the
+/// stream states its own, since a container also spans its audio. Matroska and WebM state no
+/// stream duration at all, and there the container's is the only end there is. One source
+/// frame is the longer of the two frame-rate readings, rounded up: the tolerance on that end
+/// errs toward accepting a feed's clean end, where `frame_at` still has the last word.
+fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
+    let quad = probe.quad;
+    let length = quad.video_stream_ms.or(quad.container_ms);
+    let period = |rate: Option<crate::media::Rational>| {
+        rate.filter(|rate| rate.num > 0 && rate.den > 0)
+            .map(|rate| (1000 * rate.den + rate.num - 1) / rate.num)
+    };
+    supply::Video {
+        decoder: probe.decoder(),
+        end_ms: length.map(|length| quad.start_time_ms.unwrap_or(0) + length),
+        frame_ms: period(quad.r_frame_rate).max(period(quad.avg_frame_rate)),
+        pixels: probe
+            .dimensions
+            .map(|dimensions| (dimensions.decoded.width, dimensions.decoded.height)),
+    }
+}
+
 fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) -> Vec<Fill> {
     let base = Fill {
         fill: Some(element.get("color").and_then(rgba).unwrap_or(DEFAULT_INK)),

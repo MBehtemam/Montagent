@@ -15,6 +15,9 @@ amends: 0093 (corrects ruling 6 condition 1: the failed-seek predicate is **not*
 > that exited non-zero is a refusal. On ffmpeg 9, which removed `-vsync`, reading the failure as
 > *"no frame"* painted every instant up to a window early with `0 errors`.
 
+> **See also [ADR-0141](0141-render-reads-each-video-element-through-a-feed-and-the-painter-takes-its-pixels-from-a-supplier.md)**: `render`'s feeds keep this rule, and the frame past a
+> source's end is still `frame_at`'s.
+
 [#387](https://github.com/MBehtemam/Montagent/issues/387) (MONTAGENT-2), the second of the
 nine findings from the first real end-to-end build through this tool. The reported symptom
 was small and the cause was not:

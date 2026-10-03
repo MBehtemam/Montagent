@@ -135,6 +135,16 @@ pub struct Present {
     /// declared it.
     pub source_offset: Option<i64>,
     pub source_offset_unresolved: Option<String>,
+    /// Where the pass of the source this instant belongs to began: the timeline instant
+    /// that played `source_start`, and `source_start` — the element's own `start` before a
+    /// loop wraps, the instant the current pass began after one, and `None` while
+    /// `overrun: "hold"` holds `source_end` or wherever `source_offset` is `None`.
+    ///
+    /// Not part of the answer (ADR-0141): it is how `render`'s feeds keep the render's own
+    /// offsets, since a feed measured from wherever it opened would round differently. Read
+    /// off the same arithmetic as `source_offset`, so the two cannot disagree.
+    #[serde(skip)]
+    pub(crate) source_origin: Option<(i64, i64)>,
     /// **The crop rectangle** — which part of the *source file's own pixels* survive onto
     /// the screen, in source pixel space, for a raster element carrying `cover`/`contain`
     /// and a `clip` (ADR-0013, ADR-0015). `null` where the element carries no raster
@@ -343,7 +353,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             }
         }
 
-        let (source_offset, source_offset_unresolved) =
+        let (source_offset, source_offset_unresolved, source_origin) =
             source_offset(element, kind, start, instant);
         let (crop, crop_unresolved) = match frame {
             _ if detail == Detail::Presence => (None, Some(NOT_DERIVED.to_string())),
@@ -386,6 +396,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             values: values(element, instant),
             source_offset,
             source_offset_unresolved,
+            source_origin,
             crop,
             crop_unresolved,
             ink_box,
@@ -457,25 +468,20 @@ pub(crate) fn source_offset(
     kind: Option<&str>,
     start: i64,
     instant: i64,
-) -> (Option<i64>, Option<String>) {
+) -> (Option<i64>, Option<String>, Option<(i64, i64)>) {
     if !matches!(kind, Some("audio") | Some("video")) {
-        return (None, None);
+        return (None, None, None);
     }
+    let unresolved = |reason: &str| (None, Some(reason.to_string()), None);
     let (Some(source_start), Some(source_end)) = (
         element.get("source_start").and_then(Value::as_i64),
         element.get("source_end").and_then(Value::as_i64),
     ) else {
-        return (
-            None,
-            Some("the element carries no integer `source_start`/`source_end`".to_string()),
-        );
+        return unresolved("the element carries no integer `source_start`/`source_end`");
     };
     let source_span = source_end - source_start;
     if source_span <= 0 {
-        return (
-            None,
-            Some("`source_end` does not exceed `source_start`".to_string()),
-        );
+        return unresolved("`source_end` does not exceed `source_start`");
     }
 
     let speed = match element.get("speed") {
@@ -483,52 +489,45 @@ pub(crate) fn source_offset(
         Some(value) => value.as_number().and_then(Decimal::of),
     };
     let Some(speed) = speed.filter(|d| d.is_positive()) else {
-        return (
-            None,
-            Some(
-                "`speed` is not a positive number, which is `validate`'s finding to make"
-                    .to_string(),
-            ),
+        return unresolved(
+            "`speed` is not a positive number, which is `validate`'s finding to make",
         );
     };
 
     let Some(played) = exact::played_ms(source_span, speed) else {
-        return (
-            None,
-            Some("the as-played duration could not be computed".to_string()),
-        );
+        return unresolved("the as-played duration could not be computed");
     };
 
     let elapsed = instant - start;
     if elapsed < played {
         return match exact::source_advance(elapsed, speed) {
-            Some(advance) => (Some(source_start + advance), None),
-            None => (
+            Some(advance) => (
+                Some(source_start + advance),
                 None,
-                Some("the source position could not be computed".to_string()),
+                Some((start, source_start)),
             ),
+            None => unresolved("the source position could not be computed"),
         };
     }
 
     match element.get("overrun").and_then(Value::as_str) {
-        Some("hold") => (Some(source_end), None),
+        // A hold is one offset for the rest of the element, so it has no pass to measure
+        // from.
+        Some("hold") => (Some(source_end), None, None),
         Some("loop") => {
             let cycle = (elapsed - played) % played;
             match exact::source_advance(cycle, speed) {
-                Some(advance) => (Some(source_start + advance), None),
-                None => (
+                Some(advance) => (
+                    Some(source_start + advance),
                     None,
-                    Some("the looped source position could not be computed".to_string()),
+                    Some((instant - cycle, source_start)),
                 ),
+                None => unresolved("the looped source position could not be computed"),
             }
         }
-        _ => (
-            None,
-            Some(
-                "the timeline range outruns the as-played duration and the element declares \
-                 no `overrun`, which is `validate`'s speed-mismatch finding to report"
-                    .to_string(),
-            ),
+        _ => unresolved(
+            "the timeline range outruns the as-played duration and the element declares no \
+             `overrun`, which is `validate`'s speed-mismatch finding to report",
         ),
     }
 }

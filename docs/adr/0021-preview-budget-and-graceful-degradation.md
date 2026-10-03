@@ -56,6 +56,13 @@ amends: the performance budget stated in the map's Notes (never itself an ADR)
 > the numbers do not move together. `frame`'s `<500 ms` for a single still stands unchanged,
 > as does its true-pixel guarantee — sheet tiles are rasterized at true project pixels and
 > composited down, so **no proxy ladder enters `frame`.**
+>
+> **Amended by [ADR-0141](0141-render-reads-each-video-element-through-a-feed-and-the-painter-takes-its-pixels-from-a-supplier.md)**,
+> which says what *"one painter"* means once `render` stops decoding a frame per spawn: one
+> place that decides visibility, the offset into the source, the extent and the findings. The
+> painter's pixels come from a **frame supplier** — one `frame_at` per request for `frame`, a
+> **feed** (one long-lived `ffmpeg` per visible video element) for `render` and `preview` — and
+> both answer with the same frame. `frame` stays at true pixels and unchanged.
 
 # target with a deferred number, and `preview` degrades gracefully
 

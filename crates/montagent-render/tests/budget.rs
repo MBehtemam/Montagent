@@ -8,9 +8,10 @@
 //! references.
 
 use montagent_render::budget::{
-    Budget, FRAME_LIMIT, FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
-    RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, SCRUB_PREVIEW_LIMIT, SHIPPED_RASTERIZER,
-    Verdict, Work, nearest_reference,
+    BENCHMARK_REFERENCES, Budget, FIXTURE_CONDITIONS, FRAME_LIMIT,
+    FULL_RESOLUTION_PREVIEW_REFERENCES, Measured, OBSERVATIONAL_DRIFT_FACTOR,
+    RENDER_REFERENCE_OUTPUT_MS, RENDER_REFERENCES, RENDER_TARGET, SCRUB_PREVIEW_LIMIT,
+    SHIPPED_RASTERIZER, Verdict, Work, nearest_reference,
 };
 use std::time::Duration;
 
@@ -54,22 +55,31 @@ fn the_scrub_preview_ceiling_is_flat_across_span_lengths() {
     }
 }
 
-/// The retired figure, and why `render` has no ceiling at all (#217).
+/// `render`'s target is ADR-0142's: the benchmark project in at most 3 minutes,
+/// median wall clock, on the dev's M1 Pro. One number, for one project — not a
+/// rate, and not a CI ceiling.
+#[test]
+fn the_render_target_is_three_minutes_for_the_benchmark_project() {
+    assert_eq!(RENDER_TARGET, Duration::from_secs(180));
+}
+
+/// Why `render` has no CI ceiling (#217, ADR-0142).
 ///
 /// *"A 60 s video in under two minutes"* was written for 1080x1920/30 and never
 /// re-derived after ADR-0003 generalised the scope to an editor where 4K is
-/// ordinary; ADR-0021 amended the preview half of that budget and left the
-/// replacement for this half **deferred**. Reading the retired pair linearly as a
-/// rate would encode a number no measurement stands behind, so there is no
-/// ceiling here to encode and a run of any length is an observation.
+/// ordinary, and ADR-0072 retired it. ADR-0142 states a target, [`RENDER_TARGET`],
+/// for one project on one machine, which the shared CI runner cannot judge — so
+/// `limit()` is `None`, meaning *not enforced in CI*, and a run of any length here
+/// is an observation. The target is judged by the `#[ignore]`d `render_target.rs`.
 #[test]
-fn render_has_no_ceiling_because_its_replacement_is_deferred() {
+fn render_is_not_enforced_in_ci() {
     assert_eq!(Budget::Render.limit(Work::span(60_000)), None);
     assert_eq!(Budget::Render.limit(Work::span(10_000)), None);
     assert!(!Budget::Render.is_enforced());
 
     // Twenty minutes for 60 s of output is a number worth a human's attention and
-    // is still not a failure: nothing here is entitled to say what "too slow" is.
+    // is still not a CI failure: the target is a number for one project on one
+    // machine, not a rate this harness may apply to any span.
     let verdict = Budget::Render.judge(Work::span(60_000), Duration::from_secs(1_200));
     assert!(!verdict.is_failure(), "{verdict:?}");
     assert!(matches!(verdict, Verdict::Observed { .. }));
@@ -122,7 +132,7 @@ fn the_enforced_arms_are_the_two_with_a_stated_number() {
     for budget in [Budget::Render, Budget::FullResolutionPreview] {
         assert!(
             !budget.is_enforced(),
-            "{} has no measured number behind a ceiling",
+            "{} has no ceiling CI enforces",
             budget.name()
         );
     }
@@ -298,7 +308,7 @@ fn the_recorded_references_are_measurements_rather_than_targets() {
 /// with no frame size behind it is not comparable to anything.
 #[test]
 fn every_render_reference_states_the_frame_it_was_measured_at() {
-    for r in RENDER_REFERENCES {
+    for r in RENDER_REFERENCES.iter().chain(BENCHMARK_REFERENCES) {
         assert!(
             r.conditions.contains('x') && r.conditions.contains("fps"),
             "{}: conditions `{}` do not state a frame size and rate",
@@ -399,8 +409,13 @@ fn an_observation_reports_its_reference_rather_than_a_ceiling() {
 /// the half that rots when someone appends a reading and leaves the prose alone.
 #[test]
 fn the_recorded_spread_is_the_one_the_prose_states() {
+    // The paragraph is about the committed fixture's readings, and only those.
+    let fixture: Vec<_> = RENDER_REFERENCES
+        .iter()
+        .filter(|r| r.conditions == FIXTURE_CONDITIONS)
+        .collect();
     let ms = |source_prefix: &str| -> Vec<u64> {
-        RENDER_REFERENCES
+        fixture
             .iter()
             .filter(|r| r.source.starts_with(source_prefix))
             .map(|r| r.elapsed_ms)
@@ -414,16 +429,8 @@ fn the_recorded_spread_is_the_one_the_prose_states() {
     assert_eq!(ms("#215"), vec![17_300], "#215's reading moved");
 
     // "the list spans 1.14x end to end".
-    let slowest = RENDER_REFERENCES
-        .iter()
-        .map(|r| r.elapsed_ms)
-        .max()
-        .unwrap();
-    let fastest = RENDER_REFERENCES
-        .iter()
-        .map(|r| r.elapsed_ms)
-        .min()
-        .unwrap();
+    let slowest = fixture.iter().map(|r| r.elapsed_ms).max().unwrap();
+    let fastest = fixture.iter().map(|r| r.elapsed_ms).min().unwrap();
     let spread = slowest as f64 / fastest as f64;
     assert!(
         (spread - 1.14).abs() < 0.005,
@@ -435,4 +442,31 @@ fn the_recorded_spread_is_the_one_the_prose_states() {
     let chosen = nearest_reference(Budget::Render, Work::span(RENDER_REFERENCE_OUTPUT_MS))
         .expect("a render baseline");
     assert_eq!(chosen.elapsed_ms, fastest);
+}
+
+/// ADR-0142's benchmark readings are records, never a baseline: no span, however
+/// long, is scored against one, and the fixture's list holds none of them.
+#[test]
+fn a_benchmark_reading_is_never_a_render_baseline() {
+    for r in BENCHMARK_REFERENCES {
+        assert!(
+            !RENDER_REFERENCES.contains(r),
+            "{}: a benchmark reading sits in the fixture's list",
+            r.source
+        );
+        let chosen =
+            nearest_reference(Budget::Render, Work::span(r.output_ms)).expect("a render baseline");
+        assert!(
+            RENDER_REFERENCES.contains(&chosen),
+            "{}: a {} ms span was baselined against {chosen:?}",
+            r.source,
+            r.output_ms
+        );
+    }
+    assert!(
+        RENDER_REFERENCES
+            .iter()
+            .all(|r| r.conditions == FIXTURE_CONDITIONS),
+        "RENDER_REFERENCES holds the committed fixture's readings only"
+    );
 }
