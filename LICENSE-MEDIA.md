@@ -112,6 +112,27 @@ dedicates it to the public domain under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). It is the one media file
 in the repository with no restriction on it at all.
 
+### The spy-trailer fixture
+
+`fixtures/benchmark/spy-trailer/` is the paint-heavy yardstick
+([#642](https://github.com/MBehtemam/Montagent/issues/642)), a reduced copy of the
+prototype from [#508](https://github.com/MBehtemam/Montagent/issues/508). Everything in it
+is in this category **except** `fonts/` (category 2 below) and the two scripts, `score.py`
+and `plan.py`, which are code and MIT.
+
+| path | what it is |
+| --- | --- |
+| `img/*.jpg` | six stills generated with FLUX.2-pro on Azure AI Foundry, recompressed from the generated PNGs |
+| `vo/*.wav` | six voice lines from Azure AI Speech (narrator `en-US-DavisNeural`, villain `en-GB-ThomasNeural`, agent `en-GB-RyanNeural`). The voices are synthetic. |
+| `fx/*.png` | seven plates (grain, vignette, flare, sweep, embers, HUD, rifling) synthesised by the prototype's `plates.py` |
+| `trailer.montagent.json`, `frames.framemd5` | the composition and its frame hashes |
+
+The stills and the voices were generated on the maintainer's subscription, under
+Microsoft's Product Terms. The score is not committed: `score.py` synthesises it from
+scratch, and the `score.wav` it writes is MIT along with the script. The paint bench
+`make_benchmark.py --paint` builds copies the `lair` still and the grain plate from this
+fixture, so its renders are derivatives in this category too.
+
 ### On crates.io
 
 Five of the six goldens above are excluded from the published `montagent-core` package
@@ -148,6 +169,13 @@ The same **Inter 4.1** Bold, copied unmodified from the pack above with its
 `Inter-LICENSE.txt` beside it, under the **SIL Open Font License, Version 1.1**. It is
 the font the skills drift guard (`crates/montagent/tests/skills.rs`) validates skill
 snippets against.
+
+### `fixtures/benchmark/spy-trailer/fonts/`
+
+**Cinzel** (Regular and Bold) and **Oswald** (SemiBold), from google/fonts, each under the
+**SIL Open Font License, Version 1.1**. Their full licences are beside them as
+`OFL-Cinzel.txt` and `OFL-Oswald.txt`. They were instanced to static weights with
+fontTools. The fixture's `fontVendor` block records each file's source and sha256.
 
 ### `docs/research/prototypes/thai-vertical-metrics/fonts/`
 
