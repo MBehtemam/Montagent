@@ -1,0 +1,25 @@
+diff --git a/crates/montagent-core/src/verbs/render.rs b/crates/montagent-core/src/verbs/render.rs
+index 096317a4..20ac642f 100644
+--- a/crates/montagent-core/src/verbs/render.rs
++++ b/crates/montagent-core/src/verbs/render.rs
+@@ -1077,6 +1077,7 @@ impl<'a> Producer<'a> {
+         self.painter.begin_frame(n, instant);
+         self.painter.paint(&mut self.canvas, &view);
+         self.stages.paint += painting.elapsed();
++        eprintln!("P650\t{n}\t{:.3}", painting.elapsed().as_secs_f64() * 1000.0);
+         for name in &self.painter.painted {
+             if !self.painted.contains(name) {
+                 self.painted.push(name.clone());
+diff --git a/crates/montagent-render/src/canvas.rs b/crates/montagent-render/src/canvas.rs
+index f07ecc24..bed1e898 100644
+--- a/crates/montagent-render/src/canvas.rs
++++ b/crates/montagent-render/src/canvas.rs
+@@ -895,7 +895,7 @@ impl Raster {
+     /// tag fails it, and so does a second application added back.
+     pub fn decode(bytes: &[u8]) -> Option<Raster> {
+         Some(Raster {
+-            image: Image::from_encoded(Data::new_copy(bytes))?,
++            image: Image::from_encoded(Data::new_copy(bytes))?.to_raster_image(skia_safe::image::CachingHint::Disallow)?,
+         })
+     }
+ 

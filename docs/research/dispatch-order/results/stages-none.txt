@@ -1,0 +1,4 @@
+MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":228406,"readback_ms":1361,"encode_wait_ms":2225,"seal_ms":1265,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+16:54  up 18 days, 15:43, 4 users, load averages: 28.38 27.56 23.53
+wall 234
+16:58  up 18 days, 15:47, 4 users, load averages: 7.15 18.46 20.75
