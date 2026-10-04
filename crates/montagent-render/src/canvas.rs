@@ -724,9 +724,27 @@ impl Raster {
     /// belonged. That test is what holds this — a codec change that stopped applying the
     /// tag fails it, and so does a second application added back.
     pub fn decode(bytes: &[u8]) -> Option<Raster> {
-        Some(Raster {
-            image: Image::from_encoded(Data::new_copy(bytes))?,
-        })
+        let image = Image::from_encoded(Data::new_copy(bytes))?;
+        // SPIKE #648: never meant for main.
+        let image = match std::env::var("MONTAGENT_SPIKE_STILLS").as_deref() {
+            Ok("raster") => image.to_raster_image(skia_safe::image::CachingHint::Disallow)?,
+            Ok("cache") => {
+                skia_safe::graphics::set_resource_cache_total_bytes_limit(1 << 30);
+                image
+            }
+            _ => image,
+        };
+        if std::env::var_os("MONTAGENT_SPIKE_LOG").is_some() {
+            eprintln!(
+                "spike648 still {}x{} lazy={} cache_limit={} used={}",
+                image.width(),
+                image.height(),
+                image.is_lazy_generated(),
+                skia_safe::graphics::resource_cache_total_bytes_limit(),
+                skia_safe::graphics::resource_cache_total_bytes_used()
+            );
+        }
+        Some(Raster { image })
     }
 
     /// Wrap already-decoded RGBA8 pixels — one video frame, as `ffmpeg` hands it over.
