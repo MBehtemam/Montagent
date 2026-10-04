@@ -1854,6 +1854,19 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
         )));
     }
 
+    // #653: K·C painted frames is the least the reorder window can be, and where the byte
+    // budget holds fewer at this size the floor is what was used — said, not hidden.
+    let painting = &video["painting"];
+    if painting["window_floor"].as_bool().unwrap_or(false) {
+        out.push_str(&row(format!(
+            "painters    {} over chunks of {} frames; the window budget holds fewer frames \
+             at this size, so painting led the encoder by up to the floor of {} frames",
+            painting["painters"].as_u64().unwrap_or_default(),
+            painting["chunk"].as_u64().unwrap_or_default(),
+            painting["window"].as_u64().unwrap_or_default(),
+        )));
+    }
+
     let names = |key: &str| -> Vec<String> {
         video[key]
             .as_array()

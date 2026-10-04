@@ -73,6 +73,7 @@ use skia_safe::{
 
 mod layer_bound;
 #[doc(hidden)]
+pub use layer_bound::enabled as filter_layers_bounded;
 pub use layer_bound::set_enabled as bound_filter_layers;
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.

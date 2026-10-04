@@ -79,6 +79,22 @@ pub const SCRUB_PREVIEW_LIMIT: Duration = Duration::from_secs(5);
 /// [ADR-0142]: ../../../../docs/adr/0142-render-has-one-speed-target-the-benchmark-project-in-three-minutes.md
 pub const RENDER_TARGET: Duration = Duration::from_secs(3 * 60);
 
+/// `render`'s speed target for the **paint** class: **the spy trailer renders in at most
+/// this, median wall clock, on the dev's M1 Pro** ([ADR-0144]).
+///
+/// ADR-0144 amends ADR-0142's *one* target into one per bottleneck class, a closed list of
+/// two: **decode**, [`RENDER_TARGET`] on the benchmark project, and **paint**, this, on
+/// `fixtures/benchmark/spy-trailer/` — 36 s of 1920x1080 at 30 fps with no `video` element,
+/// where full-frame blur and glow layers took ~68% of the painting thread (#643). Each moves
+/// only through its own superseding ADR, and a miss in one never reopens the other.
+///
+/// Fixed against the profile recorded on main before any fix (338.7 s). Judged, like
+/// [`RENDER_TARGET`], only by `crates/montagent/tests/render_target.rs` under ADR-0142's
+/// protocol, together with frame-hash identity against the trailer's `frames.framemd5`.
+///
+/// [ADR-0144]: ../../../../docs/adr/0144-render-paints-on-k-painters-over-chunks-and-the-spy-trailer-renders-in-a-minute.md
+pub const PAINT_TARGET: Duration = Duration::from_secs(60);
+
 /// A measured example of what one arm's work actually cost.
 ///
 /// Not a limit. ADR-0021 makes the observational arms report the spec's *"measured

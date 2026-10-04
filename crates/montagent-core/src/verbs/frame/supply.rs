@@ -167,6 +167,24 @@ pub fn reset_counts() {
     });
 }
 
+/// Add the decodes another thread's painter spawned to this thread's counts.
+///
+/// A render that paints on more than one thread (#653) hands each painter's counts back to
+/// the thread that called the verb, which is the thread the spawn-count tests read.
+pub(crate) fn absorb(other: Counts) {
+    count(|counts| {
+        counts.opened += other.opened;
+        counts.reopened += other.reopened;
+        counts.frame_at += other.frame_at;
+        counts.open += other.open;
+    });
+}
+
+/// This thread's feed budget: [`FEED_BUDGET`], or the override in force.
+pub(crate) fn budget() -> u64 {
+    BUDGET.with(Cell::get).unwrap_or(FEED_BUDGET)
+}
+
 /// A shrunken feed budget for this thread's painters, until the guard drops.
 ///
 /// `#[doc(hidden)]`, for the feed-budget tests. There is no public setting (ADR-0141): a
@@ -386,7 +404,7 @@ pub(crate) struct Feeds {
 impl Feeds {
     pub(crate) fn new() -> Feeds {
         Feeds {
-            budget: BUDGET.with(Cell::get).unwrap_or(FEED_BUDGET),
+            budget: budget(),
             held: 0,
             slots: HashMap::new(),
             asked: Vec::new(),

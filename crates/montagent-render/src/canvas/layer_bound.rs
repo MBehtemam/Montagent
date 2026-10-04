@@ -74,6 +74,13 @@ pub fn set_enabled(on: bool) {
     ENABLED.with(|enabled| enabled.set(on));
 }
 
+/// Whether this thread paints filter layers with the hint, so a render that paints on more
+/// than one thread can hand each painter the switch of the thread that asked (#653).
+#[doc(hidden)]
+pub fn enabled() -> bool {
+    ENABLED.with(Cell::get)
+}
+
 /// One hint per effect, aligned with `effects` and `filters`, in element space. `None` is
 /// an unbounded layer, exactly as an unhinted one always was.
 pub(super) fn hints(
