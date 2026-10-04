@@ -71,6 +71,10 @@ use skia_safe::{
     canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
 };
 
+mod layer_bound;
+#[doc(hidden)]
+pub use layer_bound::set_enabled as bound_filter_layers;
+
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rgba(pub [u8; 4]);
@@ -1202,7 +1206,7 @@ impl Canvas {
         transform: &Transform,
         clip: Option<Region>,
         effects: &[Effect],
-        draw: impl FnOnce(&skia_safe::Canvas),
+        draw: impl Fn(&skia_safe::Canvas),
     ) {
         if extent.width <= 0.0 || extent.height <= 0.0 || transform.opacity <= 0.0 {
             return;
@@ -1262,18 +1266,29 @@ impl Canvas {
     /// hand the blur an input already cut to the mask and the blur would lose every
     /// contribution from just outside it. Painting the complement keeps each effect's
     /// input the full element.
+    ///
+    /// **A `blur` or `shadow` layer carries a bounds hint** where [`layer_bound`]'s
+    /// preconditions hold, which stops it blurring a frame's worth of transparent pixels
+    /// and paints the same bytes as the unbounded layer. That is why `draw` is `Fn`: the
+    /// hint's right and bottom come from recording the element once before painting it.
     fn through(
         canvas: &skia_safe::Canvas,
         extent: Extent,
         effects: &[Effect],
-        draw: impl FnOnce(&skia_safe::Canvas),
+        draw: impl Fn(&skia_safe::Canvas),
     ) {
-        for effect in effects.iter().rev() {
-            match effect.filter() {
+        let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
+        for (filter, bound) in filters.into_iter().zip(&bounds).rev() {
+            match filter {
                 Some(filter) => {
                     let mut paint = SkPaint::default();
                     paint.set_image_filter(filter);
-                    canvas.save_layer(&SaveLayerRec::default().paint(&paint));
+                    let mut layer = SaveLayerRec::default().paint(&paint);
+                    if let Some(bound) = bound {
+                        layer = layer.bounds(bound);
+                    }
+                    canvas.save_layer(&layer);
                 }
                 // A `mask`, and also any filter Skia declined to build — an effect that
                 // cannot be made is a layer that changes nothing rather than a missing
@@ -1470,6 +1485,7 @@ fn intersect(a: Region, b: Region) -> Option<Region> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     // -----------------------------------------------------------------------
     // ADR-0088's keyer, at the one seam where it can be asked about a pixel
@@ -2029,5 +2045,189 @@ mod tests {
             .bytes;
         let still = Raster::decode(&png).expect("it decodes");
         assert!(!still.image.is_lazy_generated());
+    }
+
+    // -----------------------------------------------------------------------
+    // #652's filter-layer hint: the same bytes with it as without it
+    // -----------------------------------------------------------------------
+    //
+    // Every case paints one element twice on the same thread, hint on and hint off, and
+    // compares every byte. A case the hint should apply to also asserts that it did, since
+    // a hint that never fires paints the same bytes for nothing.
+
+    const FRAME: (i64, i64) = (640, 360);
+
+    fn at(x: f64, y: f64, scale: (f64, f64), rotation: f64) -> Transform {
+        Transform {
+            x,
+            y,
+            origin: (0.5, 0.5),
+            scale,
+            rotation,
+            opacity: 1.0,
+        }
+    }
+
+    fn blur(radius: f64) -> Effect {
+        Effect::Blur { radius }
+    }
+
+    fn shadow(dx: f64, dy: f64, radius: f64) -> Effect {
+        Effect::Shadow {
+            dx,
+            dy,
+            radius,
+            colour: Rgba([0xFF, 0x9F, 0x2E, 0xFF]),
+            opacity: 0.8,
+        }
+    }
+
+    /// One stroked ellipse through `effects`, on `canvas()`, with the hint `on` or off; the
+    /// pixels and how many layers were hinted.
+    fn painted_once(
+        canvas: &dyn Fn() -> Canvas,
+        transform: &Transform,
+        effects: &[Effect],
+        on: bool,
+    ) -> (Vec<u8>, usize) {
+        let mut canvas = canvas();
+        canvas.background(Rgba([0x10, 0x14, 0x18, 0xFF]));
+        bound_filter_layers(on);
+        layer_bound::HINTED.with(|hinted| hinted.set(0));
+        canvas.shape(
+            Shape::Ellipse,
+            Extent {
+                width: 120.0,
+                height: 70.0,
+            },
+            transform,
+            &Fill {
+                fill: Some(Rgba([0xF2, 0xF2, 0xF2, 0xFF])),
+                stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF])),
+                stroke_width: 9.0,
+            },
+            None,
+            effects,
+        );
+        bound_filter_layers(true);
+        let hinted = layer_bound::HINTED.with(Cell::get);
+        (canvas.rgba().expect("the surface reads back"), hinted)
+    }
+
+    /// The bytes are the same both ways; how many layers the hinted paint hinted.
+    #[track_caller]
+    fn same_bytes(canvas: &dyn Fn() -> Canvas, transform: &Transform, effects: &[Effect]) -> usize {
+        let (bounded, hinted) = painted_once(canvas, transform, effects, true);
+        let (unbounded, off) = painted_once(canvas, transform, effects, false);
+        assert_eq!(off, 0, "off hints nothing");
+        let differ = bounded
+            .chunks(4)
+            .zip(unbounded.chunks(4))
+            .filter(|(a, b)| a != b)
+            .count();
+        assert_eq!(
+            differ, 0,
+            "{differ} pixels differ with the hint, at {transform:?} through {effects:?}"
+        );
+        hinted
+    }
+
+    fn frame() -> Canvas {
+        Canvas::new(FRAME.0, FRAME.1).expect("a surface")
+    }
+
+    #[test]
+    fn a_hinted_blur_or_shadow_paints_the_bytes_the_unbounded_layer_does() {
+        let chains: [&[Effect]; 6] = [
+            &[blur(14.0)],
+            &[shadow(0.0, 0.0, 28.0)],
+            &[shadow(7.5, -3.25, 20.0)],
+            &[blur(2.0)],
+            &[blur(10.0), shadow(20.0, 20.0, 30.0)],
+            &[
+                Effect::Mask {
+                    shape: MaskShape::Ellipse,
+                    rect: None,
+                    radius: 0.0,
+                },
+                blur(20.0),
+            ],
+        ];
+        // The frame's four edges, scales either side of 1, and each drifting by fractions
+        // of a pixel: one position alone can miss a hint that moves the layer's origin,
+        // which flips coverage on only some edge pixels at only some offsets.
+        let places: Vec<Transform> = [
+            (320.37, 180.5, (1.0, 1.0)),
+            (-20.3, 40.6, (1.4, 1.4)),
+            (630.6, 350.25, (0.4, 0.4)),
+            (200.1, 300.9, (2.0, 0.5)),
+        ]
+        .into_iter()
+        .flat_map(|(x, y, scale)| {
+            (0..4).map(move |k| at(x + 0.37 * f64::from(k), y + 0.21 * f64::from(k), scale, 0.0))
+        })
+        .collect();
+        for effects in chains {
+            for place in &places {
+                let hinted = same_bytes(&frame, place, effects);
+                let layers = effects.iter().filter(|e| e.filter().is_some()).count();
+                assert_eq!(hinted, layers, "every filter layer hinted: {effects:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_flipped_element_pins_the_edge_that_lands_on_the_layer_s_left_and_top() {
+        // A negative scale keeps the matrix scale+translate, so it is the layer's own and
+        // flips layer space: the element's right edge is the layer's left.
+        for scale in [(-1.0, 1.0), (1.0, -1.3), (-2.0, -0.6)] {
+            for effects in [&[blur(14.0)][..], &[shadow(24.0, 18.0, 24.0)]] {
+                let place = at(300.4, 170.7, scale, 0.0);
+                assert_eq!(same_bytes(&frame, &place, effects), 1, "{scale:?}");
+            }
+        }
+        // Rotated as well: the layer is a positive scale again and the flip goes to the
+        // composite.
+        let place = at(300.4, 170.7, (-1.5, 1.0), 30.0);
+        assert_eq!(same_bytes(&frame, &place, &[blur(24.0)]), 1);
+    }
+
+    #[test]
+    fn a_rotated_or_skewed_element_is_hinted_in_its_layer_s_positive_scale() {
+        for rotation in [30.0, 90.0, 180.0, 233.0] {
+            let place = at(320.4, 180.2, (1.6, 0.7), rotation);
+            assert_eq!(same_bytes(&frame, &place, &[shadow(10.0, 10.0, 20.0)]), 1);
+        }
+        // `preview`'s proxy surface scales the frame unevenly, which makes a rotated
+        // element's matrix a skew.
+        let proxy = || Canvas::scaled(FRAME.0, FRAME.1, (0.5, 0.31)).expect("a surface");
+        let place = at(640.4, 360.2, (1.2, 1.2), 30.0);
+        assert_eq!(same_bytes(&proxy, &place, &[blur(16.0)]), 1);
+    }
+
+    #[test]
+    fn a_layer_sigma_past_skia_s_rescale_takes_the_unbounded_path() {
+        // σ = radius / 2 × scale: 150 and 150, both over 135.
+        for (radius, scale) in [(300.0, 1.0), (100.0, 3.0)] {
+            let place = at(320.4, 180.2, (scale, scale), 0.0);
+            assert_eq!(same_bytes(&frame, &place, &[blur(radius)]), 0);
+        }
+        // 134 is under it.
+        let place = at(320.4, 180.2, (1.0, 1.0), 0.0);
+        assert_eq!(same_bytes(&frame, &place, &[blur(268.0)]), 1);
+    }
+
+    #[test]
+    fn a_colour_filter_anywhere_in_the_list_leaves_every_layer_unbounded() {
+        let tint = Effect::Tint {
+            colour: Rgba([0x30, 0x60, 0xFF, 0xFF]),
+            amount: 0.5,
+        };
+        let place = at(320.4, 180.2, (1.0, 1.0), 0.0);
+        assert_eq!(same_bytes(&frame, &place, &[blur(14.0), tint]), 0);
+        assert_eq!(
+            same_bytes(&frame, &place, &[tint, shadow(0.0, 0.0, 20.0)]),
+            0
+        );
     }
 }
