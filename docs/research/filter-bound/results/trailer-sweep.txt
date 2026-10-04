@@ -1,0 +1,64 @@
+# spy-trailer sweep, #649. Runs in order: none, keep_fast, fast, out, k3, k3p1, k3p2, k4, k4p1, k4p2, keep_out,
+# then keep_pic, none_b, keep_pic_2 (the last three with the build that has the `pic` mode; none_b is its unbounded control).
+# Other sessions shared the machine; load averages are uptime's at start and end of each render.
+
+## framemd5 against fixtures/benchmark/spy-trailer/frames.framemd5
+none	frames ref=1080 got=1080 differ=0	VERDICT PASS
+fast	frames ref=1080 got=1080 differ=609 first=[15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 33]	VERDICT FAIL
+out	frames ref=1080 got=1080 differ=609 first=[15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 33]	VERDICT FAIL
+k3	frames ref=1080 got=1080 differ=609 first=[15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 33]	VERDICT FAIL
+k3p1	frames ref=1080 got=1080 differ=613 first=[15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 30]	VERDICT FAIL
+k3p2	frames ref=1080 got=1080 differ=612 first=[15, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 33]	VERDICT FAIL
+k4	frames ref=1080 got=1080 differ=617 first=[12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24, 25]	VERDICT FAIL
+k4p1	frames ref=1080 got=1080 differ=611 first=[12, 13, 14, 15, 17, 21, 23, 24, 25, 26, 27, 30]	VERDICT FAIL
+k4p2	frames ref=1080 got=1080 differ=617 first=[12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24, 25]	VERDICT FAIL
+keep_fast	frames ref=1080 got=1080 differ=0	VERDICT PASS
+keep_out	frames ref=1080 got=1080 differ=0	VERDICT PASS
+keep_pic	frames ref=1080 got=1080 differ=0	VERDICT PASS
+none_b	frames ref=1080 got=1080 differ=0	VERDICT PASS
+keep_pic_2	frames ref=1080 got=1080 differ=0	VERDICT PASS
+
+## raw frames (P649RAW) against the `none` run
+fast	raw_frames=1080	differ_from_none=230	first=[15, 18, 21, 24, 27, 30, 33, 36]
+out	raw_frames=1080	differ_from_none=230	first=[15, 18, 21, 24, 27, 30, 33, 36]
+k3	raw_frames=1080	differ_from_none=230	first=[15, 18, 21, 24, 27, 30, 33, 36]
+k3p1	raw_frames=1080	differ_from_none=231	first=[12, 15, 18, 21, 24, 27, 30, 33]
+k3p2	raw_frames=1080	differ_from_none=231	first=[15, 18, 21, 24, 27, 30, 33, 36]
+k4	raw_frames=1080	differ_from_none=228	first=[12, 18, 21, 24, 27, 30, 33, 36]
+k4p1	raw_frames=1080	differ_from_none=225	first=[12, 15, 21, 24, 30, 33, 36, 39]
+k4p2	raw_frames=1080	differ_from_none=228	first=[12, 18, 21, 24, 27, 30, 33, 36]
+keep_fast	raw_frames=1080	differ_from_none=0	first=[]
+keep_out	raw_frames=1080	differ_from_none=0	first=[]
+keep_pic	raw_frames=1080	differ_from_none=0	first=[]
+none_b	raw_frames=1080	differ_from_none=0	first=[]
+keep_pic_2	raw_frames=1080	differ_from_none=0	first=[]
+
+## timing (P649 per filtered element; MONTAGENT_STAGES)
+none	layers=3485	sum_s=246.3	mean_ms=70.67	median_ms=58.14	p90_ms=101.80	wall_s 363.0874581336975	load=['12.01 12.46 13.67', '22.24 17.58 15.46']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":347173,"readback_ms":1724,"encode_wait_ms":6259,"seal_ms":1980,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+fast	layers=3485	sum_s=7.4	mean_ms=2.12	median_ms=2.28	p90_ms=3.10	wall_s 107.88073706626892	load=['13.76 15.25 14.87', '20.89 17.80 15.92']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":95100,"readback_ms":1668,"encode_wait_ms":4777,"seal_ms":2037,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+out	layers=3485	sum_s=7.5	mean_ms=2.15	median_ms=2.25	p90_ms=2.96	wall_s 104.1054859161377	load=['20.98 17.87 15.96', '13.47 16.27 15.55']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":92486,"readback_ms":1598,"encode_wait_ms":4092,"seal_ms":1768,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k3	layers=3485	sum_s=7.2	mean_ms=2.08	median_ms=2.21	p90_ms=2.89	wall_s 104.95985317230225	load=['13.03 16.13 15.51', '11.84 14.78 15.06']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":92759,"readback_ms":1686,"encode_wait_ms":4580,"seal_ms":1947,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k3p1	layers=3485	sum_s=7.6	mean_ms=2.18	median_ms=2.46	p90_ms=3.06	wall_s 99.41347813606262	load=['11.37 14.63 15.00', '12.50 13.74 14.59']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":88704,"readback_ms":1553,"encode_wait_ms":4081,"seal_ms":1418,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k3p2	layers=3485	sum_s=7.4	mean_ms=2.12	median_ms=2.44	p90_ms=3.01	wall_s 99.97587609291077	load=['12.21 13.63 14.54', '11.26 13.08 14.23']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":89029,"readback_ms":1590,"encode_wait_ms":3709,"seal_ms":1413,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k4	layers=3485	sum_s=12.1	mean_ms=3.46	median_ms=2.89	p90_ms=5.85	wall_s 151.76328802108765	load=['12.76 13.36 14.33', '25.70 18.59 16.26']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":125789,"readback_ms":2952,"encode_wait_ms":10626,"seal_ms":5689,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k4p1	layers=3485	sum_s=11.7	mean_ms=3.35	median_ms=2.92	p90_ms=5.16	wall_s 159.18666696548462	load=['29.11 19.60 16.65', '16.25 18.68 16.83']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":134575,"readback_ms":3593,"encode_wait_ms":10932,"seal_ms":3335,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+k4p2	layers=3485	sum_s=11.9	mean_ms=3.43	median_ms=2.92	p90_ms=5.03	wall_s 149.13480281829834	load=['20.10 19.41 17.12', '29.55 23.73 19.22']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":128684,"readback_ms":3516,"encode_wait_ms":8718,"seal_ms":1676,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+keep_fast	layers=3485	sum_s=74.0	mean_ms=21.23	median_ms=19.16	p90_ms=34.48	wall_s 173.85149216651917	load=['21.98 17.60 15.48', '14.61 15.44 14.93']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":162258,"readback_ms":1709,"encode_wait_ms":3886,"seal_ms":1893,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+keep_out	layers=3485	sum_s=94.2	mean_ms=27.04	median_ms=21.76	p90_ms=41.21	wall_s 234.68479371070862	load=['29.50 23.91 19.34', '19.02 23.88 20.64']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":215512,"readback_ms":3166,"encode_wait_ms":8756,"seal_ms":1377,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+keep_pic	layers=3485	sum_s=57.5	mean_ms=16.50	median_ms=16.15	p90_ms=27.32	wall_s 139.90896582603455	load=['16.03 22.98 20.38', '6.39 16.65 18.23']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":131499,"readback_ms":1304,"encode_wait_ms":2557,"seal_ms":1234,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+none_b	layers=3485	sum_s=176.7	mean_ms=50.69	median_ms=50.77	p90_ms=52.34	wall_s 257.9206349849701	load=['7.32 16.67 18.23', '4.03 9.44 14.56']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":250216,"readback_ms":1291,"encode_wait_ms":2016,"seal_ms":1215,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}
+keep_pic_2	layers=3485	sum_s=59.5	mean_ms=17.07	median_ms=16.66	p90_ms=28.29	wall_s 143.36007618904114	load=['4.19 9.38 14.51', '8.95 9.75 13.89']
+  MONTAGENT_STAGES {"frames":1080,"decode_ms":0,"paint_ms":135561,"readback_ms":1330,"encode_wait_ms":2004,"seal_ms":1207,"feeds_opened":0,"feeds_reopened":0,"frame_at":0}

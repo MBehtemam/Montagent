@@ -496,6 +496,176 @@ half4 main(half4 color) {
 }
 ";
 
+/// SPIKE #649: bounds hints for the filter layers. Not for merge.
+///
+/// `MONTAGENT_FILTER_BOUND` picks the hint:
+/// - unset or `none`: no hint (today's unbounded layer);
+/// - `fast[+N]`: Skia's own `computeFastBounds`, chained innermost-first from the element box;
+/// - `pic[+N]`: the same chain, starting from Skia's recorded bounds of what the element draws;
+/// - `out[+N]`: Skia's own `filterBounds(.., kForward)` of the element's device bounds,
+///   chained, mapped back to element space;
+/// - `k3[+N]` / `k4[+N]`: the element box outset by 3σ / 4σ (plus the shadow offset), chained;
+///   `k0[+N]` is the bare box (the shadow offset still joined in);
+/// - a `keep:` prefix on any of these pins the hint's left/top far away, so the layer keeps
+///   the unbounded layer's origin and only its right/bottom shrink.
+///
+/// `N` is slop in device pixels, converted to element units by the matrix's scale.
+pub mod spike649 {
+    use super::{Effect, sigma};
+    use skia_safe::{IRect, ImageFilter, Rect, image_filter::MapDirection};
+
+    #[derive(Clone, Copy, Debug)]
+    enum Kind {
+        Fast,
+        /// Skia's recorded content bounds (an `SkPicture` with a BBH), then `computeFastBounds`.
+        Pic,
+        Out,
+        K(f32),
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    struct Mode {
+        kind: Kind,
+        slop: f32,
+        keep_origin: bool,
+    }
+
+    fn mode() -> Option<Mode> {
+        static MODE: std::sync::OnceLock<Option<Mode>> = std::sync::OnceLock::new();
+        *MODE.get_or_init(|| {
+            let raw = std::env::var("MONTAGENT_FILTER_BOUND").ok()?;
+            let (keep_origin, rest) = match raw.strip_prefix("keep:") {
+                Some(rest) => (true, rest.to_string()),
+                None => (false, raw.clone()),
+            };
+            let (name, slop) = match rest.split_once('+') {
+                Some((n, s)) => (n.to_string(), s.parse().expect("slop")),
+                None => (rest.clone(), 0.0),
+            };
+            let kind = match name.as_str() {
+                "none" => return None,
+                "fast" => Kind::Fast,
+                "pic" => Kind::Pic,
+                "out" => Kind::Out,
+                "k0" => Kind::K(0.0),
+                "k3" => Kind::K(3.0),
+                "k4" => Kind::K(4.0),
+                other => panic!("MONTAGENT_FILTER_BOUND: unknown {other}"),
+            };
+            eprintln!("P649 mode {raw}");
+            Some(Mode {
+                kind,
+                slop,
+                keep_origin,
+            })
+        })
+    }
+
+    pub fn timing() -> bool {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var_os("MONTAGENT_FILTER_TIME").is_some())
+    }
+
+    /// The element's drawing recorded once more, under the same matrix, for Skia's own
+    /// bounds of what it draws: `SkRecordFillBounds` through the RTree's root bound, in
+    /// device space. `None` unless the mode asks for it and the element has a filter.
+    pub fn recorded_bounds(
+        canvas: &skia_safe::Canvas,
+        effects: &[Effect],
+        draw: &dyn Fn(&skia_safe::Canvas),
+    ) -> Option<Rect> {
+        let mode = mode()?;
+        if !matches!(mode.kind, Kind::Pic)
+            || !effects
+                .iter()
+                .any(|e| matches!(e, Effect::Blur { .. } | Effect::Shadow { .. }))
+        {
+            return None;
+        }
+        let mut recorder = skia_safe::PictureRecorder::new();
+        let big = Rect::new(-1.0e7, -1.0e7, 1.0e7, 1.0e7);
+        let rc = recorder.begin_recording(big, true);
+        rc.set_matrix(&canvas.local_to_device());
+        draw(rc);
+        let picture = recorder.finish_recording_as_picture(None)?;
+        Some(picture.cull_rect())
+    }
+
+    /// One hint per effect, in element space; `None` leaves that layer unbounded.
+    pub fn hints(
+        canvas: &skia_safe::Canvas,
+        extent: super::Extent,
+        effects: &[Effect],
+        filters: &[Option<ImageFilter>],
+        recorded: Option<Rect>,
+    ) -> Vec<Option<Rect>> {
+        let Some(mode) = mode() else {
+            return vec![None; effects.len()];
+        };
+        let ctm = canvas.local_to_device_as_3x3();
+        let Some(inverse) = ctm.invert() else {
+            return vec![None; effects.len()];
+        };
+        let scale = (ctm.scale_x() * ctm.scale_y() - ctm.skew_x() * ctm.skew_y())
+            .abs()
+            .sqrt()
+            .max(1e-6);
+        let slop = mode.slop / scale;
+        // What the innermost layer holds: the element's own box.
+        let mut content = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
+        if let Kind::Pic = mode.kind {
+            let Some(device) = recorded else {
+                return vec![None; effects.len()];
+            };
+            if device.is_empty() {
+                return vec![None; effects.len()];
+            }
+            content = inverse.map_rect(device).0;
+        }
+        let mut out = Vec::with_capacity(effects.len());
+        for (effect, filter) in effects.iter().zip(filters) {
+            let Some(filter) = filter else {
+                // A mask layer: unbounded, and it does not grow its content.
+                out.push(None);
+                continue;
+            };
+            // The bound of *this* layer's output, which is the next layer's content.
+            let output = match mode.kind {
+                Kind::Fast | Kind::Pic => filter.compute_fast_bounds(content),
+                Kind::Out => {
+                    let (dev, _) = ctm.map_rect(content);
+                    let dev: IRect = skia_safe::RoundOut::round_out(&dev);
+                    let o = filter.filter_bounds(dev, &ctm, MapDirection::Forward, None);
+                    inverse.map_rect(Rect::from(o)).0
+                }
+                Kind::K(k) => match *effect {
+                    Effect::Blur { radius } => {
+                        let o = k * sigma(radius);
+                        content.with_outset((o, o))
+                    }
+                    Effect::Shadow { dx, dy, radius, .. } => {
+                        let o = k * sigma(radius);
+                        let mut s = content
+                            .with_offset((dx as f32, dy as f32))
+                            .with_outset((o, o));
+                        s.join(content);
+                        s
+                    }
+                    _ => content,
+                },
+            };
+            let mut hint = output.with_outset((slop, slop));
+            if mode.keep_origin {
+                hint.left = -1.0e7;
+                hint.top = -1.0e7;
+            }
+            out.push(Some(hint));
+            content = output;
+        }
+        out
+    }
+}
+
 impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
@@ -1194,7 +1364,7 @@ impl Canvas {
         transform: &Transform,
         clip: Option<Region>,
         effects: &[Effect],
-        draw: impl FnOnce(&skia_safe::Canvas),
+        draw: impl Fn(&skia_safe::Canvas),
     ) {
         if extent.width <= 0.0 || extent.height <= 0.0 || transform.opacity <= 0.0 {
             return;
@@ -1258,14 +1428,27 @@ impl Canvas {
         canvas: &skia_safe::Canvas,
         extent: Extent,
         effects: &[Effect],
-        draw: impl FnOnce(&skia_safe::Canvas),
+        draw: impl Fn(&skia_safe::Canvas),
     ) {
-        for effect in effects.iter().rev() {
-            match effect.filter() {
+        // SPIKE #649: optional bounds hints on the filter layers, and per-element timing.
+        let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        let recorded = spike649::recorded_bounds(canvas, effects, &draw);
+        let hints = spike649::hints(canvas, extent, effects, &filters, recorded);
+        let timed = spike649::timing()
+            && effects
+                .iter()
+                .any(|e| matches!(e, Effect::Blur { .. } | Effect::Shadow { .. }));
+        let started = std::time::Instant::now();
+        for (index, filter) in filters.into_iter().enumerate().rev() {
+            match filter {
                 Some(filter) => {
                     let mut paint = SkPaint::default();
                     paint.set_image_filter(filter);
-                    canvas.save_layer(&SaveLayerRec::default().paint(&paint));
+                    let mut rec = SaveLayerRec::default().paint(&paint);
+                    if let Some(hint) = hints[index].as_ref() {
+                        rec = rec.bounds(hint);
+                    }
+                    canvas.save_layer(&rec);
                 }
                 // A `mask`, and also any filter Skia declined to build — an effect that
                 // cannot be made is a layer that changes nothing rather than a missing
@@ -1290,6 +1473,13 @@ impl Canvas {
                 canvas.draw_path(&shape.outside(extent, *rect, *radius), &paint);
             }
             canvas.restore();
+        }
+        if timed {
+            eprintln!(
+                "P649\t{:.4}\t{:?}",
+                started.elapsed().as_secs_f64() * 1000.0,
+                effects
+            );
         }
     }
 

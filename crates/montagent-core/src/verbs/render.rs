@@ -1111,6 +1111,13 @@ impl<'a> Producer<'a> {
             )));
         };
         self.stages.readback += reading.elapsed();
+        // SPIKE #649: a hash of the raw frame, before the encoder can quantize a difference away.
+        if std::env::var_os("MONTAGENT_RAW_HASH").is_some() {
+            use std::hash::{DefaultHasher, Hash, Hasher};
+            let mut h = DefaultHasher::new();
+            rgb.hash(&mut h);
+            eprintln!("P649RAW\t{n}\t{:016x}", h.finish());
+        }
         Ok(rgb)
     }
 
