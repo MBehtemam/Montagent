@@ -723,9 +723,17 @@ impl Raster {
     /// *double* rotation, landing the stored bottom-right quadrant where the bottom-left
     /// belonged. That test is what holds this — a codec change that stopped applying the
     /// tag fails it, and so does a second application added back.
+    ///
+    /// **The pixels are decoded here, once.** `from_encoded` alone returns a lazy image
+    /// that decodes into Skia's resource cache, whose default 32 MiB limit is smaller than
+    /// one project's stills; each eviction meant a fresh decode, 10.7% of a paint-heavy
+    /// render's samples (#648). `to_raster_image` makes the `Raster` own its pixels, so the
+    /// one `Painter::stills` keeps for the render is decoded once per painter.
+    /// `a_decoded_still_holds_its_pixels_rather_than_a_lazy_generator` holds this.
     pub fn decode(bytes: &[u8]) -> Option<Raster> {
         Some(Raster {
-            image: Image::from_encoded(Data::new_copy(bytes))?,
+            image: Image::from_encoded(Data::new_copy(bytes))?
+                .to_raster_image(skia_safe::image::CachingHint::Disallow)?,
         })
     }
 
@@ -2008,5 +2016,18 @@ mod tests {
                 "row {row}"
             );
         }
+    }
+
+    #[test]
+    fn a_decoded_still_holds_its_pixels_rather_than_a_lazy_generator() {
+        // Why a lazy one is wrong is on `Raster::decode`.
+        let mut canvas = Canvas::new(4, 4).expect("a surface");
+        canvas.background(Rgba([0x20, 0x40, 0x60, 0xFF]));
+        let png = canvas
+            .encode(None, Scale::Full, Encoding::Png)
+            .expect("an encoded still")
+            .bytes;
+        let still = Raster::decode(&png).expect("it decodes");
+        assert!(!still.image.is_lazy_generated());
     }
 }
