@@ -25,9 +25,11 @@ MB = 1920 * 1080 * 4 / 1e6
 def load(path):
     p = {}
     for line in open(path, errors="replace"):
-        if line.startswith("P650\t"):
-            _, n, ms = line.split("\t")
-            p[int(n)] = float(ms) / 1000
+        f = line.rstrip("\n").split("\t")
+        if f[0] == "P650":
+            f = f[1:]
+        if len(f) == 2 and f[0].isdigit():
+            p[int(f[0])] = float(f[1]) / 1000
     return [p[i] for i in range(len(p))]
 
 
