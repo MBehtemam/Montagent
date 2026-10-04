@@ -3,7 +3,8 @@
 //! byte of the unbounded layer's picture.
 //!
 //! An unhinted filter layer covers the whole frame plus the blur's reach, so a small glowing
-//! title blurs a frame's worth of transparent pixels. A hint is a hard clip on the layer, and
+//! title blurs a frame's worth of transparent pixels. A hint bounds Skia's layer outright (not
+//! an element `clip`, which is frame-space and applied outside the effects), and
 //! [#649](https://github.com/MBehtemam/Montagent/issues/649)'s research
 //! (`docs/research/filter-bound/FINDINGS.md` on `research/649-filter-bound`) found which
 //! hints keep the bytes:
@@ -294,7 +295,7 @@ mod tests {
                 dx: 20.0,
                 dy: 0.0,
                 radius: 4.0,
-                colour: super::super::Rgba([0, 0, 0, 0xFF]),
+                colour: crate::canvas::Rgba([0, 0, 0, 0xFF]),
                 opacity: 1.0,
             },
         ];

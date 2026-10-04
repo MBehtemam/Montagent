@@ -2118,8 +2118,8 @@ mod tests {
     #[track_caller]
     fn same_bytes(canvas: &dyn Fn() -> Canvas, transform: &Transform, effects: &[Effect]) -> usize {
         let (bounded, hinted) = painted_once(canvas, transform, effects, true);
-        let (unbounded, none) = painted_once(canvas, transform, effects, false);
-        assert_eq!(none, 0, "off is off");
+        let (unbounded, off) = painted_once(canvas, transform, effects, false);
+        assert_eq!(off, 0, "off hints nothing");
         let differ = bounded
             .chunks(4)
             .zip(unbounded.chunks(4))
