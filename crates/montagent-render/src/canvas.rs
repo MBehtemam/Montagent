@@ -496,6 +496,32 @@ half4 main(half4 color) {
 }
 ";
 
+
+/// SPIKE #647: snapshot-cache hit-rate instrumentation. Not for merge.
+pub mod probe647 {
+    use std::cell::{Cell, RefCell};
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    thread_local! {
+        pub static NAME: RefCell<String> = const { RefCell::new(String::new()) };
+        pub static INSTANT: Cell<i64> = const { Cell::new(-1) };
+        pub static CONTENT: RefCell<String> = const { RefCell::new(String::new()) };
+    }
+    pub fn on() -> bool {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var_os("MONTAGENT_PROBE_647").is_some())
+    }
+    pub fn hash(s: &str) -> u64 {
+        let mut h = DefaultHasher::new();
+        s.hash(&mut h);
+        h.finish()
+    }
+    pub fn set_content(kind: &str, s: String) {
+        if on() {
+            CONTENT.with(|c| *c.borrow_mut() = format!("{kind}:{:016x}", hash(&s)));
+        }
+    }
+}
+
 impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
@@ -997,6 +1023,7 @@ impl Canvas {
         if paint.fill.is_none() && paint.stroke.is_none() {
             return;
         }
+        probe647::set_content("shape", format!("{shape:?} {extent:?} {paint:?} {clip:?}"));
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             let box_rect = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
 
@@ -1073,6 +1100,10 @@ impl Canvas {
         clip: Option<Region>,
         effects: &[Effect],
     ) {
+        probe647::set_content(
+            "raster",
+            format!("{} {extent:?} {clip:?}", source.image.unique_id()),
+        );
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             let destination = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
             let to_device = canvas.local_to_device_as_3x3()
@@ -1128,6 +1159,7 @@ impl Canvas {
         // Built once per element and keyed by the same index `montagent-text` deduplicated
         // on, so a repeated letter is one path however many times it appears.
         let paths: Vec<Path> = outlines.iter().map(|outline| path_of(outline)).collect();
+        probe647::set_content("text", format!("{glyphs:?} {outlines:?} {extent:?} {clip:?}"));
 
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             for pass in [Pass::Stroke, Pass::Fill] {
@@ -1225,11 +1257,78 @@ impl Canvas {
             (-transform.origin.0 * extent.width) as f32,
             (-transform.origin.1 * extent.height) as f32,
         ));
+        if probe647::on() {
+            Canvas::probe(canvas, extent, transform, effects);
+        }
         Canvas::through(canvas, extent, effects, draw);
         if layered {
             canvas.restore();
         }
         canvas.restore();
+    }
+
+    /// SPIKE #647: one line per element with a blur or shadow effect, on stderr.
+    fn probe(
+        canvas: &skia_safe::Canvas,
+        extent: Extent,
+        transform: &Transform,
+        effects: &[Effect],
+    ) {
+        let filtered: Vec<&str> = effects
+            .iter()
+            .filter_map(|e| match e {
+                Effect::Blur { .. } => Some("blur"),
+                Effect::Shadow { .. } => Some("shadow"),
+                _ => None,
+            })
+            .collect();
+        if filtered.is_empty() {
+            return;
+        }
+        let m = canvas.local_to_device_as_3x3();
+        let bits: Vec<String> = (0..9).map(|i| format!("{:08x}", m[i].to_bits())).collect();
+        // Output bounds: the box, grown effect by effect (innermost first), mapped to the
+        // device and cut to the surface.
+        let mut r = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
+        for e in effects {
+            match *e {
+                Effect::Blur { radius } => {
+                    let o = 3.0 * sigma(radius);
+                    r = r.with_outset((o, o));
+                }
+                Effect::Shadow { dx, dy, radius, .. } => {
+                    let o = 3.0 * sigma(radius);
+                    let mut s = r.with_offset((dx as f32, dy as f32)).with_outset((o, o));
+                    s.join(r);
+                    r = s;
+                }
+                _ => {}
+            }
+        }
+        let (dev, _) = m.map_rect(r);
+        let size = canvas.base_layer_size();
+        let mut cut = dev;
+        let frame = Rect::from_iwh(size.width, size.height);
+        let px = if cut.intersect(frame) {
+            let c: skia_safe::IRect = skia_safe::RoundOut::round_out(&cut);
+            (c.width() as i64) * (c.height() as i64)
+        } else {
+            0
+        };
+        let name = probe647::NAME.with(|n| n.borrow().clone());
+        let instant = probe647::INSTANT.with(|i| i.get());
+        let content = probe647::CONTENT.with(|c| c.borrow().clone());
+        eprintln!(
+            "P647\t{instant}\t{name}\t{}\t{effects:?}\t{}\t{content}\t{}\t{px}\t{} {} {:?} {} {:?}",
+            filtered.join("+"),
+            bits.join(","),
+            transform.opacity,
+            transform.x,
+            transform.y,
+            transform.scale,
+            transform.rotation,
+            transform.origin,
+        );
     }
 
     /// Run `draw` inside the ordered `effects` list, in element space.

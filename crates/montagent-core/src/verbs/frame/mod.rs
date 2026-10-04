@@ -1083,6 +1083,7 @@ impl<'a> Painter<'a> {
     pub(crate) fn begin(&mut self, instant: i64) {
         self.frame_number = None;
         self.instant = instant;
+        montagent_render::canvas::probe647::INSTANT.with(|i| i.set(instant));
         self.painted.clear();
         self.not_painted.clear();
         self.painted_partially.clear();
@@ -1155,6 +1156,7 @@ impl<'a> Painter<'a> {
                 offset: present.source_offset,
                 origin: present.source_origin,
             };
+            montagent_render::canvas::probe647::NAME.with(|n| *n.borrow_mut() = name.clone());
             self.element(canvas, &name, element, playhead);
         }
     }
