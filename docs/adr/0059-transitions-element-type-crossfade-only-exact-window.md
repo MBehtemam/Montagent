@@ -5,6 +5,10 @@ amends: 0040 (confirms the "own shape — likely id-targeting" prediction; the e
 
 # Transitions: their own element type, crossfade only in v1, exact-window, non-overlap rule untouched
 
+> **Amended by [ADR-0150](./0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md)**: the deferral is discharged. `wipe`, `slide` and `push` join
+> `crossfade`, with a required `direction` (the way the motion travels) and an optional
+> `ease`, and `validate` now checks the `from`/`to` references.
+
 CapCut and Premiere both make transitions first-class; nothing in the settled model
 (ADR-0012's transform/keyframes, ADR-0040's effect model) could express one. This
 settles representation, scope, timing, and interaction with the track model —
