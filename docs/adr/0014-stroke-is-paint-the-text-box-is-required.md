@@ -5,7 +5,7 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
-> **Amended by five later ADRs.** Read them before relying on anything below.
+> **Amended by six later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0015](0015-fit-is-a-derivation-claim-and-gravity-retires.md) — `gravity` is
 >   decided here, as that ADR deferred it
@@ -17,6 +17,9 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 > - [ADR-0058](0058-text-box-slack-is-a-note-with-sibling-census.md) — closes its recorded
 >   residual: "an over-large `height` disables its own tripwire... nothing in this design
 >   catches it"
+> - [ADR-0149](0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md) — its
+>   "gradients are out of v1" is closed: a gradient enters as a paint, linear or radial, in a
+>   closed vocabulary
 
 > **`gravity` is decided by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**,
 > which this ADR deferred to #48. It is **retired** — a schema error on every element type, not

@@ -256,14 +256,30 @@ A `rect` may declare a `radius`; an ellipse may not.
 _Avoid_: rectangle (as the type name), box, figure, primitive (unqualified)
 
 **Fill**:
-The paint inside a shape's outline, as a single flat colour. Optional when a `stroke` is
+The paint inside a shape's outline. Optional when a `stroke` is
 present, giving an outlined shape; a shape with neither is a schema error naming both,
 because an element that deliberately renders nothing and an element that forgot its paint
-must not look alike. A gradient is not a fill — a flat colour is a value, a gradient is a
-paint description, and descriptions belong in a closed vocabulary rather than an open
-syntax.
-_Avoid_: background, colour (for a shape), paint. Do not use for what a
+must not look alike.
+_Avoid_: background, colour (for a shape). Do not use for what a
 time-based element does past the end of its source — that is `overrun`.
+
+**Paint**:
+A value, not a process: what a paint field holds — a flat colour or a gradient. The paint
+fields are a shape's `fill` and `stroke` and a text element's element-level `color` and
+`stroke`; run and highlight paint, the project `background` and every effect colour take
+a colour only. The *painter* is the renderer that draws paints; it is not one.
+([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md))
+_Avoid_: colour (when a gradient is allowed), fill (for the union), style
+
+**Gradient**:
+A paint whose colour varies across the element's declared box: `linear`, at an `angle`, or
+`radial`, from a `center` out to a `radius`, both measured as fractions of the box, with a
+list of at least two stops of `offset` and colour. Past the first and last stop the end
+colours extend. A named entry in a closed vocabulary, not an open syntax: the kind is an
+enum and every parameter is a literal.
+([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md))
+_Avoid_: ramp, colour ramp, shader (for a gradient), location or position (for a stop's
+`offset`)
 
 **Stroke**:
 A second paint on the same outline — `stroke` and `stroke_width` — sitting on the
