@@ -836,6 +836,22 @@ across the whole sheet, never a ceiling that holds in some stretches and not oth
 _Avoid_: gap ceiling (**Gap** is a stretch of a track with no element — a different thing),
 max gap, infill count, infill interval / period
 
+**Reference class**:
+CapCut and Premiere: the tools whose mechanisms are Montagent's first source of precedent.
+Read by mechanism, not by name; a mechanism confirmed in either tool is a precedent
+([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)).
+_Avoid_: "in scope", "out of scope" — a capability outside the reference class can still
+enter, and one inside it must still keep the invariants
+
+**Entry test**:
+What a capability with no precedent in the reference class must pass on top of the four
+invariants every capability keeps (literal values, closed vocabulary, checkable by
+`validate`, exact-string replace): the owner accepts a rendered prototype of it. Passing is
+necessary, not sufficient
+([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)).
+_Avoid_: approval, sign-off — passing lets the capability's ADR be argued; it does not
+decide it
+
 ## Findings and reports
 
 The vocabulary above is the document's. This is the tooling's: what Montagent has

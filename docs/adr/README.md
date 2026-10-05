@@ -2,7 +2,7 @@
 
 **The ADR series is the specification.** There is no separately assembled spec document, and there will not be one — [ADR-0031's ticket (#131)](https://github.com/MBehtemam/Montagent/issues/131) rejected that shape because a second artifact drifts from its source with no rule for which wins. This file is navigation only: it adds no decision, and where it summarises an ADR the ADR is what governs.
 
-**Most of this series amends itself — 124 of 142 ADRs declare an amendment: 121 in an `amends:` header, three ([0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md), [0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
+**Most of this series amends itself — 125 of 143 ADRs declare an amendment: 122 in an `amends:` header, three ([0016](0016-no-format-version-the-unknown-key-error-is-the-mechanism.md), [0043](0043-refuse-class-findings-a-repair-field-uniform-per-check-non-bypassable.md), [0044](0044-off-canvas-is-a-standing-review-check-not-a-frame-change-census.md)) in an `**Amends:**` line instead.** `python3 docs/adr/check_amendment_banners.py` keeps the three views (header, banner, this column) in agreement.
 
 **ADRs are amended, never rewritten.** A later ADR that corrects an earlier one says so in its own text; the *Amended by* column here is the reverse view, so you can tell at a glance whether what you are about to read is still current. **An ADR with entries in that column has been touched by later decisions — read them before acting on it.** The two densest are ADR-0011 (23 amendments) and ADR-0006/ADR-0012 (20 and 12), which is expected: they are the tool surface, the validate report and the transform model, and nearly every later decision lands on one of them.
 
@@ -14,7 +14,8 @@ ADR-0050 and ADR-0065 appeared to contradict each other on `preview`'s floor (36
 
 | ADR | Decision | Amended by |
 | --- | --- | --- |
-| [0003](0003-general-video-editor-not-channel-tooling.md) | Montagent is a general video editor in the CapCut/Premiere class; After Effects is out. The channel is a fixture and a regression guard, **never a scope boundary** — evidence a capability is needed, never evidence one is unneeded | — |
+| [0003](0003-general-video-editor-not-channel-tooling.md) | Montagent is a general video editor in the CapCut/Premiere class; After Effects is out. The channel is a fixture and a regression guard, **never a scope boundary** — evidence a capability is needed, never evidence one is unneeded | 0145 |
+| [0145](0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md) | **CapCut and Premiere are where precedent is looked for first, not the edge of scope.** [#667](https://github.com/MBehtemam/Montagent/issues/667): "After Effects is out of scope for now" is replaced. A mechanism confirmed in either tool is a precedent. **Every capability keeps the four invariants** (literal values, closed vocabulary, checkable by `validate`, exact-string replace), each stated as a test, and no capability ADR may waive one. A capability with no precedent in either tool enters only by the **entry test**: the invariants plus a rendered prototype the owner accepts, which is necessary and not sufficient. Other tools are evidence for shape only. A floor: stricter bars stay. Reverses no earlier ruling; transform-only keyframes stay in force until their own ADR | — |
 
 ## Host, renderer and distribution
 
