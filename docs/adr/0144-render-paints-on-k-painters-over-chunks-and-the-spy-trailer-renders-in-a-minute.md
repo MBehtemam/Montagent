@@ -132,7 +132,9 @@ them through the same loop one painter feeds (`encode_frames`).
 - **W is a byte budget**, `WINDOW_BYTES` = 150 frames of 1080p RGB (≈ 0.93 GB), turned into
   frames at the render's own resolution, **with a floor of K·C**. When the floor exceeds the
   budget, the floor wins and the answer says so: `painting.window_floor` is `true`, and the
-  text names the floor. The window counts frames painted and not yet taken by the encoder; a
+  text names the floor. **The budget covers the window only.** #627 §5 had it cover each
+  painter's canvas and decoded stills as well; #650 narrowed it to W, and the painters'
+  private memory is observed in the peak RSS below instead. The window counts frames painted and not yet taken by the encoder; a
   painter about to paint a frame W or more ahead of the encoder waits.
 - **A document with a `video` element keeps one painter**, on the verb's own thread, as
   before. Step 3 was opened for the paint class. A paint chunk start reopens every visible
@@ -140,13 +142,21 @@ them through the same loop one painter feeds (`encode_frames`).
   hundreds at the decode class's ~3 ms of paint a frame, which makes the window's floor K·C
   gigabytes at 1080p; and the decode class already meets its own target on one painter
   (ADR-0142). Forced (below), chunked painting of video is byte-identical; it is just not
-  worth it.
+  worth it. **The cost:** the test is "has a `video` element", not "is decode-bound", so a
+  paint-heavy project with one small clip loses the painters. #627 §5's "K shrinks, not C"
+  would give it fewer painters over long paint chunks instead; that needs a measured reopen
+  cost, and waits for a project that shows the need.
 - **The answer discloses it**, like `threads`: `render.painting` is `{painters, chunk,
   window, window_floor}`, `1`/the span/`1`/`false` for one painter. Not choosable: no project
-  field, flag or MCP parameter reaches it, and it changes no byte of the file.
+  field, flag or MCP parameter reaches it, and it changes no byte of the file. It is the one
+  departure from #627 §6's "the same report": like `wall_ms`, it describes how the file was
+  made, so it differs with K while the findings and every list of what was painted do not.
+  The tests compare the answer with `painting`, `wall_ms` and `realtime` removed.
 - **Overrides**, `#[doc(hidden)]`: `render::force_painting` forces one painter or a K, C and
   window budget for the tests; `MONTAGENT_PAINTING=K,C[,W]` does the same for the shipped
-  binary's measurement sweeps, as `MONTAGENT_STAGES` does for the stage breakdown.
+  binary's measurement sweeps, as `MONTAGENT_STAGES` does for the stage breakdown. It goes past #627 §5's "a `#[doc(hidden)]` override lets tests force K and C",
+  because the sweeps time the binary as a process; it is measurement plumbing, never a
+  setting.
 
 **Every invariant of #627 §5 holds:**
 
@@ -219,7 +229,8 @@ built, **re-profile** and take the branch the profile names:
   ADR-0142's protocol, with the load checked before **every** run, since a trailer run is
   short enough for the machine to change between two of them. Each run's MP4 is hashed
   against `frames.framemd5` after its clock stops. `score.wav` is generated before anything
-  is timed. One JSON line per measurement.
+  is timed. One JSON line per measurement. **Runs:** the verdict is 1 warm-up and 5 timed
+  runs (#645 §6); each sweep point below is the median of 3 (#653), with the spread.
 - **The second CI guard** (#647 decision 4):
   `three_painters_over_two_frame_chunks_give_the_blur_and_glow_framemd5_of_one` in
   `crates/montagent-core/tests/painters.rs`. K=3 and C=2 forced on a 320x180 project with a

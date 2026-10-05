@@ -140,10 +140,11 @@ use crate::verbs::frame::{Declined, Feeds, NotPainted, Painter};
 use crate::verbs::query::at;
 
 mod painters;
+pub use painters::Painting;
 #[doc(hidden)]
 pub use painters::{
-    FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, Painting, fail_frames,
-    force_painting, tap_frames,
+    FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, fail_frames, force_painting,
+    tap_frames,
 };
 
 const TOOL: &str = "render";
@@ -350,7 +351,7 @@ pub struct Video {
     pub sources: Vec<String>,
     /// Every font file opened (ADR-0007).
     pub fonts: Vec<String>,
-    /// How the frames were painted: how many painters, over chunks of how many frames, and
+    /// How the frames were painted: how many painters, over paint chunks of how many frames, and
     /// how far painting could lead the encoder (#653). Disclosed like `threads`, and like it
     /// not choosable; and like it, it changes no byte of the file.
     pub painting: painters::Painting,
@@ -966,7 +967,7 @@ pub(crate) fn encode_span(
                 painters::Painting::one(span.frames),
             )
         }
-        // #627's step 3: K painters over chunks, each with a painter of its own built the
+        // #627's step 3: K painters over paint chunks, each with a painter of its own built the
         // same way, feeding this thread's one encoder in timeline order.
         Some(painting) => {
             drop(canvas);
@@ -1088,7 +1089,7 @@ fn encode_frames(
 }
 
 /// The union over some frames of what each painted and declined — over a whole span for one
-/// painter, over one chunk for each of K (#653).
+/// painter, over one paint chunk for each of K (#653).
 #[derive(Debug, Default)]
 pub(crate) struct Record {
     painted: Vec<String>,
@@ -1186,7 +1187,7 @@ pub(crate) struct Mark {
 /// Everything that decides the frame's pixels or the record of what reached them lives here:
 /// the painter (with its feeds), the canvas, and the union of what each frame painted and
 /// declined. The encoder does not. With K painters (#653) each has one of these on its own
-/// thread, and hands back a [`Made`] per chunk.
+/// thread, and hands back a [`Made`] per paint chunk.
 pub(crate) struct Producer<'a> {
     document: &'a Loose,
     fps: i64,

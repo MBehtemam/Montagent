@@ -1,7 +1,7 @@
-//! Step 3 of #627's ladder: **K painters over C-frame chunks, feeding one encoder in timeline
+//! Step 3 of #627's ladder: **K painters over C-frame paint chunks, feeding one encoder in timeline
 //! order** (#653, ADR-0144).
 //!
-//! The span is cut into chunks of C frames, handed out to K painters in timeline order. Each
+//! The span is cut into paint chunks of C frames, handed out to K painters in timeline order. Each
 //! painter owns a whole [`Painter`] — its supplier, its font registry, its decoded stills —
 //! and its own canvas, on its own thread; the document is shared read-only, and nothing
 //! mutable is shared but the one [`Shared`] state below. The thread that called the verb is
@@ -10,7 +10,7 @@
 //!
 //! ## Why the bytes cannot depend on K
 //!
-//! **A chunk start is indistinguishable from `--from`.** A painter that starts a chunk is a
+//! **A paint chunk start is indistinguishable from `--from`.** A painter that starts a paint chunk is a
 //! painter that has painted some earlier frames, or none; a partial render that starts there
 //! is a painter that has painted none. What a painter carries from one frame to the next is
 //! all of this, and none of it reaches a pixel or the report:
@@ -31,7 +31,7 @@
 //!   A painter that did not paint the frame before reopens; the frame is the same.
 //! - `internal` and `tool_missing`: failures, which stop the span at the frame they are
 //!   found on.
-//! - `sources` and `fonts`: append-only records of every file used, read per chunk below.
+//! - `sources` and `fonts`: append-only records of every file used, read per paint chunk below.
 //! - The canvas: cleared to the background at the start of every frame, with every `save`
 //!   in the paint matched by a `restore`, and its only lasting state the surface's scale,
 //!   set the same way when each painter's canvas is made.
@@ -41,18 +41,18 @@
 //!
 //! ## The report
 //!
-//! Each chunk reports what its frames recorded ([`Made`]), and the encoder's side merges them
-//! in chunk order with [`Made::then`]: `painted`, `sources`, `fonts` and `decoded_per_frame`
+//! Each paint chunk reports what its frames recorded ([`Made`]), and the encoder's side merges them
+//! in paint chunk order with [`Made::then`]: `painted`, `sources`, `fonts` and `decoded_per_frame`
 //! by first appearance, `declined` first per `(element, code)`, and the two reason sets as a
 //! union — which is what one painter makes of the same frames one at a time. A painter's
 //! `sources` and `fonts` record a file the first time *that painter* uses it, so a file first
-//! used in chunk j is in chunk j's list (its painter cannot have used it earlier), and one
+//! used in paint chunk j is in paint chunk j's list (its painter cannot have used it earlier), and one
 //! used again later, by a painter new to it, is deduplicated away.
 //!
 //! ## Failures
 //!
 //! Every failure carries the timeline frame it was found on; a painter that fails before it
-//! paints (its canvas) takes its chunk's first frame. A failure at frame f stops all work after
+//! paints (its canvas) takes its paint chunk's first frame. A failure at frame f stops all work after
 //! f at once and lets work before f finish, and is acted on only when the encoder's side
 //! reaches f — so the timeline-earliest failure is the one reported, whatever order the
 //! painters found them in.
@@ -77,7 +77,7 @@ use crate::verbs::frame::{Feeds, Painter, supply};
 /// rest of a fourth.
 pub const ENCODER_CORES: usize = 4;
 
-/// C, the frames in one chunk, measured on the trailer (ADR-0144).
+/// C, the frames in one paint chunk, measured on the trailer (ADR-0144).
 pub const CHUNK_FRAMES: u64 = 2;
 
 /// W's budget: the bytes of painted frames that may wait for the encoder, measured on the
@@ -88,20 +88,20 @@ pub const WINDOW_BYTES: u64 = 150 * 1920 * 1080 * 3;
 /// How a span's frames were painted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Painting {
-    /// K: how many painters, each on its own thread. `1` with no chunks is the painter on the
+    /// K: how many painters, each on its own thread. `1` with no paint chunks is the painter on the
     /// verb's own thread, between pushes.
     pub painters: usize,
-    /// C: the frames in one chunk.
+    /// C: the frames in one paint chunk.
     pub chunk: u64,
     /// W: how many painted frames may wait for the encoder.
     pub window: u64,
     /// Whether W is the floor K·C rather than what [`WINDOW_BYTES`] holds at this resolution:
-    /// the budget held fewer frames than K painters need to each have a chunk in hand.
+    /// the budget held fewer frames than K painters need to each have a paint chunk in hand.
     pub window_floor: bool,
 }
 
 impl Painting {
-    /// One painter on the verb's own thread: the span is one chunk, and one frame waits.
+    /// One painter on the verb's own thread: the span is one paint chunk, and one frame waits.
     pub(crate) fn one(frames: u64) -> Painting {
         Painting {
             painters: 1,
@@ -118,7 +118,7 @@ impl Painting {
 pub enum Forced {
     /// One painter on the verb's own thread, as a span with a `video` element is painted.
     OnePainter,
-    /// K painters over C-frame chunks — `painters: 1` is chunking with one painter — under
+    /// K painters over C-frame paint chunks — `painters: 1` is chunking with one painter — under
     /// `window_bytes`, or [`WINDOW_BYTES`] where `None`.
     Chunks {
         painters: usize,
@@ -156,7 +156,7 @@ impl Drop for ForcedPainting {
 }
 
 /// Make each listed timeline frame fail on whichever painter reaches it, after a delay, until
-/// the guard drops — the scheduling hook #627 §8 asks for, so a later chunk's failure can be
+/// the guard drops — the scheduling hook #627 §8 asks for, so a later paint chunk's failure can be
 /// made to arrive first. Chunked spans only; `#[doc(hidden)]`, for the tests.
 #[doc(hidden)]
 #[must_use = "the faults last as long as the guard"]
@@ -247,10 +247,10 @@ fn from_env(frame_bytes: u64) -> Option<Forced> {
 }
 
 /// How a span paints: `None` for one painter on the verb's own thread, or K painters over
-/// chunks.
+/// paint chunks.
 ///
 /// A document with a `video` element keeps one painter. Step 3 was opened for the paint class
-/// (#647), and a chunk boundary reopens every visible feed: the ladder's reopen floor puts C in
+/// (#647), and a paint chunk boundary reopens every visible feed: the ladder's reopen floor puts C in
 /// the hundreds there, which at 1080p puts the window K·C at gigabytes, while the decode class
 /// already meets its own target on one painter (ADR-0142). Otherwise K is the cores the
 /// encoder leaves, C is [`CHUNK_FRAMES`], and W is [`WINDOW_BYTES`] at this resolution, or
@@ -281,7 +281,7 @@ pub(super) fn plan(document: &Loose, surface: super::Surface, frames: u64) -> Op
             (painters, CHUNK_FRAMES, WINDOW_BYTES)
         }
     };
-    // A painter with no chunk to take is a thread for nothing.
+    // A painter with no paint chunk to take is a thread for nothing.
     let painters = painters.min(frames.div_ceil(chunk).max(1) as usize);
     let floor = painters as u64 * chunk;
     let budgeted = budget / frame_bytes;
@@ -348,7 +348,26 @@ pub(super) fn paint(
     }
     encoded?;
 
+    // Every frame reached the encoder, so every paint chunk's record should be here. One
+    // missing — a painter that failed after its last frame was taken — is a report that
+    // would be silently short, and is refused as one.
     let mut state = shared.lock();
+    let chunks = span.frames.div_ceil(painting.chunk);
+    if let Some((i, stop)) = state.failure.take() {
+        let reason = match stop {
+            Stop::Internal(reason) => reason,
+            _ => format!("frame {}: a painter stopped", span.first + i as i64),
+        };
+        return Err(Stop::Internal(format!(
+            "a painter failed after its frames were encoded: {reason}"
+        )));
+    }
+    if state.made.len() as u64 != chunks {
+        return Err(Stop::Internal(format!(
+            "{} of {chunks} paint chunks reported what they painted",
+            state.made.len()
+        )));
+    }
     let mut made = Made::default();
     for chunk in std::mem::take(&mut state.made).into_values() {
         made.then(chunk);
@@ -370,7 +389,7 @@ struct Worked {
     counts: supply::Counts,
 }
 
-/// One painter: take chunks in timeline order until there are none, or until the span stops.
+/// One painter: take paint chunks in timeline order until there are none, or until the span stops.
 fn work(
     span: &Span<'_>,
     shared: &Shared,
@@ -462,7 +481,7 @@ fn work(
     }
 }
 
-/// The one state the painters and the encoder's side share: the reorder window, the chunks'
+/// The one state the painters and the encoder's side share: the reorder window, the paint chunks'
 /// records and the earliest failure.
 struct Shared {
     frames: u64,
@@ -473,13 +492,13 @@ struct Shared {
 
 #[derive(Default)]
 struct State {
-    /// The next chunk to hand out.
+    /// The next paint chunk to hand out.
     next: u64,
     /// The frames, from the span's first, the encoder's side has taken.
     taken: u64,
     /// Painted frames waiting for the encoder, by index into the span.
     ready: BTreeMap<u64, Vec<u8>>,
-    /// Each finished chunk's record, by chunk.
+    /// Each finished paint chunk's record, by paint chunk.
     made: BTreeMap<u64, Made>,
     /// The timeline-earliest failure found so far, at its index into the span.
     failure: Option<(u64, Stop)>,
@@ -507,7 +526,7 @@ impl Shared {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The next chunk in timeline order, unless there is none or the span has stopped before
+    /// The next paint chunk in timeline order, unless there is none or the span has stopped before
     /// it.
     fn next_chunk(&self) -> Option<u64> {
         let mut state = self.lock();
@@ -648,7 +667,7 @@ mod tests {
         });
         assert_eq!(plan(&document, quarter, 1080).expect("chunks").window, 40);
 
-        // No more painters than chunks.
+        // No more painters than paint chunks.
         assert_eq!(plan(&document, hd, 5).expect("chunks").painters, 2);
     }
 

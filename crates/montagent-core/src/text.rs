@@ -1859,7 +1859,7 @@ fn video_block(heading: &str, video: &Value, first: &[String], options: Options)
     let painting = &video["painting"];
     if painting["window_floor"].as_bool().unwrap_or(false) {
         out.push_str(&row(format!(
-            "painters    {} over chunks of {} frames; the window budget holds fewer frames \
+            "painters    {} over paint chunks of {} frames; the window budget holds fewer frames \
              at this size, so painting led the encoder by up to the floor of {} frames",
             painting["painters"].as_u64().unwrap_or_default(),
             painting["chunk"].as_u64().unwrap_or_default(),
