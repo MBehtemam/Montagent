@@ -4,6 +4,12 @@ status: accepted
 
 # Montagent is a general video editor; the channel is a fixture
 
+> **Amended by [ADR-0145](0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)**: "After Effects is out of scope for now" is replaced. The
+> reference class is where precedent is looked for first, not the edge of scope. Every
+> capability keeps the four invariants, and one with no precedent in CapCut or Premiere
+> enters only by the entry test. The transform-only keyframe rule below stays in force until
+> its own ADR decides it.
+
 Montagent is a **general-purpose, agent-first video editor**. It will be open
 source and run by people other than its author. Its primitives are shaped by what
 a video editor must be able to express — never by what any one project happens to
