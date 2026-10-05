@@ -5,6 +5,9 @@ amends: 0012 (discharges its "whether `clip` is keyframable" deferral)
 
 # `clip` stays static
 
+> **Reaffirmed by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: `clip` and a fitted box stay static. The reveal this ADR
+> handed to the effect model arrives as a keyed `mask` rect, using the same keyframe records.
+
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) established `clip` —
 the frame-space aperture a source is drawn through — as static, but left open whether it
 should ever be keyframed: *"a wipe or reveal is exactly a keyframed aperture. If it is, it

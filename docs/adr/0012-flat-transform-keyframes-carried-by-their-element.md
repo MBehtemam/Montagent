@@ -5,6 +5,12 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: keyframes are no longer transform-only. A property is
+> animatable where the schema types it so, admitted by three criteria; shape size and paint,
+> element-level text paint and every numeric and colour effect parameter join. `shift`
+> carries and splits every keyframe list, and refuses a split it cannot write as a legal
+> literal. The easing set is unchanged: spring is refused.
+
 > **Amended by [ADR-0140](./0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md)**: an image's `swaps` change its file over time
 > as timed windows, not keyframes, so keyframes stay transform-only. `shift` moves a swap
 > exactly as it moves a keyframe.
