@@ -410,11 +410,25 @@ equal the intersection of the two bridged elements' own ranges: outside that
 window only one of the two exists, so a wider declared range is a field the
 renderer cannot honour. The per-track non-overlap rule is untouched — the two
 bridged elements live on separate tracks, exactly as anything else needing
-simultaneous visibility already does. **`crossfade` is the whole of v1's `kind`
-vocabulary**; wipe, slide and push are deferred until a forcing case shapes their
-parameters.
-([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md))
-_Avoid_: dissolve, wipe (as a v1 value), transition effect
+simultaneous visibility already does. **`kind` is `crossfade`, `wipe`, `slide` or
+`push`.** A crossfade ramps the two elements' opacity. In a slide only the incoming
+element moves, over a still outgoing one. In a push both move together, joined. In a
+wipe a moving edge divides them, each keeping its own side. A slide, push or wipe moves
+or cuts a whole frame's width or height, outside the elements' own transforms, and never
+changes their layers. The same rule makes a dependency between two elements one the file
+can show: a transition may move or cut what it bridges, but no element's pixels decide
+where another shows. That is why there is no matte taken from another element.
+([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md),
+[ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+_Avoid_: dissolve, transition effect, track matte (refused, not a synonym for a wipe)
+
+**Direction**:
+A slide, push or wipe's `direction`: **the way the motion travels**, `left`, `right`,
+`up` or `down`. `"left"` means the content (or a wipe's edge) moves leftward, so the
+incoming element enters from the right. It never names the edge something enters from,
+and a crossfade has none.
+([ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+_Avoid_: from (that is the outgoing element's id), side, edge
 
 **Blend mode**:
 How a finished element is composited into its **backdrop**, written as the element's
