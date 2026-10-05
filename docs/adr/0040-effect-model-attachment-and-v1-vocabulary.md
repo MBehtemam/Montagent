@@ -9,7 +9,7 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > effect parameter is animatable, written in place as a keyframe list; `mask.shape` and
 > every other enum stay static.
 
-> **Amended by seven later ADRs.** Read them before relying on anything below.
+> **Amended by eight later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
 >   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
@@ -37,6 +37,9 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 >   reason that survives — a keyer's `tolerance` is the one effect parameter that must drift
 >   with source lighting, which ADR-0012's static parameters forbid — is adopted there as a
 >   stated boundary, not a refusal
+> - [ADR-0147](0147-a-blend-mode-is-a-flat-static-field-of-five-values-and-the-finished-element-blends-last.md) — a blend mode is
+>   refused as an `effects` member, and the order is written down: effects, then `opacity`,
+>   then the blend
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a

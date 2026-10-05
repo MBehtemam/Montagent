@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by thirty-two later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-three later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -144,6 +144,8 @@ status: accepted
 >   painter's own function
 > - [ADR-0137](0137-the-schema-is-also-served-in-pieces-through-one-index.md) — the format is
 >   also served as a schema index and pieces beside the whole schema
+> - [ADR-0147](0147-a-blend-mode-is-a-flat-static-field-of-five-values-and-the-finished-element-blends-last.md) — each member of
+>   the resolved stack gains `blend`; `NOT COVERED` is unchanged
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

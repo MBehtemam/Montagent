@@ -372,6 +372,20 @@ parameters.
 ([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md))
 _Avoid_: dissolve, wipe (as a v1 value), transition effect
 
+**Blend mode**:
+How a finished element is composited into its **backdrop**, written as the element's
+flat `blend` field beside `opacity`: `normal`, `multiply`, `screen`, `overlay` or `add`.
+The backdrop is everything painted below the element in the stack, down to the
+`background` — it is not the `background`, which is only its bottom. The finished
+element is what blends: its effects, masks and shadow, then its `opacity`, composited
+once. Not an `effects` member, because an effect is element-local and a blend mode
+reads what is under the element; static, because a mode is not a number or a colour;
+and whole-element, never per run. Omitted means `normal`. "Blend" is this entry's word
+alone: a transition crossfades and a keyed colour interpolates.
+([ADR-0147](docs/adr/0147-a-blend-mode-is-a-flat-static-field-of-five-values-and-the-finished-element-blends-last.md))
+_Avoid_: blending mode, composite mode, `plus`, linear dodge, blend (for a crossfade or
+a keyed colour)
+
 **Highlight**:
 A run's optional timed window — `{start, end, ...style delta}` — during which it
 wears a different style, falling back to its unconditional one outside it. The
@@ -421,7 +435,7 @@ _Avoid_: asset, resource, media reference, assetRoot
 **Swap**:
 A timed window in which an image element draws a different file in the same box,
 falling back to its `source` outside every window. It changes the file and never
-the box, and it steps rather than blends, so a run of swaps draws exactly what a
+the box, and it steps rather than crossfades, so a run of swaps draws exactly what a
 run of abutting image elements would. It is a highlight's counterpart for images:
 a window over a base, not a keyframe
 ([ADR-0140](docs/adr/0140-an-image-element-changes-its-file-over-time-through-timed-swaps.md)).
