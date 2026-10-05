@@ -120,7 +120,7 @@ use crate::media::Source;
 use crate::media::established::{self, Use};
 use crate::media::session::Session;
 use crate::media::tools::{self, Missing};
-use crate::model::{self, Colour, Origin};
+use crate::model::{self, Animatable, Colour, Origin};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -1488,8 +1488,8 @@ impl<'a> Painter<'a> {
             return;
         };
         let paint = Fill {
-            fill: element.get("fill").and_then(rgba),
-            stroke: element.get("stroke").and_then(rgba),
+            fill: self.colour(element, "fill"),
+            stroke: self.colour(element, "stroke"),
             stroke_width: element
                 .get("stroke_width")
                 .and_then(Value::as_i64)
@@ -1506,7 +1506,7 @@ impl<'a> Painter<'a> {
         let shape = match kind {
             Some("ellipse") => Shape::Ellipse,
             _ => Shape::Rect {
-                radius: element.get("radius").and_then(Value::as_i64).unwrap_or(0) as f64,
+                radius: geometry::number::<i64>(element, "radius", self.instant, 0.0),
             },
         };
         let effects = self.effects_of(name, element);
@@ -1854,12 +1854,19 @@ impl<'a> Painter<'a> {
 
     /// The declared box, before `scale`.
     fn extent(&self, element: &Value) -> Option<Extent> {
-        let width = element.get("width").and_then(Value::as_i64)?;
-        let height = element.get("height").and_then(Value::as_i64)?;
-        (width > 0 && height > 0).then_some(Extent {
-            width: width as f64,
-            height: height as f64,
-        })
+        // prototype(#463): resolved at the instant, so a shape's keyed box is its box.
+        let width = geometry::number::<i64>(element, "width", self.instant, 0.0);
+        let height = geometry::number::<i64>(element, "height", self.instant, 0.0);
+        (width > 0.0 && height > 0.0).then_some(Extent { width, height })
+    }
+
+    /// prototype(#463): a shape's paint at the instant, static or keyed.
+    fn colour(&self, element: &Value, key: &str) -> Option<Rgba> {
+        let written = element.get(key)?;
+        let animatable =
+            serde_json::from_value::<Animatable<Colour>>(written.clone()).ok()?;
+        let channels = crate::resolve::at(&animatable, self.instant).ok()?;
+        Some(Rgba(channels.map(|c| c.round().clamp(0.0, 255.0) as u8)))
     }
 
     /// The resolved transform, through the same reading the `query --at` block's geometry

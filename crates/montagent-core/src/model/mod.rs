@@ -540,17 +540,17 @@ pub struct Rect {
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
-    pub width: i64,
-    pub height: i64,
+    pub width: Animatable<i64>,
+    pub height: Animatable<i64>,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Colour>,
+    pub fill: Option<Animatable<Colour>>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Colour>,
+    pub stroke: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<i64>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
@@ -560,7 +560,7 @@ pub struct Rect {
     /// rectangle is unremarkable in the CapCut/Premiere reference class, and admitting it
     /// now costs one clause where admitting it later is a schema change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub radius: Option<i64>,
+    pub radius: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -597,17 +597,17 @@ pub struct Ellipse {
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
-    pub width: i64,
-    pub height: i64,
+    pub width: Animatable<i64>,
+    pub height: Animatable<i64>,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Colour>,
+    pub fill: Option<Animatable<Colour>>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Colour>,
+    pub stroke: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

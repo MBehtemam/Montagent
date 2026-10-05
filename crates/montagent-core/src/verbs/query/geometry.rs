@@ -82,9 +82,11 @@ pub fn drawn_rect(
     instant: i64,
     frame: (i64, i64),
 ) -> Option<Result<Rect, NotAxisAligned>> {
-    let width = element.get("width").and_then(Value::as_i64)?;
-    let height = element.get("height").and_then(Value::as_i64)?;
-    if width <= 0 || height <= 0 {
+    // prototype(#463): a shape's `width`/`height` may be keyed, so they are resolved like
+    // every other animatable rather than read as one integer.
+    let width = number::<i64>(element, "width", instant, 0.0);
+    let height = number::<i64>(element, "height", instant, 0.0);
+    if width <= 0.0 || height <= 0.0 {
         return None;
     }
 
@@ -104,8 +106,8 @@ pub fn drawn_rect(
     };
     let (fx, fy) = origin_fraction(origin);
 
-    let scaled_width = width as f64 * scale_x;
-    let scaled_height = height as f64 * scale_y;
+    let scaled_width = width * scale_x;
+    let scaled_height = height * scale_y;
     let left = x - fx * scaled_width;
     let top = y - fy * scaled_height;
 

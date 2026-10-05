@@ -1,0 +1,20 @@
+{
+  "frame": {"width": 1080, "height": 1080},
+  "fps": 30,
+  "background": "#0B1020",
+  "output": "out/morph.mp4",
+  "duration": 6000,
+  "tracks": [
+    {
+      "name": "morph",
+      "layer": 0,
+      "elements": [
+        {"id":"morph","type":"rect","start":0,"end":6000,"x":540,"y":540,"origin":"center",
+         "width":[{"t":0,"v":360},{"t":1000,"v":360,"ease":"linear"},{"t":1800,"v":720,"ease":[0.34,1.56,0.64,1]},{"t":3200,"v":720,"ease":"linear"},{"t":4000,"v":120,"ease":"ease-in-out"},{"t":4800,"v":120,"ease":"linear"},{"t":5600,"v":360,"ease":[0.34,1.56,0.64,1]}],
+         "height":[{"t":0,"v":96},{"t":1000,"v":96,"ease":"linear"},{"t":1800,"v":480,"ease":[0.34,1.56,0.64,1]},{"t":3200,"v":480,"ease":"linear"},{"t":4000,"v":120,"ease":"ease-in-out"},{"t":4800,"v":120,"ease":"linear"},{"t":5600,"v":96,"ease":[0.34,1.56,0.64,1]}],
+         "fill":[{"t":0,"v":"#3B82F6"},{"t":1000,"v":"#3B82F6","ease":"linear"},{"t":1800,"v":"#F8FAFC","ease":"ease-in-out"},{"t":3200,"v":"#F8FAFC","ease":"linear"},{"t":4000,"v":"#22C55E","ease":"ease-in-out"},{"t":4800,"v":"#22C55E","ease":"linear"},{"t":5600,"v":"#3B82F6","ease":"ease-in-out"}],
+         "radius":[{"t":0,"v":48},{"t":1000,"v":48,"ease":"linear"},{"t":1800,"v":32,"ease":"ease-in-out"},{"t":3200,"v":32,"ease":"linear"},{"t":4000,"v":60,"ease":"ease-in-out"},{"t":4800,"v":60,"ease":"linear"},{"t":5600,"v":48,"ease":"ease-in-out"}]}
+      ]
+    }
+  ]
+}

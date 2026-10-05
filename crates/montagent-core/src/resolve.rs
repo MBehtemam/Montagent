@@ -99,6 +99,32 @@ impl Interpolate for i64 {
     }
 }
 
+/// prototype(#463): a colour interpolates channel by channel in the document's own
+/// non-premultiplied sRGB bytes. Whether that is the right space is the ADR's question.
+impl Interpolate for crate::model::Colour {
+    type Out = [f64; 4];
+
+    fn between(a: &Self, b: &Self, p: f64) -> [f64; 4] {
+        let (a, b) = (Self::held(a), Self::held(b));
+        std::array::from_fn(|i| f64::between(&a[i], &b[i], p))
+    }
+
+    fn held(value: &Self) -> [f64; 4] {
+        let body = value.as_str().trim_start_matches('#');
+        let byte = |at: usize| {
+            body.get(at..at + 2)
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+                .map(f64::from)
+        };
+        [
+            byte(0).unwrap_or(0.0),
+            byte(2).unwrap_or(0.0),
+            byte(4).unwrap_or(0.0),
+            byte(6).unwrap_or(255.0),
+        ]
+    }
+}
+
 impl Interpolate for [f64; 2] {
     type Out = [f64; 2];
 
