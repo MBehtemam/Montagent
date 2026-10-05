@@ -4,6 +4,11 @@ status: accepted
 
 # A repeat does not enter, and a stagger enters only across the units of one text element
 
+> **Amended by [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md).** Its three binding requirements are
+> discharged: the stagger is a `units` block on the text element, a unit is singled out by a run
+> carrying `unit` whose values replace the derived ones, a letter is a non-whitespace grapheme
+> cluster, and `query --at` lists every unit.
+
 [#673](https://github.com/MBehtemam/Montagent/issues/673), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). Motion work asks for many copies of
 one thing, or one animation started many times. Two shapes were weighed: a **repeat**, one

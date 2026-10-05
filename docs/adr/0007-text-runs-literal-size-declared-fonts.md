@@ -8,6 +8,11 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md).** A text element gains `letter_spacing`
+> (thousandths of an em, element-level, animatable) and a `units` block; a run gains `unit`.
+> Optional ligatures are off for the whole element when any spacing value is non-zero or it
+> staggers by letter.
+
 > **Amended by [ADR-0133](./0133-a-runs-dir-is-an-isolate-and-start-and-end-follow-the-lines-own-direction.md)**,
 > which draws this ADR's `dir` bullet as written: the run is laid out as an isolate and
 > reorders nothing outside itself. It adds what the bullet left open. A line's base direction

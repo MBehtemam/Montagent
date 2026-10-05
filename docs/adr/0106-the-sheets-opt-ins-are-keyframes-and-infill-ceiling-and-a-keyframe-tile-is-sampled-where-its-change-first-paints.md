@@ -5,6 +5,10 @@ amends: 0011 (the `frame` row's range arguments gain two opt-ins, `--keyframes` 
 
 # The sheet's opt-ins are `--keyframes` and `--infill-ceiling`, and a keyframe tile is sampled where its change first paints
 
+> **Amended by [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md).** A stagger contributes change points for
+> its first and last scheduled units only, plus each run override's own lists, named by unit
+> index: `title.units[39].y@2860`.
+
 > **Amended by [ADR-0128](0128-the-tile-label-is-fitted-at-one-size-per-sheet-and-names-the-topmost-entrant.md).** Decision 7's blank slot stands beside ADR-0098 §2's placeholder:
 > `=` fills a run tile's slot where nothing nameable changed, and a keyframe or infill tile's
 > label ends after its offset.

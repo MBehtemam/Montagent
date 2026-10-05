@@ -5,11 +5,14 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 
 # An animatable property is one the schema types so; colour blends premultiplied in sRGB; spring easing is refused
 
-> **Amended by one later ADR.** Read it before relying on anything below.
+> **Amended by two later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0149](0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md) — the
 >   stop-list binding is discharged; gradient parameters join the one derived list as nested
 >   paths; the run-override review widens to a gradient
+> - [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md) — `letter_spacing`
+>   and the five unit lists join the one derived list; per-letter and per-run animation is
+>   settled as a `units` block with run overrides
 
 [#669](https://github.com/MBehtemam/Montagent/issues/669), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
