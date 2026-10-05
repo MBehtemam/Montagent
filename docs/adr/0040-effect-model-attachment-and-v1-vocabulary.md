@@ -5,6 +5,10 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: "v1 effects are static" is retired. Every numeric and colour
+> effect parameter is animatable, written in place as a keyframe list; `mask.shape` and
+> every other enum stay static.
+
 > **Amended by seven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this

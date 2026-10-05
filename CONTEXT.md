@@ -105,13 +105,22 @@ defaulted from the source file.
 _Avoid_: matrix, layout, placement (as a field), position (as a field name)
 
 **Keyframe**:
-One `{"t","t_from","v","ease"}` record in a list that makes a transform property change over
-time — `t_from` optional (see Recorded intent).
+One `{"t","t_from","v","ease"}` record in a list that makes an animatable property change
+over time — `t_from` optional (see Recorded intent).
 Its `t` is written in timeline milliseconds but is **not a timeline time** — it is the
 element's own animation geometry, so `shift` moves elements and their keyframes are
 carried with them. A keyframe outside its element's range is legal and ordinary: it is how
 a trimmed move is spelled.
 _Avoid_: key, waypoint, stop, tween
+
+**Animatable property**:
+A property the schema types as taking either a literal or a keyframe list. The list is
+closed: a keyframe list on any other field is a schema error. A property joins it only if
+its value type has a published interpolation, it resolves from the file and the instant
+alone, and no `validate` check relies on it as one fixed value — which is why `clip` and a
+fitted box are not on it
+([ADR-0146](docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)).
+_Avoid_: keyframable (property), animated property (that is one carrying a list right now)
 
 **Easing**:
 The shape of the interpolation **arriving at** a keyframe from the previous one — a name
@@ -467,7 +476,7 @@ An `audio` or `video` element's playback level, as a linear multiplier:
 above `1` amplify. Negative is a schema error, the same class as `speed`'s;
 the ceiling is deliberately open, and clipping past it is the renderer's
 documented behaviour rather than a refusal. Flat on the element like `speed`,
-and keyframable with the same `{t,v,ease}` records every animatable property
+and animatable with the same `{t,v,ease}` records every animatable property
 carries, so a fade is two records rather than a dedicated field. There is no
 `mute` — a `video` element's embedded audio is the same audio a `volume` of
 `0` already silences. Automatic ducking (one element's level reacting to

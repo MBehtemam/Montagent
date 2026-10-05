@@ -5,6 +5,9 @@ amends: 0012 (settles what it left silent: presence of `ease` on non-first recor
 
 # `ease` is required on every non-first keyframe record; absent only on the first
 
+> **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: the rule is unchanged and now covers the keyframe list of every
+> animatable property, including a list written inside an effect.
+
 > **Amended by [ADR-0082](./0082-a-keyframe-list-must-be-written-in-ascending-t.md)**:
 > ascending `t` becomes a schema rule, making this ADR's positional presence rule and
 > clock order the same statement by construction — closing the divergence
