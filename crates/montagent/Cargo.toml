@@ -17,9 +17,12 @@ base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 clap = { version = "4", features = ["derive"] }
-rmcp = { version = "3.4", features = ["server", "macros", "schemars", "transport-io"] }
+rmcp = { version = "3.4", features = ["server", "macros", "schemars", "transport-io", "transport-streamable-http-server"] }
+# PROTOTYPE (#659): throwaway HTTP transport.
+axum = "0.8"
+tower-http = { version = "0.6", features = ["fs"] }
 schemars.workspace = true
-tokio = { version = "1", features = ["rt", "macros", "io-std", "sync", "time"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "io-std", "sync", "time", "net", "fs"] }
 
 [dev-dependencies]
 serde_json.workspace = true

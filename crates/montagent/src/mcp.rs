@@ -380,6 +380,28 @@ pub struct FrameParam {
     pub height: i64,
 }
 
+/// PROTOTYPE (#659).
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+pub struct PutFileParams {
+    /// Relative to the server's working directory.
+    pub path: String,
+    pub text: Option<String>,
+    pub base64: Option<String>,
+}
+
+/// PROTOTYPE (#659).
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+pub struct ListFilesParams {
+    pub dir: Option<String>,
+}
+
+/// PROTOTYPE (#659): relative and free of `..`, or nothing.
+fn safe_relative(p: &str) -> Option<PathBuf> {
+    let path = PathBuf::from(p);
+    let ok = path.components().all(|c| matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir));
+    ok.then_some(path)
+}
+
 #[derive(Clone)]
 pub struct Montagent {
     tool_router: ToolRouter<Self>,
@@ -433,6 +455,66 @@ impl Montagent {
             },
         )
         .await
+    }
+
+    // PROTOTYPE (#659): a remote agent has no shared disk, so these two stand in for the
+    // file tools it would otherwise use. Paths resolve against the server's working directory.
+    #[tool(
+        name = "put_file",
+        description = "PROTOTYPE. Write a file on the server: `path` relative to its working \
+                       directory, and exactly one of `text` (UTF-8) or `base64` (bytes). \
+                       Creates parent directories and overwrites. Media too big for one call \
+                       can be uploaded with HTTP PUT to /upload/<path> instead; any file is \
+                       downloadable with HTTP GET /files/<path>."
+    )]
+    async fn put_file(
+        &self,
+        Parameters(params): Parameters<PutFileParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let bytes = match (params.text, params.base64) {
+            (Some(t), None) => t.into_bytes(),
+            (None, Some(b)) => match BASE64.decode(b) {
+                Ok(b) => b,
+                Err(e) => return Ok(CallToolResult::error(vec![ContentBlock::text(format!("bad base64: {e}"))])),
+            },
+            _ => return Ok(CallToolResult::error(vec![ContentBlock::text("give exactly one of `text` or `base64`")])),
+        };
+        let Some(path) = safe_relative(&params.path) else {
+            return Ok(CallToolResult::error(vec![ContentBlock::text("path must be relative, without `..`")]));
+        };
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::write(&path, &bytes) {
+            Ok(()) => Ok(CallToolResult::success(vec![ContentBlock::text(format!("wrote {} bytes to {}", bytes.len(), path.display()))])),
+            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!("{}: {e}", path.display()))])),
+        }
+    }
+
+    #[tool(
+        name = "list_files",
+        description = "PROTOTYPE. List every file under `dir` (default: the server's working \
+                       directory) with its size in bytes, one per line."
+    )]
+    async fn list_files(
+        &self,
+        Parameters(params): Parameters<ListFilesParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let root = params.dir.as_deref().and_then(safe_relative).unwrap_or_else(|| PathBuf::from("."));
+        let mut out = String::new();
+        let mut stack = vec![root];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                match entry.metadata() {
+                    Ok(m) if m.is_dir() => stack.push(path),
+                    Ok(m) => out.push_str(&format!("{}\t{}\n", path.display(), m.len())),
+                    Err(_) => {}
+                }
+            }
+        }
+        Ok(CallToolResult::success(vec![ContentBlock::text(if out.is_empty() { "(empty)".into() } else { out })]))
     }
 
     #[tool(
@@ -1096,6 +1178,11 @@ impl ServerHandler for Montagent {
 
 /// Serve the MCP tools over stdio until the client disconnects.
 pub fn serve() -> Result<(), String> {
+    // PROTOTYPE (#659): `MONTAGENT_MCP_HTTP=0.0.0.0:8080` serves Streamable HTTP instead.
+    if let Ok(addr) = std::env::var("MONTAGENT_MCP_HTTP") {
+        return serve_http(&addr);
+    }
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -1112,4 +1199,55 @@ pub fn serve() -> Result<(), String> {
             .map_err(|e| format!("the MCP session ended in error: {e}"))?;
         Ok(())
     })
+}
+
+/// PROTOTYPE (#659): Streamable HTTP at `/mcp`, no auth, any Host; GET `/files/*` and PUT `/upload/*`
+/// against the working directory so media can go in and the mp4 can come out.
+fn serve_http(addr: &str) -> Result<(), String> {
+    use rmcp::transport::streamable_http_server::{
+        StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+    };
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| format!("could not start the async runtime: {e}"))?;
+
+    runtime.block_on(async {
+        let mcp = StreamableHttpService::new(
+            || Ok(Montagent::new()),
+            std::sync::Arc::new(LocalSessionManager::default()),
+            StreamableHttpServerConfig::default()
+                .disable_allowed_hosts()
+                .with_max_request_body_bytes(64 * 1024 * 1024),
+        );
+        let app = axum::Router::new()
+            .nest_service("/mcp", mcp)
+            .route("/upload/{*path}", axum::routing::put(put_upload))
+            .nest_service("/files", tower_http::services::ServeDir::new("."))
+            .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024 * 1024));
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| format!("could not bind {addr}: {e}"))?;
+        eprintln!("montagent: MCP over Streamable HTTP at http://{addr}/mcp (PROTOTYPE, no auth)");
+        axum::serve(listener, app)
+            .await
+            .map_err(|e| format!("the HTTP server ended in error: {e}"))
+    })
+}
+
+async fn put_upload(
+    axum::extract::Path(path): axum::extract::Path<String>,
+    body: axum::body::Bytes,
+) -> (axum::http::StatusCode, String) {
+    let Some(path) = safe_relative(&path) else {
+        return (axum::http::StatusCode::BAD_REQUEST, "path must be relative, without `..`\n".into());
+    };
+    if let Some(parent) = path.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+    match tokio::fs::write(&path, &body).await {
+        Ok(()) => (axum::http::StatusCode::CREATED, format!("wrote {} bytes to {}\n", body.len(), path.display())),
+        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("{e}\n")),
+    }
 }

@@ -1,0 +1,11 @@
+# PROTOTYPE (#659): throwaway image for the remote-MCP experiment. The binary is built on
+# the Actions runner (ubuntu-24.04, glibc 2.39) and copied in; Debian 13 ships ffmpeg 7.1.
+FROM debian:trixie-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg libfontconfig1 libfreetype6 ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY montagent /usr/local/bin/montagent
+WORKDIR /work
+ENV MONTAGENT_MCP_HTTP=0.0.0.0:8080
+EXPOSE 8080
+CMD ["montagent", "mcp"]
