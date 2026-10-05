@@ -5,6 +5,12 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 
 # An animatable property is one the schema types so; colour blends premultiplied in sRGB; spring easing is refused
 
+> **Amended by one later ADR.** Read it before relying on anything below.
+>
+> - [ADR-0149](0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md) — the
+>   stop-list binding is discharged; gradient parameters join the one derived list as nested
+>   paths; the run-override review widens to a gradient
+
 [#669](https://github.com/MBehtemam/Montagent/issues/669), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) restricted keyframes to
