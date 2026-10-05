@@ -166,6 +166,14 @@ of runs, even when there is only one. A run boundary is *style only* — it neve
 implies a line break; a line break is a `\n` character inside a run's text.
 _Avoid_: span, segment, chunk
 
+**Stagger**:
+One text element's animation run once per unit (a letter, word or line), each unit started a
+fixed offset after the one before. It lives inside one element and never links two: cards
+that enter one after another are separate elements with their own literal times. A unit is
+singled out by splitting it into its own run, whose own values replace the derived ones
+([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md)).
+_Avoid_: cascade, offset animation
+
 **Caption**:
 A `text` element the four caption checks run on — `R-CAPTION-PACE`,
 `R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and `R-CAPTION-REPEAT-DURATION`. That is any
@@ -1392,6 +1400,12 @@ Do not reach for "a thin rotated `rect` draws a line" as the reason — it is fa
 way that matters, because the endpoints never appear in the file. A `path` is additionally
 a mini-language inside a JSON string: unreadable by reading, unmatchable by exact-string
 replace. Commit an SVG or a PNG instead.
+
+**Repeat, repeater, clone**:
+Elsewhere one layer draws as N offset copies. Montagent draws exactly one thing per element,
+so every copy is written out as its own element with its own `id`. A drawn copy with no `id`
+in the file is invisible to the checks and has no string an edit can target
+([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md)).
 
 **Gravity**:
 Retired entirely by [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
