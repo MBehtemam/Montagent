@@ -163,16 +163,36 @@ _Avoid_: crop, mask, viewport, bounds
 One stretch of a text element's content, carrying its own text plus style deltas
 over the element's base style. A text element's content is always an ordered array
 of runs, even when there is only one. A run boundary is *style only* — it never
-implies a line break; a line break is a `\n` character inside a run's text.
+implies a line break; a line break is a `\n` character inside a run's text. A run
+that holds exactly one unit of a stagger may single that unit out.
 _Avoid_: span, segment, chunk
+
+**Letter spacing**:
+Space added after every grapheme of a line but the last, in thousandths of an em of the
+size it is set at, so a size change keeps the same tracking. It belongs to the whole
+element, never to one run, and it may change over time
+([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
+_Avoid_: tracking (as the field name), kerning (the font's own pair adjustment), character spacing
 
 **Stagger**:
 One text element's animation run once per unit (a letter, word or line), each unit started a
-fixed offset after the one before. It lives inside one element and never links two: cards
+fixed delay after the one before. It lives inside one element and never links two: cards
 that enter one after another are separate elements with their own literal times. A unit is
 singled out by splitting it into its own run, whose own values replace the derived ones
-([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md)).
+([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md),
+[ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
 _Avoid_: cascade, offset animation
+
+**Unit**:
+One piece a stagger moves on its own. A letter is a grapheme cluster that is not whitespace;
+a word is a word containing a letter, digit or pictograph, with its punctuation; a line is a
+`\n` line with a letter in it. Units are counted in reading order across the whole element,
+ignoring runs, and whitespace takes no step. The count comes from the text alone: where the
+font joins letters into one glyph, they share a start but keep their own places in the count.
+A unit's **delay** is how far after the first unit it starts.
+([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md))
+_Avoid_: character (a code point is not a letter), glyph (shaping's unit, not the stagger's),
+copy, instance
 
 **Caption**:
 A `text` element the four caption checks run on — `R-CAPTION-PACE`,

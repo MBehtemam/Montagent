@@ -4,6 +4,10 @@ status: accepted
 
 # Off-canvas is a standing `review` check, not a frame-change census
 
+> **Amended by [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md).** For a staggered text element the declared
+> rect is widened in each direction by the most extreme unit `x` and `y` offsets before the
+> intersection test; unit `scale` and `rotation` are named as unchecked, not skipped silently.
+
 **Ticket:** [#84](https://github.com/MBehtemam/Montagent/issues/84)
 **Amends:** [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) (adds a check),
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) (the evidence
