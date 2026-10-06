@@ -415,6 +415,40 @@ fn the_list_is_what_the_schema_types_as_animatable() {
 }
 
 #[test]
+fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
+    // ADR-0146 §3, slice 2: every member's numeric and colour parameters; `mask.shape` and
+    // `invert` stay static.
+    let members: Vec<(&str, Vec<&str>)> = animatable::effect_members()
+        .map(|(member, parameters)| (member, parameters.iter().map(|p| p.name.as_str()).collect()))
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("blur", vec!["radius"]),
+            ("shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
+            (
+                "mask",
+                vec!["x", "y", "width", "height", "radius", "feather"]
+            ),
+            ("tint", vec!["color", "amount"]),
+            ("saturation", vec!["amount"]),
+            ("brightness", vec!["amount"]),
+            ("contrast", vec!["amount"]),
+            ("chroma", vec!["color", "tolerance", "softness", "spill"]),
+        ]
+    );
+    let (_, chroma) = animatable::effect_members()
+        .find(|(member, _)| *member == "chroma")
+        .unwrap();
+    let tolerance = chroma.iter().find(|p| p.name == "tolerance").unwrap();
+    assert_eq!(
+        (tolerance.kind, tolerance.minimum, tolerance.maximum),
+        (animatable::Kind::Number, Some(0.0), Some(1.0))
+    );
+    assert_eq!(chroma[0].kind, animatable::Kind::Colour);
+}
+
+#[test]
 fn the_box_moving_properties_are_animatable_ones() {
     for property in montagent_core::checks::MOVES_THE_BOX {
         assert!(

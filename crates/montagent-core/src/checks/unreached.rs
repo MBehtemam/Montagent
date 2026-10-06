@@ -115,8 +115,9 @@ pub fn check(document: &Loose, report: &mut Report) {
         }
 
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
-        for property in crate::animatable::names() {
-            let Some(records) = crate::checks::keyframe_records(element, property) else {
+        // The one list (ADR-0146): the element's own properties and every effect parameter.
+        for declared in crate::animatable::declared(element) {
+            let Some(records) = declared.records() else {
                 continue;
             };
             let Some((first_t, last_t)) = endpoints(records) else {
@@ -132,8 +133,7 @@ pub fn check(document: &Loose, report: &mut Report) {
                 if !misses(which, declared_t, range, first_frame, fps) {
                     continue;
                 }
-                let Some(finding) =
-                    unreached(element, &subject, property, declared_t, nearest, range)
+                let Some(finding) = unreached(&declared, &subject, declared_t, nearest, range)
                 else {
                     continue;
                 };
@@ -210,16 +210,15 @@ fn misses(
 /// reach a target the interpolation arithmetic would not — is answered by the same
 /// resolver the renderer uses rather than by a special case here.
 fn unreached(
-    element: &Value,
+    property: &crate::animatable::Declared<'_>,
     subject: &str,
-    property: &str,
     declared_t: i64,
     nearest: exact::Sampled,
     range: TimelineRange,
 ) -> Option<Finding> {
-    let declared = resolved(element, property, i128::from(declared_t), 1)?;
+    let declared = resolved(property, i128::from(declared_t), 1)?;
     let (numerator, denominator) = nearest.ratio();
-    let sampled = resolved(element, property, numerator, denominator)?;
+    let sampled = resolved(property, numerator, denominator)?;
     if declared == sampled {
         return None;
     }
@@ -227,7 +226,7 @@ fn unreached(
     Some(
         Finding::new("R-KEYFRAME-UNREACHED")
             .field("element", json!(subject))
-            .field("property", json!(property))
+            .field("property", json!(property.path))
             .field("declared_t", json!(declared_t))
             .field("target", declared)
             .field("frame", json!(nearest.frame))
@@ -243,11 +242,15 @@ fn unreached(
 
 /// One property, resolved at `numerator / denominator` ms and rendered as JSON.
 ///
-/// Through [`crate::animatable::read`], the one resolving function, so that what this check
+/// Through [`crate::animatable::Declared::read`], the one resolving function, so that what this check
 /// calls the value at an instant is what `query --at` and the rasterizer call it — a colour
 /// included, compared as the bytes it paints. `None` where the property does not fit the
 /// format's types — a schema fact, and the schema check's to report.
-fn resolved(element: &Value, property: &str, numerator: i128, denominator: i128) -> Option<Value> {
-    let resolved = crate::animatable::read(element, property, numerator, denominator)?.ok()?;
+fn resolved(
+    property: &crate::animatable::Declared<'_>,
+    numerator: i128,
+    denominator: i128,
+) -> Option<Value> {
+    let resolved = property.read(numerator, denominator).ok()?;
     serde_json::to_value(resolved).ok()
 }

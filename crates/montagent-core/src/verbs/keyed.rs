@@ -8,12 +8,12 @@
 //!
 //! # A series, not a frame, and that is the whole point
 //!
-//! ADR-0088's one structural limitation is that effect parameters are static (ADR-0012),
-//! so **one `tolerance` covers the whole element** and footage whose screen drifts mid-take
-//! must be cut at the drift boundaries. A single sample answers *"did this key at all"*.
-//! The series answers *"did this key stay"* — and a coverage series that steps mid-element
-//! is exactly the signal telling an author where to cut. Without it, they would be cutting
-//! blind, which is why ADR-0088 calls the reading load-bearing rather than decorative.
+//! Footage whose screen drifts mid-take keys well at one instant and badly at another. A
+//! single sample answers *"did this key at all"*. The series answers *"did this key stay"* —
+//! and a coverage series that steps mid-element is exactly the signal telling an author
+//! where the drift is, so where to key `tolerance` (ADR-0146) or cut. Without it, they would
+//! be keying blind, which is why ADR-0088 calls the reading load-bearing rather than
+//! decorative. Each sample is painted with every keyed parameter resolved at its own instant.
 //!
 //! # No verdict, structurally
 //!
@@ -254,7 +254,7 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
             frame,
             at,
             &decoded,
-            &effects_at(&effects, at),
+            &effects_at(element, &effects, at),
             box_,
         )?);
     }
@@ -459,11 +459,15 @@ fn effects_of(element: &Value) -> Result<Vec<model::Effect>, String> {
     }
 }
 
-/// The declared `effects` as the rasterizer paints them at `instant`, where a keyed `mask`
-/// `feather` resolves (ADR-0152 §2).
-fn effects_at(declared: &[model::Effect], instant: i64) -> Vec<montagent_render::canvas::Effect> {
-    declared
-        .iter()
-        .filter_map(|effect| crate::verbs::frame::effect_of(effect, instant))
+/// The element's `effects` as the rasterizer paints them at `instant`, every keyed parameter
+/// resolved there (ADR-0146) — so a keyed `tolerance` is measured at the value each frame
+/// keys with.
+fn effects_at(
+    element: &Value,
+    declared: &[model::Effect],
+    instant: i64,
+) -> Vec<montagent_render::canvas::Effect> {
+    (0..declared.len())
+        .filter_map(|index| crate::verbs::frame::effect_of(element, index, instant))
         .collect()
 }

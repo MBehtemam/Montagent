@@ -72,7 +72,8 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 **Effects**
 
-- Static blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
+- Blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
+- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`.
 
 **Time**
 
@@ -99,7 +100,6 @@ A piece can mix these: load each skill whose row it touches.
 
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
-- Animated effect parameters, masks included. Keep these out of the design. <!-- workaround: #676 · replaced by: animated effect parameters -->
 - Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
 - Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
 - Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->

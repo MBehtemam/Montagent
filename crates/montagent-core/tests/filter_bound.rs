@@ -142,6 +142,11 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("feathered-ring-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [feathered("ellipse", false, json!(20)), {"name": "mask", "shape": "ellipse", "x": 90, "y": 90, "width": 120, "height": 120, "invert": true, "feather": 30}, blur(10.0)]})), 960.4, 13.7),
         ("image-feathered-vignette-blur", json!({"type": "image", "source": "img/boat.jpg", "fit": "literal", "y": 540, "width": 640, "height": 360, "effects": [feathered("ellipse", false, json!(80)), blur(4.0)]}), 960.4, 13.7),
         ("feathered-mask-alone", with(shape("rect", 300.0, 300.0), json!({"y": 540, "rotation": 15, "effects": [feathered("circle", true, json!(30))]})), 960.4, 13.7),
+        // Keyed effect parameters (ADR-0146 §3, #676): the bound is resolved per instant
+        // from the parameters that instant resolves to. Keyed in `edge_project`.
+        ("keyed-blur-radius", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [blur(0.0)]})), 960.4, 13.7),
+        ("keyed-shadow-every-parameter", with(shape("ellipse", 260.0, 200.0), json!({"y": 540, "effects": [shadow(0.0, 0.0, 0.0)]})), 960.4, 13.7),
+        ("keyed-mask-reveal-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "rotation": 12, "effects": [{"name": "mask", "shape": "rect", "x": 0, "y": 0, "width": 0, "height": 300, "radius": 0}, blur(12.0), shadow(10.0, 8.0, 18.0)]})), 960.4, 13.7),
         // Gradient paint (ADR-0149 §8): its coordinates live inside the layer whose origin
         // the hint moves, so it is measured here rather than inferred.
         ("rect-linear-gradient-blur", with(shape("rect", 400.0, 200.0), json!({"y": 540, "fill": linear(30.0), "effects": [blur(40.0)]})), 960.37, 13.7),
@@ -185,6 +190,30 @@ fn edge_project() -> (Value, Vec<(&'static str, i64)>) {
             element["effects"][0]["feather"] = json!([{"t": start, "v": 0},
                                                       {"t": start + 500, "v": 45, "ease": "ease-in-out"},
                                                       {"t": start + 1000, "v": 7, "ease": "linear"}]);
+        }
+        // Fractional, rising and falling values between the keys, a zero at the first.
+        let keyed = |a: Value, b: Value, c: Value| {
+            json!([{"t": start, "v": a}, {"t": start + 500, "v": b, "ease": "ease-in-out"},
+                   {"t": start + 1000, "v": c, "ease": "linear"}])
+        };
+        match name {
+            "keyed-blur-radius" => {
+                element["effects"][0]["radius"] = keyed(json!(0), json!(37), json!(5));
+            }
+            "keyed-shadow-every-parameter" => {
+                let shadow = &mut element["effects"][0];
+                shadow["dx"] = keyed(json!(-20), json!(31), json!(7));
+                shadow["dy"] = keyed(json!(15), json!(-9), json!(0));
+                shadow["radius"] = keyed(json!(0), json!(41), json!(3));
+                shadow["color"] = keyed(json!("#FF9F2E"), json!("#3BA0FF80"), json!("#00000000"));
+                shadow["opacity"] = keyed(json!(0.2), json!(1), json!(0.55));
+            }
+            "keyed-mask-reveal-then-blur" => {
+                let mask = &mut element["effects"][0];
+                mask["width"] = keyed(json!(0), json!(211), json!(300));
+                mask["radius"] = keyed(json!(0), json!(40), json!(9));
+            }
+            _ => {}
         }
         tracks.push(json!({"name": format!("t{i}"), "layer": i, "elements": [element]}));
         instants.extend([0, 333, 667, 967].map(|k| (name, start + k)));

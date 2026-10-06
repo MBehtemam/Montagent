@@ -203,22 +203,39 @@ fn the_schema_states_chromas_bounds_the_types_can_only_enforce() {
     //
     // They are also what makes the member *learnable by reading* (ADR-0017): the identity
     // value is one end of a stated range, and `{"type": "number"}` does not have an end.
+    //
+    // Each parameter is animatable (ADR-0146), so the narrowing sits on the value type the
+    // static value and every keyframe record share: `Fraction` and `ScreenColour`.
     let chroma = chroma_member();
+    let defs = &schema::generate()["$defs"];
+    let value_type = |field: &str| {
+        let animatable = chroma["properties"][field]["$ref"]
+            .as_str()
+            .and_then(|reference| reference.strip_prefix("#/$defs/"))
+            .unwrap_or_else(|| panic!("`{field}` is animatable"))
+            .to_string();
+        let target = defs[&animatable]["anyOf"][0]["$ref"]
+            .as_str()
+            .and_then(|reference| reference.strip_prefix("#/$defs/"))
+            .unwrap_or_else(|| panic!("`{field}`'s static value is a named type"))
+            .to_string();
+        defs[&target].clone()
+    };
 
     for field in ["tolerance", "softness", "spill"] {
         assert_eq!(
-            chroma["properties"][field]["minimum"],
+            value_type(field)["minimum"],
             serde_json::json!(0.0),
             "`{field}` states its lower bound"
         );
         assert_eq!(
-            chroma["properties"][field]["maximum"],
+            value_type(field)["maximum"],
             serde_json::json!(1.0),
             "`{field}` states its upper bound"
         );
     }
 
-    let color = &chroma["properties"]["color"];
+    let color = value_type("color");
     assert_eq!(color["pattern"], "^#[0-9A-F]{6}$");
     assert_eq!(
         color["allOf"][0]["$ref"], "#/$defs/Colour",

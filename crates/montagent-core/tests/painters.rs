@@ -740,6 +740,92 @@ fn feathered_masks_paint_the_same_frames_on_any_painters_with_the_hint_on_or_off
     }
 }
 
+/// #676's gating fixture (ADR-0146 §3, ADR-0144): every effect member with its parameters
+/// keyed — a keyed `blur` and a keyed `shadow` under the bounds hint, a mask reveal, the
+/// colour filters and a keyed `chroma` on video — with sub-pixel motion, on a 320x180 frame
+/// at 30 fps for 1100 ms (33 frames).
+fn keyed_effects_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let keyed = |a: Value, b: Value, c: Value| {
+        json!([{"t": 0, "v": a}, {"t": 600, "v": b, "ease": "ease-in-out"},
+               {"t": 1100, "v": c, "ease": [0.3, 1.4, 0.6, 1.2]}])
+    };
+    let moving = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let elements = [
+        // A keyed blur, then a shadow with every parameter keyed.
+        json!({"id": "disc", "type": "ellipse", "start": 0, "end": 1100,
+               "x": moving(json!(60), json!(69)), "y": 60, "origin": "center", "width": 90,
+               "height": 70, "fill": "#F2F2F2", "rotation": moving(json!(0), json!(23)),
+               "effects": [{"name": "blur", "radius": keyed(json!(0), json!(9), json!(2))},
+                           {"name": "shadow", "dx": keyed(json!(-6), json!(11), json!(3)),
+                            "dy": keyed(json!(4), json!(-5), json!(0)),
+                            "radius": keyed(json!(0), json!(17), json!(5)),
+                            "color": keyed(json!("#FF9F2E"), json!("#3BA0FF80"), json!("#000000")),
+                            "opacity": keyed(json!(0.2), json!(1), json!(0.6))}]}),
+        // A reveal: a rect mask keyed from width 0, rounded by a keyed radius, under a blur.
+        json!({"id": "pane", "type": "rect", "start": 0, "end": 1100,
+               "x": moving(json!(160), json!(166)), "y": 60, "origin": "center", "width": 110,
+               "height": 70, "fill": "#FF3B30", "scale": [1.2, 0.9],
+               "effects": [{"name": "mask", "shape": "rect", "x": keyed(json!(0), json!(6), json!(2)),
+                            "y": 0, "width": keyed(json!(0), json!(80), json!(110)),
+                            "height": 70, "radius": keyed(json!(0), json!(30), json!(12)),
+                            "feather": 4},
+                           {"name": "blur", "radius": 2}]}),
+        // The colour filters, keyed.
+        json!({"id": "graded", "type": "rect", "start": 0, "end": 1100,
+               "x": moving(json!(260), json!(255)), "y": 60, "origin": "center", "width": 90,
+               "height": 80, "fill": "#20C0F0",
+               "effects": [{"name": "tint", "color": keyed(json!("#FF0000"), json!("#00FF00"), json!("#0000FF")),
+                            "amount": keyed(json!(0), json!(0.7), json!(0.3))},
+                           {"name": "saturation", "amount": keyed(json!(1), json!(0), json!(2))},
+                           {"name": "brightness", "amount": keyed(json!(0), json!(0.3), json!(-0.2))},
+                           {"name": "contrast", "amount": keyed(json!(0), json!(-0.4), json!(0.5))}]}),
+        // A keyed key on footage.
+        json!({"id": "footage", "type": "video", "start": 0, "end": 1100, "source": clip,
+               "source_start": 0, "source_end": 1100, "x": moving(json!(80), json!(86)), "y": 135,
+               "origin": "center", "width": 128, "height": 72, "fit": "literal", "volume": 0,
+               "effects": [{"name": "chroma", "color": keyed(json!("#00FF00"), json!("#20C020"), json!("#00CD00")),
+                            "tolerance": keyed(json!(0), json!(0.5), json!(0.2)),
+                            "softness": keyed(json!(0), json!(0.3), json!(0.1)),
+                            "spill": keyed(json!(0), json!(0.6), json!(0.2))}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/keyed.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "keyed.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn keyed_effect_parameters_paint_the_same_frames_on_any_painters_with_the_hint_on_or_off() {
+    // #676's gating test (ADR-0146 Consequences, ADR-0144, #652).
+    if !has_ffprobe() {
+        return;
+    }
+    let path = keyed_effects_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    for (painters, chunk) in [(2, 1), (3, 2), (4, 3), (6, 9)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// Inverted masks (ADR-0152) with a blur, a glow and a ring, each moving with sub-pixel
 /// steps, on a 320x180 frame at 30 fps for 1100 ms (33 frames).
 fn inverted_mask_project(line: u32) -> PathBuf {

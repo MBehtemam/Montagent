@@ -267,20 +267,20 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
         .elements()
         .filter_map(|element| Some((element, element.get("id")?.as_str()?)))
         .flat_map(|(element, id)| {
-            // The one list (ADR-0146), less what cannot be seen.
-            crate::animatable::names()
-                .iter()
-                .map(String::as_str)
-                .filter(|&property| property != "volume")
-                .filter_map(move |property| {
+            // The one list (ADR-0146), effect parameters included, less what cannot be seen.
+            crate::animatable::declared(element)
+                .into_iter()
+                .filter(|declared| declared.path != "volume")
+                .filter_map(move |declared| {
                     // A keyframe list, as `Animatable` reads one. `scale`'s static
                     // `[sx, sy]` and a path's static vertices are not.
-                    let records = crate::animatable::records(element, property)?;
+                    let records = declared.records()?;
+                    let property = declared.path;
                     Some(records.iter().filter_map(move |record| {
                         Some(Point {
                             at: record.get("t").and_then(Value::as_i64)?,
                             element: id.to_string(),
-                            property: property.to_string(),
+                            property: property.clone(),
                         })
                     }))
                 })

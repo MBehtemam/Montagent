@@ -94,9 +94,10 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
-  `color`, `stroke`, `stroke_width` and `letter_spacing`. The box of an `image`, `video`,
-  `text` or `path`, a path's `closed`, `clip`, enums, run and highlight paint, a gradient's
-  parameters (see the compositing page) and effect parameters stay static. A run's paint
+  `color`, `stroke`, `stroke_width` and `letter_spacing`; every numeric and colour
+  parameter inside `effects`, named `effects[1].radius (blur)` (see the compositing page).
+  The box of an `image`, `video`, `text` or `path`, a path's `closed`, `clip`, enums, run
+  and highlight paint, and a gradient's parameters stay static. A run's paint
   still beats the element's keyed value; where every
   run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).
 - **A keyed colour blends in sRGB with premultiplied alpha** (ADR-0146), the CSS rule:

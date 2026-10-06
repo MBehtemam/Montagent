@@ -844,8 +844,8 @@ impl Montagent {
                        transparent fraction of the element's own box, one sample per frame \
                        across its range. That is how you find out whether a key worked, and \
                        whether it *stayed* working: a series that steps mid-element is a \
-                       screen whose lighting drifts, and the fix is to cut the element at \
-                       the step, since effect parameters are static. It reaches no verdict \
+                       screen whose lighting drifts, and the fix is to key `tolerance` \
+                       across the step. It reaches no verdict \
                        here either.",
         input_schema = advertised::<MeasureParams>()
     )]

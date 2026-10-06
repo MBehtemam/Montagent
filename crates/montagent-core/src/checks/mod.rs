@@ -143,8 +143,9 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
 }
 
 /// **Every keyframe list on one element that the record checks walk**, as
-/// `(name, container, property)`: the element's own animatable properties — the one list,
-/// [`crate::animatable::names`], read off the schema (ADR-0146) — then a text element's
+/// `(name, container, property)`: every animatable property the element writes — the one
+/// list, [`crate::animatable::declared`], read off the schema (ADR-0146): its own, then each
+/// `effects` member's parameters, named `effects[1].radius (blur)` — then a text element's
 /// stagger lists: the `units` block's (`units.y`) and each run override's
 /// (`runs[3].unit.y`), ADR-0151 §5. The unit lists are nested inside the element, so they are
 /// their own walk rather than members of the element-level list. `name` is what a finding
@@ -152,9 +153,9 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
 pub(crate) fn keyframe_lists(
     element: &serde_json::Value,
 ) -> Vec<(String, &serde_json::Value, &str)> {
-    let mut out: Vec<(String, &serde_json::Value, &str)> = crate::animatable::names()
-        .iter()
-        .map(|property| (property.clone(), element, property.as_str()))
+    let mut out: Vec<(String, &serde_json::Value, &str)> = crate::animatable::declared(element)
+        .into_iter()
+        .map(|declared| (declared.path.clone(), declared.owner, declared.key()))
         .collect();
     if let Some(block) = element.get("units") {
         for property in crate::units::LISTS {
@@ -177,8 +178,8 @@ pub(crate) fn keyframe_lists(
 /// One property's keyframe records, or `None` where the property is absent or static.
 ///
 /// [`crate::animatable::records`], which holds ADR-0012's shape test. The properties a check
-/// walks are [`crate::animatable::names`] — the one list, read off the schema (ADR-0146) —
-/// and no check keeps a copy of its own.
+/// walks are [`crate::animatable::declared`] — the one list, read off the schema (ADR-0146)
+/// — and no check keeps a copy of its own.
 pub(crate) fn keyframe_records<'a>(
     element: &'a serde_json::Value,
     property: &str,
