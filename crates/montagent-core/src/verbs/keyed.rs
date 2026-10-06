@@ -354,7 +354,7 @@ fn remapped(
             frame,
             at,
             &decoded,
-            &effects_at(element, effects, at),
+            &effects_at(element, effects, at, fps),
             box_,
         )?);
         held = Some((ms, decoded));
