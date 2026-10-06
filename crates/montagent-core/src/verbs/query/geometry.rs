@@ -166,7 +166,10 @@ pub(crate) fn origin_fraction(origin: Origin) -> (f64, f64) {
 /// list would be a second answer to *"does this element claim pixels"* — the drift this
 /// module exists to prevent.
 pub(crate) fn covers_the_frame(kind: Option<&str>) -> bool {
-    matches!(kind, Some("image" | "video" | "text" | "rect" | "ellipse"))
+    matches!(
+        kind,
+        Some("image" | "video" | "text" | "rect" | "ellipse" | "path")
+    )
 }
 
 /// `clip`, as a [`Rect`] — only `image` and `video` carry the field.

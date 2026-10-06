@@ -912,3 +912,79 @@ fn a_staggered_title_crossing_chunk_boundaries_gives_the_framemd5_of_one_painter
     assert_eq!(one.len(), 33);
     assert_eq!(one, three, "the decoded framemd5");
 }
+
+/// ADR-0154's gating fixture (#710): paths with sub-pixel motion, rotation, non-uniform
+/// scale, keyed `points` with an overshoot, `blur` with `shadow`, and a `mask`, over a
+/// still seen through a `clip`, on a 320x180 frame at 30 fps for 1100 ms (33 frames).
+fn path_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let to = dir.join("img/boat.jpg");
+    std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+    std::fs::copy(trailer().join("img/boat.jpg"), &to).expect("copy the trailer's photo");
+    let moving =
+        |from: i64, to: i64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let glow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 10, "color": "#FF9F2E", "opacity": 0.8});
+    let wave = |rise: i64, reach: i64| {
+        json!([{"at": [3, 40 + rise], "out": [reach, -35 - rise]},
+               {"at": [137, 40 - rise], "in": [-reach, 35 + rise]}])
+    };
+    let elements = [
+        json!({"id": "photo", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 1100,
+               "x": 160, "y": 90, "origin": "center", "width": 320, "height": 180,
+               "fit": "literal", "clip": [16, 12, 288, 156]}),
+        json!({"id": "line", "type": "path", "start": 0, "end": 1100, "x": moving(40, 47),
+               "y": 30, "origin": "center", "width": 120, "height": 12, "closed": false,
+               "stroke": "#F2F2F2", "stroke_width": 4, "rotation": moving(0, 23),
+               "points": [{"at": [2, 6]}, {"at": [118, 6]}],
+               "effects": [{"name": "blur", "radius": 2}, glow]}),
+        json!({"id": "wave", "type": "path", "start": 0, "end": 1100, "x": moving(90, 96),
+               "y": moving(120, 127), "origin": "center", "width": 140, "height": 80,
+               "closed": false, "stroke": "#3BA0FF", "stroke_width": 5, "scale": [1.4, 0.7],
+               "points": [
+                   {"t": 0, "v": wave(0, 30)},
+                   {"t": 700, "v": wave(20, 40), "ease": [0.34, 1.56, 0.64, 1]},
+                   {"t": 1100, "v": wave(0, 30), "ease": "ease-in-out"}],
+               "effects": [glow, {"name": "blur", "radius": 1.5}]}),
+        json!({"id": "star", "type": "path", "start": 0, "end": 1100, "x": moving(230, 236),
+               "y": 90, "origin": "center", "width": 120, "height": 112, "closed": true,
+               "fill": "#FF3B30", "stroke": "#FFFFFF", "stroke_width": 3,
+               "rotation": moving(0, -31),
+               "scale": [{"t": 0, "v": [1.2, 0.8]}, {"t": 1100, "v": [0.9, 1.15], "ease": "linear"}],
+               "points": [{"at": [60, 6]}, {"at": [90, 106]}, {"at": [8, 44]}, {"at": [112, 44]},
+                          {"at": [30, 106]}],
+               "effects": [{"name": "mask", "shape": "ellipse"}, {"name": "blur", "radius": 3}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/paths.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "paths.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn paths_paint_the_same_frames_on_any_number_of_painters_and_with_the_bound_hint_off() {
+    // ADR-0154's gating test, under ADR-0144.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = path_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 33);
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}

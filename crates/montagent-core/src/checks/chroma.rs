@@ -44,7 +44,7 @@ use crate::report::Report;
 /// `image` and `video` are the other side of the line and are absent deliberately: their
 /// pixels come off a disk this document did not write, which is the case the keyer exists
 /// for. `audio` has no pixels, and a `transition` is a bridge rather than a picture.
-const AUTHORED: [&str; 3] = ["text", "rect", "ellipse"];
+const AUTHORED: [&str; 4] = ["text", "rect", "ellipse", "path"];
 
 /// `tolerance`'s identity value, which keys nothing (ADR-0088).
 const INERT: f64 = 0.0;

@@ -30,6 +30,10 @@ fn values(kind: Kind) -> (Value, Value) {
         Kind::Number => (json!(0.25), json!(0.75)),
         Kind::Pair => (json!([1.0, 1.0]), json!([1.2, 1.2])),
         Kind::Colour | Kind::Paint => (json!("#FF0000"), json!("#0000FF")),
+        Kind::Points => (
+            json!([{"at": [10, 390]}, {"at": [200, 10]}, {"at": [390, 390]}]),
+            json!([{"at": [10, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
+        ),
     }
 }
 
@@ -44,6 +48,11 @@ fn subject(property: &str, records: Value) -> Value {
         json!({"id": "subject", "type": "text", "start": 1000, "end": 3000, "x": 540, "y": 960,
                "width": 900, "height": 200, "font": "brand", "size": 40,
                "runs": [{"text": "Hello"}], "caption": false})
+    } else if has("path") {
+        json!({"id": "subject", "type": "path", "start": 1000, "end": 3000, "x": 540, "y": 960,
+               "width": 400, "height": 400, "closed": true, "fill": "#FFFFFF",
+               "stroke": "#000000", "stroke_width": 2,
+               "points": [{"at": [10, 390]}, {"at": [200, 10]}, {"at": [390, 390]}]})
     } else if has("audio") {
         json!({"id": "subject", "type": "audio", "start": 1000, "end": 3000,
                "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1500,

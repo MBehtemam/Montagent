@@ -9,9 +9,9 @@ two disagree.
 
 ## Paint
 
-- **A paint is a colour, a keyframe list of colours, or a gradient** (ADR-0149). Four fields
-  take one: a `rect`'s and an `ellipse`'s `fill` and `stroke`, and a `text` element's
-  element-level `color` and `stroke`. Every other colour field takes a colour only: run and
+- **A paint is a colour, a keyframe list of colours, or a gradient** (ADR-0149). These fields
+  take one: a `rect`'s, an `ellipse`'s and a `path`'s `fill` and `stroke`, and a `text`
+  element's element-level `color` and `stroke`. Every other colour field takes a colour only: run and
   highlight paint, the project `background`, and `shadow`, `tint` and `chroma` colours. For a
   gradient background, put a full-frame `rect` with a gradient `fill` at the bottom.
 - **A gradient is `linear` or `radial`, and every parameter is required** (ADR-0149):

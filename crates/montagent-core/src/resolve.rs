@@ -50,7 +50,7 @@
 //! rounded nowhere, by that ADR's own decision — so there is no rounding step for exact
 //! arithmetic to protect.
 
-use crate::model::{Animatable, Colour, Ease, EaseName, Keyframe, Length};
+use crate::model::{Animatable, Colour, Ease, EaseName, Keyframe, Length, Points, Vertex};
 
 /// A value that can be interpolated, and what interpolating it produces.
 ///
@@ -178,6 +178,62 @@ impl Interpolate for [f64; 2] {
 
     fn held(value: &Self) -> [f64; 2] {
         *value
+    }
+}
+
+/// One vertex of a path between two keyframes: the written vertex's numbers, each
+/// interpolated separately, so continuous (ADR-0154 §3). A handle is present where either
+/// end writes it; one end missing it reads as the zero offset a missing handle means, so a
+/// keyframe list `validate` refuses for its handles (`E-PATH-KEYFRAME-SHAPE`) still
+/// resolves to something rather than to nothing.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VertexAt {
+    pub at: [f64; 2],
+    #[serde(rename = "in", skip_serializing_if = "Option::is_none")]
+    pub arriving: Option<[f64; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out: Option<[f64; 2]>,
+}
+
+impl VertexAt {
+    fn of(vertex: &Vertex) -> VertexAt {
+        let pair = |[x, y]: [i64; 2]| [x as f64, y as f64];
+        VertexAt {
+            at: pair(vertex.at),
+            arriving: vertex.arriving.map(pair),
+            out: vertex.out.map(pair),
+        }
+    }
+}
+
+impl Interpolate for Points {
+    type Out = Vec<VertexAt>;
+
+    /// Number by number, vertex by vertex. Two lists of different lengths have no
+    /// correspondence to interpolate along — `E-PATH-KEYFRAME-SHAPE` — and hold the earlier
+    /// one, as a `step` does.
+    fn between(a: &Self, b: &Self, p: f64) -> Vec<VertexAt> {
+        if a.0.len() != b.0.len() {
+            return Points::held(a);
+        }
+        let handle = |a: Option<[i64; 2]>, b: Option<[i64; 2]>| {
+            (a.is_some() || b.is_some()).then(|| {
+                let (a, b) = (a.unwrap_or([0, 0]), b.unwrap_or([0, 0]));
+                <[f64; 2]>::between(&a.map(|n| n as f64), &b.map(|n| n as f64), p)
+            })
+        };
+        a.0.iter()
+            .zip(&b.0)
+            .map(|(a, b)| VertexAt {
+                at: <[f64; 2]>::between(&a.at.map(|n| n as f64), &b.at.map(|n| n as f64), p),
+                arriving: handle(a.arriving, b.arriving),
+                out: handle(a.out, b.out),
+            })
+            .collect()
+    }
+
+    fn held(value: &Self) -> Vec<VertexAt> {
+        value.0.iter().map(VertexAt::of).collect()
     }
 }
 

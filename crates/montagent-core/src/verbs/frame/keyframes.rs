@@ -273,10 +273,9 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
                 .map(String::as_str)
                 .filter(|&property| property != "volume")
                 .filter_map(move |property| {
-                    let records = element.get(property)?.as_array()?;
-                    // A keyframe list, as `Animatable` reads one: an array of objects.
-                    // `scale`'s static `[sx, sy]` is not.
-                    records.first().filter(|first| first.is_object())?;
+                    // A keyframe list, as `Animatable` reads one. `scale`'s static
+                    // `[sx, sy]` and a path's static vertices are not.
+                    let records = crate::animatable::records(element, property)?;
                     Some(records.iter().filter_map(move |record| {
                         Some(Point {
                             at: record.get("t").and_then(Value::as_i64)?,

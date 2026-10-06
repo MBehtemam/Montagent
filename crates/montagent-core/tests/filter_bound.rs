@@ -149,6 +149,12 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("rect-gradient-stroke-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": linear(200.0), "stroke": radial(), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
         ("text-gradient-stroke-glow", with(t(), json!({"y": 540, "color": linear(90.0), "stroke": radial(), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
         ("text-gradient-scale-blur", with(t(), json!({"y": 540, "scale": [2.0, 0.7], "color": radial(), "effects": [blur(14.0)]})), 700.4, 13.7),
+        // Paths (ADR-0154): a centred stroke the box contains, so the hint's bound on the box
+        // must hold for one whose ink runs right up to the box's edge.
+        ("path-star-blur", json!({"type": "path", "width": 300, "height": 280, "closed": true, "fill": "#F2F2F2", "stroke": "#FF3B30", "stroke_width": 8, "points": [{"at": [150, 4]}, {"at": [238, 276]}, {"at": [4, 108]}, {"at": [296, 108]}, {"at": [62, 276]}], "y": 540, "effects": [blur(18.0)]}), 960.4, 13.7),
+        ("path-line-rotated-shadow-edge", json!({"type": "path", "width": 400, "height": 10, "closed": false, "stroke": "#FFFFFF", "stroke_width": 10, "points": [{"at": [5, 5]}, {"at": [395, 5]}], "y": 300, "rotation": 35, "effects": [shadow(12.0, -9.0, 14.0)]}), 960.4, 13.7),
+        ("path-curve-anisotropic-flipped-glow", json!({"type": "path", "width": 300, "height": 200, "closed": false, "stroke": "#3BA0FF", "stroke_width": 6, "points": [{"at": [3, 100], "out": [100, -97]}, {"at": [297, 100], "in": [-100, 97]}], "y": 540, "scale": [-2.0, 0.6], "effects": [glow(40.0, "#FFFFFF", 0.7), blur(2.0)]}), 960.4, 13.7),
+        ("path-star-tiny-shadow-edge", json!({"type": "path", "width": 200, "height": 190, "closed": true, "fill": "#FFFFFF", "points": [{"at": [100, 0]}, {"at": [159, 190]}, {"at": [0, 72]}, {"at": [200, 72]}, {"at": [41, 190]}], "y": 1000, "effects": [shadow(0.0, 0.0, 3.0)]}), 1880.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),

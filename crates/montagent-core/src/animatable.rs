@@ -27,6 +27,8 @@
 //! - an integer-typed property resolves to a continuous value and is never rounded;
 //! - a resolved `radius` clamps to half the shorter side of the box at the same instant;
 //! - a resolved `stroke_width` below zero clamps to `0`;
+//! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
+//!   (ADR-0154 §3);
 //! - a paint field holding a gradient (ADR-0149) resolves to that gradient with §4's stop
 //!   fix applied — each offset raised to the largest before it — so what is printed is what
 //!   is drawn. Its parameters are static in this slice;
@@ -42,8 +44,8 @@ use std::sync::OnceLock;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::model::{Animatable, Colour, Gradient, Scale};
-use crate::resolve::{self, Interpolate, Unresolvable};
+use crate::model::{Animatable, Colour, Gradient, Points, Scale};
+use crate::resolve::{self, Interpolate, Unresolvable, VertexAt};
 
 /// What one animatable property's values are, as the schema types them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +62,9 @@ pub enum Kind {
     /// keyframe values are colours, so a reader that splits or blends a list treats it as
     /// [`Kind::Colour`]; a gradient resolves to [`Resolved::Gradient`].
     Paint,
+    /// A path's whole vertex list, every `at`, `in` and `out` coordinate interpolated
+    /// separately: `points` (ADR-0154 §3).
+    Points,
 }
 
 impl Kind {
@@ -125,16 +130,18 @@ fn derive(schema: &Value) -> Table {
             }
             // The first alternative of an `Animatable{T}` is the static `T`.
             let mut value = &defs[def]["anyOf"][0];
-            let mut colour = false;
+            let mut named = None;
             if let Some(target) = value["$ref"]
                 .as_str()
                 .and_then(|reference| reference.strip_prefix("#/$defs/"))
             {
-                colour = target == "Colour";
+                named = Some(target);
                 value = &defs[target];
             }
-            let kind = if colour {
+            let kind = if named == Some("Colour") {
                 Kind::Colour
+            } else if named == Some("Points") {
+                Kind::Points
             } else {
                 match value["type"].as_str() {
                     Some("integer") => Kind::Integer,
@@ -195,15 +202,15 @@ pub fn property(name: &str) -> Option<&'static Property> {
 
 /// One property's keyframe records, or `None` where it is absent or static.
 ///
-/// ADR-0012's own shape test, as [`Animatable`] applies it on the way in: a keyframe record
-/// is an object, so an array **of objects** is a keyframe list and every other array —
-/// `scale`'s own `[sx, sy]` — is a static value.
+/// ADR-0012's own shape test, as [`Animatable`] applies it on the way in
+/// ([`crate::model::keyframe::is_keyframe_list`]): `scale`'s own `[sx, sy]` and a path's
+/// static vertex list are static values.
 pub fn records<'a>(element: &'a Value, property: &str) -> Option<&'a Vec<Value>> {
-    let records = element.get(property)?.as_array()?;
-    records
-        .first()
-        .is_some_and(Value::is_object)
-        .then_some(records)
+    let written = element.get(property)?;
+    if !crate::model::keyframe::is_keyframe_list(written) {
+        return None;
+    }
+    written.as_array()
 }
 
 /// A property's value at an instant.
@@ -218,6 +225,9 @@ pub enum Resolved {
     Colour(Colour),
     /// A gradient paint, after ADR-0149 §4's fix: always a literal that can be pasted back.
     Gradient(Gradient),
+    /// A path's vertices, each handle an offset from its own vertex as the document writes
+    /// it (ADR-0154).
+    Points(Vec<VertexAt>),
 }
 
 impl Resolved {
@@ -330,6 +340,7 @@ fn raw(
         Some(Kind::Paint) => one::<Colour, _>(written, numerator, denominator, |blend| {
             Resolved::Colour(blend.settle())
         }),
+        Some(Kind::Points) => one::<Points, _>(written, numerator, denominator, Resolved::Points),
         None => Err(Unreadable::Schema(
             "the key is not an animatable property".to_string(),
         )),
@@ -347,8 +358,10 @@ fn clamp(
     numerator: i128,
     denominator: i128,
 ) -> Resolved {
-    let Resolved::Number(number) = value else {
-        return value;
+    let number = match value {
+        Resolved::Number(number) => number,
+        Resolved::Points(vertices) => return Resolved::Points(inside(element, vertices)),
+        other => return other,
     };
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
@@ -360,6 +373,57 @@ fn clamp(
             number.clamp(0.0, half)
         }
         _ => number,
+    })
+}
+
+/// ADR-0154 §3's overshoot rule: every absolute vertex and handle position clamped into the
+/// inset box at that instant, each handle then written back as an offset from its clamped
+/// vertex. Where a path's box does not read, the vertices are left as they resolved.
+fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
+    let Some(((left, top), (right, bottom))) = inset_box(element) else {
+        return vertices;
+    };
+    let clamp = |[x, y]: [f64; 2]| [x.clamp(left, right), y.clamp(top, bottom)];
+    vertices
+        .into_iter()
+        .map(|vertex| {
+            let at = clamp(vertex.at);
+            let handle = |offset: Option<[f64; 2]>| {
+                offset.map(|[dx, dy]| {
+                    let [x, y] = clamp([vertex.at[0] + dx, vertex.at[1] + dy]);
+                    [x - at[0], y - at[1]]
+                })
+            };
+            VertexAt {
+                arriving: handle(vertex.arriving),
+                out: handle(vertex.out),
+                at,
+            }
+        })
+        .collect()
+}
+
+/// A path's **inset**: `ceil(stroke_width / 2)`, or `0` with no stroke, from the largest
+/// value a keyed `stroke_width` states (ADR-0154 §4).
+pub fn path_inset(element: &Value) -> i64 {
+    if element.get("stroke").is_none() {
+        return 0;
+    }
+    let width = greatest_length(element, "stroke_width").unwrap_or(0).max(0);
+    (width + 1) / 2
+}
+
+/// A path's **inset box**, `[m, width − m] × [m, height − m]`, as `((left, top), (right,
+/// bottom))`. `None` where the box does not read, or the inset leaves no box at all.
+pub fn inset_box(element: &Value) -> Option<((f64, f64), (f64, f64))> {
+    let side = |key| element.get(key)?.as_i64();
+    let (width, height) = (side("width")?, side("height")?);
+    let m = path_inset(element);
+    (2 * m <= width && 2 * m <= height).then(|| {
+        (
+            (m as f64, m as f64),
+            ((width - m) as f64, (height - m) as f64),
+        )
     })
 }
 

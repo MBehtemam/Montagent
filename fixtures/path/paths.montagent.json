@@ -1,0 +1,54 @@
+{
+  "frame": {"width": 400, "height": 300},
+  "fps": 10,
+  "background": "#000000",
+  "output": "out/paths.mp4",
+  "duration": 1000,
+  "tracks": [
+    {
+      "name": "line",
+      "layer": 0,
+      "elements": [
+        {"id":"line","type":"path","start":0,"end":1000,"x":20,"y":20,"origin":"top-left","width":160,"height":10,
+         "closed":false,"stroke":"#FFFFFF","stroke_width":4,
+         "points":[{"at":[2,5]},{"at":[158,5]}]}
+      ]
+    },
+    {
+      "name": "triangle",
+      "layer": 1,
+      "elements": [
+        {"id":"triangle","type":"path","start":0,"end":1000,"x":220,"y":20,"origin":"top-left","width":160,"height":120,
+         "closed":true,"fill":"#FF0000","stroke":"#FFFFFF","stroke_width":4,
+         "points":[{"at":[2,118]},{"at":[80,2]},{"at":[158,118]}]}
+      ]
+    },
+    {
+      "name": "s-curve",
+      "layer": 2,
+      "elements": [
+        {"id":"s-curve","type":"path","start":0,"end":1000,"x":20,"y":160,"origin":"top-left","width":160,"height":120,
+         "closed":false,"stroke":"#00FF00","stroke_width":4,
+         "points":[{"at":[10,60],"out":[40,-50]},{"at":[150,60],"in":[-40,50]}]}
+      ]
+    },
+    {
+      "name": "star",
+      "layer": 3,
+      "elements": [
+        {"id":"star","type":"path","start":0,"end":1000,"x":220,"y":160,"origin":"top-left","width":160,"height":120,
+         "closed":true,"fill":"#FFFF00",
+         "points":[{"at":[80,5]},{"at":[112,104]},{"at":[28,43]},{"at":[132,43]},{"at":[48,104]}]}
+      ]
+    },
+    {
+      "name": "gradient",
+      "layer": 4,
+      "elements": [
+        {"id":"gradient","type":"path","start":0,"end":1000,"x":20,"y":40,"origin":"top-left","width":160,"height":110,
+         "closed":true,"fill":{"gradient":"linear","angle":90,"stops":[{"offset":0,"color":"#FF0000"},{"offset":1,"color":"#0000FF"}]},
+         "points":[{"at":[0,110]},{"at":[80,0]},{"at":[160,110]}]}
+      ]
+    }
+  ]
+}

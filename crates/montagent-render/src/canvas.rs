@@ -1206,6 +1206,48 @@ impl Canvas {
         });
     }
 
+    /// Draw one `path` (ADR-0154): `outline` in element space, where the declared box is
+    /// `(0, 0, width, height)`.
+    ///
+    /// The fill uses the nonzero winding rule, so a self-intersecting outline fills its
+    /// overlap. The stroke is **centred** on the outline, unlike a `rect`'s, with a round
+    /// join and a butt cap: those reach no further than half the stroke's width from the
+    /// outline, which is what lets `validate` prove from the points alone that the box
+    /// contains the ink. Nothing is clipped to the box.
+    pub fn path(
+        &mut self,
+        outline: &[PathEl],
+        extent: Extent,
+        transform: &Transform,
+        paint: &Fill,
+        clip: Option<Region>,
+        effects: &[Effect],
+    ) {
+        if paint.fill.is_none() && paint.stroke.is_none() {
+            return;
+        }
+        let mut path = path_of(outline);
+        path.set_fill_type(PathFillType::Winding);
+        self.in_element_space(extent, transform, clip, effects, |canvas| {
+            // A gradient on either is measured against the declared box (ADR-0149 §2), which
+            // is the element space this runs in.
+            if let Some(ink) = &paint.fill {
+                let mut fill = ink.paint((0.0, 0.0));
+                fill.set_style(PaintStyle::Fill);
+                canvas.draw_path(&path, &fill);
+            }
+            let (Some(ink), true) = (&paint.stroke, paint.stroke_width > 0.0) else {
+                return;
+            };
+            let mut stroke = ink.paint((0.0, 0.0));
+            stroke.set_style(PaintStyle::Stroke);
+            stroke.set_stroke_width(paint.stroke_width as f32);
+            stroke.set_stroke_join(skia_safe::PaintJoin::Round);
+            stroke.set_stroke_cap(skia_safe::PaintCap::Butt);
+            canvas.draw_path(&path, &stroke);
+        });
+    }
+
     /// Draw a decoded raster source resampled to exactly the declared box.
     ///
     /// **Never cropped, and `fit` is never consulted** — ADR-0015 is explicit that the

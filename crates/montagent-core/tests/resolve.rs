@@ -502,7 +502,10 @@ fn the_published_schema_states_the_positional_rule_too() {
             );
         }
     }
-    assert_eq!(seen, 12, "six keyframe instantiations, first and non-first");
+    assert_eq!(
+        seen, 14,
+        "seven keyframe instantiations, first and non-first"
+    );
 }
 
 #[test]
@@ -598,6 +601,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                      "stroke": "#FFFFFF", "stroke_width": 1, "radius": 2,
                      "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0,
                      "effects": [{"name": "mask", "shape": "circle", "feather": 4}]},
+                    {"id": "outline", "type": "path", "start": 0, "end": 1000,
+                     "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
+                     "stroke": "#FFFFFF", "stroke_width": 1,
+                     "points": [{"at": [1, 1]}, {"at": [9, 9]}]},
                     {"id": "words", "type": "text", "start": 0, "end": 1000,
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
@@ -610,7 +617,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         }),
     );
     let answer = at(&path, 500);
-    let mut resolved: Vec<String> = ["shape", "noise", "words"]
+    let mut resolved: Vec<String> = ["shape", "outline", "noise", "words"]
         .iter()
         .flat_map(|id| {
             element(&answer, id)["values"]

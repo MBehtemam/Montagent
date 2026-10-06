@@ -64,7 +64,7 @@ Two black rects, top and bottom. For 2.39:1 in a 1920×1080 frame, each is 138 p
 
 ### HUD from shapes
 
-- **Lines and frames:** thin rects, or `stroke_width` 2–3 on unfilled rects, in one accent colour at `opacity` 0.6–0.85.
+- **Lines and frames:** a line is a two-vertex open `path` (`"closed": false`, a `stroke`, `stroke_width` 2–3), at any angle or bent through handles; a frame is an unfilled rect with the same stroke. One accent colour, at `opacity` 0.6–0.85. Keep each vertex at least half the stroke width inside the path's box, or `validate` refuses it.
 - **Rings:** unfilled ellipses with a stroke. One or two turn slowly, one turn per 8–20 s, `linear`.
 - **Readouts:** typed with `scripts/type_on.py` (letters at 30–60 ms each), in small caps text at 2–3 % of the short side: readouts are texture, not copy, so they sit under the reading floor.
 - **Blinks and ticks:** dots and markers that toggle on `step` every half beat.

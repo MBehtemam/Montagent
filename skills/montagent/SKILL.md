@@ -43,6 +43,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Elements and placement**
 
 - Images, video, text, rectangles and ellipses, placed and sized on a frame, layered on tracks: `image`, `video`, `text`, `rect`, `ellipse`, `x`, `y`, `width`, `height`, `origin`, `layer`.
+- Lines, polygons and curves drawn through vertices with handles, filled or stroked, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`.
 
 **Motion**
 
@@ -99,7 +100,7 @@ A piece can mix these: load each skill whose row it touches.
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
 - Animated effect parameters, masks included. Keep these out of the design. <!-- workaround: #676 · replaced by: animated effect parameters -->
-- Paths, lines and morphs. Keep them out of the design. <!-- workaround: #710 · replaced by: a path element, and morphs -->
+- Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
 - Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
 - Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->

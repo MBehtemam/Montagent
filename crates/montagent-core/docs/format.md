@@ -93,9 +93,11 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   (ADR-0146); a list on any other field is a schema error. Today: `x`, `y`, `scale`,
   `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
-  `radius`; a `text` element's `color`, `stroke`, `stroke_width` and `letter_spacing`. The
-  box of an `image`, `video` or `text`, `clip`, enums, run and highlight paint, a gradient's
-  parameters (see the compositing page) and effect parameters stay static. A run's paint still beats the element's keyed value; where every
+  `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
+  `color`, `stroke`, `stroke_width` and `letter_spacing`. The box of an `image`, `video`,
+  `text` or `path`, a path's `closed`, `clip`, enums, run and highlight paint, a gradient's
+  parameters (see the compositing page) and effect parameters stay static. A run's paint
+  still beats the element's keyed value; where every
   run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).
 - **A keyed colour blends in sRGB with premultiplied alpha** (ADR-0146), the CSS rule:
   each component clamped to its range, then rounded to the nearest byte; six digits are
@@ -164,8 +166,47 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   defaulting to 0 — one corner radius, not four. An ellipse inscribes its declared rect and
   has no corners to round, so `radius` on one is an unknown key rather than a field that
   quietly does nothing.
-- **`stroke` never enlarges the declared rect** (ADR-0014). On a shape it falls inside it; on text it
-  falls outside the glyph contour and grows into the box rather than past it.
+- **`stroke` never enlarges the declared rect** (ADR-0014). On a `rect` or `ellipse` it falls inside
+  it; on text it falls outside the glyph contour and grows into the box rather than past it;
+  on a `path` it is centred on the outline, and `validate` checks the box contains it (below).
+
+### Paths (ADR-0154)
+
+- **A `path` draws a list of vertices in integer pixels from its declared box's top-left
+  corner.** It takes a `rect`'s fields except `radius`, plus a required `closed` (a boolean)
+  and a required `points` list. The transform places the box exactly as a `rect`'s; the box
+  **bounds** the drawing and never stretches it, so `width`, `height` and `closed` are
+  static. Resize a path by editing its points, or animate `scale`.
+- **A vertex is `{"at": [x, y], "in": [dx, dy], "out": [dx, dy]}`**, every value an
+  integer, and no other key. `in` and `out` are optional **handles**: offsets from their
+  own vertex. A missing handle is a zero offset, so a vertex with neither is a corner, and a
+  written `[0, 0]` draws the same.
+- **Each segment is a cubic Bezier** from one vertex's `at` through `at + out`, then the next
+  vertex's `at + in`, to that `at`. A closed path adds the segment from the last vertex back
+  to the first, using the last `out` and the first `in`. There is no `line` or `polygon`
+  type: **a line is a two-vertex open path** with no handles, and a polygon is a closed path
+  of corners. An open path needs two vertices and a closed one three
+  (`E-PATH-TOO-FEW-POINTS`); an `in` on an open path's first vertex or an `out` on its last
+  shapes nothing (`E-PATH-DANGLING-HANDLE`).
+- **From SVG:** a `C c1 c2 p` segment from the vertex `prev` sets `prev.out = c1 − prev.at`,
+  then adds a vertex `at = p` with `in = c2 − p`; an `L p` segment adds a vertex at `p` with
+  no handles. A `d` string is not a value.
+- **`fill` needs `"closed": true`**; on an open path it is a schema error. Fill uses the
+  nonzero winding rule, so a self-intersecting outline fills its overlap. A gradient `fill`
+  or `stroke` is measured against the declared box, as on every shape.
+- **The stroke is centred on the outline**, open or closed, with a round join and a butt
+  cap. **The box contains it:** with the inset `m = ceil(stroke_width / 2)` (0 with no
+  `stroke`, the largest keyed value where `stroke_width` is keyed), every `at`, `at + in`
+  and `at + out` lies in `[m, width − m] × [m, height − m]`, in every literal value of
+  `points`. Outside is `E-PATH-OUTSIDE-BOX`, naming the vertex, the record, the absolute
+  position and `m`. Nothing is clipped to the box.
+- **Keyed `points` is a whole list per keyframe**, interpolated number by number. Every
+  value has the same vertex count and each vertex the same handles
+  (`E-PATH-KEYFRAME-SHAPE`). An overshooting ease clamps each absolute vertex and handle
+  into the inset box at that instant. `shift` cuts a keyed `points` only where every
+  resolved number is an integer, and refuses elsewhere.
+- **`query --at` prints a path's `path`**: its resolved vertices with absolute control
+  points in box pixels. `NOT COVERED` counts the declared box, as for an `ellipse`.
 
 ## Values
 
