@@ -334,11 +334,25 @@ enlarges the declared rect, and that is what separates it from an effect: a blur
 paint on the outline and a drop shadow is not addressable by run. On a shape it falls
 **inside** the declared rect, so a stroked `card-05` still occupies exactly 984×169. On a
 **path** it is centred on the outline, and the box still contains it because every vertex
-and handle must sit at least half the stroke width inside the box. On
+and handle must sit inside the box by the stroke's furthest **reach**: half the stroke
+width, times the miter limit for a `miter` **join** or √2 for a `square` **cap**. A join is
+how the stroke turns a corner and a cap how it ends; only a path chooses them, and a cap
+exists only where the stroke ends, at an open path's ends or a dash's. On
 text it falls **outside the glyph contour** — inside would thin the stems — and grows into
 the box rather than past it, because a text element's `width`/`height` is a container
 claim and not drawn geometry. It is in element space, so it scales with `scale`.
-_Avoid_: outline, border, bord
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: outline, border, bord; line join, line cap, end cap (say join and cap)
+
+**Dash pattern**:
+A stroke broken into dashes and gaps along its outline: `stroke_dash`, an even list of
+integer pixel lengths starting with a dash, and `stroke_dash_offset`, how far into the
+pattern the outline's start falls. The pattern runs from a fixed start in a fixed direction,
+and where it fails to divide a closed outline it leaves a **seam** at that start; the lengths
+drawn are always the ones written, never stretched to fit. Any shape takes one; text does
+not. A zero-length dash is a dot, so it needs a cap that draws one.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: dasharray, dash array, line style, dotted (as a field or kind)
 
 **Effect**:
 A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
