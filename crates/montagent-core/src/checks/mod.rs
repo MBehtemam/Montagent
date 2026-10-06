@@ -34,6 +34,7 @@ pub mod retired;
 pub mod runs;
 pub mod schema;
 pub mod source;
+pub mod spacing;
 pub mod speed;
 pub mod tie;
 pub mod track;

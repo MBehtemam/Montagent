@@ -1345,6 +1345,22 @@ every hand-placed break in them was taken against different metrics.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0153 §4: letter spacing adds nothing between two letters of one joining
+        // script, so a tracked Arabic word stays as it was. `review`: the spacing still
+        // spreads everything else on the line, and that is a legitimate thing to write.
+        code: "R-SPACING-SUPPRESSED",
+        classes: &[Review],
+        repair: None,
+        // Internal: which pairs are suppressed is a rule over Unicode properties of the
+        // text, with no number borrowed from outside the format.
+        threshold: Internal,
+        adr: "ADR-0153",
+        template: "{element}: its `letter_spacing` adds nothing between two letters of the {script} script, first in `{word}`. A joining script's letters take no letter spacing between them (ADR-0153), so the spacing spreads only its spaces, punctuation, digits and other scripts.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0007's grapheme-cluster check: "no run boundary splits a base from its
         // combining mark". A run boundary is a *style* boundary and each run shapes on its
         // own, so a mark that starts a run has no base to attach to and renders on a dotted

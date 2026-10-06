@@ -191,6 +191,50 @@ fn the_timeline_marks_a_title_whose_spacing_is_keyed_as_moving() {
 }
 
 // ---------------------------------------------------------------------------
+// `R-SPACING-SUPPRESSED` (ADR-0153 §4).
+// ---------------------------------------------------------------------------
+
+fn suppressed(report: &Report) -> Vec<&montagent_core::finding::Finding> {
+    report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-SPACING-SUPPRESSED")
+        .collect()
+}
+
+#[test]
+fn spacing_on_arabic_letters_is_named_as_having_no_effect_between_them() {
+    let report = report_on(&[tracking_out("t", "fi سلام عليكم")]);
+    let found = suppressed(&report);
+    assert_eq!(found.len(), 1, "{:?}", codes(&report));
+    assert_eq!(found[0].class, montagent_core::finding::Class::Review);
+    assert_eq!(found[0].fields["script"], "Arabic");
+    assert_eq!(found[0].fields["word"], "سلام");
+    assert_eq!(found[0].location.element.as_deref(), Some("t"));
+    let prose = montagent_core::text::render(
+        &report.to_json(),
+        montagent_core::text::Options::default(),
+    )
+    .expect("the report renders");
+    assert!(prose.contains("R-SPACING-SUPPRESSED"), "{prose}");
+}
+
+#[test]
+fn arabic_with_no_spacing_or_a_zero_spacing_is_not_named() {
+    let none = report_on(&[title("t", "سلام عليكم")]);
+    let zero = report_on(&[with(title("t", "سلام عليكم"), "letter_spacing", json!(0))]);
+    assert!(suppressed(&none).is_empty());
+    assert!(suppressed(&zero).is_empty());
+}
+
+#[test]
+fn spacing_where_no_pair_is_suppressed_is_not_named() {
+    // A lone Arabic letter between Latin words joins no neighbour of its own script.
+    let report = report_on(&[with(title("t", "a ب c"), "letter_spacing", json!(100))]);
+    assert!(suppressed(&report).is_empty());
+}
+
+// ---------------------------------------------------------------------------
 // `measure`, and `R-LINE-INK-COLLISION`, which measures through it.
 // ---------------------------------------------------------------------------
 

@@ -581,8 +581,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         "the schema publishes animated properties"
     );
 
-    // Two elements carry the whole set between them: a shape takes the five transform
-    // properties, and `volume` is audio's (ADR-0055).
+    // Three elements carry the whole set between them: a shape takes the five transform
+    // properties, `volume` is audio's (ADR-0055), and `letter_spacing` is text's (ADR-0151).
     let path = project(
         line!(),
         json!({
@@ -593,6 +593,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
                      "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0}]},
+                {"name": "words", "layer": 2, "elements": [
+                    {"id": "title", "type": "text", "start": 0, "end": 1000,
+                     "width": 100, "height": 50, "font": "brand", "size": 40,
+                     "runs": [{"text": "a"}], "letter_spacing": 0}]},
                 {"name": "sound", "layer": 1, "elements": [
                     {"id": "noise", "type": "audio", "start": 0, "end": 1000,
                      "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1000,
@@ -601,7 +605,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         }),
     );
     let answer = at(&path, 500);
-    let mut resolved: Vec<String> = ["shape", "noise"]
+    let mut resolved: Vec<String> = ["shape", "noise", "title"]
         .iter()
         .flat_map(|id| {
             element(&answer, id)["values"]
