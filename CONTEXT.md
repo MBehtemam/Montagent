@@ -1337,7 +1337,8 @@ _Avoid_: caveat, disclaimer, limitations
 Something the MCP server publishes for an agent to *read* rather than to call —
 the published JSON Schema (`montagent://schema.json`) and the format docs
 (`montagent://format.md`), and any smaller piece of the format published beside
-them. The count is not a rule; what is a rule is that **every resource is
+them: the schema's pieces, and the format docs' pages, which `format.md` lists
+and which are served but not listed. The count is not a rule; what is a rule is that **every resource is
 generated from the same types that parse the project, or embedded verbatim** —
 no fact about the format is written down twice. Being resources rather than
 verbs is the whole point: an MCP tool schema costs the agent context on every

@@ -30,6 +30,16 @@
 //! not listed, and [`read`] serves them from [`crate::schema_index`]. The three listed URIs
 //! are written once, in the macros below, so the routing text that names them — the server
 //! instructions and the descriptions here — cannot name a URI nothing serves.
+//!
+//! **The format docs are also served in pages** (ADR-0137 §8), for the same reason: each
+//! one is read whole, so each one is held to the budget. `format.md` keeps the rules every
+//! element shares and is the pages' table of contents, as the index is the schema pieces';
+//! the pages in [`FORMAT_PAGES`] are served but not listed, and their URIs are not frozen.
+//! A rule goes on the page whose subject it is: a `text` element's rule on the text page;
+//! a rule about how elements combine (an effect, `blend`, a mask, a key, a transition, a
+//! paint drawn through the box) on the compositing page; and everything else (time,
+//! stacking, geometry, values, sources) in `format.md`. When a page nears the budget, it is
+//! split along its own `##` seams into another page listed beside it, never trimmed.
 
 macro_rules! schema_uri {
     () => {
@@ -40,6 +50,18 @@ macro_rules! schema_uri {
 macro_rules! format_uri {
     () => {
         "montagent://format.md"
+    };
+}
+
+macro_rules! format_text_uri {
+    () => {
+        "montagent://format/text.md"
+    };
+}
+
+macro_rules! format_compositing_uri {
+    () => {
+        "montagent://format/compositing.md"
     };
 }
 
@@ -58,7 +80,8 @@ pub const SERVER_INSTRUCTIONS: &str = concat!(
      with your ordinary file tools — there is no CRUD API — and call these tools for the \
      things a text editor cannot do. To learn the format, read `",
     format_uri!(),
-    "` (the rules the schema cannot express) and start the shape at `",
+    "` (the rules the schema cannot express, and the pages it lists) and start the shape \
+     at `",
     index_uri!(),
     "`, which lists every element type and effect with its required keys and the URI of \
      the schema piece that describes it.",
@@ -125,8 +148,9 @@ pub const FORMAT: Resource = Resource {
     description: "The rules a JSON Schema cannot express: the canonical writing convention \
                   an exact-string edit depends on, half-open time ranges, what a track \
                   does and does not supply, how a layer anchor resolves, why presence is \
-                  content, and how sources resolve. Read this alongside the schema before \
-                  editing a project by hand.",
+                  content, and how sources resolve. It lists the pages that hold the rest \
+                  (text, and compositing and transitions). Read this alongside the schema \
+                  before editing a project by hand.",
     mime_type: "text/markdown",
     body: format_docs,
 };
@@ -154,6 +178,27 @@ fn format_docs() -> String {
     FORMAT_DOCS.to_string()
 }
 
+/// One page of the format docs: served beside [`FORMAT`] and listed by it, not in [`all`].
+#[derive(Debug, Clone, Copy)]
+pub struct FormatPage {
+    /// The URI `format.md` names it by. Not frozen: an agent finds it through `format.md`.
+    pub uri: &'static str,
+    /// The page's bytes, verbatim.
+    pub text: &'static str,
+}
+
+/// The format docs' pages, in the order `format.md` lists them (ADR-0137 §8).
+pub const FORMAT_PAGES: &[FormatPage] = &[
+    FormatPage {
+        uri: format_text_uri!(),
+        text: include_str!("../docs/format/text.md"),
+    },
+    FormatPage {
+        uri: format_compositing_uri!(),
+        text: include_str!("../docs/format/compositing.md"),
+    },
+];
+
 /// Every listed resource: shape first, then the rules over it, then the index.
 ///
 /// The index comes last because ADR-0080 froze the first two in this order before it
@@ -176,18 +221,25 @@ pub struct Contents {
     pub text: String,
 }
 
-/// What is served at `uri` — a listed resource or a schema piece — or `None` if nothing is.
+/// What is served at `uri` — a listed resource, a page of the format docs or a schema
+/// piece — or `None` if nothing is.
 pub fn serve(uri: &str) -> Option<Contents> {
-    match find(uri) {
-        Some(resource) => Some(Contents {
+    if let Some(resource) = find(uri) {
+        return Some(Contents {
             mime_type: resource.mime_type,
             text: resource.body(),
-        }),
-        None => crate::schema_index::piece_bytes(uri).map(|text| Contents {
-            mime_type: PIECE_MIME_TYPE,
-            text,
-        }),
+        });
     }
+    if let Some(page) = FORMAT_PAGES.iter().find(|page| page.uri == uri) {
+        return Some(Contents {
+            mime_type: FORMAT.mime_type,
+            text: page.text.to_string(),
+        });
+    }
+    crate::schema_index::piece_bytes(uri).map(|text| Contents {
+        mime_type: PIECE_MIME_TYPE,
+        text,
+    })
 }
 
 /// The bytes behind one URI, or `None` if nothing is published there.

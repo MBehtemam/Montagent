@@ -133,6 +133,7 @@ fn no_resource_meant_to_be_read_whole_is_over_budget() {
         resources::INDEX.uri.to_string(),
         resources::FORMAT.uri.to_string(),
     ];
+    read_whole.extend(resources::FORMAT_PAGES.iter().map(|page| page.uri.to_string()));
     read_whole.extend(listed_uris(&index()));
     for uri in read_whole {
         let size = resources::read(&uri).unwrap().len();
