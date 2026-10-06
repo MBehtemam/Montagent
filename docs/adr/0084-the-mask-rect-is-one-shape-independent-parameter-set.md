@@ -5,6 +5,9 @@ amends: 0040 (writes the `...shape params` ellipsis it left unwritten, and state
 
 # The mask rect is one shape-independent parameter set, element-local, and it rides the transform
 
+> **Amended by [ADR-0152](0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md)**: the parameter set
+> is the rect, `radius`, `invert` and `feather`; the rect is still the one shape-independent set.
+
 **Ticket:** [#185](https://github.com/MBehtemam/Montagent/issues/185), graduated from
 [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md).
 

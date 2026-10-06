@@ -5,6 +5,11 @@ amends: 0148 (its three binding requirements are discharged and the stagger is s
 
 # Letter spacing is an animatable element field, and a stagger is a units block on one text element
 
+> **Amended by [ADR-0153](0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)**: a joined piece
+> shares timing like a merged glyph and transforms as one body; the ligature rule spares the
+> joining scripts; no letter spacing between two letters of a joining script; new review
+> `R-SPACING-SUPPRESSED`.
+
 [#682](https://github.com/MBehtemam/Montagent/issues/682), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). Two capabilities are decided here.
 **Letter spacing** answers [#510](https://github.com/MBehtemam/Montagent/issues/510): a tracked

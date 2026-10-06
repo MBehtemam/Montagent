@@ -478,6 +478,21 @@ alone: a transition crossfades and a keyed colour interpolates.
 _Avoid_: blending mode, composite mode, `plus`, linear dodge, blend (for a crossfade or
 a keyed colour)
 
+**Motion blur**:
+The smear an element's own motion leaves within one frame, written as the element's
+`motion_blur` field: a **shutter**, the share of the frame the smear covers as an angle
+out of 360°, centred on the frame's instant, and the number of **samples**, the instants
+across it at which the element is painted and averaged. Everything the element's own
+keyframes move follows the samples. What decides that the element is present, and which
+frame of its footage shows, does not. So a video's footage is not blurred, and the smear
+reaches only as far as the keyframes do. An element whose values are equal at every sample
+is **still**, and is painted as if it had no field. Not an effect: it repaints the element,
+effects and all. A smear with a fixed angle that ignores the motion is a directional blur,
+not motion blur.
+([ADR-0155](docs/adr/0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md))
+_Avoid_: directional blur (for this), shutter speed, keyframable shutter, motion trail,
+echo
+
 **Highlight**:
 A run's optional timed window — `{start, end, ...style delta}` — during which it
 wears a different style, falling back to its unconditional one outside it. The
