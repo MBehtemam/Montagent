@@ -170,8 +170,11 @@ _Avoid_: span, segment, chunk
 **Letter spacing**:
 Space added after every grapheme of a line but the last, in thousandths of an em of the
 size it is set at, so a size change keeps the same tracking. It belongs to the whole
-element, never to one run, and it may change over time
-([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
+element, never to one run, and it may change over time. None is added between two letters of
+the same joining script such as Arabic, joined or not, because a gap there would tear the
+cursive stroke
+([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)).
 _Avoid_: tracking (as the field name), kerning (the font's own pair adjustment), character spacing
 
 **Stagger**:
@@ -187,12 +190,22 @@ _Avoid_: cascade, offset animation
 One piece a stagger moves on its own. A letter is a grapheme cluster that is not whitespace;
 a word is a word containing a letter, digit or pictograph, with its punctuation; a line is a
 `\n` line with a letter in it. Units are counted in reading order across the whole element,
-ignoring runs, and whitespace takes no step. The count comes from the text alone: where the
-font joins letters into one glyph, they share a start but keep their own places in the count.
+ignoring runs, and whitespace takes no step. The count comes from the text alone: letters that
+the font merges into one glyph, or that make one joined piece, move together on the first
+one's start but keep their own places in the count.
 A unit's **delay** is how far after the first unit it starts.
-([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md))
+([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md))
 _Avoid_: character (a code point is not a letter), glyph (shaping's unit, not the stagger's),
 copy, instance
+
+**Joined piece**:
+A stretch of letters that cursive joining connects into one unbroken stroke, as in Arabic:
+`السلام` is three pieces, `ا`, `لسلا` and `م`. Which letters join comes from the text alone.
+A stagger by letter moves each piece as one, so the stroke never tears
+([ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)).
+_Avoid_: word (a word can hold several pieces), ligature (one glyph; a piece is several),
+cluster
 
 **Caption**:
 A `text` element the four caption checks run on — `R-CAPTION-PACE`,
