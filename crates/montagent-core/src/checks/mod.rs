@@ -42,6 +42,7 @@ pub mod speed;
 pub mod tie;
 pub mod track;
 pub mod transition;
+pub mod units;
 pub mod unreached;
 
 /// What a finding's prose calls the project itself, where the subject is not an element.
@@ -137,6 +138,38 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
                 .collect(),
         })
         .collect()
+}
+
+/// **Every keyframe list on one element that the record checks walk**, as
+/// `(name, container, property)`: the element's own animatable properties — the one list,
+/// [`crate::animatable::names`], read off the schema (ADR-0146) — then a text element's
+/// stagger lists: the `units` block's (`units.y`) and each run override's
+/// (`runs[3].unit.y`), ADR-0151 §5. The unit lists are nested inside the element, so they are
+/// their own walk rather than members of the element-level list. `name` is what a finding
+/// calls the list, so an agent finds it in the file.
+pub(crate) fn keyframe_lists(
+    element: &serde_json::Value,
+) -> Vec<(String, &serde_json::Value, &str)> {
+    let mut out: Vec<(String, &serde_json::Value, &str)> = crate::animatable::names()
+        .iter()
+        .map(|property| (property.clone(), element, property.as_str()))
+        .collect();
+    if let Some(block) = element.get("units") {
+        for property in crate::units::LISTS {
+            out.push((format!("units.{property}"), block, property));
+        }
+    }
+    for (r, run) in crate::verbs::measure::runs_array(element)
+        .iter()
+        .enumerate()
+    {
+        if let Some(over) = run.get("unit") {
+            for property in crate::units::LISTS {
+                out.push((format!("runs[{r}].unit.{property}"), over, property));
+            }
+        }
+    }
+    out
 }
 
 /// One property's keyframe records, or `None` where the property is absent or static.

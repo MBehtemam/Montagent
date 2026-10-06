@@ -112,9 +112,16 @@ pub fn check(document: &Loose, report: &mut Report) {
             // it is off canvas.
             continue;
         };
-        let Some(union) =
-            union_if_it_never_meets(element, range, (frame_width, frame_height), canvas)
-        else {
+        // A stagger's units move inside the element, so the rect is first widened by the
+        // furthest any unit offset reaches (ADR-0151 §5): from the file, with no font.
+        let reach = crate::units::reach(element);
+        let Some(union) = union_if_it_never_meets(
+            element,
+            range,
+            (frame_width, frame_height),
+            canvas,
+            reach.as_ref(),
+        ) else {
             continue;
         };
 
@@ -133,6 +140,33 @@ pub fn check(document: &Loose, report: &mut Report) {
             .field("height", json!(union.height))
             .field("frame_width", json!(frame_width))
             .field("frame_height", json!(frame_height));
+        // Which list set each widened edge, and what the widening did not measure.
+        let finding = match &reach {
+            Some(reach) => {
+                let mut widened = serde_json::Map::new();
+                for (edge, set) in [
+                    ("left", &reach.left),
+                    ("right", &reach.right),
+                    ("top", &reach.top),
+                    ("bottom", &reach.bottom),
+                ] {
+                    if let Some((_, list)) = set {
+                        widened.insert(edge.to_string(), json!(list));
+                    }
+                }
+                let finding = if widened.is_empty() {
+                    finding
+                } else {
+                    finding.field("widened", Value::Object(widened))
+                };
+                if reach.unchecked.is_empty() {
+                    finding
+                } else {
+                    finding.field("unchecked", json!(reach.unchecked.join(" and ")))
+                }
+            }
+            None => finding,
+        };
         report.push(match track {
             Some(track) => finding.at_track(track),
             None => finding,
@@ -161,6 +195,7 @@ fn union_if_it_never_meets(
     range: TimelineRange,
     frame: (i64, i64),
     canvas: Rect,
+    reach: Option<&crate::units::Reach>,
 ) -> Option<Rect> {
     let mut union: Option<Rect> = None;
     for instant in crate::checks::box_samples(&[element], range) {
@@ -171,6 +206,10 @@ fn union_if_it_never_meets(
             // so it is never reported.
             None => continue,
         };
+        let rect = match reach {
+            Some(reach) => widened(rect, reach, element, instant),
+            None => rect,
+        };
         if rect.intersect(canvas).is_some() {
             return None;
         }
@@ -180,6 +219,25 @@ fn union_if_it_never_meets(
         });
     }
     union
+}
+
+/// `rect` widened by a stagger's [`Reach`](crate::units::Reach): each edge by the unit
+/// offset that moves past it, in element pixels and so times the element's own `scale` at
+/// the instant, rounded out to whole pixels.
+fn widened(rect: Rect, reach: &crate::units::Reach, element: &Value, instant: i64) -> Rect {
+    let [sx, sy] = geometry::number::<[f64; 2]>(element, "scale", instant, [1.0, 1.0]);
+    let px = |edge: &Option<(f64, String)>, scale: f64| {
+        edge.as_ref()
+            .map_or(0, |(amount, _)| (amount * scale.abs()).ceil() as i64)
+    };
+    let (left, right) = (px(&reach.left, sx), px(&reach.right, sx));
+    let (top, bottom) = (px(&reach.top, sy), px(&reach.bottom, sy));
+    Rect {
+        x: rect.x - left,
+        y: rect.y - top,
+        width: rect.width + left + right,
+        height: rect.height + top + bottom,
+    }
 }
 
 /// The smallest rectangle containing both.

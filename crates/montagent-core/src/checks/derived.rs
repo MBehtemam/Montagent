@@ -59,11 +59,13 @@ pub fn check(document: &Loose, report: &mut Report) {
         // whatever it animates, and an `opacity` ramp can carry a declaration as readily as
         // a `scale` one. The fixture's fourteen are all on `scale`, which is a fact about
         // the fixture and not about the field.
-        for property in crate::animatable::names() {
-            for finding in stale(element, property) {
+        // A stagger's unit lists too, the block's and each run override's (ADR-0151 §5):
+        // their `element-start` is still the element's own `start`.
+        for (name, container, property) in crate::checks::keyframe_lists(element) {
+            for finding in stale(element, container, property) {
                 let finding = finding
                     .field("element", json!(subject))
-                    .field("property", json!(property))
+                    .field("property", json!(name))
                     .at_file(document.path())
                     .at_element(&subject);
                 report.push(match track {
@@ -77,8 +79,8 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// Every declaration on this property's keyframe list whose rule re-derives some other
 /// instant than the one written.
-fn stale(element: &Value, property: &str) -> Vec<Finding> {
-    let Some(records) = crate::checks::keyframe_records(element, property) else {
+fn stale(element: &Value, container: &Value, property: &str) -> Vec<Finding> {
+    let Some(records) = crate::checks::keyframe_records(container, property) else {
         return Vec::new();
     };
     records

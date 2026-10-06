@@ -381,3 +381,449 @@ fn query_at_gives_a_plain_title_no_stagger() {
     let element = in_stack(&stack_at(&path, 100), "t").clone();
     assert!(element.get("stagger").is_none() && element.get("units").is_none());
 }
+
+// ---------------------------------------------------------------------------
+// `validate`: the three override errors, and the merged-unit review.
+// ---------------------------------------------------------------------------
+
+/// The prose a finding renders to, so every template placeholder is proved filled.
+fn prose(report: &Report) -> String {
+    montagent_core::text::render(
+        &report.to_json(),
+        montagent_core::text::Options {
+            verbose: true,
+            ..montagent_core::text::Options::default()
+        },
+    )
+    .expect("the report renders")
+}
+
+#[test]
+fn a_valid_split_is_silent() {
+    let report = report_on(&[singled_out_l()]);
+    for code in [
+        "E-UNIT-RUN-NOT-ONE-UNIT",
+        "E-UNIT-RUN-UNDECLARED",
+        "E-UNIT-RUN-MERGED",
+        "R-UNIT-MERGED",
+    ] {
+        assert!(
+            found(&report, code).is_empty(),
+            "{code}: {:?}",
+            codes(&report)
+        );
+    }
+}
+
+#[test]
+fn an_override_on_a_run_holding_other_than_one_unit_is_an_error_naming_the_count() {
+    let override_on = |text: &str| {
+        runs(
+            staggered("t", ""),
+            json!([{"text": "AB"}, {"text": text, "unit": {"delay": 300}}, {"text": "Z"}]),
+        )
+    };
+    for (text, count) in [("CD", 2), (" ", 0)] {
+        let report = report_on(&[override_on(text)]);
+        let errors = found(&report, "E-UNIT-RUN-NOT-ONE-UNIT");
+        assert_eq!(errors.len(), 1, "{text:?}: {:?}", codes(&report));
+        assert_eq!(errors[0].class, montagent_core::finding::Class::Error);
+        assert_eq!(errors[0].fields["found"], count, "{text:?}");
+        assert_eq!(errors[0].fields["run"], 1);
+    }
+    // Under `by: word`, part of a word is part of a unit: one unit touched, not held.
+    let mut words = runs(
+        staggered("t", ""),
+        json!([{"text": "Hel"}, {"text": "lo,", "unit": {"delay": 300}}, {"text": " you"}]),
+    );
+    words["units"]["by"] = json!("word");
+    let report = report_on(&[words.clone()]);
+    let errors = found(&report, "E-UNIT-RUN-NOT-ONE-UNIT");
+    assert_eq!(errors.len(), 1, "{:?}", codes(&report));
+    assert_eq!(errors[0].fields["found"], 1);
+    // The whole word with its comma is one unit.
+    words["runs"] = json!([{"text": "Hello,", "unit": {"delay": 300}}, {"text": " you"}]);
+    assert!(found(&report_on(&[words]), "E-UNIT-RUN-NOT-ONE-UNIT").is_empty());
+    assert!(prose(&report).contains("E-UNIT-RUN-NOT-ONE-UNIT"));
+}
+
+#[test]
+fn an_override_on_an_element_with_no_units_block_is_an_error() {
+    let element = runs(
+        title("t", ""),
+        json!([{"text": "A"}, {"text": "B", "unit": {"delay": 300}}]),
+    );
+    let report = report_on(&[element]);
+    assert_eq!(
+        found(&report, "E-UNIT-RUN-NOT-ONE-UNIT").len(),
+        1,
+        "{:?}",
+        codes(&report)
+    );
+}
+
+#[test]
+fn an_override_naming_a_list_the_block_does_not_declare_is_an_error() {
+    let element = runs(
+        staggered("t", ""),
+        json!([
+            {"text": "A"},
+            {"text": "B", "unit": {"x": [{"t": 0, "v": 30}, {"t": 300, "v": 0, "ease": "linear"}]}},
+        ]),
+    );
+    let report = report_on(&[element]);
+    let errors = found(&report, "E-UNIT-RUN-UNDECLARED");
+    assert_eq!(errors.len(), 1, "{:?}", codes(&report));
+    assert_eq!(errors[0].fields["property"], "x");
+    assert!(prose(&report).contains("E-UNIT-RUN-UNDECLARED"));
+}
+
+#[test]
+fn an_arabic_letter_stagger_names_its_joined_letters_for_review() {
+    let report = report_on(&[staggered("t", "السلام عليكم")]);
+    let reviews = found(&report, "R-UNIT-MERGED");
+    assert_eq!(reviews.len(), 1, "{:?}", codes(&report));
+    assert_eq!(reviews[0].class, montagent_core::finding::Class::Review);
+    assert_eq!(reviews[0].fields["how"], "joined");
+    assert_eq!(
+        reviews[0].fields["groups"],
+        json!([[1, 2, 3, 4], [6, 7, 8, 9, 10]])
+    );
+    assert!(prose(&report).contains("by"), "{}", prose(&report));
+    // Under `by: word` nothing moves with anything else.
+    let mut words = staggered("t", "السلام عليكم");
+    words["units"]["by"] = json!("word");
+    assert!(found(&report_on(&[words]), "R-UNIT-MERGED").is_empty());
+}
+
+#[test]
+fn singling_out_a_joined_letter_is_an_error_and_a_lone_letter_is_not() {
+    // `ا` joins nothing, so it is a piece of its own; `س` is inside `لسلا`.
+    let split = |single: &str| -> Value {
+        let parts: Vec<Value> = ["ا", "ل", "س", "لام"]
+            .iter()
+            .map(|part| {
+                if *part == single {
+                    json!({"text": part, "unit": {"delay": 400}})
+                } else {
+                    json!({"text": part})
+                }
+            })
+            .collect();
+        runs(staggered("t", ""), Value::Array(parts))
+    };
+    let joined = report_on(&[split("س")]);
+    let errors = found(&joined, "E-UNIT-RUN-MERGED");
+    assert_eq!(errors.len(), 1, "{:?}", codes(&joined));
+    assert_eq!(errors[0].fields["unit"], 2);
+    let lone = report_on(&[split("ا")]);
+    assert!(
+        found(&lone, "E-UNIT-RUN-MERGED").is_empty(),
+        "{:?}",
+        codes(&lone)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `N-CAPTION-SETTLES` (ADR-0151 §6).
+// ---------------------------------------------------------------------------
+
+/// A staggered caption: the caption checks run on it.
+fn caption(element: Value) -> Value {
+    let mut element = element;
+    element.as_object_mut().unwrap().remove("caption");
+    element
+}
+
+#[test]
+fn a_staggered_caption_says_when_it_settles_counting_an_override_that_ends_last() {
+    // `L`'s own `y` ends at 1000, later than the block's last unit at 160 + 300.
+    let report = report_on(&[caption(singled_out_l())]);
+    let notes = found(&report, "N-CAPTION-SETTLES");
+    assert_eq!(notes.len(), 1, "{:?}", codes(&report));
+    assert_eq!(notes[0].class, montagent_core::finding::Class::Note);
+    assert_eq!(notes[0].fields["settles"], 1000);
+    assert_eq!(notes[0].fields["never"], false);
+    assert!(prose(&report).contains("1000 ms"));
+}
+
+#[test]
+fn a_caption_whose_stagger_lands_at_or_after_its_end_never_settles() {
+    let mut element = caption(staggered("t", "TITLE"));
+    element["end"] = json!(400);
+    let report = report_on(&[element]);
+    let notes = found(&report, "N-CAPTION-SETTLES");
+    assert_eq!(notes.len(), 1, "{:?}", codes(&report));
+    assert_eq!(notes[0].fields["settles"], 460);
+    assert_eq!(notes[0].fields["never"], true);
+    assert!(
+        prose(&report).contains("never settles"),
+        "{}",
+        prose(&report)
+    );
+}
+
+#[test]
+fn a_title_that_is_not_a_caption_gets_no_settle_note() {
+    let report = report_on(&[staggered("t", "TITLE")]);
+    assert!(found(&report, "N-CAPTION-SETTLES").is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// `R-OFF-CANVAS` widens by the unit offsets (ADR-0151 §5).
+// ---------------------------------------------------------------------------
+
+/// A title whose declared box sits wholly past the frame's right edge.
+fn past_the_right_edge() -> Value {
+    let mut element = title("t", "TITLE");
+    element["x"] = json!(1080 + 600);
+    element
+}
+
+#[test]
+fn a_unit_offset_that_reaches_the_frame_keeps_the_element_on_canvas() {
+    assert_eq!(
+        found(&report_on(&[past_the_right_edge()]), "R-OFF-CANVAS").len(),
+        1
+    );
+    let reaching = with(
+        past_the_right_edge(),
+        "units",
+        json!({"by": "letter", "every": 40,
+               "x": [{"t": 0, "v": -200}, {"t": 300, "v": 0, "ease": "linear"}]}),
+    );
+    assert!(found(&report_on(&[reaching]), "R-OFF-CANVAS").is_empty());
+}
+
+#[test]
+fn an_off_canvas_stagger_names_the_list_that_widened_each_edge_and_what_was_not_checked() {
+    // Every unit list, the block's and each override's, widens the rect.
+    let mut element = with(
+        past_the_right_edge(),
+        "units",
+        json!({"by": "letter", "every": 40,
+               "x": [{"t": 0, "v": 30}, {"t": 300, "v": 0, "ease": "linear"}],
+               "scale": [{"t": 0, "v": [0.5, 0.5]}, {"t": 300, "v": [1.0, 1.0], "ease": "linear"}]}),
+    );
+    element["runs"] = json!([
+        {"text": "TIT"},
+        {"text": "L", "unit": {"x": [{"t": 0, "v": -50}, {"t": 300, "v": 0, "ease": "linear"}]}},
+        {"text": "E"},
+    ]);
+    let report = report_on(&[element]);
+    let off = found(&report, "R-OFF-CANVAS");
+    assert_eq!(off.len(), 1, "{:?}", codes(&report));
+    assert_eq!(off[0].fields["widened"]["left"], "runs[1].unit.x");
+    assert_eq!(off[0].fields["widened"]["right"], "units.x");
+    assert!(off[0].fields["widened"].get("top").is_none());
+    let said = prose(&report);
+    assert!(said.contains("runs[1].unit.x"), "{said}");
+    assert!(said.contains("not checked"), "{said}");
+}
+
+// ---------------------------------------------------------------------------
+// The keyframe checks walk the unit lists.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn an_ease_on_a_unit_list_hold_is_inert() {
+    let mut element = staggered("t", "TITLE");
+    element["units"]["x"] = json!([{"t": 0, "v": 10}, {"t": 300, "v": 10, "ease": "ease-in"}]);
+    let report = report_on(&[element]);
+    let inert = found(&report, "R-EASE-INERT");
+    assert_eq!(inert.len(), 1, "{:?}", codes(&report));
+    assert_eq!(inert[0].fields["property"], "units.x");
+}
+
+#[test]
+fn an_ease_on_a_run_override_hold_is_inert() {
+    let mut element = singled_out_l();
+    element["runs"][1]["unit"]["y"] =
+        json!([{"t": 0, "v": 10}, {"t": 300, "v": 10, "ease": "ease-in"}]);
+    let report = report_on(&[element]);
+    let inert = found(&report, "R-EASE-INERT");
+    assert_eq!(inert.len(), 1, "{:?}", codes(&report));
+    assert_eq!(inert[0].fields["property"], "runs[1].unit.y");
+}
+
+#[test]
+fn a_stale_derived_t_on_a_unit_list_is_reported() {
+    let mut element = staggered("t", "TITLE");
+    element["units"]["y"] = json!([
+        {"t": 0, "v": 40},
+        {"t": 250, "t_from": {"rule": "after-previous", "ms": 300}, "v": 0, "ease": "ease-out"}
+    ]);
+    let report = report_on(&[element]);
+    let stale = found(&report, "R-DERIVED-T");
+    assert_eq!(stale.len(), 1, "{:?}", codes(&report));
+    assert_eq!(stale[0].fields["property"], "units.y");
+}
+
+#[test]
+fn unit_keyframes_out_of_order_or_missing_an_ease_are_schema_errors() {
+    for y in [
+        json!([{"t": 300, "v": 40}, {"t": 0, "v": 0, "ease": "linear"}]),
+        json!([{"t": 0, "v": 40}, {"t": 300, "v": 0}]),
+    ] {
+        let mut element = staggered("t", "TITLE");
+        element["units"]["y"] = y.clone();
+        let report = report_on(&[element]);
+        assert!(
+            codes(&report).iter().any(|c| c.starts_with("E-")),
+            "{y}: {:?}",
+            codes(&report)
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// `shift` (ADR-0151 §5).
+// ---------------------------------------------------------------------------
+
+/// `TITLE` with `L` singled out, starting at 1000 so a cut can fall before its stagger.
+fn late_title() -> Value {
+    let mut element = singled_out_l();
+    element["start"] = json!(0);
+    element["end"] = json!(4000);
+    element["units"]["y"] = json!([{"t": 1000, "v": 40}, {"t": 1300, "v": 0, "ease": "ease-out"}]);
+    element["units"]["opacity"] =
+        json!([{"t": 1000, "v": 0}, {"t": 1300, "v": 1, "ease": "linear"}]);
+    element["runs"][1]["unit"] = json!({
+        "delay": 300,
+        "y": [{"t": 1200, "v": 80}, {"t": 2000, "v": 0, "ease": "linear"}],
+    });
+    element
+}
+
+#[track_caller]
+fn shifted(element: Value, at: i64) -> (montagent_core::verbs::shift::Answer, Value) {
+    use montagent_core::verbs::shift::{Ask, shift};
+    let path = project(&[element], std::panic::Location::caller().line());
+    let answer = shift(
+        &path,
+        &Ask {
+            at,
+            delta: 500,
+            scope: None,
+            release: Vec::new(),
+        },
+    );
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    (answer, written["tracks"][0]["elements"][0].clone())
+}
+
+fn ts(list: &Value) -> Vec<i64> {
+    list.as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["t"].as_i64().unwrap())
+        .collect()
+}
+
+#[test]
+fn a_shift_cutting_inside_the_stagger_window_is_refused_naming_the_window() {
+    // The window runs from 1000 to `L`'s own 2000.
+    let (answer, written) = shifted(late_title(), 1500);
+    let refused: Vec<_> = answer
+        .report()
+        .findings
+        .iter()
+        .filter(|f| f.code == "E-SHIFT-UNITS-WINDOW")
+        .collect();
+    assert_eq!(refused.len(), 1, "{:?}", answer.report().findings);
+    assert_eq!(refused[0].fields["from"], 1000);
+    assert_eq!(refused[0].fields["to"], 2000);
+    assert_eq!(written, late_title(), "a refused shift writes nothing");
+}
+
+#[test]
+fn a_shift_cutting_before_the_window_carries_every_unit_list_and_keeps_the_delays() {
+    use montagent_core::report::ExitCode;
+    let (answer, written) = shifted(late_title(), 500);
+    assert_ne!(
+        answer.report().exit_code(),
+        ExitCode::Errors,
+        "{:?}",
+        answer.report().findings
+    );
+    assert_eq!(written["end"], 4500);
+    assert_eq!(ts(&written["units"]["y"]), [1500, 1800]);
+    assert_eq!(ts(&written["units"]["opacity"]), [1500, 1800]);
+    assert_eq!(ts(&written["runs"][1]["unit"]["y"]), [1700, 2500]);
+    assert_eq!(written["runs"][1]["unit"]["delay"], 300);
+    assert_eq!(written["units"]["every"], 40);
+}
+
+#[test]
+fn a_shift_moving_a_staggered_element_whole_carries_its_unit_lists() {
+    let mut element = late_title();
+    element["start"] = json!(800);
+    let (_, written) = shifted(element, 0);
+    assert_eq!(written["start"], 1300);
+    assert_eq!(ts(&written["units"]["y"]), [1500, 1800]);
+    assert_eq!(ts(&written["runs"][1]["unit"]["y"]), [1700, 2500]);
+}
+
+#[test]
+fn a_shift_cutting_after_the_window_leaves_the_unit_lists_where_they_are() {
+    let (_, written) = shifted(late_title(), 3000);
+    assert_eq!(written["end"], 4500);
+    assert_eq!(ts(&written["units"]["y"]), [1000, 1300]);
+    assert_eq!(ts(&written["runs"][1]["unit"]["y"]), [1200, 2000]);
+}
+
+// ---------------------------------------------------------------------------
+// The contact sheet (ADR-0151 §5, ADR-0106).
+// ---------------------------------------------------------------------------
+
+/// Every change point the sheet over `from..to` names, tiled or not.
+#[track_caller]
+fn sheet_points(project: &Path, from: i64, to: i64) -> Vec<String> {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::frame::{Ask, frame};
+    let answer = frame(
+        project,
+        &Ask {
+            from: Some(from),
+            to: Some(to),
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    let json = answer.to_json();
+    let sheet = &json["sheet"];
+    let mut points: Vec<String> = sheet["keyframes"]["untiled_points"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["point"].as_str().unwrap().to_string())
+        .collect();
+    for tile in sheet["provenance"].as_array().unwrap() {
+        for point in tile["keyframes"].as_array().into_iter().flatten() {
+            points.push(point.as_str().unwrap().to_string());
+        }
+    }
+    points.sort();
+    points
+}
+
+#[test]
+fn the_sheet_names_the_first_and_last_scheduled_units_and_every_override_list() {
+    // Five letters 40 ms apart from 1000; `L` (unit 3) is overridden and ends last, at 2000,
+    // so it is the last scheduled unit, not `E` (unit 4).
+    let path = project(&[late_title()], line!());
+    let points = sheet_points(&path, 0, 4000);
+    let mut expected = vec![
+        "t.units[0].opacity@1000",
+        "t.units[0].opacity@1300",
+        "t.units[0].y@1000",
+        "t.units[0].y@1300",
+        // `L`: its own `y` on the absolute clock, its block `opacity` at its delay of 300.
+        "t.units[3].opacity@1300",
+        "t.units[3].opacity@1600",
+        "t.units[3].y@1200",
+        "t.units[3].y@2000",
+    ];
+    expected.sort();
+    assert_eq!(points, expected);
+}

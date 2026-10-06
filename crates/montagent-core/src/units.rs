@@ -77,7 +77,6 @@ pub(crate) struct NotOneUnit {
 #[derive(Debug, Clone)]
 pub(crate) struct Plan {
     pub(crate) by: By,
-    pub(crate) every: i64,
     /// The pivot's fraction of each unit's box.
     pub(crate) origin: (f64, f64),
     /// The element's whole text: its runs concatenated.
@@ -149,7 +148,6 @@ impl Plan {
             .collect();
         let mut plan = Plan {
             by,
-            every,
             origin: origin_fraction(origin),
             text,
             segmentation,
@@ -297,6 +295,72 @@ impl Plan {
     }
 }
 
+/// How far a stagger's units can reach from where they were laid out, from the file alone
+/// (ADR-0151 §5, for `R-OFF-CANVAS`): per edge, the most negative or most positive unit `x`
+/// or `y` value any unit list writes — the block's and every run override's — and the list
+/// that writes it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct Reach {
+    /// `(element pixels, the list's name)`, for each edge a value moves past.
+    pub(crate) left: Option<(f64, String)>,
+    pub(crate) right: Option<(f64, String)>,
+    pub(crate) top: Option<(f64, String)>,
+    pub(crate) bottom: Option<(f64, String)>,
+    /// Which of `scale` and `rotation` some unit list carries: they are not measured.
+    pub(crate) unchecked: Vec<&'static str>,
+}
+
+/// [`Reach`] for an element with a `units` block, `None` for any other.
+pub(crate) fn reach(element: &Value) -> Option<Reach> {
+    let block = element.get("units")?;
+    let mut lists: Vec<(String, &Value)> = vec![("units".to_string(), block)];
+    for (r, run) in crate::verbs::measure::runs_array(element)
+        .iter()
+        .enumerate()
+    {
+        if let Some(over) = run.get("unit").filter(|o| o.is_object()) {
+            lists.push((format!("runs[{r}].unit"), over));
+        }
+    }
+    let values = |written: &Value| -> Vec<f64> {
+        match written {
+            Value::Array(records) => records
+                .iter()
+                .filter_map(|r| r.get("v").and_then(Value::as_f64))
+                .collect(),
+            other => other.as_f64().into_iter().collect(),
+        }
+    };
+    let mut out = Reach::default();
+    for (name, list) in &lists {
+        for (axis, low, high) in [("x", 0, 1), ("y", 2, 3)] {
+            let Some(written) = list.get(axis) else {
+                continue;
+            };
+            for v in values(written) {
+                let edges = [&mut out.left, &mut out.right, &mut out.top, &mut out.bottom];
+                let (edge, amount) = if v < 0.0 {
+                    (low, -v)
+                } else if v > 0.0 {
+                    (high, v)
+                } else {
+                    continue;
+                };
+                let slot = edges.into_iter().nth(edge).expect("four edges");
+                if slot.as_ref().is_none_or(|(seen, _)| amount > *seen) {
+                    *slot = Some((amount, format!("{name}.{axis}")));
+                }
+            }
+        }
+        for property in ["scale", "rotation"] {
+            if list.get(property).is_some() && !out.unchecked.contains(&property) {
+                out.unchecked.push(property);
+            }
+        }
+    }
+    Some(out)
+}
+
 /// Lay a staggered element out as the painter does, with its spacing at `instant`, and group
 /// its units into bodies. `Err` carries why it could not be placed: a font.
 pub(crate) fn bodies_at(
@@ -339,9 +403,6 @@ pub(crate) fn bodies_at(
 pub(crate) struct Grouping {
     pub(crate) bodies: Vec<montagent_text::units::Body>,
     pub(crate) body_of_unit: Vec<usize>,
-    /// `false` where the fonts would not open, so only the joined pieces — which come from
-    /// the text alone — are known, and no shaping merge is.
-    pub(crate) placed: bool,
 }
 
 impl Grouping {
@@ -374,7 +435,6 @@ pub(crate) fn grouping(
         return Grouping {
             bodies: bodies.bodies,
             body_of_unit: bodies.body_of_unit,
-            placed: true,
         };
     }
     let count = plan.units.len();
@@ -415,7 +475,6 @@ pub(crate) fn grouping(
     Grouping {
         bodies,
         body_of_unit: body_of_unit.into_iter().map(|b| b.unwrap_or(0)).collect(),
-        placed: false,
     }
 }
 

@@ -1407,6 +1407,74 @@ every hand-placed break in them was taken against different metrics.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0151 §4: a run's `unit` replaces one unit's values, so the run must hold
+        // exactly one unit. Refuse: which unit the author meant — or whether they meant to
+        // split the run differently — is the one fact the document does not carry.
+        code: "E-UNIT-RUN-NOT-ONE-UNIT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0151",
+        template: "{element}: run {run} (`{text}`) carries a `unit` override{?no_block}, but the element has no `units` block, so there is no unit for it to single out{/no_block}{!no_block}, but it holds {found} units' graphemes, not exactly one. A run singling out a unit holds all of that unit and nothing else: with `by: word` the word and its punctuation, with `by: line` the whole line{/no_block} (ADR-0151).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0151 §4: an override replaces a list the block declares. Naming another would
+        // add motion to one unit, which is not what the replace rule says it does.
+        code: "E-UNIT-RUN-UNDECLARED",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0151",
+        template: "{element}: run {run} (`{text}`) overrides `{property}`, which the `units` block does not declare. An override replaces a list for its unit and never adds one: declare `{property}` on the block (ADR-0151).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0151 §3–§4, widened by ADR-0153 §2: a unit that moves with a neighbour, by a
+        // shaping merge or a cursive join, is drawn on the first one's timing, so an
+        // override on it could never be its own.
+        code: "E-UNIT-RUN-MERGED",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0153",
+        template: "{element}: run {run} (`{text}`) singles out unit {unit}, which is {how} with units {merged_with} and moves on the first one's timing, so its override can never be its own. Single out the whole word with `by: word`, or a letter that joins nothing (ADR-0151, ADR-0153).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0151 §3, ADR-0153 §2: units that share a glyph or a joined piece move as one
+        // body, and the next unit waits out every step they keep. `review`: legal, and the
+        // agent should look at the cascade.
+        code: "R-UNIT-MERGED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0153",
+        template: "{element}: under `by: {by}`, {detail} each move as one body ({how}), on their first unit's timing. Every unit keeps its index and its step, so the unit after a body waits out its steps. `\"by\": \"word\"` is one edit away if the waiting steps are unwanted (ADR-0151, ADR-0153).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0151 §6: `R-CAPTION-PACE` is unchanged, and a staggered caption gets the
+        // instant its last unit lands. `note`: readers follow letters as they arrive.
+        code: "N-CAPTION-SETTLES",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0151",
+        template: "{element}: its stagger lands at {settles} ms{?never}, at or after the element's end at {end} ms, so the caption never settles{/never}{!never}: its text is fully readable from then until {end} ms{/never}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0007's grapheme-cluster check: "no run boundary splits a base from its
         // combining mark". A run boundary is a *style* boundary and each run shapes on its
         // own, so a mark that starts a run has no base to attach to and renders on a dotted
@@ -1532,7 +1600,9 @@ frame {frame} at {sampled_t} ms, where it resolves to {sampled}.",
         adr: "ADR-0044",
         template: "`{element}`: its declared rect never meets the frame over {start}..{end} \
 ms \u{2014} the union of its resolved rect across that range is {width}\u{d7}{height} px at \
-({x}, {y}), and the frame is {frame_width}\u{d7}{frame_height}.",
+({x}, {y}), and the frame is {frame_width}\u{d7}{frame_height}.{?widened} That rect is \
+widened by the furthest its stagger's unit offsets reach, edge by the list that sets it: \
+{widened}.{/widened}{?unchecked} Its units' {unchecked} were not checked (ADR-0151).{/unchecked}",
         status: Live,
         census: None,
         sets: &[Document],
@@ -2403,6 +2473,22 @@ fmt`.",
         sets: &[Document, CheckSet::Layout],
     },
     // ---- `shift` (#220). ------------------------------------------------------------
+    CheckSpec {
+        // ADR-0151 §5: a cut inside a stagger window would split the unit lists right for
+        // one unit only, and a split for every unit would turn the block into one run per
+        // unit. `shift` refuses what it cannot write as legal literals (ADR-0146).
+        code: "E-SHIFT-UNITS-WINDOW",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0151",
+        template: "`{element}` in track `{track}` staggers its units from {from} to {to} ms, \
+and the shift point {at} falls inside that window: a split of the unit lists at {at} would be \
+right for one unit only. Shift at or before {from}, or at or after {to}.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
     CheckSpec {
         // ADR-0005's straddler refusal: a time-based element (audio, video) whose source
         // range cannot be stretched or relocated without either violating the timeline/

@@ -198,6 +198,10 @@ fn run_checks(
     // joining-script letters take none between them. The pairs come from the text's Unicode
     // properties and never from a font, so like the checks above it can sit anywhere here.
     crate::checks::spacing::check(document, report);
+    // ADR-0151's stagger checks: the three override errors, `R-UNIT-MERGED` and
+    // `N-CAPTION-SETTLES`. The units and the joins come from the text; the shaping merges
+    // from the element's fonts, which the ink check below opens too.
+    crate::checks::units::check(document, report);
     // The motion and geometry checks (#211), each needing resolved values rather than
     // declared ones. `R-SOURCE-CUT-POP` compares an animated property across a same-source
     // hard cut, and across the wrap when the project declares `loop` (ADR-0033, ADR-0062);
