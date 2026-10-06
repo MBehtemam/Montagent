@@ -139,6 +139,14 @@ use crate::resolve;
 use crate::verbs::frame::{Declined, Feeds, NotPainted, Painter};
 use crate::verbs::query::at;
 
+mod painters;
+pub use painters::Painting;
+#[doc(hidden)]
+pub use painters::{
+    FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, fail_frames, force_painting,
+    tap_frames,
+};
+
 const TOOL: &str = "render";
 
 /// The mix bus's sample rate. Every input is resampled to it first, which is what makes a
@@ -343,6 +351,10 @@ pub struct Video {
     pub sources: Vec<String>,
     /// Every font file opened (ADR-0007).
     pub fonts: Vec<String>,
+    /// How the frames were painted: how many painters, over paint chunks of how many frames, and
+    /// how far painting could lead the encoder (#653). Disclosed like `threads`, and like it
+    /// not choosable; and like it, it changes no byte of the file.
+    pub painting: painters::Painting,
 }
 
 /// The padded frame, where there was one.
@@ -775,6 +787,7 @@ pub(crate) struct Painted {
     declined: Vec<Finding>,
     sources: Vec<String>,
     fonts: Vec<String>,
+    painting: painters::Painting,
 }
 
 impl Painted {
@@ -827,6 +840,7 @@ impl Painted {
             decoded_per_frame: self.decoded_per_frame,
             sources: self.sources,
             fonts: self.fonts,
+            painting: self.painting,
         })
     }
 
@@ -914,71 +928,62 @@ pub(crate) fn encode_span(
             span.surface.width, span.surface.height
         )));
     };
-    // ADR-0141: `render` and `preview` take their pixels from feeds. `Span` carries no
-    // supplier of its own, so the two verbs still differ only in the surface and the clock;
-    // and each span builds its own painter, so `preview`'s 540p retry opens fresh feeds and
-    // an abandoned span closes its feeds by `Drop` on the way out of this function.
-    let mut producer = Producer::new(
-        span.document,
-        span.fps,
-        canvas,
-        Painter::for_a_deliverable(
-            span.document,
-            span.from,
-            (width, height),
-            Box::new(Feeds::new()),
-        ),
-    );
 
     progress(Progress {
         done: 0,
         of: span.frames,
         elapsed: started.elapsed(),
     });
-    let mut reported_tenth = 0;
-    for (done, n) in (span.first..=span.last).enumerate() {
-        // ADR-0109: checked before each frame, so a cancelled call frees the server within
-        // one frame's time. The encoder is dropped on the way out, and its temp file with it.
-        if span.cancelled() {
-            return Err(Stop::Cancelled { done: done as u64 });
+    let mut stages = Stages::default();
+    let (made, painting) = match painters::plan(span.document, span.surface, span.frames) {
+        // ADR-0141: `render` and `preview` take their pixels from feeds. `Span` carries no
+        // supplier of its own, so the two verbs still differ only in the surface and the
+        // clock; and each span builds its own painter, so `preview`'s 540p retry opens fresh
+        // feeds and an abandoned span closes its feeds by `Drop` on the way out of this
+        // function.
+        None => {
+            let mut producer = Producer::new(
+                span.document,
+                span.fps,
+                canvas,
+                Painter::for_a_deliverable(
+                    span.document,
+                    span.from,
+                    (width, height),
+                    Box::new(Feeds::new()),
+                ),
+            );
+            encode_frames(
+                span,
+                &mut encoder,
+                started,
+                progress,
+                &mut stages,
+                &mut |n| producer.produce(n),
+            )?;
+            stages.add(&producer.stages());
+            (
+                producer.take(Mark::default()),
+                painters::Painting::one(span.frames),
+            )
         }
-        // Producing frame `n` and pushing it are two steps (#627 §7), so a writer thread can
-        // take the second without reshaping the loop. Nothing runs in parallel yet.
-        let rgb = producer.produce(n)?;
-        let pushed = Instant::now();
-        if let Err(reason) = encoder.push(&rgb) {
-            // The encoder is dropped on the way out, and the temp file with it: the
-            // declared path is untouched.
-            return Err(Stop::Internal(format!("frame {n}: {reason}")));
+        // #627's step 3: K painters over paint chunks, each with a painter of its own built the
+        // same way, feeding this thread's one encoder in timeline order.
+        Some(painting) => {
+            drop(canvas);
+            let made = painters::paint(span, painting, &mut stages, |next, stages| {
+                encode_frames(span, &mut encoder, started, progress, stages, next)
+            })?;
+            (made, painting)
         }
-        producer.stages.encode_wait += pushed.elapsed();
-
-        let done = done as u64 + 1;
-        let tenth = done * 10 / span.frames;
-        if tenth > reported_tenth {
-            reported_tenth = tenth;
-            progress(Progress {
-                done,
-                of: span.frames,
-                elapsed: started.elapsed(),
-            });
-        }
-        // Checked after the frame rather than before it, so a span always encodes at least
-        // one frame and a miss is a measurement rather than a refusal to start.
-        if let Some(deadline) = span.deadline {
-            let elapsed = started.elapsed();
-            if elapsed > deadline && done < span.frames {
-                return Err(Stop::Missed { elapsed, done });
-            }
-        }
-    }
+    };
 
     // Sealed, not published: the whole span is in the temp file and whether it becomes the
     // deliverable is ADR-0093 ruling 6's question, which only the caller's report can answer.
     let sealing = Instant::now();
     let sealed = encoder.seal();
-    producer.stages.seal = sealing.elapsed();
-    producer.report_stages(span.frames);
+    stages.seal = sealing.elapsed();
+    report_stages(&stages, span.frames, painting);
     let sealed = match sealed {
         Ok(sealed) => sealed,
         Err(reason) => {
@@ -1013,36 +1018,80 @@ pub(crate) fn encode_span(
             .map(|(element, code)| NotPainted { element, code })
             .collect()
     };
-    let decoded_per_frame = producer.painter.decoded_per_frame();
     Ok(Painted {
         sealed,
         mixed,
         not_mixed,
-        painted: producer.painted,
-        not_painted: entries(producer.not_painted),
-        painted_partially: entries(producer.painted_partially),
-        decoded_per_frame,
+        painted: made.record.painted,
+        not_painted: entries(made.record.not_painted),
+        painted_partially: entries(made.record.painted_partially),
+        decoded_per_frame: made.decoded_per_frame,
         declined: mix_declined
             .into_iter()
-            .chain(producer.declined.into_values())
+            .chain(made.record.declined.into_values())
             .collect(),
-        sources: producer.painter.sources,
-        fonts: producer.painter.fonts,
+        sources: made.sources,
+        fonts: made.fonts,
+        painting,
     })
 }
 
-/// The half of [`encode_span`]'s loop that **produces** frame `n` — paints it and reads it off
-/// the canvas — apart from the half that pushes it to the encoder (#627 §7).
-///
-/// Everything that decides the frame's pixels or the record of what reached them lives here:
-/// the painter (with its feeds), the canvas, and the union over the span of what each frame
-/// painted and declined. The encoder does not. A writer thread, if #627's first step is ever
-/// built, takes what [`Producer::produce`] returns and nothing else.
-struct Producer<'a> {
-    document: &'a Loose,
-    fps: i64,
-    canvas: Canvas,
-    painter: Painter<'a>,
+/// The encoder's half of [`encode_span`]'s loop: take each frame of the span from `next`, in
+/// timeline order, and push it — the progress, the cancel and the clock all counted here, on
+/// the side that consumes frames, so they read the same however many painters there are.
+fn encode_frames(
+    span: &Span<'_>,
+    encoder: &mut Encoder,
+    started: Instant,
+    progress: &mut dyn FnMut(Progress),
+    stages: &mut Stages,
+    next: &mut dyn FnMut(i64) -> Result<Vec<u8>, Stop>,
+) -> Result<(), Stop> {
+    let mut reported_tenth = 0;
+    for (done, n) in (span.first..=span.last).enumerate() {
+        // ADR-0109: checked before each frame, so a cancelled call frees the server within
+        // one frame's time. The encoder is dropped on the way out, and its temp file with it.
+        if span.cancelled() {
+            return Err(Stop::Cancelled { done: done as u64 });
+        }
+        // Producing frame `n` and pushing it are two steps (#627 §7): `next` is one painter
+        // on this thread, or the reorder window K painters fill (#653).
+        let rgb = next(n)?;
+        painters::tapped(&rgb);
+        let pushed = Instant::now();
+        if let Err(reason) = encoder.push(&rgb) {
+            // The encoder is dropped on the way out, and the temp file with it: the
+            // declared path is untouched.
+            return Err(Stop::Internal(format!("frame {n}: {reason}")));
+        }
+        stages.encode_wait += pushed.elapsed();
+
+        let done = done as u64 + 1;
+        let tenth = done * 10 / span.frames;
+        if tenth > reported_tenth {
+            reported_tenth = tenth;
+            progress(Progress {
+                done,
+                of: span.frames,
+                elapsed: started.elapsed(),
+            });
+        }
+        // Checked after the frame rather than before it, so a span always encodes at least
+        // one frame and a miss is a measurement rather than a refusal to start.
+        if let Some(deadline) = span.deadline {
+            let elapsed = started.elapsed();
+            if elapsed > deadline && done < span.frames {
+                return Err(Stop::Missed { elapsed, done });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The union over some frames of what each painted and declined — over a whole span for one
+/// painter, over one paint chunk for each of K (#653).
+#[derive(Debug, Default)]
+pub(crate) struct Record {
     painted: Vec<String>,
     not_painted: BTreeSet<(String, String)>,
     painted_partially: BTreeSet<(String, String)>,
@@ -1051,52 +1100,132 @@ struct Producer<'a> {
     /// about the project, and the two sets above already dedupe on exactly this key — so they
     /// and the findings cannot come out naming different sets.
     declined: BTreeMap<(String, String), Finding>,
-    stages: Stages,
 }
 
-impl<'a> Producer<'a> {
-    fn new(document: &'a Loose, fps: i64, canvas: Canvas, painter: Painter<'a>) -> Producer<'a> {
-        Producer {
-            document,
-            fps,
-            canvas,
-            painter,
-            painted: Vec::new(),
-            not_painted: BTreeSet::new(),
-            painted_partially: BTreeSet::new(),
-            declined: BTreeMap::new(),
-            stages: Stages::default(),
-        }
-    }
-
-    /// Frame `n`, painted and read back as the encoder's RGB.
-    fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
-        let instant = instant_of(n, self.fps);
-        let view = at::presence(self.document, instant);
-        let painting = Instant::now();
-        self.painter.begin_frame(n, instant);
-        self.painter.paint(&mut self.canvas, &view);
-        self.stages.paint += painting.elapsed();
-        for name in &self.painter.painted {
+impl Record {
+    /// Add the frame the painter just painted.
+    fn frame(&mut self, painter: &Painter<'_>) {
+        for name in &painter.painted {
             if !self.painted.contains(name) {
                 self.painted.push(name.clone());
             }
         }
-        for entry in &self.painter.not_painted {
+        for entry in &painter.not_painted {
             self.not_painted
                 .insert((entry.element.clone(), entry.code.clone()));
         }
-        for entry in &self.painter.painted_partially {
+        for entry in &painter.painted_partially {
             self.painted_partially
                 .insert((entry.element.clone(), entry.code.clone()));
         }
-        for finding in &self.painter.declined {
+        for finding in &painter.declined {
             let key = (
                 finding.location.element.clone().unwrap_or_default(),
                 finding.code.clone(),
             );
             self.declined.entry(key).or_insert_with(|| finding.clone());
         }
+    }
+
+    /// Add the record of frames that come after these (#627 §5): `painted` keeps first
+    /// appearance, the two sets are a union, and `declined` keeps the first finding per
+    /// `(element, code)` — what [`Record::frame`] would have made of the frames one by one.
+    fn then(&mut self, later: Record) {
+        for name in later.painted {
+            if !self.painted.contains(&name) {
+                self.painted.push(name);
+            }
+        }
+        self.not_painted.extend(later.not_painted);
+        self.painted_partially.extend(later.painted_partially);
+        for (key, finding) in later.declined {
+            self.declined.entry(key).or_insert(finding);
+        }
+    }
+}
+
+/// What some frames made of the document: their [`Record`], and the files and the per-frame
+/// decodes first reached in them.
+#[derive(Debug, Default)]
+pub(crate) struct Made {
+    record: Record,
+    sources: Vec<String>,
+    fonts: Vec<String>,
+    decoded_per_frame: Vec<String>,
+}
+
+impl Made {
+    /// [`Record::then`], with each list deduplicated by first appearance.
+    fn then(&mut self, later: Made) {
+        self.record.then(later.record);
+        for (into, from) in [
+            (&mut self.sources, later.sources),
+            (&mut self.fonts, later.fonts),
+            (&mut self.decoded_per_frame, later.decoded_per_frame),
+        ] {
+            for item in from {
+                if !into.contains(&item) {
+                    into.push(item);
+                }
+            }
+        }
+    }
+}
+
+/// How long a painter's three append-only lists were when some frames started, so what those
+/// frames added can be read off the end.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Mark {
+    sources: usize,
+    fonts: usize,
+    decoded_per_frame: usize,
+}
+
+/// The half of [`encode_span`]'s loop that **produces** frame `n` — paints it and reads it off
+/// the canvas — apart from the half that pushes it to the encoder (#627 §7).
+///
+/// Everything that decides the frame's pixels or the record of what reached them lives here:
+/// the painter (with its feeds), the canvas, and the union of what each frame painted and
+/// declined. The encoder does not. With K painters (#653) each has one of these on its own
+/// thread, and hands back a [`Made`] per paint chunk.
+pub(crate) struct Producer<'a> {
+    document: &'a Loose,
+    fps: i64,
+    canvas: Canvas,
+    painter: Painter<'a>,
+    record: Record,
+    /// `Painter::paint`, decode included — [`Producer::stages`] takes it out.
+    paint: Duration,
+    readback: Duration,
+}
+
+impl<'a> Producer<'a> {
+    pub(crate) fn new(
+        document: &'a Loose,
+        fps: i64,
+        canvas: Canvas,
+        painter: Painter<'a>,
+    ) -> Producer<'a> {
+        Producer {
+            document,
+            fps,
+            canvas,
+            painter,
+            record: Record::default(),
+            paint: Duration::ZERO,
+            readback: Duration::ZERO,
+        }
+    }
+
+    /// Frame `n`, painted and read back as the encoder's RGB.
+    pub(crate) fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
+        let instant = instant_of(n, self.fps);
+        let view = at::presence(self.document, instant);
+        let painting = Instant::now();
+        self.painter.begin_frame(n, instant);
+        self.painter.paint(&mut self.canvas, &view);
+        self.paint += painting.elapsed();
+        self.record.frame(&self.painter);
         if let Some(reason) = self.painter.internal.take() {
             return Err(Stop::Internal(reason));
         }
@@ -1110,33 +1239,66 @@ impl<'a> Producer<'a> {
                 "frame {n} could not be read back off the canvas"
             )));
         };
-        self.stages.readback += reading.elapsed();
+        self.readback += reading.elapsed();
         Ok(rgb)
     }
 
-    /// [`STAGES_VAR`]'s one line on stderr, where it is set.
-    fn report_stages(&self, frames: u64) {
-        if std::env::var_os(STAGES_VAR).is_none() {
-            return;
+    /// Where the painter's lists stand now.
+    pub(crate) fn mark(&self) -> Mark {
+        Mark {
+            sources: self.painter.sources.len(),
+            fonts: self.painter.fonts.len(),
+            decoded_per_frame: self.painter.decoded_per_frame().len(),
         }
-        let decode = self.painter.decoding();
-        let ms = |d: Duration| d.as_millis() as u64;
-        let counts = crate::verbs::frame::supply::counts();
-        eprintln!(
-            "{STAGES_VAR} {}",
-            json!({
-                "frames": frames,
-                "decode_ms": ms(decode),
-                "paint_ms": ms(self.stages.paint.saturating_sub(decode)),
-                "readback_ms": ms(self.stages.readback),
-                "encode_wait_ms": ms(self.stages.encode_wait),
-                "seal_ms": ms(self.stages.seal),
-                "feeds_opened": counts.opened,
-                "feeds_reopened": counts.reopened,
-                "frame_at": counts.frame_at,
-            })
-        );
     }
+
+    /// What the frames since `since` made, leaving the record empty for the next ones.
+    pub(crate) fn take(&mut self, since: Mark) -> Made {
+        Made {
+            record: std::mem::take(&mut self.record),
+            sources: self.painter.sources[since.sources..].to_vec(),
+            fonts: self.painter.fonts[since.fonts..].to_vec(),
+            decoded_per_frame: self.painter.decoded_per_frame()[since.decoded_per_frame..].to_vec(),
+        }
+    }
+
+    /// This painter's share of [`Stages`]: decode, paint with decode taken out, and readback.
+    pub(crate) fn stages(&self) -> Stages {
+        let decode = self.painter.decoding();
+        Stages {
+            decode,
+            paint: self.paint.saturating_sub(decode),
+            readback: self.readback,
+            ..Stages::default()
+        }
+    }
+}
+
+/// [`STAGES_VAR`]'s one line on stderr, where it is set.
+fn report_stages(stages: &Stages, frames: u64, painting: painters::Painting) {
+    if std::env::var_os(STAGES_VAR).is_none() {
+        return;
+    }
+    let ms = |d: Duration| d.as_millis() as u64;
+    let counts = crate::verbs::frame::supply::counts();
+    eprintln!(
+        "{STAGES_VAR} {}",
+        json!({
+            "frames": frames,
+            "painters": painting.painters,
+            "chunk": painting.chunk,
+            "window": painting.window,
+            "decode_ms": ms(stages.decode),
+            "paint_ms": ms(stages.paint),
+            "readback_ms": ms(stages.readback),
+            "paint_wait_ms": ms(stages.paint_wait),
+            "encode_wait_ms": ms(stages.encode_wait),
+            "seal_ms": ms(stages.seal),
+            "feeds_opened": counts.opened,
+            "feeds_reopened": counts.reopened,
+            "frame_at": counts.frame_at,
+        })
+    );
 }
 
 /// Which supplier [`paint_span`] paints through.
@@ -1210,11 +1372,13 @@ pub fn paint_span(
             Err(_) => return Err("the span stopped".to_string()),
         }
     }
+    let made = producer.take(Mark::default());
     Ok(Rasters {
         frames,
-        painted: producer.painted.clone(),
-        decoded_per_frame: producer.painter.decoded_per_frame(),
-        declined: producer
+        painted: made.record.painted,
+        decoded_per_frame: made.decoded_per_frame,
+        declined: made
+            .record
             .declined
             .values()
             .map(|finding| {
@@ -1245,14 +1409,29 @@ pub fn paint_span(
 #[doc(hidden)]
 pub const STAGES_VAR: &str = "MONTAGENT_STAGES";
 
-/// Where a span's wall clock went, cumulatively.
+/// Where a span's wall clock went, cumulatively — summed over the painters where there are
+/// K of them, so `decode`, `paint` and `readback` are painter time rather than wall time.
 #[derive(Debug, Default)]
-struct Stages {
-    /// `Painter::paint`, decode included — [`Producer::report_stages`] takes it out.
+pub(crate) struct Stages {
+    decode: Duration,
+    /// `Painter::paint`, decode taken out.
     paint: Duration,
     readback: Duration,
+    /// The encoder's side waiting for the next frame from K painters (#653).
+    paint_wait: Duration,
     encode_wait: Duration,
     seal: Duration,
+}
+
+impl Stages {
+    pub(crate) fn add(&mut self, other: &Stages) {
+        self.decode += other.decode;
+        self.paint += other.paint;
+        self.readback += other.readback;
+        self.paint_wait += other.paint_wait;
+        self.encode_wait += other.encode_wait;
+        self.seal += other.seal;
+    }
 }
 
 /// An answer with no video: the report says why.

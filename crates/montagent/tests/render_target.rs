@@ -15,6 +15,11 @@
 //! It is `#[ignore]`d because nothing about a shared CI runner is the machine the number is
 //! stated for, and because today one run takes about an hour.
 //!
+//! A second case, `the_spy_trailer_renders_within_the_paint_target`, judges the **paint**
+//! class's target (ADR-0144): `fixtures/benchmark/spy-trailer/` in at most [`PAINT_TARGET`],
+//! every frame hash equal to its committed `frames.framemd5`. It follows the same protocol,
+//! with the load checked before every run.
+//!
 //! ## The protocol (ADR-0142 §5)
 //!
 //! - **Timed:** the whole `montagent render` command, process start to finished MP4 and
@@ -52,7 +57,8 @@
 //! version is used: each run's MP4 is decoded with `ffmpeg -f framemd5` and its per-frame
 //! hashes are compared with a **sequential** render's. Today every render is sequential, so
 //! by default the reference is this binary's own warm-up run, and the check proves only
-//! that runs agree with each other. Once a parallel path exists, pass the warm-up
+//! that runs agree with each other. The benchmark project has `video` elements, so it still
+//! paints on one painter after ADR-0144; where a parallel path paints it, pass the warm-up
 //! `framemd5` a sequential build wrote (the path is printed) as
 //! `MONTAGENT_RENDER_TARGET_SEQUENTIAL_FRAMEMD5`.
 //!
@@ -88,7 +94,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use montagent_render::budget::{RENDER_TARGET, Verdict};
+use montagent_render::budget::{PAINT_TARGET, RENDER_TARGET, Verdict};
 use serde_json::{Value, json};
 
 /// ADR-0142's load-average ceiling at the start of a measurement.
@@ -310,6 +316,208 @@ fn the_benchmark_project_renders_within_the_target() {
              number for this variant; record it in BENCHMARK_REFERENCES"
         ),
         _ => {}
+    }
+}
+
+/// The paint class's target (ADR-0144): `fixtures/benchmark/spy-trailer/` in at most
+/// [`PAINT_TARGET`], median wall clock, with every frame hash equal to the trailer's
+/// `frames.framemd5`.
+///
+/// ADR-0142's protocol, with the load checked before **every** run rather than once, since
+/// a run here is short enough for the machine to change between two of them: a warm-up that
+/// is discarded, then `MONTAGENT_RENDER_TARGET_RUNS` timed runs (default five; fewer refuses
+/// to judge). Each run's MP4 is hashed after its clock stops. `score.wav` is generated before
+/// anything is timed, where it is missing. `MONTAGENT_PAINTING` (`render::PAINTING_VAR`)
+/// reaches the binary unchanged, so the K, C and W sweeps ADR-0144 records run through here,
+/// and the record names what was forced.
+#[test]
+#[ignore = "ADR-0144's protocol: run on purpose, on the stated machine, with --release"]
+fn the_spy_trailer_renders_within_the_paint_target() {
+    if cfg!(debug_assertions) {
+        eprintln!("refusing to judge: this is a debug build. Run with --release.");
+        return;
+    }
+    let Ok(tools) = montagent_core::media::tools::resolve() else {
+        eprintln!("refusing to judge: no qualified ffmpeg/ffprobe on PATH");
+        return;
+    };
+    let runs: usize = env("MONTAGENT_RENDER_TARGET_RUNS")
+        .map(|n| n.parse().expect("MONTAGENT_RENDER_TARGET_RUNS is a count"))
+        .unwrap_or(PROTOCOL_RUNS);
+    assert!(runs >= 1, "MONTAGENT_RENDER_TARGET_RUNS must be at least 1");
+
+    let trailer =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/benchmark/spy-trailer");
+    if !trailer.join("score.wav").exists() {
+        eprintln!("render-target [spy-trailer]: writing score.wav (not timed)");
+        let status = Command::new("uv")
+            .args([
+                "run",
+                "--with",
+                "numpy==2.5.3",
+                "--with",
+                "scipy==1.18.1",
+                "python",
+                "score.py",
+            ])
+            .current_dir(&trailer)
+            .status()
+            .expect("run score.py through uv");
+        assert!(status.success(), "score.py failed");
+    }
+    let project = trailer.join("trailer.montagent.json");
+    let reference = read_framemd5(&trailer.join("frames.framemd5"));
+    let scratch = scratch("spy-trailer");
+    let output = scratch.join("silent-protocol.mp4");
+    let mut refused = Vec::new();
+
+    let power = power_source();
+    let cpu = sysctl("machdep.cpu.brand_string");
+    if power.contains("Battery") {
+        refused.push(format!("running on battery power ({power})"));
+    }
+    if cpu != STATED_MACHINE {
+        refused.push(format!(
+            "this is a {cpu}, and PAINT_TARGET is stated for the {STATED_MACHINE}"
+        ));
+    }
+    if runs < PROTOCOL_RUNS {
+        refused.push(format!(
+            "{runs} timed run(s), and the protocol judges the median of {PROTOCOL_RUNS}"
+        ));
+    }
+
+    let load_at_warmup = load_average();
+    let warmup = render(&project, &output, &scratch.join("cache-0"), None);
+    let mut mismatched = Vec::new();
+    let warmup_hashes = frame_hashes(&tools.ffmpeg, &output, &scratch.join("warmup.framemd5"));
+    if warmup_hashes != reference {
+        mismatched.push(format!(
+            "the warm-up's {} frame hashes differ from the {} of frames.framemd5{}",
+            warmup_hashes.len(),
+            reference.len(),
+            first_difference(&warmup_hashes, &reference)
+        ));
+    }
+    eprintln!(
+        "render-target [spy-trailer] discarded warm-up: {:.2?} at load {:.2}",
+        warmup.wall, load_at_warmup[0]
+    );
+
+    let mut timed = Vec::new();
+    let mut loads = Vec::new();
+    for n in 1..=runs {
+        let _ = std::fs::remove_file(&output);
+        let load = load_average();
+        if load[0] >= MAX_START_LOAD {
+            refused.push(format!(
+                "run {n} started at load average {:.2}, and the protocol needs < {MAX_START_LOAD}",
+                load[0]
+            ));
+        }
+        let run = render(&project, &output, &scratch.join(format!("cache-{n}")), None);
+        let hashes = frame_hashes(
+            &tools.ffmpeg,
+            &output,
+            &scratch.join(format!("run-{n}.framemd5")),
+        );
+        if hashes != reference {
+            mismatched.push(format!(
+                "run {n}'s {} frame hashes differ from the {} of frames.framemd5{}",
+                hashes.len(),
+                reference.len(),
+                first_difference(&hashes, &reference)
+            ));
+        }
+        if comparable(&run.answer) != comparable(&warmup.answer) {
+            mismatched.push(format!("run {n}'s report differs from the warm-up's"));
+        }
+        eprintln!(
+            "render-target [spy-trailer] run {n}/{runs}: {:.2?} at load {:.2} (user {:.1} s, \
+             sys {:.1} s, peak {} MiB)",
+            run.wall,
+            load[0],
+            run.user_s,
+            run.sys_s,
+            run.max_rss_bytes / (1024 * 1024)
+        );
+        loads.push(load);
+        timed.push(run);
+    }
+    refused.extend(mismatched.iter().cloned());
+
+    let mut walls: Vec<Duration> = timed.iter().map(|r| r.wall).collect();
+    walls.sort();
+    let median = walls[walls.len() / 2];
+    let verdict = if !refused.is_empty() {
+        "refused"
+    } else if median <= PAINT_TARGET {
+        "within"
+    } else {
+        "exceeded"
+    };
+    let ms = |d: Duration| d.as_millis() as u64;
+    let record = json!({
+        "record": "montagent-render-target/1",
+        "adr": "0144",
+        "class": "paint",
+        "project": "fixtures/benchmark/spy-trailer/trailer.montagent.json",
+        "commit": commit(),
+        "forced": env(montagent_core::verbs::render::PAINTING_VAR),
+        "ffmpeg": first_line(Command::new(&tools.ffmpeg).arg("-version")),
+        "macos": format!(
+            "{} ({})",
+            first_line(Command::new("sw_vers").arg("-productVersion")),
+            first_line(Command::new("sw_vers").arg("-buildVersion"))
+        ),
+        "cpu": cpu,
+        "memory_bytes": sysctl("hw.memsize").parse::<u64>().ok(),
+        "available_parallelism": std::thread::available_parallelism().map(|n| n.get()).ok(),
+        "power": power,
+        "load_at_warmup": load_at_warmup,
+        "warmup_ms": ms(warmup.wall),
+        "runs": timed.iter().zip(&loads).map(|(r, load)| json!({
+            "load_before": load,
+            "wall_ms": ms(r.wall),
+            "user_s": r.user_s,
+            "sys_s": r.sys_s,
+            "cpu_percent": ((r.user_s + r.sys_s) / r.wall.as_secs_f64() * 100.0).round(),
+            "max_rss_bytes": r.max_rss_bytes,
+            "stages": r.stages,
+        })).collect::<Vec<_>>(),
+        "median_ms": ms(median),
+        "min_ms": ms(walls[0]),
+        "max_ms": ms(walls[walls.len() - 1]),
+        "target_ms": ms(PAINT_TARGET),
+        "verdict": verdict,
+        "refused": refused,
+        "frame_hashes": {
+            "method": "ffmpeg -f framemd5 of each run's MP4, decoded, after its clock stopped",
+            "reference": "fixtures/benchmark/spy-trailer/frames.framemd5",
+            "frames": reference.len(),
+            "equal": mismatched.is_empty(),
+        },
+        "render": timed.last().map(|r| r.answer["render"].clone()),
+    });
+    println!("{record}");
+
+    for reason in &refused {
+        eprintln!("refusing to judge: {reason}");
+    }
+    assert!(
+        mismatched.is_empty(),
+        "a run's pixels or report differ from frames.framemd5 or the warm-up, so the run \
+         does not count (ADR-0144):\n  {}",
+        mismatched.join("\n  ")
+    );
+    if verdict != "refused" {
+        assert!(
+            median <= PAINT_TARGET,
+            "the spy trailer's median of {runs} renders was {median:.2?}, over PAINT_TARGET \
+             ({PAINT_TARGET:.0?}). ADR-0144's miss branch says what follows: re-profile, then \
+             branch; the number does not move."
+        );
+        eprintln!("render-target [spy-trailer]: median {median:.2?}, within PAINT_TARGET");
     }
 }
 

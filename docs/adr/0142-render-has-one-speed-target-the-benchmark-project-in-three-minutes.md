@@ -5,6 +5,13 @@ amends: 0072 (render gets a target: one absolute number for one project on one m
 
 # `render` has one speed target: the benchmark project in three minutes
 
+> **Amended by [ADR-0144](0144-render-paints-on-k-painters-over-chunks-and-the-spy-trailer-renders-in-a-minute.md)**,
+> which turns "one speed target" into one target per bottleneck class, a closed list of two:
+> **decode**, this ADR's benchmark project in ≤ 3 minutes, and **paint**, the spy trailer in
+> ≤ 60 s (`PAINT_TARGET`). Each moves only through its own superseding ADR, a miss in one
+> never reopens the other, and adding a class takes an ADR with a profile in which one stage
+> dominates. Everything else here stands.
+
 [#625](https://github.com/MBehtemam/Montagent/issues/625), from
 [#532](https://github.com/MBehtemam/Montagent/issues/532). Settled over two grilling rounds,
 each also put to a court of three independent jurors. The decisions below are the Judge's

@@ -165,7 +165,7 @@ over the element's base style. A text element's content is always an ordered arr
 of runs, even when there is only one. A run boundary is *style only* — it never
 implies a line break; a line break is a `\n` character inside a run's text. A run
 that holds exactly one unit of a stagger may single that unit out.
-_Avoid_: span, segment, chunk
+_Avoid_: span, segment, chunk (a **Paint chunk** is a stretch of frames, never text)
 
 **Letter spacing**:
 Space added after every grapheme of a line but the last, in thousandths of an em of the
@@ -590,6 +590,15 @@ element's declared size and a constant pace. It is opened at the first frame tha
 paints the element and closed at the first frame that does not.
 _Avoid_: run (a text element's **Run**), stream (a container's audio/video
 stream, as `ffprobe` names it), run of frames (ADR-0127's phrase, retired)
+
+**Paint chunk**:
+C consecutive timeline frames that one of `render`'s K painters paints in order, on a
+painter of its own, while one encoder takes every painter's frames in timeline order.
+Chunks are handed out in timeline order, and a chunk start paints exactly what a
+`--from` render starting there would. Always "paint chunk" in prose: bare "chunk" is
+on **Run**'s avoid list.
+([ADR-0144](docs/adr/0144-render-paints-on-k-painters-over-chunks-and-the-spy-trailer-renders-in-a-minute.md))
+_Avoid_: segment, slice, batch, range (a `--from`/`--to` render's), run
 
 **Volume**:
 An `audio` or `video` element's playback level, as a linear multiplier:
