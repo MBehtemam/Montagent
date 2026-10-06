@@ -444,7 +444,10 @@ pub(crate) enum ElementError {
 /// every font key it and its runs name, and lay it out. One path, so `elements`/`all` cannot
 /// drift from what a single `element` call already does (#317).
 pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
-    let widest = written_letter_spacings(element).into_iter().max().unwrap_or(0);
+    let widest = written_letter_spacings(element)
+        .into_iter()
+        .max()
+        .unwrap_or(0);
     try_measure_element_at(document, element, widest)
 }
 
@@ -807,9 +810,12 @@ pub(crate) fn written_letter_spacings(element: &Value) -> Vec<i64> {
 /// with `by: letter` — is one more condition here.
 pub(crate) fn optional_ligatures_off(element: &Value) -> bool {
     match element.get("letter_spacing") {
-        Some(Value::Array(records)) => records
-            .iter()
-            .any(|record| record.get("v").and_then(Value::as_i64).is_some_and(|v| v != 0)),
+        Some(Value::Array(records)) => records.iter().any(|record| {
+            record
+                .get("v")
+                .and_then(Value::as_i64)
+                .is_some_and(|v| v != 0)
+        }),
         Some(value) => value.as_i64().is_some_and(|v| v != 0),
         None => false,
     }

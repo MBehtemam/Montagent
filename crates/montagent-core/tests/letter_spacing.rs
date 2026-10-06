@@ -211,11 +211,9 @@ fn spacing_on_arabic_letters_is_named_as_having_no_effect_between_them() {
     assert_eq!(found[0].fields["script"], "Arabic");
     assert_eq!(found[0].fields["word"], "سلام");
     assert_eq!(found[0].location.element.as_deref(), Some("t"));
-    let prose = montagent_core::text::render(
-        &report.to_json(),
-        montagent_core::text::Options::default(),
-    )
-    .expect("the report renders");
+    let prose =
+        montagent_core::text::render(&report.to_json(), montagent_core::text::Options::default())
+            .expect("the report renders");
     assert!(prose.contains("R-SPACING-SUPPRESSED"), "{prose}");
 }
 
@@ -432,6 +430,101 @@ fn a_spacing_keyed_through_zero_breaks_the_ligature_even_at_zero() {
     let keyed = painted(&project(&[tracking_out("t", "fi")], line!()), 0);
     assert_eq!(none, zero, "a static 0 keeps the ligature");
     assert_ne!(none, keyed, "a keyed spacing breaks it at 0 too");
+}
+
+/// The gating fixture (ADR-0144, ADR-0151's consequences): spacing keyed across the whole
+/// span under rotation, non-uniform scale and `blur`, on a mixed Arabic and Latin line with
+/// an `fi` — 33 frames at 30 fps, so every chunk boundary falls mid-animation.
+fn gating_project(line: u32) -> PathBuf {
+    let dir = common::tempdir(line);
+    for (from, to) in [(OSWALD, "fonts/Oswald.ttf"), (NASKH, "fonts/Naskh.ttf")] {
+        let to = dir.join(to);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("font dir");
+        std::fs::copy(workspace(from), &to).expect("copy the fixture font");
+    }
+    let document = json!({
+        "frame": {"width": 320, "height": 180},
+        "fps": 30,
+        "background": "#101418",
+        "duration": 1100,
+        "output": "out/spacing.mp4",
+        "fonts": {"brand": [{"file": "fonts/Oswald.ttf"}, {"file": "fonts/Naskh.ttf"}]},
+        "fontVendor": {
+            "fonts/Oswald.ttf": {
+                "licence": "OFL-1.1",
+                "source": "google/fonts ofl/oswald, instanced wght=600",
+                "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9",
+            },
+            "fonts/Naskh.ttf": {
+                "licence": "OFL-1.1",
+                "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+                "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21",
+            },
+        },
+        "tracks": [{"name": "titles", "layer": 1, "elements": [{
+            "id": "title", "type": "text", "start": 0, "end": 1100,
+            "x": 160, "y": 90, "width": 300, "height": 60,
+            "font": "brand", "size": 32, "color": "#FFFFFF", "align": "center",
+            "runs": [{"text": "fi سلام عليكم fi"}],
+            "letter_spacing": [{"t": 0, "v": -40}, {"t": 1100, "v": 260, "ease": "ease-in-out"}],
+            "rotation": 12.0,
+            "scale": [1.3, 0.8],
+            "effects": [{"name": "blur", "radius": 2}],
+            "caption": false,
+        }]}],
+    });
+    write_project(
+        &dir,
+        "spacing.montagent.json",
+        &canonical(&document.to_string()),
+    )
+}
+
+#[test]
+fn keyed_spacing_paints_the_same_frames_on_k_painters() {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::render::{
+        Ask, Forced, Progress, force_painting, render, tap_frames,
+    };
+    if !common::has_ffprobe() {
+        return;
+    }
+    let path = gating_project(line!());
+    let rendered = |forced: Forced| {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            let _forced = force_painting(forced);
+            let tap = tap_frames();
+            let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
+            assert_eq!(
+                answer.report().exit_code(),
+                ExitCode::Ok,
+                "{}",
+                answer.to_json()
+            );
+            let mp4 = answer
+                .video()
+                .map(|video| std::fs::read(&video.path).expect("the published file"));
+            (tap.hashes(), mp4)
+        })
+        .join()
+        .expect("the render thread")
+    };
+    let (one, one_mp4) = rendered(Forced::OnePainter);
+    assert_eq!(one.len(), 33);
+    assert_ne!(one[0], one[32], "the spacing moves");
+    for (painters, chunk) in [(3, 2), (2, 1), (4, 5)] {
+        let (many, many_mp4) = rendered(Forced::Chunks {
+            painters,
+            chunk,
+            window_bytes: None,
+        });
+        assert_eq!(one, many, "K={painters}, C={chunk}: frames differ");
+        assert!(
+            one_mp4 == many_mp4,
+            "K={painters}, C={chunk}: the MP4s differ"
+        );
+    }
 }
 
 #[test]

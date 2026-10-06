@@ -138,7 +138,10 @@ fn the_drawn_glyphs_move_by_the_gaps_before_them() {
     let spaced = inked_x(&place(&mut fonts(), &spec(&runs, 200.0)).expect("places"));
     let moved: Vec<f64> = spaced.iter().zip(&plain).map(|(s, p)| s - p).collect();
     assert!(
-        moved.iter().zip([0.0, 20.0, 40.0]).all(|(m, e)| close(*m, e)),
+        moved
+            .iter()
+            .zip([0.0, 20.0, 40.0])
+            .all(|(m, e)| close(*m, e)),
         "{moved:?}"
     );
 }
@@ -172,10 +175,7 @@ fn glyph_count(text: &str, letter_spacing: f64, ligatures_off: bool) -> usize {
     let runs = [run(text)];
     let mut s = spec(&runs, letter_spacing);
     s.optional_ligatures_off = ligatures_off;
-    place(&mut mixed_fonts(), &s)
-        .expect("places")
-        .glyphs
-        .len()
+    place(&mut mixed_fonts(), &s).expect("places").glyphs.len()
 }
 
 #[test]
@@ -252,8 +252,5 @@ fn the_ink_is_measured_on_the_spaced_line() {
     let plain = measure(&mut fonts(), &spec(&runs, 0.0)).expect("measures");
     let spaced = measure(&mut fonts(), &spec(&runs, 200.0)).expect("measures");
     assert_eq!(plain.ink_top, spaced.ink_top);
-    assert!(close(
-        spaced.extent.width - plain.extent.width,
-        40.0
-    ));
+    assert!(close(spaced.extent.width - plain.extent.width, 40.0));
 }

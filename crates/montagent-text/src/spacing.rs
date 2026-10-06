@@ -274,7 +274,9 @@ pub fn first_suppressed(text: &str) -> Option<Suppressed> {
         };
         let start = line.text[..range.start]
             .rfind(char::is_whitespace)
-            .map_or(0, |at| at + line.text[at..].chars().next().map_or(1, char::len_utf8));
+            .map_or(0, |at| {
+                at + line.text[at..].chars().next().map_or(1, char::len_utf8)
+            });
         let end = line.text[range.start..]
             .find(char::is_whitespace)
             .map_or(line.text.len(), |at| range.start + at);
