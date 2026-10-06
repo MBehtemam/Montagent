@@ -40,6 +40,11 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > - [ADR-0147](0147-a-blend-mode-is-a-flat-static-field-of-five-values-and-the-finished-element-blends-last.md) — a blend mode is
 >   refused as an `effects` member, and the order is written down: effects, then `opacity`,
 >   then the blend
+> - [ADR-0152](0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md) — the `mask`
+>   member gains `invert` and `feather`; a text or shape source is refused inside `mask`
+> - [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md) — motion
+>   blur is refused as an `effects` member; each sample takes its effects, mask and `opacity`,
+>   the samples are averaged, then the blend
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a

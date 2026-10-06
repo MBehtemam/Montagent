@@ -8,6 +8,10 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0153](0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)**: a text element's
+> joining-script letters are shaped with their optional ligatures on and take no letter
+> spacing between them.
+
 > **Amended by [ADR-0151](0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md).** A text element gains `letter_spacing`
 > (thousandths of an em, element-level, animatable) and a `units` block; a run gains `unit`.
 > Optional ligatures are off for the whole element when any spacing value is non-zero or it

@@ -146,6 +146,8 @@ status: accepted
 >   also served as a schema index and pieces beside the whole schema
 > - [ADR-0147](0147-a-blend-mode-is-a-flat-static-field-of-five-values-and-the-finished-element-blends-last.md) — each member of
 >   the resolved stack gains `blend`; `NOT COVERED` is unchanged
+> - [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md) — `query --at`
+>   reports `motion_blur` as written and whether the element is `moving` or `still` at that frame
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

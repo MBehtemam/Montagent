@@ -11,6 +11,11 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 > `render` and `preview` answers disclose the encoder, preset, CRF, threads and ffmpeg
 > version. VideoToolbox is rejected; none of it is exposed as an option.
 
+> **Amended by [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md)**:
+> a moving element carrying `motion_blur` is also resolved at exact rational sample instants
+> around reading 1's floored frame instant. The frame instant still decides presence and a
+> video's source frame.
+
 **Ticket:** [#287](https://github.com/MBehtemam/Montagent/issues/287), from
 [#215](https://github.com/MBehtemam/Montagent/issues/215).
 
