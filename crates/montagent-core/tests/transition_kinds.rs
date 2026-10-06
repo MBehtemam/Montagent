@@ -669,7 +669,7 @@ fn trailer() -> std::path::PathBuf {
 /// turn, each bridged to the next by its own transition over 200 ms (six frames), so every
 /// chunk size below puts a boundary inside some transition. The clips are an image with a
 /// `clip` and a `blur`, text with a `shadow` and a `blur`, a rect with a `mask`, and an
-/// ellipse, each with sub-pixel keyed motion, a keyed `rotation` and a keyed `scale`. Each
+/// ellipse that blends as `screen`, each with sub-pixel keyed motion, a keyed `rotation` and a keyed `scale`. Each
 /// clip sits one layer above the last, so every slide's `to` paints above its `from`.
 fn every_kind_project(line: u32) -> std::path::PathBuf {
     let dir = common::tempdir(line);
@@ -711,7 +711,7 @@ fn every_kind_project(line: u32) -> std::path::PathBuf {
             2 => json!({"type": "rect", "width": 300, "height": 170, "fill": "#2E86FF",
                         "effects": [{"name": "mask", "shape": "circle"}]}),
             _ => json!({"type": "ellipse", "width": 260, "height": 150, "fill": "#F2F2F2",
-                        "stroke": "#FF3B30", "stroke_width": 4}),
+                        "stroke": "#FF3B30", "stroke_width": 4, "blend": "screen"}),
         };
         for (key, value) in body.as_object().expect("an object") {
             element[key] = value.clone();
