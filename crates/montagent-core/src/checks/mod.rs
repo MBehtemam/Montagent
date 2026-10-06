@@ -27,6 +27,7 @@ pub mod extent;
 pub mod fit;
 pub mod fonts;
 pub mod gradient;
+pub mod grain;
 pub mod highlight;
 pub mod ink;
 pub mod layout;

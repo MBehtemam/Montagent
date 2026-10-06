@@ -102,6 +102,10 @@ fn key_gradient(gradient: &mut Value, start: i64) {
     );
 }
 
+fn grain(seed: u32, amount: f64, size: u32, mono: bool) -> Value {
+    json!({"name": "grain", "seed": seed, "amount": amount, "size": size, "mono": mono})
+}
+
 /// `base` with `fields` laid over it.
 fn with(mut base: Value, fields: Value) -> Value {
     for (key, value) in fields.as_object().expect("fields are an object") {
@@ -189,6 +193,14 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("path-line-rotated-shadow-edge", json!({"type": "path", "width": 400, "height": 10, "closed": false, "stroke": "#FFFFFF", "stroke_width": 10, "points": [{"at": [5, 5]}, {"at": [395, 5]}], "y": 300, "rotation": 35, "effects": [shadow(12.0, -9.0, 14.0)]}), 960.4, 13.7),
         ("path-curve-anisotropic-flipped-glow", json!({"type": "path", "width": 300, "height": 200, "closed": false, "stroke": "#3BA0FF", "stroke_width": 6, "points": [{"at": [3, 100], "out": [100, -97]}, {"at": [297, 100], "in": [-100, 97]}], "y": 540, "scale": [-2.0, 0.6], "effects": [glow(40.0, "#FFFFFF", 0.7), blur(2.0)]}), 960.4, 13.7),
         ("path-star-tiny-shadow-edge", json!({"type": "path", "width": 200, "height": 190, "closed": true, "fill": "#FFFFFF", "points": [{"at": [100, 0]}, {"at": [159, 190]}, {"at": [0, 72]}, {"at": [200, 72]}, {"at": [41, 190]}], "y": 1000, "effects": [shadow(0.0, 0.0, 3.0)]}), 1880.4, 13.7),
+        // Grain (ADR-0156 §4, #725): a plain layer that keeps the bound and passes it on, as
+        // a mask does. Its cells ride the transform, so it is crossed with every one.
+        ("grain-then-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "fill": linear(30.0), "effects": [grain(7, 0.3, 2, true), blur(12.0)]})), 960.4, 13.7),
+        ("blur-then-grain", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [blur(16.0), grain(11, 0.4, 1, false)]})), 960.4, 13.7),
+        ("mask-grain-shadow-rotated-anisotropic", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 25, "scale": [1.6, 0.7], "effects": [{"name": "mask", "shape": "ellipse"}, grain(3, 0.25, 3, false), shadow(8.0, -6.0, 18.0)]})), 960.4, 13.7),
+        ("grain-flipped-blur-shadow", with(t(), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [grain(5, 0.5, 1, true), blur(6.0), shadow(10.0, 10.0, 20.0)]})), 960.4, 13.7),
+        ("image-grain-glow", json!({"type": "image", "source": "img/boat.jpg", "fit": "literal", "y": 540, "width": 640, "height": 360, "rotation": -12, "effects": [grain(9, 0.2, 2, false), glow(30.0, "#FFFFFF", 0.5)]}), 960.4, 13.7),
+        ("keyed-grain-amount-blur", with(shape("ellipse", 300.0, 200.0), json!({"y": 540, "effects": [grain(13, 0.0, 4, true), blur(8.0)]})), 960.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),
@@ -241,6 +253,9 @@ fn edge_project() -> (Value, Vec<(&'static str, i64)>) {
                 let mask = &mut element["effects"][0];
                 mask["width"] = keyed(json!(0), json!(211), json!(300));
                 mask["radius"] = keyed(json!(0), json!(40), json!(9));
+            }
+            "keyed-grain-amount-blur" => {
+                element["effects"][0]["amount"] = keyed(json!(0), json!(0.6), json!(0.15));
             }
             _ if name.starts_with("keyed-gradient") => {
                 for paint in ["fill", "stroke", "color"] {

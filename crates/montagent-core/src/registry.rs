@@ -1938,6 +1938,25 @@ identity value, so it keys nothing.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0156 §5: two `grain` members with the same `seed`, `size` and `mono`, visible
+        // at the same instant, whose elements' starts fall on the same frame. Their draws
+        // are the same on every frame, which shows as one locked texture. Decided from the
+        // file without painting a frame. A review: copying a grain on purpose is legal.
+        code: "R-GRAIN-SEED-SHARED",
+        classes: &[Review],
+        repair: None,
+        // The deciding facts are the written seed, size and mono, the two `start`s and the
+        // project's own frame grid.
+        threshold: Internal,
+        adr: "ADR-0156",
+        template: "{element}: `effects[{index}]` and {other}'s `effects[{other_index}]` are \
+`grain` with seed {seed}, size {size} and mono {mono}, and both elements start on frame \
+{frame}, so they draw the same pattern on every frame they share. Change one `seed`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "U-SOURCE-UNPROBEABLE",
         classes: &[Unchecked],
         repair: None,

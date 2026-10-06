@@ -151,6 +151,38 @@ two disagree.
   Write the rect you meant, or drop `invert`; writing the covering rect out does not silence it.
   Keyed rects, `radius`, `feather` and element sizes are never reported.
 
+## Grain
+
+- **`grain` is film grain** (ADR-0156):
+  `{"name": "grain", "seed": 7, "amount": 0.2, "size": 2, "mono": true}`. Every key is
+  required. `seed` is an integer from `0` to `2147483647`; `amount` runs `0`–`1`; `size` is
+  an integer from `1` to `8`; `mono` is a boolean. Only `amount` may be keyed: a keyframe
+  list on `seed`, `size` or `mono` is a schema error. `amount: 0` paints the same bytes as no
+  member, and no finding flags it, so a grain can fade in from `0`.
+- **Cells sit in element space** (ADR-0156). Each `size`×`size` cell of unscaled element
+  units, counted from the box's top-left, shares one draw, so the cells move, turn and scale
+  with the element. With `mono: true` one draw offsets R, G and B alike (luma grain); with
+  `false` each channel draws on its own (colour grain). The draw `d`, `0`–`255`, offsets the
+  non-premultiplied colour by `amount × (2d − 255) / 255`, clamped to `0`–`1`. Alpha never
+  changes: a transparent pixel stays transparent, so a `rect` keeps its edges, and `grain`
+  has no reach.
+- **The seed re-rolls on every output frame** (ADR-0156 §3). The draw is a fixed integer
+  hash of the seed, the cell and the element's **local frame**: the frame being painted,
+  less the first frame the element's `start` lets it paint (`⌈start × fps / 1000⌉`). So the
+  re-roll rate follows `fps`; an element moved by N whole frames paints the same pixels N
+  frames later; and under `motion_blur` every sample of one frame shares that frame's draw.
+  The hash is SplitMix64's step (add `0x9E3779B97F4A7C15`, then its finaliser) applied in
+  turn to the seed, then folding in by exclusive or the local frame, the cell row, the cell
+  column and the channel (`0`, `1`, `2`; `mono` draws `0`), as 64-bit two's complement; `d`
+  is the top byte. `query --at` prints each grain's resolved values and its local frame.
+- **A texture is a `rect` with `grain` and a `blend`** (ADR-0156 §1). There is no element
+  that paints from nothing: a mid-grey `rect` (`#808080`) with `grain`, blended `overlay`
+  over footage, adds grain to the footage and leaves it otherwise as it was.
+- **`R-GRAIN-SEED-SHARED` (`review`)** (ADR-0156): two `grain` members with the same `seed`,
+  `size` and `mono`, on elements visible together whose `start`s fall on the same frame
+  (one element's list included), draw the same pattern on every frame, a locked texture.
+  Change one `seed`. `amount` is not compared.
+
 ## Motion blur
 
 - **`motion_blur` smears an element along its own motion** (ADR-0155):

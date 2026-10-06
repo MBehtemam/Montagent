@@ -72,9 +72,11 @@ use skia_safe::{
 };
 
 mod gradient;
+mod grain;
 mod layer_bound;
 
 pub use gradient::{Gradient, GradientKind, Ink};
+pub use grain::grain_draw;
 #[doc(hidden)]
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
@@ -321,6 +323,17 @@ pub enum Effect {
         tolerance: f64,
         softness: f64,
         spill: f64,
+    },
+    /// Film grain (ADR-0156 §4): each `size`×`size` cell of element space, anchored at the
+    /// box origin, offsets the non-premultiplied colour by a draw in `[−amount, +amount]`.
+    /// The draw is [`grain_draw`] of `seed`, the cell and `frame`, the element's local frame;
+    /// with `mono` one draw serves R, G and B. Alpha is never changed.
+    Grain {
+        seed: u32,
+        amount: f64,
+        size: u32,
+        mono: bool,
+        frame: i64,
     },
 }
 
@@ -642,7 +655,8 @@ impl Effect {
     /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
     fn filter(self) -> Option<ImageFilter> {
         match self {
-            Effect::Mask { .. } => None,
+            // A `grain` is drawn over its own layer by [`Canvas::through`], as a mask is.
+            Effect::Mask { .. } | Effect::Grain { .. } => None,
             Effect::Blur { radius } => {
                 image_filters::blur((sigma(radius), sigma(radius)), None, None, None)
             }
@@ -816,7 +830,8 @@ impl Effect {
             Effect::Blur { .. }
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
-            | Effect::Chroma { .. } => [
+            | Effect::Chroma { .. }
+            | Effect::Grain { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //
@@ -1550,8 +1565,17 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
+        // A `grain` at `amount: 0` is no member at all, rather than a layer that changes
+        // nothing: the identity paints the bytes of the list without it (ADR-0156).
+        let effects: Vec<Effect> = effects
+            .iter()
+            .filter(|effect| !matches!(effect, Effect::Grain { amount, .. } if *amount <= 0.0))
+            .copied()
+            .collect();
+        let effects = effects.as_slice();
         let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
         let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
+        let grains = grain::plan(canvas, effects, &filters, &draw);
         for (filter, bound) in filters.into_iter().zip(&bounds).rev() {
             match filter {
                 Some(filter) => {
@@ -1573,7 +1597,10 @@ impl Canvas {
             };
         }
         draw(canvas);
-        for effect in effects {
+        for (effect, grain) in effects.iter().zip(&grains) {
+            if let Some(grain) = grain {
+                grain.apply(canvas);
+            }
             if let Effect::Mask {
                 shape,
                 rect,

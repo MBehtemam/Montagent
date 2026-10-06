@@ -74,6 +74,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Effects**
 
 - Blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
+- Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
 - A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
 - Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`.
 
@@ -104,7 +105,6 @@ A piece can mix these: load each skill whose row it touches.
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
 - Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
-- Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
 - Speed ramps. Keep them out of the design. <!-- workaround: #745 · replaced by: speed ramps -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->

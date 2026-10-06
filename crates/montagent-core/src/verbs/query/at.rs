@@ -142,6 +142,11 @@ pub struct Present {
     /// states no `fps` to place a frame by.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub motion: Option<&'static str>,
+    /// Every `grain` member's resolved values (ADR-0156 §5): its position in `effects`, the
+    /// static `seed`, `size` and `mono`, `amount` at the instant, and the local frame its
+    /// draw is keyed on at the frame holding the instant. Absent on an element with none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grain: Option<Vec<Value>>,
     /// **Offset into source** — where in the source file this instant plays, for `audio`
     /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
     /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
@@ -448,6 +453,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
 
         let blend = blend_word(element, kind);
         let (motion_blur, motion) = motion_of(document, element, kind, instant);
+        let grain = grain_of(document, element, instant);
         let (stagger, units) = match kind {
             Some("text") if detail != Detail::Presence => {
                 match crate::units::report(document, element, instant) {
@@ -473,6 +479,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             blend,
             motion_blur,
             motion,
+            grain,
             source_offset,
             source_offset_unresolved,
             source_origin,
@@ -560,6 +567,37 @@ fn motion_of(
         _ => None,
     };
     (Some(written.clone()), motion)
+}
+
+/// Every `grain` member's resolved values, as the painter reads them at `instant`: through
+/// the one resolving function, with the local frame the painter keys the draw on.
+fn grain_of(document: &Loose, element: &Value, instant: i64) -> Option<Vec<Value>> {
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .filter(|fps| *fps > 0)
+        .unwrap_or(1);
+    let frame = crate::grain::local_frame(element, instant, fps);
+    let count = element.get("effects").and_then(Value::as_array)?.len();
+    let grains: Vec<Value> = (0..count)
+        .filter_map(|index| {
+            match crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame)? {
+                montagent_render::canvas::Effect::Grain {
+                    seed,
+                    amount,
+                    size,
+                    mono,
+                    frame,
+                } => Some(
+                    serde_json::json!({"effect": index, "seed": seed, "amount": amount,
+                                             "size": size, "mono": mono, "frame": frame}),
+                ),
+                _ => None,
+            }
+        })
+        .collect();
+    (!grains.is_empty()).then_some(grains)
 }
 
 /// The one sentence every geometry field carries in a presence-only view.

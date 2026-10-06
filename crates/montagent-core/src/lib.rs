@@ -50,6 +50,7 @@ pub mod checks;
 pub mod exact;
 pub mod finding;
 pub mod fonts;
+pub mod grain;
 pub mod layout;
 pub mod media;
 pub mod model;

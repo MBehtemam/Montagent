@@ -237,6 +237,9 @@ fn run_checks(
     // ADR-0155's `R-MOTION-BLUR-STILL`: a `motion_blur` on an element that never moves
     // inside its own range. Document-only, decided without painting a frame.
     crate::checks::motion_blur::check(document, report);
+    // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
+    // decided on the frame grid without painting a frame.
+    crate::checks::grain::check(document, report);
     // ADR-0088's three document-only `chroma` findings (#342): a colour operation ahead of
     // the key in the same ordered list, a key on pixels the format itself authored, and a
     // `tolerance` sitting on its identity value. Its fourth finding needs the probe and is

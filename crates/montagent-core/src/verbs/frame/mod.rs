@@ -1399,8 +1399,9 @@ impl<'a> Painter<'a> {
             return Vec::new();
         };
         let mut effects = Vec::with_capacity(declared.len());
+        let frame = crate::grain::local_frame(element, self.instant, self.fps);
         for (i, value) in declared.iter().enumerate() {
-            match effect_of(element, i, self.t) {
+            match effect_of(element, i, self.t, frame) {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -2422,7 +2423,16 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// whose rect resolves to no positive size hides the element before this is asked
 /// ([`animatable::hiding_mask`]); an inverted one keeps everything, so its rect reaches the
 /// rasterizer no smaller than empty.
-pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Option<Effect> {
+///
+/// `frame` is the element's local frame (`crate::grain::local_frame`), which only `grain`'s
+/// draw reads: it re-rolls per output frame, so every motion-blur sample of one frame shares
+/// it while `t` moves (ADR-0156 §3, ADR-0155 §3).
+pub(crate) fn effect_of(
+    element: &Value,
+    index: usize,
+    t: (i128, i128),
+    frame: i64,
+) -> Option<Effect> {
     let declared: model::Effect =
         serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
     let parameters: Vec<animatable::Declared<'_>> = animatable::declared(element)
@@ -2509,6 +2519,15 @@ pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Optio
             tolerance: number("tolerance")?,
             softness: number("softness")?,
             spill: number("spill")?,
+        },
+        model::Effect::Grain {
+            seed, size, mono, ..
+        } => Effect::Grain {
+            seed: seed.0,
+            amount: number("amount")?,
+            size: u32::from(size.0),
+            mono,
+            frame,
         },
     })
 }
