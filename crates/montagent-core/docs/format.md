@@ -189,6 +189,14 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   away without the author ever typing that number, and `validate` says so at `review`.
   `ellipse` fills the rect and `rect` is the rect, so neither is ever reported. Writing a
   square rect out is itself the acknowledgement; there is no suppression mechanism.
+- **`"invert": true` on a `mask` keeps the outside of the shape and erases the inside** (ADR-0152).
+  A static boolean: omitted or `false` is the plain mask, and a mask that flips mid-clip is two
+  elements. Masks in one list intersect, so `[mask ellipse, mask smaller ellipse with invert]`
+  keeps a ring.
+- **`R-MASK-ERASES-ALL` (`review`)** (ADR-0152): an inverted `rect` mask with no `radius` whose
+  rect contains the element's keeps no pixel, and the bare form always does. Write the rect you
+  meant, or drop `invert`; writing the covering rect out does not silence it. Keyed rects,
+  keyed `radius` and keyed element sizes are never reported.
 
 ## Text
 

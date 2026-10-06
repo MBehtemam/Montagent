@@ -190,3 +190,131 @@ fn the_finding_renders_the_prose_the_registry_declares() {
         "both repairs must be in the sentence: {prose}"
     );
 }
+
+// ---- R-MASK-ERASES-ALL (#697, ADR-0152 §5) -----------------------------------------------
+
+#[track_caller]
+fn erases_all(report: &Report) -> Vec<&Finding> {
+    report
+        .findings
+        .iter()
+        .filter(|f| f.code == "R-MASK-ERASES-ALL")
+        .collect()
+}
+
+/// An element 300×200 (or `size`, spelled as JSON fragments) carrying one mask list.
+fn sized(masks: &str, width: &str, height: &str) -> String {
+    format!(
+        r##"{{"id":"hero","type":"rect","start":0,"end":1000,"x":0,"y":0,"origin":"top-left","width":{width},"height":{height},"fill":"#1E344C","effects":[{masks}]}}"##
+    )
+}
+
+#[track_caller]
+fn assert_fires(mask: &str) {
+    let report = report_on(&sized(mask, "300", "200"));
+    let found = erases_all(&report);
+    assert_eq!(found.len(), 1, "{mask}: {:?}", report.findings);
+    assert_eq!(found[0].class, Class::Review, "a determinate construct");
+    assert_eq!(found[0].location.element.as_deref(), Some("hero"));
+    assert_eq!(found[0].fields["index"], json!(0));
+}
+
+#[track_caller]
+fn assert_silent(mask: &str) {
+    let report = report_on(&sized(mask, "300", "200"));
+    assert!(
+        erases_all(&report).is_empty(),
+        "{mask}: {:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn a_bare_inverted_rect_erases_the_whole_element() {
+    assert_fires(r##"{"name":"mask","shape":"rect","invert":true}"##);
+    // An omitted `radius` and a written `0` are one thing.
+    assert_fires(r##"{"name":"mask","shape":"rect","invert":true,"radius":0}"##);
+}
+
+#[test]
+fn a_written_rect_that_covers_the_element_fires_too() {
+    // Writing the covering rect does not silence it: a static full erase is never the
+    // clearest way to hide an element.
+    assert_fires(
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":300,"height":200,"invert":true}"##,
+    );
+    // And one that overshoots on every side.
+    assert_fires(
+        r##"{"name":"mask","shape":"rect","x":-10,"y":-10,"width":400,"height":400,"invert":true}"##,
+    );
+}
+
+#[test]
+fn an_inverted_rect_with_a_radius_keeps_the_corners_and_is_silent() {
+    assert_silent(r##"{"name":"mask","shape":"rect","invert":true,"radius":8}"##);
+}
+
+#[test]
+fn an_inverted_circle_or_ellipse_keeps_the_corners_and_is_silent() {
+    for shape in ["circle", "ellipse"] {
+        assert_silent(&format!(
+            r##"{{"name":"mask","shape":"{shape}","invert":true}}"##
+        ));
+    }
+}
+
+#[test]
+fn a_keyed_rect_field_or_a_keyed_radius_is_silent() {
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":[{"t":0,"v":10},{"t":500,"v":300,"ease":"linear"}],"height":200,"invert":true}"##,
+    );
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","invert":true,"radius":[{"t":0,"v":0},{"t":500,"v":9,"ease":"linear"}]}"##,
+    );
+}
+
+#[test]
+fn a_written_rect_is_silent_where_the_elements_size_is_keyed() {
+    let keyed = r##"[{"t":0,"v":300},{"t":500,"v":900,"ease":"linear"}]"##;
+    let mask =
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":300,"height":200,"invert":true}"##;
+    for report in [
+        report_on(&sized(mask, keyed, "200")),
+        report_on(&sized(mask, "300", keyed)),
+    ] {
+        assert!(erases_all(&report).is_empty(), "{:?}", report.findings);
+    }
+}
+
+#[test]
+fn a_rect_smaller_than_the_element_keeps_the_rest_and_is_silent() {
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","x":10,"y":10,"width":100,"height":100,"invert":true}"##,
+    );
+    // Covers the width but not the height.
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":300,"height":150,"invert":true}"##,
+    );
+}
+
+#[test]
+fn invert_false_or_absent_is_silent() {
+    assert_silent(r##"{"name":"mask","shape":"rect","invert":false}"##);
+    assert_silent(r##"{"name":"mask","shape":"rect"}"##);
+}
+
+#[test]
+fn the_erases_all_finding_names_the_element_the_index_and_both_repairs() {
+    let report = report_on(&sized(
+        r##"{"name":"blur","radius":3},{"name":"mask","shape":"rect","invert":true}"##,
+        "300",
+        "200",
+    ));
+    assert_eq!(erases_all(&report)[0].fields["index"], json!(1));
+    let prose =
+        montagent_core::text::render(&report.to_json(), montagent_core::text::Options::default())
+            .expect("the template renders");
+    assert!(prose.contains("hero"), "{prose}");
+    assert!(prose.contains("effects[1]"), "{prose}");
+    assert!(prose.contains("drop `invert`"), "{prose}");
+}

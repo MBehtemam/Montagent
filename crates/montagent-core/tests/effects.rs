@@ -1727,3 +1727,118 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         json["frame"]["not_painted"]
     );
 }
+
+// ---------------------------------------------------------------------------
+// `invert`: the mask keeps what is outside its shape (ADR-0152 §1)
+// ---------------------------------------------------------------------------
+
+/// Plain and inverted pictures of the same mask, on the 100×100 square centred at
+/// (200, 200): the square spans (150,150)..(250,250).
+fn plain_and_inverted(mask: &str) -> (image::RgbaImage, image::RgbaImage) {
+    let inverted = mask.replacen('}', r#","invert":true}"#, 1);
+    (
+        painted(line!(), &square_with(mask)),
+        painted(line!(), &square_with(&inverted)),
+    )
+}
+
+#[test]
+fn an_inverted_mask_keeps_the_complement_of_the_plain_one_for_every_shape() {
+    // "plain + inverted alpha sums to the unmasked alpha, to within the antialiased edge."
+    // The square is opaque white on black, so the red channel is its coverage: the two
+    // pictures must add to 255 at every sampled pixel that is not on the shape's edge.
+    for mask in [
+        r##"{"name":"mask","shape":"circle"}"##,
+        r##"{"name":"mask","shape":"ellipse","x":10,"y":30,"width":80,"height":40}"##,
+        r##"{"name":"mask","shape":"rect","x":20,"y":20,"width":60,"height":60,"radius":20}"##,
+    ] {
+        let (plain, inverted) = plain_and_inverted(mask);
+        let mut kept_somewhere = false;
+        let mut erased_somewhere = false;
+        for y in (150..250).step_by(3) {
+            for x in (150..250).step_by(3) {
+                let (p, i) = (rgb(&plain, x, y)[0] as i32, rgb(&inverted, x, y)[0] as i32);
+                if p > 4 && p < 251 {
+                    continue; // on the antialiased edge
+                }
+                // A rim pixel's two coverages are rounded separately, so allow a unit or two.
+                assert!(
+                    (p + i - 255).abs() <= 2,
+                    "{mask} at ({x},{y}): plain {p}, inverted {i}"
+                );
+                kept_somewhere |= i > 250;
+                erased_somewhere |= i < 5;
+            }
+        }
+        assert!(kept_somewhere && erased_somewhere, "{mask} swapped nothing");
+        // Outside the square there is nothing to keep, so the frame stays the background.
+        assert_eq!(rgb(&inverted, 20, 20), BLACK);
+    }
+}
+
+#[test]
+fn a_written_invert_false_paints_the_same_bytes_as_the_field_omitted() {
+    let omitted = painted(
+        line!(),
+        &square_with(r##"{"name":"mask","shape":"circle"}"##),
+    );
+    let written = painted(
+        line!(),
+        &square_with(r##"{"name":"mask","shape":"circle","invert":false}"##),
+    );
+    assert_eq!(differing(&omitted, &written), 0);
+}
+
+#[test]
+fn two_masks_in_one_list_intersect_so_an_inverted_one_cuts_a_ring() {
+    // [mask ellipse, mask smaller ellipse inverted] keeps a ring.
+    let ring = painted(
+        line!(),
+        &square_with(
+            r##"{"name":"mask","shape":"ellipse"},
+               {"name":"mask","shape":"ellipse","x":25,"y":25,"width":50,"height":50,"invert":true}"##,
+        ),
+    );
+    assert_eq!(
+        rgb(&ring, 200, 200),
+        BLACK,
+        "the hole in the middle is erased"
+    );
+    assert_eq!(rgb(&ring, 200, 156), [0xFF; 3], "the ring itself is kept");
+    assert_eq!(
+        rgb(&ring, 153, 153),
+        BLACK,
+        "outside the outer ellipse is erased"
+    );
+}
+
+#[test]
+fn invert_is_a_boolean_on_the_mask_and_on_no_other_effect() {
+    let parse = |text: &str| serde_json::from_str::<montagent_core::model::Effect>(text);
+    parse(r##"{"name":"mask","shape":"rect","invert":true}"##).expect("a boolean on a mask");
+    for refused in [
+        r##"{"name":"mask","shape":"rect","invert":1}"##,
+        r##"{"name":"mask","shape":"rect","invert":"yes"}"##,
+        r##"{"name":"mask","shape":"rect","invert":[{"t":0,"v":true},{"t":9,"v":false,"ease":"linear"}]}"##,
+        r##"{"name":"blur","radius":4,"invert":true}"##,
+    ] {
+        parse(refused).expect_err(refused);
+    }
+}
+
+#[test]
+fn invert_sits_after_radius_in_the_canonical_key_order_and_a_written_false_is_kept() {
+    let written = r##"{"name":"mask","shape":"rect","x":1,"y":2,"width":3,"height":4,"radius":5,"invert":true}"##;
+    let parsed: montagent_core::model::Effect = serde_json::from_str(written).expect("it parses");
+    assert_eq!(
+        serde_json::to_string(&parsed).expect("it serialises"),
+        written
+    );
+    // ADR-0030: presence is content, so a written `false` stays written.
+    let false_kept = r##"{"name":"mask","shape":"rect","invert":false}"##;
+    let parsed: montagent_core::model::Effect = serde_json::from_str(false_kept).expect("parses");
+    assert_eq!(
+        serde_json::to_string(&parsed).expect("it serialises"),
+        false_kept
+    );
+}

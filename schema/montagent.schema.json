@@ -1270,6 +1270,10 @@
               "type": "integer",
               "format": "int64"
             },
+            "invert": {
+              "type": "boolean",
+              "description": "Keep the pixels **outside** the shape and erase the inside (ADR-0152 §1).\nOmitted means `false`; a written `false` is legal and the same picture. A\nboolean is not an animatable type (ADR-0146), so a keyframe list here is a\nschema error with no rule of its own. Masks in one list still intersect, so\n`[mask ellipse, mask smaller ellipse inverted]` keeps a ring."
+            },
             "name": {
               "type": "string",
               "const": "mask"

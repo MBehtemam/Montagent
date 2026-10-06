@@ -1588,6 +1588,26 @@ outside it. Use `ellipse` to fill the rect, or give the mask a square rect.",
         census: None,
         sets: &[Document],
     },
+    CheckSpec {
+        // ADR-0152 §5. An inverted `rect` mask with no corner radius whose rect contains
+        // the element's rect keeps no pixel on any frame, and the likely slip is reading
+        // `invert` as "flip the mask" while the omitted rect is the whole element. Decided
+        // from the file alone: a keyed rect field, keyed radius or keyed element size is
+        // silent, so the finding never fires on a wipe. `review` rather than `error`
+        // because the construct is determinate and a static full erase is a legal halfway
+        // state while a wipe is being written.
+        code: "R-MASK-ERASES-ALL",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0152",
+        template: "{element}: `effects[{index}]` is an inverted `rect` mask with no `radius` \
+whose rect contains the whole element, so it erases every pixel of {element} on every \
+frame. Write the rect you meant, or drop `invert`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     // ---- `chroma` (#342, ADR-0088). -------------------------------------------------
     //
     // Four findings, and **not one of them keys a frame**. ADR-0006 keeps `validate` to

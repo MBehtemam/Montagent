@@ -41,6 +41,15 @@ fn glow(radius: f64, colour: &str, opacity: f64) -> Value {
     json!({"name": "shadow", "dx": 0, "dy": 0, "radius": radius, "color": colour, "opacity": opacity})
 }
 
+fn inverted(shape: &str) -> Value {
+    json!({"name": "mask", "shape": shape, "invert": true})
+}
+
+fn inverted_rect(x: i64, y: i64, width: i64, height: i64, radius: i64) -> Value {
+    json!({"name": "mask", "shape": "rect", "x": x, "y": y, "width": width, "height": height,
+           "radius": radius, "invert": true})
+}
+
 /// `SPY` in Cinzel Bold at 150, the trailer's title face, in a box `width`×`height`.
 fn text(width: f64, height: f64) -> Value {
     json!({"type": "text", "font": "cinzel-bold", "size": 150, "color": "#E3C067",
@@ -95,6 +104,15 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("text-flipped-blur", with(t(), json!({"y": 540, "scale": [-1.2, 1.2], "effects": [blur(14.0)]})), 700.4, 13.7),
         ("text-flipped-both-shadow", with(t(), json!({"y": 500, "scale": [-0.8, -1.1], "effects": [shadow(24.0, 18.0, 6.0)]})), 1100.4, 13.7),
         ("rect-rotated-anisotropic-flipped-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        // Inverted masks (ADR-0152 §4): the eraser is the shape itself, and the hint's
+        // premise that a mask only erases must hold for it, under every transform.
+        ("inverted-circle-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [inverted("circle"), blur(20.0)]})), 960.4, 13.7),
+        ("inverted-ellipse-then-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [inverted("ellipse"), shadow(14.0, 10.0, 24.0)]})), 960.4, 13.7),
+        ("blur-then-inverted-rect-radius", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [blur(16.0), inverted_rect(40, 30, 140, 90, 20)]})), 960.4, 13.7),
+        ("inverted-circle-rotated-anisotropic-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 25, "scale": [1.6, 0.7], "effects": [inverted("circle"), shadow(8.0, -6.0, 18.0)]})), 960.4, 13.7),
+        ("inverted-rect-rotated-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 33, "effects": [inverted_rect(60, 40, 180, 120, 0), blur(12.0)]})), 960.4, 13.7),
+        ("inverted-ellipse-flipped-blur-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [inverted("ellipse"), blur(6.0), shadow(10.0, 10.0, 20.0)]})), 960.4, 13.7),
+        ("ring-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [{"name": "mask", "shape": "ellipse"}, {"name": "mask", "shape": "ellipse", "x": 90, "y": 90, "width": 120, "height": 120, "invert": true}, blur(10.0)]})), 960.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),
