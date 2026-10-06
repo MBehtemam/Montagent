@@ -715,13 +715,21 @@
             },
             "kind": {
               "$ref": "#/$defs/TransitionKind",
-              "description": "`crossfade` is the whole v1 vocabulary. Wipe, slide and push are deferred — not\nbecause they are unwanted but because reference-class ubiquity is no evidence for\nhow they parameterize, and freezing a closed-vocabulary member on a guess is the\ntrap ADR-0040 avoided with colour filter."
+              "description": "`crossfade` ramps the two elements' opacity; `wipe`, `slide` and `push` move or cut\nthem a whole frame's width or height, outside their own transforms (ADR-0150)."
             },
             "from": {
               "type": "string"
             },
             "to": {
               "type": "string"
+            },
+            "direction": {
+              "description": "The way the motion travels: `\"left\"` means the content (or a wipe's edge) moves\nleftward, so the incoming element enters from the right. Required on `wipe`,\n`slide` and `push`; refused on `crossfade` (ADR-0150).",
+              "$ref": "#/$defs/Direction"
+            },
+            "ease": {
+              "description": "The keyframe vocabulary, applied to the window's progress. Omitted means `linear`;\nrefused on `crossfade` (ADR-0150).",
+              "$ref": "#/$defs/Ease"
             }
           },
           "required": [
@@ -733,7 +741,40 @@
             "from",
             "to"
           ],
-          "description": "A transition is its own element type, with its own time range and two id references —\nnot a property on either bridged element, which would create an unprincipled ownership\nquestion, and not an effect, which is element-local by construction (ADR-0059).\n\nADR-0059 names *\"two id references\"* without naming the fields. This ticket calls them\n`from` and `to`, and records that as a spelling the ADR series may want to ratify."
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "crossfade"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "direction"
+                  ]
+                },
+                {
+                  "required": [
+                    "ease"
+                  ]
+                }
+              ]
+            },
+            "description": "A crossfade travels nowhere and its ramp is linear, so `direction` and `ease` are fields of `wipe`, `slide` and `push` only (ADR-0150)."
+          },
+          "else": {
+            "required": [
+              "direction"
+            ],
+            "description": "A `wipe`, `slide` or `push` names the way its motion travels (ADR-0150)."
+          },
+          "description": "A transition is its own element type, with its own time range and two id references —\nnot a property on either bridged element, which would create an unprincipled ownership\nquestion, and not an effect, which is element-local by construction (ADR-0059).\n\nADR-0059 names *\"two id references\"* without naming the fields. This ticket calls them\n`from` and `to`, and records that as a spelling the ADR series may want to ratify.\n\n`direction` and `ease` are fields of `wipe`, `slide` and `push` only (ADR-0150): a\ncrossfade travels nowhere, and its linear ramp is what keeps its two halves summing to\na constant. A Rust struct cannot say \"required under three `kind`s and an unknown key\nunder the fourth\", so [`Transition::checked`] says it on the way in and\n`crate::schema::publish_transition_fields` says it in the published schema — the\narrangement `mask`'s `radius` already has."
         }
       ],
       "description": "The per-type field set, discriminated by `type`.\n\nADR-0012: the field set is a **function of `type`** — *\"`x` on an audio element is a\nschema error naming the replacement\"*, never a silently-ignored field. That is also why\nshapes are sibling types rather than one `shape` type with a discriminator inside it: a\nsecond, omissible discriminator would let a malformed ellipse render as a rect, silently\nand plausibly (ADR-0014)."
@@ -1658,8 +1699,21 @@
     "TransitionKind": {
       "type": "string",
       "enum": [
-        "crossfade"
+        "crossfade",
+        "wipe",
+        "slide",
+        "push"
       ]
+    },
+    "Direction": {
+      "type": "string",
+      "enum": [
+        "left",
+        "right",
+        "up",
+        "down"
+      ],
+      "description": "A `wipe`, `slide` or `push`'s direction: the way the motion travels, never the edge\nsomething enters from (ADR-0150)."
     },
     "Layer": {
       "anyOf": [

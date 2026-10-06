@@ -703,20 +703,121 @@ pub struct Audio {
 ///
 /// ADR-0059 names *"two id references"* without naming the fields. This ticket calls them
 /// `from` and `to`, and records that as a spelling the ADR series may want to ratify.
+///
+/// `direction` and `ease` are fields of `wipe`, `slide` and `push` only (ADR-0150): a
+/// crossfade travels nowhere, and its linear ramp is what keeps its two halves summing to
+/// a constant. A Rust struct cannot say "required under three `kind`s and an unknown key
+/// under the fourth", so [`Transition::checked`] says it on the way in and
+/// `crate::schema::publish_transition_fields` says it in the published schema — the
+/// arrangement `mask`'s `radius` already has.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct Transition {
-    /// `crossfade` is the whole v1 vocabulary. Wipe, slide and push are deferred — not
-    /// because they are unwanted but because reference-class ubiquity is no evidence for
-    /// how they parameterize, and freezing a closed-vocabulary member on a guess is the
-    /// trap ADR-0040 avoided with colour filter.
+    /// `crossfade` ramps the two elements' opacity; `wipe`, `slide` and `push` move or cut
+    /// them a whole frame's width or height, outside their own transforms (ADR-0150).
     pub kind: TransitionKind,
     pub from: String,
     pub to: String,
+    /// The way the motion travels: `"left"` means the content (or a wipe's edge) moves
+    /// leftward, so the incoming element enters from the right. Required on `wipe`,
+    /// `slide` and `push`; refused on `crossfade` (ADR-0150).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<Direction>,
+    /// The keyframe vocabulary, applied to the window's progress. Omitted means `linear`;
+    /// refused on `crossfade` (ADR-0150).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ease: Option<Ease>,
+}
+
+impl Transition {
+    /// ADR-0150's two relational rules, which the derive cannot state.
+    fn checked(self) -> Result<Self, String> {
+        let kind = self.kind.as_str();
+        match self.kind {
+            TransitionKind::Crossfade => {
+                for (field, present) in [
+                    ("direction", self.direction.is_some()),
+                    ("ease", self.ease.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on a `crossfade`: a crossfade travels \
+                             nowhere and its ramp is linear, so `direction` and `ease` are \
+                             fields of `wipe`, `slide` and `push` only (ADR-0150) — expected \
+                             one of `kind`, `from`, `to`"
+                        ));
+                    }
+                }
+            }
+            TransitionKind::Wipe | TransitionKind::Slide | TransitionKind::Push => {
+                if self.direction.is_none() {
+                    return Err(format!(
+                        "missing field `direction`: a `{kind}` names the way its motion \
+                         travels, one of `left`, `right`, `up`, `down` (ADR-0150)"
+                    ));
+                }
+            }
+        }
+        Ok(self)
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Effect`: the wire form is the derive's, and
+// the parse adds [`Transition::checked`].
+impl Serialize for Transition {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Transition::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Transition {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Transition::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TransitionKind {
     Crossfade,
+    Wipe,
+    Slide,
+    Push,
+}
+
+impl TransitionKind {
+    /// The word a document spells this kind with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TransitionKind::Crossfade => "crossfade",
+            TransitionKind::Wipe => "wipe",
+            TransitionKind::Slide => "slide",
+            TransitionKind::Push => "push",
+        }
+    }
+}
+
+/// A `wipe`, `slide` or `push`'s direction: the way the motion travels, never the edge
+/// something enters from (ADR-0150).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
+impl Direction {
+    /// The word a document spells this direction with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Direction::Left => "left",
+            Direction::Right => "right",
+            Direction::Up => "up",
+            Direction::Down => "down",
+        }
+    }
 }
