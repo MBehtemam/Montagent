@@ -292,6 +292,57 @@ fn a_keyed_frame_is_the_same_bytes_painted_alone_or_in_a_span() {
     }
 }
 
+/// Every frame of a keyed shape, with an overshoot and a collapse to nothing, is the same
+/// bytes at the encoder's input on three painters over two-frame chunks as on one (ADR-0144).
+#[test]
+fn a_keyed_shape_renders_byte_identically_on_parallel_painters() {
+    use montagent_core::verbs::render::{Forced, force_painting, tap_frames};
+
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = tempdir(line!());
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":200,"height":200},"fps":10,"background":"#000000","output":"out.mp4",
+                "tracks":[{"name":"only","layer":0,"elements":[
+                {"id":"morph","type":"rect","start":0,"end":2000,"x":100,"y":100,
+                 "width":[{"t":0,"v":0},{"t":800,"v":160,"ease":[0.34,1.56,0.64,1]},
+                          {"t":2000,"v":40,"ease":"ease-in-out"}],
+                 "height":[{"t":0,"v":0},{"t":800,"v":120,"ease":[0.34,1.56,0.64,1]}],
+                 "radius":[{"t":0,"v":0},{"t":1500,"v":60,"ease":"linear"}],
+                 "fill":[{"t":0,"v":"#3B82F6"},{"t":2000,"v":"#22C55E00","ease":"linear"}],
+                 "stroke":"#FFFFFF",
+                 "stroke_width":[{"t":0,"v":0},{"t":1000,"v":6,"ease":"ease-out"}]}]}]}"##,
+        ),
+    );
+    let hashes = |forced: Forced| {
+        let _forced = force_painting(forced);
+        let tap = tap_frames();
+        let answer = render(&path, &Ask::default(), &mut |_| {});
+        assert!(
+            errors(answer.report()).is_empty(),
+            "{:?}",
+            errors(answer.report())
+        );
+        tap.hashes()
+    };
+    let one = hashes(Forced::Chunks {
+        painters: 1,
+        chunk: 2,
+        window_bytes: None,
+    });
+    let three = hashes(Forced::Chunks {
+        painters: 3,
+        chunk: 2,
+        window_bytes: None,
+    });
+    assert_eq!(one.len(), 20);
+    assert_eq!(one, three);
+}
+
 // ---------------------------------------------------------------------------
 // The one list, derived from the schema.
 // ---------------------------------------------------------------------------
