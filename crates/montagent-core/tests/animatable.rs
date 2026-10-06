@@ -395,11 +395,17 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "color",
             "stroke",
             "stroke_width",
+            "letter_spacing",
             "scale",
             "rotation",
             "opacity"
         ]
     );
+    // `letter_spacing` (ADR-0151) is integer-typed, so a `shift` split rounds it as it rounds
+    // `x`, and unbounded: a negative value tightens.
+    let spacing = animatable::property("letter_spacing").expect("letter_spacing is animatable");
+    assert_eq!(spacing.kind, animatable::Kind::Integer);
+    assert_eq!(spacing.minimum, None);
     assert_eq!(
         names_of("image"),
         ["x", "y", "scale", "rotation", "opacity"]
