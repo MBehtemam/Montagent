@@ -12,7 +12,7 @@ use montagent_text::units::{By, Segmentation, segment};
 use serde_json::Value;
 
 use crate::model::Origin;
-use crate::verbs::query::geometry::{number, origin_fraction};
+use crate::verbs::query::geometry::{number_at, origin_fraction};
 
 /// The five unit lists, in the order ADR-0151 names them.
 ///
@@ -267,20 +267,31 @@ impl Plan {
 
     /// The unit's pose at `instant`.
     pub(crate) fn pose(&self, unit: usize, instant: i64) -> Pose {
+        self.pose_at(unit, (i128::from(instant), 1))
+    }
+
+    /// The unit's pose at `t = (numerator, denominator)` ms — a motion-blur sample
+    /// (ADR-0155 §3). The unit's delay is shifted in the same rationals, so a stagger is
+    /// sampled as finely as the element it belongs to.
+    pub(crate) fn pose_at(&self, unit: usize, t: (i128, i128)) -> Pose {
+        let (numerator, denominator) = t;
         let at = |property: &str| {
             let (from, late) = self.source(unit, property);
-            (from, instant - late)
+            (
+                from,
+                (numerator - i128::from(late) * denominator, denominator),
+            )
         };
         let (o, t) = at("x");
-        let x = number::<i64>(o, "x", t, 0.0);
+        let x = number_at::<i64>(o, "x", t, 0.0);
         let (o, t) = at("y");
-        let y = number::<i64>(o, "y", t, 0.0);
+        let y = number_at::<i64>(o, "y", t, 0.0);
         let (o, t) = at("rotation");
-        let rotation = number::<f64>(o, "rotation", t, 0.0);
+        let rotation = number_at::<f64>(o, "rotation", t, 0.0);
         let (o, t) = at("scale");
-        let scale = number::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
+        let scale = number_at::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
         let (o, t) = at("opacity");
-        let opacity = number::<f64>(o, "opacity", t, 1.0);
+        let opacity = number_at::<f64>(o, "opacity", t, 1.0);
         Pose {
             x,
             y,

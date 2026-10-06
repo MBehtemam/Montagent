@@ -71,7 +71,7 @@ The peak column feeds the speed check below: the fastest instant of a move is it
 
 ## Speed limits
 
-Montagent draws one sharp image per frame, with no motion blur, so a fast move shows as separate copies. Check the fastest frame of every move: `distance × peak ÷ (length in frames)`.
+For a fast move, set `motion_blur` on the moving element (`"shutter": 180`, `"samples"` 8–16) rather than slowing the move. It is not a default: put it on the elements that move fast, not on everything. An element without it is drawn as one sharp image per frame, so a fast move shows as separate copies, and the limits below hold for it. Check the fastest frame of every move: `distance × peak ÷ (length in frames)`.
 
 - **Travel:** a move's step at its fastest frame stays under half the moving thing's own size along the move. Past its whole size, the eye sees two things.
 - **Rotation:** under 45° a frame at the fastest frame. Something that repeats as it turns (a four-spoked shape, a dial of twelve ticks) must stay under half its repeat angle a frame, or it seems to turn backwards: under 45° for four spokes, under 15° for twelve ticks. Three turns in 1 s on `[0.16, 1, 0.3, 1]` peak at about 200° a frame at 30 fps: that strobes.

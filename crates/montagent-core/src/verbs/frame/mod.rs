@@ -112,8 +112,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use montagent_render::canvas::{
-    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape, PathEl,
-    Raster, Region, Rgba, Scale, Shape, Transform,
+    Accumulation, Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape,
+    PathEl, Raster, Region, Rgba, Scale, Shape, Transform,
 };
 use montagent_render::decode::Pace;
 
@@ -455,7 +455,7 @@ impl Declined {
 /// starts with. Ruling 2's reason for closing the set is exactly that the prose was
 /// unassertable and untestable — a `String` here could say anything, and nothing could
 /// check that it said the same thing twice.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct NotPainted {
     pub element: String,
     pub code: String,
@@ -1001,7 +1001,19 @@ pub(crate) struct Painter<'a> {
     /// once, because the picture walks the caption's list and would otherwise re-traverse
     /// the whole document per row.
     elements: Vec<(Named, &'a Value)>,
+    /// The frame instant: what decides presence, transitions, a run's `highlight` window and
+    /// a `video`'s source frame (ADR-0155 §3).
     instant: i64,
+    /// The instant every value the element's own keyframes resolve is read at, as
+    /// `(numerator, denominator)` ms: `(instant, 1)` on today's path, and one motion-blur
+    /// sample's exact rational instant while [`Painter::blurred`] paints it (ADR-0155 §3).
+    t: (i128, i128),
+    /// Set while [`Painter::blurred`] paints one sample: the element is painted in `normal`
+    /// onto a transparent layer, because its `blend` composites the average once.
+    sampling: bool,
+    /// The one source frame a moving `video` holds across its samples: decoded at the
+    /// frame instant's box on the first sample and resampled into each sample's box.
+    held: Option<Raster>,
     frame: (i64, i64),
     project_dir: PathBuf,
     /// The class this painter's world-effect findings take — ADR-0093, and ADR-0006's
@@ -1119,6 +1131,9 @@ impl<'a> Painter<'a> {
                 .map(|(track, element)| (Named::of(element, track), element))
                 .collect(),
             instant,
+            t: (i128::from(instant), 1),
+            sampling: false,
+            held: None,
             frame,
             project_dir: crate::checks::project_dir(document),
             class,
@@ -1156,6 +1171,7 @@ impl<'a> Painter<'a> {
     pub(crate) fn begin(&mut self, instant: i64) {
         self.frame_number = None;
         self.instant = instant;
+        self.t = (i128::from(instant), 1);
         self.painted.clear();
         self.not_painted.clear();
         self.painted_partially.clear();
@@ -1255,13 +1271,35 @@ impl<'a> Painter<'a> {
 
     fn element(&mut self, canvas: &mut Canvas, name: &str, element: &Value, playhead: Playhead) {
         let kind = element.get("type").and_then(Value::as_str);
+        let visual = matches!(
+            kind,
+            Some("text" | "rect" | "ellipse" | "path" | "image" | "video")
+        );
+        // ADR-0155: a moving element carrying `motion_blur` is painted at each sample
+        // instant and averaged. A still one is painted once, through the path below, so its
+        // bytes are the bytes it paints without the field.
+        if let Some(blur) = crate::motion_blur::of(element).filter(|_| visual) {
+            let instants = crate::motion_blur::samples_at(self.instant, self.fps, blur);
+            if !crate::motion_blur::still(element, &instants) {
+                self.blurred(canvas, name, element, playhead, &instants);
+                return;
+            }
+        }
+        self.sharp(canvas, name, element, playhead);
+    }
+
+    /// One element painted once, every keyed value read at [`Painter::t`].
+    fn sharp(&mut self, canvas: &mut Canvas, name: &str, element: &Value, playhead: Playhead) {
+        let kind = element.get("type").and_then(Value::as_str);
         // A plain `mask` of no positive size hides the whole element for this frame, as a
         // collapsed box does (ADR-0146 §5): nothing is drawn, and a mask that hides every
-        // frame is `E-NOT-PAINTED-NO-EXTENT`, decided as `validate` decides it.
+        // frame is `E-NOT-PAINTED-NO-EXTENT`, decided as `validate` decides it. Under motion
+        // blur this is asked per sample, as every keyed value is: a sample whose mask has no
+        // size adds transparent pixels to the average.
         if matches!(
             kind,
             Some("text" | "rect" | "ellipse" | "path" | "image" | "video")
-        ) && animatable::hiding_mask(element, i128::from(self.instant), 1).is_some()
+        ) && animatable::hiding_mask(element, self.t.0, self.t.1).is_some()
         {
             if let Some(causes) = animatable::never_painted(element, self.fps) {
                 self.defer(name, crate::checks::extent::never_painted(&causes));
@@ -1292,6 +1330,60 @@ impl<'a> Painter<'a> {
         }
     }
 
+    /// A moving element under `motion_blur` (ADR-0155 §4): each sample painted with its
+    /// `effects`, its `mask` and its `opacity` onto a transparent layer the size of the
+    /// frame, the N layers averaged in order, and the average composited once in the
+    /// element's `blend`.
+    ///
+    /// **Unbounded** (ADR-0144 §9): every sample is a whole-frame layer, as the prototype
+    /// (#718) measured byte-identical across painter counts. A bound is the cost lever, and
+    /// would have to be measured byte-identical first.
+    ///
+    /// What the samples record — painted, not painted, and why — is recorded once per
+    /// element, not once per sample.
+    fn blurred(
+        &mut self,
+        canvas: &mut Canvas,
+        name: &str,
+        element: &Value,
+        playhead: Playhead,
+        instants: &[(i128, i128)],
+    ) {
+        let Some(mut layer) = canvas.layer() else {
+            self.contradiction(name, "a frame no motion-blur layer could be made for");
+            return;
+        };
+        let marks = (
+            self.painted.len(),
+            self.not_painted.len(),
+            self.painted_partially.len(),
+            self.declined.len(),
+        );
+        let mut sum: Option<Accumulation> = None;
+        self.sampling = true;
+        self.held = None;
+        for &t in instants {
+            self.t = t;
+            layer.background(Rgba([0, 0, 0, 0]));
+            self.sharp(&mut layer, name, element, playhead);
+            let Some(bytes) = layer.rgba() else {
+                continue;
+            };
+            sum.get_or_insert_with(|| Accumulation::new(bytes.len()))
+                .add(&bytes);
+        }
+        self.sampling = false;
+        self.held = None;
+        self.t = (i128::from(self.instant), 1);
+        if let Some(sum) = sum {
+            canvas.composite_layer(&sum.mean(), blend_of(element));
+        }
+        once_from(&mut self.painted, marks.0);
+        once_from(&mut self.not_painted, marks.1);
+        once_from(&mut self.painted_partially, marks.2);
+        once_from(&mut self.declined, marks.3);
+    }
+
     /// The element's ordered `effects` list, in the rasterizer's spelling.
     ///
     /// **A member the format does not admit does not silently disappear.** The list is
@@ -1308,7 +1400,7 @@ impl<'a> Painter<'a> {
         };
         let mut effects = Vec::with_capacity(declared.len());
         for (i, value) in declared.iter().enumerate() {
-            match effect_of(element, i, self.instant) {
+            match effect_of(element, i, self.t) {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -1507,7 +1599,7 @@ impl<'a> Painter<'a> {
         let shape = match kind {
             Some("ellipse") => Shape::Ellipse,
             _ => Shape::Rect {
-                radius: animatable::number_at(element, "radius", self.instant, 0.0),
+                radius: animatable::number_read(element, "radius", self.t.0, self.t.1, 0.0),
             },
         };
         let effects = self.effects_of(name, element);
@@ -1530,9 +1622,9 @@ impl<'a> Painter<'a> {
         // box as the fill (ADR-0149 §2).
         let declared = [0.0, 0.0, extent.width as f32, extent.height as f32];
         let paint = Fill {
-            fill: ink::at(element, "fill", self.instant, declared),
-            stroke: ink::at(element, "stroke", self.instant, declared),
-            stroke_width: animatable::number_at(element, "stroke_width", self.instant, 0.0),
+            fill: ink::at(element, "fill", self.t, declared),
+            stroke: ink::at(element, "stroke", self.t, declared),
+            stroke_width: animatable::number_read(element, "stroke_width", self.t.0, self.t.1, 0.0),
         };
         if paint.fill.is_none() && (paint.stroke.is_none() || paint.stroke_width <= 0.0) {
             // A keyed `stroke_width` passing through zero draws nothing for that frame, as a
@@ -1562,7 +1654,7 @@ impl<'a> Painter<'a> {
             return;
         };
         let Some(Ok(animatable::Resolved::Points(vertices))) =
-            animatable::at(element, "points", self.instant)
+            animatable::read(element, "points", self.t.0, self.t.1)
         else {
             self.defer(
                 name,
@@ -1623,7 +1715,15 @@ impl<'a> Painter<'a> {
             }
         };
 
-        let raster = match self.decoded(&path, element, kind, extent, playhead) {
+        // A moving `video` is decoded once, at the frame instant's box, and that held frame
+        // is resampled into each sample's box (ADR-0155 §3: its footage is not blurred).
+        let decode_extent = match self.sampling {
+            true => animatable::painted_box(element, i128::from(self.instant), 1)
+                .map(|(width, height)| Extent { width, height })
+                .unwrap_or(extent),
+            false => extent,
+        };
+        let raster = match self.decoded(&path, element, kind, decode_extent, playhead) {
             Ok(raster) => raster,
             Err(declined) => {
                 self.record(name, declined);
@@ -1691,6 +1791,9 @@ impl<'a> Painter<'a> {
         // rather than repeating it. Unreachable from `render`, whose mix pre-flight refuses
         // the same document first (ADR-0093 ruling 6, condition 1); reachable from `frame`,
         // which draws what it is given.
+        if let Some(held) = self.held.as_ref().filter(|_| self.sampling) {
+            return Ok(held.clone());
+        }
         let offset = playhead.offset.ok_or_else(|| {
             Declined::finding(undrawable(
                 "its offset into the source did not resolve; the caption says why",
@@ -1742,8 +1845,14 @@ impl<'a> Painter<'a> {
             .supplier
             .supply(&request)
             .map_err(|failure| undecodable(failure.detail()))?;
-        Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height)
-            .ok_or_else(|| undecodable("its decoded frame was not the size asked for".to_string()))
+        let raster =
+            Raster::from_rgba(&decoded.rgba, decoded.width, decoded.height).ok_or_else(|| {
+                undecodable("its decoded frame was not the size asked for".to_string())
+            })?;
+        if self.sampling {
+            self.held = Some(raster.clone());
+        }
+        Ok(raster)
     }
 
     /// What this source's probe says a supplier needs, probed once per path: the decoder
@@ -1863,7 +1972,7 @@ impl<'a> Painter<'a> {
                 align: crate::verbs::measure::align_of(element),
                 // Resolved per frame, from the value at this instant; the ligature rule is
                 // read from the file (ADR-0151).
-                letter_spacing: crate::verbs::measure::letter_spacing_at(element, self.instant),
+                letter_spacing: crate::verbs::measure::letter_spacing_read(element, self.t),
                 optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
             },
         );
@@ -1891,8 +2000,8 @@ impl<'a> Painter<'a> {
                 element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
             ),
         );
-        let paints = paints_of(element, &runs, self.instant, declared);
-        let unit_of_glyph = unit_draws(element, &placement, self.instant);
+        let paints = paints_of(element, &runs, self.t, self.instant, declared);
+        let unit_of_glyph = unit_draws(element, &placement, self.t);
         let glyphs: Vec<Glyph> = placement
             .glyphs
             .iter()
@@ -1937,7 +2046,7 @@ impl<'a> Painter<'a> {
     /// The declared box, before `scale`, resolved at the instant (ADR-0146) — `None` where
     /// it is not drawn this frame.
     fn extent(&self, element: &Value) -> Option<Extent> {
-        let (width, height) = animatable::painted_box(element, i128::from(self.instant), 1)?;
+        let (width, height) = animatable::painted_box(element, self.t.0, self.t.1)?;
         Some(Extent { width, height })
     }
 
@@ -1972,23 +2081,28 @@ impl<'a> Painter<'a> {
             Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
         };
         Transform {
-            x: geometry::number::<i64>(element, "x", self.instant, frame_width as f64 / 2.0)
+            x: geometry::number_at::<i64>(element, "x", self.t, frame_width as f64 / 2.0)
                 + bridge.offset.0 as f64,
-            y: geometry::number::<i64>(element, "y", self.instant, frame_height as f64 / 2.0)
+            y: geometry::number_at::<i64>(element, "y", self.t, frame_height as f64 / 2.0)
                 + bridge.offset.1 as f64,
             origin: geometry::origin_fraction(origin),
             scale: {
                 let [sx, sy] =
-                    geometry::number::<[f64; 2]>(element, "scale", self.instant, [1.0, 1.0]);
+                    geometry::number_at::<[f64; 2]>(element, "scale", self.t, [1.0, 1.0]);
                 (sx, sy)
             },
-            rotation: geometry::number::<f64>(element, "rotation", self.instant, 0.0),
+            rotation: geometry::number_at::<f64>(element, "rotation", self.t, 0.0),
             // The declared opacity, times whatever crossfade this element is bridged by.
             // Multiplied rather than replaced: a crossfade is a ramp *on* what the
             // document says, so an element already keyframed to 0.5 fades from 0.5 rather
             // than jumping to 1 to start.
-            opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0) * bridge.fade,
-            blend: blend_of(element),
+            opacity: geometry::number_at::<f64>(element, "opacity", self.t, 1.0) * bridge.fade,
+            // A sample is painted in `normal`: the average blends once (ADR-0155 §4).
+            blend: if self.sampling {
+                montagent_render::canvas::Blend::Normal
+            } else {
+                blend_of(element)
+            },
         }
     }
 
@@ -2018,6 +2132,18 @@ fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
         model::Blend::Overlay => Paint::Overlay,
         model::Blend::Add => Paint::Add,
     }
+}
+
+/// Keep each entry pushed since `mark` once, in the order first pushed: N motion-blur
+/// samples of one element record what one paint of it would.
+fn once_from<T: PartialEq>(list: &mut Vec<T>, mark: usize) {
+    let mut seen: Vec<T> = Vec::new();
+    for entry in list.drain(mark..) {
+        if !seen.contains(&entry) {
+            seen.push(entry);
+        }
+    }
+    list.extend(seen);
 }
 
 /// The ink an element that states no `color` is painted in.
@@ -2089,6 +2215,7 @@ fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
 fn paints_of(
     element: &Value,
     runs: &[montagent_text::Run<'_>],
+    t: (i128, i128),
     instant: i64,
     declared: [f32; 4],
 ) -> Vec<Fill> {
@@ -2096,9 +2223,9 @@ fn paints_of(
     // measured against the declared text box (ADR-0149); runs and highlights stay static
     // colours and override it as before.
     let base = Fill {
-        fill: Some(ink::at(element, "color", instant, declared).unwrap_or(DEFAULT_INK.into())),
-        stroke: ink::at(element, "stroke", instant, declared),
-        stroke_width: animatable::number_at(element, "stroke_width", instant, 0.0),
+        fill: Some(ink::at(element, "color", t, declared).unwrap_or(DEFAULT_INK.into())),
+        stroke: ink::at(element, "stroke", t, declared),
+        stroke_width: animatable::number_read(element, "stroke_width", t.0, t.1, 0.0),
     };
     crate::verbs::measure::runs_array(element)
         .iter()
@@ -2125,6 +2252,8 @@ fn paints_of(
                     .map(|width| width as f64)
                     .unwrap_or(base.stroke_width),
             };
+            // A highlight is a timed style window, not a keyed value: it is read at the
+            // frame instant, as presence is, under motion blur too.
             match highlight_at(run, instant) {
                 Some(window) => Fill {
                     // The window's own deltas over the run's, on exactly the rule the
@@ -2187,7 +2316,7 @@ fn paints_of(
 fn unit_draws(
     element: &Value,
     placement: &montagent_text::Placement,
-    instant: i64,
+    t: (i128, i128),
 ) -> Vec<Option<montagent_render::canvas::UnitDraw>> {
     let Some(plan) = crate::units::Plan::of(element) else {
         return Vec::new();
@@ -2198,7 +2327,7 @@ fn unit_draws(
         .iter()
         .enumerate()
         .map(|(index, body)| {
-            let pose = plan.pose(*body.units.first()?, instant);
+            let pose = plan.pose_at(*body.units.first()?, t);
             if pose.is_rest() {
                 return None;
             }
@@ -2293,7 +2422,7 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// whose rect resolves to no positive size hides the element before this is asked
 /// ([`animatable::hiding_mask`]); an inverted one keeps everything, so its rect reaches the
 /// rasterizer no smaller than empty.
-pub(crate) fn effect_of(element: &Value, index: usize, instant: i64) -> Option<Effect> {
+pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Option<Effect> {
     let declared: model::Effect =
         serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
     let parameters: Vec<animatable::Declared<'_>> = animatable::declared(element)
@@ -2304,7 +2433,7 @@ pub(crate) fn effect_of(element: &Value, index: usize, instant: i64) -> Option<E
         parameters
             .iter()
             .find(|parameter| parameter.key() == key)
-            .map(|parameter| parameter.at(instant))
+            .map(|parameter| parameter.read(t.0, t.1))
     };
     // A parameter the model has already read is one the resolver reads too, so `None` here
     // is a document the model refuses and never reaches.

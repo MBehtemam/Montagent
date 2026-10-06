@@ -780,7 +780,13 @@ pub(crate) fn align_of(element: &Value) -> montagent_text::Align {
 /// A text element's `letter_spacing` at `instant`, in thousandths of an em: resolved, never
 /// rounded, and 0 where the element declares none (ADR-0151).
 pub(crate) fn letter_spacing_at(element: &Value, instant: i64) -> f64 {
-    crate::verbs::query::geometry::number::<i64>(element, "letter_spacing", instant, 0.0)
+    letter_spacing_read(element, (i128::from(instant), 1))
+}
+
+/// [`letter_spacing_at`] at `t = (numerator, denominator)` ms — a motion-blur sample
+/// (ADR-0155 §3).
+pub(crate) fn letter_spacing_read(element: &Value, t: (i128, i128)) -> f64 {
+    crate::verbs::query::geometry::number_at::<i64>(element, "letter_spacing", t, 0.0)
 }
 
 /// Every distinct `letter_spacing` value the element writes: its static value, or every

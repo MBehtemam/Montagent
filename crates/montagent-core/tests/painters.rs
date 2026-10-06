@@ -1119,3 +1119,109 @@ fn paths_paint_the_same_frames_on_any_number_of_painters_and_with_the_bound_hint
         assert_same(&sequential, &unbounded, "the hint off");
     }
 }
+
+/// ADR-0155's gating fixture (#719): every element carries `motion_blur`. A fast slide on
+/// `ease-out`, a spin, a rect whose size, radius and colour are keyed, a title staggering in
+/// through `units`, a moving `video`, a still element, and one with `effects`, a `mask` and
+/// `blend: screen`, over a still seen through a `clip`. 160x90 at 30 fps for 600 ms: 18
+/// frames, the motion crossing every chunk boundary, and settling before the end so the
+/// moving-to-still seam is painted too.
+fn motion_blur_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    for asset in ["fonts/Cinzel-Bold.ttf", "img/boat.jpg"] {
+        let to = dir.join(asset);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+        std::fs::copy(trailer().join(asset), &to).expect("copy the trailer's asset");
+    }
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let keyed = |from: Value, to: Value, until: i64, ease: &str| json!([{"t": 0, "v": from}, {"t": until, "v": to, "ease": ease}]);
+    let blur = |shutter: i64, samples: i64| json!({"shutter": shutter, "samples": samples});
+    let elements = [
+        json!({"id": "ground", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 600,
+               "x": 80, "y": 45, "origin": "center", "width": 160, "height": 90,
+               "fit": "literal", "clip": [4, 4, 152, 82]}),
+        json!({"id": "slide", "type": "rect", "start": 0, "end": 600,
+               "x": keyed(json!(-20), json!(140), 400, "ease-out"), "y": 14,
+               "origin": "center", "width": 24, "height": 12, "fill": "#F04020",
+               "motion_blur": blur(180, 8)}),
+        json!({"id": "spin", "type": "rect", "start": 0, "end": 600, "x": 30, "y": 60,
+               "origin": "center", "width": 36, "height": 4, "fill": "#FFFFFF",
+               "rotation": keyed(json!(0.0), json!(720.0), 600, "linear"),
+               "motion_blur": blur(360, 12)}),
+        json!({"id": "grow", "type": "rect", "start": 0, "end": 600, "x": 120, "y": 60,
+               "origin": "center", "width": keyed(json!(6), json!(34), 300, "ease-in-out"),
+               "height": keyed(json!(6), json!(24), 300, "ease-in-out"),
+               "radius": keyed(json!(0), json!(10), 300, "linear"),
+               "fill": keyed(json!("#2060FF"), json!("#FFC020"), 300, "linear"),
+               "motion_blur": blur(180, 6)}),
+        json!({"id": "title", "type": "text", "font": "cinzel-bold", "size": 18,
+               "color": "#E3C067", "align": "center", "width": 120, "height": 26,
+               "start": 0, "end": 600, "x": 80, "y": 34, "origin": "center",
+               "runs": [{"text": "SPY"}], "caption": false,
+               "units": {"by": "letter", "every": 60,
+                         "x": keyed(json!(-30), json!(0), 250, "ease-out"),
+                         "opacity": keyed(json!(0.0), json!(1.0), 200, "linear")},
+               "motion_blur": blur(180, 8)}),
+        json!({"id": "footage", "type": "video", "start": 0, "end": 600, "source": clip,
+               "source_start": 0, "source_end": 600, "y": 74, "origin": "center",
+               "x": keyed(json!(20), json!(70), 500, "ease-in"),
+               "width": 32, "height": 24, "fit": "literal", "volume": 0,
+               "motion_blur": blur(180, 4)}),
+        json!({"id": "still", "type": "ellipse", "start": 0, "end": 600, "x": 140, "y": 20,
+               "origin": "center", "width": 16, "height": 16, "fill": "#20C0F0",
+               "rotation": 15, "motion_blur": blur(360, 32)}),
+        json!({"id": "lens", "type": "rect", "start": 0, "end": 600, "y": 46,
+               "x": keyed(json!(60), json!(110), 450, "ease-in-out"),
+               "rotation": keyed(json!(-10.0), json!(25.0), 450, "linear"),
+               "origin": "center", "width": 40, "height": 26, "fill": "#FF9F2E",
+               "blend": "screen",
+               "effects": [{"name": "mask", "shape": "ellipse", "feather": 2},
+                           {"name": "shadow", "dx": 0, "dy": 0, "radius": 5,
+                            "color": "#FF4020", "opacity": 0.9},
+                           {"name": "blur", "radius": 1.5}],
+               "motion_blur": blur(270, 8)}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+        "duration": 600, "output": "out/motion-blur.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "motion-blur.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn motion_blur_paints_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0155 §6, the gating test: if it fails, motion blur is withdrawn, not excused.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = motion_blur_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 18);
+    assert_ne!(
+        sequential.frames[2], sequential.frames[9],
+        "the scene moves"
+    );
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 1)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}

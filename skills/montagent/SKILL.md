@@ -49,6 +49,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Keyframe position, scale, rotation and opacity, with named easings or a cubic bezier (overshoot included): `scale`, `rotation`, `opacity`, `ease`.
 - Keyframe a shape's size, corner radius, fill and stroke, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `color`.
+- Motion blur on a moving element: `motion_blur`.
 
 **Paint**
 
@@ -103,7 +104,6 @@ A piece can mix these: load each skill whose row it touches.
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
 - Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
-- Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
 - Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
 - Speed ramps. Keep them out of the design. <!-- workaround: #706 · replaced by: speed ramps -->

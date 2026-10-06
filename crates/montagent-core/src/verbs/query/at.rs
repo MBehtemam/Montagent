@@ -133,6 +133,15 @@ pub struct Present {
     /// uses, `normal` included where the field is omitted: a member that blends and one that
     /// does not must not read alike. `null` on `audio` and `transition`, which draw nothing.
     pub blend: Option<String>,
+    /// `motion_blur` as the file writes it (ADR-0155 §5). Absent on an element without it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<Value>,
+    /// `moving` or `still` at the frame containing the instant: whether that frame paints
+    /// the element's samples and averages them, or paints it once, sharp. The values above
+    /// stay those at the instant asked. Absent without the field, and where the project
+    /// states no `fps` to place a frame by.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motion: Option<&'static str>,
     /// **Offset into source** — where in the source file this instant plays, for `audio`
     /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
     /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
@@ -438,6 +447,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         };
 
         let blend = blend_word(element, kind);
+        let (motion_blur, motion) = motion_of(document, element, kind, instant);
         let (stagger, units) = match kind {
             Some("text") if detail != Detail::Presence => {
                 match crate::units::report(document, element, instant) {
@@ -461,6 +471,8 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             layer_unresolved,
             values: values(element, instant),
             blend,
+            motion_blur,
+            motion,
             source_offset,
             source_offset_unresolved,
             source_origin,
@@ -516,6 +528,38 @@ fn blend_word(element: &Value, kind: Option<&str>) -> Option<String> {
         .get("blend")
         .and_then(|value| serde_json::from_value::<crate::model::Blend>(value.clone()).ok());
     Some(written.unwrap_or_default().as_str().to_string())
+}
+
+/// `motion_blur` as written, and whether the frame containing `instant` paints the element
+/// `moving` or `still` (ADR-0155 §5) — decided as the painter decides it, at that frame's
+/// sample instants.
+fn motion_of(
+    document: &Loose,
+    element: &Value,
+    kind: Option<&str>,
+    instant: i64,
+) -> (Option<Value>, Option<&'static str>) {
+    let Some(written) = element.get("motion_blur") else {
+        return (None, None);
+    };
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .filter(|fps| *fps > 0);
+    let motion = match (crate::motion_blur::of(element), fps) {
+        (Some(blur), Some(fps)) if covers_the_frame(kind) => {
+            let frame = crate::motion_blur::frame_containing(instant, fps);
+            let instants =
+                crate::motion_blur::sample_instants(frame, fps, blur.shutter, blur.samples);
+            Some(match crate::motion_blur::still(element, &instants) {
+                true => "still",
+                false => "moving",
+            })
+        }
+        _ => None,
+    };
+    (Some(written.clone()), motion)
 }
 
 /// The one sentence every geometry field carries in a presence-only view.

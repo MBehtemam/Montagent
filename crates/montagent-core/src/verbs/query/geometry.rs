@@ -127,13 +127,23 @@ where
     T: serde::de::DeserializeOwned + Interpolate,
     T::Out: Copy,
 {
+    number_at::<T>(element, key, (i128::from(instant), 1), default)
+}
+
+/// [`number`] at `t = (numerator, denominator)` ms, an instant that need not be a whole
+/// millisecond: a motion-blur sample's (ADR-0155 §3). [`number`] is this at `(instant, 1)`.
+pub(crate) fn number_at<T>(element: &Value, key: &str, t: (i128, i128), default: T::Out) -> T::Out
+where
+    T: serde::de::DeserializeOwned + Interpolate,
+    T::Out: Copy,
+{
     let Some(written) = element.get(key) else {
         return default;
     };
     let Ok(animatable) = serde_json::from_value::<Animatable<T>>(written.clone()) else {
         return default;
     };
-    resolve::at(&animatable, instant).unwrap_or(default)
+    resolve::at_instant(&animatable, t.0, t.1).unwrap_or(default)
 }
 
 /// `origin`'s two-way point, as `(horizontal, vertical)` fractions of the box — `0` at

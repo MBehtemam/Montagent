@@ -894,6 +894,53 @@ impl Raster {
     }
 }
 
+/// The running sum of N motion-blur samples, byte by byte (ADR-0155 §4).
+///
+/// **Integer, in fixed order, correctly rounded.** Each byte of the mean is
+/// `(Σ + ⌊N/2⌋) / N`: the sum is exact in `u32` for up to 16 843 009 samples, and the
+/// quotient rounds half up. So N identical samples give back exactly the source bytes, and
+/// the mean of premultiplied samples is premultiplied, since a colour byte at or below its
+/// alpha in every sample stays at or below it in the sum and in the rounded quotient.
+///
+/// ADR-0155 says "correctly rounded" and not which way a tie goes; half up is the
+/// prototype's (#718) and is recorded in `compositing.md`.
+#[derive(Debug, Clone)]
+pub struct Accumulation {
+    sums: Vec<u32>,
+    samples: u32,
+}
+
+impl Accumulation {
+    /// An empty sum over `len` bytes.
+    pub fn new(len: usize) -> Accumulation {
+        Accumulation {
+            sums: vec![0; len],
+            samples: 0,
+        }
+    }
+
+    /// Add one sample's bytes. A sample of another length is a caller's bug; its bytes past
+    /// the shorter of the two are ignored.
+    pub fn add(&mut self, bytes: &[u8]) {
+        for (sum, byte) in self.sums.iter_mut().zip(bytes) {
+            *sum += u32::from(*byte);
+        }
+        self.samples += 1;
+    }
+
+    /// The rounded mean of every sample added, or all zeros where none was.
+    pub fn mean(&self) -> Vec<u8> {
+        if self.samples == 0 {
+            return vec![0; self.sums.len()];
+        }
+        let (n, half) = (self.samples, self.samples / 2);
+        self.sums
+            .iter()
+            .map(|sum| ((sum + half) / n) as u8)
+            .collect()
+    }
+}
+
 /// Which of the two encodings one `frame` answers in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Encoding {
@@ -994,6 +1041,10 @@ pub struct Canvas {
     surface: Surface,
     width: i32,
     height: i32,
+    /// The base scale [`Canvas::scaled`] sets before any draw, `(1, 1)` at true pixels. A
+    /// [`Canvas::layer`] takes the same, so a sample painted on it lands where it would on
+    /// this canvas.
+    base: (f32, f32),
 }
 
 impl Canvas {
@@ -1015,6 +1066,7 @@ impl Canvas {
             surface: surfaces::raster(&info, None, None)?,
             width,
             height,
+            base: (1.0, 1.0),
         })
     }
 
@@ -1038,11 +1090,53 @@ impl Canvas {
             return None;
         }
         let mut canvas = Canvas::new(width, height)?;
-        canvas
-            .surface
-            .canvas()
-            .scale((scale.0 as f32, scale.1 as f32));
+        canvas.base = (scale.0 as f32, scale.1 as f32);
+        canvas.surface.canvas().scale(canvas.base);
         Some(canvas)
+    }
+
+    /// A transparent surface of this canvas's size and base scale: one motion-blur sample
+    /// is painted on it (ADR-0155 §4), read back with [`Canvas::rgba`], and summed into an
+    /// [`Accumulation`].
+    ///
+    /// **Unbounded** (ADR-0144 §9): the layer is the whole frame. A bound would have to be
+    /// measured byte-identical first, and the prototype that measured this field (#718)
+    /// measured none.
+    pub fn layer(&self) -> Option<Canvas> {
+        let mut layer = Canvas::new(i64::from(self.width), i64::from(self.height))?;
+        layer.base = self.base;
+        layer.surface.canvas().clear(Color::TRANSPARENT);
+        layer.surface.canvas().scale(layer.base);
+        Some(layer)
+    }
+
+    /// Composite a whole-frame layer of premultiplied RGBA8 bytes — an [`Accumulation`]'s
+    /// mean — over this canvas once, in `blend` (ADR-0155 §4: the samples are averaged, then
+    /// blended). Drawn at device pixels, one source pixel on one destination pixel, so the
+    /// average is not resampled. `false` where `rgba` is not this canvas's size.
+    pub fn composite_layer(&mut self, rgba: &[u8], blend: Blend) -> bool {
+        let info = ImageInfo::new(
+            ISize::new(self.width, self.height),
+            ColorType::RGBA8888,
+            AlphaType::Premul,
+            None,
+        );
+        if rgba.len() != self.width as usize * self.height as usize * 4 {
+            return false;
+        }
+        let Some(image) =
+            images::raster_from_data(&info, Data::new_copy(rgba), self.width as usize * 4)
+        else {
+            return false;
+        };
+        let canvas = self.surface.canvas();
+        canvas.save();
+        canvas.reset_matrix();
+        let mut paint = SkPaint::default();
+        paint.set_blend_mode(blend.mode());
+        canvas.draw_image(&image, (0, 0), Some(&paint));
+        canvas.restore();
+        true
     }
 
     /// Paint the whole frame one colour — the project's `background`.

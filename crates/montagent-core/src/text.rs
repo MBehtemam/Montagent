@@ -2169,6 +2169,15 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
+    // ADR-0155: the field as written, shutter/samples, then the frame's moving or still.
+    if let Some(blur) = element.get("motion_blur").filter(|blur| blur.is_object()) {
+        let mut cell = format!("motion_blur {}/{}", blur["shutter"], blur["samples"]);
+        if let Some(motion) = element["motion"].as_str() {
+            cell.push(' ');
+            cell.push_str(motion);
+        }
+        cells.push(cell);
+    }
     // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
     // so the row says where.
     if let Some(moved) = element["transition"].as_object() {
