@@ -100,8 +100,8 @@ Each item names the issue whose close retires it. Tell the user when the brief d
 - Mask invert. Keep it out of the design. <!-- workaround: #697 · replaced by: mask invert -->
 - Mask feather. Keep it out of the design. <!-- workaround: #698 · replaced by: mask feather -->
 - Paths, lines and morphs. Keep them out of the design. <!-- workaround: #710 · replaced by: a path element, and morphs -->
-- Motion blur. Keep it out of the design. <!-- workaround: #702 · replaced by: motion blur -->
-- Generative effects. Keep them out of the design. <!-- workaround: #704 · replaced by: generative effects -->
+- Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
+- Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
 - Speed ramps. Keep them out of the design. <!-- workaround: #706 · replaced by: speed ramps -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
