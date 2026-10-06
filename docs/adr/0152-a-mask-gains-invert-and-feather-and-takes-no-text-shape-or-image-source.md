@@ -187,8 +187,8 @@ does not hold them back.
 - `format.md` and the feature map describe both fields, the ring that two masks make, and
   the `[mask, blur]` difference.
 - The hand-off spec is two slices:
-  [slice 1](https://github.com/MBehtemam/Montagent/issues/695) (`invert` and
+  [slice 1](https://github.com/MBehtemam/Montagent/issues/697) (`invert` and
   `R-MASK-ERASES-ALL`, workable once this ADR is merged) and
-  [slice 2](https://github.com/MBehtemam/Montagent/issues/696) (`feather`, gated on
-  [the measuring prototype](https://github.com/MBehtemam/Montagent/issues/697)). Slice 2
+  [slice 2](https://github.com/MBehtemam/Montagent/issues/698) (`feather`, gated on
+  [the measuring prototype](https://github.com/MBehtemam/Montagent/issues/696)). Slice 2
   extends `R-MASK-ERASES-ALL` with its `feather` condition.
