@@ -18,6 +18,22 @@ authors and edits projects and calls Montagent's tools. Montagent never calls an
 agent.
 _Avoid_: user, bot, assistant, client (unqualified)
 
+**Remote instance**:
+Montagent running on another machine, reached over HTTP instead of stdio. The
+agent still holds the project's authority; the instance holds a disposable copy
+([ADR-0159](docs/adr/0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)).
+_Avoid_: server (unqualified), cloud Montagent, hosted Montagent
+
+**Workspace**:
+A named folder on a remote instance holding one project's working copy, its
+media, fonts and outputs. It outlives sessions, but not cleanup or a wiped disk.
+_Avoid_: session, sandbox, working area, bucket
+
+**Byte door**:
+A remote instance's plain-HTTP way of moving files into and out of a workspace.
+It carries bytes and no decisions; MCP stays the only control surface.
+_Avoid_: upload API, REST API, file API, side channel
+
 ## Language
 
 **Project**:
@@ -563,6 +579,8 @@ permitted and resolved as-is. A project refers to a remote store by rewriting
 reference, not rendering: `validate` probes it, and `render` and `frame` use local
 sources only, so rendering needs a local copy named by path
 ([ADR-0131](docs/adr/0131-render-and-frame-use-local-sources-only-and-validate-says-so.md)).
+On a **remote instance**, the instance's own download of the URL is that local
+copy ([ADR-0159](docs/adr/0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)).
 An image may name other files for timed windows of its range; its `source` is
 what it draws outside them (see **Swap**).
 _Avoid_: asset, resource, media reference, assetRoot

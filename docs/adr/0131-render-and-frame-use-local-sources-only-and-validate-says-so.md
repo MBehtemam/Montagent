@@ -5,6 +5,10 @@ amends: 0093 (ruling 3's containment loses its one exception: a remote source `r
 
 # `render` and `frame` use local sources only, and `validate` says so
 
+> **Amended by [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)**, for a remote instance only. There the instance's
+> download cache is the local copy: `validate` starts the download, and `render` renders the
+> cached file and refuses while it is still downloading. Over stdio, everything below stands.
+
 [#456](https://github.com/MBehtemam/Montagent/issues/456). A project whose one `video` element
 reads `"source": "http://127.0.0.1:18456/clip.mp4"`, served by `python3 -m http.server`,
 reproduced on `8707a7d2`:
