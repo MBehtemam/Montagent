@@ -408,6 +408,85 @@ fn every_blend_mode_paints_the_same_frames_on_any_number_of_painters() {
     }
 }
 
+/// ADR-0149 §8's gate, carried into the build: gradient paint on every paint field, under
+/// `blur` and `shadow`, with sub-pixel motion, rotation and non-uniform scale, 18 frames at
+/// 30 fps.
+fn gradient_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let to = dir.join("fonts/Cinzel-Bold.ttf");
+    std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+    std::fs::copy(trailer().join("fonts/Cinzel-Bold.ttf"), &to).expect("copy the face");
+    // Over 600 ms an `x` that travels 7 px moves a fraction of a pixel per frame.
+    let keyed = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 600, "v": to, "ease": "linear"}]);
+    let stops =
+        |from: &str, to: &str| json!([{"offset": 0, "color": from}, {"offset": 1, "color": to}]);
+    let linear = |angle: f64, from: &str, to: &str| json!({"gradient": "linear", "angle": angle, "stops": stops(from, to)});
+    let radial = |center: [f64; 2], radius: f64, from: &str, to: &str| json!({"gradient": "radial", "center": center, "radius": radius, "stops": stops(from, to)});
+    let glow = json!({"name": "shadow", "dx": 3, "dy": 2, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
+    let elements = [
+        json!({"id": "sky", "type": "rect", "start": 0, "end": 600, "x": 0, "y": 0,
+               "origin": "top-left", "width": 160, "height": 90,
+               "fill": linear(160.0, "#101830", "#5A6E80")}),
+        json!({"id": "card", "type": "rect", "start": 0, "end": 600,
+               "x": keyed(json!(60), json!(67)), "y": 40, "origin": "center", "width": 70,
+               "height": 36, "radius": 6, "rotation": keyed(json!(0.0), json!(17.5)),
+               "scale": [1.3, 0.8], "fill": linear(30.0, "#FF3366", "#3366FF00"),
+               "stroke": radial([0.5, 0.5], 1.0, "#FFFFFF", "#000000"), "stroke_width": 3,
+               "effects": [{"name": "blur", "radius": 1.5}, glow]}),
+        json!({"id": "lens", "type": "ellipse", "start": 0, "end": 600,
+               "x": keyed(json!(120), json!(113)), "y": 30, "origin": "center", "width": 40,
+               "height": 26, "rotation": 20, "scale": keyed(json!([1.5, 0.7]), json!([1.1, 0.9])),
+               "fill": radial([0.3, 0.25], 0.9, "#FFCC00", "#FF330000"),
+               "effects": [glow, {"name": "blur", "radius": 3}]}),
+        json!({"id": "title", "type": "text", "font": "cinzel-bold", "size": 28,
+               "color": linear(90.0, "#E3C067", "#20C0F0"),
+               "stroke": radial([0.5, 0.5], 1.0, "#A02010", "#102040"), "stroke_width": 2,
+               "align": "center", "runs": [{"text": "SPY"}], "width": 120, "height": 40,
+               "start": 0, "end": 600, "x": keyed(json!(76), json!(83)), "y": 65,
+               "origin": "center", "scale": [1.2, 0.9], "rotation": -6,
+               "effects": [{"name": "blur", "radius": 1.0}, glow]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+        "duration": 600, "output": "out/gradient.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "gradient.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn gradients_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0149 §8 and ADR-0144: a gradient kind that fails this is withdrawn, not excused.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = gradient_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 18);
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 #[test]
 fn a_video_element_keeps_the_render_on_one_painter_unless_forced() {
     if !has_ffprobe() {

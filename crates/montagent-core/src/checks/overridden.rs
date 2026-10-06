@@ -1,10 +1,11 @@
-//! `R-TEXT-PAINT-OVERRIDDEN` — a keyed element-level text paint field that every run
-//! overrides (ADR-0146 §6).
+//! `R-TEXT-PAINT-OVERRIDDEN` — a keyed element-level text paint field, or one holding a
+//! gradient, that every run overrides (ADR-0146 §6, widened by ADR-0149 §5).
 //!
-//! A run's `color`, `stroke` and `stroke_width` stay static and beat the element's, as they
-//! always have (ADR-0146 §3). So where every run states its own value for a field the element
-//! keys, no keyframe of that field reaches a single glyph: the list changes nothing, and an
-//! author who wrote it meant something the file does not do.
+//! A run's `color`, `stroke` and `stroke_width` stay static colours and beat the element's,
+//! as they always have (ADR-0146 §3). So where every run states its own value for a field the
+//! element keys, no keyframe of that field reaches a single glyph: the list changes nothing,
+//! and an author who wrote it meant something the file does not do. A gradient on the
+//! element's `color` or `stroke` is the same fact: it is never drawn.
 //!
 //! The fields are the ones both sides can state: the text element's animatable properties
 //! that are also a run's own keys, both read off the schema, so a run field that gains a
@@ -44,13 +45,19 @@ pub fn check(document: &Loose, report: &mut Report) {
         }
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
         for property in run_paint() {
-            if crate::animatable::records(element, property).is_none()
-                || !runs.iter().all(|run| run.get(property).is_some())
-            {
+            let written = if crate::animatable::records(element, property).is_some() {
+                "keyed"
+            } else if element.get(property).is_some_and(Value::is_object) {
+                "a gradient"
+            } else {
+                continue;
+            };
+            if !runs.iter().all(|run| run.get(property).is_some()) {
                 continue;
             }
             let finding = Finding::new("R-TEXT-PAINT-OVERRIDDEN")
                 .field("property", json!(property))
+                .field("written", json!(written))
                 .field("runs", json!(runs.len()))
                 .at_file(document.path())
                 .at_element(&subject);

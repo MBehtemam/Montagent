@@ -112,8 +112,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use montagent_render::canvas::{
-    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, MaskRect, MaskShape, PathEl, Raster,
-    Region, Rgba, Scale, Shape, Transform,
+    Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape, PathEl,
+    Raster, Region, Rgba, Scale, Shape, Transform,
 };
 use montagent_render::decode::Pace;
 
@@ -131,6 +131,7 @@ use crate::verbs::query::Named;
 use crate::verbs::query::at::{self, At};
 use crate::verbs::query::geometry::{self, Rect};
 
+mod ink;
 mod keyframes;
 mod label;
 mod sheet;
@@ -1462,13 +1463,12 @@ impl<'a> Painter<'a> {
             self.collapsed(name, element);
             return;
         };
+        // A gradient is measured against the declared box, and the stroke uses the same
+        // box as the fill (ADR-0149 §2).
+        let declared = [0.0, 0.0, extent.width as f32, extent.height as f32];
         let paint = Fill {
-            fill: animatable::colour_at(element, "fill", self.instant)
-                .as_ref()
-                .and_then(rgba_of),
-            stroke: animatable::colour_at(element, "stroke", self.instant)
-                .as_ref()
-                .and_then(rgba_of),
+            fill: ink::at(element, "fill", self.instant, declared),
+            stroke: ink::at(element, "stroke", self.instant, declared),
             stroke_width: animatable::number_at(element, "stroke_width", self.instant, 0.0),
         };
         if paint.fill.is_none() && (paint.stroke.is_none() || paint.stroke_width <= 0.0) {
@@ -1798,7 +1798,17 @@ impl<'a> Painter<'a> {
             }
         };
 
-        let paints = paints_of(element, &runs, self.instant);
+        // An element-level gradient is measured against the declared text box, placed in the
+        // block by the pivot rule (ADR-0149 §2).
+        let declared = ink::text_box(
+            self.transform(element).origin,
+            (placement.width, placement.height),
+            (
+                element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
+                element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
+            ),
+        );
+        let paints = paints_of(element, &runs, self.instant, declared);
         let unit_of_glyph = unit_draws(element, &placement, self.instant);
         let glyphs: Vec<Glyph> = placement
             .glyphs
@@ -1813,8 +1823,8 @@ impl<'a> Painter<'a> {
                 // the same array `montagent_text::place` indexed into — and is painted in
                 // the default ink rather than skipped, so a future divergence shows up as
                 // a black letter rather than as a hole.
-                paint: paints.get(glyph.run).copied().unwrap_or(Fill {
-                    fill: Some(DEFAULT_INK),
+                paint: paints.get(glyph.run).cloned().unwrap_or(Fill {
+                    fill: Some(DEFAULT_INK.into()),
                     stroke: None,
                     stroke_width: 0.0,
                 }),
@@ -1993,19 +2003,18 @@ fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
     }
 }
 
-fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) -> Vec<Fill> {
-    // The element's own paint, resolved at the instant (ADR-0146); runs and highlights stay
-    // static and override it as before.
+fn paints_of(
+    element: &Value,
+    runs: &[montagent_text::Run<'_>],
+    instant: i64,
+    declared: [f32; 4],
+) -> Vec<Fill> {
+    // The element's own paint, resolved at the instant (ADR-0146) — a colour, or a gradient
+    // measured against the declared text box (ADR-0149); runs and highlights stay static
+    // colours and override it as before.
     let base = Fill {
-        fill: Some(
-            animatable::colour_at(element, "color", instant)
-                .as_ref()
-                .and_then(rgba_of)
-                .unwrap_or(DEFAULT_INK),
-        ),
-        stroke: animatable::colour_at(element, "stroke", instant)
-            .as_ref()
-            .and_then(rgba_of),
+        fill: Some(ink::at(element, "color", instant, declared).unwrap_or(DEFAULT_INK.into())),
+        stroke: ink::at(element, "stroke", instant, declared),
         stroke_width: animatable::number_at(element, "stroke_width", instant, 0.0),
     };
     crate::verbs::measure::runs_array(element)
@@ -2017,8 +2026,16 @@ fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) ->
                 // base stands wherever the run is silent — and a `stroke_width` the run
                 // *does* state is the one the engine measured with, which is why it is
                 // read back out of the parsed run rather than off the JSON a second time.
-                fill: run.get("color").and_then(rgba).or(base.fill),
-                stroke: run.get("stroke").and_then(rgba).or(base.stroke),
+                fill: run
+                    .get("color")
+                    .and_then(rgba)
+                    .map(Ink::from)
+                    .or(base.fill.clone()),
+                stroke: run
+                    .get("stroke")
+                    .and_then(rgba)
+                    .map(Ink::from)
+                    .or(base.stroke.clone()),
                 stroke_width: runs
                     .get(i)
                     .and_then(|run| run.stroke_width)
@@ -2033,11 +2050,13 @@ fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) ->
                         .color
                         .as_ref()
                         .and_then(rgba_of)
+                        .map(Ink::from)
                         .or(unconditional.fill),
                     stroke: window
                         .stroke
                         .as_ref()
                         .and_then(rgba_of)
+                        .map(Ink::from)
                         .or(unconditional.stroke),
                     stroke_width: window
                         .stroke_width

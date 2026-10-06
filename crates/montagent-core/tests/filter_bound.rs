@@ -65,6 +65,19 @@ fn shape(kind: &str, width: f64, height: f64) -> Value {
     json!({"type": kind, "width": width, "height": height, "fill": "#F2F2F2"})
 }
 
+/// A `linear` gradient paint at `angle`, opaque to transparent (ADR-0149).
+fn linear(angle: f64) -> Value {
+    json!({"gradient": "linear", "angle": angle, "stops": [
+        {"offset": 0, "color": "#FF3366"}, {"offset": 0.5, "color": "#FFCC00"},
+        {"offset": 1, "color": "#3366FF00"}]})
+}
+
+/// A `radial` gradient paint centred off the box's middle (ADR-0149).
+fn radial() -> Value {
+    json!({"gradient": "radial", "center": [0.3, 0.25], "radius": 0.9, "stops": [
+        {"offset": 0, "color": "#FFFFFF"}, {"offset": 1, "color": "#2040A0"}]})
+}
+
 /// `base` with `fields` laid over it.
 fn with(mut base: Value, fields: Value) -> Value {
     for (key, value) in fields.as_object().expect("fields are an object") {
@@ -129,6 +142,13 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("feathered-ring-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [feathered("ellipse", false, json!(20)), {"name": "mask", "shape": "ellipse", "x": 90, "y": 90, "width": 120, "height": 120, "invert": true, "feather": 30}, blur(10.0)]})), 960.4, 13.7),
         ("image-feathered-vignette-blur", json!({"type": "image", "source": "img/boat.jpg", "fit": "literal", "y": 540, "width": 640, "height": 360, "effects": [feathered("ellipse", false, json!(80)), blur(4.0)]}), 960.4, 13.7),
         ("feathered-mask-alone", with(shape("rect", 300.0, 300.0), json!({"y": 540, "rotation": 15, "effects": [feathered("circle", true, json!(30))]})), 960.4, 13.7),
+        // Gradient paint (ADR-0149 §8): its coordinates live inside the layer whose origin
+        // the hint moves, so it is measured here rather than inferred.
+        ("rect-linear-gradient-blur", with(shape("rect", 400.0, 200.0), json!({"y": 540, "fill": linear(30.0), "effects": [blur(40.0)]})), 960.37, 13.7),
+        ("ellipse-radial-gradient-shadow-offset", with(shape("ellipse", 300.0, 180.0), json!({"y": 500, "fill": radial(), "effects": [shadow(24.0, 18.0, 24.0)]})), 800.5, 13.7),
+        ("rect-gradient-stroke-rotated-anisotropic-shadow", with(shape("rect", 300.0, 120.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "fill": linear(200.0), "stroke": radial(), "stroke_width": 10, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        ("text-gradient-stroke-glow", with(t(), json!({"y": 540, "color": linear(90.0), "stroke": radial(), "stroke_width": 8, "effects": [shadow(0.0, 0.0, 24.0)]})), 960.4, 13.7),
+        ("text-gradient-scale-blur", with(t(), json!({"y": 540, "scale": [2.0, 0.7], "color": radial(), "effects": [blur(14.0)]})), 700.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),

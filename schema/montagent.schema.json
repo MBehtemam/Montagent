@@ -402,7 +402,7 @@
               "description": "Restricted to one decimal digit, always exactly representable as `n/10`, so the\nblock-height derivation is exact integer arithmetic and never IEEE double\n(ADR-0028). Defaults to `1.2` when omitted."
             },
             "color": {
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "align": {
               "$ref": "#/$defs/Align"
@@ -414,7 +414,7 @@
               }
             },
             "stroke": {
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "stroke_width": {
               "$ref": "#/$defs/AnimatableLength"
@@ -505,11 +505,11 @@
             },
             "fill": {
               "description": "Optional when a `stroke` is present, giving an outlined shape. A shape with neither\nis a schema error naming both, because an element that deliberately renders nothing\nand an element that forgot its paint must not look alike.",
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "stroke": {
               "description": "On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`\nstill occupies exactly 984×169 (ADR-0014).",
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "stroke_width": {
               "$ref": "#/$defs/AnimatableLength"
@@ -589,11 +589,11 @@
             },
             "fill": {
               "description": "Optional when a `stroke` is present, giving an outlined shape. A shape with neither\nis a schema error naming both, because an element that deliberately renders nothing\nand an element that forgot its paint must not look alike.",
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "stroke": {
               "description": "On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`\nstill occupies exactly 984×169 (ADR-0014).",
-              "$ref": "#/$defs/AnimatableColour"
+              "$ref": "#/$defs/Paint"
             },
             "stroke_width": {
               "$ref": "#/$defs/AnimatableLength"
@@ -1682,6 +1682,17 @@
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
+    "Paint": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnimatableColour"
+        },
+        {
+          "$ref": "#/$defs/Gradient"
+        }
+      ],
+      "description": "A paint: a colour, a keyframe list of colours, or a gradient object. A keyframe list never holds a gradient, and a gradient's parameters cannot be keyed yet (ADR-0149)."
+    },
     "AnimatableColour": {
       "anyOf": [
         {
@@ -1754,6 +1765,115 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "Gradient": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "angle": {
+              "$ref": "#/$defs/Angle",
+              "description": "Degrees, CSS's convention: `0` runs bottom to top, `90` left to right, turning\nclockwise. Any number: `370` is `10`."
+            },
+            "stops": {
+              "$ref": "#/$defs/Stops"
+            },
+            "gradient": {
+              "type": "string",
+              "const": "linear"
+            }
+          },
+          "required": [
+            "gradient",
+            "angle",
+            "stops"
+          ],
+          "description": "Along a line through the box's centre."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/Center",
+              "description": "`[fx, fy]`, fractions of the box from its top-left corner. Any numbers: a glow\nmay be centred outside the box."
+            },
+            "radius": {
+              "$ref": "#/$defs/GradientRadius",
+              "description": "A fraction of the distance from the centre to the box's farthest corner, in box\nfractions: `1` just reaches it. `0` paints the last stop's colour over the box."
+            },
+            "stops": {
+              "$ref": "#/$defs/Stops"
+            },
+            "gradient": {
+              "type": "string",
+              "const": "radial"
+            }
+          },
+          "required": [
+            "gradient",
+            "center",
+            "radius",
+            "stops"
+          ],
+          "description": "Out from a centre, as a circle in box fractions — an ellipse on a box that is not\nsquare."
+        }
+      ],
+      "description": "A `linear` or `radial` gradient, measured against the element's declared box (ADR-0149\n§1, §2). Every parameter is required: a wrong direction, centre or size gives a frame that\nlooks plausible, so none of them may default."
+    },
+    "Angle": {
+      "type": "number",
+      "format": "double",
+      "description": "Degrees, CSS's convention: `0` runs bottom to top, `90` left to right, turning clockwise. Any number. Not a keyframe list yet (ADR-0149)."
+    },
+    "Stops": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Stop"
+      },
+      "minItems": 2,
+      "description": "At least two stops. Offsets never decrease (`E-GRADIENT-STOP-ORDER`); equal offsets are legal and give a hard edge. Not a keyframe list yet (ADR-0149)."
+    },
+    "Stop": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "offset": {
+          "$ref": "#/$defs/Offset"
+        },
+        "color": {
+          "$ref": "#/$defs/Colour"
+        }
+      },
+      "required": [
+        "offset",
+        "color"
+      ],
+      "description": "One colour stop: where along the gradient, and what colour. `color`'s alpha is the\nstop's opacity — there are no separate opacity stops (ADR-0149 §1)."
+    },
+    "Offset": {
+      "type": "number",
+      "format": "double",
+      "description": "Where the stop sits along the gradient, from `0` to `1` (ADR-0149).",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "Center": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "format": "double"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "`[fx, fy]`, fractions of the declared box from its top-left corner. Any numbers: a centre may sit outside the box. Not a keyframe list yet (ADR-0149)."
+    },
+    "GradientRadius": {
+      "type": "number",
+      "format": "double",
+      "description": "A fraction of the distance from the centre to the declared box's farthest corner, in box fractions: `1` just reaches it. `0` paints the last stop's colour over the whole box. Not a keyframe list yet (ADR-0149).",
+      "minimum": 0
     },
     "Align": {
       "type": "string",

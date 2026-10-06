@@ -56,7 +56,7 @@ The outgoing shot is cut into 3–6 horizontal bands: one copy per band, each wi
 
 ### Light sweeps, flares and embers
 
-Use still PNG plates with soft alpha (a diagonal gradient bar, a flare streak, ember dots) with `"blend": "screen"`, or `"add"` for a hotter core. Move them across the title or shot over 600–1200 ms, at `opacity` 0.4–0.8. A screened plate only lightens, so it reads as light over bright shots too. Keep the shot it lights beneath it: over the black `background` alone, screen draws what normal draws, and `validate` says so.
+For a light bar, use a long `rect` with a `linear` gradient `fill` that fades to transparent at both ends (`#FFFFFF00`, `#FFE0B0`, `#FFFFFF00`), rotated to the diagonal. For a soft glow, use an `ellipse` with a `radial` gradient fading to transparent. Use still PNG plates with soft alpha only for what a gradient cannot draw (a flare streak, ember dots). Lay any of them over the shot with `"blend": "screen"`, or `"add"` for a hotter core. Move them across the title or shot over 600–1200 ms, at `opacity` 0.4–0.8. A screened plate only lightens, so it reads as light over bright shots too. Keep the shot it lights beneath it: over the black `background` alone, screen draws what normal draws, and `validate` says so.
 
 ### Letterbox
 

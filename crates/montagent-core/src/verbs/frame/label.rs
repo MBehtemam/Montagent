@@ -237,7 +237,7 @@ pub(super) fn draw(
     )
     .map_err(|e| format!("a tile label could not be laid out in the chrome face: {e}"))?;
     let paint = Fill {
-        fill: Some(ink),
+        fill: Some(ink.into()),
         stroke: None,
         stroke_width: 0.0,
     };
@@ -248,7 +248,7 @@ pub(super) fn draw(
             x: glyph.x,
             y: glyph.y,
             outline: glyph.outline,
-            paint,
+            paint: paint.clone(),
             unit: None,
         })
         .collect();
@@ -297,7 +297,7 @@ fn invert(sheet: &mut Canvas, strip: Region) {
             blend: montagent_render::canvas::Blend::Normal,
         },
         &Fill {
-            fill: Some(MARKED_GROUND),
+            fill: Some(MARKED_GROUND.into()),
             stroke: None,
             stroke_width: 0.0,
         },

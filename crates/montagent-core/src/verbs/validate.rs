@@ -217,6 +217,9 @@ fn run_checks(
     // ADR-0146 §6: a keyed element-level text paint field every run overrides changes
     // nothing. Document-only.
     crate::checks::overridden::check(document, report);
+    // ADR-0149 §5: a stop list whose offsets decrease, and a gradient that paints one
+    // colour. Document-only.
+    crate::checks::gradient::check(document, report);
     // ADR-0086's `R-DERIVED-T` (#328): a keyframe's declared `t_from` re-derives an instant
     // that is not the `t` beside it. Both sides of a declared derivation sit in this one
     // document, which is why the check is here and not in `compare` — that verb is defined

@@ -444,6 +444,16 @@ fn written_paint(written: &Value) -> Option<String> {
     if let Some(colour) = written.as_str() {
         return Some(colour.to_string());
     }
+    // A gradient (ADR-0149): its kind and its end colours, `linear #FF3366→#3366FF`.
+    if let Some(kind) = written.get("gradient").and_then(Value::as_str) {
+        let stops = written.get("stops")?.as_array()?;
+        let colour = |stop: Option<&Value>| stop?.get("color")?.as_str().map(str::to_string);
+        return Some(format!(
+            "{kind} {}\u{2192}{}",
+            colour(stops.first())?,
+            colour(stops.last())?
+        ));
+    }
     let first = written.as_array()?.first()?.get("v")?.as_str()?;
     Some(format!("{first}\u{2026}"))
 }
