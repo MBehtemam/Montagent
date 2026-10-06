@@ -426,7 +426,7 @@ fn when_the_only_box_beneath_is_rotated_the_element_is_named_under_not_checked()
     assert!(boundary.contains("glow"), "{text}");
 
     // One unrotated intersection at every frame keeps it clean, rotated neighbours or not.
-    let mut doc = project(&[
+    let doc = project(&[
         rect("ground", "#101010", json!({})),
         subject(10, 10, json!({"rotation": 45})),
         glow(20, 20, json!({})),

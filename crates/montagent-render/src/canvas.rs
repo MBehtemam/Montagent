@@ -867,13 +867,13 @@ impl Raster {
     /// **The pixels are decoded here, once.** `from_encoded` alone returns a lazy image
     /// that decodes into Skia's resource cache, whose default 32 MiB limit is smaller than
     /// one project's stills; each eviction meant a fresh decode, 10.7% of a paint-heavy
-    /// render's samples (#648). `to_raster_image` makes the `Raster` own its pixels, so the
+    /// render's samples (#648). `make_raster_image` makes the `Raster` own its pixels, so the
     /// one `Painter::stills` keeps for the render is decoded once per painter.
     /// `a_decoded_still_holds_its_pixels_rather_than_a_lazy_generator` holds this.
     pub fn decode(bytes: &[u8]) -> Option<Raster> {
         Some(Raster {
             image: Image::from_encoded(Data::new_copy(bytes))?
-                .to_raster_image(skia_safe::image::CachingHint::Disallow)?,
+                .make_raster_image(None, skia_safe::image::CachingHint::Disallow)?,
         })
     }
 
