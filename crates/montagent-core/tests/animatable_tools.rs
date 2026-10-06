@@ -140,6 +140,7 @@ fn effect(name: &str) -> Value {
             json!({"name": "chroma", "color": "#00FF00", "tolerance": 0.2, "softness": 0.1,
                    "spill": 0.1})
         }
+        "grain" => json!({"name": "grain", "seed": 7, "amount": 0.2, "size": 2, "mono": true}),
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }

@@ -440,8 +440,8 @@ fn the_list_is_what_the_schema_types_as_animatable() {
 
 #[test]
 fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
-    // ADR-0146 §3, slice 2: every member's numeric and colour parameters; `mask.shape` and
-    // `invert` stay static.
+    // ADR-0146 §3, slice 2: every member's numeric and colour parameters; `mask.shape`,
+    // `invert` and `grain`'s `seed`, `size` and `mono` stay static.
     let members: Vec<(&str, Vec<&str>)> = animatable::effect_members()
         .map(|(member, parameters)| (member, parameters.iter().map(|p| p.name.as_str()).collect()))
         .collect();
@@ -459,6 +459,8 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("brightness", vec!["amount"]),
             ("contrast", vec!["amount"]),
             ("chroma", vec!["color", "tolerance", "softness", "spill"]),
+            // ADR-0156 §4: `seed`, `size` and `mono` are static.
+            ("grain", vec!["amount"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()
