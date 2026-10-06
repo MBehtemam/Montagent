@@ -50,7 +50,7 @@
 //! rounded nowhere, by that ADR's own decision — so there is no rounding step for exact
 //! arithmetic to protect.
 
-use crate::model::{Animatable, Ease, EaseName, Keyframe};
+use crate::model::{Animatable, Colour, Ease, EaseName, Keyframe, Length};
 
 /// A value that can be interpolated, and what interpolating it produces.
 ///
@@ -96,6 +96,76 @@ impl Interpolate for i64 {
 
     fn held(value: &Self) -> f64 {
         *value as f64
+    }
+}
+
+impl Interpolate for Length {
+    /// Continuous once resolved and never rounded, as `x` is (ADR-0146 §2).
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        i64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0 as f64
+    }
+}
+
+/// A colour on its way between two keyframes: sRGB-encoded components **premultiplied by
+/// alpha**, each in `0..=1`, and not yet clamped (ADR-0146 §2, the CSS rule for hex
+/// colours).
+///
+/// Unclamped on purpose. An overshooting bezier can carry a blend past either end, and two
+/// readers need to see that it did: the one resolving function clamps it
+/// ([`Blend::settle`]), and `shift` refuses to write a split whose blend is out of range
+/// rather than clamping it into a literal that bends both halves of the curve.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Blend(pub [f64; 4]);
+
+impl Blend {
+    fn of(colour: &Colour) -> Blend {
+        let [r, g, b, a] = colour.bytes().map(|byte| f64::from(byte) / 255.0);
+        Blend([r * a, g * a, b * a, a])
+    }
+
+    /// Whether every component is inside its range: alpha in `0..=1`, and each colour
+    /// component in `0..=alpha`, which is what a premultiplied component's range is.
+    pub fn in_range(self) -> bool {
+        let [r, g, b, a] = self.0;
+        (0.0..=1.0).contains(&a) && [r, g, b].iter().all(|c| (0.0..=a).contains(c))
+    }
+
+    /// The colour this blend paints: each component clamped to its range, then the colour
+    /// components divided back out of alpha, then each rounded to the nearest byte. At
+    /// alpha 0 there is no colour left to divide out, and the answer is `#00000000`.
+    pub fn settle(self) -> Colour {
+        let [r, g, b, a] = self.0;
+        let a = a.clamp(0.0, 1.0);
+        let byte = |unit: f64| (unit.clamp(0.0, 1.0) * 255.0).round() as u8;
+        if a == 0.0 {
+            return Colour::from_bytes([0, 0, 0, 0]);
+        }
+        let straight = |c: f64| c.clamp(0.0, a) / a;
+        Colour::from_bytes([
+            byte(straight(r)),
+            byte(straight(g)),
+            byte(straight(b)),
+            byte(a),
+        ])
+    }
+}
+
+impl Interpolate for Colour {
+    type Out = Blend;
+
+    fn between(a: &Self, b: &Self, p: f64) -> Blend {
+        let (a, b) = (Blend::of(a), Blend::of(b));
+        Blend(std::array::from_fn(|i| f64::between(&a.0[i], &b.0[i], p)))
+    }
+
+    fn held(value: &Self) -> Blend {
+        Blend::of(value)
     }
 }
 

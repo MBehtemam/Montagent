@@ -59,7 +59,7 @@ pub fn check(document: &Loose, report: &mut Report) {
         // whatever it animates, and an `opacity` ramp can carry a declaration as readily as
         // a `scale` one. The fixture's fourteen are all on `scale`, which is a fact about
         // the fixture and not about the field.
-        for property in crate::checks::ANIMATABLE {
+        for property in crate::animatable::names() {
             for finding in stale(element, property) {
                 let finding = finding
                     .field("element", json!(subject))

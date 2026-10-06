@@ -210,6 +210,9 @@ fn run_checks(
     crate::checks::unreached::check(document, report);
     crate::checks::canvas::check(document, report);
     crate::checks::ease::check(document, report);
+    // ADR-0146 §6: a keyed element-level text paint field every run overrides changes
+    // nothing. Document-only.
+    crate::checks::overridden::check(document, report);
     // ADR-0086's `R-DERIVED-T` (#328): a keyframe's declared `t_from` re-derives an instant
     // that is not the `t` beside it. Both sides of a declared derivation sit in this one
     // document, which is why the check is here and not in `compare` — that verb is defined
@@ -230,6 +233,9 @@ fn run_checks(
     // Not "which boundaries are off the grid" — which the fixture answers 109 times — but
     // what the grid actually changes, which on a correct project is nothing (ADR-0006).
     crate::checks::quantization::check(document, report);
+    // ADR-0146 §6: a box with no positive size at any frame of its range is never painted.
+    // Decided here and in the painter through one function at the same frame instants.
+    crate::checks::extent::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected
     // outright — the agent that pretty-printed the fixture from 154 lines to 1595 was not
     // running a formatter and had no reason to invoke one, while `validate` runs on files

@@ -117,6 +117,7 @@ use montagent_render::canvas::{
 };
 use montagent_render::decode::Pace;
 
+use crate::animatable;
 use crate::finding::{Class, Finding};
 use crate::media::Source;
 use crate::media::established::{self, Use};
@@ -1454,21 +1455,29 @@ impl<'a> Painter<'a> {
         }
     }
 
-    /// `rect` and `ellipse` — fill, inside stroke and `radius` (ADR-0014).
+    /// `rect` and `ellipse` — fill, inside stroke and `radius` (ADR-0014), each resolved at
+    /// the instant through the one resolving function (ADR-0146).
     fn shape(&mut self, canvas: &mut Canvas, name: &str, element: &Value, kind: Option<&str>) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, no_extent());
+            self.collapsed(name, element);
             return;
         };
         let paint = Fill {
-            fill: element.get("fill").and_then(rgba),
-            stroke: element.get("stroke").and_then(rgba),
-            stroke_width: element
-                .get("stroke_width")
-                .and_then(Value::as_i64)
-                .unwrap_or(0) as f64,
+            fill: animatable::colour_at(element, "fill", self.instant)
+                .as_ref()
+                .and_then(rgba_of),
+            stroke: animatable::colour_at(element, "stroke", self.instant)
+                .as_ref()
+                .and_then(rgba_of),
+            stroke_width: animatable::number_at(element, "stroke_width", self.instant, 0.0),
         };
         if paint.fill.is_none() && (paint.stroke.is_none() || paint.stroke_width <= 0.0) {
+            // A keyed `stroke_width` passing through zero draws nothing for that frame, as a
+            // keyed box does (ADR-0146): only a shape that states no paint at all is the
+            // finding.
+            if animatable::records(element, "stroke_width").is_some() && paint.stroke.is_some() {
+                return;
+            }
             // ADR-0014: a shape with neither fill nor stroke is a schema error naming both,
             // "because an element that deliberately renders nothing and an element that
             // forgot its paint must not look alike". Saying so here is the same rule at the
@@ -1479,7 +1488,7 @@ impl<'a> Painter<'a> {
         let shape = match kind {
             Some("ellipse") => Shape::Ellipse,
             _ => Shape::Rect {
-                radius: element.get("radius").and_then(Value::as_i64).unwrap_or(0) as f64,
+                radius: animatable::number_at(element, "radius", self.instant, 0.0),
             },
         };
         let effects = self.effects_of(name, element);
@@ -1512,7 +1521,7 @@ impl<'a> Painter<'a> {
         playhead: Playhead,
     ) {
         let Some(extent) = self.extent(element) else {
-            self.defer(name, no_extent());
+            self.collapsed(name, element);
             return;
         };
         let Some(source) = element.get("source").and_then(Value::as_str) else {
@@ -1829,14 +1838,25 @@ impl<'a> Painter<'a> {
         self.painted.push(name.to_string());
     }
 
-    /// The declared box, before `scale`.
+    /// The declared box, before `scale`, resolved at the instant (ADR-0146) — `None` where
+    /// it is not drawn this frame.
     fn extent(&self, element: &Value) -> Option<Extent> {
-        let width = element.get("width").and_then(Value::as_i64)?;
-        let height = element.get("height").and_then(Value::as_i64)?;
-        (width > 0 && height > 0).then_some(Extent {
-            width: width as f64,
-            height: height as f64,
-        })
+        let (width, height) = animatable::painted_box(element, i128::from(self.instant), 1)?;
+        Some(Extent { width, height })
+    }
+
+    /// An element with no box to draw at this instant.
+    ///
+    /// A box that is positive at some other frame of the element's range draws nothing for
+    /// this one and is no finding, as `opacity` 0 is not (ADR-0146 §5). One that is never
+    /// positive — or is not stated at all — is `E-NOT-PAINTED-NO-EXTENT`, decided through the
+    /// same [`animatable::never_painted`] `validate` asks, so the two verbs agree.
+    fn collapsed(&mut self, name: &str, element: &Value) {
+        if !animatable::states_a_box(element) {
+            self.defer(name, no_extent());
+        } else if animatable::never_painted(element, self.fps) {
+            self.defer(name, crate::checks::extent::never_painted());
+        }
     }
 
     /// The resolved transform, through the same reading the `query --at` block's geometry
@@ -1971,13 +1991,19 @@ fn video_of(probe: &crate::media::probe::Probe) -> supply::Video {
 }
 
 fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) -> Vec<Fill> {
+    // The element's own paint, resolved at the instant (ADR-0146); runs and highlights stay
+    // static and override it as before.
     let base = Fill {
-        fill: Some(element.get("color").and_then(rgba).unwrap_or(DEFAULT_INK)),
-        stroke: element.get("stroke").and_then(rgba),
-        stroke_width: element
-            .get("stroke_width")
-            .and_then(Value::as_i64)
-            .unwrap_or(0) as f64,
+        fill: Some(
+            animatable::colour_at(element, "color", instant)
+                .as_ref()
+                .and_then(rgba_of)
+                .unwrap_or(DEFAULT_INK),
+        ),
+        stroke: animatable::colour_at(element, "stroke", instant)
+            .as_ref()
+            .and_then(rgba_of),
+        stroke_width: animatable::number_at(element, "stroke_width", instant, 0.0),
     };
     crate::verbs::measure::runs_array(element)
         .iter()

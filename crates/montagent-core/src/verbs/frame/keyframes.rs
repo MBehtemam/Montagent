@@ -29,7 +29,6 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::checks::ANIMATABLE;
 use crate::exact::{self, instant_of};
 use crate::permissive::Loose;
 use crate::verbs::query::cuts::Interval;
@@ -268,10 +267,12 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
         .elements()
         .filter_map(|element| Some((element, element.get("id")?.as_str()?)))
         .flat_map(|(element, id)| {
-            ANIMATABLE
+            // The one list (ADR-0146), less what cannot be seen.
+            crate::animatable::names()
                 .iter()
-                .filter(|&&property| property != "volume")
-                .filter_map(move |&property| {
+                .map(String::as_str)
+                .filter(|&property| property != "volume")
+                .filter_map(move |property| {
                     let records = element.get(property)?.as_array()?;
                     // A keyframe list, as `Animatable` reads one: an array of objects.
                     // `scale`'s static `[sx, sy]` is not.

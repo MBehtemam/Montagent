@@ -89,6 +89,27 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   and travels with the element, which is why `shift` moves elements and carries their
   keyframes along. A keyframe outside its element's range is legal and ordinary: it is how
   a trimmed move is spelled.
+- **An animatable property is one the schema types as a literal or a keyframe list**
+  (ADR-0146); a list on any other field is a schema error. Today: `x`, `y`, `scale`,
+  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
+  `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
+  `radius`; a `text` element's `color`, `stroke`, `stroke_width` and `letter_spacing`. The
+  box of an `image`, `video` or `text`, `clip`, enums, run and highlight paint, and effect
+  parameters stay static. A run's paint still beats the element's keyed value; where every
+  run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).
+- **A keyed colour blends in sRGB with premultiplied alpha** (ADR-0146), the CSS rule:
+  each component clamped to its range, then rounded to the nearest byte; six digits are
+  opaque. A fade from `#FF0000` to `#00000000` stays red, and `query --at` prints its
+  midpoint as `#FF000080` — always a literal you can paste back.
+- **A keyed size is continuous, and at or below zero draws nothing that frame**
+  (ADR-0146). `width`, `height`, `radius` and `stroke_width` keyframes are non-negative
+  integers (`0` is legal); between them the value is never rounded. Under an overshooting
+  ease a `width` or `height` at or below zero draws nothing, as `opacity` 0 does; `radius`
+  clamps to half the shorter side and `stroke_width` to `0`. A box with no positive size at
+  **any** frame of its range is `E-NOT-PAINTED-NO-EXTENT` from both `validate` and `render`.
+- **`shift` splits every keyframe list it cuts into literals** (ADR-0146): an integer to the
+  nearest (ties away from zero), a colour to bytes. A split the field cannot hold — a size
+  an overshoot carried below zero — is refused (`E-SHIFT-SPLIT-UNWRITABLE`), never clamped.
 - **Slack is invariant** (ADR-0032). The distance from one boundary to the next is content, not
   padding a tool may absorb. `shift` refuses an edit that would change an existing slack's
   size rather than quietly taking up the difference.

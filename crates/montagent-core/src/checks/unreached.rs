@@ -67,39 +67,9 @@ use serde_json::{Value, json};
 
 use crate::exact;
 use crate::finding::Finding;
-use crate::model::Animatable;
 use crate::permissive::Loose;
 use crate::report::Report;
-use crate::resolve;
 use crate::stack::TimelineRange;
-
-/// What one property's `v` is, as the resolver's types see it.
-///
-/// Every member of [`crate::checks::ANIMATABLE`] has one, because ADR-0035 is explicit
-/// that *"scope generalizes past opacity and past 0/1: any animated property whose
-/// declared endpoint is never sampled qualifies, not a special case pinned to fades"* —
-/// so this maps that shared list rather than restating it.
-#[derive(Clone, Copy)]
-enum Shape {
-    /// `x`/`y`: absolute integer pixels in the document, continuous once resolved
-    /// (ADR-0035 — a resolved `x` is not an `i64`). `letter_spacing` is integer-typed the
-    /// same way (ADR-0151).
-    Pixels,
-    /// `rotation`, `opacity`, `volume`.
-    Scalar,
-    /// `scale`, which is `[sx, sy]` and never a bare number (ADR-0012).
-    Pair,
-}
-
-impl Shape {
-    fn of(property: &str) -> Shape {
-        match property {
-            "x" | "y" | "letter_spacing" => Shape::Pixels,
-            "scale" => Shape::Pair,
-            _ => Shape::Scalar,
-        }
-    }
-}
 
 /// Which end of the list a target came from.
 #[derive(Clone, Copy)]
@@ -145,14 +115,13 @@ pub fn check(document: &Loose, report: &mut Report) {
         }
 
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
-        for property in crate::checks::ANIMATABLE {
+        for property in crate::animatable::names() {
             let Some(records) = crate::checks::keyframe_records(element, property) else {
                 continue;
             };
             let Some((first_t, last_t)) = endpoints(records) else {
                 continue;
             };
-            let written = &element[property];
 
             for (which, declared_t, nearest) in [
                 // The last record's plateau is `[t, end)`, and the frame nearest its
@@ -163,15 +132,9 @@ pub fn check(document: &Loose, report: &mut Report) {
                 if !misses(which, declared_t, range, first_frame, fps) {
                     continue;
                 }
-                let Some(finding) = unreached(
-                    written,
-                    Shape::of(property),
-                    &subject,
-                    property,
-                    declared_t,
-                    nearest,
-                    range,
-                ) else {
+                let Some(finding) =
+                    unreached(element, &subject, property, declared_t, nearest, range)
+                else {
                     continue;
                 };
                 let finding = finding.at_file(document.path()).at_element(&subject);
@@ -247,17 +210,16 @@ fn misses(
 /// reach a target the interpolation arithmetic would not — is answered by the same
 /// resolver the renderer uses rather than by a special case here.
 fn unreached(
-    written: &Value,
-    shape: Shape,
+    element: &Value,
     subject: &str,
     property: &str,
     declared_t: i64,
     nearest: exact::Sampled,
     range: TimelineRange,
 ) -> Option<Finding> {
-    let declared = resolved(written, shape, i128::from(declared_t), 1)?;
+    let declared = resolved(element, property, i128::from(declared_t), 1)?;
     let (numerator, denominator) = nearest.ratio();
-    let sampled = resolved(written, shape, numerator, denominator)?;
+    let sampled = resolved(element, property, numerator, denominator)?;
     if declared == sampled {
         return None;
     }
@@ -281,23 +243,11 @@ fn unreached(
 
 /// One property, resolved at `numerator / denominator` ms and rendered as JSON.
 ///
-/// Through [`crate::resolve`] and its own types, so that what this check calls the value
-/// at an instant is what `query --at` and the rasterizer call it. `None` where the
-/// property does not fit those types — a schema fact, and the schema check's to report.
-fn resolved(written: &Value, shape: Shape, numerator: i128, denominator: i128) -> Option<Value> {
-    fn one<T>(written: &Value, numerator: i128, denominator: i128) -> Option<Value>
-    where
-        T: serde::de::DeserializeOwned + resolve::Interpolate,
-        T::Out: serde::Serialize,
-    {
-        let animatable = serde_json::from_value::<Animatable<T>>(written.clone()).ok()?;
-        let resolved = resolve::at_instant(&animatable, numerator, denominator).ok()?;
-        serde_json::to_value(resolved).ok()
-    }
-
-    match shape {
-        Shape::Pixels => one::<i64>(written, numerator, denominator),
-        Shape::Scalar => one::<f64>(written, numerator, denominator),
-        Shape::Pair => one::<[f64; 2]>(written, numerator, denominator),
-    }
+/// Through [`crate::animatable::read`], the one resolving function, so that what this check
+/// calls the value at an instant is what `query --at` and the rasterizer call it — a colour
+/// included, compared as the bytes it paints. `None` where the property does not fit the
+/// format's types — a schema fact, and the schema check's to report.
+fn resolved(element: &Value, property: &str, numerator: i128, denominator: i128) -> Option<Value> {
+    let resolved = crate::animatable::read(element, property, numerator, denominator)?.ok()?;
+    serde_json::to_value(resolved).ok()
 }

@@ -8,9 +8,11 @@
 //!   stretching speech desyncs its source, and moving it whole relocates audio that has
 //!   already begun.
 //! - **Keyframes are carried by their element**, not dragged by the raw `at`-or-after rule
-//!   (ADR-0012). A time-invariant straddler's transform properties go through SPLIT, which
+//!   (ADR-0012). A time-invariant straddler's keyframe lists go through SPLIT, which
 //!   inserts a `delta`-long hold at the cut so the picture is identical outside
-//!   `[at, at+delta)`.
+//!   `[at, at+delta)`. Every list is one the schema types as animatable
+//!   ([`crate::animatable`], ADR-0146), so no property is left behind; a split whose value
+//!   is no legal literal for its field is refused (`E-SHIFT-SPLIT-UNWRITABLE`).
 //! - **Every slack in the file is invariant by default** (ADR-0032). An edit that would
 //!   change one is refused, listing every threatened pair; `release` consumes exactly the
 //!   pairs a refusal reported (ADR-0047), named individually — there is no bulk form.
@@ -34,11 +36,12 @@ use std::path::Path as FilePath;
 use serde::Serialize;
 use serde_json::{Value, json};
 
+use crate::animatable::{self, Kind, Property};
 use crate::finding::Finding;
 use crate::media::sidecar::Sidecar;
-use crate::model::{Animatable, Body, Ease, EaseName, Element, Keyframe, Project};
+use crate::model::{Body, Colour, Ease, EaseName, Element, Keyframe, Project, Scale};
 use crate::report::{ExitCode, Report};
-use crate::resolve::{self, Interpolate};
+use crate::resolve::{self, Blend, Interpolate};
 use crate::slack::{self, Edge, Side, Slack};
 use crate::write;
 
@@ -162,6 +165,7 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
     let old_slacks = slack::of(&document);
     let mut new_instants: HashMap<(String, Side), i64> = HashMap::new();
     let mut straddlers: Vec<Straddle> = Vec::new();
+    let mut unwritable: Vec<(String, String, Unwritable)> = Vec::new();
 
     for track in &mut project.tracks {
         let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
@@ -174,6 +178,9 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                         start: element.start,
                         end: element.end,
                     });
+                }
+                Outcome::Unwritable(refusal) => {
+                    unwritable.push((element.id.clone(), track.name.clone(), refusal));
                 }
                 Outcome::Untouched | Outcome::Moved => {}
             }
@@ -193,6 +200,23 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     .field("delta", json!(ask.delta))
                     .field("start", json!(straddle.start))
                     .field("end", json!(straddle.end)),
+            );
+        }
+        return Answer { preamble, report };
+    }
+
+    // ADR-0146 §7: a split writes a new keyframe, and its value must be a legal literal.
+    // Clamping it instead would bend both halves of the curve without saying so.
+    if !unwritable.is_empty() {
+        for (element, track, refusal) in &unwritable {
+            report.push(
+                Finding::new("E-SHIFT-SPLIT-UNWRITABLE")
+                    .at_file(document.path())
+                    .at_element(element.clone())
+                    .at_track(track.clone())
+                    .field("property", json!(refusal.property))
+                    .field("at", json!(ask.at))
+                    .field("value", json!(refusal.value)),
             );
         }
         return Answer { preamble, report };
@@ -273,11 +297,20 @@ struct Straddle {
     end: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Outcome {
     Untouched,
     Moved,
     Straddle,
+    /// A split would write a value no literal of the property can hold (ADR-0146 §7).
+    Unwritable(Unwritable),
+}
+
+/// The property a split could not write, and the value it would have written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Unwritable {
+    property: String,
+    value: String,
 }
 
 /// ADR-0005's table, amended by ADR-0012 for keyframes: what one element does under a
@@ -289,7 +322,12 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
     if element.start >= at {
         element.start += delta;
         element.end += delta;
-        shift_all_keyframes(&mut element.body, delta);
+        if let Err(refusal) = edit_lists(&mut element.body, |_, list| {
+            carry(list, delta);
+            Ok(())
+        }) {
+            return Outcome::Unwritable(refusal);
+        }
         return Outcome::Moved;
     }
     // `start < at < end`: a straddler.
@@ -297,8 +335,12 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
         return Outcome::Straddle;
     }
     element.end += delta;
-    split_all_keyframes(&mut element.body, at, delta);
-    Outcome::Moved
+    match edit_lists(&mut element.body, |property, list| {
+        split_list(property, list, at, delta)
+    }) {
+        Ok(()) => Outcome::Moved,
+        Err(refusal) => Outcome::Unwritable(refusal),
+    }
 }
 
 /// Does this element's source carry a clock? `video` and `audio` do (ADR-0005); every
@@ -464,7 +506,7 @@ fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
                         element: element.id.clone(),
                         kind: "keyframe",
                         role,
-                        property: Some(property.to_string()),
+                        property: Some(property.clone()),
                         effect: "carried with its element, not moved by the at-or-after \
                                  rule (ADR-0012)"
                             .to_string(),
@@ -476,158 +518,131 @@ fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
     out
 }
 
-/// Every animated property's keyframe `t` list, for the coincidence preamble alone —
-/// SPLIT and the plain shift read the fields directly, typed, rather than through this.
-fn animatable_lists(body: &Body) -> Vec<(&'static str, Vec<i64>)> {
-    fn ts<T>(name: &'static str, prop: &Option<Animatable<T>>) -> Option<(&'static str, Vec<i64>)> {
-        match prop {
-            Some(Animatable::Keyed(records)) => {
-                Some((name, records.iter().map(|record| record.t).collect()))
+/// Every animated property's keyframe `t` list, for the coincidence preamble — read off the
+/// one list the schema types (ADR-0146), as the plain shift and SPLIT read it.
+fn animatable_lists(body: &Body) -> Vec<(String, Vec<i64>)> {
+    let Ok(value) = serde_json::to_value(body) else {
+        return Vec::new();
+    };
+    animatable::of(body.type_name())
+        .iter()
+        .filter_map(|property| {
+            let records = animatable::records(&value, &property.name)?;
+            Some((
+                property.name.clone(),
+                records
+                    .iter()
+                    .filter_map(|record| record.get("t")?.as_i64())
+                    .collect(),
+            ))
+        })
+        .collect()
+}
+
+/// Edit every keyframe list `body` carries, through the one list of animatable properties
+/// the schema types (ADR-0146) — so a property joins `shift` by being typed animatable, and
+/// no list here can leave one behind.
+///
+/// The body is read as the document writes it, each list edited in place, and the whole read
+/// back as the model, so the edit meets the same reader the file will. A refusal leaves the
+/// body as it was.
+fn edit_lists(
+    body: &mut Body,
+    mut edit: impl FnMut(&Property, &mut Value) -> Result<(), Unwritable>,
+) -> Result<(), Unwritable> {
+    let Ok(mut value) = serde_json::to_value(&*body) else {
+        return Ok(());
+    };
+    let mut touched = false;
+    for property in animatable::of(body.type_name()) {
+        if animatable::records(&value, &property.name).is_none() {
+            continue;
+        }
+        edit(property, &mut value[property.name.as_str()])?;
+        touched = true;
+    }
+    if !touched {
+        return Ok(());
+    }
+    match serde_json::from_value(value) {
+        Ok(edited) => {
+            *body = edited;
+            Ok(())
+        }
+        // SPLIT and the plain shift write only what the model reads; reaching this is this
+        // verb contradicting itself, and is refused rather than written.
+        Err(e) => Err(Unwritable {
+            property: "(the element)".to_string(),
+            value: format!("a keyframe list the model does not read back: {e}"),
+        }),
+    }
+}
+
+/// The "entirely after" row: every keyframe moves by `delta`, including those before `at`
+/// (ADR-0012's amendment to ADR-0005).
+fn carry(list: &mut Value, delta: i64) {
+    for record in list.as_array_mut().into_iter().flatten() {
+        if let Some(t) = record.get("t").and_then(Value::as_i64) {
+            record["t"] = json!(t + delta);
+        }
+    }
+}
+
+/// SPLIT (ADR-0012) on one property's list, written as the property's [`Kind`] says:
+/// an integer to the nearest integer, ties away from zero; a number to six places; a pair
+/// component by component; a colour to bytes (ADR-0146 §7).
+fn split_list(
+    property: &Property,
+    list: &mut Value,
+    at: i64,
+    delta: i64,
+) -> Result<(), Unwritable> {
+    let refuse = |value: String| Unwritable {
+        property: property.name.clone(),
+        value,
+    };
+    // A bound the schema states on every value is a bound the written split must keep.
+    let bounded = |raw: f64| match property.minimum {
+        Some(minimum) if raw < minimum => Err(refuse(format!("{}", round6(raw)))),
+        _ => Ok(raw),
+    };
+    match property.kind {
+        Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
+        Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
+        Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),
+        Kind::Colour => split_typed::<Colour>(list, at, delta, |blend: Blend| {
+            if blend.in_range() {
+                Ok(blend.settle())
+            } else {
+                let [r, g, b, a] = blend.0.map(round6);
+                Err(refuse(format!(
+                    "a colour outside its range (premultiplied red {r}, green {g}, blue {b}, \
+                     alpha {a})"
+                )))
             }
-            _ => None,
-        }
-    }
-
-    let mut out = Vec::new();
-    match body {
-        Body::Image(e) => {
-            out.extend(ts("x", &e.x));
-            out.extend(ts("y", &e.y));
-            out.extend(ts("scale", &e.scale));
-            out.extend(ts("rotation", &e.rotation));
-            out.extend(ts("opacity", &e.opacity));
-        }
-        Body::Video(e) => {
-            out.extend(ts("x", &e.x));
-            out.extend(ts("y", &e.y));
-            out.extend(ts("scale", &e.scale));
-            out.extend(ts("rotation", &e.rotation));
-            out.extend(ts("opacity", &e.opacity));
-            out.extend(ts("volume", &e.volume));
-        }
-        Body::Text(e) => {
-            out.extend(ts("x", &e.x));
-            out.extend(ts("y", &e.y));
-            out.extend(ts("letter_spacing", &e.letter_spacing));
-            out.extend(ts("scale", &e.scale));
-            out.extend(ts("rotation", &e.rotation));
-            out.extend(ts("opacity", &e.opacity));
-        }
-        Body::Rect(e) => {
-            out.extend(ts("x", &e.x));
-            out.extend(ts("y", &e.y));
-            out.extend(ts("scale", &e.scale));
-            out.extend(ts("rotation", &e.rotation));
-            out.extend(ts("opacity", &e.opacity));
-        }
-        Body::Ellipse(e) => {
-            out.extend(ts("x", &e.x));
-            out.extend(ts("y", &e.y));
-            out.extend(ts("scale", &e.scale));
-            out.extend(ts("rotation", &e.rotation));
-            out.extend(ts("opacity", &e.opacity));
-        }
-        Body::Audio(e) => {
-            out.extend(ts("volume", &e.volume));
-        }
-        Body::Transition(_) => {}
-    }
-    out
-}
-
-/// Every keyframe on every animated property of `body` moves by `delta` — the "entirely
-/// after" row, which drags keyframes before `at` too (ADR-0012's amendment to ADR-0005).
-fn shift_all_keyframes(body: &mut Body, delta: i64) {
-    match body {
-        Body::Image(e) => {
-            shift_keyframes(&mut e.x, delta);
-            shift_keyframes(&mut e.y, delta);
-            shift_keyframes(&mut e.scale, delta);
-            shift_keyframes(&mut e.rotation, delta);
-            shift_keyframes(&mut e.opacity, delta);
-        }
-        Body::Video(e) => {
-            shift_keyframes(&mut e.x, delta);
-            shift_keyframes(&mut e.y, delta);
-            shift_keyframes(&mut e.scale, delta);
-            shift_keyframes(&mut e.rotation, delta);
-            shift_keyframes(&mut e.opacity, delta);
-            shift_keyframes(&mut e.volume, delta);
-        }
-        Body::Text(e) => {
-            shift_keyframes(&mut e.x, delta);
-            shift_keyframes(&mut e.y, delta);
-            shift_keyframes(&mut e.letter_spacing, delta);
-            shift_keyframes(&mut e.scale, delta);
-            shift_keyframes(&mut e.rotation, delta);
-            shift_keyframes(&mut e.opacity, delta);
-        }
-        Body::Rect(e) => {
-            shift_keyframes(&mut e.x, delta);
-            shift_keyframes(&mut e.y, delta);
-            shift_keyframes(&mut e.scale, delta);
-            shift_keyframes(&mut e.rotation, delta);
-            shift_keyframes(&mut e.opacity, delta);
-        }
-        Body::Ellipse(e) => {
-            shift_keyframes(&mut e.x, delta);
-            shift_keyframes(&mut e.y, delta);
-            shift_keyframes(&mut e.scale, delta);
-            shift_keyframes(&mut e.rotation, delta);
-            shift_keyframes(&mut e.opacity, delta);
-        }
-        Body::Audio(e) => {
-            shift_keyframes(&mut e.volume, delta);
-        }
-        Body::Transition(_) => {}
+        }),
     }
 }
 
-fn shift_keyframes<T>(prop: &mut Option<Animatable<T>>, delta: i64) {
-    if let Some(Animatable::Keyed(records)) = prop {
-        for record in records.iter_mut() {
-            record.t += delta;
-        }
+fn split_typed<T>(
+    list: &mut Value,
+    at: i64,
+    delta: i64,
+    write: impl Fn(<T as Interpolate>::Out) -> Result<T, Unwritable>,
+) -> Result<(), Unwritable>
+where
+    T: Interpolate + Clone + PartialEq + Serialize + serde::de::DeserializeOwned,
+{
+    // A list that does not read as the property's type is the schema check's to report, and
+    // `shift` runs only on a document that validated clean.
+    let Ok(mut records) = serde_json::from_value::<Vec<Keyframe<T>>>(list.clone()) else {
+        return Ok(());
+    };
+    split_keyed(&mut records, at, delta, &write)?;
+    if let Ok(written) = serde_json::to_value(&records) {
+        *list = written;
     }
-}
-
-/// SPLIT (ADR-0012), for a time-invariant straddler's every animated property.
-fn split_all_keyframes(body: &mut Body, at: i64, delta: i64) {
-    match body {
-        Body::Image(e) => {
-            split_property(&mut e.x, at, delta, round_i64);
-            split_property(&mut e.y, at, delta, round_i64);
-            split_property(&mut e.scale, at, delta, round_scale);
-            split_property(&mut e.rotation, at, delta, round6);
-            split_property(&mut e.opacity, at, delta, round6);
-        }
-        Body::Text(e) => {
-            split_property(&mut e.x, at, delta, round_i64);
-            split_property(&mut e.y, at, delta, round_i64);
-            // Integer-typed (ADR-0151): the split value rounds as `x` does (ADR-0146 §7).
-            split_property(&mut e.letter_spacing, at, delta, round_i64);
-            split_property(&mut e.scale, at, delta, round_scale);
-            split_property(&mut e.rotation, at, delta, round6);
-            split_property(&mut e.opacity, at, delta, round6);
-        }
-        Body::Rect(e) => {
-            split_property(&mut e.x, at, delta, round_i64);
-            split_property(&mut e.y, at, delta, round_i64);
-            split_property(&mut e.scale, at, delta, round_scale);
-            split_property(&mut e.rotation, at, delta, round6);
-            split_property(&mut e.opacity, at, delta, round6);
-        }
-        Body::Ellipse(e) => {
-            split_property(&mut e.x, at, delta, round_i64);
-            split_property(&mut e.y, at, delta, round_i64);
-            split_property(&mut e.scale, at, delta, round_scale);
-            split_property(&mut e.rotation, at, delta, round6);
-            split_property(&mut e.opacity, at, delta, round6);
-        }
-        // Time-based, and refused before reaching here (`transform_element`).
-        Body::Video(_) | Body::Audio(_) => unreachable!("time-based straddlers refuse"),
-        Body::Transition(_) => {}
-    }
+    Ok(())
 }
 
 fn round_i64(v: f64) -> i64 {
@@ -643,26 +658,14 @@ fn round_scale(v: [f64; 2]) -> [f64; 2] {
     [round6(v[0]), round6(v[1])]
 }
 
-fn split_property<T>(
-    prop: &mut Option<Animatable<T>>,
-    at: i64,
-    delta: i64,
-    round: fn(<T as Interpolate>::Out) -> T,
-) where
-    T: Interpolate + Clone + PartialEq,
-{
-    if let Some(Animatable::Keyed(records)) = prop {
-        split_keyed(records, at, delta, round);
-    }
-}
-
 /// SPLIT's seven steps, over one property's records.
 fn split_keyed<T>(
     records: &mut Vec<Keyframe<T>>,
     at: i64,
     delta: i64,
-    round: fn(<T as Interpolate>::Out) -> T,
-) where
+    write: &impl Fn(<T as Interpolate>::Out) -> Result<T, Unwritable>,
+) -> Result<(), Unwritable>
+where
     T: Interpolate + Clone + PartialEq,
 {
     records.sort_by_key(|record| record.t);
@@ -670,7 +673,7 @@ fn split_keyed<T>(
         records.first().map(|record| record.t),
         records.last().map(|record| record.t),
     ) else {
-        return;
+        return Ok(());
     };
 
     // Steps 2-4, 6: computed against the *original* list, before step 5 touches anything,
@@ -727,7 +730,9 @@ fn split_keyed<T>(
                 .expect("ADR-0038: every non-first record carries an ease");
             let fraction = (at - a.t) as f64 / (records[segment + 1].t - a.t) as f64;
             let (left, right, progress) = subdivide(&b_ease, fraction);
-            let v = round(T::between(&a.v, &records[segment + 1].v, progress));
+            // The value is written before anything in the list moves, so a refusal leaves
+            // the list as it was.
+            let v = write(T::between(&a.v, &records[segment + 1].v, progress))?;
             records[segment + 1].ease = Some(right);
             pending = Some((
                 segment + 1,
@@ -768,6 +773,7 @@ fn split_keyed<T>(
     // Step 7: collapse any run of three or more consecutive records sharing one `v` and
     // one `ease` to its two endpoints.
     collapse_holds(records);
+    Ok(())
 }
 
 /// The eased progress `y` at `x = fraction` on `ease`'s curve, and `ease` split there into

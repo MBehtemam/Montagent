@@ -71,13 +71,14 @@
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::animatable::Unreadable;
 use crate::exact::{self, Decimal};
 use crate::media::Source;
 use crate::media::probe::Outcome;
 use crate::media::session::Session;
-use crate::model::{Animatable, Scale};
+use crate::model::Animatable;
 use crate::permissive::Loose;
-use crate::resolve::{self, Interpolate, Unresolvable};
+use crate::resolve::{self, Unresolvable};
 use crate::stack::{Stack, Unresolved};
 
 use super::Named;
@@ -205,41 +206,6 @@ pub struct Resolved {
     /// judge; this says only that the view could not answer.
     pub unresolved: Option<String>,
 }
-
-/// The value shape a property is written in — the one table mapping a key to the type the
-/// model declares for it.
-///
-/// It exists because this mode reads the permissive tree (the representation that always
-/// exists, and the one every other check and view already reads) rather than the strict
-/// model, so the per-property type cannot come from a struct field. What it does *not*
-/// duplicate is any rule: the reading is [`Animatable`]'s own deserializer, and the
-/// resolution is [`crate::resolve`].
-#[derive(Clone, Copy)]
-enum Shape {
-    /// `x`, `y` — absolute integer pixels in the document (ADR-0012) — and `letter_spacing`,
-    /// integer thousandths of an em (ADR-0151). Integer-typed: the resolved value is a
-    /// number that is never rounded.
-    Pixels,
-    /// `rotation`, `opacity`, `volume` — ratios and angles, floats in the document.
-    Ratio,
-    /// `scale` — always `[sx, sy]`, never a bare number (ADR-0012).
-    Pair,
-}
-
-/// Every animated property in the format, in the order the model declares them.
-///
-/// One list rather than one per element type: the key is spelled the same wherever it
-/// appears, and a `volume` on an image is a schema error that `validate` reports rather than
-/// something this view has to have an opinion about.
-const ANIMATED: [(&str, Shape); 7] = [
-    ("x", Shape::Pixels),
-    ("y", Shape::Pixels),
-    ("letter_spacing", Shape::Pixels),
-    ("scale", Shape::Pair),
-    ("rotation", Shape::Ratio),
-    ("opacity", Shape::Ratio),
-    ("volume", Shape::Ratio),
-];
 
 /// Answer `--at`, opening a probing [`Session`] itself where the project needs one.
 ///
@@ -707,56 +673,64 @@ fn crop_for(
     }
 }
 
-/// Every animated property this element declares, resolved.
+/// Every animatable property this element declares, resolved through the one resolving
+/// function ([`crate::animatable::read`]) — in the order the schema declares them, never the
+/// order the file happens to write them in. The list is the schema's (ADR-0146): a property
+/// joins this answer by being typed as animatable, never by being added here.
+///
+/// A colour is printed as the literal that can be pasted back: six digits when opaque,
+/// `#00000000` at alpha 0.
 fn values(element: &Value, instant: i64) -> Vec<Resolved> {
-    ANIMATED
-        .iter()
-        .filter_map(|(property, shape)| {
-            let written = element.get(*property)?;
-            Some(match shape {
-                Shape::Pixels => resolved::<i64>(property, written, instant),
-                Shape::Ratio => resolved::<f64>(property, written, instant),
-                Shape::Pair => resolved::<Scale>(property, written, instant),
+    let declared = crate::animatable::of_element(element);
+    let names: Vec<&str> = if declared.is_empty() {
+        crate::animatable::names()
+            .iter()
+            .map(String::as_str)
+            .collect()
+    } else {
+        declared
+            .iter()
+            .map(|property| property.name.as_str())
+            .collect()
+    };
+    names
+        .into_iter()
+        .filter_map(|property| {
+            let resolved = crate::animatable::at(element, property, instant)?;
+            let animated = crate::animatable::records(element, property).is_some();
+            Some(match resolved {
+                Ok(value) => match serde_json::to_value(value) {
+                    Ok(value) => Resolved {
+                        property: property.to_string(),
+                        animated,
+                        value: Some(value),
+                        unresolved: None,
+                    },
+                    // A value JSON cannot carry — an infinity or a NaN reached by
+                    // interpolating one.
+                    Err(e) => unreadable(property, animated, e.to_string()),
+                },
+                // The format's own reader, which is also where ADR-0038's positional `ease`
+                // rule is enforced — so a keyframe list missing an `ease` on a later record
+                // arrives here as unreadable rather than as a value this module had to
+                // invent a default to produce.
+                Err(Unreadable::Schema(reason)) => {
+                    unreadable(property, element[property].is_array(), reason)
+                }
+                Err(Unreadable::Unresolvable(unresolvable)) => {
+                    unreadable(property, animated, unanswered(unresolvable))
+                }
             })
         })
         .collect()
 }
 
-/// One property, read as the format's own type and resolved at the instant.
-fn resolved<T>(property: &str, written: &Value, instant: i64) -> Resolved
-where
-    T: serde::de::DeserializeOwned + Interpolate,
-    T::Out: Serialize,
-{
-    let unreadable = |animated: bool, reason: String| Resolved {
+fn unreadable(property: &str, animated: bool, reason: String) -> Resolved {
+    Resolved {
         property: property.to_string(),
         animated,
         value: None,
         unresolved: Some(reason),
-    };
-
-    // The format's own reader, which is also where ADR-0038's positional `ease` rule is
-    // enforced — so a keyframe list missing an `ease` on a later record arrives here as
-    // unreadable rather than as a value this module had to invent a default to produce.
-    let animatable: Animatable<T> = match serde_json::from_value(written.clone()) {
-        Ok(animatable) => animatable,
-        Err(e) => return unreadable(written.is_array(), e.to_string()),
-    };
-    let animated = matches!(animatable, Animatable::Keyed(_));
-
-    let value = match resolve::at(&animatable, instant) {
-        Ok(value) => value,
-        Err(unresolvable) => return unreadable(animated, unanswered(unresolvable)),
-    };
-    match serde_json::to_value(value) {
-        Ok(value) => Resolved {
-            property: property.to_string(),
-            animated,
-            value: Some(value),
-            unresolved: None,
-        },
-        // A value JSON cannot carry — an infinity or a NaN reached by interpolating one.
-        Err(e) => unreadable(animated, e.to_string()),
     }
 }
 

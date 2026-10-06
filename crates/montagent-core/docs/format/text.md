@@ -59,6 +59,8 @@ number, and the ADR is right where the two disagree.
   Between two records the spacing passes only through the values between them; a bezier's
   overshoot past a record is not sampled. `measure` answers a keyed spacing at the largest
   value the list writes, and says which value it used in `asked.letter_spacing`.
+- **A keyed text `stroke_width` is measured at its widest keyframe** (ADR-0146): the stroke
+  moves no glyph, so text is laid out once; each frame paints the resolved width.
 - **`line_height` is a multiplier restricted to one decimal digit** (ADR-0028) — `1.0`, `1.1`, `1.2` —
   so it is always exactly `n/10`. A line's height is the largest `size` among its runs times
   `line_height`; the block height is the `ceil` of that over the line count, computed in
