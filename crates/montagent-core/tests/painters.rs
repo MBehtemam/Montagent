@@ -1225,3 +1225,94 @@ fn motion_blur_paints_the_same_frames_on_any_number_of_painters_with_the_hint_on
         assert_same(&sequential, &unbounded, "the hint off");
     }
 }
+
+/// ADR-0156's gating fixture for `grain` (#725): grain on a moving `video`, on a rect turned
+/// and scaled while it moves, and on a grey rect blended `overlay` over a still, the texture
+/// idiom. Beside them, colour grain under a blur and a shadow, a keyed `amount`, two members
+/// in one list, and grain under `motion_blur`. 160x90 at 30 fps for 600 ms: 18 frames, the
+/// grain re-rolling on every one, across every chunk boundary.
+fn grain_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    for asset in ["fonts/Cinzel-Bold.ttf", "img/boat.jpg"] {
+        let to = dir.join(asset);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+        std::fs::copy(trailer().join(asset), &to).expect("copy the trailer's asset");
+    }
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let keyed = |from: Value, to: Value, until: i64, ease: &str| json!([{"t": 0, "v": from}, {"t": until, "v": to, "ease": ease}]);
+    let grain = |seed: i64, amount: Value, size: i64, mono: bool| json!({"name": "grain", "seed": seed, "amount": amount, "size": size, "mono": mono});
+    let elements = [
+        json!({"id": "ground", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 600,
+               "x": 80, "y": 45, "origin": "center", "width": 160, "height": 90,
+               "fit": "literal"}),
+        json!({"id": "footage", "type": "video", "start": 0, "end": 600, "source": clip,
+               "source_start": 0, "source_end": 600, "y": 30, "origin": "center",
+               "x": keyed(json!(30), json!(60), 500, "ease-in"),
+               "width": 48, "height": 36, "fit": "literal", "volume": 0,
+               "effects": [grain(7, json!(0.15), 1, true)]}),
+        json!({"id": "texture", "type": "rect", "start": 0, "end": 600, "x": 120, "y": 45,
+               "origin": "center", "width": 80, "height": 90, "fill": "#808080",
+               "blend": "overlay", "effects": [grain(11, json!(0.2), 2, true)]}),
+        json!({"id": "turned", "type": "rect", "start": 33, "end": 600, "x": 40, "y": 70,
+               "origin": "center", "width": 30, "height": 14, "fill": "#E0A030",
+               "rotation": keyed(json!(0.0), json!(45.0), 600, "linear"),
+               "scale": keyed(json!([1.0, 1.0]), json!([2.5, 1.5]), 600, "ease-in-out"),
+               "effects": [grain(3, json!(0.3), 3, false)]}),
+        json!({"id": "glowing", "type": "text", "font": "cinzel-bold", "size": 18,
+               "color": "#E3C067", "align": "center", "width": 120, "height": 26,
+               "start": 0, "end": 600, "x": 80, "y": 76, "origin": "center",
+               "runs": [{"text": "GRAIN"}], "caption": false,
+               "effects": [grain(5, keyed(json!(0.0), json!(0.5), 400, "linear"), 1, false),
+                           {"name": "blur", "radius": 1.5},
+                           {"name": "shadow", "dx": 2, "dy": 1, "radius": 4,
+                            "color": "#2050FF", "opacity": 0.8},
+                           grain(6, json!(0.1), 2, true)]}),
+        json!({"id": "smeared", "type": "ellipse", "start": 0, "end": 600, "y": 14,
+               "x": keyed(json!(10), json!(150), 400, "ease-out"), "origin": "center",
+               "width": 20, "height": 12, "fill": "#20C0F0",
+               "effects": [grain(9, json!(0.4), 1, false)],
+               "motion_blur": {"shutter": 180, "samples": 6}}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+        "duration": 600, "output": "out/grain.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "grain.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn grain_paints_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0156 §6, the gating test: if it fails, `grain` is withdrawn, not excused.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = grain_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 18);
+    for pair in sequential.frames.windows(2) {
+        assert_ne!(pair[0], pair[1], "the grain re-rolls on every frame");
+    }
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 1)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}

@@ -15,7 +15,7 @@
 //! remote (`remote = "Self"`, serde's own name for "write the functions, not the impls")
 //! and the trait impls below wrap it — the parse the derive produces, then
 //! [`Effect::checked`]. There is no second enumeration of the vocabulary anywhere: the
-//! eight members are declared once, here.
+//! members are declared once, here.
 //!
 //! ADR-0088 adds a third rule of the same kind, on `chroma`: three of its four parameters
 //! are bounded to `[0, 1]`, and a Rust `f64` field cannot say so. It joins the other two in
@@ -160,6 +160,108 @@ pub enum Effect {
         softness: Animatable<Fraction>,
         spill: Animatable<Fraction>,
     },
+    /// Film grain: a symmetric offset per colour channel, drawn per `size`×`size` cell by a
+    /// fixed integer hash of the written `seed` and the element's local frame, so it
+    /// re-rolls on every output frame (ADR-0156 §3, §4).
+    ///
+    /// `amount` (`0`–`1`) is the one animatable parameter. `seed`, `size` and `mono` are
+    /// static: none is typed `Animatable`, so a keyframe list on any of them is a schema
+    /// error and none joins the one derived list of animatable properties (ADR-0146).
+    Grain {
+        seed: Seed,
+        amount: Animatable<Fraction>,
+        size: GrainSize,
+        mono: bool,
+    },
+}
+
+/// `grain`'s `seed`: an integer from `0` to `2³¹ − 1`, never keyed (ADR-0156 §4).
+///
+/// Its own deserializer, so a keyframe list, a fraction or a value out of range is refused
+/// by a sentence naming the key and saying it is static, rather than by serde's bare type
+/// error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct Seed(pub u32);
+
+/// The largest `seed`: `2³¹ − 1`, so a seed fits every signed 32-bit reader.
+pub const SEED_MAX: u32 = i32::MAX as u32;
+
+impl<'de> Deserialize<'de> for Seed {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let written = serde_json::Value::deserialize(deserializer)?;
+        written
+            .as_u64()
+            .and_then(|seed| u32::try_from(seed).ok())
+            .filter(|seed| *seed <= SEED_MAX)
+            .map(Seed)
+            .ok_or_else(|| {
+                D::Error::custom(format!(
+                    "`grain`'s `seed` is {written}: a seed is a literal integer from 0 to \
+                     2147483647, and it is never keyed — change it to change the pattern \
+                     (ADR-0156)"
+                ))
+            })
+    }
+}
+
+impl JsonSchema for Seed {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Seed".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "integer",
+            "minimum": 0,
+            "maximum": SEED_MAX,
+            "description": "A literal integer from `0` to `2147483647` that fixes every draw. \
+                            Static: a keyframe list is a schema error (ADR-0156).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+/// `grain`'s `size`: the side of one cell in unscaled element units, `1` to `8`, never keyed
+/// (ADR-0156 §4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct GrainSize(pub u8);
+
+/// The largest `grain` cell.
+pub const GRAIN_SIZE_MAX: u8 = 8;
+
+impl<'de> Deserialize<'de> for GrainSize {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let written = serde_json::Value::deserialize(deserializer)?;
+        written
+            .as_u64()
+            .filter(|size| (1..=u64::from(GRAIN_SIZE_MAX)).contains(size))
+            .map(|size| GrainSize(size as u8))
+            .ok_or_else(|| {
+                D::Error::custom(format!(
+                    "`grain`'s `size` is {written}: a cell's side is a literal integer from 1 \
+                     to 8, in element units, and it is never keyed (ADR-0156)"
+                ))
+            })
+    }
+}
+
+impl JsonSchema for GrainSize {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "GrainSize".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "integer",
+            "minimum": 1,
+            "maximum": GRAIN_SIZE_MAX,
+            "description": "The side of one grain cell in unscaled element units, `1` to `8`. \
+                            Static: a keyframe list is a schema error (ADR-0156).",
+        }))
+        .expect("an object literal is a schema")
+    }
 }
 
 /// A number from `0` to `1` inclusive: `chroma`'s three normalised scalars (ADR-0088).
@@ -295,6 +397,19 @@ impl Effect {
     /// scalars are bounded to `[0, 1]` and its `color` is `#RRGGBB` with no alpha, and an
     /// `f64` field and a [`Colour`] say neither.
     fn checked(self) -> Result<Self, String> {
+        // ADR-0156 §4: `amount` runs from 0 to 1, in a static value and in every record.
+        if let Effect::Grain { amount, .. } = &self {
+            if let Some(Fraction(value)) = stated(amount)
+                .into_iter()
+                .find(|Fraction(value)| !(0.0..=1.0).contains(value))
+            {
+                return Err(format!(
+                    "`grain`'s `amount` is {value}: the offset per channel runs from 0 to 1, \
+                     with its identity at 0 (ADR-0156)"
+                ));
+            }
+            return Ok(self);
+        }
         if let Effect::Chroma {
             color,
             tolerance,

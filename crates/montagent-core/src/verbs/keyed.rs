@@ -254,7 +254,7 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
             frame,
             at,
             &decoded,
-            &effects_at(element, &effects, at),
+            &effects_at(element, &effects, at, fps),
             box_,
         )?);
     }
@@ -466,10 +466,12 @@ fn effects_at(
     element: &Value,
     declared: &[model::Effect],
     instant: i64,
+    fps: i64,
 ) -> Vec<montagent_render::canvas::Effect> {
+    let frame = crate::grain::local_frame(element, instant, fps);
     (0..declared.len())
         .filter_map(|index| {
-            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1))
+            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame)
         })
         .collect()
 }

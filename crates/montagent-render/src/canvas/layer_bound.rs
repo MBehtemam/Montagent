@@ -24,8 +24,9 @@
 //! blur is a decal convolution whose window reaches less than `ceil(3σ)`. That holds only
 //! under preconditions, and [`Plan::new`] gives no hint at all where one fails:
 //!
-//! - every effect is a `blur`, a `shadow` or a `mask` — colour-filter layers are outside the
-//!   derivation, and an element with one keeps today's unbounded layers throughout;
+//! - every effect is a `blur`, a `shadow`, a `mask` or a `grain` — colour-filter layers are
+//!   outside the derivation, and an element with one keeps today's unbounded layers
+//!   throughout. A `grain`'s own layer is unhinted, as a `mask`'s is, and passes the bound on;
 //! - no perspective;
 //! - layer-space σ ≤ [`MAX_LAYER_SIGMA`] on both axes, above which Skia downsamples the
 //!   layer and the resampling depends on its size. A feathered `mask`'s σ counts, and so
@@ -99,7 +100,8 @@ pub(super) fn hints(
     };
     // Innermost first: effect `i`'s output is what effect `i + 1`'s layer holds.
     for ((effect, filter), hint) in effects.iter().zip(filters).zip(&mut hints) {
-        // A `mask` only erases, so what it holds bounds what it passes on. A blur or shadow
+        // A `mask` only erases and a `grain` keeps transparent black transparent, so what
+        // either holds bounds what it passes on (ADR-0156 §4). A blur or shadow
         // Skia declined to build is a plain layer, which changes nothing.
         if let (Effect::Blur { .. } | Effect::Shadow { .. }, Some(filter)) = (effect, filter) {
             let output = filter.compute_fast_bounds(content);
@@ -139,7 +141,10 @@ impl<'a> Plan<'a> {
             || !effects.iter().all(|effect| {
                 matches!(
                     effect,
-                    Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. }
+                    Effect::Blur { .. }
+                        | Effect::Shadow { .. }
+                        | Effect::Mask { .. }
+                        | Effect::Grain { .. }
                 )
             })
         {
@@ -342,6 +347,22 @@ mod tests {
             )[1]
             .is_some()
         );
+    }
+
+    #[test]
+    fn a_grain_keeps_the_bound_and_passes_it_on_unhinted_itself() {
+        let grain = Effect::Grain {
+            seed: 7,
+            amount: 0.3,
+            size: 2,
+            mono: true,
+            frame: 0,
+        };
+        let hints = hints_for(&[grain, Effect::Blur { radius: 10.0 }], (1.0, 1.0));
+        let [None, Some(blur)] = hints[..] else {
+            panic!("the grain's layer plain, the blur's hinted: {hints:?}");
+        };
+        assert_eq!((blur.right, blur.bottom), (115.0, 55.0));
     }
 
     #[test]

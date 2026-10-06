@@ -27,7 +27,8 @@ served beside this one and each fitting one read. Read a page before you write w
 - **`montagent://format/text.md`**: a `text` element. Runs and line breaks, direction and
   `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring.
 - **`montagent://format/compositing.md`**: how elements combine. Paint and gradients, effect
-  order, `blend` and shadows, masks, `chroma`, `motion_blur`, and transitions.
+  order, `blend` and shadows, masks, `chroma`, `grain` and textures, `motion_blur`, and
+  transitions.
 
 ## How you edit a project
 

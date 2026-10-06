@@ -2178,6 +2178,22 @@ fn resolved_cells(element: &Value) -> String {
         }
         cells.push(cell);
     }
+    // ADR-0156: each grain's resolved values and the local frame it draws from.
+    for grain in element["grain"].as_array().into_iter().flatten() {
+        cells.push(format!(
+            "grain effects[{}] seed {} size {}{} amount {} frame {}",
+            grain["effect"],
+            grain["seed"],
+            grain["size"],
+            if grain["mono"] == true {
+                " mono"
+            } else {
+                " colour"
+            },
+            grain["amount"],
+            grain["frame"],
+        ));
+    }
     // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
     // so the row says where.
     if let Some(moved) = element["transition"].as_object() {
