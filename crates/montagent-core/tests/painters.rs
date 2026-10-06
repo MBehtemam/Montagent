@@ -577,3 +577,67 @@ fn preview_paints_the_same_frames_on_k_painters() {
     assert!(!one.is_empty());
     assert_eq!(one, three, "preview's frames at the encoder's input");
 }
+
+/// Inverted masks (ADR-0152) with a blur, a glow and a ring, each moving with sub-pixel
+/// steps, on a 320x180 frame at 30 fps for 1100 ms (33 frames).
+fn inverted_mask_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let moving =
+        |from: i64, to: i64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let inverted = |shape: &str| json!({"name": "mask", "shape": shape, "invert": true});
+    let glow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 12, "color": "#FF9F2E", "opacity": 0.8});
+    let elements = [
+        json!({"id": "disc", "type": "rect", "start": 0, "end": 1100, "x": moving(90, 130),
+               "y": 90, "origin": "center", "width": 120, "height": 120, "fill": "#F2F2F2",
+               "rotation": moving(0, 37), "scale": [1.3, 0.8],
+               "effects": [inverted("circle"), {"name": "blur", "radius": 5}]}),
+        json!({"id": "pane", "type": "rect", "start": 0, "end": 1100, "x": 230, "y": moving(60, 110),
+               "origin": "center", "width": 90, "height": 70, "fill": "#3BA0FF",
+               "effects": [{"name": "mask", "shape": "rect", "x": 10, "y": 10, "width": 50,
+                            "height": 40, "radius": 8, "invert": true}, glow]}),
+        json!({"id": "ring", "type": "ellipse", "start": 200, "end": 1100, "x": moving(160, 200),
+               "y": 50, "origin": "center", "width": 80, "height": 80, "fill": "#FF3B30",
+               "effects": [{"name": "mask", "shape": "ellipse"},
+                           {"name": "mask", "shape": "ellipse", "x": 25, "y": 25, "width": 30,
+                            "height": 30, "invert": true},
+                           {"name": "blur", "radius": 3}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/inverted.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "inverted.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn inverted_masks_with_blur_glow_and_a_ring_give_the_framemd5_of_one_painter_across_chunks() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = inverted_mask_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 33);
+    for (painters, chunk) in [(2, 1), (4, 3)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+
+    let scratch = path.parent().expect("the project's directory");
+    let three = rendered(&path, chunks(3, 2));
+    assert_same(&sequential, &three, "K=3, C=2");
+    let (one, three) = (
+        framemd5(sequential.mp4.as_deref().expect("a file"), scratch),
+        framemd5(three.mp4.as_deref().expect("a file"), scratch),
+    );
+    assert_eq!(one.len(), 33);
+    assert_eq!(one, three, "the decoded framemd5");
+}
