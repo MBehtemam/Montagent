@@ -1,0 +1,3 @@
+unshifted: 59/59 consecutive frame pairs differ (grain re-rolls every frame)
+start +100 ms (3 frames): frame n vs frame n+3: 60/60 identical
+start +1000 ms (30 frames): frame n vs frame n+30: 60/60 identical

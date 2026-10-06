@@ -1,0 +1,14 @@
+flat     [blur 10, tint           ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, saturation-0.2 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, brightness+0.3 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, brightness-0.3 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, contrast+0.6   ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, contrast-0.6   ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, posterize-4    ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, tint           ] bound vs no hint: 3/30 frames identical; first differing frame 1: 5 pixels, max 1 levels, in x 789..1015 y 404..659 (element's painted pixels x 779..1021 y 379..701)
+rotating [blur 10, saturation-0.2 ] bound vs no hint: 5/30 frames identical; first differing frame 1: 7 pixels, max 1 levels, in x 874..1015 y 404..659 (element's painted pixels x 781..1021 y 379..701)
+rotating [blur 10, brightness+0.3 ] bound vs no hint: 2/30 frames identical; first differing frame 1: 7 pixels, max 1 levels, in x 789..1015 y 404..593 (element's painted pixels x 779..1021 y 379..701)
+rotating [blur 10, brightness-0.3 ] bound vs no hint: 2/30 frames identical; first differing frame 1: 10 pixels, max 1 levels, in x 789..1015 y 404..659 (element's painted pixels x 781..1021 y 379..701)
+rotating [blur 10, contrast+0.6   ] bound vs no hint: 2/30 frames identical; first differing frame 1: 7 pixels, max 2 levels, in x 789..1015 y 404..593 (element's painted pixels x 780..1021 y 379..701)
+rotating [blur 10, contrast-0.6   ] bound vs no hint: 2/30 frames identical; first differing frame 1: 5 pixels, max 1 levels, in x 789..1015 y 404..593 (element's painted pixels x 779..1021 y 379..701)
+rotating [blur 10, posterize-4    ] bound vs no hint: 6/30 frames identical; first differing frame 1: 1 pixels, max 1 levels, in x 1015..1015 y 404..404 (element's painted pixels x 780..1021 y 379..701)

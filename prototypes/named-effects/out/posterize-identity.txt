@@ -1,0 +1,4 @@
+frame 0 of identity/posterize-256-alone (a rotated video at opacity 0.8 over footage):
+posterize 256 vs no member: 140 pixels differ, max 1 levels, e.g. [(511, 137, (213, 201, 203), (213, 202, 203)), (619, 157, (96, 128, 154), (97, 128, 154)), (632, 157, (116, 135, 157), (115, 135, 157)), (587, 159, (157, 173, 184), (157, 172, 184))]
+brightness 0 vs no member:  140 pixels differ, max 1 levels, e.g. [(511, 137, (213, 201, 203), (213, 202, 203)), (619, 157, (96, 128, 154), (97, 128, 154)), (632, 157, (116, 135, 157), (115, 135, 157)), (587, 159, (157, 173, 184), (157, 172, 184))]
+posterize 256 vs brightness 0: 0 pixels differ, max 0 levels, e.g. []

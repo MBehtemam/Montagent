@@ -1,0 +1,315 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "out/effects.mp4",
+ "tracks": [
+  {
+   "name": "d0",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "d0",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 200
+      },
+      {
+       "t": 3000,
+       "v": 223,
+       "ease": "linear"
+      }
+     ],
+     "y": 300,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 0,
+       "length": 40
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "d45",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "d45",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 960
+      },
+      {
+       "t": 3000,
+       "v": 983,
+       "ease": "linear"
+      }
+     ],
+     "y": 300,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": 25,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 45,
+       "length": 40
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "d90",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "d90",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 1720
+      },
+      {
+       "t": 3000,
+       "v": 1743,
+       "ease": "linear"
+      }
+     ],
+     "y": 300,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "scale": [
+      1.7,
+      0.8
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 90,
+       "length": 40
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "d30",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "d30",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 200
+      },
+      {
+       "t": 3000,
+       "v": 223,
+       "ease": "linear"
+      }
+     ],
+     "y": 780,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "scale": [
+      -1,
+      1
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 30,
+       "length": 41.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "d135",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "d135",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 960
+      },
+      {
+       "t": 3000,
+       "v": 983,
+       "ease": "linear"
+      }
+     ],
+     "y": 780,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 135,
+       "length": 120
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "d-chain",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "d-chain",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": [
+      {
+       "t": 0,
+       "v": 1720
+      },
+      {
+       "t": 3000,
+       "v": 1743,
+       "ease": "linear"
+      }
+     ],
+     "y": 780,
+     "origin": "center",
+     "width": 381,
+     "height": 165,
+     "font": "oswald",
+     "size": 110,
+     "color": "#FFFFFF",
+     "align": "center",
+     "runs": [
+      {
+       "text": "SMEAR"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 8
+      },
+      {
+       "name": "directional_blur",
+       "angle": 60,
+       "length": 30
+      },
+      {
+       "name": "shadow",
+       "dx": 12,
+       "dy": 12,
+       "radius": 10,
+       "color": "#38BDF8",
+       "opacity": 0.8
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "fonts": {
+  "oswald": [
+   {
+    "file": "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  }
+ }
+}

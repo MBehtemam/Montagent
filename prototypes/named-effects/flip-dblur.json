@@ -1,0 +1,73 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 1000,
+ "output": "out/effects.mp4",
+ "tracks": [
+  {
+   "name": "s",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "s",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": [
+      {
+       "t": 0,
+       "v": 900
+      },
+      {
+       "t": 1000,
+       "v": 917,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 461,
+     "height": 255,
+     "font": "oswald",
+     "size": 170,
+     "color": "#FFD27A",
+     "align": "center",
+     "runs": [
+      {
+       "text": "GLOW"
+      }
+     ],
+     "scale": [
+      -1,
+      1
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 30,
+       "length": 41.5
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "fonts": {
+  "oswald": [
+   {
+    "file": "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  }
+ }
+}

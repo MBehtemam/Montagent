@@ -1,0 +1,43 @@
+render  0/540 frames  0.1 s
+render  54/540 frames  9.8 s
+render  108/540 frames  16.7 s
+render  162/540 frames  21.0 s
+render  216/540 frames  25.9 s
+render  270/540 frames  30.8 s
+render  324/540 frames  40.7 s
+render  378/540 frames  51.0 s
+render  432/540 frames  58.8 s
+render  486/540 frames  64.2 s
+render  540/540 frames  68.4 s
+0 errors, 27 reviews, 32 notes, 0 unchecked, 8 layout — effects.montagent.json
+
+RENDER  out/effects.mp4 — 18000 ms, 540 frames at 30 fps, 1920x1080, in 68.5 s (0.26x realtime)
+  range       0..18000 ms, half-open: 18000 is not in it
+  bytes       39839713
+  encoder     libx264, preset medium, CRF 20, 5 threads, ffmpeg 9.0.2
+  audio       7 elements mixed — expand with --verbose
+  painted     51 elements — expand with --verbose
+  sources     ../../fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4
+  fonts       ../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf
+
+review  R-CAPTION-PACE  label-2
+  label-2: 78 characters in 3000 ms is 26.0 characters per second, against a threshold of 20.
+  Threshold 20 is external, cited from Netflix and BBC timed-text guidance (ADR-0034).
+review  R-CAPTION-NO-AUDIO  24 — expand with --verbose
+review  R-KEYFRAME-UNREACHED  grain-rotated
+  `grain-rotated`.rotation: the keyframe at t=9000 declares 45.0, and no frame sampled inside 6000..9000 ms reaches it — the nearest is frame 269 at 8966.666666666666 ms, where it resolves to 44.5.
+review  R-KEYFRAME-UNREACHED  poster-gradient
+  `poster-gradient`.x: the keyframe at t=15000 declares 1583.0, and no frame sampled inside 12000..15000 ms reaches it — the nearest is frame 449 at 14966.666666666666 ms, where it resolves to 1582.7444444444445.
+
+note  R-BOX-SLACK  32 — expand with --verbose
+
+layout  L-KEY-ORDER  7 — expand with --verbose
+layout  L-LAYOUT  1 — expand with --verbose
+
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.
+  - Whether the file written carries what this document says it should. render
+    reports what it intended to put in; run `montagent verify <project>` to
+    measure the deliverable with the decoder before calling it done.

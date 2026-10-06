@@ -1,0 +1,43 @@
+   1 proto-hint blur content=Rect { left: -26.04712, top: -19.101303, right: 246.04736, bottom: 319.1013 } output=Rect { left: -41.04712, top: -34.101303, right: 261.04736, bottom: 334.1013 }
+   1 proto-hint blur content=Rect { left: -26.047226, top: -19.101318, right: 246.04721, bottom: 319.1013 } output=Rect { left: -41.047226, top: -34.10132, right: 261.0472, bottom: 334.1013 }
+   1 proto-hint blur content=Rect { left: -26.047241, top: -19.101288, right: 246.04712, bottom: 319.10135 } output=Rect { left: -41.04724, top: -34.101288, right: 261.04712, bottom: 334.10135 }
+   2 proto-hint blur content=Rect { left: -26.047241, top: -19.101288, right: 246.04724, bottom: 319.10132 } output=Rect { left: -41.04724, top: -34.101288, right: 261.04724, bottom: 334.10132 }
+   1 proto-hint blur content=Rect { left: -26.047241, top: -19.101318, right: 246.04724, bottom: 319.10132 } output=Rect { left: -41.04724, top: -34.10132, right: 261.04724, bottom: 334.10132 }
+   1 proto-hint blur content=Rect { left: 0.0, top: 0.0, right: 480.0, bottom: 600.0 } output=Rect { left: -9.0, top: -9.0, right: 489.0, bottom: 609.0 }
+   2 proto-hint blur content=Rect { left: 0.0, top: 0.0, right: 480.0, bottom: 853.0 } output=Rect { left: -6.0, top: -6.0, right: 486.0, bottom: 859.0 }
+   2 proto-hint glow content=Rect { left: 8.328125, top: 39.433716, right: 381.47998, bottom: 180.88684 } output=Rect { left: -51.671875, top: -20.566284, right: 441.47998, bottom: 240.88684 }
+   2 proto-hint glow content=Rect { left: 8.328125, top: 39.433716, right: 381.48, bottom: 180.88684 } output=Rect { left: -51.671875, top: -20.566284, right: 441.48, bottom: 240.88684 }
+   6 proto-tb blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -15.0, top: -15.0, right: 115.0, bottom: 115.0 } 
+   2 proto-tb blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -6.0, top: -6.0, right: 106.0, bottom: 106.0 } 
+   1 proto-tb blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -9.0, top: -9.0, right: 109.0, bottom: 109.0 } 
+   2 proto-tb brightness can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(47185697000000000000000000000,0.000000000000000000000000000000000000000000001,47169565000000000000000000000,0.000000000000000000000000000000000000000000001) alpha-unchanged=true
+   2 proto-tb contrast can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(47185697000000000000000000000,0.000000000000000000000000000000000000000000001,47169565000000000000000000000,0.000000000000000000000000000000000000000000001) alpha-unchanged=true
+   3 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -1.0, top: -1.0, right: 61.0, bottom: 61.0 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -11.484375, top: 9.516876, right: 314.65247, bottom: 132.92313 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -16.0, top: -16.0, right: 76.0, bottom: 76.0 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -16.484375, top: 24.516876, right: 319.65247, bottom: 117.92313 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -2.0, top: -21.0, right: 62.0, bottom: 81.0 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -21.0, top: -1.0, right: 81.0, bottom: 61.0 } 
+   1 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 2.515625, top: 4.516876, right: 300.65247, bottom: 137.92313 } 
+   3 proto-tb directional_blur can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 3.515625, top: 24.516846, right: 299.65247, bottom: 117.923096 } 
+   4 proto-tb glow can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: -60.0, top: -60.0, right: 160.0, bottom: 160.0 } 
+   2 proto-tb posterize can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(439322050000000000000000000,0.000000000000000000000000000000000000000000001,-3586944400000000,NaN) alpha-unchanged=false
+   1 proto-tb posterize can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(439362200000000000000000000,0.000000000000000000000000000000000000000000001,-3586944400000000,NaN) alpha-unchanged=false
+   1 proto-tb saturation can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(47185697000000000000000000000,0.000000000000000000000000000000000000000000001,47169565000000000000000000000,0.000000000000000000000000000000000000000000001) alpha-unchanged=true
+   1 proto-tb tint can-fast-bounds=true fast-bounds(0,0,100,100)=Rect { left: 0.0, top: 0.0, right: 100.0, bottom: 100.0 } transparent-black->(47185697000000000000000000000,0.000000000000000000000000000000000000000000001,47169565000000000000000000000,0.000000000000000000000000000000000000000000001) alpha-unchanged=true
+proto-probe-int int-mul-div: compiles
+proto-probe-int mod: refused: error: 1: operator '%' is not allowed
+proto-probe-int shift: refused: error: 1: operator '>>' is not allowed
+proto-probe-int uint: refused: error: 1: type 'uint' is not supported
+proto-probe-int xor: refused: error: 1: operator '^' is not allowed
+compiles, reach/dblur-45-40-on.json at K=3, C=1:
+proto-compile ThreadId(3) 751208 ns
+proto-compile ThreadId(5) 744708 ns
+proto-compile ThreadId(4) 712958 ns
+compiles, reach/glow-r40-on.json at K=3, C=1:
+proto-compile ThreadId(3) 748334 ns
+proto-compile ThreadId(5) 668333 ns
+proto-compile ThreadId(3) 10083 ns
+proto-compile ThreadId(5) 14291 ns
+proto-compile ThreadId(4) 712917 ns
+proto-compile ThreadId(4) 7625 ns

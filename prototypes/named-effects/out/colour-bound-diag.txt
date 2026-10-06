@@ -1,0 +1,14 @@
+flat     [blur 10, tint           ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, saturation-0.2 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, brightness+0.3 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, brightness-0.3 ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, contrast+0.6   ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, contrast-0.6   ] bound vs no hint: 30/30 frames identical
+flat     [blur 10, posterize-4    ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, tint           ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, saturation-0.2 ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, brightness+0.3 ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, brightness-0.3 ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, contrast+0.6   ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, contrast-0.6   ] bound vs no hint: 30/30 frames identical
+rotating [blur 10, posterize-4    ] bound vs no hint: 30/30 frames identical

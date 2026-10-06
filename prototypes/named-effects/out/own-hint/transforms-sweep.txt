@@ -1,0 +1,15 @@
+rotating             glow               vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+rotating             glow-alone         vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+rotating             directional_blur   vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+rotating             grain              vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+rotating             posterize          vs hint at one painter: nohint-1: 12/30, hint-4: 30/30, nohint-4: 12/30
+scale[1.6,0.7]+rot   glow               vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+scale[1.6,0.7]+rot   glow-alone         vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+scale[1.6,0.7]+rot   directional_blur   vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+scale[1.6,0.7]+rot   grain              vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+scale[1.6,0.7]+rot   posterize          vs hint at one painter: nohint-1: 0/30, hint-4: 30/30, nohint-4: 0/30
+flip                 glow               vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+flip                 glow-alone         vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+flip                 directional_blur   vs hint at one painter: nohint-1: 0/30, hint-4: 30/30, nohint-4: 0/30
+flip                 grain              vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30
+flip                 posterize          vs hint at one painter: nohint-1: 30/30, hint-4: 30/30, nohint-4: 30/30

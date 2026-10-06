@@ -1309,6 +1309,29 @@ impl<'a> Painter<'a> {
         let mut effects = Vec::with_capacity(declared.len());
         for (i, value) in declared.iter().enumerate() {
             match effect_of(element, i, self.instant) {
+                // prototype(#722): grain's local instant, ADR-0156 §3: an exact rational
+                // from the element's `start`, as an integer in units of 1 / (1000 × fps) s.
+                // In a render the frame number gives it exactly; `frame` has only the ms.
+                Some(Effect::Grain {
+                    seed,
+                    amount,
+                    size,
+                    mono,
+                    ..
+                }) => {
+                    let start = element.get("start").and_then(Value::as_i64).unwrap_or(0);
+                    let tick = match self.frame_number {
+                        Some(n) => n * 1000 - start * self.fps,
+                        None => (self.instant - start) * self.fps,
+                    };
+                    effects.push(Effect::Grain {
+                        seed,
+                        amount,
+                        size,
+                        mono,
+                        tick,
+                    });
+                }
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -2380,6 +2403,29 @@ pub(crate) fn effect_of(element: &Value, index: usize, instant: i64) -> Option<E
             tolerance: number("tolerance")?,
             softness: number("softness")?,
             spill: number("spill")?,
+        },
+        // prototype(#722): ADR-0156's four. `tick` is set by the painter.
+        model::Effect::Grain {
+            seed, size, mono, ..
+        } => Effect::Grain {
+            seed,
+            amount: number("amount")?.clamp(0.0, 1.0),
+            size: size.clamp(1, 8),
+            mono,
+            tick: 0,
+        },
+        model::Effect::Glow { .. } => Effect::Glow {
+            threshold: number("threshold")?.clamp(0.0, 1.0),
+            radius: number("radius")?.max(0.0),
+            intensity: number("intensity")?.clamp(0.0, 4.0),
+        },
+        model::Effect::Posterize { .. } => Effect::Posterize {
+            // Rounded half away from zero, as `shift` rounds (ADR-0156 §4).
+            levels: number("levels")?.round().clamp(2.0, 256.0),
+        },
+        model::Effect::DirectionalBlur { .. } => Effect::DirectionalBlur {
+            angle: number("angle")?,
+            length: number("length")?.max(0.0),
         },
     })
 }

@@ -1,0 +1,14 @@
+1080p, one painter, 30 frames x 3 runs per case; ms per frame for the element's effect chain (median, p10-p90). TAKEN UNDER LOAD: 1-min load average per run shown.
+case                     median     p10     p90  vs none  load
+blur-r40                  58.86   57.94   60.13   +52.60  11.0, 11.7, 10.0
+brightness                12.62   12.43   12.90    +6.37  10.5, 11.7, 10.0
+directional-0-40        1097.86 1085.61 1859.57 +1091.61  10.5, 12.9, 10.0
+directional-45-40       1097.56 1083.92 1116.22 +1091.30  14.1, 10.9, 14.0
+directional-90-40       1096.15 1083.96 1116.56 +1089.90  13.6, 7.8, 10.6
+glow-t05-r40             100.24   98.78  120.48   +93.98  10.3, 6.2, 8.5
+glow-t1                  100.46   98.77  102.11   +94.21  12.9, 6.6, 8.4
+grain-colour-1            44.57   43.89   62.17   +38.32  12.9, 6.6, 7.9
+grain-mono-1              40.41   39.80  158.83   +34.15  12.3, 7.1, 7.8
+grain-mono-3              36.03   35.06   37.05   +29.78  11.7, 9.8, 15.0
+none                       6.25    6.12    6.36    +0.00  11.7, 9.8, 15.0
+posterize-4               27.57   27.14   27.95   +21.32  11.7, 9.8, 15.0

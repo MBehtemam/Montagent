@@ -1,0 +1,7 @@
+element drawn (no member): x 810..1109, y 440..639
+glow-r40       declared reach 3σ = 1.5 × radius = (60.00, 60.00) px; touched pixels reach past the drawn box by left 49, top 49, right 49, bottom 49 -> inside the declared reach
+glow-r10       declared reach 3σ = 1.5 × radius = (15.00, 15.00) px; touched pixels reach past the drawn box by left 11, top 11, right 11, bottom 11 -> inside the declared reach
+dblur-0-40     declared reach (|cos θ|·L/2, |sin θ|·L/2) = (20.00, 0.00) px; touched pixels reach past the drawn box by left 20, top 0, right 20, bottom 0 -> inside the declared reach
+dblur-45-40    declared reach (|cos θ|·L/2, |sin θ|·L/2) = (14.14, 14.14) px; touched pixels reach past the drawn box by left 15, top 15, right 15, bottom 15 -> inside the declared reach
+dblur-90-40    declared reach (|cos θ|·L/2, |sin θ|·L/2) = (0.00, 20.00) px; touched pixels reach past the drawn box by left 0, top 20, right 0, bottom 20 -> inside the declared reach
+dblur-30-41.5  declared reach (|cos θ|·L/2, |sin θ|·L/2) = (17.97, 10.37) px; touched pixels reach past the drawn box by left 18, top 11, right 18, bottom 11 -> inside the declared reach

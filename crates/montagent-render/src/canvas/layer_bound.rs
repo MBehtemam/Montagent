@@ -58,7 +58,8 @@ const MAX_OUTSET: f32 = 512.0;
 const PIN_MARGIN: f32 = 1024.0;
 
 thread_local! {
-    static ENABLED: Cell<bool> = const { Cell::new(true) };
+    // prototype(#722): `MONTAGENT_PROTO_UNBOUND` starts every thread with the hint off.
+    static ENABLED: Cell<bool> = Cell::new(std::env::var_os("MONTAGENT_PROTO_UNBOUND").is_none());
     /// How many layers this thread has hinted, so a test that finds the same bytes both
     /// ways can also say the hint was there to find them.
     #[cfg(test)]
@@ -82,6 +83,12 @@ pub fn enabled() -> bool {
     ENABLED.with(Cell::get)
 }
 
+/// prototype(#722): `MONTAGENT_PROTO_COLOUR_BOUND` lets ADR-0049's four colour filters keep
+/// the hint too, to measure whether they meet ADR-0156's criterion.
+fn colour_bound() -> bool {
+    std::env::var_os("MONTAGENT_PROTO_COLOUR_BOUND").is_some()
+}
+
 /// One hint per effect, aligned with `effects` and `filters`, in element space. `None` is
 /// an unbounded layer, exactly as an unhinted one always was.
 pub(super) fn hints(
@@ -101,15 +108,84 @@ pub(super) fn hints(
     for ((effect, filter), hint) in effects.iter().zip(filters).zip(&mut hints) {
         // A `mask` only erases, so what it holds bounds what it passes on. A blur or shadow
         // Skia declined to build is a plain layer, which changes nothing.
-        if let (Effect::Blur { .. } | Effect::Shadow { .. }, Some(filter)) = (effect, filter) {
-            let output = filter.compute_fast_bounds(content);
-            *hint = plan.pinned(output);
+        let hinted = match effect {
+            Effect::Blur { .. }
+            | Effect::Shadow { .. }
+            | Effect::Glow { .. }
+            | Effect::DirectionalBlur { .. }
+            | Effect::Posterize { .. } => true,
+            Effect::Tint { .. }
+            | Effect::Saturation { .. }
+            | Effect::Brightness { .. }
+            | Effect::Contrast { .. } => colour_bound(),
+            _ => false,
+        };
+        if let (true, Some(filter)) = (hinted, filter) {
+            // prototype(#722): Skia cannot bound a runtime-shader filter
+            // (`can_compute_fast_bounds` is false, its fast bounds are infinite), so a
+            // directional blur's output is its input outset by ADR-0156's declared reach,
+            // plus one pixel for the bilinear read, in element space.
+            let output = match *effect {
+                Effect::DirectionalBlur { angle, length }
+                    if std::env::var_os("MONTAGENT_PROTO_SKIA_DBLUR_BOUNDS").is_none() =>
+                {
+                    let theta = angle.to_radians();
+                    let half = length.max(0.0) / 2.0;
+                    content.with_outset((
+                        (theta.cos().abs() * half).ceil() as f32 + 1.0,
+                        (theta.sin().abs() * half).ceil() as f32 + 1.0,
+                    ))
+                }
+                _ => filter.compute_fast_bounds(content),
+            };
+            // prototype(#722): a colour filter's (posterize's) and a directional blur's own
+            // layer stay unhinted: hinting them changed bytes under rotation (colour) and under
+            // a flip (directional). The bound passes through them, so every layer after them
+            // keeps its hint. `MONTAGENT_PROTO_OWN_HINT` hints them too.
+            let own = !matches!(
+                effect,
+                Effect::Posterize { .. }
+                    | Effect::Tint { .. }
+                    | Effect::Saturation { .. }
+                    | Effect::Brightness { .. }
+                    | Effect::Contrast { .. }
+                    | Effect::DirectionalBlur { .. }
+            ) || std::env::var_os("MONTAGENT_PROTO_OWN_HINT").is_some();
+            if own {
+                *hint = plan.pinned(output);
+            }
+            // prototype(#722): count the hinted layers, and say what each bound was.
+            if std::env::var_os("MONTAGENT_PROTO_COUNT").is_some() {
+                eprintln!(
+                    "{} {} content={:?} output={:?}",
+                    if hint.is_some() { "proto-hint" } else { "proto-pass" },
+                    effect.proto_name(),
+                    content,
+                    output
+                );
+            }
             #[cfg(test)]
             HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
             content = output;
         }
     }
     hints
+}
+
+/// prototype(#722): Skia's bounds of what `draw` paints, in element space, whether or not the
+/// hint is on — for a directional blur's crop to its declared reach.
+pub(super) fn drawn(canvas: &SkCanvas, draw: &dyn Fn(&SkCanvas)) -> Option<Rect> {
+    let to_element = canvas.local_to_device_as_3x3().invert()?;
+    let mut recorder = PictureRecorder::new();
+    let everywhere = Rect::new(-1.0e7, -1.0e7, 1.0e7, 1.0e7);
+    let recording = recorder.begin_recording(everywhere, true);
+    recording.set_matrix(&canvas.local_to_device());
+    draw(recording);
+    let device = recorder.finish_recording_as_picture(None)?.cull_rect();
+    if device.is_empty() {
+        return None;
+    }
+    Some(to_element.map_rect(device).0)
 }
 
 /// Everything about the element's matrix that the hint is built from, or the reason there is
@@ -132,15 +208,31 @@ impl<'a> Plan<'a> {
             effects.iter().filter_map(|effect| match *effect {
                 Effect::Blur { radius } => Some((radius, 0.0, 0.0)),
                 Effect::Shadow { dx, dy, radius, .. } => Some((radius, dx, dy)),
+                // prototype(#722): a glow's blur is a blur.
+                Effect::Glow { radius, .. } => Some((radius, 0.0, 0.0)),
                 _ => None,
             })
         };
-        if blurs().next().is_none()
-            || !effects.iter().all(|effect| {
-                matches!(
-                    effect,
-                    Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. }
-                )
+        let directional = || {
+            effects.iter().filter_map(|effect| match *effect {
+                Effect::DirectionalBlur { angle, length } => Some((angle, length)),
+                _ => None,
+            })
+        };
+        if (blurs().next().is_none() && directional().next().is_none())
+            || !effects.iter().all(|effect| match effect {
+                Effect::Blur { .. }
+                | Effect::Shadow { .. }
+                | Effect::Mask { .. }
+                | Effect::Glow { .. }
+                | Effect::DirectionalBlur { .. }
+                | Effect::Grain { .. }
+                | Effect::Posterize { .. } => true,
+                Effect::Tint { .. }
+                | Effect::Saturation { .. }
+                | Effect::Brightness { .. }
+                | Effect::Contrast { .. } => colour_bound(),
+                Effect::Chroma { .. } => false,
             })
         {
             return None;
@@ -182,6 +274,17 @@ impl<'a> Plan<'a> {
             }
             outset.0 += (3.0 * sigma.0).ceil() + (dx as f32 * scale.0).abs() + 2.0;
             outset.1 += (3.0 * sigma.1).ceil() + (dy as f32 * scale.1).abs() + 2.0;
+        }
+        // prototype(#722): a directional blur reaches its declared sample radius (the one
+        // Skia is told, the same on both axes) past its input.
+        for (angle, length) in directional() {
+            let theta = angle.to_radians();
+            let radius = ((theta.cos().abs().max(theta.sin().abs()) * length.max(0.0) / 2.0)
+                as f32)
+                .ceil()
+                + 1.0;
+            outset.0 += (radius * scale.0).ceil() + 2.0;
+            outset.1 += (radius * scale.1).ceil() + 2.0;
         }
         if !(outset.0 <= MAX_OUTSET && outset.1 <= MAX_OUTSET) {
             return None;

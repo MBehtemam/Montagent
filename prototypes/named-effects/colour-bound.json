@@ -1,0 +1,409 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 2000,
+ "output": "out/effects.mp4",
+ "tracks": [
+  {
+   "name": "c0",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c0",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 170
+      },
+      {
+       "t": 2000,
+       "v": 187,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "tint",
+       "color": "#FF0000",
+       "amount": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c1",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "c1",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 485
+      },
+      {
+       "t": 2000,
+       "v": 502,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "saturation",
+       "amount": 0.2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c2",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "c2",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 800
+      },
+      {
+       "t": 2000,
+       "v": 817,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "brightness",
+       "amount": 0.3
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c3",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "c3",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 1115
+      },
+      {
+       "t": 2000,
+       "v": 1132,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "contrast",
+       "amount": 0.6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c4",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "c4",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 1430
+      },
+      {
+       "t": 2000,
+       "v": 1447,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "brightness",
+       "amount": -0.3
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c5",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "c5",
+     "type": "rect",
+     "start": 0,
+     "end": 2000,
+     "x": [
+      {
+       "t": 0,
+       "v": 1745
+      },
+      {
+       "t": 2000,
+       "v": 1762,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 220,
+     "height": 300,
+     "fill": {
+      "gradient": "linear",
+      "angle": 90,
+      "stops": [
+       {
+        "offset": 0,
+        "color": "#0B1F4D"
+       },
+       {
+        "offset": 0.5,
+        "color": "#E8618C"
+       },
+       {
+        "offset": 1,
+        "color": "#FFE08A"
+       }
+      ]
+     },
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 10,
+       "ease": "linear"
+      }
+     ],
+     "effects": [
+      {
+       "name": "blur",
+       "radius": 10
+      },
+      {
+       "name": "contrast",
+       "amount": -0.6
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

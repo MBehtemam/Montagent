@@ -1,0 +1,90 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 1000,
+ "output": "out/effects.mp4",
+ "tracks": [
+  {
+   "name": "s",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "subject",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": [
+      {
+       "t": 0,
+       "v": 900
+      },
+      {
+       "t": 1000,
+       "v": 913,
+       "ease": "linear"
+      }
+     ],
+     "y": 540,
+     "origin": "center",
+     "width": 461,
+     "height": 255,
+     "font": "oswald",
+     "size": 170,
+     "color": "#FFB347",
+     "align": "center",
+     "runs": [
+      {
+       "text": "GLOW"
+      }
+     ],
+     "effects": [
+      {
+       "name": "directional_blur",
+       "angle": 30,
+       "length": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "v",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "under",
+     "type": "video",
+     "start": 0,
+     "end": 1000,
+     "x": 960,
+     "y": 540,
+     "origin": "center",
+     "width": 1080,
+     "height": 1920,
+     "source": "../../../fixtures/en-halloween-decorating/reference/en-halloween-decorating.mp4",
+     "source_start": 11000,
+     "source_end": 12000,
+     "fit": "literal"
+    }
+   ]
+  }
+ ],
+ "fonts": {
+  "oswald": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  }
+ }
+}

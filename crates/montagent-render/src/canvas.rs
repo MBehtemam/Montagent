@@ -73,6 +73,7 @@ use skia_safe::{
 
 mod gradient;
 mod layer_bound;
+mod named_effects;
 
 pub use gradient::{Gradient, GradientKind, Ink};
 #[doc(hidden)]
@@ -322,6 +323,25 @@ pub enum Effect {
         softness: f64,
         spill: f64,
     },
+    /// prototype(#722): ADR-0156 §4 `grain`. `tick` is the element's local instant in units
+    /// of 1 / (1000 × fps) s (an exact integer), filled in by the painter.
+    Grain {
+        seed: i64,
+        amount: f64,
+        size: i64,
+        mono: bool,
+        tick: i64,
+    },
+    /// prototype(#722): ADR-0156 §4 `glow`, a threshold bloom.
+    Glow {
+        threshold: f64,
+        radius: f64,
+        intensity: f64,
+    },
+    /// prototype(#722): ADR-0156 §4 `posterize`; `levels` already rounded to an integer.
+    Posterize { levels: f64 },
+    /// prototype(#722): ADR-0156 §4 `directional_blur`.
+    DirectionalBlur { angle: f64, length: f64 },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -637,6 +657,24 @@ half4 main(half4 color) {
 ";
 
 impl Effect {
+    /// prototype(#722): a short name for the cost probe.
+    fn proto_name(&self) -> &'static str {
+        match self {
+            Effect::Blur { .. } => "blur",
+            Effect::Shadow { .. } => "shadow",
+            Effect::Mask { .. } => "mask",
+            Effect::Tint { .. } => "tint",
+            Effect::Saturation { .. } => "saturation",
+            Effect::Brightness { .. } => "brightness",
+            Effect::Contrast { .. } => "contrast",
+            Effect::Chroma { .. } => "chroma",
+            Effect::Grain { .. } => "grain",
+            Effect::Glow { .. } => "glow",
+            Effect::Posterize { .. } => "posterize",
+            Effect::DirectionalBlur { .. } => "directional_blur",
+        }
+    }
+
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
     /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
@@ -687,6 +725,19 @@ impl Effect {
                 None,
                 None,
             ),
+            // prototype(#722): ADR-0156's four.
+            Effect::Grain { .. } => None,
+            Effect::Glow {
+                threshold,
+                radius,
+                intensity,
+            } => named_effects::glow(threshold, sigma(radius), intensity),
+            Effect::Posterize { levels } => {
+                image_filters::color_filter(named_effects::posterize(levels)?, None, None)
+            }
+            Effect::DirectionalBlur { angle, length } => {
+                named_effects::directional_blur(angle, length)
+            }
             // The one member with a threshold in it, so the one that is a runtime effect
             // rather than a matrix ([`KEYER`]).
             Effect::Chroma {
@@ -816,6 +867,10 @@ impl Effect {
             Effect::Blur { .. }
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
+            | Effect::Grain { .. }
+            | Effect::Glow { .. }
+            | Effect::Posterize { .. }
+            | Effect::DirectionalBlur { .. }
             | Effect::Chroma { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
@@ -1456,8 +1511,76 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
-        let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
-        let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
+        // prototype(#722): `MONTAGENT_PROTO_COST` times every element's effect chain.
+        let started = std::env::var_os("MONTAGENT_PROTO_COST").map(|_| std::time::Instant::now());
+        Canvas::through_timed(canvas, extent, effects, &draw);
+        if let Some(started) = started {
+            let names: Vec<&str> = effects.iter().map(Effect::proto_name).collect();
+            eprintln!(
+                "proto-cost {} {}",
+                if names.is_empty() { "none".to_string() } else { names.join("+") },
+                started.elapsed().as_nanos()
+            );
+        }
+    }
+
+    fn through_timed(
+        canvas: &skia_safe::Canvas,
+        extent: Extent,
+        effects: &[Effect],
+        draw: &dyn Fn(&skia_safe::Canvas),
+    ) {
+        let mut filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        // prototype(#722): a directional blur's runtime shader has no fast bounds, so Skia
+        // evaluates it over the whole layer. Crop it to its input grown by ADR-0156's declared
+        // reach (plus a pixel for the bilinear read), in element space, hint or no hint.
+        // `MONTAGENT_PROTO_DBLUR_NO_CROP` turns the crop off.
+        if effects.iter().any(|e| matches!(e, Effect::DirectionalBlur { .. }))
+            && std::env::var_os("MONTAGENT_PROTO_DBLUR_NO_CROP").is_none()
+        {
+            if let Some(mut content) = layer_bound::drawn(canvas, draw) {
+                for (effect, filter) in effects.iter().zip(filters.iter_mut()) {
+                    let Some(f) = filter.clone() else { continue };
+                    if let Effect::DirectionalBlur { angle, length } = *effect {
+                        let theta = angle.to_radians();
+                        let half = length.max(0.0) / 2.0;
+                        content = content.with_outset((
+                            (theta.cos().abs() * half).ceil() as f32 + 1.0,
+                            (theta.sin().abs() * half).ceil() as f32 + 1.0,
+                        ));
+                        *filter = image_filters::crop(content, None, f);
+                    } else {
+                        content = f.compute_fast_bounds(content);
+                    }
+                }
+            }
+        }
+        // prototype(#722): `MONTAGENT_PROTO_PROBE_TB` says, per filter, what Skia makes of
+        // transparent black and of a 100×100 input's bounds.
+        if std::env::var_os("MONTAGENT_PROTO_PROBE_TB").is_some() {
+            for (effect, filter) in effects.iter().zip(&filters) {
+                let Some(filter) = filter else { continue };
+                let node = filter.color_filter_node().map(|cf| {
+                    let c = cf.filter_color4f(Color4f::new(0.0, 0.0, 0.0, 0.0), None, None);
+                    format!(
+                        "transparent-black->({},{},{},{}) alpha-unchanged={}",
+                        c.r,
+                        c.g,
+                        c.b,
+                        c.a,
+                        cf.is_alpha_unchanged()
+                    )
+                });
+                eprintln!(
+                    "proto-tb {} can-fast-bounds={} fast-bounds(0,0,100,100)={:?} {}",
+                    effect.proto_name(),
+                    filter.can_compute_fast_bounds(),
+                    filter.compute_fast_bounds(Rect::from_xywh(0.0, 0.0, 100.0, 100.0)),
+                    node.unwrap_or_default()
+                );
+            }
+        }
+        let bounds = layer_bound::hints(canvas, effects, &filters, draw);
         for (filter, bound) in filters.into_iter().zip(&bounds).rev() {
             match filter {
                 Some(filter) => {
@@ -1489,6 +1612,17 @@ impl Canvas {
             } = effect
             {
                 shape.erase(canvas, extent, *rect, *radius, *invert, *feather);
+            }
+            // prototype(#722): grain filters what its own plain layer holds.
+            if let Effect::Grain {
+                seed,
+                amount,
+                size,
+                mono,
+                tick,
+            } = *effect
+            {
+                named_effects::grain(canvas, seed, amount, size, mono, tick);
             }
             canvas.restore();
         }

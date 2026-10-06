@@ -1,0 +1,7 @@
+directional-length-0     1,1000: 30/30 frames identical; 4,3: 30/30 frames identical
+glow-threshold-1         1,1000: 30/30 frames identical; 4,3: 30/30 frames identical
+grain-amount-0           1,1000: 30/30 frames identical; 4,3: 30/30 frames identical
+posterize-256-alone      1,1000: 0/30 frames identical; 4,3: 0/30 frames identical
+posterize-256            1,1000: 0/30 frames identical; 4,3: 0/30 frames identical
+posterize-256-unrotated  1,1000: 30/30 frames identical; 4,3: 30/30 frames identical
+posterize-256-vs-brightness-0 1,1000: 30/30 frames identical; 4,3: 30/30 frames identical

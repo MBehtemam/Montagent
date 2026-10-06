@@ -206,6 +206,21 @@ impl Drop for FrameTap {
 
 /// Hash `rgb` into this thread's tap, where one is open.
 pub(super) fn tapped(rgb: &[u8]) {
+    // prototype(#722): `MONTAGENT_PROTO_DUMP=<dir>` writes every pushed frame's raw RGB as
+    // `<dir>/<n>.rgb`; `MONTAGENT_PROTO_HASHES=<file>` appends one hash per frame, in order.
+    static PUSHED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let index = PUSHED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    if let Some(dir) = std::env::var_os("MONTAGENT_PROTO_DUMP") {
+        let _ = std::fs::write(std::path::Path::new(&dir).join(format!("{index}.rgb")), rgb);
+    }
+    if let Some(path) = std::env::var_os("MONTAGENT_PROTO_HASHES") {
+        use std::io::Write as _;
+        let mut hasher = DefaultHasher::new();
+        rgb.hash(&mut hasher);
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(file, "{:016x}", hasher.finish());
+        }
+    }
     TAP.with(|cell| {
         if let Some(hashes) = cell.borrow_mut().as_mut() {
             let mut hasher = DefaultHasher::new();

@@ -160,6 +160,28 @@ pub enum Effect {
         softness: Animatable<Fraction>,
         spill: Animatable<Fraction>,
     },
+    /// prototype(#722): ADR-0156 §4. No range checks: the prototype paints, it does not
+    /// validate.
+    Grain {
+        seed: i64,
+        amount: Animatable<f64>,
+        size: i64,
+        mono: bool,
+    },
+    /// prototype(#722): ADR-0156 §4.
+    Glow {
+        threshold: Animatable<f64>,
+        radius: Animatable<f64>,
+        intensity: Animatable<f64>,
+    },
+    /// prototype(#722): ADR-0156 §4.
+    Posterize { levels: Animatable<f64> },
+    /// prototype(#722): ADR-0156 §4.
+    #[serde(rename = "directional_blur")]
+    DirectionalBlur {
+        angle: Animatable<f64>,
+        length: Animatable<f64>,
+    },
 }
 
 /// A number from `0` to `1` inclusive: `chroma`'s three normalised scalars (ADR-0088).
