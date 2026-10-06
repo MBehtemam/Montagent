@@ -15,8 +15,19 @@ Read the schema for *what may be written*. Read this for *what it will mean*.
 **Where these rules come from.** Every one of them is an accepted decision in Montagent's ADR
 series, cited inline below by number. The ADRs are the specification and this document is
 their agent-facing reading, not a second authority: where the two ever disagree, the ADR is
-right. A test in `montagent-core` re-reads every ADR cited here and fails if one of them has
-stopped being accepted, so a rule that is quietly superseded cannot go on being taught here.
+right. A test in `montagent-core` re-reads every ADR cited here and on the pages below, and
+fails if one of them has stopped being accepted, so a rule that is quietly superseded cannot
+go on being taught here.
+
+## The format's pages
+
+This page holds the rules every element shares. The rest are on pages of their own, each
+served beside this one and each fitting one read. Read a page before you write what it covers:
+
+- **`montagent://format/text.md`**: a `text` element. Runs and line breaks, direction and
+  `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring.
+- **`montagent://format/compositing.md`**: how elements combine. Effect order, `blend` and
+  shadows, masks, `chroma`, and transitions.
 
 ## How you edit a project
 
@@ -105,23 +116,6 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`group` is render-inert.** It says two elements belong to one authorial unit and
   nothing more — no timing, no stacking, no drawing consequence.
 
-## Transitions
-
-- **A transition is its own element bridging `from` and `to` by id** (ADR-0059): two
-  distinct visual elements on separate tracks, its `start`/`end` exactly the time they share.
-- **`kind`** (ADR-0150): `crossfade` ramps their opacity linearly; in a `slide` `to` moves in
-  over a still `from`; in a `push` `to` moves in and pushes `from` out, joined; in a `wipe` a
-  straight edge crosses the frame, `from` keeping the side not yet reached and `to` the side
-  passed.
-- **`direction`** is the way the motion travels: `left` means the content moves leftward;
-  the incoming element enters from the right. Required on `wipe`, `slide` and `push`.
-- **`ease`** takes the keyframe vocabulary; omitted means `linear`. Neither `direction` nor
-  `ease` is allowed on a `crossfade`.
-- **Offsets travel a full frame width or height, outside the element's transform,** in whole
-  pixels: a lower-third slides as far as full-screen video, its own keyed motion, effects
-  and `clip` moving with it. A wipe's hard edge is cut against each element's own `clip`.
-- **In a slide, `to` must paint above `from`**; a transition never changes a layer.
-
 ## Geometry
 
 - **An element's size is declared, never inferred from its source file.** `width` and
@@ -151,142 +145,6 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   quietly does nothing.
 - **`stroke` never enlarges the declared rect** (ADR-0014). On a shape it falls inside it; on text it
   falls outside the glyph contour and grows into the box rather than past it.
-- **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
-  different frame from shadow-then-blur. They attach to whole elements, never to a run, and
-  no effect parameter is keyframable in v1.
-- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
-  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
-  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
-  Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
-  bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
-  fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`
-  scales the result, and that result is blended **once** into everything painted below it,
-  down to the `background`, inside the element's `clip`. The arithmetic runs on the stored
-  sRGB values.
-- **A shadow blends in its element's mode** (ADR-0147). Under `screen` or `add` a dark
-  shadow all but vanishes, and under `multiply` it darkens. For an ordinary shadow under a
-  blended element, put the shadow on a separate `normal` element beneath it.
-- **Over the default black `background`, `screen` and `add` draw what `normal` draws, and
-  `multiply` draws black** (ADR-0147). A blend needs something beneath it. `validate`
-  reports `R-BLEND-BACKGROUND-ONLY` at `review` when, at some frame `render` paints, nothing
-  lower in the stack meets a blended element's box; a partial overhang is silent.
-- **A `mask`'s `x`, `y`, `width`, `height` are element-local, and their identity value is the
-  element's own rect** (ADR-0084). `(0, 0)` is the element rect's top-left **whatever the
-  `origin` keyword is** — `origin` places the box, it does not re-parameterise the box's
-  interior — and they are unscaled element units, not frame pixels. Omit all four and the
-  rect is `(0, 0, width, height)`, which is what makes `{"name": "mask", "shape": "circle"}`
-  the largest circle inscribed in the element's rect. The two arities are two declarations,
-  not two spellings: the bare form re-derives when the element is resized, the explicit one
-  keeps saying the rect it names.
-- **A mask rides the element's transform** (ADR-0084). It is declared inside the box in
-  unscaled units, so `scale` grows it and `rotation` turns it — a rotated element's `rect`
-  mask paints a *rotated* rectangle. That is the rule a `blur` radius and a `stroke_width`
-  already follow, and it is not keyframing an effect parameter: the fields stay literal
-  integers on every frame. `clip` is the other thing — frame-space, static, never rotating —
-  and a *shaped* static porthole is not expressible in v1.
-- **`chroma` keys a screen colour out, and `color` is a literal `#RRGGBB`** (ADR-0088). Not
-  a hue angle: a bare hue *inverts* the key on real footage, and supplying the saturation
-  and value it is missing is the colour restated in three fields. `tolerance` is a
-  normalised distance in the chroma plane, `softness` the width of the partial-alpha band
-  above it, and `spill` suppresses screen colour reflected onto what the matte keeps. All
-  three run `0.0`–`1.0` and every one of them has its identity at `0` — `tolerance: 0` keys
-  nothing, which makes the whole member a no-op.
-- **A key serves a screen that is uniform in time** (ADR-0088). No effect parameter is
-  keyframable, so one `tolerance` covers the whole element: footage whose lighting drifts
-  mid-take has to be cut into elements at the drift boundaries, or keyed upstream and
-  brought in already carrying alpha. `measure` on a keyed element reports the resulting
-  alpha coverage per frame, which is how you find where a screen drifts — and how you find
-  out that `tolerance: 0.01` keyed nothing, without looking at a picture.
-- **Put `chroma` before the colour scalars, not after** (ADR-0088). `effects` is ordered,
-  so a `tint` or a `saturation` ahead of the key changes the pixels the key is measured
-  against and your `color` no longer names what is in the frame. `validate` reports it at
-  `review` rather than refusing it, because a deliberate pre-grade is a real technique.
-- **`circle` is the one mask shape that discards part of its rect** (ADR-0084). Its diameter
-  is the short side, so on a non-square rect — derived or explicit — the difference is thrown
-  away without the author ever typing that number, and `validate` says so at `review`.
-  `ellipse` fills the rect and `rect` is the rect, so neither is ever reported. Writing a
-  square rect out is itself the acknowledgement; there is no suppression mechanism.
-- **`"invert": true` on a `mask` keeps the outside of the shape and erases the inside** (ADR-0152).
-  A static boolean: omitted or `false` is the plain mask, and a mask that flips mid-clip is two
-  elements. Masks in one list intersect, so `[mask ellipse, mask smaller ellipse with invert]`
-  keeps a ring.
-- **`R-MASK-ERASES-ALL` (`review`)** (ADR-0152): an inverted `rect` mask with no `radius` whose
-  rect contains the element's keeps no pixel, and the bare form always does. Write the rect you
-  meant, or drop `invert`; writing the covering rect out does not silence it. Keyed rects,
-  keyed `radius` and keyed element sizes are never reported.
-
-## Text
-
-- **Content is always an ordered array of runs,** even when there is only one.
-- **A run boundary is style only** (ADR-0008). It never implies a line break. A line break is a `\n`
-  character inside a run's text — the agent chooses every break, and the renderer chooses
-  none.
-- **`align`'s `start` and `end` follow each line's own direction** (ADR-0133). A line's
-  direction is the one its characters give: the first strong letter decides, and a line with
-  none is left-to-right. `start` is therefore the right edge of a Hebrew or Arabic line.
-  **A run's `dir` never changes a line's direction.** It lays that run out as a bidi
-  *isolate* (ADR-0007): the run's own text is reordered, so a `!` at its edge takes the
-  run's direction, and nothing outside the run moves. Shaping does not cross the run's edge,
-  so a kern or an Arabic join across it is lost.
-- **Every text element is a caption unless it says `caption: false`** (ADR-0136). The four
-  caption checks — `R-CAPTION-PACE`, `R-CAPTION-MIN-DURATION`, `R-CAPTION-NO-AUDIO` and
-  `R-CAPTION-REPEAT-DURATION` — run on every `text` element, whatever its track is called.
-  Write `caption: false` on a title, a lower-third, a logo or a kinetic word, and none of
-  the four reports it; it is also left out of the repeat check's grouping of identical text.
-  Omitting the field and writing `caption: true` mean the same thing. It is one switch for
-  all four, it changes no pixel and no other check, and nothing infers it for you.
-- **Sizes are literal pixels** (ADR-0007), and a text element's `width`/`height` is a container claim
-  rather than drawn geometry. Use `measure` to find out what a string actually occupies in
-  the font the project declares; do not estimate it.
-- **Lines align inside the block they make, and `origin` places that block** (ADR-0135). The
-  block is the widest line's advance by the sum of the line slots. The declared `width` takes
-  no part in where text is drawn, so a single line sits at the same place under every `align`,
-  and `align` moves only lines narrower than the widest. `query --at`'s `ink_box` is placed
-  the same way, so it is where the text is drawn.
-- **`letter_spacing` is an integer in thousandths of an em** (ADR-0151, ADR-0153). After
-  every grapheme of a line, `size × letter_spacing / 1000` pixels are added, where `size` is
-  the size of **the run the grapheme sits in**, so a `size` edit keeps the same tracking.
-  Spaces count, and so do run boundaries. **Nothing is added after a line's last grapheme**,
-  so a centred or end-aligned line stays where `align` puts it. Negative tightens; the default
-  is 0. It belongs to the element: a run cannot override it. It is an animatable property —
-  keyframe values are integers, and the resolved value is never rounded — and the spaced
-  line is what the block, `align`, `origin` and `query --at`'s `ink_box` all measure.
-  Lines still break only at `\n`, so spacing never re-breaks a line.
-  **No spacing is added between two letters of the same joining script** (Arabic, Syriac,
-  N'Ko, Mongolian, Adlam and the others Unicode lists), whether or not they join: it would
-  tear the cursive stroke. A tracked mixed line still spreads its spaces, punctuation,
-  digits and other scripts. `validate` names an element where this suppresses a pair as
-  `R-SPACING-SUPPRESSED`.
-- **A non-zero `letter_spacing` switches optional ligatures off for the whole element**
-  (ADR-0151, ADR-0153). If any `letter_spacing` value or keyframe on the element is non-zero,
-  `liga`, `clig` and `dlig` are off for its whole range, so `fi` is two glyphs at every frame
-  — a spacing keyed through 0 included — and glyphs never swap mid-shot. The rule reads the
-  file, never the value at an instant. The joining scripts are exempt: their script runs keep
-  every ligature, because some fonts file a spelling-required ligature such as lam-alef under
-  `liga`. Required ligatures (`rlig`) are never switched off.
-- **`R-LINE-INK-COLLISION` measures a spaced element at every `letter_spacing` value the file
-  writes** — the static value, or each keyframe record's `v` — and reports the worst seam.
-  Between two records the spacing passes only through the values between them; a bezier's
-  overshoot past a record is not sampled. `measure` answers a keyed spacing at the largest
-  value the list writes, and says which value it used in `asked.letter_spacing`.
-- **`line_height` is a multiplier restricted to one decimal digit** (ADR-0028) — `1.0`, `1.1`, `1.2` —
-  so it is always exactly `n/10`. A line's height is the largest `size` among its runs times
-  `line_height`; the block height is the `ceil` of that over the line count, computed in
-  exact integer arithmetic. Defaults to `1.2`.
-- **Fonts are declared as an ordered chain of font *files*, never a system family name**
-  (ADR-0007, ADR-0057).
-  The renderer opens nothing outside that chain, which is what makes a project that renders
-  on your machine render on a clean one.
-- **Every font file is vendored through `montagent fonts vendor`, and the `fontVendor` table
-  is its receipt** (ADR-0057). The table is keyed by file path — one path, one licence, one
-  `sha256` — however many `fonts` chains reference the file, and it is written by the tool,
-  never by hand. `validate` checks that every chain path has an entry whose hash matches the
-  bytes on disk (`error` when it does not) and that every entry is still referenced (a
-  `note` when not; nothing prunes it for you). It re-checks integrity, never licence law.
-  `fonts vendor` runs its licence check *before* any bytes are copied: a font on the
-  blocklist of known non-redistributable fonts is refused with no override, a recognised
-  open licence is recorded, and anything else needs a `--licence` you have verified. Use
-  `montagent fonts list` to see each installed font's status before you try.
 
 ## Values
 

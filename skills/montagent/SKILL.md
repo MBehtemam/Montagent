@@ -15,7 +15,7 @@ You need a shell with the `montagent` CLI on `PATH`, Python 3, and ideally the M
 
 ## Learning the format
 
-1. Read `montagent://format.md` in full: it holds the rules the schema can't express, and it fits in one read.
+1. Read `montagent://format.md` in full, then each page it lists before you write what that page covers. Together they hold the rules the schema can't express, and each one fits in one read.
 2. Open [the starter project](references/starter-project.md) and build from it. It shows the keys most pieces need.
 3. When you need a key the starter doesn't show, read `montagent://schema/index.json`. It lists every element type and effect with its required keys, and the URI of the piece that holds each one's rules. Read the piece you need, not the whole schema.
 4. Read `montagent <verb> --help` for one verb at the moment you first use it, not up front. MCP tool descriptions say the same.
@@ -36,7 +36,7 @@ The video is **delivered** when `verify` passes on the last edit.
 
 ## What Montagent does, and which skill covers it
 
-This is the capability map. Read it before you design, so the brief does not lean on something Montagent lacks. Each line names the capability and the keys that spell it; `montagent://format.md` and the schema hold their values and rules.
+This is the capability map. Read it before you design, so the brief does not lean on something Montagent lacks. Each line names the capability and the keys that spell it; `montagent://format.md` with its pages, and the schema, hold their values and rules.
 
 ### What it does
 

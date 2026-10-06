@@ -3,6 +3,46 @@
 
 use montagent_core::resources;
 
+/// The whole of the format docs: `format.md`, then each page it lists (ADR-0137 §8). A rule
+/// moved to a page is still taught, so the checks below read all of it.
+fn all_format_docs() -> String {
+    let mut docs = resources::read(resources::FORMAT.uri).expect("the format docs resource");
+    for page in resources::FORMAT_PAGES {
+        docs.push('\n');
+        docs.push_str(
+            &resources::read(page.uri).unwrap_or_else(|| panic!("{} is not served", page.uri)),
+        );
+    }
+    docs
+}
+
+#[test]
+fn format_md_lists_every_page_and_every_page_it_names_is_served() {
+    // The pages are not in `resources/list`: `format.md` is how an agent finds them, as the
+    // index is how it finds the schema pieces. A page it did not name would be unreachable,
+    // and a page it named that nothing serves would be a dead end.
+    let docs = resources::read(resources::FORMAT.uri).unwrap();
+    for page in resources::FORMAT_PAGES {
+        assert!(
+            docs.contains(&format!("`{}`", page.uri)),
+            "format.md does not list {}",
+            page.uri
+        );
+        assert!(resources::find(page.uri).is_none(), "{} is listed", page.uri);
+        assert_eq!(
+            resources::serve(page.uri).unwrap().mime_type,
+            "text/markdown"
+        );
+    }
+    for (at, _) in docs.match_indices("montagent://format/") {
+        let uri: String = docs[at..].chars().take_while(|c| *c != '`').collect();
+        assert!(
+            resources::FORMAT_PAGES.iter().any(|page| page.uri == uri),
+            "format.md names {uri}, which is not one of its pages"
+        );
+    }
+}
+
 #[test]
 fn the_schema_resource_is_the_generated_artifact_rather_than_a_copy() {
     // The whole reason the schema is generated (spec #168): "the published schema and the
@@ -49,7 +89,7 @@ fn the_schema_resource_carries_canonical_key_order() {
 
 #[test]
 fn the_format_docs_serve_the_rules_the_schema_cannot_express() {
-    let docs = resources::read(resources::FORMAT.uri).expect("the format docs resource");
+    let docs = all_format_docs();
 
     // Each of these is a rule between fields, between elements, or between the file and
     // the disk — the class of thing a shape language has no way to *enforce*, and the
@@ -94,7 +134,7 @@ fn every_adr_the_format_docs_cite_exists_and_is_still_accepted() {
     // failure that would otherwise be silent, because the docs would go on reading
     // perfectly well. `docs/agents/domain.md` asks a claim like this for a re-executable
     // check rather than a screenshot of one; this is it.
-    let docs = resources::read(resources::FORMAT.uri).expect("the format docs resource");
+    let docs = all_format_docs();
 
     let mut cited: Vec<String> = docs
         .match_indices("ADR-")

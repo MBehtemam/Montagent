@@ -79,9 +79,10 @@ adjust the wrapper for whatever client you use):
 
 Once it's connected, your agent has ten tools — `compare`, `create_project`, `frame`,
 `measure`, `preview`, `query`, `render`, `shift`, `validate`, `verify` — and resources that
-teach it the project format directly: `montagent://format.md`, and the schema, whole at
-`montagent://schema.json` and in pieces listed by `montagent://schema/index.json`. That's
-where the agent learns the verbs; this page isn't trying to repeat them.
+teach it the project format directly: `montagent://format.md` with the pages it lists, and
+the schema, whole at `montagent://schema.json` and in pieces listed by
+`montagent://schema/index.json`. That's where the agent learns the verbs; this page isn't
+trying to repeat them.
 
 ## See it work, without wiring up an agent
 
