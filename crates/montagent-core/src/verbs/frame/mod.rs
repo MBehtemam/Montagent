@@ -1799,10 +1799,13 @@ impl<'a> Painter<'a> {
         };
 
         let paints = paints_of(element, &runs, self.instant);
+        let unit_of_glyph = unit_draws(element, &placement, self.instant);
         let glyphs: Vec<Glyph> = placement
             .glyphs
             .iter()
-            .map(|glyph| Glyph {
+            .enumerate()
+            .map(|(i, glyph)| Glyph {
+                unit: unit_of_glyph.get(i).copied().flatten(),
                 x: glyph.x,
                 y: glyph.y,
                 outline: glyph.outline,
@@ -2072,6 +2075,46 @@ fn paints_of(element: &Value, runs: &[montagent_text::Run<'_>], instant: i64) ->
 /// into the slots, never where the slots are. Raised at
 /// [#280](https://github.com/MBehtemam/Montagent/issues/280), asserted by
 /// `tests/effects.rs::a_highlight_moves_no_glyph`.
+/// Each placed glyph's stagger pose at `instant` (ADR-0151 §2–§3, ADR-0153 §2), or `None`
+/// for every glyph where the element has no `units` block, the glyph belongs to no unit, or
+/// its body is at rest.
+///
+/// A body moves on the timing of its first unit in reading order — a joined piece's first
+/// letter, a merged glyph's first cluster — and turns and scales about the pivot `origin`
+/// picks in its box.
+fn unit_draws(
+    element: &Value,
+    placement: &montagent_text::Placement,
+    instant: i64,
+) -> Vec<Option<montagent_render::canvas::UnitDraw>> {
+    let Some(plan) = crate::units::Plan::of(element) else {
+        return Vec::new();
+    };
+    let bodies = montagent_text::units::bodies(&plan.text, plan.by, placement);
+    let draws: Vec<Option<montagent_render::canvas::UnitDraw>> = bodies
+        .bodies
+        .iter()
+        .enumerate()
+        .map(|(index, body)| {
+            let pose = plan.pose(*body.units.first()?, instant);
+            if pose.is_rest() {
+                return None;
+            }
+            let pivot = plan.pivot(body.rect?);
+            Some(montagent_render::canvas::UnitDraw {
+                body: index,
+                matrix: pose.matrix(pivot).map(|v| v as f32),
+                opacity: pose.opacity.clamp(0.0, 1.0) as f32,
+            })
+        })
+        .collect();
+    bodies
+        .glyph_body
+        .iter()
+        .map(|body| body.and_then(|body| draws.get(body).copied().flatten()))
+        .collect()
+}
+
 fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {
     let window: crate::model::Highlight =
         serde_json::from_value(run.get("highlight")?.clone()).ok()?;

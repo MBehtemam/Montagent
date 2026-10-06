@@ -249,6 +249,7 @@ pub(super) fn draw(
             y: glyph.y,
             outline: glyph.outline,
             paint,
+            unit: None,
         })
         .collect();
     let outlines: Vec<Vec<PathEl>> = placement

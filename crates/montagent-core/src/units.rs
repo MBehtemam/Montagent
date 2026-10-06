@@ -1,0 +1,335 @@
+//! A text element's stagger (ADR-0151 §2–§5, amended by ADR-0153 §2): its units, when each
+//! starts, what a run's `unit` override replaces, and each unit's pose at an instant.
+//!
+//! Read off the permissive JSON tree, as the painter and `query --at` read everything else,
+//! so a document the typed model refuses still answers what it can. What one unit *is* comes
+//! from [`montagent_text::units`], from the text alone; which units shaping merged needs the
+//! placed glyphs, and is [`montagent_text::units::bodies`]'s.
+
+use std::ops::Range;
+
+use montagent_text::units::{By, Segmentation, segment};
+use serde_json::Value;
+
+use crate::model::Origin;
+use crate::verbs::query::geometry::{number, origin_fraction};
+
+/// The five unit lists, in the order ADR-0151 names them.
+pub(crate) const LISTS: [&str; 5] = ["x", "y", "rotation", "scale", "opacity"];
+
+/// One unit.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Unit {
+    pub(crate) index: usize,
+    /// Its text: its graphemes, whitespace between them included (a line unit's spaces).
+    pub(crate) text: String,
+    /// Its bytes in the element's whole text, first grapheme to last.
+    pub(crate) span: Range<usize>,
+    /// The run its first grapheme sits in.
+    pub(crate) run: usize,
+    /// Its position in `order` times `every`, or the override's `delay`.
+    pub(crate) delay: i64,
+    /// The run whose `unit` override singles it out: a run holding exactly this unit.
+    pub(crate) override_run: Option<usize>,
+}
+
+/// A unit's resolved pose at an instant: offsets inside the element.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Pose {
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) rotation: f64,
+    pub(crate) scale: [f64; 2],
+    pub(crate) opacity: f64,
+}
+
+impl Pose {
+    /// The pose that draws a unit exactly as it was laid out.
+    pub(crate) fn is_rest(&self) -> bool {
+        self.x == 0.0
+            && self.y == 0.0
+            && self.rotation == 0.0
+            && self.scale == [1.0, 1.0]
+            && self.opacity >= 1.0
+    }
+
+    /// `T(pivot + offset) · R(rotation) · S(scale) · T(−pivot)`, as `[sx, kx, tx, ky, sy, ty]`
+    /// in the block's own coordinates.
+    pub(crate) fn matrix(&self, pivot: (f64, f64)) -> [f64; 6] {
+        let (px, py) = pivot;
+        let (sin, cos) = self.rotation.to_radians().sin_cos();
+        let [sx, sy] = self.scale;
+        let (a, b, d, e) = (cos * sx, -sin * sy, sin * sx, cos * sy);
+        let tx = px + self.x - (a * px + b * py);
+        let ty = py + self.y - (d * px + e * py);
+        [a, b, tx, d, e, ty]
+    }
+}
+
+/// Why a run's `unit` override does not single out one unit (`E-UNIT-RUN-NOT-ONE-UNIT`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NotOneUnit {
+    /// How many units the run touches.
+    pub(crate) found: usize,
+}
+
+/// An element's whole stagger, before any instant.
+#[derive(Debug, Clone)]
+pub(crate) struct Plan {
+    pub(crate) by: By,
+    pub(crate) every: i64,
+    /// The pivot's fraction of each unit's box.
+    pub(crate) origin: (f64, f64),
+    /// The element's whole text: its runs concatenated.
+    pub(crate) text: String,
+    pub(crate) segmentation: Segmentation,
+    pub(crate) units: Vec<Unit>,
+    /// Each run's bytes in [`Plan::text`].
+    pub(crate) run_ranges: Vec<Range<usize>>,
+    block: Value,
+    runs: Vec<Value>,
+}
+
+/// `by`'s word, as the file writes it.
+pub(crate) fn by_name(by: By) -> &'static str {
+    match by {
+        By::Letter => "letter",
+        By::Word => "word",
+        By::Line => "line",
+    }
+}
+
+impl Plan {
+    /// The element's stagger, or `None` where it has no `units` block with a readable `by`
+    /// and a positive `every` — the schema check's to report.
+    pub(crate) fn of(element: &Value) -> Option<Plan> {
+        let block = element.get("units")?.clone();
+        let by = match block.get("by")?.as_str()? {
+            "letter" => By::Letter,
+            "word" => By::Word,
+            "line" => By::Line,
+            _ => return None,
+        };
+        let every = block.get("every")?.as_i64().filter(|every| *every > 0)?;
+        let reverse = block.get("order").and_then(Value::as_str) == Some("reverse");
+        let origin: Origin = block
+            .get("origin")
+            .and_then(|o| serde_json::from_value(o.clone()).ok())
+            .unwrap_or(Origin::Center);
+        let runs: Vec<Value> = crate::verbs::measure::runs_array(element).to_vec();
+        let mut text = String::new();
+        let mut run_ranges = Vec::with_capacity(runs.len());
+        for run in &runs {
+            let start = text.len();
+            text.push_str(run.get("text").and_then(Value::as_str).unwrap_or(""));
+            run_ranges.push(start..text.len());
+        }
+        let segmentation = segment(&text, by);
+        let count = segmentation.count;
+        let run_of = |at: usize| run_ranges.iter().position(|r| r.contains(&at)).unwrap_or(0);
+        let units: Vec<Unit> = (0..count)
+            .map(|index| {
+                let mut members = segmentation
+                    .graphemes
+                    .iter()
+                    .filter(|g| g.unit == Some(index));
+                let first = members.next().map_or(0..0, |g| g.range.clone());
+                let last = members.last().map_or(first.clone(), |g| g.range.clone());
+                let span = first.start..last.end;
+                let position = if reverse { count - 1 - index } else { index } as i64;
+                Unit {
+                    index,
+                    text: text[span.clone()].to_string(),
+                    run: run_of(span.start),
+                    span,
+                    delay: position * every,
+                    override_run: None,
+                }
+            })
+            .collect();
+        let mut plan = Plan {
+            by,
+            every,
+            origin: origin_fraction(origin),
+            text,
+            segmentation,
+            units,
+            run_ranges,
+            block,
+            runs,
+        };
+        for r in 0..plan.runs.len() {
+            let Some(over) = plan.runs[r].get("unit").filter(|o| o.is_object()) else {
+                continue;
+            };
+            let Ok(unit) = plan.singled_out(r) else {
+                continue;
+            };
+            let delay = over
+                .get("delay")
+                .and_then(Value::as_i64)
+                .filter(|delay| *delay >= 0);
+            plan.units[unit].override_run = Some(r);
+            if let Some(delay) = delay {
+                plan.units[unit].delay = delay;
+            }
+        }
+        Some(plan)
+    }
+
+    /// The one unit run `r` holds exactly — all of its graphemes, from its first to its last,
+    /// and nothing else — or how many units it touches.
+    pub(crate) fn singled_out(&self, r: usize) -> Result<usize, NotOneUnit> {
+        let range = &self.run_ranges[r];
+        let mut touched: Vec<usize> = self
+            .segmentation
+            .graphemes
+            .iter()
+            .filter(|g| range.contains(&g.range.start))
+            .filter_map(|g| g.unit)
+            .collect();
+        touched.sort_unstable();
+        touched.dedup();
+        match touched.as_slice() {
+            [unit] if self.units[*unit].span == *range => Ok(*unit),
+            _ => Err(NotOneUnit {
+                found: touched.len(),
+            }),
+        }
+    }
+
+    /// The `unit` object on run `r`, as written.
+    pub(crate) fn override_on(&self, r: usize) -> Option<&Value> {
+        self.runs.get(r)?.get("unit").filter(|o| o.is_object())
+    }
+
+    /// Every run carrying a `unit` object, by index.
+    pub(crate) fn override_runs(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..self.runs.len()).filter(|&r| self.override_on(r).is_some())
+    }
+
+    /// The `units` block as written.
+    pub(crate) fn block(&self) -> &Value {
+        &self.block
+    }
+
+    /// The override singling out `unit`, if any.
+    fn override_of(&self, unit: usize) -> Option<&Value> {
+        self.override_on(self.units[unit].override_run?)
+    }
+
+    /// Whether `unit`'s `property` comes from a run override — or, for `"delay"`, whether
+    /// its delay does.
+    pub(crate) fn overridden(&self, unit: usize, property: &str) -> bool {
+        self.override_of(unit)
+            .is_some_and(|o| o.get(property).is_some())
+    }
+
+    /// Where `unit`'s `property` list is read from, and how late it runs: a run's own list on
+    /// the absolute clock, otherwise the block's list late by the unit's delay.
+    pub(crate) fn source(&self, unit: usize, property: &str) -> (&Value, i64) {
+        match self.override_of(unit) {
+            Some(o) if o.get(property).is_some() => (o, 0),
+            _ => (&self.block, self.units[unit].delay),
+        }
+    }
+
+    /// The unit's pose at `instant`.
+    pub(crate) fn pose(&self, unit: usize, instant: i64) -> Pose {
+        let at = |property: &str| {
+            let (from, late) = self.source(unit, property);
+            (from, instant - late)
+        };
+        let (o, t) = at("x");
+        let x = number::<i64>(o, "x", t, 0.0);
+        let (o, t) = at("y");
+        let y = number::<i64>(o, "y", t, 0.0);
+        let (o, t) = at("rotation");
+        let rotation = number::<f64>(o, "rotation", t, 0.0);
+        let (o, t) = at("scale");
+        let scale = number::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
+        let (o, t) = at("opacity");
+        let opacity = number::<f64>(o, "opacity", t, 1.0);
+        Pose {
+            x,
+            y,
+            rotation,
+            scale,
+            opacity,
+        }
+    }
+
+    /// Every unit list's first and last keyframe instants after its delay, with the unit and
+    /// the property: what the stagger window and the settle instant are made of.
+    pub(crate) fn spans(&self) -> Vec<(usize, &'static str, i64, i64)> {
+        let mut out = Vec::new();
+        for unit in 0..self.units.len() {
+            for property in LISTS {
+                let (from, late) = self.source(unit, property);
+                let Some(records) = crate::checks::keyframe_records(from, property) else {
+                    continue;
+                };
+                let ts: Vec<i64> = records
+                    .iter()
+                    .filter_map(|r| r.get("t").and_then(Value::as_i64))
+                    .collect();
+                if let (Some(first), Some(last)) = (ts.iter().min(), ts.iter().max()) {
+                    out.push((unit, property, first + late, last + late));
+                }
+            }
+        }
+        out
+    }
+
+    /// The stagger window: from the earliest start of any unit list to the latest end, after
+    /// delays and including run overrides (ADR-0151 §5). `None` where no list is keyed.
+    pub(crate) fn window(&self) -> Option<(i64, i64)> {
+        let spans = self.spans();
+        let start = spans.iter().map(|s| s.2).min()?;
+        let end = spans.iter().map(|s| s.3).max()?;
+        Some((start, end))
+    }
+
+    /// The pivot of a body's box.
+    pub(crate) fn pivot(&self, rect: [f64; 4]) -> (f64, f64) {
+        let [l, t, r, b] = rect;
+        (l + self.origin.0 * (r - l), t + self.origin.1 * (b - t))
+    }
+}
+
+/// Lay a staggered element out as the painter does, with its spacing at `instant`, and group
+/// its units into bodies. `Err` carries why it could not be placed: a font.
+pub(crate) fn bodies_at(
+    document: &crate::permissive::Loose,
+    element: &Value,
+    plan: &Plan,
+    instant: i64,
+) -> Result<(montagent_text::Placement, montagent_text::units::Bodies), String> {
+    use crate::verbs::measure::{
+        Measurable, align_of, letter_spacing_at, optional_ligatures_off, register, runs_of,
+    };
+    let spec = Measurable::of(element)?;
+    let mut fonts = montagent_text::Fonts::new();
+    for key in std::iter::once(spec.asked.font.clone()).chain(Measurable::keys(element)) {
+        register(document, &key, &mut fonts).map_err(|e| e.to_string())?;
+    }
+    let runs = runs_of(element);
+    let placement = montagent_text::place(
+        &mut fonts,
+        &montagent_text::Spec {
+            runs: &runs,
+            font: &spec.asked.font,
+            size: spec.asked.size,
+            line_height_tenths: spec.asked.line_height_tenths,
+            stroke_width: spec.asked.stroke_width,
+            y: 0,
+            vertical_origin: montagent_text::VerticalOrigin::Top,
+            align: align_of(element),
+            letter_spacing: letter_spacing_at(element, instant),
+            optional_ligatures_off: optional_ligatures_off(element),
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    let bodies = montagent_text::units::bodies(&plan.text, plan.by, &placement);
+    Ok((placement, bodies))
+}

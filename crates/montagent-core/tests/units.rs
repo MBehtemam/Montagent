@@ -197,3 +197,61 @@ fn a_run_override_needs_one_key_and_a_delay_that_is_not_negative() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The painted frame.
+// ---------------------------------------------------------------------------
+
+/// The frame at `instant`, as PNG bytes at true scale.
+#[track_caller]
+fn painted(project: &Path, instant: i64) -> Vec<u8> {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::frame::{Ask, frame};
+    let answer = frame(
+        project,
+        &Ask {
+            at: Some(instant),
+            full: true,
+            png: true,
+            ..Ask::default()
+        },
+    );
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{}",
+        serde_json::to_string_pretty(&answer.to_json()).unwrap_or_default()
+    );
+    answer.image().expect("a picture").bytes.clone()
+}
+
+#[test]
+fn an_idle_units_block_paints_the_same_bytes_as_no_block() {
+    // Oswald's `TITLE` has no optional ligature, so `by: letter` switching them off changes
+    // no glyph; once every unit has landed its lists rest at 0 and 1, and no layer is made.
+    let plain = project(&[title("t", "TITLE")], line!());
+    let idle = project(&[staggered("t", "TITLE")], line!());
+    assert!(painted(&plain, 2500) == painted(&idle, 2500));
+}
+
+#[test]
+fn a_mid_cascade_frame_shows_the_letters_in_motion() {
+    let plain = project(&[title("t", "TITLE")], line!());
+    let moving = project(&[staggered("t", "TITLE")], line!());
+    let settled = painted(&moving, 2500);
+    let mid = painted(&moving, 150);
+    assert!(mid != settled, "mid-cascade differs from the landed title");
+    assert!(mid != painted(&plain, 150));
+}
+
+#[test]
+fn a_letter_stagger_switches_the_optional_ligatures_off() {
+    // Oswald's `fi` is one glyph; under `by: letter` it is two, landed or not.
+    let plain = project(&[title("t", "fi")], line!());
+    let letters = project(&[staggered("t", "fi")], line!());
+    let mut words = staggered("t", "fi");
+    words["units"]["by"] = json!("word");
+    let words = project(&[words], line!());
+    assert!(painted(&plain, 2500) != painted(&letters, 2500));
+    assert!(painted(&plain, 2500) == painted(&words, 2500));
+}
