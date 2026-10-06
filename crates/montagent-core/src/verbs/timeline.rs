@@ -447,7 +447,15 @@ fn with_motion(element: &Value, detail: String) -> String {
 /// Read off the permissive tree rather than the typed model, because this view is wanted on
 /// documents the types cannot hold.
 fn animated(element: &Value) -> bool {
-    const ANIMATABLE: [&str; 6] = ["x", "y", "scale", "rotation", "opacity", "volume"];
+    const ANIMATABLE: [&str; 7] = [
+        "x",
+        "y",
+        "letter_spacing",
+        "scale",
+        "rotation",
+        "opacity",
+        "volume",
+    ];
 
     ANIMATABLE.iter().any(|property| {
         // ADR-0012's own shape test, as `Animatable` applies it on the way in: a keyframe

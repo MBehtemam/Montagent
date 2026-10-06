@@ -51,6 +51,20 @@ fn project(elements: &[Value], line: u32) -> PathBuf {
             {"file": workspace(OSWALD).display().to_string()},
             {"file": workspace(NASKH).display().to_string()},
         ]},
+        // ADR-0057's attestation, so `validate` (and every verb that runs it) reports on the
+        // spacing and not on the fonts.
+        "fontVendor": {
+            workspace(OSWALD).display().to_string(): {
+                "licence": "OFL-1.1",
+                "source": "google/fonts ofl/oswald, instanced wght=600",
+                "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9",
+            },
+            workspace(NASKH).display().to_string(): {
+                "licence": "OFL-1.1",
+                "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+                "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21",
+            },
+        },
         "tracks": [{"name": "titles", "layer": 1, "elements": elements}],
     });
     write_project(&dir, "p.montagent.json", &canonical(&document.to_string()))
@@ -118,6 +132,115 @@ fn a_fractional_letter_spacing_is_a_schema_error_static_or_keyed() {
             codes(&report)
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// The keyframe checks and the views walk a keyed spacing like any animatable property.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_well_formed_spaced_title_validates_clean() {
+    let report = report_on(&[with(title("t", "TRACKED"), "letter_spacing", json!(200))]);
+    let loud: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.class != montagent_core::finding::Class::Note)
+        .map(|f| f.code.as_str())
+        .collect();
+    assert!(loud.is_empty(), "{loud:?}");
+}
+
+#[test]
+fn an_ease_on_a_spacing_hold_is_inert() {
+    let report = report_on(&[with(
+        title("t", "TRACKED"),
+        "letter_spacing",
+        json!([{"t": 0, "v": 100}, {"t": 1000, "v": 100, "ease": "ease-in"}]),
+    )]);
+    assert!(
+        codes(&report).contains(&"R-EASE-INERT"),
+        "{:?}",
+        codes(&report)
+    );
+}
+
+#[test]
+fn a_spacing_keyframe_the_element_never_reaches_is_reported() {
+    // The last record sits at the element's `end`, which no frame samples (ADR-0035).
+    let report = report_on(&[with(
+        title("t", "TRACKED"),
+        "letter_spacing",
+        json!([{"t": 0, "v": 0}, {"t": 2000, "v": 200, "ease": "linear"}]),
+    )]);
+    assert!(
+        codes(&report).contains(&"R-KEYFRAME-UNREACHED"),
+        "{:?}",
+        codes(&report)
+    );
+}
+
+#[test]
+fn the_timeline_marks_a_title_whose_spacing_is_keyed_as_moving() {
+    use montagent_core::verbs::timeline;
+    let still = timeline::timeline(&project(&[title("t", "TRACKED")], line!())).to_json();
+    let keyed = timeline::timeline(&project(&[tracking_out("t", "TRACKED")], line!())).to_json();
+    assert_ne!(
+        still["timeline"], keyed["timeline"],
+        "the motion mark is the only difference"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// `measure`, and `R-LINE-INK-COLLISION`, which measures through it.
+// ---------------------------------------------------------------------------
+
+#[track_caller]
+fn measured(element: Value) -> Value {
+    use montagent_core::verbs::measure::{Ask, measure};
+    let path = project(&[], std::panic::Location::caller().line());
+    measure(
+        &path,
+        &Ask {
+            element: Some(element),
+            ..Ask::default()
+        },
+    )
+    .to_json()
+}
+
+#[test]
+fn measure_answers_for_the_spaced_line_and_says_which_spacing() {
+    let plain = measured(title("t", "TRACKED"));
+    let spaced = measured(with(title("t", "TRACKED"), "letter_spacing", json!(200)));
+    let advance = |answer: &Value| answer["measure"]["advance_width"].as_f64().unwrap();
+    assert!((advance(&spaced) - advance(&plain) - 120.0).abs() < 0.01);
+    assert_eq!(spaced["measure"]["asked"]["letter_spacing"], 200);
+    assert!(plain["measure"]["asked"].get("letter_spacing").is_none());
+}
+
+#[test]
+fn measure_answers_a_keyed_spacing_at_the_widest_value_the_file_writes() {
+    let keyed = measured(with(
+        title("t", "TRACKED"),
+        "letter_spacing",
+        json!([{"t": 0, "v": -50}, {"t": 500, "v": 300, "ease": "linear"}, {"t": 1000, "v": 0, "ease": "linear"}]),
+    ));
+    assert_eq!(keyed["measure"]["asked"]["letter_spacing"], 300);
+}
+
+#[test]
+fn the_ink_collision_check_measures_every_spacing_the_file_writes() {
+    // A two-line block tight enough to collide at every spacing: the check still finds it
+    // when the spacing is keyed, so keying a spacing never hides a collision.
+    let mut element = tracking_out("t", "Hy\nHy");
+    element["line_height"] = json!(0.6);
+    element["height"] = json!(120);
+    let report = report_on(&[element]);
+    assert!(
+        codes(&report).contains(&"R-LINE-INK-COLLISION"),
+        "{:?}",
+        codes(&report)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +413,84 @@ fn keyed_spacing_paints_the_same_bytes_whatever_was_painted_before() {
     }
     // And the spacing does move between them.
     assert_ne!(forward[0], forward[4]);
+}
+
+// ---------------------------------------------------------------------------
+// `shift`.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_shift_split_inside_a_keyed_spacing_segment_writes_an_integer() {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::shift::{Ask, shift};
+    // 0 → 25 linear over a second, cut at 500: the resolved 12.5 is written as 13, ties away
+    // from zero (ADR-0146 §7, the `x` rule).
+    let path = project(
+        &[with(
+            title("t", "TRACKED"),
+            "letter_spacing",
+            json!([{"t": 0, "v": 0}, {"t": 2000, "v": 50, "ease": "linear"}]),
+        )],
+        line!(),
+    );
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 500,
+            delta: 100,
+            scope: None,
+            release: Vec::new(),
+        },
+    );
+    assert_ne!(
+        answer.report().exit_code(),
+        ExitCode::Errors,
+        "{:?}",
+        answer.report().findings
+    );
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let records = written["tracks"][0]["elements"][0]["letter_spacing"]
+        .as_array()
+        .expect("still keyed")
+        .clone();
+    let pairs: Vec<(i64, Value)> = records
+        .iter()
+        .map(|r| (r["t"].as_i64().unwrap(), r["v"].clone()))
+        .collect();
+    assert_eq!(
+        pairs,
+        vec![
+            (0, json!(0)),
+            (500, json!(13)),
+            (600, json!(13)),
+            (2100, json!(50)),
+        ]
+    );
+}
+
+#[test]
+fn a_plain_shift_carries_a_keyed_spacing_with_its_element() {
+    use montagent_core::verbs::shift::{Ask, shift};
+    let mut element = with(
+        title("t", "TRACKED"),
+        "letter_spacing",
+        json!([{"t": 100, "v": 0}, {"t": 900, "v": 200, "ease": "linear"}]),
+    );
+    element["start"] = json!(100);
+    let path = project(&[element], line!());
+    shift(
+        &path,
+        &Ask {
+            at: 0,
+            delta: 300,
+            scope: None,
+            release: Vec::new(),
+        },
+    );
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let records = &written["tracks"][0]["elements"][0]["letter_spacing"];
+    assert_eq!(records[0]["t"], 400);
+    assert_eq!(records[1]["t"], 1200);
 }
 
 #[test]

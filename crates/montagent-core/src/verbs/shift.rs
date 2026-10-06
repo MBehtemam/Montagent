@@ -508,6 +508,7 @@ fn animatable_lists(body: &Body) -> Vec<(&'static str, Vec<i64>)> {
         Body::Text(e) => {
             out.extend(ts("x", &e.x));
             out.extend(ts("y", &e.y));
+            out.extend(ts("letter_spacing", &e.letter_spacing));
             out.extend(ts("scale", &e.scale));
             out.extend(ts("rotation", &e.rotation));
             out.extend(ts("opacity", &e.opacity));
@@ -556,6 +557,7 @@ fn shift_all_keyframes(body: &mut Body, delta: i64) {
         Body::Text(e) => {
             shift_keyframes(&mut e.x, delta);
             shift_keyframes(&mut e.y, delta);
+            shift_keyframes(&mut e.letter_spacing, delta);
             shift_keyframes(&mut e.scale, delta);
             shift_keyframes(&mut e.rotation, delta);
             shift_keyframes(&mut e.opacity, delta);
@@ -602,6 +604,8 @@ fn split_all_keyframes(body: &mut Body, at: i64, delta: i64) {
         Body::Text(e) => {
             split_property(&mut e.x, at, delta, round_i64);
             split_property(&mut e.y, at, delta, round_i64);
+            // Integer-typed (ADR-0151): the split value rounds as `x` does (ADR-0146 §7).
+            split_property(&mut e.letter_spacing, at, delta, round_i64);
             split_property(&mut e.scale, at, delta, round_scale);
             split_property(&mut e.rotation, at, delta, round6);
             split_property(&mut e.opacity, at, delta, round6);

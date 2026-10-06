@@ -82,7 +82,8 @@ use crate::stack::TimelineRange;
 #[derive(Clone, Copy)]
 enum Shape {
     /// `x`/`y`: absolute integer pixels in the document, continuous once resolved
-    /// (ADR-0035 — a resolved `x` is not an `i64`).
+    /// (ADR-0035 — a resolved `x` is not an `i64`). `letter_spacing` is integer-typed the
+    /// same way (ADR-0151).
     Pixels,
     /// `rotation`, `opacity`, `volume`.
     Scalar,
@@ -93,7 +94,7 @@ enum Shape {
 impl Shape {
     fn of(property: &str) -> Shape {
         match property {
-            "x" | "y" => Shape::Pixels,
+            "x" | "y" | "letter_spacing" => Shape::Pixels,
             "scale" => Shape::Pair,
             _ => Shape::Scalar,
         }

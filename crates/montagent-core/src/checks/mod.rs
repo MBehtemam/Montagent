@@ -143,7 +143,19 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
 /// still re-derives its `t`. `crate::verbs::timeline` keeps a fourth copy for a
 /// fourth question and is not folded in here — it asks *"is this element animated at all"*
 /// of a `Value` with no check machinery around it.
-pub(crate) const ANIMATABLE: [&str; 6] = ["x", "y", "scale", "rotation", "opacity", "volume"];
+///
+/// `letter_spacing` joins it with ADR-0151. Until ADR-0146's one schema-derived list lands
+/// (#675), this list, `crate::verbs::timeline`'s, `crate::verbs::compare`'s and
+/// `crate::verbs::query::at`'s are the per-tool copies that list must replace.
+pub(crate) const ANIMATABLE: [&str; 7] = [
+    "x",
+    "y",
+    "letter_spacing",
+    "scale",
+    "rotation",
+    "opacity",
+    "volume",
+];
 
 /// One property's keyframe records, or `None` where the property is absent or static.
 ///
