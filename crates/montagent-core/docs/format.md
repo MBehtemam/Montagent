@@ -202,6 +202,32 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   no part in where text is drawn, so a single line sits at the same place under every `align`,
   and `align` moves only lines narrower than the widest. `query --at`'s `ink_box` is placed
   the same way, so it is where the text is drawn.
+- **`letter_spacing` is an integer in thousandths of an em** (ADR-0151, ADR-0153). After
+  every grapheme of a line, `size × letter_spacing / 1000` pixels are added, where `size` is
+  the size of **the run the grapheme sits in**, so a `size` edit keeps the same tracking.
+  Spaces count, and so do run boundaries. **Nothing is added after a line's last grapheme**,
+  so a centred or end-aligned line stays where `align` puts it. Negative tightens; the default
+  is 0. It belongs to the element: a run cannot override it. It is an animatable property —
+  keyframe values are integers, and the resolved value is never rounded — and the spaced
+  line is what the block, `align`, `origin` and `query --at`'s `ink_box` all measure.
+  Lines still break only at `\n`, so spacing never re-breaks a line.
+  **No spacing is added between two letters of the same joining script** (Arabic, Syriac,
+  N'Ko, Mongolian, Adlam and the others Unicode lists), whether or not they join: it would
+  tear the cursive stroke. A tracked mixed line still spreads its spaces, punctuation,
+  digits and other scripts. `validate` names an element where this suppresses a pair as
+  `R-SPACING-SUPPRESSED`.
+- **A non-zero `letter_spacing` switches optional ligatures off for the whole element**
+  (ADR-0151, ADR-0153). If any `letter_spacing` value or keyframe on the element is non-zero,
+  `liga`, `clig` and `dlig` are off for its whole range, so `fi` is two glyphs at every frame
+  — a spacing keyed through 0 included — and glyphs never swap mid-shot. The rule reads the
+  file, never the value at an instant. The joining scripts are exempt: their script runs keep
+  every ligature, because some fonts file a spelling-required ligature such as lam-alef under
+  `liga`. Required ligatures (`rlig`) are never switched off.
+- **`R-LINE-INK-COLLISION` measures a spaced element at every `letter_spacing` value the file
+  writes** — the static value, or each keyframe record's `v` — and reports the worst seam.
+  Between two records the spacing passes only through the values between them; a bezier's
+  overshoot past a record is not sampled. `measure` answers a keyed spacing at the largest
+  value the list writes, and says which value it used in `asked.letter_spacing`.
 - **`line_height` is a multiplier restricted to one decimal digit** (ADR-0028) — `1.0`, `1.1`, `1.2` —
   so it is always exactly `n/10`. A line's height is the largest `size` among its runs times
   `line_height`; the block height is the `ceil` of that over the line count, computed in
