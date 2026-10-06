@@ -996,6 +996,52 @@ between them.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0150: `E-ANCHOR-MISSING`'s sibling, one reference over, and advise for its
+        // reason — the next move follows from the condition rather than from knowing which
+        // element was meant. `frame` keeps `E-NOT-PAINTED-UNRESOLVED-REF`, since it runs
+        // without `validate`.
+        code: "E-TRANSITION-REF-MISSING",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0150",
+        template: "{element}: the transition's `{side}` names `{target}`, which is not a \
+visual element in this project.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0150: `E-ANCHOR-SELF`'s sibling — the element is there, so "no such element"
+        // would be false, and a self-reference reads as a copy-paste rather than a typo.
+        code: "E-TRANSITION-REF-SELF",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0150",
+        template: "{element}: the transition's `from` and `to` both name `{target}`; a \
+transition hands over between two elements.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0150: in a slide only `to` moves, over a still `from`, and the transition never
+        // changes a layer. Refuse, because more than one layer change fixes it — raise `to`,
+        // lower `from`, or swap the tracks — and the document does not say which was meant.
+        code: "E-TRANSITION-SLIDE-UNDER",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0150",
+        template: "{element}: the slide's `to`, `{to}` (layer {to_layer}), paints beneath \
+its `from`, `{from}` (layer {from_layer}). Only `to` moves in a slide, over a still `from`, \
+so `to` must paint above `from`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],
         repair: None,
@@ -2261,12 +2307,11 @@ member of the effect vocabulary, and it was drawn as though it were not there.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
-        // `checks::transition` declines this question in as many words — *"a `from`/`to`
-        // naming an element that is not in the project at all is a dangling reference, not a
-        // drifted one ... leaving an unresolved reference to whichever check owns that
-        // question"* — and no check ever claimed it. So the render is where it surfaces, and
-        // until ADR-0093 it surfaced as a line of prose: the crossfade simply did not happen.
-        template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the crossfade was not applied.",
+        // Until ADR-0150 no check claimed a dangling `from`/`to`, so the render was where it
+        // surfaced, and until ADR-0093 as a line of prose. `validate` now says it as
+        // `E-TRANSITION-REF-MISSING`; this code stays for `frame`, which runs without
+        // `validate`.
+        template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the transition was not applied.",
         status: Live,
         census: None,
         sets: &[],

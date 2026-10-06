@@ -161,6 +161,26 @@ pub struct Present {
     /// refuses on.
     pub ink_box: Option<InkBox>,
     pub ink_box_unresolved: Option<String>,
+    /// Where a running `wipe`, `slide` or `push` has put this element (ADR-0150): moved
+    /// outside its own transform, or cut to one side of a wipe's edge. `null` where no such
+    /// transition bridges it at this instant — a crossfade changes only opacity, which this
+    /// view reads as declared. Without it, an element mid-slide would read as sitting where
+    /// its `x` and `y` say, which is not where the frame shows it.
+    pub transition: Option<Moved>,
+}
+
+/// What a running `wipe`, `slide` or `push` does to one element's geometry (ADR-0150).
+#[derive(Debug, Clone, Serialize)]
+pub struct Moved {
+    /// Whole frame-space pixels the element is moved by, `[dx, dy]`.
+    pub offset: [i64; 2],
+    /// The frame-space rectangle a wipe cuts it to, which may be empty. `null` for none.
+    pub cut: Option<Rect>,
+    /// The element's visible box after the offset and the cut — the rectangle `NOT
+    /// COVERED` reads. `null` where it has none: a rotated element (answered in rectangles
+    /// only), no readable box, or a cut that leaves nothing.
+    #[serde(rename = "box")]
+    pub visible: Option<Rect>,
 }
 
 /// One property's value at the instant.
@@ -305,6 +325,14 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
     let mut covering: Vec<Rect> = Vec::new();
     let mut not_covered_unresolved: Option<String> = None;
 
+    // The running transitions, resolved once for the instant through the same
+    // `crate::transition` `frame`'s painter reads (ADR-0150), so a bridged element's box here
+    // is where the picture puts it. Not in a presence-only view: a painter resolves its own.
+    let running = match (detail, frame) {
+        (Detail::Full, Some(frame)) => crate::transition::running_at(document, instant, frame),
+        _ => Vec::new(),
+    };
+
     for (index, (track, element)) in document.elements_in_tracks().enumerate() {
         let named = Named::of(element, track);
         let name = named.called(index);
@@ -333,6 +361,10 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         };
 
         let kind = named.kind.as_deref();
+        let bridge = match &named.id {
+            Some(id) => crate::transition::bridge_of(&running, id),
+            None => crate::transition::Bridge::default(),
+        };
 
         // An invisible element (a resolved `opacity` of exactly `0`) contributes nothing
         // to `NOT COVERED` either way, so its rotation — which would otherwise force the
@@ -344,7 +376,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             && geometry_number_opacity(element, instant) != 0.0
             && let Some(frame) = frame
         {
-            match geometry::visible_rect(element, instant, frame) {
+            match geometry::bridged_visible_rect(element, instant, frame, &bridge) {
                 Some(Err(NotAxisAligned::Rotated(degrees))) => {
                     not_covered_unresolved.get_or_insert_with(|| {
                         format!(
@@ -383,7 +415,15 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             }
             (Some("text"), Some(frame)) => {
                 match geometry::ink_box(document, element, instant, frame) {
-                    Ok(ink_box) => (Some(ink_box), None),
+                    // Moved with the element by a slide or push (ADR-0150).
+                    Ok(ink_box) => (
+                        Some(InkBox {
+                            x: ink_box.x + bridge.offset.0 as f64,
+                            y: ink_box.y + bridge.offset.1 as f64,
+                            ..ink_box
+                        }),
+                        None,
+                    ),
                     Err(reason) => (None, Some(reason)),
                 }
             }
@@ -410,6 +450,15 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             crop_unresolved,
             ink_box,
             ink_box_unresolved,
+            transition: match (bridge.moves_or_cuts(), frame) {
+                (true, Some(frame)) => Some(Moved {
+                    offset: [bridge.offset.0, bridge.offset.1],
+                    cut: bridge.cut,
+                    visible: geometry::bridged_visible_rect(element, instant, frame, &bridge)
+                        .and_then(Result::ok),
+                }),
+                _ => None,
+            },
         });
     }
 

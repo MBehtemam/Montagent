@@ -196,12 +196,36 @@ pub(crate) fn visible_rect(
     instant: i64,
     frame: (i64, i64),
 ) -> Option<Result<Rect, NotAxisAligned>> {
+    bridged_visible_rect(
+        element,
+        instant,
+        frame,
+        &crate::transition::Bridge::default(),
+    )
+}
+
+/// [`visible_rect`] under what the running transitions do to the element (ADR-0150): its
+/// drawn rectangle moved by a slide or push's offset, and its `clip`, moved with it, cut by
+/// a wipe. The same [`crate::transition::Bridge`] `frame`'s painter paints through.
+pub(crate) fn bridged_visible_rect(
+    element: &Value,
+    instant: i64,
+    frame: (i64, i64),
+    bridge: &crate::transition::Bridge,
+) -> Option<Result<Rect, NotAxisAligned>> {
     match drawn_rect(element, instant, frame)? {
         Err(not_axis_aligned) => Some(Err(not_axis_aligned)),
-        Ok(rect) => match clip_rect(element) {
-            Some(clip) => rect.intersect(clip).map(Ok),
-            None => Some(Ok(rect)),
-        },
+        Ok(rect) => {
+            let moved = Rect {
+                x: rect.x + bridge.offset.0,
+                y: rect.y + bridge.offset.1,
+                ..rect
+            };
+            match bridge.aperture(clip_rect(element)) {
+                Some(aperture) => moved.intersect(aperture).map(Ok),
+                None => Some(Ok(moved)),
+            }
+        }
     }
 }
 

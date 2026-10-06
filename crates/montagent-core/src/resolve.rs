@@ -236,6 +236,19 @@ fn keyed<T: Interpolate>(
     }
 }
 
+/// The eased progress across a transition's window (ADR-0150): the keyframe vocabulary,
+/// through the same evaluator keyframes use. `step` holds at `0` until the fraction reaches
+/// `1`, so a stepped transition is a cut at the end of its window, as on a keyframe.
+pub(crate) fn eased(ease: &Ease, fraction: f64) -> f64 {
+    match ease {
+        Ease::Named(EaseName::Step) => match fraction >= 1.0 {
+            true => 1.0,
+            false => 0.0,
+        },
+        ease => progress(ease, fraction),
+    }
+}
+
 /// The eased progress along a segment, given the raw fraction of its time.
 ///
 /// Every ease but `step` is a bezier, and `step` is handled by its caller rather than here —

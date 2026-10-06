@@ -1383,7 +1383,7 @@ fn a_crossfade_is_named_beside_the_picture() {
         },
     );
 
-    let crossfades = json["frame"]["crossfades"]
+    let crossfades = json["frame"]["transitions"]
         .as_array()
         .expect("the answer names the crossfades in effect")
         .clone();
@@ -1406,7 +1406,7 @@ fn a_crossfade_is_named_beside_the_picture() {
         },
     );
     assert_eq!(
-        outside["frame"]["crossfades"].as_array().map(Vec::len),
+        outside["frame"]["transitions"].as_array().map(Vec::len),
         Some(0)
     );
 }
@@ -1665,9 +1665,9 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         (codes, details)
     };
 
-    // A `kind` outside v1's one-member vocabulary (ADR-0059 defers wipe, slide and push).
+    // A `kind` outside the vocabulary (ADR-0150: `crossfade`, `wipe`, `slide`, `push`).
     let (codes, details) = unusable(
-        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"wipe",
+        r##"{"id":"fade","type":"transition","start":1000,"end":2000,"kind":"iris",
              "from":"first","to":"second"}"##,
     );
     assert!(
@@ -1675,7 +1675,7 @@ fn a_transition_that_cannot_be_read_is_named_rather_than_silently_inert() {
         "a deferred `kind` was silently inert: {codes:?}"
     );
     assert!(
-        details.iter().any(|detail| detail.contains("wipe")),
+        details.iter().any(|detail| detail.contains("iris")),
         "the finding did not name the `kind` it could not draw: {details:?}"
     );
 

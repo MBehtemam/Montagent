@@ -26,7 +26,60 @@ pub fn generate() -> Value {
     publish_bezier_bounds(&mut schema);
     publish_mask_rect(&mut schema);
     publish_chroma_bounds(&mut schema);
+    publish_transition_fields(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0150's two relational rules about a transition's `direction` and `ease` in the
+/// schema, where the types can only say them in their deserializer
+/// (`crate::model::Transition`'s `checked`).
+///
+/// [`publish_mask_rect`]'s `radius` arrangement, for its reason: both fields are declared
+/// properties of the one transition shape, so `additionalProperties: false` cannot withdraw
+/// them under `crossfade`. One conditional says both halves: `then` requires `direction`
+/// where `kind` is `crossfade`'s complement, and `else` refuses both on a crossfade.
+fn publish_transition_fields(schema: &mut Value) {
+    let Some(Value::Object(transition)) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+        .and_then(|branches| {
+            branches.iter_mut().find(|branch| {
+                branch.pointer("/properties/type/const")
+                    == Some(&Value::String("transition".into()))
+            })
+        })
+    else {
+        return;
+    };
+
+    let mut ordered = serde_json::Map::new();
+    for (key, value) in std::mem::take(transition) {
+        ordered.insert(key.clone(), value);
+        if key == "required" {
+            ordered.insert(
+                "if".into(),
+                json!({"properties": {"kind": {"const": "crossfade"}}, "required": ["kind"]}),
+            );
+            ordered.insert(
+                "then".into(),
+                json!({
+                    "not": {"anyOf": [{"required": ["direction"]}, {"required": ["ease"]}]},
+                    "description": "A crossfade travels nowhere and its ramp is linear, so \
+                                    `direction` and `ease` are fields of `wipe`, `slide` \
+                                    and `push` only (ADR-0150).",
+                }),
+            );
+            ordered.insert(
+                "else".into(),
+                json!({
+                    "required": ["direction"],
+                    "description": "A `wipe`, `slide` or `push` names the way its motion \
+                                    travels (ADR-0150).",
+                }),
+            );
+        }
+    }
+    *transition = ordered;
 }
 
 /// Say ADR-0088's bounds on `chroma`'s three scalars, and the `#RRGGBB` its `color` is
