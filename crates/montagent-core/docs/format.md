@@ -107,36 +107,20 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 
 ## Transitions
 
-- **A transition is its own element, bridging two others by id** (ADR-0059). `from` is the
-  outgoing element and `to` the incoming one; each must name a visual element in the
-  project, and not the same one. Its `start`/`end` must equal exactly the time the two
-  share, and the two sit on separate tracks like anything else on screen at once.
-- **`kind` is `crossfade`, `wipe`, `slide` or `push`** (ADR-0150).
-  - `crossfade` ramps the two elements' opacity, linearly.
-  - `slide`: `from` stays still and `to` moves in over it, from one whole frame away.
-  - `push`: `to` moves in as in a slide and pushes `from` out ahead of it, the two joined.
-  - `wipe`: a straight edge crosses the frame; `from` keeps the side the edge has not yet
-    reached and `to` the side it has passed. Neither moves.
-- **`direction` is the way the motion travels:** `left`, `right`, `up` or `down`. `left`
-  means the content moves leftward; the incoming element enters from the right. For a
-  wipe, it is the way the edge travels. It is required on `wipe`, `slide` and `push`, and
-  a schema error on `crossfade`.
-- **`ease` is optional, and takes the keyframe vocabulary** — a name or a cubic-bezier array,
-  applied to the window's progress. Omitted means `linear`; under `step` the transition is a
-  cut at the end of its window. A schema error on `crossfade`, whose ramp stays linear.
-- **Offsets travel a full frame, outside the element's own transform.** A slide or push
-  moves its elements by the frame's whole width (`left`/`right`) or height (`up`/`down`),
-  whatever their own size: a lower-third slides a full frame width like a full-screen
-  video. Their keyed `x`, `y`, `scale` and `rotation` keep working underneath, and their
-  effects, masks, `opacity` and `clip` move with them. A wipe's edge is a frame-space line,
-  intersected with each element's own `clip`.
-- **Edges and offsets are whole pixels and hard**, so a wipe's two sides and a push's two
-  halves meet with no seam. A very slow wipe steps visibly; that is accepted.
-- **In a slide, `to` must paint above `from`** — only `to` moves, over a still `from` — and a
-  transition never changes a layer, so give `to` the higher `layer` yourself. `validate`
-  refuses a slide whose `to` paints beneath. A wipe or push works in either order.
-- **`query --at` and `frame` read the transitions.** During a wipe, slide or push, a bridged
-  element's row says where it was moved or cut to, and `NOT COVERED` follows the pixels.
+- **A transition is its own element bridging `from` and `to` by id** (ADR-0059): two
+  distinct visual elements on separate tracks, its `start`/`end` exactly the time they share.
+- **`kind`** (ADR-0150): `crossfade` ramps their opacity linearly; in a `slide` `to` moves in
+  over a still `from`; in a `push` `to` moves in and pushes `from` out, joined; in a `wipe` a
+  straight edge crosses the frame, `from` keeping the side not yet reached and `to` the side
+  passed.
+- **`direction`** is the way the motion travels: `left` means the content moves leftward;
+  the incoming element enters from the right. Required on `wipe`, `slide` and `push`.
+- **`ease`** takes the keyframe vocabulary; omitted means `linear`. Neither `direction` nor
+  `ease` is allowed on a `crossfade`.
+- **Offsets travel a full frame width or height, outside the element's transform,** in whole
+  pixels: a lower-third slides as far as full-screen video, its own keyed motion, effects
+  and `clip` moving with it. A wipe's hard edge is cut against each element's own `clip`.
+- **In a slide, `to` must paint above `from`**; a transition never changes a layer.
 
 ## Geometry
 
