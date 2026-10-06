@@ -750,6 +750,30 @@ pub(crate) fn align_of(element: &Value) -> montagent_text::Align {
     }
 }
 
+/// A text element's `letter_spacing` at `instant`, in thousandths of an em: resolved, never
+/// rounded, and 0 where the element declares none (ADR-0151).
+pub(crate) fn letter_spacing_at(element: &Value, instant: i64) -> f64 {
+    crate::verbs::query::geometry::number::<i64>(element, "letter_spacing", instant, 0.0)
+}
+
+/// **The ligature rule** (ADR-0151 §1, ADR-0153 §3): whether the element is shaped with its
+/// optional ligatures off, outside the joining scripts.
+///
+/// Read from the file, never from the instant: any non-zero `letter_spacing` value or
+/// keyframe switches them off for the element's whole range, so a spacing animation that
+/// passes through 0 never swaps glyphs mid-shot, and `validate` can say from the file how
+/// the element shapes. One function, so the second trigger ADR-0151 names — a `units` block
+/// with `by: letter` — is one more condition here.
+pub(crate) fn optional_ligatures_off(element: &Value) -> bool {
+    match element.get("letter_spacing") {
+        Some(Value::Array(records)) => records
+            .iter()
+            .any(|record| record.get("v").and_then(Value::as_i64).is_some_and(|v| v != 0)),
+        Some(value) => value.as_i64().is_some_and(|v| v != 0),
+        None => false,
+    }
+}
+
 /// `origin`'s vertical component — the half that places the block (ADR-0013).
 pub(crate) fn vertical_origin_of(origin: Origin) -> VerticalOrigin {
     match origin {

@@ -425,8 +425,9 @@ pub fn ink_box(
             // Read back below, with each line's direction, through the painter's own
             // `offset` — so the ink box and the picture align every line the same way.
             align,
-            letter_spacing: 0.0,
-            optional_ligatures_off: false,
+            // The spaced line at this instant (ADR-0151): the ink box measures it.
+            letter_spacing: crate::verbs::measure::letter_spacing_at(element, instant),
+            optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
         },
     )
     .map_err(|e| e.to_string())?;
