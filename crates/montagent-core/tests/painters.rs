@@ -641,3 +641,112 @@ fn inverted_masks_with_blur_glow_and_a_ring_give_the_framemd5_of_one_painter_acr
     assert_eq!(one.len(), 33);
     assert_eq!(one, three, "the decoded framemd5");
 }
+
+/// The stagger's gating fixture (ADR-0144, ADR-0151's consequences): a letter stagger with
+/// unit rotation and scale on a stroked, fading title under element rotation and `blur`,
+/// with one letter singled out; a word stagger in `reverse`; and an Arabic letter stagger
+/// whose joined pieces move as one. 33 frames at 30 fps, every cascade crossing the chunk
+/// boundaries.
+fn stagger_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let naskh = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf");
+    for (from, to) in [
+        (
+            trailer().join("fonts/Cinzel-Bold.ttf"),
+            "fonts/Cinzel-Bold.ttf",
+        ),
+        (naskh, "fonts/Naskh.ttf"),
+    ] {
+        let to = dir.join(to);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("font dir");
+        std::fs::copy(from, &to).expect("copy the fixture font");
+    }
+    let ramp = |from: Value, to: Value, until: i64| json!([{"t": 0, "v": from}, {"t": until, "v": to, "ease": "ease-out"}]);
+    let elements = [
+        json!({"id": "letters", "type": "text", "font": "titles", "size": 40, "color": "#E3C067",
+               "stroke": "#7A1F1F", "stroke_width": 2,
+               "align": "center", "width": 260, "height": 60, "start": 0, "end": 1100,
+               "x": 160, "y": 60, "origin": "center", "rotation": 10.0,
+               "effects": [{"name": "blur", "radius": 2}],
+               "runs": [{"text": "SPY "}, {"text": "G", "unit": {"delay": 150,
+                         "y": [{"t": 300, "v": -30}, {"t": 900, "v": 0, "ease": "ease-in-out"}]}},
+                        {"text": "AME"}],
+               "units": {"by": "letter", "every": 70, "origin": "bottom-center",
+                         "y": ramp(json!(24), json!(0), 500),
+                         "rotation": ramp(json!(-40.0), json!(0.0), 500),
+                         "scale": ramp(json!([0.3, 0.3]), json!([1.0, 1.0]), 500),
+                         "opacity": ramp(json!(0.0), json!(1.0), 400)},
+               "caption": false}),
+        json!({"id": "words", "type": "text", "font": "titles", "size": 18, "color": "#FFFFFF",
+               "align": "center", "width": 300, "height": 30, "start": 0, "end": 1100,
+               "x": 160, "y": 120, "origin": "center", "effects": [{"name": "blur", "radius": 1}],
+               "runs": [{"text": "SILENT PROTOCOL NOW"}],
+               "units": {"by": "word", "every": 250, "order": "reverse",
+                         "x": ramp(json!(-40), json!(0), 400),
+                         "opacity": ramp(json!(0.0), json!(1.0), 400)},
+               "caption": false}),
+        json!({"id": "arabic", "type": "text", "font": "titles", "size": 28, "color": "#9FE3FF",
+               "align": "center", "width": 200, "height": 44, "start": 0, "end": 1100,
+               "x": 160, "y": 155, "origin": "center",
+               "runs": [{"text": "السلام عليكم"}],
+               "units": {"by": "letter", "every": 60,
+                         "scale": ramp(json!([0.2, 0.2]), json!([1.0, 1.0]), 450),
+                         "opacity": ramp(json!(0.0), json!(1.0), 450)},
+               "caption": false}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/stagger.mp4",
+        "fonts": {"titles": [{"file": "fonts/Cinzel-Bold.ttf"}, {"file": "fonts/Naskh.ttf"}]},
+        "fontVendor": {
+            "fonts/Cinzel-Bold.ttf": {
+                "licence": "OFL-1.1",
+                "source": "google/fonts ofl/cinzel, instanced wght=700",
+                "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"},
+            "fonts/Naskh.ttf": {
+                "licence": "OFL-1.1",
+                "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+                "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"},
+        },
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "stagger.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn a_staggered_title_crossing_chunk_boundaries_gives_the_framemd5_of_one_painter() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = stagger_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 33);
+    assert_ne!(
+        sequential.frames[3], sequential.frames[30],
+        "the units move"
+    );
+    for (painters, chunk) in [(2, 1), (4, 3), (3, 7)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+
+    let scratch = path.parent().expect("the project's directory");
+    let three = rendered(&path, chunks(3, 2));
+    assert_same(&sequential, &three, "K=3, C=2");
+    let (one, three) = (
+        framemd5(sequential.mp4.as_deref().expect("a file"), scratch),
+        framemd5(three.mp4.as_deref().expect("a file"), scratch),
+    );
+    assert_eq!(one.len(), 33);
+    assert_eq!(one, three, "the decoded framemd5");
+}
