@@ -503,8 +503,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 22,
-        "eleven keyframe instantiations, first and non-first"
+        seen, 26,
+        "thirteen keyframe instantiations, first and non-first"
     );
 }
 
