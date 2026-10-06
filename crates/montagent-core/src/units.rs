@@ -15,7 +15,38 @@ use crate::model::Origin;
 use crate::verbs::query::geometry::{number, origin_fraction};
 
 /// The five unit lists, in the order ADR-0151 names them.
+///
+/// Nested inside a text element, so not members of [`crate::animatable`]'s element-level
+/// list; a test below holds this to the animatable properties the schema types on `Units`
+/// and `UnitOverride`, so it cannot drift from the format.
 pub(crate) const LISTS: [&str; 5] = ["x", "y", "rotation", "scale", "opacity"];
+
+#[cfg(test)]
+mod tests {
+    use super::LISTS;
+
+    #[test]
+    fn the_unit_lists_are_the_animatable_properties_the_schema_types_on_units_and_overrides() {
+        let schema = crate::schema::generate();
+        for def in ["Units", "UnitOverride"] {
+            let mut typed: Vec<&str> = schema["$defs"][def]["properties"]
+                .as_object()
+                .expect("an object schema")
+                .iter()
+                .filter(|(_, property)| {
+                    property["$ref"]
+                        .as_str()
+                        .is_some_and(|r| r.starts_with("#/$defs/Animatable"))
+                })
+                .map(|(name, _)| name.as_str())
+                .collect();
+            let mut listed = LISTS.to_vec();
+            typed.sort_unstable();
+            listed.sort_unstable();
+            assert_eq!(typed, listed, "{def}");
+        }
+    }
+}
 
 /// One unit.
 #[derive(Debug, Clone, PartialEq)]
