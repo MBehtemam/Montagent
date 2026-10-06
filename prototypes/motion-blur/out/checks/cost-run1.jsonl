@@ -1,0 +1,14 @@
+{"kind": "cost", "samples": 0, "paint_ms_median": 29, "paint_ms_runs": [30, 29, 28], "ms_per_element_frame": 0.12, "extra_ms_per_element_frame": 0.0, "load1_before_runs": [17.9326171875, 17.9326171875, 17.9326171875]}
+{"kind": "cost", "samples": 8, "paint_ms_median": 14094, "paint_ms_runs": [14094, 17040, 5863], "ms_per_element_frame": 58.73, "extra_ms_per_element_frame": 58.6, "load1_before_runs": [20.98095703125, 22.38232421875, 30.64404296875]}
+{"kind": "cost", "samples": 16, "paint_ms_median": 6773, "paint_ms_runs": [6748, 6841, 6773], "ms_per_element_frame": 28.22, "extra_ms_per_element_frame": 28.1, "load1_before_runs": [30.51220703125, 28.1748046875, 26.39892578125]}
+{"kind": "cost", "samples": 32, "paint_ms_median": 12021, "paint_ms_runs": [11682, 12021, 12952], "ms_per_element_frame": 50.09, "extra_ms_per_element_frame": 49.97, "load1_before_runs": [23.49609375, 22.875, 20.1689453125]}
+{"kind": "cost-fx", "samples": 0, "paint_ms_median": 12908, "paint_ms_runs": [12001, 30492, 12908], "ms_per_element_frame": 53.78, "extra_ms_per_element_frame": 0.0, "load1_before_runs": [19.3515625, 21.619140625, 53.46533203125]}
+{"kind": "cost-fx", "samples": 8, "paint_ms_median": 96099, "paint_ms_runs": [91709, 96099, 147491], "ms_per_element_frame": 400.41, "extra_ms_per_element_frame": 346.63, "load1_before_runs": [53.52197265625, 26.58740234375, 52.818359375]}
+{"kind": "cost-fx", "samples": 16, "paint_ms_median": 131567, "paint_ms_runs": [127279, 131567, 135505], "ms_per_element_frame": 548.2, "extra_ms_per_element_frame": 494.41, "load1_before_runs": [64.20458984375, 12.45751953125, 10.7880859375]}
+{"kind": "cost-fx", "samples": 32, "paint_ms_median": 257216, "paint_ms_runs": [263428, 253511, 257216], "ms_per_element_frame": 1071.73, "extra_ms_per_element_frame": 1017.95, "load1_before_runs": [9.26416015625, 8.58056640625, 8.5224609375]}
+{"kind": "cost-text", "samples": 0, "paint_ms_median": 70, "paint_ms_runs": [74, 58, 70], "ms_per_element_frame": 0.29, "extra_ms_per_element_frame": 0.0, "load1_before_runs": [6.6484375, 6.6484375, 6.91650390625]}
+{"kind": "cost-text", "samples": 8, "paint_ms_median": 5262, "paint_ms_runs": [6237, 5262, 4798], "ms_per_element_frame": 21.93, "extra_ms_per_element_frame": 21.63, "load1_before_runs": [6.91650390625, 7.7236328125, 8.22607421875]}
+{"kind": "cost-text", "samples": 16, "paint_ms_median": 7668, "paint_ms_runs": [7668, 7557, 8090], "ms_per_element_frame": 31.95, "extra_ms_per_element_frame": 31.66, "load1_before_runs": [8.28759765625, 8.31640625, 8.3603515625]}
+{"kind": "cost-text", "samples": 32, "paint_ms_median": 14110, "paint_ms_runs": [14110, 13318, 16614], "ms_per_element_frame": 58.79, "extra_ms_per_element_frame": 58.5, "load1_before_runs": [8.2509765625, 8.330078125, 9.08642578125]}
+
+[exited with code 0]

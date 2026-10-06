@@ -79,6 +79,7 @@ pub use gradient::{Gradient, GradientKind, Ink};
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
 pub use layer_bound::set_enabled as bound_filter_layers;
+pub use layer_bound::HINT_FIRES;
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1048,6 +1049,74 @@ impl Canvas {
     /// Paint the whole frame one colour — the project's `background`.
     pub fn background(&mut self, colour: Rgba) {
         self.surface.canvas().clear(colour.colour());
+    }
+
+    /// PROTOTYPE #718: a transparent surface the size of this one, with its base matrix, for
+    /// motion blur's samples.
+    pub fn blank_like(&mut self) -> Option<Canvas> {
+        let base = self.surface.canvas().local_to_device_as_3x3();
+        let mut blank = Canvas::new(self.width as i64, self.height as i64)?;
+        blank.surface.canvas().concat(&base);
+        blank.clear_transparent();
+        Some(blank)
+    }
+
+    /// PROTOTYPE #718: every pixel back to transparent.
+    pub fn clear_transparent(&mut self) {
+        self.surface.canvas().clear(Color::TRANSPARENT);
+    }
+
+    /// PROTOTYPE #718: add this surface's premultiplied RGBA bytes into `sums`, one `u32` per
+    /// byte, sized on first use. `false` where the pixels could not be read.
+    pub fn accumulate(&mut self, sums: &mut Vec<u32>) -> bool {
+        let len = self.width as usize * self.height as usize * 4;
+        if sums.len() != len {
+            sums.clear();
+            sums.resize(len, 0);
+        }
+        let Some(pixmap) = self.surface.peek_pixels() else {
+            return false;
+        };
+        let row = self.width as usize * 4;
+        if pixmap.row_bytes() != row {
+            return false;
+        }
+        let Some(bytes) = pixmap.bytes() else {
+            return false;
+        };
+        for (sum, byte) in sums.iter_mut().zip(&bytes[..len]) {
+            *sum += u32::from(*byte);
+        }
+        true
+    }
+
+    /// PROTOTYPE #718: the integer mean of `n` accumulated samples, each byte
+    /// `(sum + ⌊n/2⌋) / n` (round half up, so n equal samples give back their bytes
+    /// exactly), composited once onto this frame in device space with `blend`.
+    pub fn composite_mean(&mut self, sums: &[u32], n: u32, blend: Blend) {
+        if sums.is_empty() || n == 0 {
+            return;
+        }
+        let half = n / 2;
+        let mean: Vec<u8> = sums.iter().map(|s| ((s + half) / n) as u8).collect();
+        let info = ImageInfo::new(
+            ISize::new(self.width, self.height),
+            ColorType::RGBA8888,
+            AlphaType::Premul,
+            None,
+        );
+        let Some(image) =
+            images::raster_from_data(&info, Data::new_copy(&mean), self.width as usize * 4)
+        else {
+            return;
+        };
+        let mut paint = SkPaint::default();
+        paint.set_blend_mode(blend.mode());
+        let canvas = self.surface.canvas();
+        canvas.save();
+        canvas.reset_matrix();
+        canvas.draw_image(&image, (0, 0), Some(&paint));
+        canvas.restore();
     }
 
     /// The frame's pixels as packed RGB8, row-major, composited over opaque black.

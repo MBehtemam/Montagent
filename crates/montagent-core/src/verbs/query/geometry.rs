@@ -136,6 +136,21 @@ where
     resolve::at(&animatable, instant).unwrap_or(default)
 }
 
+/// PROTOTYPE #718: [`number`] at `numerator / denominator` ms.
+pub(crate) fn number_q<T>(element: &Value, key: &str, t: (i128, i128), default: T::Out) -> T::Out
+where
+    T: serde::de::DeserializeOwned + Interpolate,
+    T::Out: Copy,
+{
+    let Some(written) = element.get(key) else {
+        return default;
+    };
+    let Ok(animatable) = serde_json::from_value::<Animatable<T>>(written.clone()) else {
+        return default;
+    };
+    resolve::at_instant(&animatable, t.0, t.1).unwrap_or(default)
+}
+
 /// `origin`'s two-way point, as `(horizontal, vertical)` fractions of the box — `0` at
 /// left/top, `0.5` at centre, `1` at right/bottom.
 ///

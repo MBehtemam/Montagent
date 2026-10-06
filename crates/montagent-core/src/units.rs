@@ -12,7 +12,7 @@ use montagent_text::units::{By, Segmentation, segment};
 use serde_json::Value;
 
 use crate::model::Origin;
-use crate::verbs::query::geometry::{number, origin_fraction};
+use crate::verbs::query::geometry::origin_fraction;
 
 /// The five unit lists, in the order ADR-0151 names them.
 ///
@@ -267,20 +267,26 @@ impl Plan {
 
     /// The unit's pose at `instant`.
     pub(crate) fn pose(&self, unit: usize, instant: i64) -> Pose {
+        self.pose_q(unit, (i128::from(instant), 1))
+    }
+
+    /// PROTOTYPE #718: [`Plan::pose`] at `numerator / denominator` ms.
+    pub(crate) fn pose_q(&self, unit: usize, (n, d): (i128, i128)) -> Pose {
+        use crate::verbs::query::geometry::number_q;
         let at = |property: &str| {
             let (from, late) = self.source(unit, property);
-            (from, instant - late)
+            (from, (n - i128::from(late) * d, d))
         };
         let (o, t) = at("x");
-        let x = number::<i64>(o, "x", t, 0.0);
+        let x = number_q::<i64>(o, "x", t, 0.0);
         let (o, t) = at("y");
-        let y = number::<i64>(o, "y", t, 0.0);
+        let y = number_q::<i64>(o, "y", t, 0.0);
         let (o, t) = at("rotation");
-        let rotation = number::<f64>(o, "rotation", t, 0.0);
+        let rotation = number_q::<f64>(o, "rotation", t, 0.0);
         let (o, t) = at("scale");
-        let scale = number::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
+        let scale = number_q::<[f64; 2]>(o, "scale", t, [1.0, 1.0]);
         let (o, t) = at("opacity");
-        let opacity = number::<f64>(o, "opacity", t, 1.0);
+        let opacity = number_q::<f64>(o, "opacity", t, 1.0);
         Pose {
             x,
             y,

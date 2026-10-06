@@ -1,0 +1,4 @@
+{"kind": "cost", "samples": 0, "paint_ms_median": 18, "paint_ms_runs": [18, 18, 19], "ms_per_element_frame": 0.07, "extra_ms_per_element_frame": 0.0, "load1_before_runs": [13.7451171875, 13.7451171875, 13.7451171875]}
+{"kind": "cost", "samples": 8, "paint_ms_median": 4290, "paint_ms_runs": [4331, 4223, 4290], "ms_per_element_frame": 17.88, "extra_ms_per_element_frame": 17.8, "load1_before_runs": [13.92529296875, 14.17138671875, 14.17138671875]}
+{"kind": "cost", "samples": 16, "paint_ms_median": 6954, "paint_ms_runs": [6735, 6954, 6957], "ms_per_element_frame": 28.98, "extra_ms_per_element_frame": 28.9, "load1_before_runs": [13.6767578125, 13.056640625, 13.9326171875]}
+{"kind": "cost", "samples": 32, "paint_ms_median": 12605, "paint_ms_runs": [12605, 14088, 12282], "ms_per_element_frame": 52.52, "extra_ms_per_element_frame": 52.45, "load1_before_runs": [13.033203125, 12.111328125, 12.708984375]}

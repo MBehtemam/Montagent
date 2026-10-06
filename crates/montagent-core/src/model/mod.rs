@@ -224,6 +224,18 @@ pub enum Fit {
     Literal,
 }
 
+/// PROTOTYPE #718 (ADR-0155 §2): sub-frame accumulation over a centred shutter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionBlur {
+    /// Degrees, 1 to 360: the interval is `shutter / 360` of one frame.
+    #[schemars(range(min = 1, max = 360))]
+    pub shutter: u16,
+    /// Paints on a moving frame, 2 to 32.
+    #[schemars(range(min = 2, max = 32))]
+    pub samples: u8,
+}
+
 /// How the finished element composites into what is painted below it (ADR-0147).
 ///
 /// The last step of an element's paint: its `effects` (masks and shadow included), then
@@ -511,6 +523,9 @@ pub struct Image {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -547,6 +562,9 @@ pub struct Video {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -625,6 +643,9 @@ pub struct TextElement {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     /// `false` says this text is not a caption — a title, a lower-third, a logo, a
@@ -695,6 +716,9 @@ pub struct Rect {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -746,6 +770,9 @@ pub struct Ellipse {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -800,6 +827,9 @@ pub struct PathElement {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    /// PROTOTYPE #718: ADR-0155's per-element motion blur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }

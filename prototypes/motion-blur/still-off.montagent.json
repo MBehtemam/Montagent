@@ -1,0 +1,130 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#14171C",
+ "duration": 1000,
+ "output": "out/still-off.mp4",
+ "fonts": {
+  "cinzel": [
+   {
+    "file": "../../fixtures/benchmark/spy-trailer/fonts/Cinzel-Bold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../fixtures/benchmark/spy-trailer/fonts/Cinzel-Bold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/cinzel, instanced wght=700",
+   "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"
+  }
+ },
+ "tracks": [
+  {
+   "name": "t0",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "r",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 500,
+     "y": 400,
+     "origin": "center",
+     "width": 300,
+     "height": 160,
+     "radius": 24,
+     "fill": "#5AD17A",
+     "rotation": 8
+    }
+   ]
+  },
+  {
+   "name": "t1",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "e",
+     "type": "ellipse",
+     "start": 0,
+     "end": 1000,
+     "x": 1300,
+     "y": 400,
+     "origin": "center",
+     "width": 260,
+     "height": 180,
+     "fill": "#7FD1FF",
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 0,
+       "dy": 0,
+       "radius": 20,
+       "color": "#FF6A00",
+       "opacity": 0.9
+      }
+     ],
+     "blend": "screen"
+    }
+   ]
+  },
+  {
+   "name": "t2",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "k",
+     "type": "rect",
+     "start": 500,
+     "end": 1000,
+     "x": [
+      {
+       "t": 0,
+       "v": 200
+      },
+      {
+       "t": 400,
+       "v": 960,
+       "ease": "ease-out"
+      }
+     ],
+     "y": 800,
+     "origin": "center",
+     "width": 200,
+     "height": 100,
+     "fill": "#F2B134"
+    }
+   ]
+  },
+  {
+   "name": "t3",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "txt",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": 1100,
+     "y": 800,
+     "origin": "center-left",
+     "width": 900,
+     "height": 76,
+     "font": "cinzel",
+     "size": 60,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "A STILL TITLE"
+      }
+     ],
+     "caption": false
+    }
+   ]
+  }
+ ]
+}

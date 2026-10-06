@@ -1,0 +1,32 @@
+
+running 1 test
+test motion_blur_sweep has been running for over 60 seconds
+{"run":"baseline","painters":1,"hint":false,"frames":450,"hint_fires":0,"wall_ms":173419}
+{"run":"1x1000","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":185816}
+{"run":"2x5","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":90653}
+{"run":"3x2","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":65318}
+{"run":"4x1","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":49676}
+{"run":"5x3","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":51864}
+{"run":"6x2","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":40063}
+{"run":"7x4","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":35330}
+{"run":"8x3","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":35110}
+{"run":"9x1","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":44472}
+{"run":"10x7","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":42523}
+{"run":"default","hint":false,"frames":450,"differing":0,"first_differing":None,"hint_fires":0,"wall_ms":183849}
+{"run":"one painter","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":105679}
+{"run":"1x1000","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":168484}
+{"run":"2x5","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":80655}
+{"run":"3x2","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":31268}
+{"run":"4x1","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":26530}
+{"run":"5x3","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":26388}
+{"run":"6x2","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":21502}
+{"run":"7x4","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":18537}
+{"run":"8x3","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":16621}
+{"run":"9x1","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":17815}
+{"run":"10x7","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":19287}
+{"run":"default","hint":true,"frames":450,"differing":0,"first_differing":None,"hint_fires":1860,"wall_ms":100275}
+{"baseline_digest":"452cbf2791951cf9","all_equal":true}
+test motion_blur_sweep ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1631.15s
+

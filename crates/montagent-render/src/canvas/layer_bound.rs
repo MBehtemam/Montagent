@@ -65,6 +65,9 @@ thread_local! {
     pub(super) static HINTED: Cell<usize> = const { Cell::new(0) };
 }
 
+/// PROTOTYPE #718: every hint fired, on every thread.
+pub static HINT_FIRES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// Paint this thread's filter layers with (`true`, the default) or without the hint.
 ///
 /// Not a user setting: the hint has no visible effect, and this exists so that a test can
@@ -104,6 +107,7 @@ pub(super) fn hints(
         if let (Effect::Blur { .. } | Effect::Shadow { .. }, Some(filter)) = (effect, filter) {
             let output = filter.compute_fast_bounds(content);
             *hint = plan.pinned(output);
+            HINT_FIRES.fetch_add(usize::from(hint.is_some()), std::sync::atomic::Ordering::Relaxed);
             #[cfg(test)]
             HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
             content = output;

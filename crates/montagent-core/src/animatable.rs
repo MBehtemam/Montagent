@@ -542,6 +542,14 @@ pub fn number_at(element: &Value, property: &str, instant: i64, default: f64) ->
         .unwrap_or(default)
 }
 
+/// PROTOTYPE #718: [`number_at`] at `numerator / denominator` ms.
+pub fn number_q(element: &Value, property: &str, t: (i128, i128), default: f64) -> f64 {
+    read(element, property, t.0, t.1)
+        .and_then(Result::ok)
+        .and_then(|value| value.number())
+        .unwrap_or(default)
+}
+
 /// [`at`], read as a colour, where the element declares a readable one.
 pub fn colour_at(element: &Value, property: &str, instant: i64) -> Option<Colour> {
     at(element, property, instant)?.ok()?.colour()
