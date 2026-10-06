@@ -16,6 +16,7 @@ nothing the guard checks depends on them.
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -80,6 +81,23 @@ def media():
     )
 
 
+def prerender():
+    """media/pulse.mov: the pre-render skill's own sample piece, built by its own script, so the
+    fixture is the footage the skill makes (PNG in MOV, with alpha). A spec places it."""
+    import tempfile
+
+    skill = HERE.parent.parent / "skills/montagent-prerender"
+    with tempfile.TemporaryDirectory() as tmp:
+        shutil.copy(skill / "references/sample_piece.py", tmp)
+        spec = {"name": "pulse", "out": "out", "width": 160, "height": 120, "fps": 25, "frames": 12,
+                "render": ["python3", "sample_piece.py"], "files": ["sample_piece.py"]}
+        (Path(tmp) / "spec.json").write_text(json.dumps(spec))
+        subprocess.run([sys.executable, str(skill / "scripts/prerender.py"), "build",
+                        str(Path(tmp) / "spec.json")], check=True)
+        shutil.copyfile(Path(tmp) / "out/pulse.mov", HERE / "media/pulse.mov")
+    (HERE / "prerender.spec.json").write_text(json.dumps({"source": "media/pulse.mov", "id": "pulse"}) + "\n")
+
+
 # A three-level rig in the eval pack's `character/rig.json` shape: every part is a solid
 # block padded so its pivot is the canvas centre, which is what the rig bake relies on.
 RIG = {
@@ -117,3 +135,4 @@ if __name__ == "__main__":
     font()
     media()
     rig()
+    prerender()

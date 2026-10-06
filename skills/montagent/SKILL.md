@@ -73,6 +73,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Effects**
 
 - Blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
+- A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
 - Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`.
 
 **Time**
@@ -89,6 +90,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 |---|---|
 | Graphics and text: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, trailer effects | `montagent-motion` |
 | Recorded video: talking heads, green screen, captions, lower-thirds, picture-in-picture, music under a voice | `montagent-footage` |
+| A look the effects list lacks (distortions, mosaic, lens flare, a code-drawn pattern), drawn in code and brought in as footage | `montagent-prerender` |
 | A character that moves or talks: rig, poses, lip sync, blinks | `montagent-character` |
 | Timing, easing, layout, and judging whether it looks right | `montagent-craft`, at every look step |
 
@@ -117,4 +119,4 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - A repeat or copy construct. Write each copy out as its own element. ([ADR-0148](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md))
 - A matte taken from another element. Use the element's own `mask`. ([ADR-0150](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
-- An open shader or script file. Pre-render it and bring it in as footage. ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))
+- An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))
