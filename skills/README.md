@@ -6,7 +6,7 @@ Agent skills for driving Montagent from any Agent-Skills-compatible client. Inst
 npx skills add MBehtemam/Montagent
 ```
 
-Start with `montagent`, the router skill. It points to the job skills: `montagent-motion`, `montagent-footage`, `montagent-character` and `montagent-craft`.
+Start with `montagent`, the router skill. It points to the job skills: `montagent-motion`, `montagent-footage`, `montagent-character`, `montagent-prerender` and `montagent-craft`.
 
 ## Experimental
 
