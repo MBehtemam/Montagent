@@ -79,9 +79,10 @@ pub fn check(document: &Loose, report: &mut Report) {
         // narrowed for the geometric checks, which have nothing to learn from an instant
         // where only a fade changes. An inert `ease` is a fact about the *file*, and an
         // `opacity` or `volume` hold carries the same inert ceremony a `scale` hold does.
-        for property in crate::animatable::names() {
-            for run in runs(&records(element, property)) {
-                let finding = inert(&subject, property, run)
+        // A stagger's unit lists too, the block's and each run override's (ADR-0151 §5).
+        for (name, container, property) in crate::checks::keyframe_lists(element) {
+            for run in runs(&records(container, property)) {
+                let finding = inert(&subject, &name, run)
                     .at_file(document.path())
                     .at_element(&subject);
                 report.push(match track {

@@ -40,7 +40,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use effects::{Effect, MaskShape};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe};
 pub use playback::{AudioOverrun, Speed, Volume};
-pub use text::{Align, Dir, Highlight, Run};
+pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
 ///
@@ -608,6 +608,11 @@ pub struct TextElement {
     /// `dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub letter_spacing: Option<Animatable<i64>>,
+    /// A stagger over the element's letters, words or lines (ADR-0151 §2–§3): each unit runs
+    /// the block's lists late by its delay. A `by: letter` block switches the optional
+    /// ligatures off as a non-zero `letter_spacing` does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub units: Option<Units>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

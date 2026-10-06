@@ -274,9 +274,18 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
 /// One line's shaped layout, and what letter spacing moves each of its glyphs by — in the
 /// order the layout yields them ([`crate::spacing::shifts`]). Every reader of a glyph's `x`
 /// adds the shift, so the ink, the seam and the drawn glyph all sit on the spaced line.
+///
+/// It also keeps every cluster of the line, with its text mapped back to the element's whole
+/// text, and which cluster each glyph came from: a stagger draws each glyph with the unit
+/// its text belongs to (ADR-0151 §3).
 pub(crate) struct Shaped {
     pub(crate) layout: Layout<u32>,
     pub(crate) shifts: Vec<f64>,
+    /// Every cluster, in visual order, with its text in the element's whole text — `None`
+    /// for one an isolate mark makes, which is no character of the author's.
+    pub(crate) clusters: Vec<(crate::spacing::LaidCluster, Option<Range<usize>>)>,
+    /// Which of `clusters` each glyph came from, in the order `shifts` is in.
+    pub(crate) glyph_clusters: Vec<usize>,
 }
 
 /// The same measurement, with the shaped layouts it was derived from kept.
@@ -372,7 +381,17 @@ pub(crate) fn measured(
                 .and_then(|p| spec.runs[on_line[p]].size)
                 .unwrap_or(spec.size)
         });
-        let (line_shifts, spaced) = shifts(&layout, &line_gaps, |at| to_laid(&copies, at));
+        let walked = shifts(&layout, &line_gaps, |at| to_laid(&copies, at));
+        let (line_shifts, spaced) = (walked.shifts, walked.moved);
+        let line_clusters: Vec<_> = walked
+            .clusters
+            .into_iter()
+            .map(|cluster| {
+                let text = from_laid(&copies, cluster.laid.start)
+                    .map(|at| line.start + at..line.start + at + cluster.laid.len());
+                (cluster, text)
+            })
+            .collect();
 
         // ADR-0029's max-across-every-run, read off the runs rather than off parley's own
         // line metrics. Two reasons to spell it out: the rule is a decision this project
@@ -448,6 +467,8 @@ pub(crate) fn measured(
         layouts.push(Shaped {
             layout,
             shifts: line_shifts,
+            clusters: line_clusters,
+            glyph_clusters: walked.glyph_clusters,
         });
     }
 
@@ -589,6 +610,15 @@ struct Laid<'a> {
     /// Where each stretch of the author's line was copied to: `(range in the line, start in
     /// [`Laid::text`])`, so a line offset can be found in the laid-out string.
     copies: Vec<(Range<usize>, usize)>,
+}
+
+/// Where an offset in the laid-out string sits in the author's line: `None` inside an
+/// inserted isolate mark.
+fn from_laid(copies: &[(Range<usize>, usize)], at: usize) -> Option<usize> {
+    copies
+        .iter()
+        .find(|(range, start)| at >= *start && at < start + range.len())
+        .map(|(range, start)| range.start + (at - start))
 }
 
 /// Where a line offset sits in the laid-out string.

@@ -93,11 +93,14 @@ impl TextElement {
     /// Not `chars()`, and not UTF-16 code units: *"combining marks and emoji must not
     /// double-count"*. A family emoji is one cluster, seven `char`s and eleven UTF-16 code
     /// units, and a line of them would otherwise read as seven or eleven times too fast.
+    ///
+    /// The grapheme rule is [`montagent_text::units::graphemes`], the one a stagger steps
+    /// with (ADR-0151 §3), so a caption's count and its unit count never disagree on what a
+    /// grapheme is.
     fn characters(&self) -> i64 {
-        use unicode_segmentation::UnicodeSegmentation;
         self.text
             .split(['\n', '\r'])
-            .map(|line| line.graphemes(true).count() as i64)
+            .map(|line| montagent_text::units::graphemes(line).count() as i64)
             .sum()
     }
 }

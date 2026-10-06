@@ -474,10 +474,18 @@ fn with_motion(element: &Value, detail: String) -> String {
 ///
 /// Read off the permissive tree rather than the typed model, because this view is wanted on
 /// documents the types cannot hold.
+///
+/// The set is `crate::checks::keyframe_lists`'s: the animatable properties and, on a text
+/// element, its stagger's unit lists (ADR-0151 §5) — a title whose letters rise is moving.
 fn animated(element: &Value) -> bool {
-    crate::animatable::names()
-        .iter()
-        .any(|property| crate::animatable::records(element, property).is_some())
+    crate::checks::keyframe_lists(element)
+        .into_iter()
+        .any(|(_, container, property)| {
+            // ADR-0012's own shape test, as `Animatable` applies it on the way in: a
+            // keyframe record is an object, so an array **of objects** is a keyframe list
+            // and every other array — `scale`'s own `[sx, sy]` — is a static value.
+            crate::checks::keyframe_records(container, property).is_some()
+        })
 }
 
 /// `end - start`, where the document states both and the subtraction is representable.

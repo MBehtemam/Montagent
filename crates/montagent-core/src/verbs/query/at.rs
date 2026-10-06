@@ -168,6 +168,14 @@ pub struct Present {
     /// view reads as declared. Without it, an element mid-slide would read as sitting where
     /// its `x` and `y` say, which is not where the frame shows it.
     pub transition: Option<Moved>,
+    /// A staggered `text` element's summary (ADR-0151 §5): `by`, the unit count, and the
+    /// stagger window. Absent on every element with no `units` block.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stagger: Option<crate::units::Stagger>,
+    /// Every unit of a staggered `text` element, uncapped, with its delay, which of its
+    /// lists a run overrides, the units it moves with, and its pose at the instant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub units: Option<Vec<crate::units::UnitRow>>,
 }
 
 /// What a running `wipe`, `slide` or `push` does to one element's geometry (ADR-0150).
@@ -401,7 +409,18 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         };
 
         let blend = blend_word(element, kind);
+        let (stagger, units) = match kind {
+            Some("text") if detail != Detail::Presence => {
+                match crate::units::report(document, element, instant) {
+                    Some((stagger, units)) => (Some(stagger), Some(units)),
+                    None => (None, None),
+                }
+            }
+            _ => (None, None),
+        };
         present.push(Present {
+            stagger,
+            units,
             named,
             start,
             end,

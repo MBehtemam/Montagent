@@ -423,6 +423,10 @@
               "description": "Space added after every grapheme of a line but the last, in **thousandths of an em**\nof the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.\nNegative tightens. Default 0. Element-level only: a run cannot override it. None is\nadded between two letters of the same joining script, such as Arabic. An animatable\nproperty: keyframe values are integers, and the resolved value is never rounded.\nAny non-zero value or keyframe switches the optional ligatures `liga`, `clig` and\n`dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).",
               "$ref": "#/$defs/Animatableint64"
             },
+            "units": {
+              "description": "A stagger over the element's letters, words or lines (ADR-0151 §2–§3): each unit runs\nthe block's lists late by its delay. A `by: letter` block switches the optional\nligatures off as a non-zero `letter_spacing` does.",
+              "$ref": "#/$defs/Units"
+            },
             "scale": {
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
@@ -1711,6 +1715,10 @@
         "highlight": {
           "description": "The timed window during which this run wears a different style (ADR-0048). Every\nhighlighted word is its own run, and a run carries at most one window — letting one\nrun span several words would need sub-run character offsets, which a later text\nedit invalidates silently while leaving the JSON structurally valid.",
           "$ref": "#/$defs/Highlight"
+        },
+        "unit": {
+          "description": "Singles out the one unit of the element's `units` block this run holds, replacing its\ndelay or any of its lists (ADR-0151 §4). A run's lists are never delayed.",
+          "$ref": "#/$defs/UnitOverride"
         }
       },
       "required": [
@@ -1754,6 +1762,33 @@
         "end"
       ],
       "description": "A start/end window inside the element's own range, plus the style that applies during\nit. Outside the window the run falls back to its unconditional style."
+    },
+    "UnitOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "delay": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "x": {
+          "$ref": "#/$defs/Animatableint64"
+        },
+        "y": {
+          "$ref": "#/$defs/Animatableint64"
+        },
+        "rotation": {
+          "$ref": "#/$defs/Animatabledouble"
+        },
+        "scale": {
+          "$ref": "#/$defs/AnimatableArray_size_2_of_double"
+        },
+        "opacity": {
+          "$ref": "#/$defs/Animatabledouble"
+        }
+      },
+      "description": "A run singling out one unit (ADR-0151 §4): the run holds exactly that unit's graphemes.\n\n`delay` replaces the derived *position × every* for this unit. A list replaces that\nproperty's list for this unit wholesale; **a run's lists are never delayed** — they run on\nthe absolute clock as written. A property the run does not name keeps the block's list,\nrun at the run's delay. Only a list the `units` block declares may be named. At least one\nkey is required."
     },
     "AnimatableLength": {
       "anyOf": [
@@ -1833,6 +1868,83 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "Units": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "$ref": "#/$defs/UnitBy"
+        },
+        "every": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The step between one unit's start and the next, in milliseconds. Static.",
+          "minimum": 1
+        },
+        "order": {
+          "$ref": "#/$defs/UnitOrder"
+        },
+        "origin": {
+          "description": "Each unit's pivot, picked in the unit's box: its own advance without the added\nletter spacing (a word's or a line's from its first grapheme's leading edge to its\nlast's trailing edge) by the line's slot. Default `center`.",
+          "$ref": "#/$defs/Origin"
+        },
+        "x": {
+          "$ref": "#/$defs/Animatableint64"
+        },
+        "y": {
+          "$ref": "#/$defs/Animatableint64"
+        },
+        "rotation": {
+          "$ref": "#/$defs/Animatabledouble"
+        },
+        "scale": {
+          "$ref": "#/$defs/AnimatableArray_size_2_of_double"
+        },
+        "opacity": {
+          "$ref": "#/$defs/Animatabledouble"
+        }
+      },
+      "required": [
+        "by",
+        "every"
+      ],
+      "description": "A stagger: the element's units run the same animation, each unit started a fixed step\nafter the one before (ADR-0151 §2).\n\nThe five lists are written for the first unit, on the absolute clock like every\nkeyframe. A unit's **delay** is its position in `order` times `every`, and the unit runs\nevery list late by its delay: its value at instant *t* is the list's value at\n*t − delay*. The values are offsets inside the element: `x`, `y` (element pixels, before\nthe element's own `scale` and `rotation`) and `rotation` add to the unit's laid-out pose,\n`scale` and `opacity` multiply it. At least one list is required. Whitespace and empty\nlines take no step. A unit below opacity 1 fades as one group, its stroke and fill\ntogether; the element's `effects`, `blend` and `opacity` apply after the units are drawn."
+    },
+    "UnitBy": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "letter",
+          "description": "A grapheme cluster that is not whitespace. Punctuation and emoji are letters. Under\n`letter`, a joined piece of a joining script such as Arabic moves as one body, on its\nfirst letter's timing, and every letter keeps its index and step (ADR-0153)."
+        },
+        {
+          "type": "string",
+          "const": "word",
+          "description": "A word segment holding a letter, a digit or an emoji. Punctuation attaches to the\nword before it on the same line, and otherwise to the word after it."
+        },
+        {
+          "type": "string",
+          "const": "line",
+          "description": "One `\\n`-separated line holding at least one letter."
+        }
+      ],
+      "description": "What one unit of a stagger is (ADR-0151 §3)."
+    },
+    "UnitOrder": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "forward",
+          "description": "The first unit in reading order starts first."
+        },
+        {
+          "type": "string",
+          "const": "reverse",
+          "description": "The last unit in reading order starts first."
+        }
+      ],
+      "description": "Which end of the reading order a stagger starts from."
     },
     "AudioOverrun": {
       "oneOf": [

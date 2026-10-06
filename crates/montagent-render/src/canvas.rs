@@ -238,6 +238,23 @@ pub struct Glyph {
     /// Which of the `outlines` slice to draw.
     pub outline: usize,
     pub paint: Fill,
+    /// The pose of the stagger unit this glyph moves with (ADR-0151 §2), where it is not
+    /// the rest pose. `None` draws the glyph exactly where it was placed.
+    pub unit: Option<UnitDraw>,
+}
+
+/// One stagger unit's pose, as the canvas draws it: a body of glyphs that moves, turns,
+/// scales and fades as one (ADR-0151 §2, ADR-0153 §2).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UnitDraw {
+    /// Which body: the glyphs of one fading body share one layer.
+    pub body: usize,
+    /// `[sx, kx, tx, ky, sy, ty]`, from the block's own coordinates to the block's own
+    /// coordinates.
+    pub matrix: [f32; 6],
+    /// Below 1, the body's strokes and fills are drawn together into one layer that takes
+    /// this opacity.
+    pub opacity: f32,
 }
 
 /// One member of the closed `effects` vocabulary, already parsed.
@@ -1179,53 +1196,42 @@ impl Canvas {
         let paths: Vec<Path> = outlines.iter().map(|outline| path_of(outline)).collect();
 
         self.in_element_space(extent, transform, clip, effects, |canvas| {
-            for pass in [Pass::Stroke, Pass::Fill] {
-                for glyph in glyphs {
-                    let Some(path) = paths.get(glyph.outline) else {
-                        continue;
-                    };
-                    let paint = match pass {
-                        Pass::Stroke => {
-                            let (Some(colour), true) =
-                                (glyph.paint.stroke, glyph.paint.stroke_width > 0.0)
-                            else {
-                                continue;
-                            };
-                            let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
-                            paint.set_anti_alias(true);
-                            paint.set_style(PaintStyle::Stroke);
-                            paint.set_stroke_width(glyph.paint.stroke_width as f32 * 2.0);
-                            // Round joins rather than mitres: a mitre on a sharp interior
-                            // angle spikes out to an arbitrary length, which on a serif or
-                            // a comma is a visible whisker rather than a border.
-                            paint.set_stroke_join(skia_safe::PaintJoin::Round);
-                            paint
-                        }
-                        Pass::Fill => {
-                            let Some(colour) = glyph.paint.fill else {
-                                continue;
-                            };
-                            let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
-                            paint.set_anti_alias(true);
-                            paint.set_style(PaintStyle::Fill);
-                            paint
-                        }
-                    };
-                    canvas.save();
-                    canvas.translate((glyph.x as f32, glyph.y as f32));
-                    // A stroke with no fill behind it has to be clipped to the outside of
-                    // the contour itself, or the inner half of the doubled width — the
-                    // half a fill would normally cover — paints over the letterform and
-                    // an outlined word comes out solid. Only in that case: with a fill
-                    // present the clip would put an antialiased seam along every contour,
-                    // and the fill already does the job.
-                    if matches!(pass, Pass::Stroke) && glyph.paint.fill.is_none() {
-                        canvas.clip_path(path, skia_safe::ClipOp::Difference, true);
-                    }
-                    canvas.draw_path(path, &paint);
-                    canvas.restore();
+            // **A fading stagger unit is one layer, between the stroke pass and the fill
+            // pass** (ADR-0151 §2, as the accepted prototype #683 measured it). Every other
+            // glyph keeps the two passes: all strokes, then all fills. A body below opacity 1
+            // draws its own strokes then its own fills into one layer that takes its opacity,
+            // so its stroke never shows through its own fill; its fill still covers its
+            // neighbours' strokes, and its neighbours' fills still cover its stroke. Two
+            // overlapping fading bodies stack whole, the later over the earlier. With no
+            // fading body this is exactly the two passes over every glyph, so an idle stagger
+            // draws the same bytes as no stagger.
+            let fading = |glyph: &Glyph| glyph.unit.is_some_and(|unit| unit.opacity < 1.0);
+            let solid: Vec<&Glyph> = glyphs.iter().filter(|glyph| !fading(glyph)).collect();
+            draw_pass(canvas, &paths, &solid, Pass::Stroke);
+            let mut bodies: Vec<(usize, f32)> = Vec::new();
+            for unit in glyphs.iter().filter(|g| fading(g)).filter_map(|g| g.unit) {
+                if !bodies.iter().any(|(body, _)| *body == unit.body) {
+                    bodies.push((unit.body, unit.opacity));
                 }
             }
+            for (body, opacity) in bodies {
+                // A body at opacity 0 draws nothing at all.
+                if opacity <= 0.0 {
+                    continue;
+                }
+                let members: Vec<&Glyph> = glyphs
+                    .iter()
+                    .filter(|glyph| glyph.unit.is_some_and(|unit| unit.body == body))
+                    .collect();
+                // Bounded to the body's own ink: a full-canvas layer per fading letter costs
+                // about 1.4 ms a frame at 1080p, a bounded one about 8 µs (#683). The bound is
+                // a function of the glyphs alone, so it is the same on every painter.
+                canvas.save_layer_alpha_f(unit_bounds(&paths, &members), opacity);
+                draw_pass(canvas, &paths, &members, Pass::Stroke);
+                draw_pass(canvas, &paths, &members, Pass::Fill);
+                canvas.restore();
+            }
+            draw_pass(canvas, &paths, &solid, Pass::Fill);
         });
     }
 
@@ -1438,6 +1444,87 @@ impl Canvas {
 enum Pass {
     Stroke,
     Fill,
+}
+
+/// The matrix a stagger unit's pose is drawn through.
+fn unit_matrix(unit: &UnitDraw) -> skia_safe::Matrix {
+    let [a, b, c, d, e, f] = unit.matrix;
+    skia_safe::Matrix::new_all(a, b, c, d, e, f, 0.0, 0.0, 1.0)
+}
+
+/// One of [`Canvas::text`]'s passes over some glyphs.
+fn draw_pass(canvas: &skia_safe::Canvas, paths: &[Path], glyphs: &[&Glyph], pass: Pass) {
+    for glyph in glyphs {
+        let Some(path) = paths.get(glyph.outline) else {
+            continue;
+        };
+        let paint = match pass {
+            Pass::Stroke => {
+                let (Some(colour), true) = (glyph.paint.stroke, glyph.paint.stroke_width > 0.0)
+                else {
+                    continue;
+                };
+                let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
+                paint.set_anti_alias(true);
+                paint.set_style(PaintStyle::Stroke);
+                paint.set_stroke_width(glyph.paint.stroke_width as f32 * 2.0);
+                // Round joins rather than mitres: a mitre on a sharp interior angle spikes
+                // out to an arbitrary length, which on a serif or a comma is a visible
+                // whisker rather than a border.
+                paint.set_stroke_join(skia_safe::PaintJoin::Round);
+                paint
+            }
+            Pass::Fill => {
+                let Some(colour) = glyph.paint.fill else {
+                    continue;
+                };
+                let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
+                paint.set_anti_alias(true);
+                paint.set_style(PaintStyle::Fill);
+                paint
+            }
+        };
+        canvas.save();
+        // A stagger unit's pose acts in the block's own coordinates, before the glyph is
+        // moved to its place in the block.
+        if let Some(unit) = &glyph.unit {
+            canvas.concat(&unit_matrix(unit));
+        }
+        canvas.translate((glyph.x as f32, glyph.y as f32));
+        // A stroke with no fill behind it has to be clipped to the outside of the contour
+        // itself, or the inner half of the doubled width — the half a fill would normally
+        // cover — paints over the letterform and an outlined word comes out solid. Only in
+        // that case: with a fill present the clip would put an antialiased seam along every
+        // contour, and the fill already does the job.
+        if matches!(pass, Pass::Stroke) && glyph.paint.fill.is_none() {
+            canvas.clip_path(path, skia_safe::ClipOp::Difference, true);
+        }
+        canvas.draw_path(path, &paint);
+        canvas.restore();
+    }
+}
+
+/// One fading body's ink in the block's own coordinates: every member glyph's path bounds,
+/// outset by its doubled stroke and one pixel, through its unit's matrix, rounded out.
+fn unit_bounds(paths: &[Path], glyphs: &[&Glyph]) -> Option<Rect> {
+    let mut all: Option<Rect> = None;
+    for glyph in glyphs {
+        let path = paths.get(glyph.outline)?;
+        let pad = glyph.paint.stroke_width as f32 * 2.0 + 1.0;
+        let local = path
+            .bounds()
+            .with_offset((glyph.x as f32, glyph.y as f32))
+            .with_outset((pad, pad));
+        let mapped = match &glyph.unit {
+            Some(unit) => unit_matrix(unit).map_rect(local).0,
+            None => local,
+        };
+        all = Some(match all {
+            None => mapped,
+            Some(r) => Rect::join2(r, mapped),
+        });
+    }
+    all.map(|r| <Rect as skia_safe::RoundOut<Rect>>::round_out(&r))
 }
 
 /// One outline as a Skia path, at the glyph's own origin.
@@ -1728,6 +1815,7 @@ mod tests {
                 y: 0.0,
                 outline: 0,
                 paint,
+                unit: None,
             }],
             &[square()],
             Extent {

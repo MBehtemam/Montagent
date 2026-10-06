@@ -174,23 +174,62 @@ pub(crate) fn gaps(line: &str, letter_spacing: f64, size_at: impl Fn(usize) -> i
         .collect()
 }
 
+/// One shaping cluster of a line, as [`shifts`] walks it.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct LaidCluster {
+    /// Its bytes in the laid-out string.
+    pub(crate) laid: Range<usize>,
+    /// Its left edge on the line, before any spacing, and its own advance — never the gap.
+    pub(crate) x: f64,
+    pub(crate) advance: f64,
+    /// What letter spacing moves it by: the shift its glyphs take.
+    pub(crate) shift: f64,
+    /// The line's ligature group it belongs to — a ligature start and its components —
+    /// numbered from 0 on the line.
+    pub(crate) ligature: Option<usize>,
+}
+
+/// What [`shifts`] answers for one line.
+pub(crate) struct Spaced {
+    /// What each glyph moves by, in the order [`parley::GlyphRun::positioned_glyphs`]
+    /// yields them across the layout.
+    pub(crate) shifts: Vec<f64>,
+    /// The width the line gains.
+    pub(crate) moved: f64,
+    /// Every cluster, in visual order.
+    pub(crate) clusters: Vec<LaidCluster>,
+    /// Which of [`Spaced::clusters`] each glyph came from, in the same order as `shifts`.
+    pub(crate) glyph_clusters: Vec<usize>,
+}
+
 /// What one line's glyphs move by, in the order [`parley::GlyphRun::positioned_glyphs`]
-/// yields them across the layout, and the width the line gains.
+/// yields them across the layout, the width the line gains, and every cluster with the
+/// glyphs it holds.
 ///
 /// The gaps are keyed by offsets in the laid-out string (`to_laid` maps a line offset to
 /// it). A gap belongs to the cluster whose text holds the grapheme's last character. In a
 /// left-to-right cluster it opens on the cluster's right, so the cluster's own glyphs stay
 /// and everything after them moves; in a right-to-left one "after" is its left, so the gap
 /// opens before the cluster's glyphs in visual order.
+///
+/// **A ligature group** is parley's ligature start and the components that follow it in
+/// visual order: parley pushes a ligature's components right after its start in the order
+/// the shaper returns glyphs, which is visual in either direction. Only the start holds
+/// glyphs; each component carries an equal share of the advance.
 pub(crate) fn shifts(
     layout: &Layout<u32>,
     gaps: &[Gap],
     to_laid: impl Fn(usize) -> usize,
-) -> (Vec<f64>, f64) {
+) -> Spaced {
     let keyed: Vec<(usize, f64)> = gaps.iter().map(|gap| (to_laid(gap.at), gap.px)).collect();
     let mut out = Vec::new();
+    let mut clusters = Vec::new();
+    let mut glyph_clusters = Vec::new();
     let mut moved = 0.0;
+    let mut groups = 0;
     for line in layout.lines() {
+        let mut x = f64::from(line.metrics().offset);
+        let mut open: Option<usize> = None;
         // By line run rather than by glyph run: parley splits one line run into several
         // glyph runs wherever the style changes, and yields their glyphs in exactly this
         // order — each line run's visual clusters, flattened.
@@ -206,8 +245,28 @@ pub(crate) fn shifts(
                 if rtl {
                     moved += gap;
                 }
+                let ligature = if cluster.is_ligature_start() {
+                    groups += 1;
+                    open = Some(groups - 1);
+                    open
+                } else if cluster.is_ligature_continuation() {
+                    open
+                } else {
+                    open = None;
+                    None
+                };
+                let advance = f64::from(cluster.advance());
+                clusters.push(LaidCluster {
+                    laid: range,
+                    x,
+                    advance,
+                    shift: moved,
+                    ligature,
+                });
+                x += advance;
                 for _ in cluster.glyphs() {
                     out.push(moved);
+                    glyph_clusters.push(clusters.len() - 1);
                 }
                 if !rtl {
                     moved += gap;
@@ -227,7 +286,12 @@ pub(crate) fn shifts(
             .sum::<usize>(),
         "one shift per positioned glyph"
     );
-    (out, moved)
+    Spaced {
+        shifts: out,
+        moved,
+        clusters,
+        glyph_clusters,
+    }
 }
 
 /// The stretches of a laid-out string that are **not** in a joining script — where optional

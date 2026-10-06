@@ -41,7 +41,7 @@ pub(super) struct Point {
     /// Clock first, so every list of points reads in the order the video plays them.
     pub(super) at: i64,
     pub(super) element: String,
-    pub(super) property: &'static str,
+    pub(super) property: String,
 }
 
 impl Point {
@@ -88,7 +88,7 @@ pub struct UntiledPoint {
     /// `element.property@t`.
     pub point: String,
     pub element: String,
-    pub property: &'static str,
+    pub property: String,
     pub at: i64,
     /// The painted millisecond it samples at: `frame --at` this shows it. `null` only where
     /// `t` is too far out for its frame to be counted in 64 bits.
@@ -150,7 +150,7 @@ impl Placed {
                 .map(|untiled| UntiledPoint {
                     point: untiled.point.name(),
                     element: untiled.point.element.clone(),
-                    property: untiled.point.property,
+                    property: untiled.point.property.clone(),
                     at: untiled.point.at,
                     sample_ms: untiled.sample,
                     run: Span {
@@ -281,11 +281,12 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
                         Some(Point {
                             at: record.get("t").and_then(Value::as_i64)?,
                             element: id.to_string(),
-                            property,
+                            property: property.to_string(),
                         })
                     }))
                 })
                 .flatten()
+                .chain(stagger_points(element, id))
         })
         .filter(|point| {
             point_state(states, point.at).is_some_and(|(_, state)| on_screen(state, &point.element))
@@ -294,6 +295,48 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
     points.sort();
     points.dedup();
     points
+}
+
+/// A stagger's change points (ADR-0151 §5): every unit list of the **first scheduled** unit
+/// (the earliest start after delays) and of the **last scheduled** unit (the latest end after
+/// delays and overrides, not always the highest index), plus every run override's own lists.
+/// Each is named by the unit's reading-order index, `title.units[39].y@2860`, at the instant
+/// it runs at. Every unit in between is left to `query --at`: a tile per letter would bury
+/// every other change point.
+fn stagger_points(element: &Value, id: &str) -> Vec<Point> {
+    let Some(plan) = crate::units::Plan::of(element) else {
+        return Vec::new();
+    };
+    let spans = plan.spans();
+    let first = spans
+        .iter()
+        .min_by_key(|(unit, _, start, _)| (*start, *unit))
+        .map(|span| span.0);
+    let last = spans
+        .iter()
+        .max_by_key(|(unit, _, _, end)| (*end, *unit))
+        .map(|span| span.0);
+    let mut out = Vec::new();
+    for unit in 0..plan.units.len() {
+        let scheduled = Some(unit) == first || Some(unit) == last;
+        for property in crate::units::LISTS {
+            if !scheduled && !plan.overridden(unit, property) {
+                continue;
+            }
+            let (from, late) = plan.source(unit, property);
+            let Some(records) = crate::checks::keyframe_records(from, property) else {
+                continue;
+            };
+            out.extend(records.iter().filter_map(|record| {
+                Some(Point {
+                    at: record.get("t").and_then(Value::as_i64)? + late,
+                    element: id.to_string(),
+                    property: format!("units[{unit}].{property}"),
+                })
+            }));
+        }
+    }
+    out
 }
 
 /// Whether the element `id` is in `state`'s visual presence set.

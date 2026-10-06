@@ -28,7 +28,11 @@ fn format_md_lists_every_page_and_every_page_it_names_is_served() {
             "format.md does not list {}",
             page.uri
         );
-        assert!(resources::find(page.uri).is_none(), "{} is listed", page.uri);
+        assert!(
+            resources::find(page.uri).is_none(),
+            "{} is listed",
+            page.uri
+        );
         assert_eq!(
             resources::serve(page.uri).unwrap().mime_type,
             "text/markdown"

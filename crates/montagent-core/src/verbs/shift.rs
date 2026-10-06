@@ -161,6 +161,46 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
 
     let preamble = coincident_preamble(&project, ask.at);
 
+    // ---- A cut inside a stagger window is refused (ADR-0151 §5), naming the window: a
+    // split of the unit lists at `at` would be right for one unit only, and writing a split
+    // for every unit would turn one block into one run per unit. Only an element the shift
+    // would split — one in scope that straddles `at` — can be cut. --------------------------
+    let mut cut: Vec<Finding> = Vec::new();
+    for track in &project.tracks {
+        if ask
+            .scope
+            .as_deref()
+            .is_some_and(|scope| scope != track.name)
+        {
+            continue;
+        }
+        for element in &track.elements {
+            if !(element.start < ask.at && ask.at < element.end) {
+                continue;
+            }
+            let Some((from, to)) = stagger_window(element) else {
+                continue;
+            };
+            if from < ask.at && ask.at < to {
+                cut.push(
+                    Finding::new("E-SHIFT-UNITS-WINDOW")
+                        .at_file(document.path())
+                        .at_element(element.id.clone())
+                        .at_track(track.name.clone())
+                        .field("at", json!(ask.at))
+                        .field("from", json!(from))
+                        .field("to", json!(to)),
+                );
+            }
+        }
+    }
+    if !cut.is_empty() {
+        for finding in cut {
+            report.push(finding);
+        }
+        return Answer { preamble, report };
+    }
+
     // ---- The transform, over a clone: a refused edit must leave the file untouched. ----
     let old_slacks = slack::of(&document);
     let mut new_instants: HashMap<(String, Side), i64> = HashMap::new();
@@ -328,6 +368,7 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
         }) {
             return Outcome::Unwritable(refusal);
         }
+        carry_unit_lists(&mut element.body, delta);
         return Outcome::Moved;
     }
     // `start < at < end`: a straddler.
@@ -335,12 +376,65 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
         return Outcome::Straddle;
     }
     element.end += delta;
+    // The stagger's lists are never split: a split at `at` would be right for one unit only,
+    // so a cut inside the window was refused before this (ADR-0151 §5). A cut at or before
+    // the window carries every unit list whole; one at or after its end leaves them be.
+    let carries_units = stagger_window(element).is_some_and(|(start, _)| start >= at);
     match edit_lists(&mut element.body, |property, list| {
         split_list(property, list, at, delta)
     }) {
-        Ok(()) => Outcome::Moved,
+        Ok(()) => {
+            if carries_units {
+                carry_unit_lists(&mut element.body, delta);
+            }
+            Outcome::Moved
+        }
         Err(refusal) => Outcome::Unwritable(refusal),
     }
+}
+
+/// Every stagger list moves by `delta`: the `units` block's and every run override's
+/// (ADR-0151 §5). They are nested inside the element, so they are their own walk beside the
+/// element's own animatable properties. A delay is relative to the lists, so it is carried
+/// unchanged.
+fn carry_unit_lists(body: &mut Body, delta: i64) {
+    let Body::Text(_) = body else {
+        return;
+    };
+    let Ok(mut value) = serde_json::to_value(&*body) else {
+        return;
+    };
+    if let Some(block) = value.get_mut("units") {
+        for property in crate::units::LISTS {
+            if let Some(list) = block.get_mut(property) {
+                carry(list, delta);
+            }
+        }
+    }
+    for run in value
+        .get_mut("runs")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        if let Some(unit) = run.get_mut("unit") {
+            for property in crate::units::LISTS {
+                if let Some(list) = unit.get_mut(property) {
+                    carry(list, delta);
+                }
+            }
+        }
+    }
+    if let Ok(edited) = serde_json::from_value(value) {
+        *body = edited;
+    }
+}
+
+/// A text element's stagger window (ADR-0151 §5), read through the same plan the painter
+/// and `query --at` read.
+fn stagger_window(element: &Element) -> Option<(i64, i64)> {
+    let value = serde_json::to_value(element).ok()?;
+    crate::units::Plan::of(&value)?.window()
 }
 
 /// Does this element's source carry a clock? `video` and `audio` do (ADR-0005); every

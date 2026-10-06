@@ -49,7 +49,8 @@ number, and the ADR is right where the two disagree.
   `R-SPACING-SUPPRESSED`.
 - **A non-zero `letter_spacing` switches optional ligatures off for the whole element**
   (ADR-0151, ADR-0153). If any `letter_spacing` value or keyframe on the element is non-zero,
-  `liga`, `clig` and `dlig` are off for its whole range, so `fi` is two glyphs at every frame
+  or it has a `units` block with `by: letter`, `liga`, `clig` and `dlig` are off for its whole
+  range, so `fi` is two glyphs at every frame
   — a spacing keyed through 0 included — and glyphs never swap mid-shot. The rule reads the
   file, never the value at an instant. The joining scripts are exempt: their script runs keep
   every ligature, because some fonts file a spelling-required ligature such as lam-alef under
@@ -59,6 +60,43 @@ number, and the ADR is right where the two disagree.
   Between two records the spacing passes only through the values between them; a bezier's
   overshoot past a record is not sampled. `measure` answers a keyed spacing at the largest
   value the list writes, and says which value it used in `asked.letter_spacing`.
+- **A `units` block staggers one text element** (ADR-0151): its letters, words or lines run
+  the block's lists one after another. `by` is `letter` (a grapheme that is not whitespace),
+  `word` (a word with its punctuation: punctuation goes to the word before it on its line,
+  otherwise to the word after it) or `line` (a `\n` line with a letter). Units are counted in
+  reading order over the whole text, ignoring runs; whitespace and empty lines take no step.
+  The lists `x`, `y`, `rotation`, `scale` and `opacity` are written **for the first unit** on
+  the absolute clock; unit *n* runs them late by its **delay**, its position in `order`
+  (`forward` or `reverse`) times `every` ms. `x`, `y` and `rotation` add to the unit's pose
+  and `scale` and `opacity` multiply it, in element pixels before the element's own
+  transform, so the element can still move as a whole. Each unit turns and scales about the
+  pivot `origin` picks in its box: its own advance without the spacing (a word's or line's
+  first grapheme to its last) by the line's slot. A unit below opacity 1 draws its stroke
+  and fill into one layer, between the element's stroke pass and its fill pass, so two
+  overlapping fading units stack whole. `effects`, `blend` and `opacity` apply after.
+- **Joined letters move as one** (ADR-0153). Under `by: letter`, a joined piece of a joining
+  script (`لسلا` in `السلام`) and letters shaping merges into one glyph move as one body, on
+  the first one's timing; each still keeps its index and its step, so the next unit waits.
+  `R-UNIT-MERGED` names them; `by: word` avoids the wait.
+- **To single out a unit, split it into its own run carrying `unit`** (ADR-0151). Its `delay`
+  replaces the derived one; a list replaces that property's list for that unit wholesale.
+  **A run's lists are never delayed: they run on the absolute clock as written.** A property
+  the run does not name keeps the block's list, run at the run's delay. The run must hold
+  exactly one unit (`E-UNIT-RUN-NOT-ONE-UNIT`), name only lists the block declares
+  (`E-UNIT-RUN-UNDECLARED`), and not single out a joined or merged letter
+  (`E-UNIT-RUN-MERGED`). Retiming is one edit, `"every"`.
+- **What the tools say about a stagger.** `query --at` gives `stagger` (`by`, `count`, and the
+  `window` from the first list's start to the last's end, after delays and overrides) and a
+  `units` row for every unit: delay, which lists a run overrides, `merged_with`, and the pose
+  it is drawn with. A staggered caption gets `N-CAPTION-SETTLES`, the instant its text is
+  readable. `shift` carries every unit list and keeps the delays, and refuses a cut inside the
+  window (`E-SHIFT-UNITS-WINDOW`). **Blind spots:** `R-OFF-CANVAS` widens the rect by the unit
+  `x` and `y` offsets but ignores unit `scale` and `rotation`, and says so; the contact sheet
+  shows change points for the first and last scheduled units and the overrides only, so read
+  every other unit in `query --at`.
+- **A stagger across elements is written out** (ADR-0148): each card carries literal `t`
+  values. To retime it, edit each card's keyframes, and anchor every replace on the card's
+  `id`, because a string such as `"t": 80` repeats across cards.
 - **A keyed text `stroke_width` is measured at its widest keyframe** (ADR-0146): the stroke
   moves no glyph, so text is laid out once; each frame paints the resolved width.
 - **`line_height` is a multiplier restricted to one decimal digit** (ADR-0028) — `1.0`, `1.1`, `1.2` —

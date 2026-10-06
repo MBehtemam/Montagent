@@ -95,6 +95,27 @@ pub struct Glyph {
     /// wherever it repeats, and `cobweb  -  cobweb` is nine distinct outlines over
     /// seventeen glyphs. The rasterizer can key its own path cache on the same integer.
     pub outline: usize,
+    /// Which of [`Placement::clusters`] this glyph was shaped from: the text it came from,
+    /// and so the unit of a stagger it moves with (ADR-0151 §3).
+    pub cluster: usize,
+}
+
+/// One shaping cluster: the text one glyph group was shaped from, and where it sits.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cluster {
+    /// Its bytes in the element's whole text (the runs concatenated); `None` for an isolate
+    /// mark the engine inserted, which is no character of the author's.
+    pub text: Option<std::ops::Range<usize>>,
+    /// Which line of the block.
+    pub line: usize,
+    /// Its left edge in the block's own coordinates, letter spacing included, and its own
+    /// advance **without** the added spacing.
+    pub x: f64,
+    pub advance: f64,
+    /// The ligature group it belongs to, numbered across the element: a ligature start and
+    /// its components, whose one glyph is the start's. A group may span graphemes — that is
+    /// a shaping merge.
+    pub ligature: Option<usize>,
 }
 
 /// Every glyph of one text element, and the block they make.
@@ -110,6 +131,8 @@ pub struct Placement {
     pub glyphs: Vec<Glyph>,
     /// Each distinct outline, already scaled to its glyph's `size` in element space.
     pub outlines: Vec<Vec<PathEl>>,
+    /// Every shaping cluster, line by line, in visual order.
+    pub clusters: Vec<Cluster>,
 }
 
 /// Place one text element's glyphs, aligned as [`Spec::align`] says.
@@ -130,9 +153,29 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
     let mut outlines: Vec<Vec<PathEl>> = Vec::new();
     let mut seen: HashMap<(usize, u32, u32, u32), usize> = HashMap::new();
     let mut glyphs = Vec::new();
+    let mut clusters: Vec<Cluster> = Vec::new();
+    let mut groups = 0;
 
-    for (line, shaped) in measurement.lines.iter().zip(&layouts) {
+    for (index, (line, shaped)) in measurement.lines.iter().zip(&layouts).enumerate() {
         let layout = &shaped.layout;
+        let dx = offset(align, line.rtl, block_width, line.advance_width);
+        // This line's clusters, numbered after every earlier line's, and its ligature groups
+        // after every earlier line's groups.
+        let first_cluster = clusters.len();
+        let first_group = groups;
+        for (cluster, text) in &shaped.clusters {
+            if let Some(group) = cluster.ligature {
+                groups = groups.max(first_group + group + 1);
+            }
+            clusters.push(Cluster {
+                text: text.clone(),
+                line: index,
+                x: dx + cluster.x + cluster.shift,
+                advance: cluster.advance,
+                ligature: cluster.ligature.map(|group| first_group + group),
+            });
+        }
+        let mut owners = shaped.glyph_clusters.iter().copied();
         // Letter spacing's offset for each glyph, in the order they are yielded below
         // (ADR-0151): the same numbers the line's advance and ink were measured with.
         let mut shifts = shaped.shifts.iter().copied();
@@ -141,7 +184,6 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
         // copy of `slot_centre + (ascent − descent) / 2` here is a second rule to keep in
         // step.
         let baseline = line.baseline_y - block_top;
-        let dx = offset(align, line.rtl, block_width, line.advance_width);
 
         for placed in layout.lines() {
             for item in placed.items() {
@@ -167,6 +209,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                         y: baseline + f64::from(glyph.y - placed.metrics().baseline),
                         run: which,
                         outline,
+                        cluster: first_cluster + owners.next().unwrap_or(0),
                     });
                 }
             }
@@ -179,6 +222,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
         height,
         glyphs,
         outlines,
+        clusters,
     })
 }
 
