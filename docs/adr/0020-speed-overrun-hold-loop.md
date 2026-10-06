@@ -5,7 +5,7 @@ amends: 0005 (settles the `speed`/`fill` fields it named but left undefined)
 
 # `speed` is a rate multiplier, `fill` is renamed `overrun`, and the two compose
 
-> **Amended by four later ADRs.** Read them before relying on anything below.
+> **Amended by five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0045](0045-speed-invariant-is-evaluated-in-exact-arithmetic.md) — states the
 >   arithmetic its rounding invariant must be evaluated in
@@ -17,6 +17,9 @@ amends: 0005 (settles the `speed`/`fill` fields it named but left undefined)
 > - [ADR-0096](0096-the-frame-at-an-instant-is-the-last-one-starting-at-or-before-it.md) — `overrun: "hold"`'s *"resolve to `source_end`"* now reaches a
 >   frame rather than a failed seek, which is what the rule always meant: `source_end` is a
 >   boundary, and the frame shown at a boundary is the one before it
+> - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — reverse
+>   playback is settled for video as a falling segment of `source_time`, not a future
+>   explicit field; `speed` and `overrun` are refused on an element carrying `source_time`
 
 [ADR-0005](./0005-absolute-integer-milliseconds.md) required a time-based
 element to declare why its timeline range differs from its source range, and

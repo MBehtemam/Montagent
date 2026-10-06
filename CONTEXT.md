@@ -588,7 +588,8 @@ Which part of a file an element plays, as distinct from where the element sits o
 the timeline. Only elements built on time-based media — video and audio — have
 one; images, text and shapes have no insides and are simply held for their whole
 timeline range. A time-based element's two ranges are the same length unless it
-says otherwise.
+says otherwise. A video carrying a **Time remap** has no source range: the curve
+names the source instead.
 _Avoid_: trim (as a noun), in/out point
 
 **Speed**:
@@ -596,9 +597,10 @@ A time-based element's playback-rate multiplier — `0.645` plays its source at
 0.645× normal rate, slower. Strictly greater than zero; `0` and negative
 values are schema errors. Changes what the source range's two ranges are
 allowed to disagree by: `end - start` must equal `source range / speed`,
-rounded to the nearest millisecond. Reverse playback is not `speed`'s job and
-is undecided, not ruled out.
-([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md))
+rounded to the nearest millisecond. Always static. A rate that changes over a
+clip, and reverse playback, are a **Time remap**, never `speed`, and `speed` is
+refused on an element carrying one.
+([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md), [ADR-0157](docs/adr/0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md))
 _Avoid_: rate, stretch factor (reads as the reciprocal and gets the direction
 backwards), tempo
 
@@ -608,9 +610,21 @@ out before its timeline range does: `"hold"` freezes the source's last frame
 (video only — a schema error on audio, where the correct spelling of "then
 silence" is a shorter element and a gap) or `"loop"` restarts the source from
 its beginning with a hard cut, no crossfade. Composes with `speed` rather than
-excluding it. Present only when needed — there is no `"none"` value.
+excluding it. Present only when needed — there is no `"none"` value. Refused on
+an element carrying a **Time remap**, where a freeze is a flat stretch of the curve.
 ([ADR-0020](docs/adr/0020-speed-overrun-hold-loop.md))
 _Avoid_: fill (spent — see Fill), extend, pad
+
+**Time remap**:
+A video's `source_time`: which moment of its file is on screen, as an animatable
+property in source milliseconds. The rate is the curve's slope — steep is fast,
+shallow is slow, flat is a freeze, falling plays in reverse — and a literal is a
+freeze frame for the whole element. It is the only author of the source on its
+element, so the source range, `speed` and `overrun` are refused there. Video only,
+and the element's own sound must be silenced with `volume: 0`.
+([ADR-0157](docs/adr/0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md))
+_Avoid_: speed ramp, speed curve, retime, speed keyframes (for the field — a speed
+ramp is what one draws), remap (as a field name), reverse (as a field)
 
 **Feed**:
 One `ffmpeg` decoding one video element's frames in timeline order, at the

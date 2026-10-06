@@ -11,6 +11,10 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 > `1.0` are each still at `1.0`, and a **keyframed `volume` is applied as the value
 > `resolve` computes on every sampled frame**, as timed commands, rather than re-expressed
 > in `ffmpeg`'s expression language.
+>
+> **Amended by [ADR-0157](./0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md)**: a
+> `video` carrying `source_time` must carry `volume` as the literal `0`; a keyframe list or
+> an absent `volume` is `E-REMAP-AUDIBLE`.
 
 [ADR-0012](./0012-flat-transform-keyframes-carried-by-their-element.md) already
 named the trap — an agent will write `opacity` on an audio element meaning

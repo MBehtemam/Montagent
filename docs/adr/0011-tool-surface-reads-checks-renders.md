@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by thirty-three later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-four later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -148,6 +148,8 @@ status: accepted
 >   the resolved stack gains `blend`; `NOT COVERED` is unchanged
 > - [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md) — `query --at`
 >   reports `motion_blur` as written and whether the element is `moving` or `still` at that frame
+> - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — `query --at`
+>   reports a remapped element's `source_time` and a derived `rate`
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
