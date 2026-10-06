@@ -282,17 +282,30 @@ generator — ADR-0087), gap (a seam's ordinary sign is negative; see also Gap,
 which is a fact about the *clock*)
 
 **Shape**:
-A drawn primitive with no source file — `rect` or `ellipse`, each its own element type,
-never a `shape` field inside a shared one. An ellipse inscribes its declared rect, so
-neither needs a placement rule beyond the transform every visual element already carries.
-A `rect` may declare a `radius`; an ellipse may not.
+A drawn primitive with no source file — `rect`, `ellipse` or `path`, each its own element
+type, never a `shape` field inside a shared one. An ellipse inscribes its declared rect and a
+path draws inside it, so none needs a placement rule beyond the transform every visual
+element already carries. A `rect` may declare a `radius`; the others may not.
 _Avoid_: rectangle (as the type name), box, figure, primitive (unqualified)
+
+**Path**:
+A shape drawn through a list of **vertices**, open or `closed`. Each vertex is an `at`
+position with optional `in` and `out` **handles**, and a segment between two vertices is a
+cubic Bezier through their handles. Positions are integer pixels from the declared box's
+top-left corner and handles are offsets from their own vertex, so the box bounds the drawing
+but never scales it: there is one unit system and the extent is declared, not derived. A
+vertex without handles is a corner. A path's `points` animate as one whole list of
+unchanging shape.
+([ADR-0154](docs/adr/0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md))
+_Avoid_: polyline, polygon, line (as types), anchor point (for a vertex), control point (for
+a handle as written; it is an offset), viewBox
 
 **Fill**:
 The paint inside a shape's outline. Optional when a `stroke` is
 present, giving an outlined shape; a shape with neither is a schema error naming both,
 because an element that deliberately renders nothing and an element that forgot its paint
-must not look alike.
+must not look alike. Only a closed **path** takes a fill; an open one is never filled by
+implicit closing.
 _Avoid_: background, colour (for a shape). Do not use for what a
 time-based element does past the end of its source — that is `overrun`.
 
@@ -319,7 +332,9 @@ A second paint on the same outline — `stroke` and `stroke_width` — sitting o
 primitive rather than among the effects, and addressable per *run* on text. It never
 enlarges the declared rect, and that is what separates it from an effect: a blur is not a
 paint on the outline and a drop shadow is not addressable by run. On a shape it falls
-**inside** the declared rect, so a stroked `card-05` still occupies exactly 984×169. On
+**inside** the declared rect, so a stroked `card-05` still occupies exactly 984×169. On a
+**path** it is centred on the outline, and the box still contains it because every vertex
+and handle must sit at least half the stroke width inside the box. On
 text it falls **outside the glyph contour** — inside would thin the stems — and grows into
 the box rather than past it, because a text element's `width`/`height` is a container
 claim and not drawn geometry. It is in element space, so it scales with `scale`.
@@ -1470,16 +1485,12 @@ exactly what `gravity` meant, so repairing it needs the same absent fact, and no
 ruled. The check refuses provisionally; see the note under Box
 ([#228](https://github.com/MBehtemam/Montagent/issues/228)).
 
-**Path, line, polygon**:
-Every visual element is placed by `x`, `y`, `origin`, `width`, `height`. A point list is
-not — it has **no declared extent**, and giving it one needs either a second unit system
-or an extent derived from its own content, both of which are already closed. So these are
-rejected rather than merely absent, and the reopening condition is stated so it can be
-met: admitting a point-list shape is a new ADR about *placement*, not a schema addition.
-Do not reach for "a thin rotated `rect` draws a line" as the reason — it is false in the
-way that matters, because the endpoints never appear in the file. A `path` is additionally
-a mini-language inside a JSON string: unreadable by reading, unmatchable by exact-string
-replace. Commit an SVG or a PNG instead.
+**Line, polygon**:
+Not element types. A line is a two-vertex open **path** and a polygon is a closed path of
+corners; a second spelling of one drawing breaks exact-string replace. A `path` written as
+an SVG `d` string is still refused: a mini-language inside a JSON string is unreadable by
+reading and unmatchable by exact-string replace.
+([ADR-0154](docs/adr/0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md))
 
 **Repeat, repeater, clone**:
 Elsewhere one layer draws as N offset copies. Montagent draws exactly one thing per element,
