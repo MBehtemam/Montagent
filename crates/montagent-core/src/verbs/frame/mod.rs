@@ -2296,8 +2296,15 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 pub(crate) fn effect_of(element: &Value, index: usize, instant: i64) -> Option<Effect> {
     let declared: model::Effect =
         serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
+    let parameters: Vec<animatable::Declared<'_>> = animatable::declared(element)
+        .into_iter()
+        .filter(|declared| declared.effect.is_some_and(|(at, _)| at == index))
+        .collect();
     let read = |key: &str| {
-        animatable::effect_parameter(element, index, key).map(|parameter| parameter.at(instant))
+        parameters
+            .iter()
+            .find(|parameter| parameter.key() == key)
+            .map(|parameter| parameter.at(instant))
     };
     // A parameter the model has already read is one the resolver reads too, so `None` here
     // is a document the model refuses and never reaches.

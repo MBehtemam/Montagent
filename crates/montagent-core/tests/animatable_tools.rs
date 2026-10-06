@@ -1,8 +1,9 @@
 //! **Every animatable property is carried by every tool** (ADR-0146 §7, #675).
 //!
 //! The list is the schema's ([`montagent_core::animatable`]), and this file walks it: for
-//! every animatable property any element type has, a project keys it on an element of a
-//! type that has it, and each tool that reads keyframe lists is asked about it — `shift`,
+//! every animatable property any element type has, and every parameter of every `effects`
+//! member (#676, named `effects[1].radius (blur)`), a project keys it on an element that has
+//! it, and each tool that reads keyframe lists is asked about it — `shift`,
 //! the ease, derivation and unreached checks, the contact sheet, `compare`, `timeline` and
 //! `query --at`. A property the schema types as animatable and one tool skips fails here,
 //! by name. That is the prototype's silent loss: `shift` moved an element's `x` keyframes and
