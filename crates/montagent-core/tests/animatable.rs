@@ -461,6 +461,9 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("chroma", vec!["color", "tolerance", "softness", "spill"]),
             // ADR-0156 §4: `seed`, `size` and `mono` are static.
             ("grain", vec!["amount"]),
+            ("posterize", vec!["levels"]),
+            ("glow", vec!["threshold", "radius", "intensity"]),
+            ("directional_blur", vec!["angle", "length"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

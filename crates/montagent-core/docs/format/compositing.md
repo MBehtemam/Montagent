@@ -2,7 +2,7 @@
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
 other pages; read it first. This page holds the rules for how elements combine: the paint
-drawn through an element's box, an element's `effects`, its motion blur, how the finished element composites
+drawn through an element's box, an element's `effects` and the named effects, its motion blur, how the finished element composites
 into what is below it, and the transition elements that bridge two others. Like the rest of the format docs, every rule here is an
 accepted decision in the ADR series, cited inline by number, and the ADR is right where the
 two disagree.
@@ -76,7 +76,7 @@ two disagree.
   `{"name": "blur", "radius": [{"t": 0, "v": 0}, {"t": 400, "v": 24, "ease": "ease-out"}]}`.
   `mask.shape`, `invert` and every other enum or boolean stay static, and `chroma.color` stays
   six-digit in every record. A parameter's range holds in every record (a `mask` size or
-  `radius` is non-negative, `chroma`'s scalars `0`–`1`); an overshoot between records
+  `radius` is non-negative, `chroma`'s scalars `0`–`1`, `posterize`'s `levels` `2`–`256`); an overshoot between records
   clamps to it. Findings and `query --at` name a parameter by its member's position:
   `effects[1].radius (blur)`, since two members of one name are legal. `shift` carries and
   splits these lists like any other.
@@ -182,6 +182,43 @@ two disagree.
   `size` and `mono`, on elements visible together whose `start`s fall on the same frame
   (one element's list included), draw the same pattern on every frame, a locked texture.
   Change one `seed`. `amount` is not compared.
+
+## Named effects
+
+- **`posterize`, `glow` and `directional_blur` are `effects` members like `grain`**
+  (ADR-0156): applied in list order, each filtering the element's own pixels plus a reach it
+  declares. Every key is required and every number is animatable; a value out of range is a
+  schema error, in a static value and in every keyframe record.
+- **`posterize`: `{"levels": 2–256}`, an integer.** Per channel, on non-premultiplied sRGB
+  values from 0 to 1, `q = round(v × (levels − 1)) / (levels − 1)`, ties away from zero, so
+  `levels: 2` sends 0.49 to 0 and 0.5 to 1. Alpha is untouched, and `256` paints the same
+  bytes as no member. A keyed `levels` resolves to a continuous value and is rounded half away
+  from zero, as `shift` rounds.
+- **`glow`: `{"threshold": 0–1, "radius": ≥ 0, "intensity": 0–4}`, a threshold bloom.** The
+  bright-pass scales each pixel by `max(0, luma − threshold) / (1 − threshold)`, luma Rec.709
+  on the non-premultiplied sRGB values, alpha with the colour. That bright part is blurred
+  with σ = `radius` / 2, exactly as `blur` reads a radius, multiplied by `intensity`, and
+  added (`Plus`) over the element inside its own layer, before `blend`. Its reach is `blur`'s
+  3σ. `threshold: 1` (an empty bright-pass) and `intensity: 0` paint the same bytes as no
+  member. There is no `color`: a coloured glow from the alpha is a zero-offset `shadow`.
+- **`directional_blur`: `{"angle": degrees, "length": 0–4096}`, a centred smear.** `angle` 0
+  smears horizontally and positive turns clockwise, as `rotation` does, so 0 and 180 give the
+  same smear. It is measured in the element's own space: it turns with the element's
+  `rotation`, mirrors under a flip, and `length` is in element pixels, so it grows with
+  `scale`. It takes `ceil(length) + 1` samples, evenly spaced along the line through each
+  pixel and centred on it, read bilinearly and weighted equally; `length: 0` paints the same
+  bytes as no member. Its reach is `(|cos θ| × length / 2, |sin θ| × length / 2)`, rounded up
+  to whole pixels. This is not motion blur: it smears whether or not the element moves.
+- **A keyed `length` steps the sample count**, since `ceil(length) + 1` is a whole number, and
+  **a keyed `angle` interpolates literally**: `350 → 10` sweeps the long way round, through
+  180. Write `350 → 370` for the short way.
+- **The bound criterion** (ADR-0156): a member keeps the element's bounds when it stays inside
+  the box or a reach it declares as a formula of its parameters. A colour filter that maps
+  transparent black to transparent black keeps it, and `posterize` does. None of this is
+  visible: the frame is the same bytes either way.
+- **Cost**: `directional_blur` reads `ceil(length) + 1` pixels for every pixel it paints, so a
+  long smear over a full-frame element is slow; `glow` costs more than a `blur` of the same
+  radius.
 
 ## Motion blur
 

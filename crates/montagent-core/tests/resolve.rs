@@ -503,8 +503,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 26,
-        "thirteen keyframe instantiations, first and non-first"
+        seen, 34,
+        "seventeen keyframe instantiations, first and non-first"
     );
 }
 
@@ -581,8 +581,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     collect_animatable(&schema, None, &mut animatable);
     // A gradient's own parameters are printed inside their paint, never as properties of
     // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
-    // `rect` has one of its own.
-    animatable.retain(|name| !matches!(name.as_str(), "angle" | "center" | "stops"));
+    // `rect` has one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
+    animatable.retain(|name| !matches!(name.as_str(), "center" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(
@@ -609,7 +609,11 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                                   "color": "#000000", "opacity": 0.5},
                                  {"name": "tint", "color": "#FF0000", "amount": 0.2},
                                  {"name": "chroma", "color": "#00FF00", "tolerance": 0.1,
-                                  "softness": 0.1, "spill": 0.1}]},
+                                  "softness": 0.1, "spill": 0.1},
+                                 {"name": "posterize", "levels": 8},
+                                 {"name": "glow", "threshold": 0.5, "radius": 4,
+                                  "intensity": 1},
+                                 {"name": "directional_blur", "angle": 30, "length": 6}]},
                     {"id": "outline", "type": "path", "start": 0, "end": 1000,
                      "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
                      "stroke": "#FFFFFF", "stroke_width": 1,

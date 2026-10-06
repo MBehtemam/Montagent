@@ -75,8 +75,12 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
 - Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
+- Posterize an element's colours into a few flat steps: `posterize`, `levels`.
+- A bloom from an element's bright parts: `glow`, `threshold`, `radius`, `intensity`.
+- Smear an element along one direction, whether or not it moves: `directional_blur`, `angle`, `length`.
+- A texture or glow laid over footage, as a `rect` carrying an effect and a blend, the way a vignette or a light leak is built: `rect`, `effects`, `blend`.
 - A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
-- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`.
+- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`, `levels`, `threshold`, `intensity`, `angle`, `length`.
 
 **Time**
 
