@@ -49,6 +49,22 @@ fn skill_scripts_print_projects_that_validate() {
     assert!(problems.is_empty(), "{}", problems.join("\n\n"));
 }
 
+#[test]
+fn the_capability_map_names_every_element_type_and_effect() {
+    let problems = check_completeness(&capability_map(&router_skill()));
+    assert!(
+        problems.is_empty(),
+        "the capability map in skills/montagent/SKILL.md is missing:\n{}",
+        problems.join("\n")
+    );
+}
+
+#[test]
+fn every_adr_a_not_by_design_line_cites_is_still_accepted() {
+    let problems = check_refusals(&capability_map(&router_skill()), &repo().join("docs/adr"));
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
 /// Each check, seen to fail on a deliberately stale skill — so a guard that has quietly
 /// stopped looking cannot pass by finding nothing.
 #[test]
@@ -105,6 +121,125 @@ fn the_guard_fails_on_a_stale_skill() {
     let scripts = check_scripts(&skills, "stale-scripts");
     assert_eq!(scripts.len(), 1, "{scripts:?}");
     assert!(scripts[0].contains("does not validate"), "{scripts:?}");
+
+    // The capability map, with an effect taken out of it and a refusal citing a
+    // superseded ADR.
+    let map = capability_map(&router_skill());
+    let without_blur = map.replace("`blur`", "blur");
+    let missing = check_completeness(&without_blur).join("\n");
+    assert!(
+        missing.contains("`blur`"),
+        "the completeness check missed a removed effect:\n{missing}"
+    );
+
+    let adrs = scratch_dir("stale-adrs");
+    std::fs::write(
+        adrs.join("0001-old.md"),
+        "---\nstatus: superseded by 0002\n---\n# Old\n",
+    )
+    .unwrap();
+    let stale = check_refusals("### Not by design\n\n- A thing. [ADR-0001](x)\n", &adrs).join("\n");
+    assert!(
+        stale.contains("ADR-0001"),
+        "the refusals check missed a superseded ADR:\n{stale}"
+    );
+    let gone = check_refusals("### Not by design\n\n- A thing. [ADR-0002](x)\n", &adrs).join("\n");
+    assert!(
+        gone.contains("ADR-0002"),
+        "the refusals check missed a missing ADR:\n{gone}"
+    );
+}
+
+// ---- The capability map ---------------------------------------------------------------
+
+fn router_skill() -> String {
+    std::fs::read_to_string(repo().join("skills/montagent/SKILL.md")).unwrap()
+}
+
+/// The capability map: the router skill's "What Montagent does" section, down to the next
+/// `##` heading.
+fn capability_map(skill: &str) -> String {
+    let start = skill
+        .find("## What Montagent does")
+        .expect("the router skill has a capability map section");
+    let rest = &skill[start + 3..];
+    let end = rest.find("\n## ").map_or(rest.len(), |e| e + 1);
+    rest[..end].to_string()
+}
+
+/// Every element type and every effect the schema index lists appears as a code span in the
+/// map.
+///
+/// Plain fields (`blend`, `letter_spacing`) are not covered: the index lists no such thing,
+/// so each spec that adds one carries its own acceptance line saying the map names it.
+fn check_completeness(map: &str) -> Vec<String> {
+    let index: serde_json::Value = serde_json::from_str(
+        &montagent_core::resources::read("montagent://schema/index.json").unwrap(),
+    )
+    .unwrap();
+    let spans: BTreeSet<String> = code_spans(map).into_iter().collect();
+    let mut problems = Vec::new();
+    for (section, kind) in [("elements", "element type"), ("effects", "effect")] {
+        for name in index[section]
+            .as_object()
+            .expect("the index section")
+            .keys()
+        {
+            if !spans.contains(name) {
+                problems.push(format!("the {kind} `{name}`"));
+            }
+        }
+    }
+    problems
+}
+
+/// Every ADR a "Not by design" line cites exists and is still accepted, the way
+/// `every_adr_the_format_docs_cite_exists_and_is_still_accepted` checks the format docs.
+fn check_refusals(map: &str, adrs: &Path) -> Vec<String> {
+    let Some(at) = map.find("Not by design") else {
+        return vec!["the map has no \"Not by design\" list".to_string()];
+    };
+    let section = &map[at..];
+    let mut cited: Vec<&str> = section
+        .match_indices("ADR-")
+        .filter_map(|(at, _)| section.get(at + 4..at + 8))
+        .filter(|number| number.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    cited.sort();
+    cited.dedup();
+    let mut problems = Vec::new();
+    if cited.is_empty() {
+        problems.push("the \"Not by design\" list cites no ADR".to_string());
+    }
+    for number in cited {
+        let file = std::fs::read_dir(adrs)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.path())
+            .find(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(&format!("{number}-")))
+            });
+        let Some(file) = file else {
+            problems.push(format!(
+                "a refusal cites ADR-{number}, which does not exist"
+            ));
+            continue;
+        };
+        let body = std::fs::read_to_string(&file).unwrap();
+        let status = body.lines().take(12).find_map(|line| {
+            line.trim()
+                .strip_prefix("status:")
+                .map(|rest| rest.trim().to_lowercase())
+        });
+        if !status.as_deref().is_some_and(|s| s.starts_with("accepted")) {
+            problems.push(format!(
+                "a refusal cites ADR-{number}, whose status is {status:?}"
+            ));
+        }
+    }
+    problems
 }
 
 // ---- Names --------------------------------------------------------------------------
