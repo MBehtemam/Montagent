@@ -1796,6 +1796,8 @@ impl<'a> Painter<'a> {
                 y: 0,
                 vertical_origin: montagent_text::VerticalOrigin::Top,
                 align: crate::verbs::measure::align_of(element),
+                letter_spacing: 0.0,
+                optional_ligatures_off: false,
             },
         );
         let placement = match placement {

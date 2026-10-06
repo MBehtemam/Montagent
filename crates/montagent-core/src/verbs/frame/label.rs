@@ -231,6 +231,8 @@ pub(super) fn draw(
             y: 0,
             vertical_origin: VerticalOrigin::Top,
             align: Align::Start,
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     .map_err(|e| format!("a tile label could not be laid out in the chrome face: {e}"))?;

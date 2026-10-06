@@ -459,6 +459,8 @@ pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<T
             y: spec.asked.y,
             vertical_origin: spec.vertical_origin,
             align: align_of(element),
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     // Unreachable while every key above registered, and reported rather than `expect`ed

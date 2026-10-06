@@ -43,6 +43,8 @@ fn width(fonts: &mut Fonts, text: &str) -> f64 {
             y: 0,
             vertical_origin: VerticalOrigin::Top,
             align: Align::Start,
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     .unwrap_or_else(|e| panic!("measuring {text:?}: {e}"))

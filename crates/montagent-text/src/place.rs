@@ -131,7 +131,11 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
     let mut seen: HashMap<(usize, u32, u32, u32), usize> = HashMap::new();
     let mut glyphs = Vec::new();
 
-    for (line, layout) in measurement.lines.iter().zip(&layouts) {
+    for (line, shaped) in measurement.lines.iter().zip(&layouts) {
+        let layout = &shaped.layout;
+        // Letter spacing's offset for each glyph, in the order they are yielded below
+        // (ADR-0151): the same numbers the line's advance and ink were measured with.
+        let mut shifts = shaped.shifts.iter().copied();
         // ADR-0029's baseline, taken from `measure`'s answer and shifted into the block's
         // own frame. Not recomputed: the half-leading rule is the engine's, and a second
         // copy of `slot_centre + (ascent − descent) / 2` here is a second rule to keep in
@@ -156,7 +160,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                         outlines.len() - 1
                     });
                     glyphs.push(Glyph {
-                        x: dx + f64::from(glyph.x),
+                        x: dx + f64::from(glyph.x) + shifts.next().unwrap_or(0.0),
                         // parley's `y` is the baseline of its own one-line layout; this
                         // block's baseline is ADR-0029's, so parley's is subtracted back
                         // out and ours put in its place.

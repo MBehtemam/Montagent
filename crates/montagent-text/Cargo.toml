@@ -14,6 +14,10 @@ categories = ["text-processing", "internationalization"]
 [dependencies]
 parley = { workspace = true, features = ["complex-scripts"] }
 icu_segmenter.workspace = true
+# Letter spacing (ADR-0151, ADR-0153): graphemes by the rule the caption pace check counts
+# with, and the Unicode properties that find joining-script letters and script runs.
+unicode-segmentation.workspace = true
+icu_properties.workspace = true
 # `names` reads a font file's `name` table — what a file calls itself, and what it says
 # about its own licence — for `fonts list` and the gate in `fonts vendor` (ADR-0057).
 skrifa.workspace = true
