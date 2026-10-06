@@ -248,7 +248,37 @@ built, **re-profile** and take the branch the profile names:
 
 ## The measurements
 
-MEASUREMENTS
+**Taken under load, by the dev's decision (2026-10-03)** to observe a short run rather than
+wait for a quiet machine: not ADR-0142 §5's protocol (1 warm-up, 5 timed runs, load < 1.5).
+Three runs back to back, no warm-up, on `66c05ffa` (this ADR's code, #721), a release build
+in its own profile. The 1-minute load average at each run's start is 27, 35 and 45, so
+every number is an upper bound: a quiet machine can only be faster.
+
+| run | load (1 min) at start | wall | user + sys | CPU | peak memory | `render.painting` (K / C / W) | frame hashes |
+|---|---|---|---|---|---|---|---|
+| 1 | 27.12 | 36.96 s | 241.12 + 5.76 s | 667% | 1,793 MiB | 6 / 2 / 150 | 1,080 of 1,080 equal |
+| 2 | 35.44 | 36.71 s | 240.81 + 5.49 s | 671% | 1,710 MiB | 6 / 2 / 150 | 1,080 of 1,080 equal |
+| 3 | 45.14 | 37.88 s | 239.66 + 5.66 s | 648% | 1,615 MiB | 6 / 2 / 150 | 1,080 of 1,080 equal |
+| **median** | | **36.96 s** | | | | `window_floor: false` | **equal** |
+
+**The target is met:** the median is 36.96 s against 60 s, 0.97× realtime and 9.2× faster
+than the 338.7 s profile on main (#643), and all 1,080 frame hashes equal
+`frames.framemd5` on all three runs.
+
+- **Method:** `/usr/bin/time -l montagent render fixtures/benchmark/spy-trailer/trailer.montagent.json
+  --json`, a cold probe cache per run, `score.wav` generated beforehand. Wall is
+  `time`'s `real`, process start to finished MP4 (the answer's own `wall_ms` for run 1 was
+  36,286). CPU is (user + sys) / wall. Peak memory is the largest single process.
+- **Hashes:** each MP4 decoded with `ffmpeg -nostdin -f framemd5 -map 0:v:0`, its frame
+  lines (header excluded) compared with `frames.framemd5`, after the clock stopped.
+- **Encoder:** `ffmpeg` 9.0.2, `libx264` core 165 r3222, preset `medium`, CRF 20, 5 encoder
+  threads (the answer's `threads`); 10 logical CPUs on macOS 27.0, an M1 Pro. K=6 painters
+  over 2-frame chunks and a 150-frame window, the budget floor not in play, as §4 chose.
+- **Not measured here:** a preview before/after on a paint-heavy frame. The filtered-layer
+  raster cache's 6.7% hit rate is #647's measurement on the trailer (§6), not repeated.
+- **Still owed:** the 1 warm-up and 5 timed runs on a quiet machine. The verdict above rests
+  on three observed runs under load; a quiet run is expected to be faster, never slower, and
+  §9's miss branch is not entered.
 
 ## Consequences
 
