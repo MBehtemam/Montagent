@@ -345,18 +345,43 @@ A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
 element — never an open plugin architecture. A list, not a map or a single field,
 because application order is semantically real: blur-then-shadow is a different
 frame from shadow-then-drop, and two effects of the same name are ordinary rather
-than forbidden. v1's vocabulary is eight members — `blur`, `shadow`, `mask`
-(shape-only), `chroma` (the Matte operation below), and the four Colour filter
-scalars below. Effects attach to whole
+than forbidden. The vocabulary is twelve members — `blur`, `shadow`, `mask`
+(shape-only), `chroma` (the Matte operation below), the four Colour filter
+scalars below, and the named effects `grain`, `glow`, `posterize` and
+`directional_blur`. A member joins only if its look can't already be composed, it
+is one built-in filter or one small shader of Montagent's own, and it stays inside
+the element's box or a reach it declares; each later member joins by its own ADR.
+An effect filters the element's own pixels: there is no element that paints from
+nothing, so a texture is a `rect` carrying an effect and a blend. Effects attach to whole
 elements, never to a run — that boundary is what excludes `stroke` (a
 run-addressable paint field) from this vocabulary, and what excluded per-word
 Highlight, which needed run addressing and a timing model keyframes don't provide
-and got its own construct instead. Static in v1: no effect parameter is
-keyframable.
+and got its own construct instead. An open shader or script file is never an
+effect: a look outside the vocabulary is Pre-rendered footage.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md),
-[ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md))
-_Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack
+[ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md),
+[ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md))
+_Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack,
+shader (for a member), generator
+
+**Seed**:
+The literal integer a random-by-nature effect is written with. With the element's
+own local instant, it fixes every draw, so the look changes on every frame yet the
+same file always paints the same pixels, and a moved element keeps its pattern. Two
+effects with the same seed, cell size and colour mode, on elements that start
+together, draw the same pattern. Never keyed.
+([ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md))
+_Avoid_: random, noise seed, time input
+
+**Pre-rendered footage**:
+A look drawn in code with any tool, outside the project, and brought in as one
+ordinary `video` with alpha in a lossless codec. Its **recipe** sits beside it,
+outside the project: the code, the command, the tool versions and a hash of the
+decoded frames, so it can be made again and checked. The project names only the
+footage, never the code.
+([ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md))
+_Avoid_: shader file, script layer, generated clip (for the recipe), mogrt
 
 **Colour filter**:
 The four scalar `effects` members that change pixel colour rather than geometry:
