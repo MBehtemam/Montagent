@@ -96,17 +96,97 @@ fn findings_on(report: &Report, code: &str, property: &str) -> usize {
         .count()
 }
 
+/// A member of `effects` with every required parameter written static, so one of them can be
+/// keyed in its place. A member the format gains fails here until it is given one, which is
+/// the point: it has to be carried by every tool too.
+fn effect(name: &str) -> Value {
+    match name {
+        "blur" => json!({"name": "blur", "radius": 4}),
+        "shadow" => {
+            json!({"name": "shadow", "dx": 4, "dy": 4, "radius": 6, "color": "#000000",
+                   "opacity": 0.5})
+        }
+        "mask" => {
+            json!({"name": "mask", "shape": "rect", "x": 0, "y": 0, "width": 400,
+                   "height": 400})
+        }
+        "tint" => json!({"name": "tint", "color": "#FF8800", "amount": 0.5}),
+        "saturation" | "brightness" | "contrast" => json!({"name": name, "amount": 0.5}),
+        "chroma" => {
+            json!({"name": "chroma", "color": "#00FF00", "tolerance": 0.2, "softness": 0.1,
+                   "spill": 0.1})
+        }
+        other => panic!("no static `{other}` for this test to key a parameter of"),
+    }
+}
+
+/// Every animatable property, as `(the name a tool calls it, kind, its key, the effect it
+/// sits in)`: the element's own, then every parameter of every `effects` member, named by
+/// its position with the effect's name in the text (ADR-0146 §4) — at position `1`, behind a
+/// static member of the same name, so a tool that read the first member of a name, or the
+/// bare key, is caught.
+fn every_property() -> Vec<(String, Kind, String, Option<&'static str>)> {
+    let mut out: Vec<_> = animatable::names()
+        .iter()
+        .map(|name| {
+            let kind = animatable::property(name).unwrap().kind;
+            (name.clone(), kind, name.clone(), None)
+        })
+        .collect();
+    for (member, parameters) in animatable::effect_members() {
+        for parameter in parameters {
+            out.push((
+                format!("effects[1].{} ({member})", parameter.name),
+                parameter.kind,
+                parameter.name.clone(),
+                Some(member),
+            ));
+        }
+    }
+    out
+}
+
+/// The subject keyed at `key` with `records`: the element's own key, or the parameter of the
+/// second of two `member` effects.
+fn keyed_subject(key: &str, member: Option<&str>, records: Value) -> Value {
+    let Some(member) = member else {
+        return subject(key, records);
+    };
+    let mut element = subject("x", json!(540));
+    let mut keyed = effect(member);
+    keyed[key] = records;
+    element["effects"] = json!([effect(member), keyed]);
+    element
+}
+
+/// The keyframe list a tool wrote back for `key` on the subject.
+fn written_list<'a>(subject: &'a Value, key: &str, member: Option<&str>) -> &'a Value {
+    match member {
+        None => &subject[key],
+        Some(_) => &subject["effects"][1][key],
+    }
+}
+
 #[test]
 fn every_animatable_property_is_carried_by_every_tool() {
     if !common::has_ffprobe() {
         return;
     }
     let mut missed: Vec<String> = Vec::new();
-    for property in animatable::names() {
-        let kind = animatable::property(property).unwrap().kind;
+    let every = every_property();
+    // The effect parameters are in the list (ADR-0146 §3, slice 2).
+    assert!(
+        every
+            .iter()
+            .any(|(name, ..)| name == "effects[1].tolerance (chroma)"),
+        "{every:#?}"
+    );
+    for (property, kind, key, member) in &every {
+        let (kind, key, member) = (*kind, key.as_str(), *member);
         let (a, b) = values(kind);
-        let keyed = subject(
-            property,
+        let keyed = keyed_subject(
+            key,
+            member,
             json!([{"t": 1000, "v": a}, {"t": 1500, "v": b, "ease": "linear"},
                    {"t": 2000, "v": a, "ease": "linear"}]),
         );
@@ -205,7 +285,7 @@ fn every_animatable_property_is_carried_by_every_tool() {
         );
         assert_eq!(answer.report().exit_code(), ExitCode::Ok, "`{property}`");
         let written = common::document(base.path());
-        let times: Vec<i64> = written["tracks"][0]["elements"][0][property.as_str()]
+        let times: Vec<i64> = written_list(&written["tracks"][0]["elements"][0], key, member)
             .as_array()
             .unwrap()
             .iter()
@@ -217,8 +297,9 @@ fn every_animatable_property_is_carried_by_every_tool() {
         drop(base);
 
         // The ease and derivation checks walk it.
-        let held = subject(
-            property,
+        let held = keyed_subject(
+            key,
+            member,
             json!([{"t": 1000, "v": a},
                    {"t": 1500, "t_from": {"rule": "after-previous", "ms": 400}, "v": a,
                     "ease": "linear"},
@@ -235,8 +316,9 @@ fn every_animatable_property_is_carried_by_every_tool() {
         drop(checked);
 
         // The unreached check resolves it: the last record's plateau holds no frame.
-        let late = subject(
-            property,
+        let late = keyed_subject(
+            key,
+            member,
             json!([{"t": 1000, "v": a}, {"t": 2990, "v": b, "ease": "linear"}]),
         );
         let checked = Scratch::beside_the_fixture("animatable-tools-late", &project(late, 2000));

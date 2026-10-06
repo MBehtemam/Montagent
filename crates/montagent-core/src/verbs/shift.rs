@@ -364,7 +364,7 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
     if element.start >= at {
         element.start += delta;
         element.end += delta;
-        if let Err(refusal) = edit_lists(&mut element.body, |_, list| {
+        if let Err(refusal) = edit_lists(&mut element.body, |_, _, list| {
             carry(list, delta);
             Ok(())
         }) {
@@ -382,8 +382,8 @@ fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool)
     // so a cut inside the window was refused before this (ADR-0151 §5). A cut at or before
     // the window carries every unit list whole; one at or after its end leaves them be.
     let carries_units = stagger_window(element).is_some_and(|(start, _)| start >= at);
-    match edit_lists(&mut element.body, |property, list| {
-        split_list(property, list, at, delta)
+    match edit_lists(&mut element.body, |path, property, list| {
+        split_list(path, property, list, at, delta)
     }) {
         Ok(()) => {
             if carries_units {
@@ -615,88 +615,60 @@ fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
 }
 
 /// Every animated property's keyframe `t` list, for the coincidence preamble — read off the
-/// one list the schema types (ADR-0146), as the plain shift and SPLIT read it.
+/// one list the schema types (ADR-0146), effect parameters included, as the plain shift and
+/// SPLIT read it.
 fn animatable_lists(body: &Body) -> Vec<(String, Vec<i64>)> {
     let Ok(value) = serde_json::to_value(body) else {
         return Vec::new();
     };
-    let times = |records: &Vec<Value>| -> Vec<i64> {
-        records
-            .iter()
-            .filter_map(|record| record.get("t")?.as_i64())
-            .collect()
-    };
-    animatable::of(body.type_name())
-        .iter()
-        .filter_map(|property| {
-            let records = animatable::records(&value, &property.name)?;
-            Some((property.name.clone(), times(records)))
+    animatable::declared(&value)
+        .into_iter()
+        .filter_map(|declared| {
+            let times = declared
+                .records()?
+                .iter()
+                .filter_map(|record| record.get("t")?.as_i64())
+                .collect();
+            Some((declared.path, times))
         })
-        .chain(keyed_feathers(&value).into_iter().map(|index| {
-            let records = animatable::records(&value["effects"][index], "feather");
-            (feather(index).name, records.map(times).unwrap_or_default())
-        }))
         .collect()
-}
-
-/// The positions in `effects` of every `mask` whose `feather` is keyed (ADR-0152 §2).
-///
-/// By hand, because the derived list does not yet walk the nested paths inside `effects`:
-/// #676 brings every effect parameter into it, and this and [`feather`] go with it.
-fn keyed_feathers(body: &Value) -> Vec<usize> {
-    body.get("effects")
-        .and_then(Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or_default()
-        .iter()
-        .enumerate()
-        .filter(|(_, effect)| {
-            effect.get("name").and_then(Value::as_str) == Some("mask")
-                && animatable::records(effect, "feather").is_some()
-        })
-        .map(|(index, _)| index)
-        .collect()
-}
-
-/// The `feather` of the mask at `index`, as the one list would describe it: an integer
-/// length, bounded below by `0`, named by its position as ADR-0146 §4 names an effect
-/// parameter.
-fn feather(index: usize) -> Property {
-    Property {
-        name: format!("effects[{index}].feather (mask)"),
-        kind: Kind::Integer,
-        minimum: Some(0.0),
-    }
 }
 
 /// Edit every keyframe list `body` carries, through the one list of animatable properties
-/// the schema types (ADR-0146) — so a property joins `shift` by being typed animatable, and
-/// no list here can leave one behind.
+/// the schema types (ADR-0146) — the element's own and every `effects` member's — so a
+/// property joins `shift` by being typed animatable, and no list here can leave one behind.
 ///
 /// The body is read as the document writes it, each list edited in place, and the whole read
 /// back as the model, so the edit meets the same reader the file will. A refusal leaves the
-/// body as it was.
+/// body as it was. `edit` is handed the name a refusal calls the list by
+/// (`effects[1].radius (blur)` for an effect parameter) and the property it is.
 fn edit_lists(
     body: &mut Body,
-    mut edit: impl FnMut(&Property, &mut Value) -> Result<(), Unwritable>,
+    mut edit: impl FnMut(&str, &Property, &mut Value) -> Result<(), Unwritable>,
 ) -> Result<(), Unwritable> {
     let Ok(mut value) = serde_json::to_value(&*body) else {
         return Ok(());
     };
-    let mut touched = false;
-    for property in animatable::of(body.type_name()) {
-        if animatable::records(&value, &property.name).is_none() {
-            continue;
-        }
-        edit(property, &mut value[property.name.as_str()])?;
-        touched = true;
-    }
-    for index in keyed_feathers(&value) {
-        edit(&feather(index), &mut value["effects"][index]["feather"])?;
-        touched = true;
-    }
-    if !touched {
+    let keyed: Vec<(String, &'static Property, Option<usize>)> = animatable::declared(&value)
+        .into_iter()
+        .filter(|declared| declared.records().is_some())
+        .map(|declared| {
+            (
+                declared.path,
+                declared.property,
+                declared.effect.map(|(index, _)| index),
+            )
+        })
+        .collect();
+    if keyed.is_empty() {
         return Ok(());
+    }
+    for (path, property, effect) in &keyed {
+        let list = match effect {
+            None => &mut value[property.name.as_str()],
+            Some(index) => &mut value["effects"][*index][property.name.as_str()],
+        };
+        edit(path, property, list)?;
     }
     match serde_json::from_value(value) {
         Ok(edited) => {
@@ -726,19 +698,25 @@ fn carry(list: &mut Value, delta: i64) {
 /// an integer to the nearest integer, ties away from zero; a number to six places; a pair
 /// component by component; a colour to bytes (ADR-0146 §7).
 fn split_list(
+    path: &str,
     property: &Property,
     list: &mut Value,
     at: i64,
     delta: i64,
 ) -> Result<(), Unwritable> {
     let refuse = |value: String| Unwritable {
-        property: property.name.clone(),
+        property: path.to_string(),
         value,
     };
-    // A bound the schema states on every value is a bound the written split must keep.
-    let bounded = |raw: f64| match property.minimum {
-        Some(minimum) if raw < minimum => Err(refuse(format!("{}", round6(raw)))),
-        _ => Ok(raw),
+    // A bound the schema states on every value is a bound the written split must keep: a
+    // size an overshoot carried below zero, or `chroma`'s `tolerance` carried past `1`.
+    let bounded = |raw: f64| {
+        let below = property.minimum.is_some_and(|minimum| raw < minimum);
+        let above = property.maximum.is_some_and(|maximum| raw > maximum);
+        match below || above {
+            true => Err(refuse(format!("{}", round6(raw)))),
+            false => Ok(raw),
+        }
     };
     match property.kind {
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),

@@ -25,7 +25,6 @@ pub fn generate() -> Value {
     publish_positional_rules(&mut schema);
     publish_bezier_bounds(&mut schema);
     publish_mask_rect(&mut schema);
-    publish_chroma_bounds(&mut schema);
     publish_transition_fields(&mut schema);
     publish_path_fill(&mut schema);
     header_first(schema)
@@ -123,59 +122,10 @@ fn publish_transition_fields(schema: &mut Value) {
     *transition = ordered;
 }
 
-/// Say ADR-0088's bounds on `chroma`'s three scalars, and the `#RRGGBB` its `color` is
-/// narrowed to, where the types can only say them in their deserializer.
-///
-/// [`publish_mask_rect`]'s arrangement below, for [`publish_mask_rect`]'s reason: an `f64`
-/// field cannot carry a range and a [`crate::model::Colour`] admits both spellings, so
-/// `crate::model::effects`'s `Effect::checked` enforces all four on the way in — and a
-/// published schema that left them unsaid would admit files this binary refuses, which is
-/// the two-artifact divergence ADR-0041 and #168 name.
-///
-/// **The bounds are where the vocabulary becomes learnable.** ADR-0017's closed schema is
-/// what an agent reads instead of being told, and *"`tolerance` is a number"* is not the
-/// member ADR-0088 specified: the useful range is the whole of it, the identity is one end
-/// of it, and neither is discoverable from `{"type": "number"}`.
-///
-/// The `color` narrowing is a `pattern` rather than a second `$def`, because the type
-/// *is* the format's one colour — ADR-0014's spelling, shared with every other colour in
-/// the file — and this member declines the alpha half of it. A sibling definition would be
-/// a second answer to "what is a colour".
-fn publish_chroma_bounds(schema: &mut Value) {
-    let Some(Value::Object(chroma)) = member_mut(schema, crate::model::effects::CHROMA) else {
-        return;
-    };
-    let Some(Value::Object(properties)) = chroma.get_mut("properties") else {
-        return;
-    };
-
-    for field in crate::model::effects::CHROMA_SCALARS {
-        let Some(Value::Object(scalar)) = properties.get_mut(field) else {
-            continue;
-        };
-        scalar.insert("minimum".into(), json!(0.0));
-        scalar.insert("maximum".into(), json!(1.0));
-    }
-
-    if let Some(color) = properties.get_mut("color") {
-        // Written beside the `$ref` rather than in place of it: the value is still the
-        // format's `Colour`, and this is the one member narrowing which of its two
-        // spellings it accepts.
-        *color = json!({
-            "allOf": [color.clone()],
-            "pattern": "^#[0-9A-F]{6}$",
-            "description": "The screen colour, `#RRGGBB`. Not `#RRGGBBAA`: an alpha on the \
-                            key colour is meaningless and would be a second way to say \
-                            nothing — a key colour names a colour to find in the frame, \
-                            never one to composite (ADR-0088, ADR-0014).",
-        });
-    }
-}
-
 /// One branch of the published `Effect` union, by the `name` it is discriminated on.
 ///
-/// Two passes want one branch each, and finding it is four `pointer` hops and two matches
-/// — written twice, they would be two readings of the union's shape.
+/// A pass that wants one branch finds it here: four `pointer` hops and two matches, which
+/// written in each pass would be one reading of the union's shape per pass.
 fn member_mut<'a>(schema: &'a mut Value, name: &str) -> Option<&'a mut Value> {
     schema
         .pointer_mut("/$defs/Effect/oneOf")?

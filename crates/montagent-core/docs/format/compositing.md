@@ -54,8 +54,21 @@ two disagree.
 ## Effects and compositing
 
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
-  different frame from shadow-then-blur. They attach to whole elements, never to a run, and
-  the one animatable effect parameter so far is a `mask`'s `feather`.
+  different frame from shadow-then-blur. They attach to whole elements, never to a run.
+- **Every numeric and colour effect parameter is animatable** (ADR-0146), written in place
+  inside its member with `t` on the element's clock:
+  `{"name": "blur", "radius": [{"t": 0, "v": 0}, {"t": 400, "v": 24, "ease": "ease-out"}]}`.
+  `mask.shape`, `invert` and every other enum or boolean stay static, and `chroma.color` stays
+  six-digit in every record. A parameter's range holds in every record (a `mask` size or
+  `radius` is non-negative, `chroma`'s scalars `0`–`1`); an overshoot between records
+  clamps to it. Findings and `query --at` name a parameter by its member's position:
+  `effects[1].radius (blur)`, since two members of one name are legal. `shift` carries and
+  splits these lists like any other.
+- **A reveal is a keyed `mask` rect from `0`** (ADR-0146, ADR-0025). A plain `mask` whose
+  resolved `width` or `height` is at or below zero hides the whole element for that frame,
+  so `"width": [{"t": 0, "v": 0}, {"t": 600, "v": 400, "ease": "ease-out"}]` on a 400-wide
+  element wipes it on from the left edge. One that hides every frame is
+  `E-NOT-PAINTED-NO-EXTENT`, naming the mask; an inverted one of no size hides nothing.
 - **`blend` is how the finished element composites into what is below it** (ADR-0147). One
   of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
   on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
@@ -83,9 +96,8 @@ two disagree.
 - **A mask rides the element's transform** (ADR-0084). It is declared inside the box in
   unscaled units, so `scale` grows it and `rotation` turns it — a rotated element's `rect`
   mask paints a *rotated* rectangle. That is the rule a `blur` radius and a `stroke_width`
-  already follow, and it is not keyframing an effect parameter: the fields stay literal
-  integers on every frame. `clip` is the other thing — frame-space, static, never rotating —
-  and a *shaped* static porthole is not expressible in v1.
+  already follow. `clip` is the other thing — frame-space, static, never rotating — and a
+  *shaped* static porthole is not expressible in v1.
 - **`chroma` keys a screen colour out, and `color` is a literal `#RRGGBB`** (ADR-0088). Not
   a hue angle: a bare hue *inverts* the key on real footage, and supplying the saturation
   and value it is missing is the colour restated in three fields. `tolerance` is a
@@ -93,12 +105,11 @@ two disagree.
   above it, and `spill` suppresses screen colour reflected onto what the matte keeps. All
   three run `0.0`–`1.0` and every one of them has its identity at `0` — `tolerance: 0` keys
   nothing, which makes the whole member a no-op.
-- **A key serves a screen that is uniform in time** (ADR-0088). `chroma`'s parameters are
-  not animatable yet, so one `tolerance` covers the whole element: footage whose lighting drifts
-  mid-take has to be cut into elements at the drift boundaries, or keyed upstream and
-  brought in already carrying alpha. `measure` on a keyed element reports the resulting
-  alpha coverage per frame, which is how you find where a screen drifts — and how you find
-  out that `tolerance: 0.01` keyed nothing, without looking at a picture.
+- **A screen whose lighting drifts takes a keyed `tolerance`** (ADR-0088, ADR-0146), so the
+  key follows the drift instead of the element being cut at each one. `measure` on a keyed
+  element reports the resulting alpha coverage per frame, which is how you find where a
+  screen drifts — and how you find out that `tolerance: 0.01` keyed nothing, without
+  looking at a picture.
 - **Put `chroma` before the colour scalars, not after** (ADR-0088). `effects` is ordered,
   so a `tint` or a `saturation` ahead of the key changes the pixels the key is measured
   against and your `color` no longer names what is in the frame. `validate` reports it at

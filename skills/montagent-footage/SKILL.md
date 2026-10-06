@@ -51,7 +51,7 @@ Check it before anything else goes on top:
 1. **Three lossless crops.** `frame --crop <x,y,w,h> --png` at the hair, at a shoulder or sleeve edge, and at the hands, over the ground you will deliver on. A crop comes back at true scale, so a 200–400 px box is enough. <!-- workaround: #543 · replaced by: a fringe and hole count from measure on a keyed element -->
 2. **Done already?** Hair, collar and hands solid, with at most a 1–2 px dark, olive or tan line along the edges: the key is done, so move on. That line is the **edge floor**: every setting from 0.12 to 0.3 leaves it, and `spill` has already turned it from green to tan, so a green-pixel count reads zero on it. <!-- workaround: #543 · replaced by: a fringe and hole count from measure on a keyed element -->
 3. **Otherwise, one fix per defect.** The ground showing through hair, a collar or dark clothes: lower `tolerance` by 0.05. A pale or green halo wider than the edge floor: raise `tolerance` by 0.03, or `softness` by 0.03. Crop again and go back to 2. Three settings at most, all on the one keyed element: keyed copies split by region multiply render time and still leave a seam.
-4. **Drift.** `measure` the keyed element. Its opaque share should stay within a point or two across the take. A step means the lighting changed there: cut the element at that frame and key each part on its own.
+4. **Drift.** `measure` the keyed element. Its opaque share should stay within a point or two across the take. A step means the lighting changed there: key `tolerance` with a keyframe either side of the step, or cut the element at that frame and key each part on its own.
 
 - **Look:** `frame` the whole picture at two moments where the speaker moves most, and check the outline holds.
 

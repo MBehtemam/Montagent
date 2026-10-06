@@ -5,10 +5,11 @@
 //!
 //! A property is an animatable property only where the schema types it as one: a literal, or
 //! a keyframe list (ADR-0146 §1). So the list is not written here. It is read out of the
-//! published schema — every element branch's property whose type is an `Animatable{T}` — once
-//! per process, the way [`crate::layout`] reads canonical key order. Every tool that walks
-//! keyframe lists (`shift`, the checks, the contact sheet, `compare`, `timeline`,
-//! `query --at`) reads this list and keeps none of its own: the prototype's worst finding was
+//! published schema — every element branch's property whose type is an `Animatable{T}`, and
+//! every `effects` member's parameter typed the same way — once per process, the way
+//! [`crate::layout`] reads canonical key order. Every tool that walks keyframe lists
+//! (`shift`, the checks, the contact sheet, `compare`, `timeline`, `query --at`) reads this
+//! list through [`declared`] and keeps none of its own: the prototype's worst finding was
 //! `shift` leaving a keyed `width` and `fill` behind because a six-name list had been copied
 //! into three places.
 //!
@@ -16,24 +17,35 @@
 //! reader does with a list depends on it: an integer splits to the nearest integer, a colour
 //! to bytes, a pair component by component.
 //!
+//! # Effect parameters are named by position
+//!
+//! An animated effect parameter is written in place inside its member (ADR-0146 §4), and a
+//! tool names it by the member's zero-based position in `effects`, with the member's name in
+//! the text: `effects[1].radius (blur)`. Position is the only unambiguous name, because two
+//! members of one name are legal.
+//!
 //! # The one resolving function
 //!
-//! [`read`] is what a property *is* at an instant, and the clamps ADR-0146 §5 publishes live
-//! in it and nowhere else, so `query --at`, `validate`, the contact sheet and the painter
-//! report the same value:
+//! [`read`] (and [`Declared::read`] for an effect parameter) is what a property *is* at an
+//! instant, and the clamps ADR-0146 §5 publishes live in it and nowhere else, so
+//! `query --at`, `validate`, the contact sheet and the painter report the same value:
 //!
 //! - a colour blends in sRGB with premultiplied alpha, each component clamped to its range,
 //!   then rounded to the nearest byte ([`crate::resolve::Blend`]);
 //! - an integer-typed property resolves to a continuous value and is never rounded;
-//! - a resolved `radius` clamps to half the shorter side of the box at the same instant;
+//! - a resolved `radius` clamps to half the shorter side of the box at the same instant — a
+//!   `mask`'s to half the shorter side of its own rect;
 //! - a resolved `stroke_width` below zero clamps to `0`;
 //! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
 //!   (ADR-0154 §3);
 //! - a paint field holding a gradient (ADR-0149) resolves to that gradient with §4's stop
 //!   fix applied — each offset raised to the largest before it — so what is printed is what
 //!   is drawn. Its parameters are static in this slice;
+//! - a resolved effect parameter clamps into the range the schema states on it, such as
+//!   `chroma`'s `[0, 1]`;
 //! - a resolved `width` or `height` is left as it is: at or below zero it draws nothing for
-//!   that frame ([`painted_box`]), and between two integers it is drawn unrounded.
+//!   that frame ([`painted_box`]), and between two integers it is drawn unrounded. A plain
+//!   `mask`'s does the same to the whole element ([`hiding_mask`]).
 //!
 //! [`crate::resolve`] stays the keyframe arithmetic underneath; this module is the reading
 //! of a property, by name, off an element.
@@ -74,7 +86,7 @@ impl Kind {
     }
 }
 
-/// One animatable property of one element type.
+/// One animatable property of one element type, or one parameter of one `effects` member.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property {
     /// The key, as the document spells it.
@@ -83,11 +95,18 @@ pub struct Property {
     /// The bound the schema states on every value, where it states one — `0` on a length
     /// and on `volume`. A `shift` split that would write a value past it is refused.
     pub minimum: Option<f64>,
+    /// The upper bound the schema states on every value, where it states one — `1` on
+    /// `chroma`'s three scalars. A `shift` split that would write a value past it is
+    /// refused.
+    pub maximum: Option<f64>,
 }
 
 struct Table {
     by_type: BTreeMap<String, Vec<Property>>,
     names: Vec<String>,
+    /// Every `effects` member's animatable parameters, by the `name` the member is
+    /// discriminated on, in the order the schema declares the members.
+    by_effect: Vec<(String, Vec<Property>)>,
 }
 
 fn table() -> &'static Table {
@@ -95,73 +114,95 @@ fn table() -> &'static Table {
     TABLE.get_or_init(|| derive(&crate::schema::generate()))
 }
 
-/// Read the list out of the published schema.
+/// Read the list out of the published schema: every element branch's animatable
+/// properties, and every `effects` member's (ADR-0146 §3).
 fn derive(schema: &Value) -> Table {
     let defs = &schema["$defs"];
     let mut by_type = BTreeMap::new();
     let mut names: Vec<String> = Vec::new();
-    for branch in schema["$defs"]["Element"]["oneOf"]
-        .as_array()
-        .into_iter()
-        .flatten()
-    {
+    for branch in defs["Element"]["oneOf"].as_array().into_iter().flatten() {
         let Some(element_type) = branch["properties"]["type"]["const"].as_str() else {
             continue;
         };
-        let mut properties = Vec::new();
-        for (name, property) in branch["properties"].as_object().into_iter().flatten() {
-            let Some(def) = property["$ref"]
-                .as_str()
-                .and_then(|reference| reference.strip_prefix("#/$defs/"))
-                .filter(|def| def.starts_with("Animatable") || *def == "Paint")
-            else {
-                continue;
-            };
-            if def == "Paint" {
-                if !names.iter().any(|seen| seen == name) {
-                    names.push(name.clone());
-                }
-                properties.push(Property {
-                    name: name.clone(),
-                    kind: Kind::Paint,
-                    minimum: None,
-                });
-                continue;
+        let properties = animatable_properties(defs, branch);
+        for property in &properties {
+            if !names.contains(&property.name) {
+                names.push(property.name.clone());
             }
-            // The first alternative of an `Animatable{T}` is the static `T`.
-            let mut value = &defs[def]["anyOf"][0];
-            let mut named = None;
-            if let Some(target) = value["$ref"]
-                .as_str()
-                .and_then(|reference| reference.strip_prefix("#/$defs/"))
-            {
-                named = Some(target);
-                value = &defs[target];
-            }
-            let kind = if named == Some("Colour") {
-                Kind::Colour
-            } else if named == Some("Points") {
-                Kind::Points
-            } else {
-                match value["type"].as_str() {
-                    Some("integer") => Kind::Integer,
-                    Some("number") => Kind::Number,
-                    Some("array") => Kind::Pair,
-                    _ => continue,
-                }
-            };
-            if !names.iter().any(|seen| seen == name) {
-                names.push(name.clone());
-            }
-            properties.push(Property {
-                name: name.clone(),
-                kind,
-                minimum: value["minimum"].as_f64(),
-            });
         }
         by_type.insert(element_type.to_string(), properties);
     }
-    Table { by_type, names }
+    let by_effect = defs["Effect"]["oneOf"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|branch| {
+            let member = branch["properties"]["name"]["const"].as_str()?;
+            Some((member.to_string(), animatable_properties(defs, branch)))
+        })
+        .collect();
+    Table {
+        by_type,
+        names,
+        by_effect,
+    }
+}
+
+/// The properties of one object branch whose type is an `Animatable{T}`, in schema order.
+fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
+    let mut properties = Vec::new();
+    for (name, property) in branch["properties"].as_object().into_iter().flatten() {
+        let Some(def) = property["$ref"]
+            .as_str()
+            .and_then(|reference| reference.strip_prefix("#/$defs/"))
+            .filter(|def| def.starts_with("Animatable") || *def == "Paint")
+        else {
+            continue;
+        };
+        if def == "Paint" {
+            properties.push(Property {
+                name: name.clone(),
+                kind: Kind::Paint,
+                minimum: None,
+                maximum: None,
+            });
+            continue;
+        }
+        // The first alternative of an `Animatable{T}` is the static `T`.
+        let mut value = &defs[def]["anyOf"][0];
+        if let Some(target) = value["$ref"]
+            .as_str()
+            .and_then(|reference| reference.strip_prefix("#/$defs/"))
+        {
+            value = &defs[target];
+        }
+        // The one string the format interpolates is a colour (ADR-0146 §2): `Colour`, or a
+        // member's narrowing of it such as `chroma`'s screen colour. A path's vertex list is
+        // an array the schema names `Points` (ADR-0154 §3).
+        let points = property_def_name(&defs[def]) == Some("Points");
+        let kind = match value["type"].as_str() {
+            _ if points => Kind::Points,
+            Some("string") => Kind::Colour,
+            Some("integer") => Kind::Integer,
+            Some("number") => Kind::Number,
+            Some("array") => Kind::Pair,
+            _ => continue,
+        };
+        properties.push(Property {
+            name: name.clone(),
+            kind,
+            minimum: value["minimum"].as_f64(),
+            maximum: value["maximum"].as_f64(),
+        });
+    }
+    properties
+}
+
+/// The `$defs` name an `Animatable{T}`'s static alternative refers to, where it names one.
+fn property_def_name(animatable: &Value) -> Option<&str> {
+    animatable["anyOf"][0]["$ref"]
+        .as_str()?
+        .strip_prefix("#/$defs/")
 }
 
 /// **The one list**: every animatable property of `element_type`, in schema order. Empty
@@ -191,13 +232,35 @@ pub fn of_element(element: &Value) -> &'static [Property] {
         .unwrap_or_default()
 }
 
-/// What `name` is wherever it appears. A key has one kind on every type that has it.
+/// What `name` is wherever it appears on an element. A key has one kind on every type that
+/// has it.
 pub fn property(name: &str) -> Option<&'static Property> {
     table()
         .by_type
         .values()
         .flatten()
         .find(|property| property.name == name)
+}
+
+/// Every `effects` member, by the `name` it is discriminated on, with its animatable
+/// parameters in schema order (ADR-0146 §3).
+pub fn effect_members() -> impl Iterator<Item = (&'static str, &'static [Property])> {
+    table()
+        .by_effect
+        .iter()
+        .map(|(member, parameters)| (member.as_str(), parameters.as_slice()))
+}
+
+/// The animatable parameters of the `effects` member named `member`, with the member's name
+/// as the table holds it. `None` for a name the vocabulary does not have.
+fn of_effect(member: &str) -> Option<(&'static str, &'static [Property])> {
+    effect_members().find(|(name, _)| *name == member)
+}
+
+/// The name a tool calls an effect parameter by (ADR-0146 §4): its member's zero-based
+/// position in `effects`, with the member's name in the text — `effects[1].radius (blur)`.
+pub fn effect_path(index: usize, key: &str, member: &str) -> String {
+    format!("effects[{index}].{key} ({member})")
 }
 
 /// One property's keyframe records, or `None` where it is absent or static.
@@ -211,6 +274,118 @@ pub fn records<'a>(element: &'a Value, property: &str) -> Option<&'a Vec<Value>>
         return None;
     }
     written.as_array()
+}
+
+/// One animatable property an element writes, wherever it sits: on the element itself, or
+/// inside one of its `effects`.
+#[derive(Debug, Clone)]
+pub struct Declared<'a> {
+    /// What a tool calls it: `width`, or `effects[1].radius (blur)`.
+    pub path: String,
+    /// The element that declares it.
+    pub element: &'a Value,
+    /// The object the key is written in: the element, or the effect member.
+    pub owner: &'a Value,
+    pub property: &'static Property,
+    /// The member's position in `effects` and its name, for an effect parameter.
+    pub effect: Option<(usize, &'static str)>,
+}
+
+impl<'a> Declared<'a> {
+    /// The key, as the document spells it inside its owner.
+    pub fn key(&self) -> &'static str {
+        self.property.name.as_str()
+    }
+
+    /// Its keyframe records, or `None` where it is static.
+    pub fn records(&self) -> Option<&'a Vec<Value>> {
+        records(self.owner, self.key())
+    }
+
+    /// What it is at `numerator / denominator` ms: **the one resolving function**, with
+    /// ADR-0146's clamps applied.
+    pub fn read(&self, numerator: i128, denominator: i128) -> Result<Resolved, Unreadable> {
+        let written = &self.owner[self.key()];
+        raw(written, Some(self.property.kind), numerator, denominator).map(|value| {
+            match self.effect {
+                None => clamp(self.element, self.key(), value, numerator, denominator),
+                Some((index, member)) => {
+                    clamp_parameter(self, index, member, value, numerator, denominator)
+                }
+            }
+        })
+    }
+
+    /// [`Declared::read`] at a whole millisecond.
+    pub fn at(&self, instant: i64) -> Result<Resolved, Unreadable> {
+        self.read(i128::from(instant), 1)
+    }
+}
+
+/// **Every animatable property this element writes**, static or keyed, in the order a tool
+/// walks them: the element's own, in the order its type's schema declares them, then every
+/// `effects` member's parameters, member by member, in the schema's order within one.
+///
+/// Read off the permissive tree: after its type's own, the element's keys include every
+/// other animatable name it carries (a key not animatable on its type is the schema check's
+/// to name, and a reader still walks the list), and a member whose `name` the vocabulary does
+/// not have is skipped.
+pub fn declared(element: &Value) -> Vec<Declared<'_>> {
+    let own = of_element(element);
+    let others = names()
+        .iter()
+        .filter(|name| !own.iter().any(|property| property.name == **name))
+        .filter_map(|name| property(name));
+    let mut out: Vec<Declared<'_>> = own
+        .iter()
+        .chain(others)
+        .filter(|property| element.get(property.name.as_str()).is_some())
+        .map(|property| Declared {
+            path: property.name.clone(),
+            element,
+            owner: element,
+            property,
+            effect: None,
+        })
+        .collect();
+    for (index, effect) in effects(element).iter().enumerate() {
+        let Some((member, parameters)) = effect
+            .get("name")
+            .and_then(Value::as_str)
+            .and_then(of_effect)
+        else {
+            continue;
+        };
+        for property in parameters {
+            if effect.get(property.name.as_str()).is_none() {
+                continue;
+            }
+            out.push(Declared {
+                path: effect_path(index, &property.name, member),
+                element,
+                owner: effect,
+                property,
+                effect: Some((index, member)),
+            });
+        }
+    }
+    out
+}
+
+/// The element's `effects`, or none where it writes no list.
+fn effects(element: &Value) -> &[Value] {
+    element
+        .get("effects")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+}
+
+/// One parameter of the `effects` member at `index`, as [`declared`] names it.
+pub fn effect_parameter<'a>(element: &'a Value, index: usize, key: &str) -> Option<Declared<'a>> {
+    declared(element).into_iter().find(|declared| {
+        declared.effect.is_some_and(|(at, _)| at == index) && declared.key() == key
+    })
 }
 
 /// A property's value at an instant.
@@ -235,6 +410,14 @@ impl Resolved {
     pub fn number(&self) -> Option<f64> {
         match self {
             Resolved::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// The colour, where this is one.
+    pub fn colour(self) -> Option<Colour> {
+        match self {
+            Resolved::Colour(colour) => Some(colour),
             _ => None,
         }
     }
@@ -284,10 +467,7 @@ pub fn number_at(element: &Value, property: &str, instant: i64, default: f64) ->
 
 /// [`at`], read as a colour, where the element declares a readable one.
 pub fn colour_at(element: &Value, property: &str, instant: i64) -> Option<Colour> {
-    match at(element, property, instant)?.ok()? {
-        Resolved::Colour(colour) => Some(colour),
-        _ => None,
-    }
+    at(element, property, instant)?.ok()?.colour()
 }
 
 /// The kind the element's type gives this key, else the kind the key has anywhere.
@@ -347,8 +527,9 @@ fn raw(
     }
 }
 
-/// ADR-0146 §5's clamps on the numbers, by property. The colour clamp is [`Blend::settle`]'s,
-/// applied in [`raw`], because it is the colour rule rather than a property's.
+/// ADR-0146 §5's clamps on an element's own numbers, by property. The colour clamp is
+/// [`Blend::settle`]'s, applied in [`raw`], because it is the colour rule rather than a
+/// property's.
 ///
 /// [`Blend::settle`]: crate::resolve::Blend::settle
 fn clamp(
@@ -365,13 +546,7 @@ fn clamp(
     };
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
-        "radius" => {
-            let half = match sides(element, numerator, denominator) {
-                Some((width, height)) => (width.min(height) / 2.0).max(0.0),
-                None => f64::INFINITY,
-            };
-            number.clamp(0.0, half)
-        }
+        "radius" => number.clamp(0.0, half_shorter(sides(element, numerator, denominator))),
         _ => number,
     })
 }
@@ -427,9 +602,72 @@ pub fn inset_box(element: &Value) -> Option<((f64, f64), (f64, f64))> {
     })
 }
 
+/// ADR-0146 §5's clamps on an effect parameter: a `mask`'s `radius` to half the shorter side
+/// of the rect it rounds, its `width` and `height` left as they are (at or below zero the
+/// mask hides the element, [`hiding_mask`]), and every other parameter into the range the
+/// schema states on it.
+fn clamp_parameter(
+    declared: &Declared<'_>,
+    index: usize,
+    member: &str,
+    value: Resolved,
+    numerator: i128,
+    denominator: i128,
+) -> Resolved {
+    let Resolved::Number(number) = value else {
+        return value;
+    };
+    let key = declared.key();
+    if member == "mask" {
+        match key {
+            "width" | "height" => return Resolved::Number(number),
+            "radius" => {
+                let rect = mask_sides(declared.element, index, numerator, denominator)
+                    .or_else(|| sides(declared.element, numerator, denominator));
+                return Resolved::Number(number.clamp(0.0, half_shorter(rect)));
+            }
+            _ => {}
+        }
+    }
+    let property = declared.property;
+    let number = property
+        .minimum
+        .map_or(number, |minimum| number.max(minimum));
+    Resolved::Number(
+        property
+            .maximum
+            .map_or(number, |maximum| number.min(maximum)),
+    )
+}
+
+/// Half the shorter of two sides, at least `0`; unbounded where there are no sides to read.
+fn half_shorter(sides: Option<(f64, f64)>) -> f64 {
+    match sides {
+        Some((width, height)) => (width.min(height) / 2.0).max(0.0),
+        None => f64::INFINITY,
+    }
+}
+
 /// The resolved `width` and `height`, unclamped, where both read as numbers.
 fn sides(element: &Value, numerator: i128, denominator: i128) -> Option<(f64, f64)> {
     let side = |key| read(element, key, numerator, denominator)?.ok()?.number();
+    Some((side("width")?, side("height")?))
+}
+
+/// The resolved `width` and `height` of the `mask` at `index`, unclamped, where its rect
+/// states both — the element's own rect is the bare form's, and is [`sides`].
+fn mask_sides(
+    element: &Value,
+    index: usize,
+    numerator: i128,
+    denominator: i128,
+) -> Option<(f64, f64)> {
+    let side = |key| {
+        effect_parameter(element, index, key)?
+            .read(numerator, denominator)
+            .ok()?
+            .number()
+    };
     Some((side("width")?, side("height")?))
 }
 
@@ -449,40 +687,100 @@ pub fn states_a_box(element: &Value) -> bool {
     sides(element, i128::from(start), 1).is_some()
 }
 
-/// **Never painted** (ADR-0146 §6): the element states a box, and it has no positive size at
-/// any frame its own range holds.
+/// **A mask that hides the whole element** at an instant (ADR-0146 §5): the position in
+/// `effects` of the first plain `mask` whose rect states a `width` or `height` that resolves
+/// at or below zero.
 ///
-/// Decided at the frame instants `render` paints — [`crate::exact::instant_of`] of every
-/// frame inside `[start, end)` — through [`painted_box`], the same reading the painter
-/// takes, so `validate` and `render` agree. An element whose range holds no frame at all is
-/// not answered here: that is `N-QUANTIZATION`'s fact.
-pub fn never_painted(element: &Value, fps: i64) -> bool {
+/// A plain mask keeps only what is inside its shape, and a shape with no positive size has
+/// no inside, so it keeps nothing — however its edge is feathered, since a blurred nothing is
+/// still nothing. An inverted mask keeps what is outside the shape (ADR-0152 §1), which is
+/// everything, and hides nothing. The bare form's rect is the element's own, and is
+/// [`painted_box`]'s question. A mask that is non-zero but wholly outside the element also
+/// keeps nothing, and is not answered here: that is a picture to look at, not a fact the
+/// file states.
+pub fn hiding_mask(element: &Value, numerator: i128, denominator: i128) -> Option<usize> {
+    effects(element)
+        .iter()
+        .enumerate()
+        .filter(|(_, effect)| {
+            effect.get("name").and_then(Value::as_str) == Some("mask")
+                && effect.get("invert").and_then(Value::as_bool) != Some(true)
+        })
+        .find(|(index, _)| {
+            mask_sides(element, *index, numerator, denominator)
+                .is_some_and(|(width, height)| width <= 0.0 || height <= 0.0)
+        })
+        .map(|(index, _)| index)
+}
+
+/// Why an element draws nothing at one instant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Hidden {
+    /// Its box — its `width` by its `height` — has no positive size.
+    Box,
+    /// The plain `mask` at this position in `effects` has no positive size.
+    Mask(usize),
+}
+
+/// Whether the element's own declared box is what it draws: not on `text`, whose box is a
+/// container claim its lines are checked against (ADR-0135), and not where it states none.
+fn draws_its_box(element: &Value) -> bool {
+    element.get("type").and_then(Value::as_str) != Some("text") && states_a_box(element)
+}
+
+/// Why the element draws nothing at `numerator / denominator` ms, or `None` where it draws
+/// something: the box first, then the first plain mask that hides it.
+pub fn hidden_at(element: &Value, numerator: i128, denominator: i128) -> Option<Hidden> {
+    if draws_its_box(element) && painted_box(element, numerator, denominator).is_none() {
+        return Some(Hidden::Box);
+    }
+    hiding_mask(element, numerator, denominator).map(Hidden::Mask)
+}
+
+/// **Never painted** (ADR-0146 §6): every frame its own range holds is hidden, and why —
+/// each cause once, the box before the masks.
+///
+/// A frame is hidden where the box has no positive size or a plain mask with a rect of no
+/// positive size hides the element ([`hidden_at`]). Decided at the frame instants `render`
+/// paints — [`crate::exact::instant_of`] of every frame inside `[start, end)` — through the
+/// same reading the painter takes, so `validate` and `render` agree. An element whose range
+/// holds no frame at all is not answered here: that is `N-QUANTIZATION`'s fact.
+pub fn never_painted(element: &Value, fps: i64) -> Option<Vec<Hidden>> {
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
         element.get("end").and_then(Value::as_i64),
     ) else {
-        return false;
+        return None;
     };
-    if fps <= 0 || end <= start || !states_a_box(element) {
-        return false;
+    if fps <= 0 || end <= start {
+        return None;
     }
-    let (Some(first), Some(last)) = (
-        crate::exact::frame_at_or_after(start, fps),
-        crate::exact::frame_before(end, fps),
-    ) else {
-        return false;
-    };
+    let (first, last) = (
+        crate::exact::frame_at_or_after(start, fps)?,
+        crate::exact::frame_before(end, fps)?,
+    );
     if first.frame > last.frame {
-        return false;
+        return None;
     }
-    // A static box is one answer for every frame.
-    if records(element, "width").is_none() && records(element, "height").is_none() {
-        return painted_box(element, i128::from(start), 1).is_none();
+    // A static box and static masks are one answer for every frame.
+    let keyed =
+        |owner: &Value| records(owner, "width").is_some() || records(owner, "height").is_some();
+    let frames: Vec<i64> = if keyed(element) || effects(element).iter().any(keyed) {
+        (first.frame..=last.frame)
+            .map(|n| crate::exact::instant_of(n, fps))
+            .collect()
+    } else {
+        vec![start]
+    };
+    let mut causes: Vec<Hidden> = Vec::new();
+    for instant in frames {
+        let cause = hidden_at(element, i128::from(instant), 1)?;
+        if !causes.contains(&cause) {
+            causes.push(cause);
+        }
     }
-    !(first.frame..=last.frame).any(|n| {
-        let instant = crate::exact::instant_of(n, fps);
-        painted_box(element, i128::from(instant), 1).is_some()
-    })
+    causes.sort();
+    Some(causes)
 }
 
 /// The largest value a length property ever states — its static value, or the greatest of

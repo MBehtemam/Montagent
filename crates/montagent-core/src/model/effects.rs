@@ -19,7 +19,7 @@
 //!
 //! ADR-0088 adds a third rule of the same kind, on `chroma`: three of its four parameters
 //! are bounded to `[0, 1]`, and a Rust `f64` field cannot say so. It joins the other two in
-//! [`Effect::checked`], and is published in the schema by `crate::schema::publish_chroma_bounds`
+//! [`Effect::checked`], and is published in the schema by [`Fraction`] and [`ScreenColour`]
 //! for the same reason the mask rules are — a schema admitting numbers this binary refuses
 //! is the two-artifact divergence, arriving through under-statement.
 //!
@@ -47,14 +47,18 @@ use super::{Animatable, Colour, Length};
 )]
 pub enum Effect {
     /// Gaussian blur; one parameter.
-    Blur { radius: f64 },
+    ///
+    /// Every numeric and colour parameter of every member is an animatable property
+    /// (ADR-0146 §3, slice 2): a literal, or a keyframe list written in place inside the
+    /// member, whose `t` means what it means on the element.
+    Blur { radius: Animatable<f64> },
     /// Drop shadow.
     Shadow {
-        dx: f64,
-        dy: f64,
-        radius: f64,
-        color: Colour,
-        opacity: f64,
+        dx: Animatable<f64>,
+        dy: Animatable<f64>,
+        radius: Animatable<f64>,
+        color: Animatable<Colour>,
+        opacity: Animatable<f64>,
     },
     /// A shape mask, shape-only — no image source, no alpha or soft mask.
     ///
@@ -73,20 +77,24 @@ pub enum Effect {
     ///
     /// The mask is declared inside the element's box in unscaled units, so the element's
     /// `scale` grows it and its `rotation` turns it — the rule a `blur` radius and a
-    /// `stroke_width` already follow. The fields stay literal integers on every frame, so
-    /// that is not a keyframed effect parameter.
+    /// `stroke_width` already follow.
+    ///
+    /// The rect and `radius` are animatable (ADR-0146): integer keyframe values that
+    /// resolve unrounded. `width`, `height` and `radius` are lengths, so a negative one is a
+    /// schema error and `0` is legal. A plain mask whose resolved `width` or `height` is at
+    /// or below zero hides the whole element for that frame, which is how a reveal starts.
     Mask {
         shape: MaskShape,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        x: Option<i64>,
+        x: Option<Animatable<i64>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        y: Option<i64>,
+        y: Option<Animatable<i64>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        width: Option<i64>,
+        width: Option<Animatable<Length>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        height: Option<i64>,
+        height: Option<Animatable<Length>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        radius: Option<i64>,
+        radius: Option<Animatable<Length>>,
         /// Keep the pixels **outside** the shape and erase the inside (ADR-0152 §1).
         /// Omitted means `false`; a written `false` is legal and the same picture. A
         /// boolean is not an animatable type (ADR-0146), so a keyframe list here is a
@@ -109,14 +117,17 @@ pub enum Effect {
     /// `color` is ADR-0049's sole grandfathered exception to *"parameters must be bounded
     /// scalars"*, and the exception is closed: a future colour operation does not get the
     /// same allowance by citing `tint` as precedent.
-    Tint { color: Colour, amount: f64 },
+    Tint {
+        color: Animatable<Colour>,
+        amount: Animatable<f64>,
+    },
     /// `0` = fully desaturated (a bare `grayscale`, which is deliberately not its own
     /// member), `1` = unchanged, `>1` = oversaturated.
-    Saturation { amount: f64 },
+    Saturation { amount: Animatable<f64> },
     /// Signed offset from unchanged at `0`.
-    Brightness { amount: f64 },
+    Brightness { amount: Animatable<f64> },
     /// Signed offset from unchanged at `0`.
-    Contrast { amount: f64 },
+    Contrast { amount: Animatable<f64> },
     /// Key a screen colour out of the element's pixels (ADR-0088).
     ///
     /// **A matte operation, not a colour one.** Its output is transparency: it decides
@@ -136,19 +147,108 @@ pub enum Effect {
     /// the subject, identity `0`; it is the one parameter that changes RGB, and ADR-0088
     /// admits it on ADR-0049's four clauses directly rather than by any exception.
     ///
-    /// All three are `0.0`–`1.0`, which the derive cannot state and [`Effect::checked`]
-    /// does.
+    /// All three are `0.0`–`1.0` in a static value and in every keyframe record, which
+    /// [`Fraction`]'s schema states and [`Effect::checked`] enforces.
     ///
-    /// Static, like every effect parameter (ADR-0012). So the member keys a screen that is
-    /// uniform **in time**: footage whose lighting drifts mid-take needs the element cut at
-    /// the drift boundaries, and `measure`'s per-frame coverage reading is how those
-    /// boundaries are found. That is a stated limitation of ADR-0088, not a gap.
+    /// All four animate (ADR-0146), `color` staying six-digit in every record, so a screen
+    /// whose lighting drifts mid-take is followed by a keyed `tolerance` rather than by
+    /// cutting the element at each drift. `measure`'s per-frame coverage reading is how the
+    /// drift is found.
     Chroma {
-        color: Colour,
-        tolerance: f64,
-        softness: f64,
-        spill: f64,
+        color: Animatable<ScreenColour>,
+        tolerance: Animatable<Fraction>,
+        softness: Animatable<Fraction>,
+        spill: Animatable<Fraction>,
     },
+}
+
+/// A number from `0` to `1` inclusive: `chroma`'s three normalised scalars (ADR-0088).
+///
+/// The type states the bound in the published schema, so it reaches the static value and
+/// every keyframe record alike, and so the one derived list of animatable properties reads
+/// it as the range a resolved value clamps to and a `shift` split may not leave (ADR-0146
+/// §5, §7). It is enforced by [`Effect::checked`], whose message names the parameter: a
+/// bare number here cannot know which of the three it is.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Fraction(pub f64);
+
+impl JsonSchema for Fraction {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Fraction".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A normalised number from `0` to `1` inclusive, in a static value \
+                            and in every keyframe record (ADR-0088, ADR-0146).",
+            "minimum": 0.0,
+            "maximum": 1.0,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for Fraction {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
+/// `chroma`'s screen colour: the format's one [`Colour`], narrowed to `#RRGGBB` (ADR-0088).
+///
+/// Narrowed rather than replaced, so it is still read, written and blended as any colour is
+/// (ADR-0146 §2); a blend of two opaque colours is opaque, so a keyed screen colour never
+/// gains an alpha between its records. Enforced by [`Effect::checked`], in every record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ScreenColour(pub Colour);
+
+impl JsonSchema for ScreenColour {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "ScreenColour".into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "string",
+            "allOf": [generator.subschema_for::<Colour>()],
+            "pattern": "^#[0-9A-F]{6}$",
+            "description": "The screen colour, `#RRGGBB`. Not `#RRGGBBAA`: an alpha on the \
+                            key colour is meaningless and would be a second way to say \
+                            nothing — a key colour names a colour to find in the frame, \
+                            never one to composite (ADR-0088, ADR-0014).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for ScreenColour {
+    type Out = crate::resolve::Blend;
+
+    fn between(a: &Self, b: &Self, p: f64) -> crate::resolve::Blend {
+        Colour::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> crate::resolve::Blend {
+        Colour::held(&value.0)
+    }
+}
+
+/// Every value an animatable parameter states: its static value, or each record's `v`.
+fn stated<T>(property: &Animatable<T>) -> Vec<&T> {
+    match property {
+        Animatable::Static(value) => vec![value],
+        Animatable::Keyed(records) => records.iter().map(|record| &record.v).collect(),
+    }
 }
 
 /// The word a document spells ADR-0088's keyer with.
@@ -182,8 +282,7 @@ pub(crate) const MASK_RECT: [&str; 4] = ["x", "y", "width", "height"];
 /// `chroma`'s three bounded scalars, in the order ADR-0088 declares them.
 ///
 /// One array rather than three literals for [`MASK_RECT`]'s reason: the bound is one rule
-/// about three fields, and [`crate::schema::publish_chroma_bounds`] publishes the same
-/// three. A second listing would be a second answer to "which parameters are bounded".
+/// about three fields, and [`Fraction`] publishes it on the same three. A second listing would be a second answer to "which parameters are bounded".
 pub(crate) const CHROMA_SCALARS: [&str; 3] = ["tolerance", "softness", "spill"];
 
 impl Effect {
@@ -205,8 +304,12 @@ impl Effect {
         {
             // Bounded, and the message says what the bound is *for* — a distance and two
             // widths, all normalised — rather than only that the number is out of range.
-            for (name, value) in CHROMA_SCALARS.iter().zip([tolerance, softness, spill]) {
-                if !(0.0..=1.0).contains(value) {
+            // In a static value and in every keyframe record alike (ADR-0146 §5).
+            for (name, property) in CHROMA_SCALARS.iter().zip([tolerance, softness, spill]) {
+                if let Some(Fraction(value)) = stated(property)
+                    .into_iter()
+                    .find(|Fraction(value)| !(0.0..=1.0).contains(value))
+                {
                     return Err(format!(
                         "`chroma`'s `{name}` is {value}: the key's three scalars are \
                          normalised and must be within `[0, 1]`, each with its \
@@ -227,8 +330,11 @@ impl Effect {
             // and still be wrong is a genuinely translucent one, and that is what this
             // measures. The published `^#[0-9A-F]{6}$` says the same thing to a reader who
             // has no `Colour` to lean on.
-            let written = color.as_str();
-            if written.len() != "#RRGGBB".len() {
+            if let Some(ScreenColour(written)) = stated(color)
+                .into_iter()
+                .find(|ScreenColour(written)| written.as_str().len() != "#RRGGBB".len())
+            {
+                let written = written.as_str();
                 return Err(format!(
                     "`chroma`'s `color` is {written}: the screen colour is `#RRGGBB`, and an \
                      alpha on it is meaningless — a key colour names a colour to \
@@ -257,8 +363,8 @@ impl Effect {
         // "The four are all-or-none" on its own leaves the author counting.
         let present: Vec<&str> = MASK_RECT
             .iter()
-            .zip([x, y, width, height])
-            .filter(|(_, value)| value.is_some())
+            .zip([x.is_some(), y.is_some(), width.is_some(), height.is_some()])
+            .filter(|(_, written)| *written)
             .map(|(name, _)| *name)
             .collect();
         if !present.is_empty() && present.len() != MASK_RECT.len() {

@@ -1255,6 +1255,19 @@ impl<'a> Painter<'a> {
 
     fn element(&mut self, canvas: &mut Canvas, name: &str, element: &Value, playhead: Playhead) {
         let kind = element.get("type").and_then(Value::as_str);
+        // A plain `mask` of no positive size hides the whole element for this frame, as a
+        // collapsed box does (ADR-0146 §5): nothing is drawn, and a mask that hides every
+        // frame is `E-NOT-PAINTED-NO-EXTENT`, decided as `validate` decides it.
+        if matches!(
+            kind,
+            Some("text" | "rect" | "ellipse" | "path" | "image" | "video")
+        ) && animatable::hiding_mask(element, i128::from(self.instant), 1).is_some()
+        {
+            if let Some(causes) = animatable::never_painted(element, self.fps) {
+                self.defer(name, crate::checks::extent::never_painted(&causes));
+            }
+            return;
+        }
         match kind {
             // No frame-space footprint at all. Not listed as unpainted: an audio element
             // that draws nothing is not a thing the picture is missing.
@@ -1295,11 +1308,7 @@ impl<'a> Painter<'a> {
         };
         let mut effects = Vec::with_capacity(declared.len());
         for (i, value) in declared.iter().enumerate() {
-            match serde_json::from_value::<model::Effect>(value.clone())
-                .ok()
-                .as_ref()
-                .and_then(|effect| effect_of(effect, self.instant))
-            {
+            match effect_of(element, i, self.instant) {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -1941,8 +1950,8 @@ impl<'a> Painter<'a> {
     fn collapsed(&mut self, name: &str, element: &Value) {
         if !animatable::states_a_box(element) {
             self.defer(name, no_extent());
-        } else if animatable::never_painted(element, self.fps) {
-            self.defer(name, crate::checks::extent::never_painted());
+        } else if let Some(causes) = animatable::never_painted(element, self.fps) {
+            self.defer(name, crate::checks::extent::never_painted(&causes));
         }
     }
 
@@ -2268,43 +2277,50 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
     ]))
 }
 
-/// One `effects` member in the rasterizer's spelling, or `None` for a colour this
-/// document's own rules say is not a colour.
+/// The `effects` member at `index` on `element`, in the rasterizer's spelling at `instant`,
+/// or `None` for a member this document's own rules say is not one.
 ///
-/// **The model's enum is the one authority on what an effect is.** The list is
+/// **The model's enum is the one authority on what an effect is.** The member is
 /// deserialized through [`crate::model::Effect`], whose `deny_unknown_fields` and
 /// lowercase `name` tag are the closed vocabulary ADR-0040 and ADR-0049 fixed — so the
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
 ///
-/// `instant` resolves the one keyed effect parameter, a `mask`'s `feather` (ADR-0152 §2),
-/// unrounded (ADR-0035).
-pub(crate) fn effect_of(declared: &model::Effect, instant: i64) -> Option<Effect> {
+/// **Every parameter is read through the one resolving function** (ADR-0146 §5),
+/// [`animatable::Declared::read`] at `instant`: a keyed parameter resolves unrounded and is
+/// clamped into its range there, so the painter draws the value `query --at` prints. A `mask`
+/// whose rect resolves to no positive size hides the element before this is asked
+/// ([`animatable::hiding_mask`]); an inverted one keeps everything, so its rect reaches the
+/// rasterizer no smaller than empty.
+pub(crate) fn effect_of(element: &Value, index: usize, instant: i64) -> Option<Effect> {
+    let declared: model::Effect =
+        serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
+    let read = |key: &str| {
+        animatable::effect_parameter(element, index, key).map(|parameter| parameter.at(instant))
+    };
+    // A parameter the model has already read is one the resolver reads too, so `None` here
+    // is a document the model refuses and never reaches.
+    let number = |key: &str| read(key)?.ok()?.number();
+    let colour = |key: &str| rgba_of(&read(key)?.ok()?.colour()?);
     Some(match declared {
-        model::Effect::Blur { radius } => Effect::Blur { radius: *radius },
-        model::Effect::Shadow {
-            dx,
-            dy,
-            radius,
-            color,
-            opacity,
-        } => Effect::Shadow {
-            dx: *dx,
-            dy: *dy,
-            radius: *radius,
-            colour: rgba_of(color)?,
-            opacity: *opacity,
+        model::Effect::Blur { .. } => Effect::Blur {
+            radius: number("radius")?,
+        },
+        model::Effect::Shadow { .. } => Effect::Shadow {
+            dx: number("dx")?,
+            dy: number("dy")?,
+            radius: number("radius")?,
+            colour: colour("color")?,
+            opacity: number("opacity")?,
         },
         model::Effect::Mask {
             shape,
             x,
-            y,
-            width,
-            height,
-            radius,
             invert,
             feather,
+            radius,
+            ..
         } => Effect::Mask {
             shape: match shape {
                 model::MaskShape::Circle => MaskShape::Circle,
@@ -2315,43 +2331,48 @@ pub(crate) fn effect_of(declared: &model::Effect, instant: i64) -> Option<Effect
             // in, so the only two shapes that reach here are all four and none — and
             // `None` is the identity value the rasterizer resolves to the element's own
             // rect, not a missing answer it has to guess at.
-            rect: match (x, y, width, height) {
-                (Some(x), Some(y), Some(width), Some(height)) => Some(MaskRect {
-                    x: *x as f64,
-                    y: *y as f64,
-                    width: *width as f64,
-                    height: *height as f64,
+            rect: match x {
+                Some(_) => Some(MaskRect {
+                    x: number("x")?,
+                    y: number("y")?,
+                    width: number("width")?.max(0.0),
+                    height: number("height")?.max(0.0),
                 }),
-                _ => None,
+                None => None,
             },
-            radius: radius.unwrap_or(0) as f64,
+            radius: match radius {
+                Some(_) => number("radius")?,
+                None => 0.0,
+            },
             invert: invert.unwrap_or(false),
             feather: match feather {
+                Some(_) => number("feather")?,
                 None => 0.0,
-                Some(feather) => crate::resolve::at(feather, instant).ok()?,
             },
         },
-        model::Effect::Tint { color, amount } => Effect::Tint {
-            colour: rgba_of(color)?,
-            amount: *amount,
+        model::Effect::Tint { .. } => Effect::Tint {
+            colour: colour("color")?,
+            amount: number("amount")?,
         },
-        model::Effect::Saturation { amount } => Effect::Saturation { amount: *amount },
-        model::Effect::Brightness { amount } => Effect::Brightness { amount: *amount },
-        model::Effect::Contrast { amount } => Effect::Contrast { amount: *amount },
-        model::Effect::Chroma {
-            color,
-            tolerance,
-            softness,
-            spill,
-        } => Effect::Chroma {
-            // The model refuses `#RRGGBBAA` on this member (ADR-0088), so the alpha byte
-            // reaching the rasterizer is always `0xFF` — and the keyer reads only the three
-            // colour channels, because a key colour names a colour to *find* in the frame
-            // rather than one to composite.
-            colour: rgba_of(color)?,
-            tolerance: *tolerance,
-            softness: *softness,
-            spill: *spill,
+        model::Effect::Saturation { .. } => Effect::Saturation {
+            amount: number("amount")?,
+        },
+        model::Effect::Brightness { .. } => Effect::Brightness {
+            amount: number("amount")?,
+        },
+        model::Effect::Contrast { .. } => Effect::Contrast {
+            amount: number("amount")?,
+        },
+        model::Effect::Chroma { .. } => Effect::Chroma {
+            // The model refuses `#RRGGBBAA` on this member in every record (ADR-0088), and a
+            // blend of two opaque colours is opaque, so the alpha byte reaching the
+            // rasterizer is always `0xFF` — and the keyer reads only the three colour
+            // channels, because a key colour names a colour to *find* in the frame rather
+            // than one to composite.
+            colour: colour("color")?,
+            tolerance: number("tolerance")?,
+            softness: number("softness")?,
+            spill: number("spill")?,
         },
     })
 }

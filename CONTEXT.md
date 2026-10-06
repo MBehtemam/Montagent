@@ -415,12 +415,13 @@ _Avoid_: key (for the whole concept — a key is what `chroma` computes), cutout
 The `effects` member that keys a screen colour out of a source:
 `chroma{color, tolerance, softness, spill}`. `color` is a literal `#RRGGBB` and not
 a hue angle — a bare hue **inverts the key**, and supplying the missing saturation
-and value is the colour restated in three fields. Serves a screen that is uniform
-in time: `tolerance` is static like every effect parameter, so footage whose
-lighting drifts mid-take needs the element cut at the drift boundaries, or a
-source keyed upstream. `measure` reports the resulting alpha coverage per frame,
-which is how that drift is found.
-([ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md))
+and value is the colour restated in three fields. All four parameters are animatable
+properties, `color` staying `#RRGGBB` in every record, so footage whose lighting
+drifts mid-take takes a keyed `tolerance` rather than being cut at each drift.
+`measure` reports the resulting alpha coverage per frame, which is how that drift is
+found.
+([ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md),
+[ADR-0146](docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md))
 _Avoid_: greenscreen (the technique, not the member), chromakey, despill (that is
 `spill`, one parameter of this member)
 
@@ -443,9 +444,10 @@ rule. `radius` rounds the corners of a `rect` mask, identity `0`; on `circle` or
 There is no ellipse rotation term — the element's own `rotation` turns the mask.
 **The mask rides the transform**: it is declared inside the element's box in
 unscaled units, so `scale` grows it and `rotation` turns it, the same rule that
-makes a `blur` radius and a `stroke_width` scale. That is not keyframing an effect
-parameter — the fields stay literal integers on every frame. A bare `mask` key
-outside `effects` is a retired spelling. **`invert`** keeps the outside of the
+makes a `blur` radius and a `stroke_width` scale. The rect, `radius` and `feather`
+are animatable properties, like every numeric effect parameter; a plain mask whose
+rect has no positive size hides the whole element, so a **reveal** is a keyed rect
+from `0`. A bare `mask` key outside `effects` is a retired spelling. **`invert`** keeps the outside of the
 shape instead of the inside. **`feather`** softens the mask's edge, centred on it,
 read as a `blur` radius is, so an inverted feathered mask is the exact complement
 of the plain one. Masks in one list intersect, so a mask and a smaller inverted one
@@ -453,6 +455,7 @@ keep a ring.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md),
 [ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md),
+[ADR-0146](docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md),
 [ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a

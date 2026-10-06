@@ -69,14 +69,14 @@
 //! document says.
 
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::animatable::Unreadable;
 use crate::exact::{self, Decimal};
 use crate::media::Source;
 use crate::media::probe::Outcome;
 use crate::media::session::Session;
-use crate::model::{Animatable, Length};
+use crate::model::Animatable;
 use crate::permissive::Loose;
 use crate::resolve::{self, Unresolvable, VertexAt};
 use crate::stack::{Stack, Unresolved};
@@ -727,31 +727,30 @@ fn crop_for(
 }
 
 /// Every animatable property this element declares, resolved through the one resolving
-/// function ([`crate::animatable::read`]) — in the order the schema declares them, never the
-/// order the file happens to write them in. The list is the schema's (ADR-0146): a property
-/// joins this answer by being typed as animatable, never by being added here.
+/// function ([`crate::animatable::Declared::read`]) — in the order the schema declares them,
+/// never the order the file happens to write them in: the element's own, then every
+/// `effects` member's parameters, each named by its member's position with the member's name
+/// in the text, `effects[1].radius (blur)` (ADR-0146 §4). The list is the schema's
+/// (ADR-0146): a property joins this answer by being typed as animatable, never by being
+/// added here.
 ///
 /// A colour is printed as the literal that can be pasted back: six digits when opaque,
 /// `#00000000` at alpha 0.
 fn values(element: &Value, instant: i64) -> Vec<Resolved> {
-    let declared = crate::animatable::of_element(element);
-    let names: Vec<&str> = if declared.is_empty() {
-        crate::animatable::names()
-            .iter()
-            .map(String::as_str)
-            .collect()
-    } else {
-        declared
-            .iter()
-            .map(|property| property.name.as_str())
-            .collect()
-    };
-    names
+    let own = crate::animatable::of_element(element);
+    crate::animatable::declared(element)
         .into_iter()
-        .filter_map(|property| {
-            let resolved = crate::animatable::at(element, property, instant)?;
-            let animated = crate::animatable::records(element, property).is_some();
-            Some(match resolved {
+        // A typed element answers for its own type's properties; a key another type has is
+        // the schema check's to name.
+        .filter(|declared| {
+            declared.effect.is_some()
+                || own.is_empty()
+                || own.iter().any(|property| property.name == declared.path)
+        })
+        .map(|declared| {
+            let property = declared.path.as_str();
+            let animated = declared.records().is_some();
+            match declared.at(instant) {
                 Ok(value) => match serde_json::to_value(value) {
                     Ok(value) => Resolved {
                         property: property.to_string(),
@@ -768,49 +767,14 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
                 // arrives here as unreadable rather than as a value this module had to
                 // invent a default to produce.
                 Err(Unreadable::Schema(reason)) => {
-                    unreadable(property, element[property].is_array(), reason)
+                    unreadable(property, declared.owner[declared.key()].is_array(), reason)
                 }
                 Err(Unreadable::Unresolvable(unresolvable)) => {
                     unreadable(property, animated, unanswered(unresolvable))
                 }
-            })
+            }
         })
-        .chain(feathers(element, instant))
         .collect()
-}
-
-/// Every `mask`'s `feather` (ADR-0152 §2), named by its position in `effects` with the
-/// effect's name in the text, as ADR-0146 §4 names an effect parameter.
-///
-/// By hand, because the derived list does not yet walk the nested paths inside `effects`:
-/// #676 brings every effect parameter into it, and this walk goes with it.
-fn feathers(element: &Value, instant: i64) -> impl Iterator<Item = Resolved> + '_ {
-    element
-        .get("effects")
-        .and_then(Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or_default()
-        .iter()
-        .enumerate()
-        .filter(|(_, effect)| effect.get("name").and_then(Value::as_str) == Some("mask"))
-        .filter_map(move |(index, effect)| {
-            let written = effect.get("feather")?;
-            let property = format!("effects[{index}].feather (mask)");
-            let animated = written.is_array();
-            let feather = match serde_json::from_value::<Animatable<Length>>(written.clone()) {
-                Ok(feather) => feather,
-                Err(e) => return Some(unreadable(&property, animated, e.to_string())),
-            };
-            Some(match resolve::at(&feather, instant) {
-                Ok(value) => Resolved {
-                    property,
-                    animated,
-                    value: Some(json!(value)),
-                    unresolved: None,
-                },
-                Err(unresolvable) => unreadable(&property, animated, unanswered(unresolvable)),
-            })
-        })
 }
 
 fn unreadable(property: &str, animated: bool, reason: String) -> Resolved {
