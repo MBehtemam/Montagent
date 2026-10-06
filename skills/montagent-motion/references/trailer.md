@@ -48,9 +48,7 @@ A copy with `blur` (`radius` 12–24) sits over the sharp element and fades out 
 
 ### Chromatic split
 
-<!-- workaround: #521 · replaced by: blend modes -->
-
-Two tinted copies of a title, one red (`#FF2A2A`) and one cyan (`#2AF0FF`), sit below the sharp title at `opacity` 0.5–0.7, offset 4–10 px to either side. They snap together over 150–250 ms, or jitter on a glitch. With normal alpha the copies darken the ground where a real screen blend would brighten it, so this reads best on black.
+Two tinted copies of a title, one red (`#FF2A2A`) and one cyan (`#2AF0FF`), sit below the sharp title with `"blend": "screen"` at `opacity` 0.5–0.7, offset 4–10 px to either side. They snap together over 150–250 ms, or jitter on a glitch. Screen brightens the ground under each copy, so the split reads over footage as well as over black.
 
 ### Glitch cut
 
@@ -58,9 +56,7 @@ The outgoing shot is cut into 3–6 horizontal bands: one copy per band, each wi
 
 ### Light sweeps, flares and embers
 
-<!-- workaround: #521 · replaced by: blend modes -->
-
-Use still PNG plates with soft alpha (a diagonal gradient bar, a flare streak, ember dots). Move them across the title or shot over 600–1200 ms. They composite with normal alpha, so they read as light over dark ground and look flat over bright shots: keep them over dark areas, at `opacity` 0.4–0.8.
+Use still PNG plates with soft alpha (a diagonal gradient bar, a flare streak, ember dots) with `"blend": "screen"`, or `"add"` for a hotter core. Move them across the title or shot over 600–1200 ms, at `opacity` 0.4–0.8. A screened plate only lightens, so it reads as light over bright shots too. Keep the shot it lights beneath it: over the black `background` alone, screen draws what normal draws, and `validate` says so.
 
 ### Letterbox
 

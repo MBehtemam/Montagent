@@ -111,6 +111,10 @@ pub struct Report {
     /// starts at `[]`, which is the safe direction — a verb that forgets to record reads
     /// *"no checks run"* rather than claiming a run it never made.
     check_sets: Vec<CheckSet>,
+    /// Lines a check adds beneath the NOT CHECKED sentence, naming what it could not decide
+    /// about one element (ADR-0147's rotated case). Empty on almost every run, and then
+    /// absent from the JSON, as `not_checked_also` is on every verb with nothing to add.
+    not_checked_also: Vec<String>,
     terminal: Option<Terminal>,
 }
 
@@ -123,6 +127,7 @@ impl Report {
             misses: Vec::new(),
             media: Vec::new(),
             check_sets: Vec::new(),
+            not_checked_also: Vec::new(),
             terminal: None,
         }
     }
@@ -138,6 +143,7 @@ impl Report {
             misses: Vec::new(),
             media: Vec::new(),
             check_sets: Vec::new(),
+            not_checked_also: Vec::new(),
             terminal: Some(Terminal::Unparseable),
         }
     }
@@ -157,6 +163,7 @@ impl Report {
             misses: Vec::new(),
             media: Vec::new(),
             check_sets: Vec::new(),
+            not_checked_also: Vec::new(),
             terminal: Some(Terminal::BadInvocation),
         }
     }
@@ -238,6 +245,7 @@ impl Report {
             misses: Vec::new(),
             media: Vec::new(),
             check_sets: Vec::new(),
+            not_checked_also: Vec::new(),
             terminal: Some(Terminal::Internal),
         }
     }
@@ -258,6 +266,7 @@ impl Report {
             misses: Vec::new(),
             media: Vec::new(),
             check_sets: Vec::new(),
+            not_checked_also: Vec::new(),
             // Same exit code as `E-INTERNAL` (ADR-0011, unchanged by ADR-0091): the run
             // did not finish either way.
             terminal: Some(Terminal::Internal),
@@ -353,6 +362,11 @@ impl Report {
         }
     }
 
+    /// Say, beneath the NOT CHECKED sentence, one thing a check could not decide.
+    pub fn not_checked(&mut self, line: impl Into<String>) {
+        self.not_checked_also.push(line.into());
+    }
+
     /// The check sets this run completed.
     pub fn check_sets(&self) -> &[CheckSet] {
         &self.check_sets
@@ -414,7 +428,7 @@ impl Report {
     /// from the registry; nothing is assembled twice.
     pub fn to_json(&self) -> Value {
         let summary = self.summary();
-        json!({
+        let mut json = json!({
             "tool": self.tool,
             "project": self.project,
             // ADR-0112: what ran, beside what it found. `summary` keeps all six keys and
@@ -438,6 +452,11 @@ impl Report {
             // project reads as reasonable and is exactly the erosion the ADR is written
             // against, since the next exception argues from this one.
             "not_checked": NOT_CHECKED,
-        })
+        });
+        if !self.not_checked_also.is_empty() {
+            let lines: Vec<&str> = self.not_checked_also.iter().map(String::as_str).collect();
+            extend_boundary(&mut json, &lines);
+        }
+        json
     }
 }

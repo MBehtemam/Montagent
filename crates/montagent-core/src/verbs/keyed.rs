@@ -303,6 +303,7 @@ fn sample(
             scale: (1.0, 1.0),
             rotation: 0.0,
             opacity: 1.0,
+            blend: montagent_render::canvas::Blend::Normal,
             origin: (0.0, 0.0),
         },
         None,

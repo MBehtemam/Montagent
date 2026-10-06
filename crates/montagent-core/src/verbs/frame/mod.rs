@@ -1887,6 +1887,7 @@ impl<'a> Painter<'a> {
             // than jumping to 1 to start.
             opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0)
                 * self.fade(element),
+            blend: blend_of(element),
         }
     }
 
@@ -1902,6 +1903,22 @@ impl<'a> Painter<'a> {
             width: clip[2].as_i64()?,
             height: clip[3].as_i64()?,
         })
+    }
+}
+
+/// `blend`, as the canvas's mode (ADR-0147). Omitted, or not one of the five words, is
+/// `normal`: a bad value is the schema check's error and never reaches a render.
+fn blend_of(element: &Value) -> montagent_render::canvas::Blend {
+    use montagent_render::canvas::Blend as Paint;
+    let written = element
+        .get("blend")
+        .and_then(|value| serde_json::from_value::<model::Blend>(value.clone()).ok());
+    match written.unwrap_or_default() {
+        model::Blend::Normal => Paint::Normal,
+        model::Blend::Multiply => Paint::Multiply,
+        model::Blend::Screen => Paint::Screen,
+        model::Blend::Overlay => Paint::Overlay,
+        model::Blend::Add => Paint::Add,
     }
 }
 

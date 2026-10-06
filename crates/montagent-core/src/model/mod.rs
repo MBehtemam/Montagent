@@ -155,6 +155,41 @@ pub enum Fit {
     Literal,
 }
 
+/// How the finished element composites into what is painted below it (ADR-0147).
+///
+/// The last step of an element's paint: its `effects` (masks and shadow included), then
+/// `opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB
+/// values. Static: a mode has no in-between, so a blend is faded in through `opacity`.
+/// Omitted means `normal`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Blend {
+    /// Source over: what an element without the field draws.
+    #[default]
+    Normal,
+    /// `s·d`: darkens; white is the identity.
+    Multiply,
+    /// `s + d − s·d`: lightens; black is the identity.
+    Screen,
+    /// Multiply where the backdrop is dark, screen where it is light.
+    Overlay,
+    /// `min(1, s + d)`: Skia's `Plus`.
+    Add,
+}
+
+impl Blend {
+    /// The word the file uses.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Blend::Normal => "normal",
+            Blend::Multiply => "multiply",
+            Blend::Screen => "screen",
+            Blend::Overlay => "overlay",
+            Blend::Add => "add",
+        }
+    }
+}
+
 /// What a time-based element does past the end of its (possibly speed-adjusted) source.
 ///
 /// There is no third value and no `"none"`: the field's presence alone signals the
@@ -404,6 +439,8 @@ pub struct Image {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
 
@@ -437,6 +474,8 @@ pub struct Video {
     pub rotation: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -499,6 +538,8 @@ pub struct TextElement {
     pub rotation: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     /// `false` says this text is not a caption — a title, a lower-third, a logo, a
@@ -568,6 +609,8 @@ pub struct Rect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
 
@@ -616,6 +659,8 @@ pub struct Ellipse {
     pub rotation: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }

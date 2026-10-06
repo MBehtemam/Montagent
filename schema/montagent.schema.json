@@ -214,6 +214,9 @@
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "blend": {
+              "$ref": "#/$defs/Blend"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -306,6 +309,9 @@
             },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
+            },
+            "blend": {
+              "$ref": "#/$defs/Blend"
             },
             "speed": {
               "$ref": "#/$defs/Speed"
@@ -423,6 +429,9 @@
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "blend": {
+              "$ref": "#/$defs/Blend"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -515,6 +524,9 @@
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "blend": {
+              "$ref": "#/$defs/Blend"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -594,6 +606,9 @@
             },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
+            },
+            "blend": {
+              "$ref": "#/$defs/Blend"
             },
             "effects": {
               "type": "array",
@@ -1134,6 +1149,36 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "Blend": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "normal",
+          "description": "Source over: what an element without the field draws."
+        },
+        {
+          "type": "string",
+          "const": "multiply",
+          "description": "`s·d`: darkens; white is the identity."
+        },
+        {
+          "type": "string",
+          "const": "screen",
+          "description": "`s + d − s·d`: lightens; black is the identity."
+        },
+        {
+          "type": "string",
+          "const": "overlay",
+          "description": "Multiply where the backdrop is dark, screen where it is light."
+        },
+        {
+          "type": "string",
+          "const": "add",
+          "description": "`min(1, s + d)`: Skia's `Plus`."
+        }
+      ],
+      "description": "How the finished element composites into what is painted below it (ADR-0147).\n\nThe last step of an element's paint: its `effects` (masks and shadow included), then\n`opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB\nvalues. Static: a mode has no in-between, so a blend is faded in through `opacity`.\nOmitted means `normal`."
     },
     "Effect": {
       "oneOf": [
