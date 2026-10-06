@@ -291,6 +291,10 @@ pub enum Effect {
         radius: f64,
         /// Keep what is outside the shape instead of what is inside (ADR-0152 §1).
         invert: bool,
+        /// The soft edge's width in element units, resolved at the instant and never
+        /// rounded: the hard coverage blurred by σ = `feather` / 2 ([`sigma`]), centred on
+        /// the edge (ADR-0152 §2). `0` is the hard edge, through the hard path.
+        feather: f64,
     },
     /// Push pixel colour toward `colour` by `amount` (ADR-0049).
     Tint { colour: Rgba, amount: f64 },
@@ -394,6 +398,15 @@ impl MaskShape {
     /// With `invert` the eraser is the shape itself: the mask keeps the outside and
     /// erases the inside, through the same `Clear` draw (ADR-0152 §1).
     fn eraser(self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
+        let mut path = self.figure(extent, rect, radius);
+        if !invert {
+            path.set_fill_type(PathFillType::InverseWinding);
+        }
+        path
+    }
+
+    /// The shape itself, cut in `rect` (the element's own where `None`), in element space.
+    fn figure(self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
         let rect = rect.unwrap_or_else(|| MaskRect::of(extent));
         let mut path = PathBuilder::new();
         match self {
@@ -425,11 +438,74 @@ impl MaskShape {
                 path.add_oval(rect.rect(), None, None);
             }
         }
-        let mut path = path.detach();
-        if !invert {
-            path.set_fill_type(PathFillType::InverseWinding);
+        path.detach()
+    }
+
+    /// Erase what this mask does not keep from the layer `canvas` is drawing into, in
+    /// element space (ADR-0084, ADR-0152).
+    ///
+    /// **`feather` at or below `0` is the hard edge**: [`MaskShape::eraser`] painted in
+    /// `Clear`, antialiased, exactly as before `feather` existed, so a written `0` paints
+    /// the bytes an omitted one does.
+    ///
+    /// **A feather blurs the shape's coverage, not the picture** (ADR-0152 §2). The shape
+    /// is drawn opaque into a layer whose paint carries `blur`'s own image filter at
+    /// σ = [`sigma`]`(feather)`, and that layer is composited `DstIn` (keep the blurred
+    /// inside) or, inverted, `DstOut` (keep 1 − it). So the softness goes through the same
+    /// matrix decomposition a `blur` does: it rides the transform and is anisotropic under
+    /// a non-uniform scale, and an inverted mask keeps the exact complement of the plain
+    /// one. Measured by the prototype ([#696](https://github.com/MBehtemam/Montagent/issues/696)),
+    /// byte-identical across painters and with the blur bounds hint on and off.
+    ///
+    /// Two choices of this mechanism's own, neither visible (at most 2 levels from the
+    /// unbounded form, and both fixed per frame so no painter can differ):
+    ///
+    /// - the layer is bounded to the shape's bounds outset by 2 × ⌈3σ⌉, so the blur runs
+    ///   over the shape and its reach rather than over the whole frame (~15 ms per erase at
+    ///   1080p against ~55 ms);
+    /// - a plain mask first clears, hard, everything beyond one reach of the shape, where
+    ///   the blurred shape is already 0. `DstIn` reaches only as far as the layer, so
+    ///   without it what lies beyond the layer would be kept.
+    fn erase(
+        self,
+        canvas: &skia_safe::Canvas,
+        extent: Extent,
+        rect: Option<MaskRect>,
+        radius: f64,
+        invert: bool,
+        feather: f64,
+    ) {
+        let mut eraser = SkPaint::default();
+        eraser.set_anti_alias(true);
+        eraser.set_blend_mode(BlendMode::Clear);
+        if feather <= 0.0 {
+            canvas.draw_path(&self.eraser(extent, rect, radius, invert), &eraser);
+            return;
         }
-        path
+
+        let sigma = sigma(feather);
+        let reach = (3.0 * sigma).ceil();
+        let figure = self.figure(extent, rect, radius);
+        let bounds = *figure.bounds();
+        if !invert {
+            let mut beyond = Path::rect(bounds.with_outset((reach, reach)), None);
+            beyond.set_fill_type(PathFillType::InverseWinding);
+            eraser.set_anti_alias(false);
+            canvas.draw_path(&beyond, &eraser);
+        }
+        let mut soft = SkPaint::default();
+        soft.set_image_filter(image_filters::blur((sigma, sigma), None, None, None));
+        soft.set_blend_mode(if invert {
+            BlendMode::DstOut
+        } else {
+            BlendMode::DstIn
+        });
+        let layer_bounds = bounds.with_outset((2.0 * reach, 2.0 * reach));
+        canvas.save_layer(&SaveLayerRec::default().bounds(&layer_bounds).paint(&soft));
+        let mut opaque = SkPaint::default();
+        opaque.set_anti_alias(true);
+        canvas.draw_path(&figure, &opaque);
+        canvas.restore();
     }
 }
 
@@ -1361,12 +1437,10 @@ impl Canvas {
                 rect,
                 radius,
                 invert,
+                feather,
             } = effect
             {
-                let mut paint = SkPaint::default();
-                paint.set_anti_alias(true);
-                paint.set_blend_mode(BlendMode::Clear);
-                canvas.draw_path(&shape.eraser(extent, *rect, *radius, *invert), &paint);
+                shape.erase(canvas, extent, *rect, *radius, *invert, *feather);
             }
             canvas.restore();
         }
@@ -2280,7 +2354,7 @@ mod tests {
 
     #[test]
     fn a_hinted_blur_or_shadow_paints_the_bytes_the_unbounded_layer_does() {
-        let chains: [&[Effect]; 7] = [
+        let chains: [&[Effect]; 9] = [
             &[blur(14.0)],
             &[shadow(0.0, 0.0, 28.0)],
             &[shadow(7.5, -3.25, 20.0)],
@@ -2292,6 +2366,7 @@ mod tests {
                     rect: None,
                     radius: 0.0,
                     invert: false,
+                    feather: 0.0,
                 },
                 blur(20.0),
             ],
@@ -2301,8 +2376,36 @@ mod tests {
                     rect: None,
                     radius: 0.0,
                     invert: true,
+                    feather: 0.0,
                 },
                 blur(20.0),
+            ],
+            // Feathered (#698), plain and inverted, a fractional feather among them.
+            &[
+                Effect::Mask {
+                    shape: MaskShape::Ellipse,
+                    rect: None,
+                    radius: 0.0,
+                    invert: false,
+                    feather: 18.0,
+                },
+                blur(20.0),
+            ],
+            &[
+                blur(6.0),
+                Effect::Mask {
+                    shape: MaskShape::Rect,
+                    rect: Some(MaskRect {
+                        x: 20.0,
+                        y: 10.0,
+                        width: 80.0,
+                        height: 50.0,
+                    }),
+                    radius: 12.0,
+                    invert: true,
+                    feather: 13.37,
+                },
+                shadow(7.5, -3.25, 20.0),
             ],
         ];
         // The frame's four edges, scales either side of 1, and each drifting by fractions

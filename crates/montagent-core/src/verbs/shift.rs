@@ -618,19 +618,53 @@ fn animatable_lists(body: &Body) -> Vec<(String, Vec<i64>)> {
     let Ok(value) = serde_json::to_value(body) else {
         return Vec::new();
     };
+    let times = |records: &Vec<Value>| -> Vec<i64> {
+        records
+            .iter()
+            .filter_map(|record| record.get("t")?.as_i64())
+            .collect()
+    };
     animatable::of(body.type_name())
         .iter()
         .filter_map(|property| {
             let records = animatable::records(&value, &property.name)?;
-            Some((
-                property.name.clone(),
-                records
-                    .iter()
-                    .filter_map(|record| record.get("t")?.as_i64())
-                    .collect(),
-            ))
+            Some((property.name.clone(), times(records)))
         })
+        .chain(keyed_feathers(&value).into_iter().map(|index| {
+            let records = animatable::records(&value["effects"][index], "feather");
+            (feather(index).name, records.map(times).unwrap_or_default())
+        }))
         .collect()
+}
+
+/// The positions in `effects` of every `mask` whose `feather` is keyed (ADR-0152 §2).
+///
+/// By hand, because the derived list does not yet walk the nested paths inside `effects`:
+/// #676 brings every effect parameter into it, and this and [`feather`] go with it.
+fn keyed_feathers(body: &Value) -> Vec<usize> {
+    body.get("effects")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .filter(|(_, effect)| {
+            effect.get("name").and_then(Value::as_str) == Some("mask")
+                && animatable::records(effect, "feather").is_some()
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
+/// The `feather` of the mask at `index`, as the one list would describe it: an integer
+/// length, bounded below by `0`, named by its position as ADR-0146 §4 names an effect
+/// parameter.
+fn feather(index: usize) -> Property {
+    Property {
+        name: format!("effects[{index}].feather (mask)"),
+        kind: Kind::Integer,
+        minimum: Some(0.0),
+    }
 }
 
 /// Edit every keyframe list `body` carries, through the one list of animatable properties
@@ -653,6 +687,10 @@ fn edit_lists(
             continue;
         }
         edit(property, &mut value[property.name.as_str()])?;
+        touched = true;
+    }
+    for index in keyed_feathers(&value) {
+        edit(&feather(index), &mut value["effects"][index]["feather"])?;
         touched = true;
     }
     if !touched {

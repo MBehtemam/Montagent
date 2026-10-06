@@ -28,7 +28,8 @@
 //!   derivation, and an element with one keeps today's unbounded layers throughout;
 //! - no perspective;
 //! - layer-space σ ≤ [`MAX_LAYER_SIGMA`] on both axes, above which Skia downsamples the
-//!   layer and the resampling depends on its size;
+//!   layer and the resampling depends on its size. A feathered `mask`'s σ counts, and so
+//!   does its reach in the next bound (#698): its soft edge is a blur in a layer of its own;
 //! - no layer large enough for Skia's `maxLayerDim` to rescale it, with or without the hint
 //!   ([`MAX_OUTSET`]).
 
@@ -167,9 +168,14 @@ impl<'a> Plan<'a> {
         let scale = (layer.scale_x().abs(), layer.scale_y().abs());
 
         // The chain's reach past the device clip, with the layer's one pixel of padding and
-        // one more for rounding on each layer.
+        // one more for rounding on each layer. A feathered mask's blur of its own coverage
+        // counts as a blur here (#698): its σ meets the same cap, and its reach joins the sum.
+        let feathers = effects.iter().filter_map(|effect| match *effect {
+            Effect::Mask { feather, .. } if feather > 0.0 => Some((feather, 0.0, 0.0)),
+            _ => None,
+        });
         let mut outset = (0.0f32, 0.0f32);
-        for (radius, dx, dy) in blurs() {
+        for (radius, dx, dy) in blurs().chain(feathers) {
             let sigma = (sigma(radius) * scale.0, sigma(radius) * scale.1);
             if !(sigma.0 <= MAX_LAYER_SIGMA && sigma.1 <= MAX_LAYER_SIGMA) {
                 return None;
@@ -292,6 +298,50 @@ mod tests {
         // the drawn bound; the right and bottom go out past the layer's left and top.
         assert_eq!((hint.left, hint.top), (-15.0, -15.0));
         assert!(hint.right > 200.0 + PIN_MARGIN && hint.bottom > 100.0 + PIN_MARGIN);
+    }
+
+    fn feathered(feather: f64) -> Effect {
+        Effect::Mask {
+            shape: crate::canvas::MaskShape::Ellipse,
+            rect: None,
+            radius: 0.0,
+            invert: false,
+            feather,
+        }
+    }
+
+    #[test]
+    fn a_feather_s_sigma_and_reach_count_in_the_preconditions() {
+        // A feather is a blur of the mask's coverage, so a σ past the cap withholds the
+        // hint from the whole chain as a blur's would (#698)...
+        assert_eq!(
+            hints_for(
+                &[feathered(300.0), Effect::Blur { radius: 10.0 }],
+                (1.0, 1.0)
+            ),
+            [None, None]
+        );
+        // ...and so does a reach that, summed with the blur's, passes the outset bound:
+        // σ 60 reaches 180 + 2, three of them 546, past 512.
+        assert_eq!(
+            hints_for(
+                &[
+                    feathered(120.0),
+                    feathered(120.0),
+                    Effect::Blur { radius: 120.0 }
+                ],
+                (1.0, 1.0)
+            ),
+            [None, None, None]
+        );
+        // A modest feather leaves the blur hinted.
+        assert!(
+            hints_for(
+                &[feathered(30.0), Effect::Blur { radius: 10.0 }],
+                (1.0, 1.0)
+            )[1]
+            .is_some()
+        );
     }
 
     #[test]

@@ -248,12 +248,13 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
             // so the series is the length it got and says so by being that length.
             break;
         };
+        let at = run.at(frame, fps);
         samples.push(sample(
             &mut canvas,
             frame,
-            run.at(frame, fps),
+            at,
             &decoded,
-            &effects,
+            &effects_at(&effects, at),
             box_,
         )?);
     }
@@ -450,14 +451,19 @@ fn run_of(element: &Value, declared: &str, fps: i64) -> Result<Run, String> {
 /// Through the model's own enum, never a looser reading: `crate::model::Effect` is the one
 /// authority on what an effect is, and a coverage reading that keyed by a rule the renderer
 /// does not follow would be the second answer this whole module exists not to be.
-fn effects_of(element: &Value) -> Result<Vec<montagent_render::canvas::Effect>, String> {
-    let declared: Vec<model::Effect> = match element.get("effects") {
-        None => Vec::new(),
+fn effects_of(element: &Value) -> Result<Vec<model::Effect>, String> {
+    match element.get("effects") {
+        None => Ok(Vec::new()),
         Some(effects) => serde_json::from_value(effects.clone())
-            .map_err(|e| format!("the element's `effects` are not this format's: {e}"))?,
-    };
-    Ok(declared
+            .map_err(|e| format!("the element's `effects` are not this format's: {e}")),
+    }
+}
+
+/// The declared `effects` as the rasterizer paints them at `instant`, where a keyed `mask`
+/// `feather` resolves (ADR-0152 §2).
+fn effects_at(declared: &[model::Effect], instant: i64) -> Vec<montagent_render::canvas::Effect> {
+    declared
         .iter()
-        .filter_map(crate::verbs::frame::effect_of)
-        .collect())
+        .filter_map(|effect| crate::verbs::frame::effect_of(effect, instant))
+        .collect()
 }

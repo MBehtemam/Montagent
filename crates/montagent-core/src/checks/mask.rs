@@ -24,8 +24,9 @@
 //! and none is needed.
 //!
 //! `R-MASK-ERASES-ALL` (ADR-0152 §5) lives here beside it: an inverted `rect` mask with
-//! no corner radius whose rect contains the element's rect keeps no pixel on any frame.
-//! It is decided from the file alone. A keyed rect field or radius, or a written rect
+//! no corner radius and no feather whose rect contains the element's rect keeps no pixel on
+//! any frame. It is decided from the file alone. A keyed rect field, radius or feather, or
+//! a written rect
 //! against a keyed element size, is silent: those can be a wipe, and the check never
 //! fires on one. An inverted `circle` or `ellipse` keeps the corners and is never read.
 //!
@@ -137,11 +138,14 @@ fn erases_all(element: &Value, effect: &Value, index: usize, subject: &str) -> O
         return None;
     }
 
-    // `radius` is `0` or omitted. Anything else, keyed included, rounds a corner.
-    match effect.get("radius") {
-        None => {}
-        Some(radius) if radius.as_i64() == Some(0) => {}
-        Some(_) => return None,
+    // `radius` is `0` or omitted. Anything else, keyed included, rounds a corner. `feather`
+    // likewise (#698): any other value, keyed included, leaves the edge a ramp.
+    for field in ["radius", "feather"] {
+        match effect.get(field) {
+            None => {}
+            Some(value) if value.as_i64() == Some(0) => {}
+            Some(_) => return None,
+        }
     }
 
     let [x, y, width, height] = MASK_RECT.map(|field| effect.get(field));

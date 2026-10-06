@@ -1268,7 +1268,7 @@ impl<'a> Painter<'a> {
             match serde_json::from_value::<model::Effect>(value.clone())
                 .ok()
                 .as_ref()
-                .and_then(effect_of)
+                .and_then(|effect| effect_of(effect, self.instant))
             {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
@@ -2184,7 +2184,10 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
-pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
+///
+/// `instant` resolves the one keyed effect parameter, a `mask`'s `feather` (ADR-0152 §2),
+/// unrounded (ADR-0035).
+pub(crate) fn effect_of(declared: &model::Effect, instant: i64) -> Option<Effect> {
     Some(match declared {
         model::Effect::Blur { radius } => Effect::Blur { radius: *radius },
         model::Effect::Shadow {
@@ -2208,6 +2211,7 @@ pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
             height,
             radius,
             invert,
+            feather,
         } => Effect::Mask {
             shape: match shape {
                 model::MaskShape::Circle => MaskShape::Circle,
@@ -2229,6 +2233,10 @@ pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
             },
             radius: radius.unwrap_or(0) as f64,
             invert: invert.unwrap_or(false),
+            feather: match feather {
+                None => 0.0,
+                Some(feather) => crate::resolve::at(feather, instant).ok()?,
+            },
         },
         model::Effect::Tint { color, amount } => Effect::Tint {
             colour: rgba_of(color)?,

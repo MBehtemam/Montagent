@@ -32,7 +32,7 @@ use schemars::JsonSchema;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::Colour;
+use super::{Animatable, Colour, Length};
 
 /// One member of the closed vocabulary, discriminated by `name`.
 ///
@@ -94,6 +94,15 @@ pub enum Effect {
         /// `[mask ellipse, mask smaller ellipse inverted]` keeps a ring.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         invert: Option<bool>,
+        /// Soften the mask's edge (ADR-0152 §2): the hard coverage, 1 inside the shape and
+        /// 0 outside, blurred by a Gaussian of σ = `feather` / 2 (`blur`'s own reading of a
+        /// radius), centred on the edge. In unscaled element units, so it rides the
+        /// transform. Omitted means `0`, the hard antialiased edge. An animatable
+        /// property: a keyframe list of integers is written in place and resolves
+        /// unrounded between its keys (ADR-0146, ADR-0035). A length, so a negative
+        /// value is a schema error in a static value and in every keyframe record.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        feather: Option<Animatable<Length>>,
     },
     /// Pushes pixel colour toward `color` by `amount` (0–1).
     ///
@@ -238,6 +247,7 @@ impl Effect {
             height,
             radius,
             invert: _,
+            feather: _,
         } = &self
         else {
             return Ok(self);
