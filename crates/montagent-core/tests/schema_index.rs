@@ -247,6 +247,9 @@ fn a_uri_beside_a_piece_serves_nothing() {
         resources::read("montagent://schema/element/sprite.json"),
         None
     );
-    assert_eq!(resources::read("montagent://schema/effect/glow.json"), None);
+    assert_eq!(
+        resources::read("montagent://schema/effect/sepia.json"),
+        None
+    );
     assert_eq!(resources::read("montagent://schema/def/Element.json"), None);
 }
