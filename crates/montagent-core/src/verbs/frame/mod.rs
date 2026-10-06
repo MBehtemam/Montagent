@@ -2160,6 +2160,7 @@ pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
             width,
             height,
             radius,
+            invert,
         } => Effect::Mask {
             shape: match shape {
                 model::MaskShape::Circle => MaskShape::Circle,
@@ -2180,6 +2181,7 @@ pub(crate) fn effect_of(declared: &model::Effect) -> Option<Effect> {
                 _ => None,
             },
             radius: radius.unwrap_or(0) as f64,
+            invert: invert.unwrap_or(false),
         },
         model::Effect::Tint { color, amount } => Effect::Tint {
             colour: rgba_of(color)?,

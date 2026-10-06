@@ -23,6 +23,12 @@
 //! the acknowledgement (ADR-0030: presence is content), so there is no suppression mechanism
 //! and none is needed.
 //!
+//! `R-MASK-ERASES-ALL` (ADR-0152 §5) lives here beside it: an inverted `rect` mask with
+//! no corner radius whose rect contains the element's rect keeps no pixel on any frame.
+//! It is decided from the file alone. A keyed rect field or radius, or a written rect
+//! against a keyed element size, is silent: those can be a wipe, and the check never
+//! fires on one. An inverted `circle` or `ellipse` keeps the corners and is never read.
+//!
 //! Read permissively throughout: an `effects` that is not an array, a member that is not an
 //! object, a `shape` that is not one of the three words, a rect field that is not an integer
 //! — all are the schema check's to name, and simply are not read here.
@@ -48,14 +54,19 @@ pub fn check(document: &Loose, report: &mut Report) {
             .unwrap_or_default();
 
         for (index, effect) in effects.iter().enumerate() {
-            let Some(finding) = candidate(element, effect, index, &subject) else {
-                continue;
-            };
-            let mut finding = finding.at_file(file).at_element(subject.clone());
-            if let Some(track) = track {
-                finding = finding.at_track(track);
+            for finding in [
+                candidate(element, effect, index, &subject),
+                erases_all(element, effect, index, &subject),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                let mut finding = finding.at_file(file).at_element(subject.clone());
+                if let Some(track) = track {
+                    finding = finding.at_track(track);
+                }
+                report.push(finding);
             }
-            report.push(finding);
         }
     }
 }
@@ -109,5 +120,55 @@ fn candidate(element: &Value, effect: &Value, index: usize, subject: &str) -> Op
             .field("height", json!(height))
             .field("diameter", json!(diameter))
             .field("discarded", json!(discarded)),
+    )
+}
+
+/// This effect's `R-MASK-ERASES-ALL`, if it is an inverted, square-cornered `rect` mask
+/// whose rect contains the element's rect (ADR-0152 §5).
+///
+/// "Keyed" is read as "not a plain integer": a keyframe list in a rect field, in `radius`
+/// or in the element's size makes the value unreadable here, and an unreadable value is
+/// silence. The schema check names a list that has no business being there.
+fn erases_all(element: &Value, effect: &Value, index: usize, subject: &str) -> Option<Finding> {
+    if effect.get("name").and_then(Value::as_str) != Some("mask")
+        || effect.get("shape").and_then(Value::as_str) != Some("rect")
+        || effect.get("invert").and_then(Value::as_bool) != Some(true)
+    {
+        return None;
+    }
+
+    // `radius` is `0` or omitted. Anything else, keyed included, rounds a corner.
+    match effect.get("radius") {
+        None => {}
+        Some(radius) if radius.as_i64() == Some(0) => {}
+        Some(_) => return None,
+    }
+
+    let [x, y, width, height] = MASK_RECT.map(|field| effect.get(field));
+    let covers = match (x, y, width, height) {
+        // The bare form is the element's own rect, which contains itself.
+        (None, None, None, None) => true,
+        (Some(x), Some(y), Some(width), Some(height)) => {
+            let (x, y) = (x.as_i64()?, y.as_i64()?);
+            let (width, height) = (width.as_i64()?, height.as_i64()?);
+            // Compared only where the element's size is a plain number; a keyed size can
+            // grow past the rect, and the finding stays silent.
+            let element_width = element.get("width").and_then(Value::as_i64)?;
+            let element_height = element.get("height").and_then(Value::as_i64)?;
+            x <= 0
+                && y <= 0
+                && x.checked_add(width)? >= element_width
+                && y.checked_add(height)? >= element_height
+        }
+        _ => return None,
+    };
+    if !covers {
+        return None;
+    }
+
+    Some(
+        Finding::new("R-MASK-ERASES-ALL")
+            .field("element", json!(subject))
+            .field("index", json!(index)),
     )
 }

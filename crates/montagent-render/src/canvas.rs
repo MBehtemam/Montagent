@@ -272,6 +272,8 @@ pub enum Effect {
         shape: MaskShape,
         rect: Option<MaskRect>,
         radius: f64,
+        /// Keep what is outside the shape instead of what is inside (ADR-0152 §1).
+        invert: bool,
     },
     /// Push pixel colour toward `colour` by `amount` (ADR-0049).
     Tint { colour: Rgba, amount: f64 },
@@ -371,7 +373,10 @@ impl MaskShape {
     /// transform (ADR-0084): [`Canvas::in_element_space`] has already translated, rotated
     /// and scaled the canvas by the time this is drawn, so a `rect` mask on a rotated
     /// element paints a rotated rectangle.
-    fn outside(self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
+    ///
+    /// With `invert` the eraser is the shape itself: the mask keeps the outside and
+    /// erases the inside, through the same `Clear` draw (ADR-0152 §1).
+    fn eraser(self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
         let rect = rect.unwrap_or_else(|| MaskRect::of(extent));
         let mut path = PathBuilder::new();
         match self {
@@ -404,7 +409,9 @@ impl MaskShape {
             }
         }
         let mut path = path.detach();
-        path.set_fill_type(PathFillType::InverseWinding);
+        if !invert {
+            path.set_fill_type(PathFillType::InverseWinding);
+        }
         path
     }
 }
@@ -1300,7 +1307,7 @@ impl Canvas {
     /// 16 frame pixels wide, exactly as ADR-0014's `stroke_width` is — the same rule, for
     /// the same reason, and not a second one written down here.
     ///
-    /// **A `mask` is not a filter and is not a clip.** It is [`MaskShape::outside`] —
+    /// **A `mask` is not a filter and is not a clip.** It is [`MaskShape::eraser`] —
     /// everything the shape does not cover — painted over its own layer in `Clear`, which
     /// erases the layer everywhere the mask does not select. A clip would have done the
     /// same thing more cheaply and been wrong for a specific reason: a clip established
@@ -1347,12 +1354,13 @@ impl Canvas {
                 shape,
                 rect,
                 radius,
+                invert,
             } = effect
             {
                 let mut paint = SkPaint::default();
                 paint.set_anti_alias(true);
                 paint.set_blend_mode(BlendMode::Clear);
-                canvas.draw_path(&shape.outside(extent, *rect, *radius), &paint);
+                canvas.draw_path(&shape.eraser(extent, *rect, *radius, *invert), &paint);
             }
             canvas.restore();
         }
@@ -2184,7 +2192,7 @@ mod tests {
 
     #[test]
     fn a_hinted_blur_or_shadow_paints_the_bytes_the_unbounded_layer_does() {
-        let chains: [&[Effect]; 6] = [
+        let chains: [&[Effect]; 7] = [
             &[blur(14.0)],
             &[shadow(0.0, 0.0, 28.0)],
             &[shadow(7.5, -3.25, 20.0)],
@@ -2195,6 +2203,16 @@ mod tests {
                     shape: MaskShape::Ellipse,
                     rect: None,
                     radius: 0.0,
+                    invert: false,
+                },
+                blur(20.0),
+            ],
+            &[
+                Effect::Mask {
+                    shape: MaskShape::Ellipse,
+                    rect: None,
+                    radius: 0.0,
+                    invert: true,
                 },
                 blur(20.0),
             ],

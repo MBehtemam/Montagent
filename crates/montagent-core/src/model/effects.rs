@@ -87,6 +87,13 @@ pub enum Effect {
         height: Option<i64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         radius: Option<i64>,
+        /// Keep the pixels **outside** the shape and erase the inside (ADR-0152 §1).
+        /// Omitted means `false`; a written `false` is legal and the same picture. A
+        /// boolean is not an animatable type (ADR-0146), so a keyframe list here is a
+        /// schema error with no rule of its own. Masks in one list still intersect, so
+        /// `[mask ellipse, mask smaller ellipse inverted]` keeps a ring.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invert: Option<bool>,
     },
     /// Pushes pixel colour toward `color` by `amount` (0–1).
     ///
@@ -230,6 +237,7 @@ impl Effect {
             width,
             height,
             radius,
+            invert: _,
         } = &self
         else {
             return Ok(self);
