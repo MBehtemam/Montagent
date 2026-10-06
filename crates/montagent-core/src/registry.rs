@@ -1716,6 +1716,21 @@ because stop i blends with stop i.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0155 §5: a `motion_blur` that paints nothing a sharp element would not — no
+        // value the element's keyframes resolve differs inside its range, a `units` stagger
+        // counting as motion. A review, never a refusal; the repair is to remove the field.
+        code: "R-MOTION-BLUR-STILL",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "{element} carries `motion_blur`, and no value its keyframes resolve changes \
+over {start}..{end} ms, so every frame paints it once, sharp. Remove the `motion_blur`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0149 §5: a gradient whose resolved paint is a single colour, decided by the
         // resolving function — a forgotten second colour, or a radial that never grows.
         code: "R-GRADIENT-ONE-COLOUR",

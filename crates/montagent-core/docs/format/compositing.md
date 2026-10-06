@@ -2,7 +2,7 @@
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
 other pages; read it first. This page holds the rules for how elements combine: the paint
-drawn through an element's box, an element's `effects`, how the finished element composites
+drawn through an element's box, an element's `effects`, its motion blur, how the finished element composites
 into what is below it, and the transition elements that bridge two others. Like the rest of the format docs, every rule here is an
 accepted decision in the ADR series, cited inline by number, and the ADR is right where the
 two disagree.
@@ -150,6 +150,45 @@ two disagree.
   `feather` whose rect contains the element's keeps no pixel, and the bare form always does.
   Write the rect you meant, or drop `invert`; writing the covering rect out does not silence it.
   Keyed rects, `radius`, `feather` and element sizes are never reported.
+
+## Motion blur
+
+- **`motion_blur` smears an element along its own motion** (ADR-0155):
+  `"motion_blur": {"shutter": 180, "samples": 8}` on a `rect`, `ellipse`, `path`, `text`,
+  `image` or `video`. `shutter` is an integer angle from `1` to `360`: the interval is
+  `shutter / 360` of one frame, centred on the frame instant. `samples`, from `2` to `32`, is
+  how many paints a moving frame averages, so the cost is read from the file. Both keys are
+  required and static; there is no `phase` and no project-wide setting. It is a field, not an
+  `effects` member.
+- **The samples sit at the midpoints** (ADR-0155). Frame n is painted at
+  `instant(n) = ⌊n × 1000 / fps⌋` ms, and its samples at
+  `instant(n) + shutter/360 × (1000/fps) × ((k + ½)/N − ½)` for k = 0 … N−1, exact rationals,
+  not whole milliseconds. At `360` no two frames share an instant. `frame --at` an instant
+  off the frame grid centres the samples on that instant.
+- **The whole element follows the sample** (ADR-0155). Every value its own keyframes
+  resolve is read at each sample instant: `x`, `y`, `scale`, `rotation`, `opacity`, every
+  animatable property, effect parameters, gradient parameters, a path's `points` and a
+  `units` stagger's poses. A `mask` of no size hides that sample alone. Transitions are not
+  sampled. Presence, a run's `highlight` window and a `video`'s source frame are decided once,
+  at the frame instant.
+- **The order is: samples, average, blend** (ADR-0155). Each sample is painted with its
+  `effects`, its `mask` and its `opacity` on a transparent layer; the N layers are averaged
+  byte by byte on premultiplied RGBA, `(Σ + ⌊N/2⌋) / N`, so a tie rounds up and N identical
+  samples give back exactly their bytes; then `blend` composites the average **once**.
+- **A still element is painted once** (ADR-0155). Where every value is equal at all N
+  instants, the frame paints the element as it would without the field, byte for byte. On
+  the frame where a move stops, an antialiased edge may step by one level as it goes from
+  averaged to painted once.
+- **A `video`'s footage is not blurred, only its keyed values.** It holds the one source
+  frame shown at the frame instant, resampled into each sample's box.
+- **The smear reaches only as far as the keyframes do** (ADR-0155). Keyed values clamp past
+  their first and last record, so on a frame where motion starts or stops at a keyframe the
+  smear is one-sided. That includes the frame just after a `shift` cut, where the keys the
+  cut writes clamp the later half's earlier samples. `shift` copies the field unchanged.
+- **`R-MOTION-BLUR-STILL` (`review`)** (ADR-0155): no value of an element carrying the field
+  differs between two instants inside its `[start, end)`, a `units` stagger counting as
+  motion; motion wholly outside its life counts as still. Remove the field. `query --at`
+  prints the field as written and `moving` or `still` for the frame holding the instant.
 
 ## Transitions
 

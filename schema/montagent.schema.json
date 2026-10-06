@@ -217,6 +217,9 @@
             "blend": {
               "$ref": "#/$defs/Blend"
             },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -312,6 +315,9 @@
             },
             "blend": {
               "$ref": "#/$defs/Blend"
+            },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
             },
             "speed": {
               "$ref": "#/$defs/Speed"
@@ -439,6 +445,9 @@
             "blend": {
               "$ref": "#/$defs/Blend"
             },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -530,6 +539,9 @@
             "blend": {
               "$ref": "#/$defs/Blend"
             },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
+            },
             "effects": {
               "type": "array",
               "items": {
@@ -609,6 +621,9 @@
             },
             "blend": {
               "$ref": "#/$defs/Blend"
+            },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
             },
             "effects": {
               "type": "array",
@@ -697,6 +712,9 @@
             },
             "blend": {
               "$ref": "#/$defs/Blend"
+            },
+            "motion_blur": {
+              "$ref": "#/$defs/MotionBlur"
             },
             "effects": {
               "type": "array",
@@ -1328,6 +1346,31 @@
         }
       ],
       "description": "How the finished element composites into what is painted below it (ADR-0147).\n\nThe last step of an element's paint: its `effects` (masks and shadow included), then\n`opacity`, then this, once, inside its `clip`. The arithmetic runs on the stored sRGB\nvalues. Static: a mode has no in-between, so a blend is faded in through `opacity`.\nOmitted means `normal`."
+    },
+    "MotionBlur": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shutter": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The shutter angle in degrees: the interval is `shutter / 360` of one frame.",
+          "minimum": 1,
+          "maximum": 360
+        },
+        "samples": {
+          "type": "integer",
+          "format": "int64",
+          "description": "How many paints a moving frame averages: the cost, read from the file.",
+          "minimum": 2,
+          "maximum": 32
+        }
+      },
+      "required": [
+        "shutter",
+        "samples"
+      ],
+      "description": "**Motion blur** (ADR-0155): the element is painted at `samples` instants spread evenly\nacross a shutter of `shutter / 360` of one frame, centred on the frame instant, and the\npaints are averaged. Both keys are required and static; there is no `phase`."
     },
     "Effect": {
       "oneOf": [

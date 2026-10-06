@@ -15,11 +15,11 @@ use crate::model::ResolvedGradient as Gradient;
 
 use super::rgba_of;
 
-/// The ink `property` holds on `element` at `instant`, or `None` where it states none that
-/// reads. `frame` is the declared box, `[x, y, width, height]`, a gradient is measured
-/// against.
-pub(super) fn at(element: &Value, property: &str, instant: i64, frame: [f32; 4]) -> Option<Ink> {
-    match animatable::at(element, property, instant)?.ok()? {
+/// The ink `property` holds on `element` at `t = (numerator, denominator)` ms, or `None`
+/// where it states none that reads. `frame` is the declared box, `[x, y, width, height]`, a
+/// gradient is measured against.
+pub(super) fn at(element: &Value, property: &str, t: (i128, i128), frame: [f32; 4]) -> Option<Ink> {
+    match animatable::read(element, property, t.0, t.1)?.ok()? {
         Resolved::Colour(colour) => rgba_of(&colour).map(Ink::Flat),
         Resolved::Gradient(gradient) => Some(Ink::Gradient(Arc::new(shader(&gradient, frame)?))),
         Resolved::Number(_) | Resolved::Pair(_) | Resolved::Points(_) | Resolved::Stops(_) => None,

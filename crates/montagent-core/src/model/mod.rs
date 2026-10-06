@@ -478,6 +478,52 @@ impl Body {
     }
 }
 
+/// **Motion blur** (ADR-0155): the element is painted at `samples` instants spread evenly
+/// across a shutter of `shutter / 360` of one frame, centred on the frame instant, and the
+/// paints are averaged. Both keys are required and static; there is no `phase`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MotionBlur {
+    /// The shutter angle in degrees: the interval is `shutter / 360` of one frame.
+    #[schemars(range(min = 1, max = 360))]
+    pub shutter: i64,
+    /// How many paints a moving frame averages: the cost, read from the file.
+    #[schemars(range(min = 2, max = 32))]
+    pub samples: i64,
+}
+
+/// `motion_blur` as written, before its bounds are checked.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MotionBlurWritten {
+    shutter: i64,
+    samples: i64,
+}
+
+impl<'de> Deserialize<'de> for MotionBlur {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let w = MotionBlurWritten::deserialize(deserializer)?;
+        if !(1..=360).contains(&w.shutter) {
+            return Err(D::Error::custom(format!(
+                "`shutter` is {}: a shutter angle is an integer from 1 to 360 degrees \
+                 (ADR-0155)",
+                w.shutter
+            )));
+        }
+        if !(2..=32).contains(&w.samples) {
+            return Err(D::Error::custom(format!(
+                "`samples` is {}: a motion blur paints from 2 to 32 samples (ADR-0155)",
+                w.samples
+            )));
+        }
+        Ok(MotionBlur {
+            shutter: w.shutter,
+            samples: w.samples,
+        })
+    }
+}
+
 /// `source, x, y, origin, width, height, fit, clip, scale` — ADR-0041's measured order —
 /// then the two transform properties ADR-0012 declares after `scale`, then `effects`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -511,6 +557,8 @@ pub struct Image {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -547,6 +595,8 @@ pub struct Video {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -626,6 +676,8 @@ pub struct TextElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
     /// `false` says this text is not a caption — a title, a lower-third, a logo, a
     /// kinetic word — and silences all four caption checks on it: `R-CAPTION-PACE`,
@@ -696,6 +748,8 @@ pub struct Rect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
 
@@ -746,6 +800,8 @@ pub struct Ellipse {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
@@ -800,6 +856,8 @@ pub struct PathElement {
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }

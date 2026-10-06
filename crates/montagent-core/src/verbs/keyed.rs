@@ -468,6 +468,8 @@ fn effects_at(
     instant: i64,
 ) -> Vec<montagent_render::canvas::Effect> {
     (0..declared.len())
-        .filter_map(|index| crate::verbs::frame::effect_of(element, index, instant))
+        .filter_map(|index| {
+            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1))
+        })
         .collect()
 }

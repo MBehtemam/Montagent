@@ -536,7 +536,18 @@ pub fn at(element: &Value, property: &str, instant: i64) -> Option<Result<Resolv
 /// [`at`], read as a number with the caller's own default where the element does not
 /// declare it or it cannot be read — the reading a painter or a geometry check wants.
 pub fn number_at(element: &Value, property: &str, instant: i64, default: f64) -> f64 {
-    at(element, property, instant)
+    number_read(element, property, i128::from(instant), 1, default)
+}
+
+/// [`number_at`] at `numerator / denominator` ms — a motion-blur sample (ADR-0155 §3).
+pub fn number_read(
+    element: &Value,
+    property: &str,
+    numerator: i128,
+    denominator: i128,
+    default: f64,
+) -> f64 {
+    read(element, property, numerator, denominator)
         .and_then(Result::ok)
         .and_then(|value| value.number())
         .unwrap_or(default)
