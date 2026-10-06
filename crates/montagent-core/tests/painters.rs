@@ -23,6 +23,7 @@ use montagent_core::verbs::render::{
     Ask, Cancel, Forced, Progress, fail_frames, force_painting, render, render_cancellable,
     tap_frames,
 };
+use montagent_render::canvas::bound_filter_layers;
 use serde_json::{Value, json};
 
 mod common;
@@ -295,6 +296,115 @@ fn chunk_boundaries_inside_a_feeds_seek_and_its_loop_paint_the_same_frames() {
     for (painters, chunk) in [(3, 4), (2, 7)] {
         let chunked = rendered(&path, chunks(painters, chunk));
         assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+}
+
+/// ADR-0147 §4's fixture, one `blend` mode on every element above the ground: sub-pixel
+/// motion, rotation, non-uniform scale, keyed `opacity`, `blur` with `shadow`, a `mask`, a
+/// `clip`, stroked text, an image and a video, 18 frames at 30 fps.
+fn blended_project(mode: &str, line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    for asset in ["fonts/Cinzel-Bold.ttf", "img/boat.jpg"] {
+        let to = dir.join(asset);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+        std::fs::copy(trailer().join(asset), &to).expect("copy the trailer's asset");
+    }
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    // Over 600 ms an `x` that travels 7 px moves a fraction of a pixel per frame.
+    let keyed = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 600, "v": to, "ease": "linear"}]);
+    let glow = json!({"name": "shadow", "dx": 3, "dy": 2, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
+    let elements = [
+        json!({"id": "ground", "type": "rect", "start": 0, "end": 600, "x": 0, "y": 0,
+               "origin": "top-left", "width": 160, "height": 90, "fill": "#5A6E80"}),
+        json!({"id": "photo", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 600,
+               "x": keyed(json!(80), json!(87)), "y": 45, "origin": "center", "width": 160,
+               "height": 90, "fit": "literal", "clip": [8, 6, 144, 78], "blend": mode}),
+        json!({"id": "footage", "type": "video", "start": 0, "end": 600, "source": clip,
+               "source_start": 0, "source_end": 600, "x": 40, "y": 40, "origin": "center",
+               "width": 64, "height": 48, "fit": "literal", "volume": 0,
+               "rotation": keyed(json!(0.0), json!(17.5)),
+               "opacity": keyed(json!(1.0), json!(0.35)), "blend": mode}),
+        json!({"id": "title", "type": "text", "font": "cinzel-bold", "size": 28, "color": "#E3C067",
+               "stroke": "#A02010", "stroke_width": 2, "align": "center",
+               "runs": [{"text": "SPY"}], "width": 120, "height": 40, "start": 0, "end": 600,
+               "x": keyed(json!(76), json!(83)), "y": 45, "origin": "center",
+               "scale": [1.3, 0.8], "effects": [{"name": "blur", "radius": 1.5}, glow],
+               "blend": mode}),
+        json!({"id": "lens", "type": "ellipse", "start": 0, "end": 600, "x": 120, "y": 30,
+               "origin": "center", "width": 40, "height": 30, "fill": "#FFFFFF",
+               "rotation": 20, "scale": keyed(json!([1.5, 0.7]), json!([1.1, 0.9])),
+               "effects": [{"name": "mask", "shape": "circle"}, {"name": "blur", "radius": 3}],
+               "blend": mode}),
+        json!({"id": "bar", "type": "rect", "start": 0, "end": 600,
+               "x": keyed(json!(10), json!(17)), "y": 70, "origin": "top-left", "width": 60,
+               "height": 10, "fill": "#20C0F0", "rotation": -8, "opacity": 0.7,
+               "effects": [glow], "blend": mode}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+        "duration": 600, "output": "out/blend.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "blend.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+/// [`rendered`], with the `blur`/`shadow` bounds hint (#652) off on the asking thread,
+/// which every painter inherits.
+fn rendered_unbounded(path: &Path, forced: Forced) -> Rendered {
+    let path = path.to_path_buf();
+    within(move || {
+        bound_filter_layers(false);
+        let _forced = force_painting(forced);
+        let tap = tap_frames();
+        let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
+        let mp4 = answer
+            .video()
+            .map(|video| std::fs::read(&video.path).expect("the published file"));
+        Rendered {
+            frames: tap.hashes(),
+            answer: answer.to_json(),
+            exit: answer.report().exit_code(),
+            mp4,
+        }
+    })
+}
+
+#[test]
+fn every_blend_mode_paints_the_same_frames_on_any_number_of_painters() {
+    // ADR-0147 §4, the gating test: a mode that fails it is withdrawn, not excused.
+    if !has_ffprobe() {
+        return;
+    }
+    for mode in ["normal", "multiply", "screen", "overlay", "add"] {
+        let path = blended_project(mode, line!() * 10 + mode.len() as u32);
+        let sequential = rendered(&path, Forced::OnePainter);
+        assert_eq!(sequential.frames.len(), 18, "{mode}");
+        for (painters, chunk) in [(3, 2), (2, 5), (4, 1)] {
+            let chunked = rendered(&path, chunks(painters, chunk));
+            assert_same(
+                &sequential,
+                &chunked,
+                &format!("{mode}: K={painters}, C={chunk}"),
+            );
+        }
+        for forced in [Forced::OnePainter, chunks(3, 2)] {
+            let unbounded = rendered_unbounded(&path, forced);
+            assert_same(&sequential, &unbounded, &format!("{mode}: the hint off"));
+        }
     }
 }
 

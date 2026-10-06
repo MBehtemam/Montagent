@@ -1529,6 +1529,25 @@ from t={from} to t={to}; ease={ease} describes no motion.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0147. A blend mode reads what is under the element, so one with nothing under
+        // it blends with the `background` alone: the light leak with no footage beneath.
+        // A partial overhang is ordinary design and silent. Decided from bounding boxes at
+        // the frames `render` paints; where only a rotated box keeps it quiet, the element
+        // is named beneath NOT CHECKED rather than passed in silence.
+        code: "R-BLEND-BACKGROUND-ONLY",
+        classes: &[Review],
+        repair: None,
+        // Every deciding number is the document's own geometry.
+        threshold: Internal,
+        adr: "ADR-0147",
+        template: "{element} blends in `{blend}` over {start}..{end} ms, and at {instant} ms \
+no element lower in the stack meets its box, so it blends with the `background` alone. Put \
+what it should blend with beneath it, or drop the `blend`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0084. `circle` is the one mask shape whose meaning *discards* part of its
         // rect, so it is the one that gets a finding: `rect` is the rect and `ellipse`
         // fills it, both total, and an oval in a non-square rect surprises nobody.

@@ -2159,6 +2159,10 @@ fn resolved_cells(element: &Value) -> String {
             None => format!("{property} {}{animated}", resolved_number(&value["value"])),
         });
     }
+    // ADR-0147: every visual member says how it composites, `normal` included.
+    if let Some(blend) = element["blend"].as_str() {
+        cells.push(format!("blend {blend}"));
+    }
     match cells.is_empty() {
         // A fact, not a blank: an audio element with no `volume` declares nothing that
         // changes over time, and a reader scanning the column would read an empty cell as a

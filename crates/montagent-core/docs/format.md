@@ -137,6 +137,22 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
   different frame from shadow-then-blur. They attach to whole elements, never to a run, and
   no effect parameter is keyframable in v1.
+- **`blend` is how the finished element composites into what is below it** (ADR-0147). One
+  of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
+  on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
+  Omitted means `normal`, and a written `"blend": "normal"` is legal and draws the same
+  bytes. It is static and never keyframed: fade a blend in through `opacity`. The order is
+  fixed: the element is drawn through its `effects` (masks and shadow included), `opacity`
+  scales the result, and that result is blended **once** into everything painted below it,
+  down to the `background`, inside the element's `clip`. The arithmetic runs on the stored
+  sRGB values.
+- **A shadow blends in its element's mode** (ADR-0147). Under `screen` or `add` a dark
+  shadow all but vanishes, and under `multiply` it darkens. For an ordinary shadow under a
+  blended element, put the shadow on a separate `normal` element beneath it.
+- **Over the default black `background`, `screen` and `add` draw what `normal` draws, and
+  `multiply` draws black** (ADR-0147). A blend needs something beneath it. `validate`
+  reports `R-BLEND-BACKGROUND-ONLY` at `review` when, at some frame `render` paints, nothing
+  lower in the stack meets a blended element's box; a partial overhang is silent.
 - **A `mask`'s `x`, `y`, `width`, `height` are element-local, and their identity value is the
   element's own rect** (ADR-0084). `(0, 0)` is the element rect's top-left **whatever the
   `origin` keyword is** — `origin` places the box, it does not re-parameterise the box's

@@ -121,6 +121,34 @@ pub struct Transform {
     /// Degrees clockwise, never normalised into `[0,360)` (ADR-0012).
     pub rotation: f64,
     pub opacity: f64,
+    /// How the finished element composites into what is below it (ADR-0147). Not a
+    /// transform property, and static, but carried here beside `opacity` because the two
+    /// are applied together by the one layer the element is composited through.
+    pub blend: Blend,
+}
+
+/// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
+/// values: the surface carries no colour space, so Skia blends the bytes as they are.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Blend {
+    #[default]
+    Normal,
+    Multiply,
+    Screen,
+    Overlay,
+    Add,
+}
+
+impl Blend {
+    fn mode(self) -> BlendMode {
+        match self {
+            Blend::Normal => BlendMode::SrcOver,
+            Blend::Multiply => BlendMode::Multiply,
+            Blend::Screen => BlendMode::Screen,
+            Blend::Overlay => BlendMode::Overlay,
+            Blend::Add => BlendMode::Plus,
+        }
+    }
 }
 
 /// The declared `width`×`height` box, before `scale`.
@@ -1226,9 +1254,21 @@ impl Canvas {
         // shadow, which is the one thing every editor in the reference class agrees it
         // does not do. Neither ADR-0012 nor ADR-0040 says which wraps which; raised at
         // [#280](https://github.com/MBehtemam/Montagent/issues/280).
-        let layered = transform.opacity < 1.0;
-        if layered {
-            canvas.save_layer_alpha_f(None, transform.opacity as f32);
+        //
+        // **The blend is the same layer's paint** (ADR-0147): effects, then `opacity`, then
+        // the mode, so the finished element, shadow included, is composited once inside
+        // `clip`. No bounds hint: the layer is the element's whole paint, and a hint here
+        // would be a second place for its edge to be decided.
+        let layered = transform.opacity < 1.0 || transform.blend != Blend::Normal;
+        if transform.blend == Blend::Normal {
+            if layered {
+                canvas.save_layer_alpha_f(None, transform.opacity as f32);
+            }
+        } else {
+            let mut paint = SkPaint::default();
+            paint.set_alpha_f(transform.opacity.min(1.0) as f32);
+            paint.set_blend_mode(transform.blend.mode());
+            canvas.save_layer(&SaveLayerRec::default().paint(&paint));
         }
         canvas.translate((transform.x as f32, transform.y as f32));
         if transform.rotation != 0.0 {
@@ -1525,6 +1565,7 @@ mod tests {
                 scale: (1.0, 1.0),
                 rotation: 0.0,
                 opacity: 1.0,
+                blend: Blend::Normal,
                 origin: (0.0, 0.0),
             },
             None,
@@ -1692,6 +1733,7 @@ mod tests {
                 scale: (1.0, 1.0),
                 rotation: 0.0,
                 opacity: 1.0,
+                blend: Blend::Normal,
             },
             None,
             &[],
@@ -2019,6 +2061,7 @@ mod tests {
                 scale: (1.0, 1.0),
                 rotation: 0.0,
                 opacity: 1.0,
+                blend: Blend::Normal,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2067,6 +2110,7 @@ mod tests {
             scale,
             rotation,
             opacity: 1.0,
+            blend: Blend::Normal,
         }
     }
 

@@ -214,6 +214,9 @@ fn run_checks(
     // ADR-0084's non-square circle mask: also document-only, and also derived arithmetic
     // rather than written numbers — the rect it measures is usually the one nobody wrote.
     crate::checks::mask::check(document, report);
+    // ADR-0147's `R-BLEND-BACKGROUND-ONLY`: a blended element with nothing beneath it,
+    // decided from boxes at the instants `render` paints. Document-only.
+    crate::checks::blend::check(document, report);
     // ADR-0088's three document-only `chroma` findings (#342): a colour operation ahead of
     // the key in the same ordered list, a key on pixels the format itself authored, and a
     // `tolerance` sitting on its identity value. Its fourth finding needs the probe and is

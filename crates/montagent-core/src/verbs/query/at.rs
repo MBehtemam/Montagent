@@ -128,6 +128,10 @@ pub struct Present {
     /// Every animated property the element **declares**, resolved at the instant — in the
     /// order the format declares them, never the order the file happens to write them in.
     pub values: Vec<Resolved>,
+    /// How the element composites into what is below it (ADR-0147), in the word the file
+    /// uses, `normal` included where the field is omitted: a member that blends and one that
+    /// does not must not read alike. `null` on `audio` and `transition`, which draw nothing.
+    pub blend: Option<String>,
     /// **Offset into source** — where in the source file this instant plays, for `audio`
     /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
     /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
@@ -387,6 +391,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             _ => (None, None),
         };
 
+        let blend = blend_word(element, kind);
         present.push(Present {
             named,
             start,
@@ -394,6 +399,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             layer,
             layer_unresolved,
             values: values(element, instant),
+            blend,
             source_offset,
             source_offset_unresolved,
             source_origin,
@@ -426,6 +432,19 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         not_covered,
         not_covered_unresolved,
     }
+}
+
+/// `blend` as the file spells it, `normal` where it is omitted, and `None` on a type that
+/// draws nothing. A value that is not one of the five words is the schema check's error,
+/// and this view reports it as the `normal` the painter falls back to.
+fn blend_word(element: &Value, kind: Option<&str>) -> Option<String> {
+    if !covers_the_frame(kind) {
+        return None;
+    }
+    let written = element
+        .get("blend")
+        .and_then(|value| serde_json::from_value::<crate::model::Blend>(value.clone()).ok());
+    Some(written.unwrap_or_default().as_str().to_string())
 }
 
 /// The one sentence every geometry field carries in a presence-only view.
