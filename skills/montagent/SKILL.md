@@ -85,6 +85,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Time**
 
 - Per-clip speed, and a check on clips that run across a loop's join: `speed`, `loop`.
+- Speed ramps, reverse and freeze frames on a video, as a curve of source times: `source_time`.
 
 **Audio**
 
@@ -110,7 +111,6 @@ Each item names the issue whose close retires it. Tell the user when the brief d
 
 - Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
-- Speed ramps. Keep them out of the design. <!-- workaround: #745 · replaced by: speed ramps -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
 - Changing an element's image over time. Use one element per image, each shown for its own span (`montagent-character`). <!-- workaround: #518 · replaced by: an image that changes over time -->
 - Reading a track's tempo or beats. Find the beat grid with the script in `montagent-craft`. <!-- workaround: #547 · replaced by: tempo and downbeat from probe -->

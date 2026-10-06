@@ -163,6 +163,11 @@ impl<'a> Arm<'a> {
 
 /// One element, through whichever arm its `overrun` selects.
 fn evaluate(element: &Value) -> Option<Finding> {
+    // ADR-0157: a remapped element's curve replaces this invariant, and every field it reads
+    // beside `source_time` is already `E-REMAP-FIELD`.
+    if crate::remap::is_remapped(element) {
+        return None;
+    }
     let invariant = Invariant::of(element)?;
     match Arm::of(element)? {
         Arm::Inequality(overrun) => unneeded_overrun(&invariant, overrun),

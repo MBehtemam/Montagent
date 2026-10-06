@@ -58,6 +58,7 @@ pub mod motion_blur;
 pub mod parse;
 pub mod permissive;
 pub mod registry;
+pub mod remap;
 pub mod report;
 pub mod resolve;
 pub mod resources;

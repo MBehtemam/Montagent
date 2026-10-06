@@ -149,13 +149,17 @@ pub(crate) fn still_throughout(element: &Value) -> Option<bool> {
 /// each `units` pose.
 ///
 /// `volume` is left out: it is heard, not painted, so it moves nothing a sample would show.
+/// So is `source_time` (ADR-0157): the frame instant decides a video's source frame, and
+/// every sample of the frame shows that one frame (§3), so a curve moves nothing either.
 pub(crate) fn still(element: &Value, instants: &[(i128, i128)]) -> bool {
     let Some((&first, rest)) = instants.split_first() else {
         return true;
     };
     let unchanged = animatable::declared(element)
         .into_iter()
-        .filter(|declared| !(declared.effect.is_none() && declared.key() == "volume"))
+        .filter(|declared| {
+            !(declared.effect.is_none() && matches!(declared.key(), "volume" | crate::remap::FIELD))
+        })
         .all(|declared| {
             let at_first = declared.read(first.0, first.1);
             rest.iter().all(|t| declared.read(t.0, t.1) == at_first)

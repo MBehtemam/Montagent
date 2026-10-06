@@ -62,8 +62,9 @@ pub struct Coverage {
     /// `fps ÷ speed`, because a frame of timeline moves `speed / fps` seconds through the
     /// source. Stated because it is not `fps` whenever the element is retimed, and a reader
     /// comparing two elements' series needs to know they are on different clocks. Until
-    /// ADR-0127 this said `fps × speed` and the run was sampled at it.
-    pub source_fps: f64,
+    /// ADR-0127 this said `fps × speed` and the run was sampled at it. `null` on a `video`
+    /// carrying `source_time`, whose rate is its curve's slope and not one number (ADR-0157).
+    pub source_fps: Option<f64>,
     /// One entry per sampled frame, in time order.
     pub frames: Vec<Sample>,
 }
@@ -215,6 +216,34 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
             .map_err(|missing| CoverageError::Missing(*missing))?
     };
 
+    if declared == "video" && crate::remap::is_remapped(element) {
+        return remapped(
+            element,
+            fps,
+            &ffmpeg,
+            &path,
+            decoder,
+            (width, height),
+            &effects,
+        )
+        .map(|frames| Coverage {
+            asked: Asked {
+                id: element
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                r#type: declared.to_string(),
+                source: source.to_string(),
+                width,
+                height,
+            },
+            fps,
+            source_fps: None,
+            frames,
+        })
+        .map_err(CoverageError::from);
+    }
+
     let run = run_of(element, declared, fps)?;
     let mut frames = decode::frames_from(
         &ffmpeg,
@@ -271,9 +300,66 @@ pub(crate) fn coverage(document: &Loose, element: &Value) -> Result<Coverage, Co
             height,
         },
         fps,
-        source_fps: run.source_fps,
+        source_fps: Some(run.source_fps),
         frames: samples,
     })
+}
+
+/// The series of a `video` carrying `source_time` (ADR-0157): one sample per painted frame
+/// instant of its range, each read at the source millisecond [`crate::remap::source_ms`]
+/// resolves there — the function the painter decodes at. A curve has no one source rate, and
+/// a falling or slow stretch cannot ride a forward run, so each frame is decoded alone, and
+/// one source millisecond held across frames is decoded once.
+fn remapped(
+    element: &Value,
+    fps: i64,
+    ffmpeg: &std::path::Path,
+    path: &std::path::Path,
+    decoder: decode::Decoder,
+    (width, height): (i64, i64),
+    effects: &[model::Effect],
+) -> Result<Vec<Sample>, String> {
+    let start = element
+        .get("start")
+        .and_then(Value::as_i64)
+        .ok_or("the element states no `start`, so its frames sit at no instant")?;
+    let end = element
+        .get("end")
+        .and_then(Value::as_i64)
+        .filter(|end| *end > start)
+        .ok_or("the element's `end` does not follow its `start`, so it shows no frames")?;
+    let box_ = Extent {
+        width: width as f64,
+        height: height as f64,
+    };
+    let mut canvas =
+        Canvas::new(width, height).ok_or("no surface could be made at the element's own box")?;
+    let mut held: Option<(i64, decode::DecodedFrame)> = None;
+    let mut samples = Vec::new();
+    for (frame, at) in crate::remap::painted_instants(start, end, fps).enumerate() {
+        let ms = crate::remap::source_ms(element, at)?;
+        let decoded = match held.take() {
+            Some((held_ms, decoded)) if held_ms == ms => decoded,
+            _ => decode::frame_at(
+                ffmpeg,
+                &path.to_string_lossy(),
+                decoder,
+                ms,
+                width as u32,
+                height as u32,
+            )?,
+        };
+        samples.push(sample(
+            &mut canvas,
+            frame,
+            at,
+            &decoded,
+            &effects_at(element, effects, at, fps),
+            box_,
+        )?);
+        held = Some((ms, decoded));
+    }
+    Ok(samples)
 }
 
 /// One frame, painted through the element's effects and counted.

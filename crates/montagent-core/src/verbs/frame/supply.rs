@@ -239,8 +239,18 @@ pub(crate) struct Request<'r> {
     pub ffmpeg: &'r Path,
     pub source: &'r Path,
     pub video: Video,
-    /// The project's `fps` and the element's `speed`.
+    /// The project's `fps` and the element's `speed`. `1` on a remapped element.
     pub pace: Pace,
+    /// Set on an element carrying `source_time` (ADR-0157), whose offset is decided frame by
+    /// frame by its curve rather than by a pass at one `speed`.
+    pub remap: Option<Remap>,
+}
+
+/// What a supplier knows about a remapped element's curve beyond this frame (ADR-0157).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Remap {
+    /// The offset the curve resolves at the next timeline frame, where it resolves.
+    pub next: Option<i64>,
 }
 
 impl Request<'_> {
@@ -387,6 +397,12 @@ struct Slot {
 /// 3. **Anything else** — a loop wrap, a re-entry, a skip — the feed is dropped and reopened
 ///    at this frame.
 ///
+/// An element carrying `source_time` (ADR-0157) takes step 3 only where its curve runs at 1×
+/// into the next frame — the offset there is this one plus one frame interval — because only
+/// then is a feed's next frame provably the one the curve picks. Every other remapped frame
+/// (slow, fast, frozen or falling) that steps 1 and 2 do not serve is one
+/// [`decode::frame_at`], and the feed is closed.
+///
 /// An element without a feed asks for one when it is painted; it gets one if its
 /// [`feed_bytes`] [`fits`] beside what is held, and is otherwise decoded per frame through
 /// [`decode::frame_at`] for that frame. That is a capacity decision taken before any feed
@@ -463,11 +479,31 @@ impl Feeds {
         {
             return Ok(frame.clone());
         }
+        let pace = request.pace;
+        let instant = crate::exact::instant_of(n, pace.fps);
+        // ADR-0157: a remapped element rides a feed only on a rising 1× stretch, where the
+        // feed's next frame is provably the one the curve picks there too. A slower, faster,
+        // flat or falling stretch is decoded a frame at a time: a feed opened for it would be
+        // reopened on the next frame.
+        if let Some(remap) = request.remap {
+            let here = Origin {
+                timeline_ms: instant,
+                source_ms: request.offset,
+            };
+            let rising = Pace {
+                fps: pace.fps,
+                speed: (1, 1),
+            };
+            if remap.next != Some(decode::offset_at(here, rising, n + 1)) {
+                slot.feed = None;
+                let frame = request.frame_at()?;
+                slot.last = Some((request.offset, frame.clone()));
+                return Ok(frame);
+            }
+        }
         // 3. Anything else: open, or reopen, at this frame.
         let reopening = slot.feed.is_some() || slot.last.is_some() || slot.terminal.is_some();
         slot.feed = None;
-        let pace = request.pace;
-        let instant = crate::exact::instant_of(n, pace.fps);
         let mut origin = match request.origin {
             Some((timeline_ms, source_ms)) => Origin {
                 timeline_ms,

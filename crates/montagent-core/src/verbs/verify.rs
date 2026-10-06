@@ -721,6 +721,10 @@ impl Heard {
             ) {
                 continue;
             }
+            // ADR-0157 §4: a remapped video is silent, so nothing of it should be heard.
+            if crate::remap::is_remapped(element) {
+                continue;
+            }
             let name = element
                 .get("id")
                 .and_then(Value::as_str)

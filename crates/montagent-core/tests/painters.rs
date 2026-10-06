@@ -1409,3 +1409,80 @@ fn grain_paints_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_of
         assert_same(&sequential, &unbounded, "the hint off");
     }
 }
+
+/// ADR-0157's acceptance fixture: five `video` elements carrying `source_time` on one clip —
+/// a ramp (1× → 0.3× → 1×), an eased segment, a reverse, a flat freeze between two 1×
+/// stretches, and a literal freeze — on a 192x96 frame at 25 fps for 2000 ms (50 frames).
+/// The reverse, the freeze and the slow stretch cross every chunk boundary, so a chunk start
+/// reopens a feed (or decodes a frame alone) in the middle of each.
+fn remap_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let linear = |keys: &[(i64, i64)]| {
+        let records: Vec<Value> = keys
+            .iter()
+            .enumerate()
+            .map(|(i, &(t, v))| match i {
+                0 => json!({"t": t, "v": v}),
+                _ => json!({"t": t, "v": v, "ease": "linear"}),
+            })
+            .collect();
+        json!(records)
+    };
+    let curves = [
+        (
+            "ramp",
+            linear(&[(0, 0), (400, 400), (1200, 640), (1960, 1400)]),
+        ),
+        (
+            "eased",
+            json!([{"t": 0, "v": 200}, {"t": 1960, "v": 3000, "ease": "ease-in-out"}]),
+        ),
+        ("reverse", linear(&[(0, 3000), (1960, 1040)])),
+        (
+            "frozen",
+            linear(&[(0, 100), (600, 700), (1400, 700), (1960, 1260)]),
+        ),
+        ("literal", json!(1500)),
+    ];
+    let tracks: Vec<Value> = curves
+        .into_iter()
+        .enumerate()
+        .map(|(i, (id, curve))| {
+            let element = json!({"id": id, "type": "video", "start": 0, "end": 2000,
+                "source": clip, "source_time": curve, "x": (i as i64 % 3) * 64,
+                "y": (i as i64 / 3) * 48, "origin": "top-left", "width": 64, "height": 48,
+                "fit": "literal", "volume": 0});
+            json!({"name": format!("t{i}"), "layer": i, "elements": [element]})
+        })
+        .collect();
+    let project = json!({
+        "frame": {"width": 192, "height": 96}, "fps": 25, "background": "#000000",
+        "duration": 2000, "output": "out/remap.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "remap.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn time_remapped_video_paints_the_same_frames_on_any_number_of_painters() {
+    // ADR-0157's byte-identity acceptance (ADR-0144): every chunk start reopens each feed, or
+    // decodes a frame alone, partway through a reverse, a freeze and a slow stretch.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = remap_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 50);
+    assert_ne!(
+        sequential.frames[5], sequential.frames[30],
+        "the clips move"
+    );
+    for (painters, chunk) in [(3, 4), (2, 7), (4, 1), (10, 1), (3, 13)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+}

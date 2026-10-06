@@ -41,7 +41,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
-pub use playback::{AudioOverrun, Speed, Volume};
+pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
@@ -570,12 +570,24 @@ pub struct Image {
 /// so this ticket does, following the two orders that *are* measured: `image`'s visual
 /// sequence, with `audio`'s `source_start, source_end` in `audio`'s own relative position
 /// directly after `source`, then the fields a video shares with audio.
+///
+/// `source_time` (ADR-0157) sits after the range it replaces: a video names its source either
+/// by `source_start` and `source_end` or by `source_time`, and one of the two is required.
+/// Writing both is `validate`'s `E-REMAP-FIELD`, not a schema error, so the finding can name
+/// each field the curve makes redundant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct Video {
     pub source: String,
-    pub source_start: i64,
-    pub source_end: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_start: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_end: Option<i64>,
+    /// Which moment of the file is on screen, in integer source milliseconds: a literal is a
+    /// freeze frame, a keyframe list a time-remap curve (ADR-0157). The element is silent,
+    /// and `source_start`, `source_end`, `speed` and `overrun` are refused beside it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_time: Option<Animatable<SourceTime>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -608,6 +620,42 @@ pub struct Video {
     pub volume: Option<Animatable<Volume>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+}
+
+impl Video {
+    /// ADR-0157's one relational rule the derive cannot state: a video names its source by a
+    /// range or by `source_time`.
+    fn checked(self) -> Result<Self, String> {
+        if self.source_time.is_none() {
+            for (field, present) in [
+                ("source_start", self.source_start.is_some()),
+                ("source_end", self.source_end.is_some()),
+            ] {
+                if !present {
+                    return Err(format!(
+                        "missing field `{field}`: a video names its source by `source_start` \
+                         and `source_end`, or by a `source_time` (ADR-0157)"
+                    ));
+                }
+            }
+        }
+        Ok(self)
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Transition`.
+impl Serialize for Video {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Video::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Video {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Video::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
 }
 
 /// `x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's

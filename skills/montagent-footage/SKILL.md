@@ -34,6 +34,7 @@ Every recipe gives starting ranges, not answers. Each ends in a **look step**: l
 - **Eyes:** 25–35 % of the way down the frame. Lower the element's `bottom-center` past the frame's bottom edge to get there; cutting off the legs is normal.
 - **Headroom:** 4–8 % of the frame height above the hair.
 - **A take shorter than the piece:** `"overrun": "hold"` freezes its last frame. Keep the freeze under half a second, or end the piece earlier.
+- **A freeze frame inside a clip, a speed ramp, or a reverse:** write `source_time` in place of `source_start` and `source_end`: a literal freezes one moment, and keys of source milliseconds against timeline `t` ramp (a flat pair freezes, a falling pair reverses). A clip with `source_time` is silent at `volume` 0, so put its sound on its own `audio` element.
 - **The take's own sound:** the voice stays at `volume` 1.0. Everything else is mixed under it.
 - **Look:** `frame` at the start, the middle and the last drawn frame, and check the eyes sit in the band and nothing important is cut at the frame's sides.
 

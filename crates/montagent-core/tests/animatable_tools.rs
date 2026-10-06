@@ -62,6 +62,12 @@ fn subject(property: &str, records: Value) -> Value {
         json!({"id": "subject", "type": "audio", "start": 1000, "end": 3000,
                "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1500,
                "overrun": "loop"})
+    } else if has("video") {
+        // A remapped video (ADR-0157): silent, as `E-REMAP-AUDIBLE` requires, on the
+        // fixture's own reference footage.
+        json!({"id": "subject", "type": "video", "start": 1000, "end": 3000,
+               "source": "reference/kenburns/05.mp4", "source_time": 0, "x": 540, "y": 960,
+               "width": 400, "height": 400, "fit": "literal", "volume": 0})
     } else {
         panic!("`{property}` is animatable on no type this test knows how to write");
     };

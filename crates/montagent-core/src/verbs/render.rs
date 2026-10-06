@@ -1755,6 +1755,11 @@ fn chain(
     if window_end <= window_start {
         return Ok(None);
     }
+    // ADR-0157 §4: a remapped video contributes nothing to the mix. `E-REMAP-AUDIBLE` has
+    // already made the document say so, with `volume` written as the literal `0`.
+    if crate::remap::is_remapped(element) {
+        return Ok(None);
+    }
 
     let Some(source) = element.get("source").and_then(Value::as_str) else {
         return Err(Declined::internal(name, "no `source`"));
