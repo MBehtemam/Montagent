@@ -1367,10 +1367,21 @@ Montagent itself
 
 **Router skill**:
 The `montagent` **Skill**. It holds the loop from project file to delivered video
-and the capability map, which says what Montagent can do, what it cannot do yet,
-and which **Job skill** covers each kind of piece. Its description is written to
-load on any Montagent task; nothing enforces that it loads first.
+and the **Capability map**, beside a table of which **Job skill** covers each kind
+of piece. Its description is written to load on any Montagent task; nothing enforces
+that it loads first.
 _Avoid_: entry skill, main skill
+
+**Capability map**:
+The one place an **Agent** learns what Montagent can do, held in the body of the
+**Router skill** so it is read before anything is designed. It has three parts: what
+Montagent does, grouped by area, each capability named with the keys that spell it;
+what it cannot do yet, one item per capability, each a **Workaround** naming the issue
+that retires it; and what it does not do by design, each with what to do instead and
+the ADR that refused it. It names keys but never states their values or rules, which
+belong to the schema and the format docs
+([#700](https://github.com/MBehtemam/Montagent/issues/700)).
+_Avoid_: feature map, feature list
 
 **Job skill**:
 A **Skill** the **Router skill** points to. It owns either the recipes for one kind
