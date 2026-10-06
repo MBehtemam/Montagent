@@ -35,6 +35,8 @@ fn spec<'a>(runs: &'a [Run<'a>], align: Align) -> Spec<'a> {
         y: 0,
         vertical_origin: VerticalOrigin::Top,
         align,
+        letter_spacing: 0.0,
+        optional_ligatures_off: false,
     }
 }
 

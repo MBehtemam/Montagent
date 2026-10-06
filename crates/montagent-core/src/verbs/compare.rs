@@ -68,7 +68,15 @@ const TOOL: &str = "compare";
 
 /// Every transform property that may carry keyframes (`crate::model`'s `Animatable`
 /// fields, across every element type that has one).
-const ANIMATABLE: &[&str] = &["x", "y", "scale", "rotation", "opacity", "volume"];
+const ANIMATABLE: &[&str] = &[
+    "x",
+    "y",
+    "letter_spacing",
+    "scale",
+    "rotation",
+    "opacity",
+    "volume",
+];
 
 /// Compare two versions of a project, reporting drift as facts with no severity.
 ///

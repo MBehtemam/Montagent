@@ -196,7 +196,9 @@ pub struct Resolved {
 /// resolution is [`crate::resolve`].
 #[derive(Clone, Copy)]
 enum Shape {
-    /// `x`, `y` — absolute integer pixels in the document (ADR-0012).
+    /// `x`, `y` — absolute integer pixels in the document (ADR-0012) — and `letter_spacing`,
+    /// integer thousandths of an em (ADR-0151). Integer-typed: the resolved value is a
+    /// number that is never rounded.
     Pixels,
     /// `rotation`, `opacity`, `volume` — ratios and angles, floats in the document.
     Ratio,
@@ -209,9 +211,10 @@ enum Shape {
 /// One list rather than one per element type: the key is spelled the same wherever it
 /// appears, and a `volume` on an image is a schema error that `validate` reports rather than
 /// something this view has to have an opinion about.
-const ANIMATED: [(&str, Shape); 6] = [
+const ANIMATED: [(&str, Shape); 7] = [
     ("x", Shape::Pixels),
     ("y", Shape::Pixels),
+    ("letter_spacing", Shape::Pixels),
     ("scale", Shape::Pair),
     ("rotation", Shape::Ratio),
     ("opacity", Shape::Ratio),

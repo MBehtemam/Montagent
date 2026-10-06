@@ -532,6 +532,15 @@ pub struct TextElement {
     pub stroke: Option<Colour>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<i64>,
+    /// Space added after every grapheme of a line but the last, in **thousandths of an em**
+    /// of the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.
+    /// Negative tightens. Default 0. Element-level only: a run cannot override it. None is
+    /// added between two letters of the same joining script, such as Arabic. An animatable
+    /// property: keyframe values are integers, and the resolved value is never rounded.
+    /// Any non-zero value or keyframe switches the optional ligatures `liga`, `clig` and
+    /// `dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

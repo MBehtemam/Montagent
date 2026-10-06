@@ -54,7 +54,9 @@
 use std::borrow::Cow;
 use std::ops::Range;
 
-use parley::{Alignment, AlignmentOptions, FontFamily, Layout, LayoutContext, StyleProperty};
+use parley::{
+    Alignment, AlignmentOptions, FontFamily, FontFeatures, Layout, LayoutContext, StyleProperty,
+};
 use serde::Serialize;
 
 use crate::breaks::{SEGMENTER, Segmenter, opportunities};
@@ -62,6 +64,7 @@ use crate::fonts::{FontError, Fonts};
 use crate::ink::{InkSeam, LineInk, line_ink, placed, seam_between};
 use crate::lines::partition;
 use crate::place::{Align, offset};
+use crate::spacing::{gaps, non_joining, shifts};
 
 /// One stretch of a text element's content, with its style deltas over the base
 /// (ADR-0007).
@@ -132,6 +135,21 @@ pub struct Spec<'a> {
     /// declared `width` are still absent and still cancel — the seam is a difference between
     /// two lines of one block, so where that block sits moves both of them equally.
     pub align: Align,
+    /// The element's `letter_spacing` at the instant being laid out, in thousandths of an em,
+    /// already resolved (ADR-0151). Continuous and never rounded: a keyed spacing is resolved
+    /// by the caller, per frame, and arrives here as the value at that instant.
+    ///
+    /// After every grapheme of a line but the last, `size × letter_spacing / 1000` pixels are
+    /// added, where `size` is the size of the run the grapheme sits in — except between two
+    /// letters of the same joining script (ADR-0153 §4). See [`crate::spacing`].
+    pub letter_spacing: f64,
+    /// Whether the element is shaped with its optional ligatures (`liga`, `clig`, `dlig`) off
+    /// in every script run that is not a joining script (ADR-0151 §1, ADR-0153 §3).
+    ///
+    /// Decided by the caller **from the file, never from the instant**: a spacing animation
+    /// passing through 0 must not swap glyphs mid-shot, so this is not derived from
+    /// [`Spec::letter_spacing`].
+    pub optional_ligatures_off: bool,
 }
 
 /// One line's measurement.
@@ -253,6 +271,14 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     Ok(measured(fonts, spec)?.0)
 }
 
+/// One line's shaped layout, and what letter spacing moves each of its glyphs by — in the
+/// order the layout yields them ([`crate::spacing::shifts`]). Every reader of a glyph's `x`
+/// adds the shift, so the ink, the seam and the drawn glyph all sit on the spaced line.
+pub(crate) struct Shaped {
+    pub(crate) layout: Layout<u32>,
+    pub(crate) shifts: Vec<f64>,
+}
+
 /// The same measurement, with the shaped layouts it was derived from kept.
 ///
 /// [`crate::place`] needs both — the block arithmetic *and* the glyphs that arithmetic
@@ -264,7 +290,7 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
 pub(crate) fn measured(
     fonts: &mut Fonts,
     spec: &Spec<'_>,
-) -> Result<(Measurement, Vec<Layout<u32>>), FontError> {
+) -> Result<(Measurement, Vec<Shaped>), FontError> {
     // Every chain the element names, resolved before anything is laid out: a run naming an
     // undeclared key is the same error whether it is the first run or the last, and
     // discovering it half-way through would leave a partial answer to throw away.
@@ -319,10 +345,12 @@ pub(crate) fn measured(
             runs: spec.runs,
             chains: &run_chains,
             on_line: &on_line,
+            optional_ligatures_off: spec.optional_ligatures_off,
         };
         let plain = Laid::plain(line.text, &pieces);
         let mut layout = style.lay_out(&mut layout_context, fonts, &plain);
         let mut marks: Vec<Range<usize>> = Vec::new();
+        let mut copies = plain.copies.clone();
         // A `dir` override is laid out a second time, as an isolate, in the base direction
         // the plain layout just read off the author's characters (ADR-0133). Only then: a
         // line that sets no `dir` is laid out from exactly the string it always was, so no
@@ -332,7 +360,19 @@ pub(crate) fn measured(
             let isolated = Laid::isolated(line.text, &pieces, &dirs, layout.is_rtl());
             layout = style.lay_out(&mut layout_context, fonts, &isolated);
             marks = isolated.marks;
+            copies = isolated.copies;
         }
+
+        // ADR-0151's letter spacing, added after shaping so the shaping is untouched: each
+        // grapheme's gap is measured against the size of the run it sits in.
+        let line_gaps = gaps(line.text, spec.letter_spacing, |at| {
+            pieces
+                .iter()
+                .position(|piece| piece.contains(&at))
+                .and_then(|p| spec.runs[on_line[p]].size)
+                .unwrap_or(spec.size)
+        });
+        let (line_shifts, spaced) = shifts(&layout, &line_gaps, |at| to_laid(&copies, at));
 
         // ADR-0029's max-across-every-run, read off the runs rather than off parley's own
         // line metrics. Two reasons to spell it out: the rule is a decision this project
@@ -370,6 +410,9 @@ pub(crate) fn measured(
         if line.text.is_empty() {
             advance = 0.0;
         }
+        // The spaced advance is the advance (ADR-0151): the block, `align`, `origin` and the
+        // ink box all measure the spaced line.
+        advance += spaced;
 
         // ADR-0007: "A line's height is *the largest `size` among the runs on that line* x
         // `line_height`." The runs on the line, resolved — so the element's base `size`
@@ -400,9 +443,12 @@ pub(crate) fn measured(
             // Read off the layout this pass just built, for [`crate::place`]'s reason: the
             // glyphs whose ink is being measured must be the glyphs that will be drawn, and
             // a second shaping pass to find them would be a second answer to where they are.
-            ink: line_ink(&layout),
+            ink: line_ink(&layout, &line_shifts),
         });
-        layouts.push(layout);
+        layouts.push(Shaped {
+            layout,
+            shifts: line_shifts,
+        });
     }
 
     // Pass two: the block, and every coordinate inside it.
@@ -540,6 +586,17 @@ struct Laid<'a> {
     ranges: Vec<Range<usize>>,
     /// Every inserted mark, in [`Laid::text`]'s offsets.
     marks: Vec<Range<usize>>,
+    /// Where each stretch of the author's line was copied to: `(range in the line, start in
+    /// [`Laid::text`])`, so a line offset can be found in the laid-out string.
+    copies: Vec<(Range<usize>, usize)>,
+}
+
+/// Where a line offset sits in the laid-out string.
+fn to_laid(copies: &[(Range<usize>, usize)], at: usize) -> usize {
+    copies
+        .iter()
+        .find(|(range, _)| range.contains(&at))
+        .map_or(at, |(range, start)| start + (at - range.start))
 }
 
 /// U+2066 LEFT-TO-RIGHT ISOLATE, U+2067 RIGHT-TO-LEFT ISOLATE, U+2069 POP DIRECTIONAL
@@ -557,6 +614,7 @@ impl<'a> Laid<'a> {
             text: Cow::Borrowed(text),
             ranges: pieces.to_vec(),
             marks: Vec::new(),
+            copies: vec![(0..text.len(), 0)],
         }
     }
 
@@ -571,6 +629,7 @@ impl<'a> Laid<'a> {
         let mut out = String::with_capacity(text.len() + 3 * (2 * pieces.len() + 1));
         let mut ranges = Vec::with_capacity(pieces.len());
         let mut marks = Vec::new();
+        let mut copies = Vec::with_capacity(pieces.len());
         let mut mark = |out: &mut String, c: char| {
             let at = out.len();
             out.push(c);
@@ -589,6 +648,7 @@ impl<'a> Laid<'a> {
                     },
                 );
             }
+            copies.push((piece.clone(), out.len()));
             out.push_str(&text[piece.clone()]);
             if dir.is_some() {
                 mark(&mut out, PDI);
@@ -599,6 +659,7 @@ impl<'a> Laid<'a> {
             text: Cow::Owned(out),
             ranges,
             marks,
+            copies,
         }
     }
 }
@@ -624,7 +685,15 @@ struct Styles<'s, 'a> {
     runs: &'s [Run<'a>],
     chains: &'s [Option<FontFamily<'static>>],
     on_line: &'s [usize],
+    /// ADR-0151's rule, read from the file by the caller: see [`Spec::optional_ligatures_off`].
+    optional_ligatures_off: bool,
 }
+
+/// The optional ligatures ADR-0151 switches off: `liga`, `clig` and `dlig`. Never `rlig`,
+/// which a script needs to be spelled correctly.
+///
+/// In `font-feature-settings` syntax, which parley parses; its `Tag` type is not exported.
+const OPTIONAL_LIGATURES_OFF: &str = r#""liga" 0, "clig" 0, "dlig" 0"#;
 
 impl Styles<'_, '_> {
     fn lay_out(
@@ -655,6 +724,19 @@ impl Styles<'_, '_> {
             // twice, but only the isolated layout is kept; the plain one is read for its
             // direction and nothing else.)
             builder.push(StyleProperty::Brush(i as u32), range.clone());
+        }
+        // ADR-0153 §3: off only in the script runs that are not a joining script, so an
+        // Arabic lam-alef a font files under `liga` survives. A script boundary is already a
+        // shaping boundary, so this splits no shaping item that was not split anyway.
+        if self.optional_ligatures_off {
+            for range in non_joining(text) {
+                builder.push(
+                    StyleProperty::FontFeatures(FontFeatures::Source(Cow::Borrowed(
+                        OPTIONAL_LIGATURES_OFF,
+                    ))),
+                    range,
+                );
+            }
         }
         let mut layout: Layout<u32> = builder.build(text);
         // `None` is "no wrap width": the renderer never chooses a line break (ADR-0007),

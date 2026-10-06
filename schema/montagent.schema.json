@@ -420,6 +420,10 @@
               "type": "integer",
               "format": "int64"
             },
+            "letter_spacing": {
+              "description": "Space added after every grapheme of a line but the last, in **thousandths of an em**\nof the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.\nNegative tightens. Default 0. Element-level only: a run cannot override it. None is\nadded between two letters of the same joining script, such as Arabic. An animatable\nproperty: keyframe values are integers, and the resolved value is never rounded.\nAny non-zero value or keyframe switches the optional ligatures `liga`, `clig` and\n`dlig` off for the whole element, outside the joining scripts (ADR-0151, ADR-0153).",
+              "$ref": "#/$defs/Animatableint64"
+            },
             "scale": {
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },

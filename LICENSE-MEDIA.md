@@ -197,6 +197,20 @@ and that is the precise failure ADR-0102 exists to prevent
 Like Open Runde above, neither font is the maintainer's to place under MIT or to reserve
 rights over; this entry records that they are governed by the OFL and nothing else.
 
+### `fixtures/letter-spacing/fonts/`
+
+One Arabic text face under the **SIL Open Font License, Version 1.1**, with the full licence
+text committed beside it:
+
+| file | font | copyright | licence beside it |
+| --- | --- | --- | --- |
+| `NotoNaskhArabic-Regular.ttf` | Noto Naskh Arabic 2.019 | © 2022 The Noto Project Authors (<https://github.com/notofonts/arabic>) | `NotoNaskhArabic-OFL.txt` |
+
+It is the joining-script face the letter-spacing tests shape with
+([ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)):
+no spacing between two Arabic letters, and optional ligatures kept in Arabic script runs.
+Committed for ADR-0102's reason above. It is governed by the OFL and nothing else.
+
 ### `docs/research/chroma-key/green-screen-trex.mp4`
 
 Downloaded from Pixabay, by **Exceptional_3D**, under the **Pixabay Content License**:

@@ -194,6 +194,10 @@ fn run_checks(
     // string. All three read the concatenated `runs` text and nothing else — no font, no
     // disk — so like the checks above they can sit anywhere in this list.
     crate::checks::runs::check(document, report);
+    // ADR-0153's `R-SPACING-SUPPRESSED`: a non-zero `letter_spacing` on text whose
+    // joining-script letters take none between them. The pairs come from the text's Unicode
+    // properties and never from a font, so like the checks above it can sit anywhere here.
+    crate::checks::spacing::check(document, report);
     // The motion and geometry checks (#211), each needing resolved values rather than
     // declared ones. `R-SOURCE-CUT-POP` compares an animated property across a same-source
     // hard cut, and across the wrap when the project declares `loop` (ADR-0033, ADR-0062);

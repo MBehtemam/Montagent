@@ -49,6 +49,8 @@ fn shaped_width(text: &str, size: i64) -> f64 {
             y: 0,
             vertical_origin: VerticalOrigin::Top,
             align: Align::Start,
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     .unwrap_or_else(|e| panic!("shaping {text:?} in the chrome face: {e}"))
@@ -190,6 +192,8 @@ fn a_character_outside_the_face_draws_a_visible_replacement_glyph() {
             y: 0,
             vertical_origin: VerticalOrigin::Top,
             align: Align::Start,
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     .unwrap();

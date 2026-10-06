@@ -144,6 +144,8 @@ fn width(path: &Path, index: Option<u32>) -> f64 {
             y: 0,
             vertical_origin: VerticalOrigin::Top,
             align: Align::Start,
+            letter_spacing: 0.0,
+            optional_ligatures_off: false,
         },
     )
     .unwrap_or_else(|e| panic!("measuring in {path:?} index {index:?}: {e}"))

@@ -48,6 +48,7 @@ pub mod metrics;
 pub mod names;
 pub mod place;
 pub mod sfnt;
+pub mod spacing;
 
 pub use breaks::{SEGMENTER, Segmenter};
 pub use engine::{Dir, Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
@@ -57,3 +58,4 @@ pub use ink::InkSeam;
 pub use metrics::FaceMetrics;
 pub use names::FaceNames;
 pub use place::{Align, Glyph, PathEl, Placement, place};
+pub use spacing::{Suppressed, first_suppressed};

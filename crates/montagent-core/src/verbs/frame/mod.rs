@@ -1796,6 +1796,10 @@ impl<'a> Painter<'a> {
                 y: 0,
                 vertical_origin: montagent_text::VerticalOrigin::Top,
                 align: crate::verbs::measure::align_of(element),
+                // Resolved per frame, from the value at this instant; the ligature rule is
+                // read from the file (ADR-0151).
+                letter_spacing: crate::verbs::measure::letter_spacing_at(element, self.instant),
+                optional_ligatures_off: crate::verbs::measure::optional_ligatures_off(element),
             },
         );
         let placement = match placement {

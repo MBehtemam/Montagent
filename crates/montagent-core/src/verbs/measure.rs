@@ -297,6 +297,15 @@ pub struct Asked {
     pub stroke_width: i64,
     pub y: i64,
     pub origin: String,
+    /// The `letter_spacing` the line was measured at, in thousandths of an em (ADR-0151):
+    /// the element's own value, or for a keyed one the largest value the list writes — the
+    /// widest the line is at any written value. Omitted where it is 0.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub letter_spacing: i64,
+}
+
+fn is_zero(value: &i64) -> bool {
+    *value == 0
 }
 
 /// **ADR-0035's grid arithmetic**, `measure`'s second answer: the nearest sampled instant
@@ -435,7 +444,21 @@ pub(crate) enum ElementError {
 /// every font key it and its runs name, and lay it out. One path, so `elements`/`all` cannot
 /// drift from what a single `element` call already does (#317).
 pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
-    let spec = Measurable::of(element).map_err(ElementError::Invocation)?;
+    let widest = written_letter_spacings(element)
+        .into_iter()
+        .max()
+        .unwrap_or(0);
+    try_measure_element_at(document, element, widest)
+}
+
+/// [`try_measure_element`], with `letter_spacing` at one value rather than the widest.
+pub(crate) fn try_measure_element_at(
+    document: &Loose,
+    element: &Value,
+    letter_spacing: i64,
+) -> Result<Text, ElementError> {
+    let mut spec = Measurable::of(element).map_err(ElementError::Invocation)?;
+    spec.asked.letter_spacing = letter_spacing;
 
     // Every key the element names, the base and each run's override (ADR-0007), resolved
     // before anything is laid out: a key that resolved for the element but not for a run
@@ -459,6 +482,8 @@ pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<T
             y: spec.asked.y,
             vertical_origin: spec.vertical_origin,
             align: align_of(element),
+            letter_spacing: letter_spacing as f64,
+            optional_ligatures_off: optional_ligatures_off(element),
         },
     )
     // Unreachable while every key above registered, and reported rather than `expect`ed
@@ -677,6 +702,8 @@ impl Measurable {
                     .ok()
                     .and_then(|v| v.as_str().map(str::to_string))
                     .unwrap_or_else(|| "center".into()),
+                // Set by the caller, which knows which spacing it is measuring at.
+                letter_spacing: 0,
             },
             vertical_origin: vertical_origin_of(origin),
         })
@@ -745,6 +772,52 @@ pub(crate) fn align_of(element: &Value) -> montagent_text::Align {
         Some("center") => montagent_text::Align::Center,
         Some("end") => montagent_text::Align::End,
         _ => montagent_text::Align::Start,
+    }
+}
+
+/// A text element's `letter_spacing` at `instant`, in thousandths of an em: resolved, never
+/// rounded, and 0 where the element declares none (ADR-0151).
+pub(crate) fn letter_spacing_at(element: &Value, instant: i64) -> f64 {
+    crate::verbs::query::geometry::number::<i64>(element, "letter_spacing", instant, 0.0)
+}
+
+/// Every distinct `letter_spacing` value the element writes: its static value, or every
+/// keyframe record's `v`, in the order written; `[0]` where it declares none. Values the
+/// file does not write as integers are the schema check's and are skipped here.
+pub(crate) fn written_letter_spacings(element: &Value) -> Vec<i64> {
+    let mut values: Vec<i64> = match element.get("letter_spacing") {
+        Some(Value::Array(records)) => records
+            .iter()
+            .filter_map(|record| record.get("v").and_then(Value::as_i64))
+            .collect(),
+        Some(value) => value.as_i64().into_iter().collect(),
+        None => Vec::new(),
+    };
+    values.dedup();
+    if values.is_empty() {
+        values.push(0);
+    }
+    values
+}
+
+/// **The ligature rule** (ADR-0151 §1, ADR-0153 §3): whether the element is shaped with its
+/// optional ligatures off, outside the joining scripts.
+///
+/// Read from the file, never from the instant: any non-zero `letter_spacing` value or
+/// keyframe switches them off for the element's whole range, so a spacing animation that
+/// passes through 0 never swaps glyphs mid-shot, and `validate` can say from the file how
+/// the element shapes. One function, so the second trigger ADR-0151 names — a `units` block
+/// with `by: letter` — is one more condition here.
+pub(crate) fn optional_ligatures_off(element: &Value) -> bool {
+    match element.get("letter_spacing") {
+        Some(Value::Array(records)) => records.iter().any(|record| {
+            record
+                .get("v")
+                .and_then(Value::as_i64)
+                .is_some_and(|v| v != 0)
+        }),
+        Some(value) => value.as_i64().is_some_and(|v| v != 0),
+        None => false,
     }
 }
 

@@ -101,6 +101,12 @@ skrifa = "=0.46.2"
 icu_segmenter = { version = "=2.3.0", default-features = false, features = [
     "compiled_data",
 ] }
+# ADR-0153's joining scripts, joining-script letters and script runs: `Script`,
+# `Joining_Type` and `General_Category`, read from the same ICU4X data node `parley`
+# already links through `parley_data`, so it adds no data to the binary.
+icu_properties = { version = "=2.3.0", default-features = false, features = [
+    "compiled_data",
+] }
 image = "=0.25.10"
 toml = "0.9"
 

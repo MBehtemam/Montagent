@@ -120,8 +120,12 @@ pub struct InkSeam {
 /// contour for all return `None` rather than a zero-height extent at the baseline. The
 /// distinction is load-bearing: a zero-height extent *is* ink as far as a seam comparison is
 /// concerned, and a blank line would then appear to collide with its neighbour.
-pub(crate) fn line_ink(layout: &Layout<u32>) -> Option<LineInk> {
+///
+/// `shifts` is what letter spacing moves each glyph by, in the order the layout yields them
+/// ([`crate::spacing::shifts`]): the ink measured is the spaced line's, as drawn.
+pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64]) -> Option<LineInk> {
     let mut glyphs: Vec<GlyphInk> = Vec::new();
+    let mut next = 0;
 
     for placed in layout.lines() {
         let baseline = f64::from(placed.metrics().baseline);
@@ -129,6 +133,10 @@ pub(crate) fn line_ink(layout: &Layout<u32>) -> Option<LineInk> {
             let PositionedLayoutItem::GlyphRun(run) = item else {
                 continue;
             };
+            // Where this run's glyphs start in `shifts`, counted before anything below can
+            // skip the run, so a face that will not open never misaligns the next run's.
+            let first = next;
+            next += run.positioned_glyphs().count();
             let font = run.run().font().clone();
             let size = run.run().font_size();
             // One `FontRef` and one `GlyphMetrics` per glyph run rather than per glyph: the
@@ -138,7 +146,7 @@ pub(crate) fn line_ink(layout: &Layout<u32>) -> Option<LineInk> {
             };
             let metrics = face.glyph_metrics(Size::new(size), LocationRef::default());
 
-            for glyph in run.positioned_glyphs() {
+            for (k, glyph) in run.positioned_glyphs().enumerate() {
                 let Some(bounds) = metrics.bounds(GlyphId::new(glyph.id)) else {
                     continue;
                 };
@@ -152,7 +160,7 @@ pub(crate) fn line_ink(layout: &Layout<u32>) -> Option<LineInk> {
                 // places glyphs against the layout's baseline; the block's baseline is
                 // ADR-0029's and is added by the caller.
                 let dy = f64::from(glyph.y) - baseline;
-                let x = f64::from(glyph.x);
+                let x = f64::from(glyph.x) + shifts.get(first + k).copied().unwrap_or(0.0);
                 // A font's outlines are y-up and every coordinate in this project is y-down,
                 // so the glyph's `y_max` is its *top* — the same flip
                 // [`crate::place::Pen`] applies to a contour, applied to a box.

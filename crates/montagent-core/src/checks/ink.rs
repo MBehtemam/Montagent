@@ -61,7 +61,7 @@ use crate::checks::{pluralised, subject_of};
 use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
-use crate::verbs::measure::try_measure_element;
+use crate::verbs::measure::{try_measure_element_at, written_letter_spacings};
 
 /// `R-LINE-INK-COLLISION`, over every `text` element in the document.
 pub fn check(document: &Loose, report: &mut Report) {
@@ -71,13 +71,29 @@ pub fn check(document: &Loose, report: &mut Report) {
         if element.get("type").and_then(Value::as_str) != Some("text") {
             continue;
         }
+        // **Letter spacing is measured at every value the file writes** (ADR-0151 leaves the
+        // instants to this check): the static value, or every keyframe record's `v`, and the
+        // worst seam across them is the one reported. Spacing moves glyphs sideways, so it
+        // changes which glyphs of two lines share horizontal space; between two records it
+        // passes only through the values between them, and a bezier's overshoot past a
+        // record is not sampled. Written values, not frames: the check stays a question
+        // about the file, as every other input to it is.
+        //
         // An element that cannot be measured is not an element with no collision — it is
         // one the question could not be asked of, and every cause is already somebody
         // else's finding. See the module doc.
-        let Ok(measured) = try_measure_element(document, element) else {
-            continue;
-        };
-        let Some(finding) = candidate(&measured) else {
+        let mut worst: Option<(Finding, f64)> = None;
+        for letter_spacing in written_letter_spacings(element) {
+            let Ok(measured) = try_measure_element_at(document, element, letter_spacing) else {
+                continue;
+            };
+            if let Some((finding, overlap)) = candidate(&measured)
+                && worst.as_ref().is_none_or(|(_, seen)| overlap > *seen)
+            {
+                worst = Some((finding, overlap));
+            }
+        }
+        let Some((finding, _)) = worst else {
             continue;
         };
 
@@ -96,7 +112,7 @@ pub fn check(document: &Loose, report: &mut Report) {
 /// saying so is the noise ADR-0006 budgets against — the second one tells a reader nothing
 /// the first did not. The count travels in a field so the report still says how much of
 /// the element is affected.
-fn candidate(measured: &crate::verbs::measure::Text) -> Option<Finding> {
+fn candidate(measured: &crate::verbs::measure::Text) -> Option<(Finding, f64)> {
     // A seam with no `overlap` is one where no glyph of either line shares horizontal space
     // with the other's — they cannot meet at any `line_height`, which is not the same fact
     // as meeting by a negative amount, and is why the field is nullable.
@@ -121,7 +137,7 @@ fn candidate(measured: &crate::verbs::measure::Text) -> Option<Finding> {
     // engine actually laid the block out with (ADR-0007's rule has one implementation).
     let slot = measured.lines.get(worst.above).map(|line| line.slot_height);
 
-    Some(
+    Some((
         Finding::new("R-LINE-INK-COLLISION")
             .at_element(subject.clone())
             .field("element", json!(subject))
@@ -156,7 +172,8 @@ fn candidate(measured: &crate::verbs::measure::Text) -> Option<Finding> {
                 ),
             )
             .field("collisions", json!(pluralised(colliding.len(), "seam"))),
-    )
+        *worst_overlap,
+    ))
 }
 
 /// A `line_height` held as tenths, as the decimal the document writes it as.
