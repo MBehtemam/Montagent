@@ -688,9 +688,11 @@ impl Measurable {
                 font,
                 size,
                 line_height_tenths,
-                stroke_width: object
-                    .get("stroke_width")
-                    .and_then(Value::as_i64)
+                // A keyed `stroke_width` (ADR-0146) is measured at the widest it ever
+                // states: the stroke never moves a glyph, so the text is laid out once, and
+                // the extent a declared box is checked against is the one it reaches at its
+                // widest. What is painted at an instant is the resolved width.
+                stroke_width: crate::animatable::greatest_length(element, "stroke_width")
                     .unwrap_or(0),
                 // An element with no `y` measures at zero rather than being refused: `y`
                 // places the block and nothing else, so a caller asking only for the

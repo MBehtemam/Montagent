@@ -79,7 +79,7 @@ pub fn check(document: &Loose, report: &mut Report) {
         // narrowed for the geometric checks, which have nothing to learn from an instant
         // where only a fade changes. An inert `ease` is a fact about the *file*, and an
         // `opacity` or `volume` hold carries the same inert ceremony a `scale` hold does.
-        for property in crate::checks::ANIMATABLE {
+        for property in crate::animatable::names() {
             for run in runs(&records(element, property)) {
                 let finding = inert(&subject, property, run)
                     .at_file(document.path())

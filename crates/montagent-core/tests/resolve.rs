@@ -177,7 +177,9 @@ fn a_property_the_document_does_not_declare_is_not_invented() {
         .iter()
         .map(|value| value["property"].as_str().unwrap_or("?"))
         .collect();
-    assert_eq!(properties, ["opacity"]);
+    // `width`, `height` and `fill` are declared too, and animatable on a shape (ADR-0146):
+    // what is not declared — `x`, `scale`, `stroke` — is still not invented.
+    assert_eq!(properties, ["width", "height", "fill", "opacity"]);
 }
 
 #[test]
@@ -500,7 +502,7 @@ fn the_published_schema_states_the_positional_rule_too() {
             );
         }
     }
-    assert_eq!(seen, 8, "four keyframe instantiations, first and non-first");
+    assert_eq!(seen, 12, "six keyframe instantiations, first and non-first");
 }
 
 #[test]
@@ -581,8 +583,9 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         "the schema publishes animated properties"
     );
 
-    // Three elements carry the whole set between them: a shape takes the five transform
-    // properties, `volume` is audio's (ADR-0055), and `letter_spacing` is text's (ADR-0151).
+    // Three elements carry the whole set between them: a rect takes the transform and its
+    // size and paint, `volume` is audio's (ADR-0055), and `color` and
+    // `letter_spacing` are text's (ADR-0146, ADR-0151).
     let path = project(
         line!(),
         json!({
@@ -592,11 +595,12 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 {"name": "visual", "layer": 0, "elements": [
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
-                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0}]},
-                {"name": "words", "layer": 2, "elements": [
-                    {"id": "title", "type": "text", "start": 0, "end": 1000,
-                     "width": 100, "height": 50, "font": "brand", "size": 40,
-                     "runs": [{"text": "a"}], "letter_spacing": 0}]},
+                     "stroke": "#FFFFFF", "stroke_width": 1, "radius": 2,
+                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0},
+                    {"id": "words", "type": "text", "start": 0, "end": 1000,
+                     "width": 100, "height": 50, "font": "brand", "size": 20,
+                     "color": "#FFFFFF", "letter_spacing": 0,
+                     "runs": [{"text": "hi"}]}]},
                 {"name": "sound", "layer": 1, "elements": [
                     {"id": "noise", "type": "audio", "start": 0, "end": 1000,
                      "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1000,
@@ -605,7 +609,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         }),
     );
     let answer = at(&path, 500);
-    let mut resolved: Vec<String> = ["shape", "noise", "title"]
+    let mut resolved: Vec<String> = ["shape", "noise", "words"]
         .iter()
         .flat_map(|id| {
             element(&answer, id)["values"]
@@ -617,6 +621,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         })
         .collect();
     resolved.sort();
+    resolved.dedup();
 
     assert_eq!(resolved, animatable);
 }

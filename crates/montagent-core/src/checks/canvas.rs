@@ -164,7 +164,13 @@ fn union_if_it_never_meets(
 ) -> Option<Rect> {
     let mut union: Option<Rect> = None;
     for instant in crate::checks::box_samples(&[element], range) {
-        let rect = geometry::drawn_rect(element, instant, frame)?.ok()?;
+        let rect = match geometry::drawn_rect(element, instant, frame) {
+            Some(rect) => rect.ok()?,
+            // A keyed box at or below zero occupies nothing at this instant (ADR-0146), and
+            // nothing does not meet the frame. A box that is never stated never adds a rect,
+            // so it is never reported.
+            None => continue,
+        };
         if rect.intersect(canvas).is_some() {
             return None;
         }

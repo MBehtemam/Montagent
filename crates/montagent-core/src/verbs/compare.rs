@@ -66,18 +66,6 @@ use crate::slack::{self, Edge, Side};
 
 const TOOL: &str = "compare";
 
-/// Every transform property that may carry keyframes (`crate::model`'s `Animatable`
-/// fields, across every element type that has one).
-const ANIMATABLE: &[&str] = &[
-    "x",
-    "y",
-    "letter_spacing",
-    "scale",
-    "rotation",
-    "opacity",
-    "volume",
-];
-
 /// Compare two versions of a project, reporting drift as facts with no severity.
 ///
 /// `current_path` is the report's `project` (the file an agent is looking at); the
@@ -281,7 +269,8 @@ fn keyframes_of(document: &Loose) -> Vec<(String, &'static str, usize, i64)> {
         let Some(id) = element.get("id").and_then(Value::as_str) else {
             continue;
         };
-        for &property in ANIMATABLE {
+        // The one list (ADR-0146), read as the transform lists always were.
+        for property in crate::animatable::names().iter().map(String::as_str) {
             let Some(records) = element.get(property).and_then(Value::as_array) else {
                 continue;
             };

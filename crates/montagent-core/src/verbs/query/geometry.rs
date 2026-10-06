@@ -75,18 +75,16 @@ pub enum NotAxisAligned {
 /// same defaults the renderer would use — `x`/`y` at the frame's centre, `scale` at
 /// `[1,1]`, `origin` at `center` (ADR-0012).
 ///
-/// `None` where `width`/`height` cannot be read as positive integers — not this module's
-/// fact to report; `validate`'s schema check already does.
+/// `None` where `width`/`height` cannot be read, or resolve at or below zero at `instant` —
+/// not this module's fact to report; `validate`'s schema check already does.
 pub fn drawn_rect(
     element: &Value,
     instant: i64,
     frame: (i64, i64),
 ) -> Option<Result<Rect, NotAxisAligned>> {
-    let width = element.get("width").and_then(Value::as_i64)?;
-    let height = element.get("height").and_then(Value::as_i64)?;
-    if width <= 0 || height <= 0 {
-        return None;
-    }
+    // A shape's box may be keyed (ADR-0146), so it is resolved like every other animatable
+    // property rather than read as one integer; at or below zero it occupies nothing.
+    let (width, height) = crate::animatable::painted_box(element, i128::from(instant), 1)?;
 
     let rotation = number::<f64>(element, "rotation", instant, 0.0);
     if rotation != 0.0 {
@@ -104,8 +102,8 @@ pub fn drawn_rect(
     };
     let (fx, fy) = origin_fraction(origin);
 
-    let scaled_width = width as f64 * scale_x;
-    let scaled_height = height as f64 * scale_y;
+    let scaled_width = width * scale_x;
+    let scaled_height = height * scale_y;
     let left = x - fx * scaled_width;
     let top = y - fy * scaled_height;
 

@@ -328,7 +328,7 @@ fn the_record_shapes_publish_t_from_immediately_after_t() {
             assert_eq!(keys, expected, "{name}");
         }
     }
-    assert_eq!(seen, 8, "four keyframe instantiations, first and non-first");
+    assert_eq!(seen, 12, "six keyframe instantiations, first and non-first");
 }
 
 #[test]
@@ -357,7 +357,7 @@ fn the_first_records_t_from_publishes_the_rule_set_minus_after_previous() {
         .keys()
         .filter(|name| name.starts_with("Keyframe") || name.starts_with("FirstKeyframe"))
         .collect();
-    assert_eq!(records.len(), 8, "{records:?}");
+    assert_eq!(records.len(), 12, "{records:?}");
     for name in records {
         let derivation = if name.starts_with("First") {
             "#/$defs/FirstDerivation"

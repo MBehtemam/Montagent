@@ -11,7 +11,7 @@ two disagree.
 
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
   different frame from shadow-then-blur. They attach to whole elements, never to a run, and
-  no effect parameter is keyframable in v1.
+  no effect parameter is animatable yet.
 - **`blend` is how the finished element composites into what is below it** (ADR-0147). One
   of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
   on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
@@ -50,7 +50,7 @@ two disagree.
   three run `0.0`–`1.0` and every one of them has its identity at `0` — `tolerance: 0` keys
   nothing, which makes the whole member a no-op.
 - **A key serves a screen that is uniform in time** (ADR-0088). No effect parameter is
-  keyframable, so one `tolerance` covers the whole element: footage whose lighting drifts
+  animatable yet, so one `tolerance` covers the whole element: footage whose lighting drifts
   mid-take has to be cut into elements at the drift boundaries, or keyed upstream and
   brought in already carrying alpha. `measure` on a keyed element reports the resulting
   alpha coverage per frame, which is how you find where a screen drifts — and how you find

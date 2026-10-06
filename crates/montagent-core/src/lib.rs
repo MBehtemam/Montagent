@@ -45,6 +45,7 @@
 //! - [`write`] is the canonical writing convention, the one place a project becomes bytes,
 //!   and the atomic whole-file write every write tool reuses.
 
+pub mod animatable;
 pub mod checks;
 pub mod exact;
 pub mod finding;

@@ -405,10 +405,10 @@ fn detail_of(element: &Value) -> String {
     let paint = element
         .get("fill")
         .or_else(|| element.get("stroke"))
-        .and_then(Value::as_str);
+        .and_then(written_paint);
     match (
-        element.get("width").and_then(Value::as_i64),
-        element.get("height").and_then(Value::as_i64),
+        written_side(element, "width"),
+        written_side(element, "height"),
         paint,
     ) {
         (Some(width), Some(height), Some(paint)) => {
@@ -417,6 +417,35 @@ fn detail_of(element: &Value) -> String {
         (Some(width), Some(height), None) => with_motion(element, format!("{width}×{height}")),
         _ => String::new(),
     }
+}
+
+/// One side of a shape's box as the document writes it: the integer, or — where it is keyed
+/// (ADR-0146) — the span its keyframe values cover, `120–720`. What it is at an instant is
+/// `query --at`'s question, not this view's.
+fn written_side(element: &Value, key: &str) -> Option<String> {
+    let written = element.get(key)?;
+    if let Some(value) = written.as_i64() {
+        return Some(value.to_string());
+    }
+    let values: Vec<i64> = crate::animatable::records(element, key)?
+        .iter()
+        .filter_map(|record| record.get("v")?.as_i64())
+        .collect();
+    let (low, high) = (values.iter().min()?, values.iter().max()?);
+    Some(match low == high {
+        true => low.to_string(),
+        false => format!("{low}\u{2013}{high}"),
+    })
+}
+
+/// A shape's paint as the document writes it: the colour, or a keyed colour's first value
+/// followed by an ellipsis.
+fn written_paint(written: &Value) -> Option<String> {
+    if let Some(colour) = written.as_str() {
+        return Some(colour.to_string());
+    }
+    let first = written.as_array()?.first()?.get("v")?.as_str()?;
+    Some(format!("{first}\u{2026}"))
 }
 
 /// Mark an element that moves.
@@ -437,36 +466,18 @@ fn with_motion(element: &Value, detail: String) -> String {
 /// Does any **animatable** property of this element carry a keyframe list rather than one
 /// value?
 ///
-/// Restricted to the closed set ADR-0012 names, and the restriction is load-bearing rather
-/// than tidy: the shape test alone — an array whose first item is an object — is also true
-/// of `runs`, and a bare walk over every key marks all 22 of the fixture's text elements as
-/// moving when none of them does. The set is the animatable properties themselves
-/// (ADR-0012), plus `volume`, which ADR-0055 gives *"the same scalar-or-keyframe-array
-/// polymorphism every other animatable property already has."*
+/// Restricted to the animatable properties, and the restriction is load-bearing rather than
+/// tidy: the shape test alone — an array whose first item is an object — is also true of
+/// `runs`, and a bare walk over every key marks all 22 of the fixture's text elements as
+/// moving when none of them does. The set is the one list the schema types
+/// ([`crate::animatable::names`], ADR-0146), read here as every other tool reads it.
 ///
 /// Read off the permissive tree rather than the typed model, because this view is wanted on
 /// documents the types cannot hold.
 fn animated(element: &Value) -> bool {
-    const ANIMATABLE: [&str; 7] = [
-        "x",
-        "y",
-        "letter_spacing",
-        "scale",
-        "rotation",
-        "opacity",
-        "volume",
-    ];
-
-    ANIMATABLE.iter().any(|property| {
-        // ADR-0012's own shape test, as `Animatable` applies it on the way in: a keyframe
-        // record is an object, so an array **of objects** is a keyframe list and every other
-        // array — `scale`'s own `[sx, sy]` — is a static value.
-        element
-            .get(property)
-            .and_then(Value::as_array)
-            .and_then(|items| items.first())
-            .is_some_and(Value::is_object)
-    })
+    crate::animatable::names()
+        .iter()
+        .any(|property| crate::animatable::records(element, property).is_some())
 }
 
 /// `end - start`, where the document states both and the subtraction is representable.

@@ -23,12 +23,14 @@ pub mod coverage;
 pub mod cut;
 pub mod derived;
 pub mod ease;
+pub mod extent;
 pub mod fit;
 pub mod fonts;
 pub mod highlight;
 pub mod ink;
 pub mod layout;
 pub mod mask;
+pub mod overridden;
 pub mod quantization;
 pub mod range;
 pub mod retired;
@@ -137,55 +139,29 @@ pub(crate) fn styled_text(document: &crate::permissive::Loose) -> Vec<StyledText
         .collect()
 }
 
-/// **Every property a keyframe list may be written on** (ADR-0012).
-///
-/// One list, because three checks read it and each would otherwise carry its own copy:
-/// [`ease`] asks whether a record's `ease` describes any travel, [`unreached`] whether a
-/// declared endpoint is ever sampled, and [`derived`] whether a record's declared `t_from`
-/// still re-derives its `t`. `crate::verbs::timeline` keeps a fourth copy for a
-/// fourth question and is not folded in here — it asks *"is this element animated at all"*
-/// of a `Value` with no check machinery around it.
-///
-/// `letter_spacing` joins it with ADR-0151. Until ADR-0146's one schema-derived list lands
-/// (#675), this list, `crate::verbs::timeline`'s, `crate::verbs::compare`'s and
-/// `crate::verbs::query::at`'s are the per-tool copies that list must replace.
-pub(crate) const ANIMATABLE: [&str; 7] = [
-    "x",
-    "y",
-    "letter_spacing",
-    "scale",
-    "rotation",
-    "opacity",
-    "volume",
-];
-
 /// One property's keyframe records, or `None` where the property is absent or static.
 ///
-/// **ADR-0012's own shape test, as `Animatable` applies it on the way in**: a keyframe
-/// record is an object, so an array *of objects* is a keyframe list and every other array
-/// — `scale`'s own `[sx, sy]` — is a static value. Shared by [`ease`], [`unreached`] and
-/// [`derived`], which would otherwise each carry the rule and the sentence explaining it.
+/// [`crate::animatable::records`], which holds ADR-0012's shape test. The properties a check
+/// walks are [`crate::animatable::names`] — the one list, read off the schema (ADR-0146) —
+/// and no check keeps a copy of its own.
 pub(crate) fn keyframe_records<'a>(
     element: &'a serde_json::Value,
     property: &str,
 ) -> Option<&'a Vec<serde_json::Value>> {
-    let records = element.get(property)?.as_array()?;
-    records
-        .first()
-        .is_some_and(serde_json::Value::is_object)
-        .then_some(records)
+    crate::animatable::records(element, property)
 }
 
 /// The properties whose keyframes move an element's box, and so whose record times are
 /// boundaries a geometric check must sample at.
 ///
-/// ADR-0012's animatable set, narrowed: `crate::verbs::timeline`'s `ANIMATABLE` is the
-/// same list plus `opacity` and `volume`, and this one drops both because neither moves a
-/// rectangle. `opacity` in particular is deliberate — it changes what a collision *looks
-/// like* and not whether there is one (ADR-0060), and an element faded to nothing is still
-/// somewhere (ADR-0044). Narrower rather than shared, because a sample taken at an instant
-/// where only the fade changes is a sample that can find nothing.
-pub(crate) const MOVES_THE_BOX: [&str; 4] = ["x", "y", "scale", "rotation"];
+/// The animatable list ([`crate::animatable::names`]), narrowed to what changes a rectangle:
+/// the placement, the transform, and a shape's keyed `width`/`height` (ADR-0146 §6 — the
+/// off-canvas check resolves a keyed box as it resolves keyed `x` and `y`). Paint, `opacity`
+/// and `volume` are dropped because none of them moves a rectangle. `opacity` in particular
+/// is deliberate — it changes what a collision *looks like* and not whether there is one
+/// (ADR-0060), and an element faded to nothing is still somewhere (ADR-0044). A test holds
+/// this list inside the animatable one.
+pub const MOVES_THE_BOX: [&str; 6] = ["x", "y", "width", "height", "scale", "rotation"];
 
 /// **ADR-0060's sample set**: every keyframe boundary inside `window`, its own two ends,
 /// and the midpoint of every consecutive pair — over every element in `elements`.

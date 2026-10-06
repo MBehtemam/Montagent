@@ -66,6 +66,73 @@ impl Colour {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// `[r, g, b, a]` as the four bytes the literal spells. A six-digit colour is opaque.
+    pub fn bytes(&self) -> [u8; 4] {
+        let body = self.0.trim_start_matches('#');
+        let byte = |at: usize| {
+            body.get(at..at + 2)
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        };
+        [
+            byte(0).unwrap_or(0),
+            byte(2).unwrap_or(0),
+            byte(4).unwrap_or(0),
+            byte(6).unwrap_or(0xFF),
+        ]
+    }
+
+    /// The one literal that spells these four bytes: six digits when opaque, eight
+    /// otherwise — the form a resolved colour is printed in, so it can be pasted back
+    /// (ADR-0146).
+    pub fn from_bytes([r, g, b, a]: [u8; 4]) -> Colour {
+        match a {
+            0xFF => Colour(format!("#{r:02X}{g:02X}{b:02X}")),
+            a => Colour(format!("#{r:02X}{g:02X}{b:02X}{a:02X}")),
+        }
+    }
+}
+
+/// A non-negative length in integer pixels: a shape's `width`, `height`, `radius` and
+/// `stroke_width`, and a text element's `stroke_width` (ADR-0146 §5).
+///
+/// `0` is legal — collapsing to nothing is a real move — and a negative value is a schema
+/// error, in a static value and in every keyframe record alike. A value between two
+/// keyframes may still pass below zero under an overshooting bezier; what that draws is the
+/// resolver's rule ([`crate::animatable`]), not this type's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct Length(pub i64);
+
+impl<'de> Deserialize<'de> for Length {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let pixels = i64::deserialize(deserializer)?;
+        if pixels < 0 {
+            return Err(D::Error::custom(format!(
+                "a length is {pixels}: a `width`, `height`, `radius` or `stroke_width` is a \
+                 non-negative integer of pixels, and `0` is legal (ADR-0146)"
+            )));
+        }
+        Ok(Length(pixels))
+    }
+}
+
+impl JsonSchema for Length {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Length".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "integer",
+            "format": "int64",
+            "description": "A length in integer pixels. `0` is legal, and a negative value \
+                            is a schema error, in a static value and in every keyframe \
+                            record (ADR-0146).",
+            "minimum": 0,
+        }))
+        .expect("an object literal is a schema")
+    }
 }
 
 impl<'de> Deserialize<'de> for Colour {
@@ -524,14 +591,14 @@ pub struct TextElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<Colour>,
+    pub color: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub align: Option<Align>,
     pub runs: Vec<Run>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Colour>,
+    pub stroke: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<i64>,
+    pub stroke_width: Option<Animatable<Length>>,
     /// Space added after every grapheme of a line but the last, in **thousandths of an em**
     /// of the size of the run the grapheme sits in: `size × letter_spacing / 1000` pixels.
     /// Negative tightens. Default 0. Element-level only: a run cannot override it. None is
@@ -590,19 +657,19 @@ pub struct Rect {
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
-    pub width: i64,
-    pub height: i64,
+    pub width: Animatable<Length>,
+    pub height: Animatable<Length>,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Colour>,
+    pub fill: Option<Animatable<Colour>>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Colour>,
+    pub stroke: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<i64>,
+    pub stroke_width: Option<Animatable<Length>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -610,7 +677,7 @@ pub struct Rect {
     /// rectangle is unremarkable in the CapCut/Premiere reference class, and admitting it
     /// now costs one clause where admitting it later is a schema change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub radius: Option<i64>,
+    pub radius: Option<Animatable<Length>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -649,19 +716,19 @@ pub struct Ellipse {
     pub y: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
-    pub width: i64,
-    pub height: i64,
+    pub width: Animatable<Length>,
+    pub height: Animatable<Length>,
     /// Optional when a `stroke` is present, giving an outlined shape. A shape with neither
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Colour>,
+    pub fill: Option<Animatable<Colour>>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Colour>,
+    pub stroke: Option<Animatable<Colour>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke_width: Option<i64>,
+    pub stroke_width: Option<Animatable<Length>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

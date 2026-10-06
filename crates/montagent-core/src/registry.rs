@@ -1538,6 +1538,22 @@ ms \u{2014} the union of its resolved rect across that range is {width}\u{d7}{he
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0146 §6: a run's paint is static and beats the element's, so a keyed
+        // element-level text paint field that every run overrides reaches no glyph.
+        code: "R-TEXT-PAINT-OVERRIDDEN",
+        classes: &[Review],
+        // No repair: whether the keyframes or the run overrides are the mistake is a
+        // question about intent, and a review finding declares no refuse class.
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0146",
+        template: "`{element}`.{property} is keyed, and every one of its {runs} runs states \
+its own `{property}`, which beats the element's: these keyframes change nothing.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0052, discharging ADR-0038's acknowledged cost: an `ease` required on a
         // record whose `v` does not change describes motion that does not happen. Literal
         // exact equality of author-written `v`, no tolerance — there is no resolution step
@@ -2399,6 +2415,23 @@ fmt`.",
         template: "`{element}` in track `{track}` is time-based and straddles the shift \
 point {at}: it runs {start}..{end} ms, so stretching or moving it whole would misalign its \
 source. The nearest legal boundaries are {start} and {end}.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // ADR-0146 §7: a split writes a new keyframe, so its value must be a legal literal
+        // for the field. An overshoot can carry a size below zero, or a colour out of
+        // range, at the split instant; clamping the written value would bend both halves of
+        // the curve without saying so, so the edit is refused instead.
+        code: "E-SHIFT-SPLIT-UNWRITABLE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0146",
+        template: "`{element}`.{property} cannot be split at {at} ms: the curve passes \
+through {value} there, which is not a legal `{property}`. Shift at another instant, or change \
+the keyframes so the curve stays in range at {at}.",
         status: Live,
         census: None,
         sets: &[],
