@@ -92,7 +92,8 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   a trimmed move is spelled.
 - **An animatable property is one the schema types as a literal or a keyframe list**
   (ADR-0146); a list on any other field is a schema error. Today: `x`, `y`, `scale`,
-  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
+  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`;
+  `source_time` on `video`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
   `color`, `stroke`, `stroke_width` and `letter_spacing`; every numeric and colour
@@ -115,6 +116,28 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`shift` splits every keyframe list it cuts into literals** (ADR-0146): an integer to the
   nearest (ties away from zero), a colour to bytes. A split the field cannot hold — a size
   an overshoot carried below zero — is refused (`E-SHIFT-SPLIT-UNWRITABLE`), never clamped.
+- **A `video` may carry `source_time` in place of a source range** (ADR-0157): which moment
+  of its file is on screen, in integer source milliseconds. A literal (`"source_time": 4200`)
+  is a freeze frame for the whole element. A keyframe list is a curve whose slope is the
+  rate: steep plays fast, shallow slow, flat freezes, and falling plays in reverse (there is
+  no `reverse` field). An eased segment never plays at a constant rate; a steady rate is two
+  keys joined by `linear`. `source_time` on `audio` is a schema error.
+- **The curve is the only author of the source** (ADR-0157). `source_start`, `source_end`,
+  `speed` and `overrun` beside it are each `E-REMAP-FIELD`: remove them. `loop` has no
+  spelling on a remapped element. ADR-0020's agreement rule becomes: at every painted frame
+  instant in `[start, end)` the resolved source time lies in `[0, file duration)`, or
+  `E-SOURCE-OVERRUN` names the first instant that does not, its source time, and the side
+  crossed.
+- **Which frame a remapped video shows** (ADR-0157): at each frame instant, `source_time`
+  resolves under each key's `ease`, holding the nearest key's value before the first key and
+  after the last; it rounds half-up to a millisecond; the last source frame starting at or
+  before that millisecond shows (ADR-0096). The render, `validate` and `query --at` share
+  this one function; `query --at` prints the rounded `source_time` and the `rate`
+  (`-0.500×`, `0.000×`) under `derived`. A painted frame instant outside the keys freezes
+  (`R-REMAP-HELD-END`); write a deliberate freeze as a flat pair of keys. Under
+  `motion_blur` every sample shows the frame instant's source frame.
+- **A remapped video is silent** (ADR-0157): its `volume` is the literal `0`, or
+  `E-REMAP-AUDIBLE`. Its sound cannot follow the curve; put it on a separate `audio` element.
 - **Slack is invariant** (ADR-0032). The distance from one boundary to the next is content, not
   padding a tool may absorb. `shift` refuses an edit that would change an existing slack's
   size rather than quietly taking up the difference.

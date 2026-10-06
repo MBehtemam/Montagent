@@ -266,7 +266,7 @@ fn a_curve_past_the_files_end_is_a_source_overrun_named_at_its_first_painted_ins
     assert_eq!(finding.fields["source_time"], 3000 + first);
     assert_eq!(finding.fields["side"], "at or past the file's end");
     assert_eq!(finding.class, Class::Error);
-    assert!(finding.fields.get("source_start").is_none());
+    assert!(!finding.fields.contains_key("source_start"));
     let said = prose(&report);
     assert!(
         said.contains(&format!(

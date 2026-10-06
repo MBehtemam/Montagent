@@ -397,6 +397,12 @@ struct Slot {
 /// 3. **Anything else** — a loop wrap, a re-entry, a skip — the feed is dropped and reopened
 ///    at this frame.
 ///
+/// An element carrying `source_time` (ADR-0157) takes step 3 only where its curve runs at 1×
+/// into the next frame — the offset there is this one plus one frame interval — because only
+/// then is a feed's next frame provably the one the curve picks. Every other remapped frame
+/// (slow, fast, frozen or falling) that steps 1 and 2 do not serve is one
+/// [`decode::frame_at`], and the feed is closed.
+///
 /// An element without a feed asks for one when it is painted; it gets one if its
 /// [`feed_bytes`] [`fits`] beside what is held, and is otherwise decoded per frame through
 /// [`decode::frame_at`] for that frame. That is a capacity decision taken before any feed

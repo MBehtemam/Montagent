@@ -149,7 +149,8 @@ pub struct Present {
     pub grain: Option<Vec<Value>>,
     /// **Offset into source** — where in the source file this instant plays, for `audio`
     /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
-    /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
+    /// `overrun` position past the as-played duration (ADR-0020); on a `video` carrying
+    /// `source_time`, the curve's millisecond at the instant (ADR-0157). `null` on every other
     /// type, for the same reason `layer` is `null` on an element with no anchor: nothing
     /// declared it.
     pub source_offset: Option<i64>,

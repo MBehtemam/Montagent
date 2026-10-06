@@ -503,8 +503,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 34,
-        "seventeen keyframe instantiations, first and non-first"
+        seen, 36,
+        "eighteen keyframe instantiations, first and non-first"
     );
 }
 
@@ -590,9 +590,9 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         "the schema publishes animated properties"
     );
 
-    // Three elements carry the whole set between them: a rect takes the transform and its
-    // size and paint, `volume` is audio's (ADR-0055), and `color` and
-    // `letter_spacing` are text's (ADR-0146, ADR-0151).
+    // The elements carry the whole set between them: a rect takes the transform and its
+    // size and paint, `volume` is audio's (ADR-0055), `source_time` a video's (ADR-0157),
+    // and `color` and `letter_spacing` are text's (ADR-0146, ADR-0151).
     let path = project(
         line!(),
         json!({
@@ -621,7 +621,11 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "words", "type": "text", "start": 0, "end": 1000,
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
-                     "runs": [{"text": "hi"}]}]},
+                     "runs": [{"text": "hi"}]},
+                    {"id": "footage", "type": "video", "start": 0, "end": 1000,
+                     "source": "reference/kenburns/05.mp4", "source_time": 0,
+                     "x": 600, "y": 2, "width": 10, "height": 10, "fit": "literal",
+                     "volume": 0}]},
                 {"name": "sound", "layer": 1, "elements": [
                     {"id": "noise", "type": "audio", "start": 0, "end": 1000,
                      "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1000,
@@ -630,7 +634,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         }),
     );
     let answer = at(&path, 500);
-    let mut resolved: Vec<String> = ["shape", "outline", "noise", "words"]
+    let mut resolved: Vec<String> = ["shape", "outline", "noise", "words", "footage"]
         .iter()
         .flat_map(|id| {
             element(&answer, id)["values"]
