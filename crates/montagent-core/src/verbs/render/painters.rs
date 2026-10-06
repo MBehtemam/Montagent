@@ -18,7 +18,7 @@
 //! - `elements`, `frame`, `project_dir`, `class` and `fps`: fixed when it is built, from the
 //!   document.
 //! - `instant`, `frame_number`, `painted`, `not_painted`, `painted_partially`, `declined`,
-//!   `crossfades` and `fades`: reset by `Painter::begin` before every frame.
+//!   `transitions` and `running`: reset by `Painter::begin` before every frame.
 //! - `registry`, the font registry: a cache. Shaping reads only the element's own declared
 //!   chain (`Fonts::chain`, a `FontFamily::List`, with system fonts off), so a registry that
 //!   holds more keys shapes the same glyphs.

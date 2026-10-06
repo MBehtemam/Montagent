@@ -64,6 +64,7 @@ pub mod slack;
 pub mod stack;
 pub mod text;
 pub mod track;
+pub(crate) mod transition;
 pub mod verbs;
 pub mod wire;
 pub mod write;

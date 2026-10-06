@@ -1500,19 +1500,25 @@ fn frame_block(frame: &Value) -> String {
         )
     }));
 
-    // A crossfade draws nothing of its own, so without this line the only trace of it in
-    // the answer is two elements at an opacity the `query --at` block below prints as `1`
-    // — the document's number, not the frame's. An agent reading that goes looking for a
-    // defect in the wrong element, which is the failure the caption exists to prevent.
-    for fade in frame["crossfades"].as_array().into_iter().flatten() {
+    // A transition draws nothing of its own, so without this line the only trace of it in
+    // the answer is two elements at an opacity the `query --at` block below prints as `1`,
+    // or somewhere their `x` and `y` do not say — the document's numbers, not the frame's.
+    // An agent reading that goes looking for a defect in the wrong element, which is the
+    // failure the caption exists to prevent.
+    for running in frame["transitions"].as_array().into_iter().flatten() {
+        let how = match (running["direction"].as_str(), running["pixels"].as_i64()) {
+            (Some(direction), Some(pixels)) => format!(" {direction}, {pixels} px,"),
+            _ => String::new(),
+        };
         out.push_str(&row(format!(
-            "crossfade   {} — {}% from {} to {}, over {}..{}",
-            named(&fade["element"]),
-            (fade["progress"].as_f64().unwrap_or_default() * 100.0).round(),
-            named(&fade["from"]),
-            named(&fade["to"]),
-            fade["start"].as_i64().unwrap_or_default(),
-            fade["end"].as_i64().unwrap_or_default(),
+            "{:<11} {} —{how} {}% from {} to {}, over {}..{}",
+            named(&running["kind"]),
+            named(&running["element"]),
+            (running["progress"].as_f64().unwrap_or_default() * 100.0).round(),
+            named(&running["from"]),
+            named(&running["to"]),
+            running["start"].as_i64().unwrap_or_default(),
+            running["end"].as_i64().unwrap_or_default(),
         )));
     }
 
@@ -2162,6 +2168,26 @@ fn resolved_cells(element: &Value) -> String {
     // ADR-0147: every visual member says how it composites, `normal` included.
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
+    }
+    // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
+    // so the row says where.
+    if let Some(moved) = element["transition"].as_object() {
+        let offset = &moved["offset"];
+        let at = match moved["box"].as_object() {
+            Some(rect) => format!(
+                "box {},{} {}×{}",
+                stated_number(&rect["x"]),
+                stated_number(&rect["y"]),
+                stated_number(&rect["width"]),
+                stated_number(&rect["height"]),
+            ),
+            None => "no visible box".to_string(),
+        };
+        cells.push(format!(
+            "transition: moved [{}, {}], {at}",
+            stated_number(&offset[0]),
+            stated_number(&offset[1]),
+        ));
     }
     match cells.is_empty() {
         // A fact, not a blank: an audio element with no `volume` declares nothing that

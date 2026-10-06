@@ -67,10 +67,11 @@
 //! [#214](https://github.com/MBehtemam/Montagent/issues/214)**, and it arrives in this verb
 //! split three ways, because the three things are three different kinds of rule. The
 //! ordered `effects` list is *painting*, so it is read here ([`Painter::effects_of`]) and
-//! applied there ([`montagent_render::canvas::Effect`]). A `crossfade` is *resolution* —
+//! applied there ([`montagent_render::canvas::Effect`]). A transition is *resolution* —
 //! ADR-0059 makes a transition "purely descriptive", and what it descriptively says is
-//! what the two bridged elements' opacities are — so it is settled before a pixel is drawn
-//! ([`Painter::resolve_crossfades`]) and the rasterizer never hears of it. A run's
+//! what the two bridged elements' opacities, offsets and cuts are (ADR-0150) — so it is
+//! settled before a pixel is drawn ([`Painter::resolve_transitions`], through
+//! `crate::transition`) and the rasterizer never hears of it. A run's
 //! `highlight` is the same shape of thing one level down: which of the run's two declared
 //! styles applies at this instant ([`highlight_at`]).
 //!
@@ -94,7 +95,8 @@
 //! [#280](https://github.com/MBehtemam/Montagent/issues/280) and argued at their sites: a
 //! blur or shadow `radius` is `2σ` rather than `σ`, a crossfade's ramp is linear,
 //! `opacity` composites outside the effects, a shadow's `opacity` multiplies its colour's
-//! alpha, a `highlight` is paint only, and the answer gains a `crossfades` block.
+//! alpha, a `highlight` is paint only, and the answer gains a `crossfades` block — since
+//! ADR-0150 a `transitions` block, naming every kind.
 //!
 //! #213 adds six more of the same kind, collected at
 //! [#277](https://github.com/MBehtemam/Montagent/issues/277) and argued at their sites: an
@@ -318,18 +320,19 @@ pub struct Picture {
     /// element in the picture missing its shadow are not the same report, and one list
     /// naming both would have every entry read as the worse of the two.
     pub painted_partially: Vec<NotPainted>,
-    /// Every `crossfade` running at this instant, with the window it runs over and how far
+    /// Every transition running at this instant, with the window it runs over and how far
     /// through it this frame is.
     ///
     /// Its own list, because a transition draws nothing of its own and would otherwise be
-    /// invisible in the answer while being the reason two elements are half-strength. The
+    /// invisible in the answer while being the reason two elements are half-strength, or
+    /// somewhere their `x` and `y` do not say (ADR-0150). The
     /// `query --at` block beside the picture prints each element's *declared* `opacity`,
     /// which is what the document says and not what the frame shows — and an agent reading
     /// `opacity 1` under a half-faded element goes looking for a defect in the wrong
     /// place. This is the sentence that closes that gap — new answer surface, raised for
     /// ratification at [#280](https://github.com/MBehtemam/Montagent/issues/280) on the
     /// precedent [#274](https://github.com/MBehtemam/Montagent/issues/274) set.
-    pub crossfades: Vec<Crossfade>,
+    pub transitions: Vec<Transitioning>,
     /// Every media file opened, in the order it was opened.
     pub sources: Vec<String>,
     /// Every font file opened (ADR-0007). A file from outside the declared chain would
@@ -428,11 +431,15 @@ pub struct NotPainted {
     pub code: String,
 }
 
-/// One `crossfade` in effect at the instant drawn (ADR-0059).
+/// One transition in effect at the instant drawn (ADR-0059, ADR-0150).
 #[derive(Debug, Clone, Serialize)]
-pub struct Crossfade {
+pub struct Transitioning {
     /// The transition element's own id.
     pub element: String,
+    /// `crossfade`, `wipe`, `slide` or `push`.
+    pub kind: String,
+    /// The way a `wipe`, `slide` or `push` travels; `null` on a crossfade.
+    pub direction: Option<String>,
     pub from: String,
     pub to: String,
     /// **The derived window** — the intersection of the two bridged elements' ranges —
@@ -442,8 +449,12 @@ pub struct Crossfade {
     pub start: i64,
     pub end: i64,
     /// `0` at the window's start, approaching `1` at its end — the fraction of the way
-    /// across, which is the outgoing element's lost opacity and the incoming one's gained.
+    /// across, before any `ease`. On a crossfade it is the outgoing element's lost opacity
+    /// and the incoming one's gained.
     pub progress: f64,
+    /// `n = floor(p × D)`: the whole pixels a `wipe`, `slide` or `push` has travelled, its
+    /// `ease` applied. `null` on a crossfade, which travels nowhere.
+    pub pixels: Option<i64>,
 }
 
 /// Draw one frame.
@@ -685,7 +696,7 @@ pub fn frame(path: &FilePath, ask: &Ask) -> Answer {
         painted: painter.painted,
         not_painted: painter.not_painted,
         painted_partially: painter.painted_partially,
-        crossfades: painter.crossfades,
+        transitions: painter.transitions,
         sources: painter.sources,
         fonts: painter.fonts,
     };
@@ -900,6 +911,39 @@ fn clamp(crop: Region, frame_width: i64, frame_height: i64) -> Option<Rect> {
 /// answer's rectangle is [`Rect`], which is what every other frame-space rectangle in the
 /// surface serialises as, and the rasterizer knows nothing of `serde` or of the format. A
 /// shared type would mean one of those two facts stopped being true.
+/// Why a transition that claims to be running could not be used, at the code for the
+/// reason (ADR-0093).
+fn declined(unusable: crate::transition::Unusable) -> Declined {
+    use crate::transition::Unusable;
+    Declined::finding(match unusable {
+        // A `kind` the format does not have is `validate`'s schema error, and nothing here
+        // invents a resolution for it.
+        Unusable::Kind(other) => undrawable(format!(
+            "a transition is a `crossfade`, `wipe`, `slide` or `push`, and this one is a \
+             `{other}`"
+        )),
+        Unusable::NoKind => undrawable("it states no `kind`"),
+        Unusable::Direction(kind) => undrawable(format!(
+            "a `{kind}` names the way it travels, and this one states no readable `direction`"
+        )),
+        Unusable::Ease => undrawable("its `ease` is not a keyframe ease"),
+        Unusable::Unpaired => undrawable("it does not name both the elements it bridges"),
+        // A `from`/`to` naming nothing in the document is `validate`'s
+        // `E-TRANSITION-REF-MISSING` (ADR-0150) — but `frame` runs without `validate`, and
+        // it is also the reason this frame shows no transition, so it is said here too.
+        Unusable::Unresolved { from, to } => Finding::new("E-NOT-PAINTED-UNRESOLVED-REF")
+            .field("from", json!(from))
+            .field("to", json!(to)),
+        // `E-TRANSITION-NO-OVERLAP` is what `validate` calls this, and it is a live
+        // refuse-class error — so a render never reaches here and only `frame` does. The
+        // picture states the consequence it can see rather than borrowing that code, which
+        // is about the document's own arithmetic.
+        Unusable::NoWindow { from, to } => undrawable(format!(
+            "`{from}` and `{to}` share no instant, so there is no window to cross over"
+        )),
+    })
+}
+
 fn region_of(rect: Rect) -> Region {
     Region {
         x: rect.x,
@@ -961,18 +1005,17 @@ pub(crate) struct Painter<'a> {
     /// ADR-0091's missing `ffmpeg`, kept apart from both of the above so it keeps its own
     /// code and exit 70. Not cleared per frame, for [`Painter::internal`]'s reason.
     pub(crate) tool_missing: Option<Box<Missing>>,
-    /// Every crossfade running at this instant, in document order.
-    pub(crate) crossfades: Vec<Crossfade>,
-    /// Each bridged element's id and the factor its `opacity` is multiplied by — the one
-    /// place a crossfade touches the picture.
+    /// Every transition running at this instant, in document order, as the answer states it.
+    pub(crate) transitions: Vec<Transitioning>,
+    /// The same transitions, resolved — the one place a transition touches the picture,
+    /// read per element through [`crate::transition::bridge_of`].
     ///
-    /// A list rather than a map, and a *multiplication* rather than a replacement, for the
-    /// same reason: an element can be the `to` of one transition and the `from` of the
-    /// next — a sequence of cross-fading clips, which ADR-0059 calls the "checkerboard" of
-    /// tracks the model costs — and at the instant where those two windows meet it is
-    /// fading in and out at once. Replacing would let whichever transition was read last
-    /// win.
-    fades: Vec<(String, f64)>,
+    /// A list, combined rather than replaced, because an element can be the `to` of one
+    /// transition and the `from` of the next — a sequence of clips, which ADR-0059 calls
+    /// the "checkerboard" of tracks the model costs — and at the instant where those two
+    /// windows meet it is in both at once. Replacing would let whichever transition was
+    /// read last win.
+    running: Vec<crate::transition::Running>,
     pub(crate) sources: Vec<String>,
     pub(crate) fonts: Vec<String>,
     /// Every declared chain this frame has opened, **one registry for the whole frame**.
@@ -1055,8 +1098,8 @@ impl<'a> Painter<'a> {
             declined: Vec::new(),
             internal: None,
             tool_missing: None,
-            crossfades: Vec::new(),
-            fades: Vec::new(),
+            transitions: Vec::new(),
+            running: Vec::new(),
             sources: Vec::new(),
             fonts: Vec::new(),
             registry: montagent_text::Fonts::new(),
@@ -1087,8 +1130,8 @@ impl<'a> Painter<'a> {
         self.not_painted.clear();
         self.painted_partially.clear();
         self.declined.clear();
-        self.crossfades.clear();
-        self.fades.clear();
+        self.transitions.clear();
+        self.running.clear();
     }
 
     /// Start timeline frame `n`, painted at `instant` — [`Painter::begin`], plus the frame
@@ -1131,7 +1174,7 @@ impl<'a> Painter<'a> {
     /// carefully written, would be a second place draw order could be decided, and the one
     /// failure the caption exists to prevent is a defect attributed to the wrong element.
     pub(crate) fn paint(&mut self, canvas: &mut Canvas, view: &At) {
-        self.resolve_crossfades();
+        self.resolve_transitions();
         canvas.background(self.background());
 
         for present in &view.stack {
@@ -1189,8 +1232,8 @@ impl<'a> Painter<'a> {
             Some("text") => self.text(canvas, name, element),
             // No frame-space footprint of its own. ADR-0059 keeps a transition's job
             // "purely descriptive: name the pair, own the exact window" — what it does to
-            // the picture is already in the two bridged elements' opacities, resolved in
-            // `resolve_crossfades` before a single element was drawn. Listing it as
+            // the picture is already in the two bridged elements' opacities, offsets and
+            // cuts, resolved in `resolve_transitions` before a single element was drawn. Listing it as
             // unpainted would say the picture is missing something it is not.
             Some("transition") => {}
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
@@ -1252,125 +1295,59 @@ impl<'a> Painter<'a> {
         effects
     }
 
-    /// Read every `transition` in the document and work out what each bridged element's
-    /// opacity is multiplied by at this instant (ADR-0059).
+    /// Read every `transition` in the document and resolve what each does to the elements it
+    /// bridges at this instant (ADR-0059, ADR-0150), through `crate::transition`, which
+    /// `query --at` reads too.
     ///
     /// **The window is derived, not declared.** ADR-0059 requires a transition's
     /// `start`/`end` to equal the intersection of the two elements it bridges, and
     /// `E-TRANSITION-RANGE` is the check that says so — through the same
-    /// [`crate::stack::Stack`] index this reads, rather than a second one. Where a
+    /// [`crate::stack::Stack`] index the resolution reads, rather than a second one. Where a
     /// document states a wider window the renderer cannot honour it: outside the
     /// intersection one of the two elements does not exist, so there is nothing to cross
     /// to. ADR-0007 settles what to do with a field like that — *"worse than no field"* —
     /// so the picture is drawn over the intersection and the drift stays `validate`'s to
     /// report.
     ///
-    /// **The ramp is linear.** No ADR states a shape, and ADR-0059's whole argument for
-    /// the element type is that *"a pair of opposite opacity ramps on two tracks"* is what
-    /// a crossfade already was — those ramps being ADR-0012 keyframes, whose own default
-    /// `ease` is what a document would have written by hand. Linear is also the only shape
-    /// under which the two halves sum to a constant at every instant, which is what stops
-    /// a crossfade dipping through the background halfway. Recorded here and raised at
-    /// [#280](https://github.com/MBehtemam/Montagent/issues/280).
-    fn resolve_crossfades(&mut self) {
-        let stack = crate::stack::Stack::of(self.document);
-        for (_, element) in self.document.elements_in_tracks() {
-            if element.get("type").and_then(Value::as_str) != Some("transition") {
-                continue;
-            }
-            match self.crossfade(&stack, element) {
-                Ok(Some(fade)) => {
-                    self.fades.push((fade.from.clone(), 1.0 - fade.progress));
-                    self.fades.push((fade.to.clone(), fade.progress));
-                    self.crossfades.push(fade);
+    /// **A crossfade's ramp is linear.** No ADR states a shape, and ADR-0059's whole
+    /// argument for the element type is that *"a pair of opposite opacity ramps on two
+    /// tracks"* is what a crossfade already was. Linear is also the only shape under which
+    /// the two halves sum to a constant at every instant, which is what stops a crossfade
+    /// dipping through the background halfway — and why ADR-0150 refuses `ease` on one.
+    /// Recorded here and raised at [#280](https://github.com/MBehtemam/Montagent/issues/280).
+    fn resolve_transitions(&mut self) {
+        for (element, outcome) in crate::transition::at(self.document, self.instant, self.frame) {
+            match outcome {
+                Ok(Some(running)) => {
+                    self.transitions.push(Transitioning {
+                        element: running.element.clone(),
+                        kind: running.kind.as_str().to_string(),
+                        direction: running.direction.map(|d| d.as_str().to_string()),
+                        from: running.from.clone(),
+                        to: running.to.clone(),
+                        start: running.start,
+                        end: running.end,
+                        progress: running.progress,
+                        pixels: running.pixels,
+                    });
+                    self.running.push(running);
                 }
                 // Not running at this instant, which is not a thing the picture is
                 // missing — a transition is only ever doing something inside its own
                 // window.
                 Ok(None) => {}
                 // Running, or claiming to be, and unusable. Named on the same rule every
-                // other element in this verb is: an agent that cannot tell "the fade has
-                // not started" from "the fade could not be read" will go looking for the
+                // other element in this verb is: an agent that cannot tell "the transition
+                // has not started" from "it could not be read" will go looking for the
                 // defect in the wrong place.
-                Err(declined) => {
+                Err(unusable) => {
                     if self.present(element) {
                         let name = name_of(element);
-                        self.record(&name, declined);
+                        self.record(&name, declined(unusable));
                     }
                 }
             }
         }
-    }
-
-    /// One transition's contribution at this instant: the crossfade it is running, nothing
-    /// (because the instant is outside its window), or the reason it could not be read.
-    fn crossfade(
-        &self,
-        stack: &crate::stack::Stack<'_>,
-        element: &Value,
-    ) -> Result<Option<Crossfade>, Declined> {
-        // `crossfade` is the whole v1 vocabulary (ADR-0059): "wipe, slide and push are
-        // deferred", and freezing a closed-vocabulary member on a guess is the trap that
-        // ADR avoided. A `kind` the format does not have is `validate`'s schema error, and
-        // nothing here invents a ramp for it.
-        match element.get("kind").and_then(Value::as_str) {
-            Some("crossfade") => {}
-            Some(other) => {
-                return Err(Declined::finding(undrawable(format!(
-                    "`crossfade` is the whole of v1's transition vocabulary, and this one is \
-                     a `{other}`"
-                ))));
-            }
-            None => return Err(Declined::finding(undrawable("it states no `kind`"))),
-        }
-        let (Some(from), Some(to)) = (
-            element.get("from").and_then(Value::as_str),
-            element.get("to").and_then(Value::as_str),
-        ) else {
-            return Err(Declined::finding(undrawable(
-                "it does not name both the elements it bridges",
-            )));
-        };
-        // A `from`/`to` naming nothing in the document is a dangling reference, which is
-        // `validate`'s to classify — but it is also the reason this frame shows no fade,
-        // so it is said here too.
-        let (Some(from_range), Some(to_range)) = (
-            stack.placement(from).and_then(|placement| placement.range),
-            stack.placement(to).and_then(|placement| placement.range),
-        ) else {
-            // The one transition fault no check owns: `checks::transition` says in as many
-            // words that a dangling `from`/`to` is *"a different question this check
-            // declines to answer"*, and nothing else claimed it. So it is genuinely
-            // reachable, and ADR-0093 gives it a code.
-            return Err(Declined::finding(
-                Finding::new("E-NOT-PAINTED-UNRESOLVED-REF")
-                    .field("from", json!(from))
-                    .field("to", json!(to)),
-            ));
-        };
-
-        let start = from_range.start.max(to_range.start);
-        let end = from_range.end.min(to_range.end);
-        if end <= start {
-            // `E-TRANSITION-NO-OVERLAP` is what `validate` calls this, and it is a live
-            // refuse-class error — so a render never reaches here and only `frame` does. The
-            // picture states the consequence it can see rather than borrowing that code,
-            // which is about the document's own arithmetic.
-            return Err(Declined::finding(undrawable(format!(
-                "`{from}` and `{to}` share no instant, so there is no window to cross over"
-            ))));
-        }
-        if self.instant < start || self.instant >= end {
-            return Ok(None);
-        }
-        Ok(Some(Crossfade {
-            element: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
-            from: from.to_string(),
-            to: to.to_string(),
-            start,
-            end,
-            progress: (self.instant - start) as f64 / (end - start) as f64,
-        }))
     }
 
     /// Does this element's own declared range contain the instant?
@@ -1390,17 +1367,13 @@ impl<'a> Painter<'a> {
         self.instant >= start && self.instant < end
     }
 
-    /// What this element's `opacity` is multiplied by, from every crossfade it is bridged
-    /// by — `1.0` for an element no transition names.
-    fn fade(&self, element: &Value) -> f64 {
-        let Some(id) = element.get("id").and_then(Value::as_str) else {
-            return 1.0;
-        };
-        self.fades
-            .iter()
-            .filter(|(named, _)| named == id)
-            .map(|(_, factor)| factor)
-            .product()
+    /// What every running transition does to this element — the identity for an element
+    /// no transition names.
+    fn bridge(&self, element: &Value) -> crate::transition::Bridge {
+        match element.get("id").and_then(Value::as_str) {
+            Some(id) => crate::transition::bridge_of(&self.running, id),
+            None => crate::transition::Bridge::default(),
+        }
     }
 
     /// Not drawn, at the code for the reason (ADR-0093).
@@ -1515,7 +1488,7 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
-            None,
+            self.clip(element),
             &effects,
         );
         self.painted.push(name.to_string());
@@ -1850,7 +1823,7 @@ impl<'a> Painter<'a> {
                 height: placement.height,
             },
             &self.transform(element),
-            None,
+            self.clip(element),
             &effects,
         );
         self.painted.push(name.to_string());
@@ -1869,15 +1842,24 @@ impl<'a> Painter<'a> {
     /// The resolved transform, through the same reading the `query --at` block's geometry
     /// uses — ADR-0012's defaults included, since this is *where the element actually is*
     /// rather than *what the document declares*.
+    ///
+    /// A slide or push's offset is added to `x` and `y` here (ADR-0150). It is whole pixels
+    /// in frame space, and `x`/`y` place the pivot in frame space after rotation and scale
+    /// have acted about it, so adding it there is the same as moving the finished element:
+    /// it acts outside the element's own transform, and `scale` and `rotation` keep working
+    /// underneath, untouched.
     fn transform(&self, element: &Value) -> Transform {
         let (frame_width, frame_height) = self.frame;
+        let bridge = self.bridge(element);
         let origin = match element.get("origin") {
             None | Some(Value::Null) => Origin::Center,
             Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
         };
         Transform {
-            x: geometry::number::<i64>(element, "x", self.instant, frame_width as f64 / 2.0),
-            y: geometry::number::<i64>(element, "y", self.instant, frame_height as f64 / 2.0),
+            x: geometry::number::<i64>(element, "x", self.instant, frame_width as f64 / 2.0)
+                + bridge.offset.0 as f64,
+            y: geometry::number::<i64>(element, "y", self.instant, frame_height as f64 / 2.0)
+                + bridge.offset.1 as f64,
             origin: geometry::origin_fraction(origin),
             scale: {
                 let [sx, sy] =
@@ -1889,24 +1871,20 @@ impl<'a> Painter<'a> {
             // Multiplied rather than replaced: a crossfade is a ramp *on* what the
             // document says, so an element already keyframed to 0.5 fades from 0.5 rather
             // than jumping to 1 to start.
-            opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0)
-                * self.fade(element),
+            opacity: geometry::number::<f64>(element, "opacity", self.instant, 1.0) * bridge.fade,
             blend: blend_of(element),
         }
     }
 
-    /// `clip`, the static frame-space aperture (ADR-0025) — `image` and `video` only.
+    /// The frame-space aperture the element is painted through: its own `clip` (ADR-0025,
+    /// `image` and `video` only), moved with it by a slide or push, and cut by a wipe
+    /// (ADR-0150). Whole pixels, so the edge is hard and the same on every painter.
     fn clip(&self, element: &Value) -> Option<Region> {
-        let clip = element.get("clip")?.as_array()?;
-        if clip.len() != 4 {
-            return None;
-        }
-        Some(Region {
-            x: clip[0].as_i64()?,
-            y: clip[1].as_i64()?,
-            width: clip[2].as_i64()?,
-            height: clip[3].as_i64()?,
-        })
+        let own = match element.get("type").and_then(Value::as_str) {
+            Some("image" | "video") => geometry::clip_rect(element),
+            _ => None,
+        };
+        self.bridge(element).aperture(own).map(region_of)
     }
 }
 

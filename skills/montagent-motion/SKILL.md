@@ -118,6 +118,33 @@ A wipe uncovers something by sliding an edge across it. Put an **occluder** abov
 - **Busy ground:** an occluder only works over a flat colour. Over a photo, a gradient or footage, reveal with a pop or a push instead. <!-- workaround: #463 · replaced by: an animated mask -->
 - **Look:** `frame` at the middle of the sweep and check the edge bar covers the occluder's edge exactly; then `frame` just after the sweep and check nothing of the occluder is left.
 
+### Hand over with a push, slide or wipe
+
+To move from one card, still or scene to the next with motion, bridge the two with a `transition` of kind `push`, `slide` or `wipe`. Keyed `x` on both elements would drift apart at the join; the transition keeps the two halves joined to the pixel, and `validate` checks it.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 3000, "output": "out/handover.mp4",
+  "tracks": [
+    {"name": "first", "layer": 10, "elements": [
+      {"id": "card-1", "type": "rect", "start": 0, "end": 1700, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "fill": "#FF5A36"}
+    ]},
+    {"name": "second", "layer": 11, "elements": [
+      {"id": "card-2", "type": "rect", "start": 1200, "end": 3000, "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080, "fill": "#2E86FF"}
+    ]},
+    {"name": "handover", "layer": 12, "elements": [
+      {"id": "handover", "type": "transition", "start": 1200, "end": 1700, "kind": "push", "from": "card-1", "to": "card-2", "direction": "left", "ease": [0.65, 0, 0.35, 1]}
+    ]}
+  ]
+}
+```
+
+- **Kind:** `push` when the two belong to one strip (pages, steps, a carousel); `slide` when the new one lands on top of a still one; `wipe` when the old one should stay put and be cut away.
+- **Direction:** the way the motion travels. `left` brings the new one in from the right, which follows the reading direction.
+- **Length:** 400–600 ms, `[0.65, 0, 0.35, 1]`. The transition's `start` and `end` are exactly the time the two share.
+- **Slide stacking:** in a `slide`, the incoming element must sit on the higher `layer`.
+- **Look:** `frame` at the middle of the window and check the join; then `preview` across it.
+
 ### Grow from an edge
 
 Bars, underlines, dividers and progress lines grow out of the edge they stand on. Set `origin` to that edge (`bottom-center` for a bar on a baseline, `center-left` for an underline) and scale the one axis from 0 to 1.

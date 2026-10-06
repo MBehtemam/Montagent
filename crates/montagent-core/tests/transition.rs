@@ -105,9 +105,9 @@ fn a_transition_whose_declared_range_has_drifted_fires() {
 }
 
 #[test]
-fn a_dangling_from_or_to_is_silently_out_of_scope() {
-    // `b` does not exist in the project at all — a different question than this check
-    // answers, and left to whichever check owns dangling references.
+fn a_dangling_from_or_to_is_not_a_drifted_range() {
+    // `b` does not exist in the project at all — `E-TRANSITION-REF-MISSING`'s question
+    // (ADR-0150, `tests/transition_kinds.rs`), never a range drift.
     let tracks = checkerboard(&clip("a", 0, 600), "", &transition("x", 400, 600, "a", "b"));
     let report = report_on(&tracks);
     assert!(findings(&report).is_empty(), "{:?}", report.findings);

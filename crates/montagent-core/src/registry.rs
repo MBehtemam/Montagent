@@ -2287,12 +2287,11 @@ member of the effect vocabulary, and it was drawn as though it were not there.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0093",
-        // `checks::transition` declines this question in as many words — *"a `from`/`to`
-        // naming an element that is not in the project at all is a dangling reference, not a
-        // drifted one ... leaving an unresolved reference to whichever check owns that
-        // question"* — and no check ever claimed it. So the render is where it surfaces, and
-        // until ADR-0093 it surfaced as a line of prose: the crossfade simply did not happen.
-        template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the crossfade was not applied.",
+        // Until ADR-0150 no check claimed a dangling `from`/`to`, so the render was where it
+        // surfaced, and until ADR-0093 as a line of prose. `validate` now says it as
+        // `E-TRANSITION-REF-MISSING`; this code stays for `frame`, which runs without
+        // `validate`.
+        template: "`{element}` bridges `{from}` and `{to}`, and they do not both resolve to an element with a range — so the transition was not applied.",
         status: Live,
         census: None,
         sets: &[],
