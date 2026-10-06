@@ -374,9 +374,10 @@ _Avoid_: greenscreen (the technique, not the member), chromakey, despill (that i
 **Mask**:
 An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) that
 keeps an element's rendered pixels where the shape is and erases the rest.
-Shape-only in v1 — a soft or alpha mask sourced from an image is deferred, since
-it introduces a second asset reference and unresolved fitting/colour-space
-questions. **Its parameters are one rect, shared by all three shapes**:
+Shape-only: a mask sourced from an image is deferred, since it introduces a second
+asset reference and unresolved fitting/colour-space questions, and a mask sourced
+from text is refused — footage through letters is a paint, not a mask.
+**Its parameters are one rect, shared by all three shapes**:
 `x`, `y`, `width`, `height` name the rect the shape is inscribed in, and `shape`
 selects which figure is drawn in it — never which fields exist, because a
 per-shape field set would be the two-level lookup ADR-0049 refused. The four are
@@ -391,10 +392,15 @@ There is no ellipse rotation term — the element's own `rotation` turns the mas
 unscaled units, so `scale` grows it and `rotation` turns it, the same rule that
 makes a `blur` radius and a `stroke_width` scale. That is not keyframing an effect
 parameter — the fields stay literal integers on every frame. A bare `mask` key
-outside `effects` is a retired spelling.
+outside `effects` is a retired spelling. **`invert`** keeps the outside of the
+shape instead of the inside. **`feather`** softens the mask's edge, centred on it,
+read as a `blur` radius is, so an inverted feathered mask is the exact complement
+of the plain one. Masks in one list intersect, so a mask and a smaller inverted one
+keep a ring.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md),
-[ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md))
+[ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md),
+[ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
 different concept that happens to sound alike; a mask is carried by the transform,
