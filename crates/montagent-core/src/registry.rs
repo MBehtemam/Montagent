@@ -1692,9 +1692,25 @@ drawn.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0149",
-        template: "`{element}`.{property}: stop {stop} is at offset {offset}, before stop \
-{previous} at {previous_offset}. Offsets never decrease; equal offsets are legal and make a hard \
-edge.",
+        template: "`{element}`.{property}, in {in}: stop {stop} is at offset {offset}, before \
+stop {previous} at {previous_offset}. Offsets never decrease; equal offsets are legal and make a \
+hard edge.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0149 §5: every `v` in one `stops` keyframe list has the same number of stops,
+        // because stop i blends with stop i. The schema cannot relate two records.
+        code: "E-GRADIENT-STOP-COUNT",
+        classes: &[Error],
+        // Refuse: whether a stop is missing or one too many is the author's to say.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0149",
+        template: "`{element}`.{property}: keyframe {record} (t={t}) holds {count} stops, but \
+the first holds {expected}. Every keyframe of one `stops` list holds the same number of stops, \
+because stop i blends with stop i.",
         status: Live,
         census: None,
         sets: &[Document],

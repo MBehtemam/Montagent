@@ -39,8 +39,8 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
-pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe};
-pub use paint::{Gradient, Paint};
+pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
+pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, Speed, Volume};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 

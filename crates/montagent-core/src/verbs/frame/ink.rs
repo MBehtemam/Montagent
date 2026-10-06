@@ -11,7 +11,7 @@ use montagent_render::canvas::{Gradient as Shader, GradientKind, Ink};
 use serde_json::Value;
 
 use crate::animatable::{self, Resolved};
-use crate::model::Gradient;
+use crate::model::ResolvedGradient as Gradient;
 
 use super::rgba_of;
 
@@ -22,7 +22,7 @@ pub(super) fn at(element: &Value, property: &str, instant: i64, frame: [f32; 4])
     match animatable::at(element, property, instant)?.ok()? {
         Resolved::Colour(colour) => rgba_of(&colour).map(Ink::Flat),
         Resolved::Gradient(gradient) => Some(Ink::Gradient(Arc::new(shader(&gradient, frame)?))),
-        Resolved::Number(_) | Resolved::Pair(_) | Resolved::Points(_) => None,
+        Resolved::Number(_) | Resolved::Pair(_) | Resolved::Points(_) | Resolved::Stops(_) => None,
     }
 }
 

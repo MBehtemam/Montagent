@@ -53,7 +53,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Paint**
 
 - Timed colour on a word inside text, by recolouring that word's run: `highlight`.
-- Linear and radial gradients as the fill or stroke of a shape, and the colour or stroke of a text element: `gradient`, `angle`, `center`, `radius`, `stops`, `offset`.
+- Linear and radial gradients as the fill or stroke of a shape, and the colour or stroke of a text element, with the angle, centre, radius and stops animating in place: `gradient`, `angle`, `center`, `radius`, `stops`, `offset`.
 
 **Text**
 

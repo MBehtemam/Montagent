@@ -503,8 +503,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 18,
-        "nine keyframe instantiations, first and non-first"
+        seen, 26,
+        "thirteen keyframe instantiations, first and non-first"
     );
 }
 
@@ -579,6 +579,10 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     let schema = montagent_core::schema::generate();
     let mut animatable: Vec<String> = Vec::new();
     collect_animatable(&schema, None, &mut animatable);
+    // A gradient's own parameters are printed inside their paint, never as properties of
+    // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
+    // `rect` has one of its own.
+    animatable.retain(|name| !matches!(name.as_str(), "angle" | "center" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(

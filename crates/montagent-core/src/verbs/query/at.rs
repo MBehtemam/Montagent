@@ -747,9 +747,14 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
                 || own.is_empty()
                 || own.iter().any(|property| property.name == declared.path)
         })
+        // A gradient's parameters are on the list as nested paths (`fill.angle`), and are
+        // printed inside the paint they belong to, resolved and fixed together (ADR-0149 §6).
+        .filter(|declared| declared.effect.is_some() || !declared.path.contains('.'))
         .map(|declared| {
             let property = declared.path.as_str();
-            let animated = declared.records().is_some();
+            let animated = declared.records().is_some()
+                || (declared.property.kind == crate::animatable::Kind::Paint
+                    && crate::animatable::nested_keyed(declared.owner, property));
             match declared.at(instant) {
                 Ok(value) => match serde_json::to_value(value) {
                     Ok(value) => Resolved {

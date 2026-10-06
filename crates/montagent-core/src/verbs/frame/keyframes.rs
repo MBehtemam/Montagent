@@ -273,7 +273,8 @@ fn population(document: &Loose, states: &[Interval]) -> Vec<Point> {
                 .filter(|declared| declared.path != "volume")
                 .filter_map(move |declared| {
                     // A keyframe list, as `Animatable` reads one. `scale`'s static
-                    // `[sx, sy]` and a path's static vertices are not.
+                    // `[sx, sy]` and a path's static vertices are not, nor is a gradient's
+                    // stop list; a gradient's keyed `fill.angle` is, by its path (ADR-0149 §6).
                     let records = declared.records()?;
                     let property = declared.path;
                     Some(records.iter().filter_map(move |record| {
