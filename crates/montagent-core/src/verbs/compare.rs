@@ -263,15 +263,17 @@ fn describe_edges(edges: &[Edge<'_>]) -> String {
 /// The shape test mirrors `Animatable`'s own deserializer (`crate::model::keyframe`): an
 /// array whose first item is an object is a keyframe list; everything else — including
 /// `scale`'s own `[sx, sy]` — is a static value and contributes nothing here.
-fn keyframes_of(document: &Loose) -> Vec<(String, &'static str, usize, i64)> {
+///
+/// A stagger's unit lists are named as `crate::checks::keyframe_lists` names them —
+/// `units.y`, `runs[3].unit.y` — and drift like any list (ADR-0151 §5).
+fn keyframes_of(document: &Loose) -> Vec<(String, String, usize, i64)> {
     let mut out = Vec::new();
     for (_, element) in document.elements_in_tracks() {
         let Some(id) = element.get("id").and_then(Value::as_str) else {
             continue;
         };
-        // The one list (ADR-0146), read as the transform lists always were.
-        for property in crate::animatable::names().iter().map(String::as_str) {
-            let Some(records) = element.get(property).and_then(Value::as_array) else {
+        for (property, container, key) in crate::checks::keyframe_lists(element) {
+            let Some(records) = container.get(key).and_then(Value::as_array) else {
                 continue;
             };
             if !records.first().is_some_and(Value::is_object) {
@@ -279,7 +281,7 @@ fn keyframes_of(document: &Loose) -> Vec<(String, &'static str, usize, i64)> {
             }
             for (index, record) in records.iter().enumerate() {
                 if let Some(t) = record.get("t").and_then(Value::as_i64) {
-                    out.push((id.to_string(), property, index, t));
+                    out.push((id.to_string(), property.clone(), index, t));
                 }
             }
         }
@@ -308,8 +310,11 @@ fn keyframe_at(document: &Loose, id: &str, property: &str, index: usize) -> Opti
         if element.get("id").and_then(Value::as_str) != Some(id) {
             return None;
         }
-        element
-            .get(property)
+        let (_, container, key) = crate::checks::keyframe_lists(element)
+            .into_iter()
+            .find(|(name, _, _)| name == property)?;
+        container
+            .get(key)
             .and_then(Value::as_array)?
             .get(index)?
             .get("t")

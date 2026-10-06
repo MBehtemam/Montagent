@@ -721,6 +721,14 @@ fn ts(list: &Value) -> Vec<i64> {
 }
 
 #[test]
+fn the_timeline_marks_a_title_whose_letters_move_as_moving() {
+    use montagent_core::verbs::timeline;
+    let still = timeline::timeline(&project(&[title("t", "TITLE")], line!())).to_json();
+    let staggered = timeline::timeline(&project(&[staggered("t", "TITLE")], line!())).to_json();
+    assert_ne!(still["timeline"], staggered["timeline"]);
+}
+
+#[test]
 fn a_shift_cutting_inside_the_stagger_window_is_refused_naming_the_window() {
     // The window runs from 1000 to `L`'s own 2000.
     let (answer, written) = shifted(late_title(), 1500);
