@@ -333,3 +333,174 @@ pub(crate) fn bodies_at(
     let bodies = montagent_text::units::bodies(&plan.text, plan.by, &placement);
     Ok((placement, bodies))
 }
+
+/// Which units move together, and why.
+#[derive(Debug, Clone)]
+pub(crate) struct Grouping {
+    pub(crate) bodies: Vec<montagent_text::units::Body>,
+    pub(crate) body_of_unit: Vec<usize>,
+    /// `false` where the fonts would not open, so only the joined pieces — which come from
+    /// the text alone — are known, and no shaping merge is.
+    pub(crate) placed: bool,
+}
+
+impl Grouping {
+    /// The other units `unit` moves with, ascending.
+    pub(crate) fn merged_with(&self, unit: usize) -> Vec<usize> {
+        self.bodies[self.body_of_unit[unit]]
+            .units
+            .iter()
+            .copied()
+            .filter(|&u| u != unit)
+            .collect()
+    }
+
+    /// The unit whose timing `unit` is drawn on: its body's first.
+    pub(crate) fn lead(&self, unit: usize) -> usize {
+        self.bodies[self.body_of_unit[unit]].units[0]
+    }
+}
+
+/// [`Grouping`] for a staggered element: from its placed glyphs where its fonts open
+/// (shaping merges are static, so any instant gives the same answer), otherwise from its
+/// joined pieces alone.
+pub(crate) fn grouping(
+    document: &crate::permissive::Loose,
+    element: &Value,
+    plan: &Plan,
+    instant: i64,
+) -> Grouping {
+    if let Ok((_, bodies)) = bodies_at(document, element, plan, instant) {
+        return Grouping {
+            bodies: bodies.bodies,
+            body_of_unit: bodies.body_of_unit,
+            placed: true,
+        };
+    }
+    let count = plan.units.len();
+    let mut body_of_unit: Vec<Option<usize>> = vec![None; count];
+    let mut bodies: Vec<montagent_text::units::Body> = Vec::new();
+    let pieces = if plan.by == By::Letter {
+        montagent_text::units::pieces(&plan.text)
+    } else {
+        Vec::new()
+    };
+    for unit in 0..count {
+        if body_of_unit[unit].is_some() {
+            continue;
+        }
+        let first = plan
+            .segmentation
+            .graphemes
+            .iter()
+            .position(|g| g.unit == Some(unit));
+        let piece = first.and_then(|g| pieces.iter().find(|p| p.contains(&g)));
+        let units: Vec<usize> = match piece {
+            Some(piece) => plan.segmentation.graphemes[piece.clone()]
+                .iter()
+                .filter_map(|g| g.unit)
+                .collect(),
+            None => vec![unit],
+        };
+        for &u in &units {
+            body_of_unit[u] = Some(bodies.len());
+        }
+        bodies.push(montagent_text::units::Body {
+            joined: units.len() > 1,
+            merged: false,
+            units,
+            rect: None,
+        });
+    }
+    Grouping {
+        bodies,
+        body_of_unit: body_of_unit.into_iter().map(|b| b.unwrap_or(0)).collect(),
+        placed: false,
+    }
+}
+
+/// `query --at`'s summary of a staggered element (ADR-0151 §5).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Stagger {
+    /// `letter`, `word` or `line`.
+    pub by: &'static str,
+    /// How many units there are.
+    pub count: usize,
+    /// `[start, end]`: from the earliest start of any unit list to the latest end, after
+    /// delays and including run overrides. `null` where no list is keyed.
+    pub window: Option<[i64; 2]>,
+}
+
+/// One unit, as `query --at` reports it (ADR-0151 §5). Every unit is listed, whatever its
+/// state, so "settled", "not started" and "missing" never look alike.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UnitRow {
+    pub index: usize,
+    pub text: String,
+    /// The run its first grapheme sits in.
+    pub run: usize,
+    pub delay: i64,
+    /// Per list the `units` block declares, and for `delay`: whether a run's `unit`
+    /// override supplies it.
+    pub overridden: serde_json::Map<String, Value>,
+    /// The units it moves with — sharing a joined piece or a glyph — which all move on the
+    /// first one's timing.
+    pub merged_with: Vec<usize>,
+    /// The pose it is drawn with at the instant: its own, or its body's first unit's.
+    pub x: f64,
+    pub y: f64,
+    pub scale: [f64; 2],
+    pub rotation: f64,
+    pub opacity: f64,
+}
+
+/// `query --at`'s summary and rows for one element, or `None` where it has no stagger.
+pub(crate) fn report(
+    document: &crate::permissive::Loose,
+    element: &Value,
+    instant: i64,
+) -> Option<(Stagger, Vec<UnitRow>)> {
+    let plan = Plan::of(element)?;
+    let grouping = grouping(document, element, &plan, instant);
+    let rows = plan
+        .units
+        .iter()
+        .map(|unit| {
+            let pose = plan.pose(grouping.lead(unit.index), instant);
+            let mut overridden = serde_json::Map::new();
+            for property in LISTS {
+                if plan.block.get(property).is_some() {
+                    overridden.insert(
+                        property.to_string(),
+                        Value::Bool(plan.overridden(unit.index, property)),
+                    );
+                }
+            }
+            overridden.insert(
+                "delay".to_string(),
+                Value::Bool(plan.overridden(unit.index, "delay")),
+            );
+            UnitRow {
+                index: unit.index,
+                text: unit.text.clone(),
+                run: unit.run,
+                delay: unit.delay,
+                overridden,
+                merged_with: grouping.merged_with(unit.index),
+                x: pose.x,
+                y: pose.y,
+                scale: pose.scale,
+                rotation: pose.rotation,
+                opacity: pose.opacity,
+            }
+        })
+        .collect();
+    Some((
+        Stagger {
+            by: by_name(plan.by),
+            count: plan.units.len(),
+            window: plan.window().map(|(a, b)| [a, b]),
+        },
+        rows,
+    ))
+}

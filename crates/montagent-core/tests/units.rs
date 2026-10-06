@@ -255,3 +255,129 @@ fn a_letter_stagger_switches_the_optional_ligatures_off() {
     assert!(painted(&plain, 2500) != painted(&letters, 2500));
     assert!(painted(&plain, 2500) == painted(&words, 2500));
 }
+
+#[test]
+fn a_unit_offset_draws_where_the_same_offset_on_the_element_draws() {
+    // `x` and `y` are element pixels: a static unit offset of (12, 30) on every letter puts
+    // the title where moving the element by (12, 30) does, to the byte.
+    let mut offset = with(
+        title("t", "TITLE"),
+        "units",
+        json!({"by": "letter", "every": 40, "x": 12, "y": 30}),
+    );
+    offset["id"] = json!("t");
+    let mut moved = title("t", "TITLE");
+    moved["x"] = json!(552);
+    moved["y"] = json!(430);
+    let a = project(&[offset], line!());
+    let b = project(&[moved], line!());
+    assert!(painted(&a, 500) == painted(&b, 500));
+}
+
+// ---------------------------------------------------------------------------
+// `query --at`.
+// ---------------------------------------------------------------------------
+
+#[track_caller]
+fn stack_at(project: &Path, instant: i64) -> Value {
+    use montagent_core::report::ExitCode;
+    use montagent_core::verbs::query::{Ask, query};
+    let answer = query(
+        project,
+        &Ask {
+            at: Some(instant),
+            ..Ask::default()
+        },
+    );
+    assert_eq!(answer.report().exit_code(), ExitCode::Ok);
+    answer.to_json()["query"].clone()
+}
+
+fn in_stack<'a>(view: &'a Value, id: &str) -> &'a Value {
+    view["stack"]
+        .as_array()
+        .expect("a stack array")
+        .iter()
+        .find(|e| e["id"] == id)
+        .unwrap_or_else(|| panic!("`{id}` is not in the presence set"))
+}
+
+/// `TITLE` rising letter by letter, with `L` singled out to drop from higher and later.
+fn singled_out_l() -> Value {
+    runs(
+        staggered("t", ""),
+        json!([
+            {"text": "TIT"},
+            {"text": "L", "unit": {"y": [{"t": 0, "v": 80}, {"t": 1000, "v": 0, "ease": "linear"}]}},
+            {"text": "E"},
+        ]),
+    )
+}
+
+#[test]
+fn query_at_summarises_the_stagger_and_lists_every_unit() {
+    let path = project(&[singled_out_l()], line!());
+    let view = stack_at(&path, 100);
+    let element = in_stack(&view, "t");
+    assert_eq!(element["stagger"]["by"], "letter");
+    assert_eq!(element["stagger"]["count"], 5);
+    // The block's lists end at 160 + 300 for the last letter; `L`'s own `y` ends at 1000.
+    assert_eq!(element["stagger"]["window"], json!([0, 1000]));
+    let units = element["units"].as_array().expect("a units array");
+    assert_eq!(units.len(), 5, "every unit, whatever its state");
+    let texts: Vec<&str> = units.iter().map(|u| u["text"].as_str().unwrap()).collect();
+    assert_eq!(texts, ["T", "I", "T", "L", "E"]);
+    let delays: Vec<i64> = units.iter().map(|u| u["delay"].as_i64().unwrap()).collect();
+    assert_eq!(delays, [0, 40, 80, 120, 160]);
+    let runs: Vec<i64> = units.iter().map(|u| u["run"].as_i64().unwrap()).collect();
+    assert_eq!(runs, [0, 0, 0, 1, 2]);
+}
+
+#[test]
+fn query_at_flags_each_overridden_property_and_resolves_every_unit() {
+    let path = project(&[singled_out_l()], line!());
+    let view = stack_at(&path, 100);
+    let units = in_stack(&view, "t")["units"].clone();
+    // `L` overrides `y` only: its `opacity` and its delay are still the block's.
+    assert_eq!(
+        units[3]["overridden"],
+        json!({"y": true, "opacity": false, "delay": false})
+    );
+    assert_eq!(
+        units[0]["overridden"],
+        json!({"y": false, "opacity": false, "delay": false})
+    );
+    // `T` (delay 0) is a third of the way in: 100 / 300 of a linear fade, and `ease-out`
+    // on `y`. `L`'s own `y` is never delayed: 80 → 0 linear over a second, 72 at 100.
+    let close = |v: &Value, want: f64| (v.as_f64().unwrap() - want).abs() < 1e-6;
+    assert!(close(&units[0]["opacity"], 1.0 / 3.0), "{}", units[0]);
+    assert!(close(&units[3]["y"], 72.0), "{}", units[3]);
+    // `L`'s opacity waits for its delay of 120, so at 100 it has not started.
+    assert!(close(&units[3]["opacity"], 0.0), "{}", units[3]);
+    // `E`, delay 160, has not started either: the first record holds.
+    assert!(close(&units[4]["y"], 40.0), "{}", units[4]);
+    for unit in units.as_array().unwrap() {
+        assert_eq!(unit["x"], json!(0.0));
+        assert_eq!(unit["rotation"], json!(0.0));
+        assert_eq!(unit["scale"], json!([1.0, 1.0]));
+        assert_eq!(unit["merged_with"], json!([]));
+    }
+}
+
+#[test]
+fn query_at_names_the_units_a_joined_arabic_piece_moves_with() {
+    let path = project(&[staggered("t", "السلام")], line!());
+    let units = in_stack(&stack_at(&path, 100), "t")["units"].clone();
+    assert_eq!(units.as_array().unwrap().len(), 6);
+    assert_eq!(units[0]["merged_with"], json!([]));
+    assert_eq!(units[2]["merged_with"], json!([1, 3, 4]));
+    // A piece moves on its first letter's timing: `س` (delay 80) is drawn with `ل` (40).
+    assert_eq!(units[2]["opacity"], units[1]["opacity"]);
+}
+
+#[test]
+fn query_at_gives_a_plain_title_no_stagger() {
+    let path = project(&[title("t", "TITLE")], line!());
+    let element = in_stack(&stack_at(&path, 100), "t").clone();
+    assert!(element.get("stagger").is_none() && element.get("units").is_none());
+}
