@@ -150,6 +150,8 @@ status: accepted
 >   reports `motion_blur` as written and whether the element is `moving` or `still` at that frame
 > - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — `query --at`
 >   reports a remapped element's `source_time` and a derived `rate`
+> - [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md) — `query --at`
+>   reports a path's inset and reach factor, the raw dash offset and an informative outline length
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its
