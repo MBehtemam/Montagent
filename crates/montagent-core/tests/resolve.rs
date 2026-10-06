@@ -641,8 +641,11 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
 fn collect_animatable(schema: &Value, key: Option<&str>, found: &mut Vec<String>) {
     match schema {
         Value::Object(body) => {
+            // A paint field (ADR-0149) is animatable through `Paint`, whose first alternative
+            // is `Animatable{Colour}`; that alternative sits under `anyOf`, not under a key.
             if let (Some(key), Some(reference)) = (key, body.get("$ref").and_then(Value::as_str))
-                && reference.contains("Animatable")
+                && (reference.contains("Animatable") || reference.ends_with("/Paint"))
+                && key != "anyOf"
             {
                 found.push(key.to_string());
             }

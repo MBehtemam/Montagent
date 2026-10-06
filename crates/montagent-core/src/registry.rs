@@ -1609,7 +1609,8 @@ widened by the furthest its stagger's unit offsets reach, edge by the list that 
     },
     CheckSpec {
         // ADR-0146 §6: a run's paint is static and beats the element's, so a keyed
-        // element-level text paint field that every run overrides reaches no glyph.
+        // element-level text paint field that every run overrides reaches no glyph — and,
+        // by ADR-0149 §5, neither does a gradient one.
         code: "R-TEXT-PAINT-OVERRIDDEN",
         classes: &[Review],
         // No repair: whether the keyframes or the run overrides are the mistake is a
@@ -1617,8 +1618,39 @@ widened by the furthest its stagger's unit offsets reach, edge by the list that 
         repair: None,
         threshold: Internal,
         adr: "ADR-0146",
-        template: "`{element}`.{property} is keyed, and every one of its {runs} runs states \
-its own `{property}`, which beats the element's: these keyframes change nothing.",
+        template: "`{element}`.{property} is {written}, and every one of its {runs} runs \
+states its own `{property}`, which beats the element's: the element's `{property}` is never \
+drawn.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0149 §5: offsets never decrease in a literal stop list. The schema can bound
+        // each offset but cannot relate two of them. Equal offsets are legal (a hard edge).
+        code: "E-GRADIENT-STOP-ORDER",
+        classes: &[Error],
+        // Refuse: whether the offset or the order is wrong is the author's to say.
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0149",
+        template: "`{element}`.{property}: stop {stop} is at offset {offset}, before stop \
+{previous} at {previous_offset}. Offsets never decrease; equal offsets are legal and make a hard \
+edge.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0149 §5: a gradient whose resolved paint is a single colour, decided by the
+        // resolving function — a forgotten second colour, or a radial that never grows.
+        code: "R-GRADIENT-ONE-COLOUR",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0149",
+        template: "`{element}`.{property} is a gradient that paints one colour, {colour}: \
+{cause}.",
         status: Live,
         census: None,
         sets: &[Document],

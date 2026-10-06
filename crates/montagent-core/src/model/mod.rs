@@ -28,6 +28,7 @@
 pub mod effects;
 mod element;
 pub mod keyframe;
+pub mod paint;
 pub mod playback;
 pub mod text;
 
@@ -39,6 +40,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 pub use effects::{Effect, MaskShape};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe};
+pub use paint::{Gradient, Paint};
 pub use playback::{AudioOverrun, Speed, Volume};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
@@ -591,12 +593,12 @@ pub struct TextElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<Animatable<Colour>>,
+    pub color: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub align: Option<Align>,
     pub runs: Vec<Run>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Animatable<Colour>>,
+    pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
     /// Space added after every grapheme of a line but the last, in **thousandths of an em**
@@ -668,11 +670,11 @@ pub struct Rect {
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Animatable<Colour>>,
+    pub fill: Option<Paint>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Animatable<Colour>>,
+    pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
@@ -727,11 +729,11 @@ pub struct Ellipse {
     /// is a schema error naming both, because an element that deliberately renders nothing
     /// and an element that forgot its paint must not look alike.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<Animatable<Colour>>,
+    pub fill: Option<Paint>,
     /// On a shape the stroke falls **inside** the declared rect, so a stroked `card-05`
     /// still occupies exactly 984×169 (ADR-0014).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stroke: Option<Animatable<Colour>>,
+    pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

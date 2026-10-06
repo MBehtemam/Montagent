@@ -1,11 +1,55 @@
 # The Montagent project format: compositing
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
-other pages; read it first. This page holds the rules for how elements combine: an element's
-`effects`, how the finished element composites into what is below it, and the transition
-elements that bridge two others. Like the rest of the format docs, every rule here is an
+other pages; read it first. This page holds the rules for how elements combine: the paint
+drawn through an element's box, an element's `effects`, how the finished element composites
+into what is below it, and the transition elements that bridge two others. Like the rest of the format docs, every rule here is an
 accepted decision in the ADR series, cited inline by number, and the ADR is right where the
 two disagree.
+
+## Paint
+
+- **A paint is a colour, a keyframe list of colours, or a gradient** (ADR-0149). Four fields
+  take one: a `rect`'s and an `ellipse`'s `fill` and `stroke`, and a `text` element's
+  element-level `color` and `stroke`. Every other colour field takes a colour only: run and
+  highlight paint, the project `background`, and `shadow`, `tint` and `chroma` colours. For a
+  gradient background, put a full-frame `rect` with a gradient `fill` at the bottom.
+- **A gradient is `linear` or `radial`, and every parameter is required** (ADR-0149):
+  `{"gradient": "linear", "angle": 90, "stops": [...]}` or
+  `{"gradient": "radial", "center": [0.5, 0.5], "radius": 1, "stops": [...]}`. `linear`
+  refuses `center` and `radius`; `radial` refuses `angle`. Nothing defaults.
+- **A stop is `{"offset", "color"}`**, `offset` from `0` to `1`, `color` a colour whose alpha
+  is the stop's opacity. At least two stops, no upper limit. Offsets never decrease
+  (`E-GRADIENT-STOP-ORDER`, naming the first pair out of order); equal offsets are legal and
+  make a hard edge. A `stops` array is a keyframe list when its first item has a `t`.
+- **It is measured against the declared box, never the glyphs** (ADR-0149): the declared
+  rect of a shape, the same box for its `stroke` as for its `fill`, and the declared text box
+  of a text element. That text box shares the typographic block's pivot point: with `origin`
+  at `(fx, fy)` of each, a `center` origin centres the box on the block. Moving, scaling or
+  resizing the element carries the gradient with it.
+- **`linear`**: `angle` in degrees, CSS's convention — `0` runs bottom to top, `90` left to
+  right, turning clockwise; any number, so `370` is `10`. The line passes through the box's
+  centre in direction `(sin a, −cos a)` (y down) and is `|W·sin a| + |H·cos a|` long, so the
+  box's corners land on offsets `0` and `1` whatever the aspect ratio.
+- **`radial`**: `center` is `[fx, fy]`, fractions of the box from its top-left (any numbers,
+  so a glow may sit outside it). `radius` (≥ 0) is a fraction of the distance from the centre
+  to the farthest corner, in box fractions: `1` just reaches it. The circle is in box
+  fractions, so on a box that is not square it draws as an ellipse. `center: [0.5, 0.5]`,
+  `radius: 1` is CSS's default radial gradient. `radius: 0` paints the last stop's colour
+  over the whole box.
+- **Past the ends the first and last colours extend; colour blends in sRGB with premultiplied
+  alpha** (ADR-0149), the rule a keyed colour uses across time. A fade to `#00000000` keeps
+  its hue rather than passing through grey. There is no repeat or mirror.
+- **Gradient parameters cannot be keyed yet.** `angle`, `center`, `radius` and `stops` are
+  literals, and a paint's keyframe list holds colours, never a gradient: both are schema
+  errors. A paint field holds a keyed colour or a static gradient.
+- **Two reviews** (ADR-0149): `R-GRADIENT-ONE-COLOUR`, a gradient that paints a single colour
+  (its stops share one, or its `radius` is 0); and `R-TEXT-PAINT-OVERRIDDEN`, a text
+  `color` or `stroke` gradient that every run overrides, so it is never drawn. A run's own
+  colour still beats the element's gradient, run by run.
+- **`query --at` prints a gradient as a literal you can paste back**: kind, parameters and
+  stops as written, colours as hex. Where offsets cross, it prints what is drawn: each stop
+  raised to the largest offset before it, keeping its own colour.
 
 ## Effects and compositing
 

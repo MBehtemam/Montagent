@@ -52,6 +52,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Paint**
 
 - Timed colour on a word inside text, by recolouring that word's run: `highlight`.
+- Linear and radial gradients as the fill or stroke of a shape, and the colour or stroke of a text element: `gradient`, `angle`, `center`, `radius`, `stops`, `offset`.
 
 **Text**
 
@@ -98,7 +99,6 @@ A piece can mix these: load each skill whose row it touches.
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
 - Animated effect parameters, masks included. Keep these out of the design. <!-- workaround: #676 · replaced by: animated effect parameters -->
-- Gradient paint. Keep it out of the design. <!-- workaround: #686 · replaced by: gradient paint -->
 - Paths, lines and morphs. Keep them out of the design. <!-- workaround: #710 · replaced by: a path element, and morphs -->
 - Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
 - Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->

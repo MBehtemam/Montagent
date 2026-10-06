@@ -26,8 +26,8 @@ served beside this one and each fitting one read. Read a page before you write w
 
 - **`montagent://format/text.md`**: a `text` element. Runs and line breaks, direction and
   `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring.
-- **`montagent://format/compositing.md`**: how elements combine. Effect order, `blend` and
-  shadows, masks, `chroma`, and transitions.
+- **`montagent://format/compositing.md`**: how elements combine. Paint and gradients, effect
+  order, `blend` and shadows, masks, `chroma`, and transitions.
 
 ## How you edit a project
 
@@ -94,8 +94,8 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `text` element's `color`, `stroke`, `stroke_width` and `letter_spacing`. The
-  box of an `image`, `video` or `text`, `clip`, enums, run and highlight paint, and effect
-  parameters stay static. A run's paint still beats the element's keyed value; where every
+  box of an `image`, `video` or `text`, `clip`, enums, run and highlight paint, a gradient's
+  parameters (see the compositing page) and effect parameters stay static. A run's paint still beats the element's keyed value; where every
   run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).
 - **A keyed colour blends in sRGB with premultiplied alpha** (ADR-0146), the CSS rule:
   each component clamped to its range, then rounded to the nearest byte; six digits are

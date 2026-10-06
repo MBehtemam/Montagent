@@ -742,7 +742,7 @@ fn split_list(
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
         Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
         Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),
-        Kind::Colour => split_typed::<Colour>(list, at, delta, |blend: Blend| {
+        Kind::Colour | Kind::Paint => split_typed::<Colour>(list, at, delta, |blend: Blend| {
             if blend.in_range() {
                 Ok(blend.settle())
             } else {

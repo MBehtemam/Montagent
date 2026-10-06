@@ -29,7 +29,7 @@ fn values(kind: Kind) -> (Value, Value) {
         Kind::Integer => (json!(100), json!(140)),
         Kind::Number => (json!(0.25), json!(0.75)),
         Kind::Pair => (json!([1.0, 1.0]), json!([1.2, 1.2])),
-        Kind::Colour => (json!("#FF0000"), json!("#0000FF")),
+        Kind::Colour | Kind::Paint => (json!("#FF0000"), json!("#0000FF")),
     }
 }
 

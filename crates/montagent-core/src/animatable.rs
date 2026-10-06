@@ -27,6 +27,9 @@
 //! - an integer-typed property resolves to a continuous value and is never rounded;
 //! - a resolved `radius` clamps to half the shorter side of the box at the same instant;
 //! - a resolved `stroke_width` below zero clamps to `0`;
+//! - a paint field holding a gradient (ADR-0149) resolves to that gradient with §4's stop
+//!   fix applied — each offset raised to the largest before it — so what is printed is what
+//!   is drawn. Its parameters are static in this slice;
 //! - a resolved `width` or `height` is left as it is: at or below zero it draws nothing for
 //!   that frame ([`painted_box`]), and between two integers it is drawn unrounded.
 //!
@@ -39,7 +42,7 @@ use std::sync::OnceLock;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::model::{Animatable, Colour, Scale};
+use crate::model::{Animatable, Colour, Gradient, Scale};
 use crate::resolve::{self, Interpolate, Unresolvable};
 
 /// What one animatable property's values are, as the schema types them.
@@ -53,6 +56,17 @@ pub enum Kind {
     Pair,
     /// A `#RRGGBB` or `#RRGGBBAA` colour.
     Colour,
+    /// A paint (ADR-0149): a colour, a keyframe list of colours, or a gradient object. Its
+    /// keyframe values are colours, so a reader that splits or blends a list treats it as
+    /// [`Kind::Colour`]; a gradient resolves to [`Resolved::Gradient`].
+    Paint,
+}
+
+impl Kind {
+    /// Whether this kind's keyframe values are colours.
+    pub fn is_colour(self) -> bool {
+        matches!(self, Kind::Colour | Kind::Paint)
+    }
 }
 
 /// One animatable property of one element type.
@@ -94,10 +108,21 @@ fn derive(schema: &Value) -> Table {
             let Some(def) = property["$ref"]
                 .as_str()
                 .and_then(|reference| reference.strip_prefix("#/$defs/"))
-                .filter(|def| def.starts_with("Animatable"))
+                .filter(|def| def.starts_with("Animatable") || *def == "Paint")
             else {
                 continue;
             };
+            if def == "Paint" {
+                if !names.iter().any(|seen| seen == name) {
+                    names.push(name.clone());
+                }
+                properties.push(Property {
+                    name: name.clone(),
+                    kind: Kind::Paint,
+                    minimum: None,
+                });
+                continue;
+            }
             // The first alternative of an `Animatable{T}` is the static `T`.
             let mut value = &defs[def]["anyOf"][0];
             let mut colour = false;
@@ -191,6 +216,8 @@ pub enum Resolved {
     Number(f64),
     Pair([f64; 2]),
     Colour(Colour),
+    /// A gradient paint, after ADR-0149 §4's fix: always a literal that can be pasted back.
+    Gradient(Gradient),
 }
 
 impl Resolved {
@@ -292,6 +319,15 @@ fn raw(
         Some(Kind::Number) => one::<f64, _>(written, numerator, denominator, Resolved::Number),
         Some(Kind::Pair) => one::<Scale, _>(written, numerator, denominator, Resolved::Pair),
         Some(Kind::Colour) => one::<Colour, _>(written, numerator, denominator, |blend| {
+            Resolved::Colour(blend.settle())
+        }),
+        // A gradient object is static in this slice: it resolves to itself, fixed.
+        Some(Kind::Paint) if written.is_object() => {
+            serde_json::from_value::<Gradient>(written.clone())
+                .map(|gradient| Resolved::Gradient(gradient.settled()))
+                .map_err(|e| Unreadable::Schema(e.to_string()))
+        }
+        Some(Kind::Paint) => one::<Colour, _>(written, numerator, denominator, |blend| {
             Resolved::Colour(blend.settle())
         }),
         None => Err(Unreadable::Schema(

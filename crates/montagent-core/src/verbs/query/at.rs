@@ -202,7 +202,8 @@ pub struct Resolved {
     /// still or is one millisecond into a fifteen-second ramp, and which of those it is
     /// changes what an author does next.
     pub animated: bool,
-    /// The resolved value — **always a number, or a pair of them**, never the records.
+    /// The resolved value — **a number, a pair of them, a colour, or a gradient**, never the
+    /// records. A colour or a gradient is the literal that pastes back (ADR-0146, ADR-0149).
     ///
     /// A resolved `x` is a number even where the document states it as an integer and
     /// nothing animates it. Two spellings for one value would put a shape test in every

@@ -71,7 +71,10 @@ use skia_safe::{
     canvas::SaveLayerRec, color_filters, image_filters, images, surfaces,
 };
 
+mod gradient;
 mod layer_bound;
+
+pub use gradient::{Gradient, GradientKind, Ink};
 #[doc(hidden)]
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
@@ -200,10 +203,13 @@ pub enum Shape {
 /// `fill` may be absent when `stroke` is present, giving an outlined shape or an outlined
 /// letter; a shape with neither is a schema error the core reports, and paints nothing
 /// here.
-#[derive(Debug, Clone, Copy, PartialEq)]
+///
+/// Either side may be a gradient ([`Ink`], ADR-0149), measured against the declared box the
+/// core places in the drawing's own coordinates.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fill {
-    pub fill: Option<Rgba>,
-    pub stroke: Option<Rgba>,
+    pub fill: Option<Ink>,
+    pub stroke: Option<Ink>,
     pub stroke_width: f64,
 }
 
@@ -230,7 +236,7 @@ pub enum PathEl {
 /// case the ADR names, and a paint argument covering the whole element could not express
 /// it. It is [`Fill`] rather than three fields of its own, so a glyph and a shape carry
 /// one paint type between them.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Glyph {
     /// The glyph's origin, in the text block's own unscaled coordinates.
     pub x: f64,
@@ -1142,9 +1148,8 @@ impl Canvas {
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             let box_rect = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
 
-            if let Some(colour) = paint.fill {
-                let mut fill = SkPaint::new(Color4f::from(colour.colour()), None);
-                fill.set_anti_alias(true);
+            if let Some(ink) = &paint.fill {
+                let mut fill = ink.paint((0.0, 0.0));
                 fill.set_style(PaintStyle::Fill);
                 match shape {
                     Shape::Rect { radius } if radius > 0.0 => {
@@ -1159,7 +1164,7 @@ impl Canvas {
                 }
             }
 
-            let (Some(colour), true) = (paint.stroke, paint.stroke_width > 0.0) else {
+            let (Some(ink), true) = (&paint.stroke, paint.stroke_width > 0.0) else {
                 return;
             };
             // ADR-0014: on a shape the stroke falls **inside** the declared rect. Skia
@@ -1167,8 +1172,9 @@ impl Canvas {
             // width — "centred or outside, it would occupy 992x177 at (44,1449), eating
             // 4 px of the 48 px margin the layout rests on".
             let inset = paint.stroke_width as f32 / 2.0;
-            let mut stroke = SkPaint::new(Color4f::from(colour.colour()), None);
-            stroke.set_anti_alias(true);
+            // The same box as the fill (ADR-0149 §2): the stroke's gradient is measured
+            // against the declared rect, not the inset path.
+            let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
             let path = Rect::from_ltrb(
@@ -1534,12 +1540,13 @@ fn draw_pass(canvas: &skia_safe::Canvas, paths: &[Path], glyphs: &[&Glyph], pass
         };
         let paint = match pass {
             Pass::Stroke => {
-                let (Some(colour), true) = (glyph.paint.stroke, glyph.paint.stroke_width > 0.0)
+                let (Some(ink), true) = (&glyph.paint.stroke, glyph.paint.stroke_width > 0.0)
                 else {
                     continue;
                 };
-                let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
-                paint.set_anti_alias(true);
+                // A gradient is moved back by the glyph's own offset, so it is one gradient
+                // across the declared box rather than one per letter (ADR-0149).
+                let mut paint = ink.paint((glyph.x as f32, glyph.y as f32));
                 paint.set_style(PaintStyle::Stroke);
                 paint.set_stroke_width(glyph.paint.stroke_width as f32 * 2.0);
                 // Round joins rather than mitres: a mitre on a sharp interior angle spikes
@@ -1549,11 +1556,10 @@ fn draw_pass(canvas: &skia_safe::Canvas, paths: &[Path], glyphs: &[&Glyph], pass
                 paint
             }
             Pass::Fill => {
-                let Some(colour) = glyph.paint.fill else {
+                let Some(ink) = &glyph.paint.fill else {
                     continue;
                 };
-                let mut paint = SkPaint::new(Color4f::from(colour.colour()), None);
-                paint.set_anti_alias(true);
+                let mut paint = ink.paint((glyph.x as f32, glyph.y as f32));
                 paint.set_style(PaintStyle::Fill);
                 paint
             }
@@ -2005,7 +2011,7 @@ mod tests {
         // outlined word would come out solid. The interior must stay the background.
         let hollow = one_glyph(Fill {
             fill: None,
-            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF])),
+            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF]).into()),
             stroke_width: 6.0,
         });
         // The square spans (30, 30)..(70, 70); its middle is nowhere near either edge.
@@ -2025,8 +2031,8 @@ mod tests {
         // With a fill, the same call paints a solid square — the clip is not applied, so
         // no antialiased seam is introduced along the contour of ordinary text.
         let solid = one_glyph(Fill {
-            fill: Some(Rgba([0xFF, 0x00, 0x00, 0xFF])),
-            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF])),
+            fill: Some(Rgba([0xFF, 0x00, 0x00, 0xFF]).into()),
+            stroke: Some(Rgba([0x00, 0x00, 0xFF, 0xFF]).into()),
             stroke_width: 6.0,
         });
         assert_eq!(pixel_at(&solid, 50, 50), [0xFF, 0x00, 0x00, 0xFF]);
@@ -2318,8 +2324,8 @@ mod tests {
             },
             transform,
             &Fill {
-                fill: Some(Rgba([0xF2, 0xF2, 0xF2, 0xFF])),
-                stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF])),
+                fill: Some(Rgba([0xF2, 0xF2, 0xF2, 0xFF]).into()),
+                stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF]).into()),
                 stroke_width: 9.0,
             },
             None,
