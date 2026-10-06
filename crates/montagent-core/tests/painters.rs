@@ -578,6 +578,89 @@ fn preview_paints_the_same_frames_on_k_painters() {
     assert_eq!(one, three, "preview's frames at the encoder's input");
 }
 
+/// #698's gating fixture: every mask shape feathered, plain and inverted, a keyed
+/// `feather`, rotation, non-uniform scale, sub-pixel motion, `[mask, blur]`, `[blur, mask]`,
+/// a `shadow` and a video, on a 320x180 frame at 30 fps for 1100 ms (33 frames).
+fn feathered_mask_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    // Over 1100 ms an `x` that travels 9 px moves a fraction of a pixel per frame.
+    let moving = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let blur = |radius: f64| json!({"name": "blur", "radius": radius});
+    let glow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 12, "color": "#FF9F2E", "opacity": 0.8});
+    let elements = [
+        // `[mask, blur]`: a feathered circle, rotating, squashed and drifting.
+        json!({"id": "disc", "type": "rect", "start": 0, "end": 1100, "x": moving(json!(60), json!(69)),
+               "y": 60, "origin": "center", "width": 100, "height": 100, "fill": "#F2F2F2",
+               "rotation": moving(json!(0), json!(37)), "scale": [1.3, 0.8],
+               "effects": [{"name": "mask", "shape": "circle", "feather": 18}, blur(4.0)]}),
+        // `[blur, mask]`: an inverted feathered ellipse after the blur.
+        json!({"id": "lens", "type": "ellipse", "start": 0, "end": 1100, "x": 160,
+               "y": moving(json!(50), json!(58)), "origin": "center", "width": 110, "height": 80,
+               "fill": "#3BA0FF", "effects": [blur(3.0),
+                   {"name": "mask", "shape": "ellipse", "x": 25, "y": 15, "width": 60,
+                    "height": 50, "invert": true, "feather": 14}]}),
+        // A feathered rounded rect with a shadow after it under a keyed feather — 0 at the
+        // start (the hard path), fractional between the keys — and an inverted rect whose
+        // keyed feather falls.
+        json!({"id": "pane", "type": "rect", "start": 0, "end": 1100,
+               "x": moving(json!(250), json!(257)), "y": 60, "origin": "center", "width": 90,
+               "height": 70, "fill": "#FF3B30", "scale": moving(json!([1.0, 1.0]), json!([1.4, 0.9])),
+               "effects": [{"name": "mask", "shape": "rect", "x": 10, "y": 10, "width": 70,
+                            "height": 50, "radius": 12,
+                            "feather": [{"t": 0, "v": 0}, {"t": 600, "v": 25, "ease": "ease-in-out"},
+                                        {"t": 1100, "v": 9, "ease": "linear"}]}, glow]}),
+        json!({"id": "pane-hole", "type": "rect", "start": 100, "end": 1100,
+               "x": moving(json!(250), json!(243)), "y": 140, "origin": "center", "width": 90,
+               "height": 60, "fill": "#20C0F0", "rotation": -12,
+               "effects": [{"name": "mask", "shape": "rect", "x": 15, "y": 10, "width": 60,
+                            "height": 40, "invert": true,
+                            "feather": [{"t": 100, "v": 30}, {"t": 1100, "v": 3, "ease": "linear"}]}]}),
+        // A feathered vignette on video, and a feathered hole in it.
+        json!({"id": "footage", "type": "video", "start": 0, "end": 1100, "source": clip,
+               "source_start": 0, "source_end": 1100, "x": moving(json!(80), json!(86)), "y": 135,
+               "origin": "center", "width": 128, "height": 72, "fit": "literal", "volume": 0,
+               "rotation": 6,
+               "effects": [{"name": "mask", "shape": "ellipse", "feather": 20},
+                           {"name": "mask", "shape": "circle", "x": 44, "y": 16, "width": 40,
+                            "height": 40, "invert": true, "feather": 10}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/feathered.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "feathered.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn feathered_masks_paint_the_same_frames_on_any_painters_with_the_hint_on_or_off() {
+    // #698's gating test (ADR-0152 §4, ADR-0144): a feather that fails it does not ship.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = feathered_mask_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    for (painters, chunk) in [(2, 1), (3, 2), (4, 3), (6, 9)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// Inverted masks (ADR-0152) with a blur, a glow and a ring, each moving with sub-pixel
 /// steps, on a 320x180 frame at 30 fps for 1100 ms (33 frames).
 fn inverted_mask_project(line: u32) -> PathBuf {

@@ -50,6 +50,11 @@ fn inverted_rect(x: i64, y: i64, width: i64, height: i64, radius: i64) -> Value 
            "radius": radius, "invert": true})
 }
 
+/// A bare mask (the element's own rect) with `feather`, which may be a keyframe list.
+fn feathered(shape: &str, invert: bool, feather: Value) -> Value {
+    json!({"name": "mask", "shape": shape, "invert": invert, "feather": feather})
+}
+
 /// `SPY` in Cinzel Bold at 150, the trailer's title face, in a box `width`×`height`.
 fn text(width: f64, height: f64) -> Value {
     json!({"type": "text", "font": "cinzel-bold", "size": 150, "color": "#E3C067",
@@ -113,6 +118,17 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("inverted-rect-rotated-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 33, "effects": [inverted_rect(60, 40, 180, 120, 0), blur(12.0)]})), 960.4, 13.7),
         ("inverted-ellipse-flipped-blur-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [inverted("ellipse"), blur(6.0), shadow(10.0, 10.0, 20.0)]})), 960.4, 13.7),
         ("ring-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [{"name": "mask", "shape": "ellipse"}, {"name": "mask", "shape": "ellipse", "x": 90, "y": 90, "width": 120, "height": 120, "invert": true}, blur(10.0)]})), 960.4, 13.7),
+        // Feathered masks (#698): a feather is a blur of the mask's own coverage, in its own
+        // bounded layer, under the hinted layers or over them, plain and inverted.
+        ("feathered-circle-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [feathered("circle", false, json!(30)), blur(20.0)]})), 960.4, 13.7),
+        ("feathered-inverted-ellipse-then-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [feathered("ellipse", true, json!(24)), shadow(14.0, 10.0, 24.0)]})), 960.4, 13.7),
+        ("blur-then-feathered-rect-radius", with(shape("rect", 300.0, 200.0), json!({"y": 540, "effects": [blur(16.0), {"name": "mask", "shape": "rect", "x": 40, "y": 30, "width": 220, "height": 140, "radius": 20, "feather": 40}]})), 960.4, 13.7),
+        ("feathered-inverted-rect-rotated-anisotropic-shadow", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 25, "scale": [1.6, 0.7], "effects": [{"name": "mask", "shape": "rect", "x": 60, "y": 40, "width": 180, "height": 120, "invert": true, "feather": 20}, shadow(8.0, -6.0, 18.0)]})), 960.4, 13.7),
+        ("feathered-circle-flipped-blur-shadow", with(shape("ellipse", 300.0, 200.0), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [feathered("circle", false, json!(16)), blur(6.0), shadow(10.0, 10.0, 20.0)]})), 960.4, 13.7),
+        ("keyed-feather-inverted-ellipse-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [feathered("ellipse", true, json!(0)), blur(10.0)]})), 960.4, 13.7),
+        ("feathered-ring-then-blur", with(shape("rect", 300.0, 300.0), json!({"y": 540, "effects": [feathered("ellipse", false, json!(20)), {"name": "mask", "shape": "ellipse", "x": 90, "y": 90, "width": 120, "height": 120, "invert": true, "feather": 30}, blur(10.0)]})), 960.4, 13.7),
+        ("image-feathered-vignette-blur", json!({"type": "image", "source": "img/boat.jpg", "fit": "literal", "y": 540, "width": 640, "height": 360, "effects": [feathered("ellipse", false, json!(80)), blur(4.0)]}), 960.4, 13.7),
+        ("feathered-mask-alone", with(shape("rect", 300.0, 300.0), json!({"y": 540, "rotation": 15, "effects": [feathered("circle", true, json!(30))]})), 960.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),
@@ -137,6 +153,12 @@ fn edge_project() -> (Value, Vec<(&'static str, i64)>) {
         if name == "text-scale-anim-blur" {
             element["scale"] = json!([{"t": start, "v": [1.4, 1.4]},
                                       {"t": start + 1000, "v": [0.93, 0.93], "ease": "linear"}]);
+        }
+        if name == "keyed-feather-inverted-ellipse-blur" {
+            // 0 → 45 → 7: a hard edge at the first instant, fractional feathers after.
+            element["effects"][0]["feather"] = json!([{"t": start, "v": 0},
+                                                      {"t": start + 500, "v": 45, "ease": "ease-in-out"},
+                                                      {"t": start + 1000, "v": 7, "ease": "linear"}]);
         }
         tracks.push(json!({"name": format!("t{i}"), "layer": i, "elements": [element]}));
         instants.extend([0, 333, 667, 967].map(|k| (name, start + k)));

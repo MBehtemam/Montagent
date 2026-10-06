@@ -304,6 +304,27 @@ fn invert_false_or_absent_is_silent() {
 }
 
 #[test]
+fn a_feather_on_a_covering_inverted_rect_keeps_a_ramp_and_is_silent() {
+    // #698: with a feather the edge keeps a ramp, so the element is not wholly erased.
+    assert_silent(r##"{"name":"mask","shape":"rect","invert":true,"feather":12}"##);
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":300,"height":200,"invert":true,"feather":1}"##,
+    );
+    // A keyed feather is silent whatever its values, a zero among them included.
+    assert_silent(
+        r##"{"name":"mask","shape":"rect","invert":true,"feather":[{"t":0,"v":0},{"t":500,"v":0,"ease":"linear"}]}"##,
+    );
+}
+
+#[test]
+fn a_written_feather_zero_on_a_covering_inverted_rect_still_fires() {
+    assert_fires(r##"{"name":"mask","shape":"rect","invert":true,"feather":0}"##);
+    assert_fires(
+        r##"{"name":"mask","shape":"rect","x":0,"y":0,"width":300,"height":200,"invert":true,"feather":0}"##,
+    );
+}
+
+#[test]
 fn the_erases_all_finding_names_the_element_the_index_and_both_repairs() {
     let report = report_on(&sized(
         r##"{"name":"blur","radius":3},{"name":"mask","shape":"rect","invert":true}"##,

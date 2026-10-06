@@ -69,14 +69,14 @@
 //! document says.
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::animatable::Unreadable;
 use crate::exact::{self, Decimal};
 use crate::media::Source;
 use crate::media::probe::Outcome;
 use crate::media::session::Session;
-use crate::model::Animatable;
+use crate::model::{Animatable, Length};
 use crate::permissive::Loose;
 use crate::resolve::{self, Unresolvable};
 use crate::stack::{Stack, Unresolved};
@@ -741,7 +741,42 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
                 }
             })
         })
+        .chain(feathers(element, instant))
         .collect()
+}
+
+/// Every `mask`'s `feather` (ADR-0152 §2), named by its position in `effects` with the
+/// effect's name in the text, as ADR-0146 §4 names an effect parameter.
+///
+/// By hand, because the derived list does not yet walk the nested paths inside `effects`:
+/// #676 brings every effect parameter into it, and this walk goes with it.
+fn feathers(element: &Value, instant: i64) -> impl Iterator<Item = Resolved> + '_ {
+    element
+        .get("effects")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .filter(|(_, effect)| effect.get("name").and_then(Value::as_str) == Some("mask"))
+        .filter_map(move |(index, effect)| {
+            let written = effect.get("feather")?;
+            let property = format!("effects[{index}].feather (mask)");
+            let animated = written.is_array();
+            let feather = match serde_json::from_value::<Animatable<Length>>(written.clone()) {
+                Ok(feather) => feather,
+                Err(e) => return Some(unreadable(&property, animated, e.to_string())),
+            };
+            Some(match resolve::at(&feather, instant) {
+                Ok(value) => Resolved {
+                    property,
+                    animated,
+                    value: Some(json!(value)),
+                    unresolved: None,
+                },
+                Err(unresolvable) => unreadable(&property, animated, unanswered(unresolvable)),
+            })
+        })
 }
 
 fn unreadable(property: &str, animated: bool, reason: String) -> Resolved {

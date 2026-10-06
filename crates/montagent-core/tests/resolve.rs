@@ -596,7 +596,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
                      "stroke": "#FFFFFF", "stroke_width": 1, "radius": 2,
-                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0},
+                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0,
+                     "effects": [{"name": "mask", "shape": "circle", "feather": 4}]},
                     {"id": "words", "type": "text", "start": 0, "end": 1000,
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
@@ -616,7 +617,17 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 .as_array()
                 .expect("values is a list")
                 .iter()
-                .map(|value| value["property"].as_str().unwrap_or("?").to_string())
+                // An effect parameter is named by its place in `effects` (ADR-0146 §4):
+                // `effects[0].feather (mask)` is the schema's `feather`.
+                .map(|value| {
+                    let property = value["property"].as_str().unwrap_or("?");
+                    property
+                        .split_once("].")
+                        .map_or(property, |(_, rest)| {
+                            rest.split_once(' ').map_or(rest, |(name, _)| name)
+                        })
+                        .to_string()
+                })
                 .collect::<Vec<_>>()
         })
         .collect();

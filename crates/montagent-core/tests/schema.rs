@@ -130,7 +130,7 @@ fn mask_member() -> serde_json::Value {
 fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
     // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0084
     // takes it explicitly rather than leaving it to be read off a struct: `name, shape, x,
-    // y, width, height, radius`, and ADR-0152 appends `invert`. The rect fields follow `shape` in the order ADR-0012 fixed
+    // y, width, height, radius`, and ADR-0152 appends `invert` then `feather`. The rect fields follow `shape` in the order ADR-0012 fixed
     // for every other rect in the format, and `radius` trails them exactly as it trails the
     // drawn `shape` element's own fields under ADR-0014.
     //
@@ -147,7 +147,7 @@ fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
     assert_eq!(
         declared,
         [
-            "shape", "x", "y", "width", "height", "radius", "invert", "name"
+            "shape", "x", "y", "width", "height", "radius", "invert", "feather", "name"
         ]
     );
 }

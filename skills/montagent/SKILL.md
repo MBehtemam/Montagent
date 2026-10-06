@@ -66,6 +66,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Chroma key: `chroma`.
 - Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
+- Soften a mask's edge, and animate the softness: `mask`, `feather`.
 
 **Effects**
 
@@ -98,7 +99,6 @@ Each item names the issue whose close retires it. Tell the user when the brief d
 
 - Animated effect parameters, masks included. Keep these out of the design. <!-- workaround: #676 · replaced by: animated effect parameters -->
 - Gradient paint. Keep it out of the design. <!-- workaround: #686 · replaced by: gradient paint -->
-- Mask feather. Keep it out of the design. <!-- workaround: #698 · replaced by: mask feather -->
 - Paths, lines and morphs. Keep them out of the design. <!-- workaround: #710 · replaced by: a path element, and morphs -->
 - Motion blur. Keep it out of the design. <!-- workaround: #719 · replaced by: motion blur -->
 - Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->

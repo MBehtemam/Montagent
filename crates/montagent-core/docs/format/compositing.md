@@ -11,7 +11,7 @@ two disagree.
 
 - **Effects are an ordered list, and the order is semantically real** (ADR-0040). Blur-then-shadow is a
   different frame from shadow-then-blur. They attach to whole elements, never to a run, and
-  no effect parameter is animatable yet.
+  the one animatable effect parameter so far is a `mask`'s `feather`.
 - **`blend` is how the finished element composites into what is below it** (ADR-0147). One
   of five words: `normal`, `multiply`, `screen`, `overlay`, `add`. It sits beside `opacity`
   on `rect`, `ellipse`, `text`, `image` and `video`; `audio` and `transition` refuse it.
@@ -49,8 +49,8 @@ two disagree.
   above it, and `spill` suppresses screen colour reflected onto what the matte keeps. All
   three run `0.0`–`1.0` and every one of them has its identity at `0` — `tolerance: 0` keys
   nothing, which makes the whole member a no-op.
-- **A key serves a screen that is uniform in time** (ADR-0088). No effect parameter is
-  animatable yet, so one `tolerance` covers the whole element: footage whose lighting drifts
+- **A key serves a screen that is uniform in time** (ADR-0088). `chroma`'s parameters are
+  not animatable yet, so one `tolerance` covers the whole element: footage whose lighting drifts
   mid-take has to be cut into elements at the drift boundaries, or keyed upstream and
   brought in already carrying alpha. `measure` on a keyed element reports the resulting
   alpha coverage per frame, which is how you find where a screen drifts — and how you find
@@ -68,10 +68,17 @@ two disagree.
   A static boolean: omitted or `false` is the plain mask, and a mask that flips mid-clip is two
   elements. Masks in one list intersect, so `[mask ellipse, mask smaller ellipse with invert]`
   keeps a ring.
-- **`R-MASK-ERASES-ALL` (`review`)** (ADR-0152): an inverted `rect` mask with no `radius` whose
-  rect contains the element's keeps no pixel, and the bare form always does. Write the rect you
-  meant, or drop `invert`; writing the covering rect out does not silence it. Keyed rects,
-  keyed `radius` and keyed element sizes are never reported.
+- **`feather` on a `mask` softens its edge, and only its edge** (ADR-0152). A non-negative
+  integer in unscaled element units that rides the transform; omitted and `0` are the same hard
+  edge. It reads as a `blur` radius: the mask's coverage is blurred by a Gaussian of
+  σ = `feather` / 2, centred on the edge, so the ramp reaches past the rect as far as it falls
+  short of it, and an inverted feathered mask keeps exactly what the plain one erases.
+  `[mask, blur]` also blurs the picture; `feather` does not. It may be keyed, and resolves
+  unrounded between keys.
+- **`R-MASK-ERASES-ALL` (`review`)** (ADR-0152): an inverted `rect` mask with no `radius` or
+  `feather` whose rect contains the element's keeps no pixel, and the bare form always does.
+  Write the rect you meant, or drop `invert`; writing the covering rect out does not silence it.
+  Keyed rects, `radius`, `feather` and element sizes are never reported.
 
 ## Transitions
 
