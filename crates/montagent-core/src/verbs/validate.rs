@@ -165,6 +165,10 @@ fn run_checks(
     // arithmetic, never `f64` (ADR-0045).
     crate::checks::track::check(document, report);
     crate::checks::speed::check(document, report);
+    // ADR-0157: a `video` carrying `source_time` — the fields its curve refuses, its
+    // silence, and a curve holding past its keys on painted frames. Document-only; the
+    // remap arm of `E-SOURCE-OVERRUN` is in the disk checks.
+    crate::checks::remap::check(document, report);
     // ADR-0107's `E-EMPTY-RANGE` (#410): an element whose range does not advance holds no
     // instant of the half-open clock, and every check above steps over it for that reason.
     // `render` refused it and this list said nothing, so this is the check that owns it.

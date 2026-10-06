@@ -27,7 +27,41 @@ pub fn generate() -> Value {
     publish_mask_rect(&mut schema);
     publish_transition_fields(&mut schema);
     publish_path_fill(&mut schema);
+    publish_video_source(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0157's relational rule about how a `video` names its source in the schema, where
+/// the types can only say it in their deserializer (`crate::model::Video`'s `checked`): a
+/// source range, or a `source_time`. Both at once passes here and is `validate`'s
+/// `E-REMAP-FIELD`, which names each redundant field.
+fn publish_video_source(schema: &mut Value) {
+    let Some(Value::Object(video)) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+        .and_then(|branches| {
+            branches.iter_mut().find(|branch| {
+                branch.pointer("/properties/type/const") == Some(&Value::String("video".into()))
+            })
+        })
+    else {
+        return;
+    };
+
+    let mut ordered = serde_json::Map::new();
+    for (key, value) in std::mem::take(video) {
+        ordered.insert(key.clone(), value);
+        if key == "required" {
+            ordered.insert(
+                "anyOf".into(),
+                json!([
+                    {"required": ["source_start", "source_end"]},
+                    {"required": ["source_time"]},
+                ]),
+            );
+        }
+    }
+    *video = ordered;
 }
 
 /// Say ADR-0154 §5's relational rule about a path's `fill` in the schema, where the types

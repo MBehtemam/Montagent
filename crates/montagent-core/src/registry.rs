@@ -446,9 +446,13 @@ instead, each a sheet that fits: {sub_ranges}.",
         // Names the axis it measured against, because ADR-0011 returns four durations and
         // forces the caller to pick: a finding that said "the source is 65216 ms" without
         // saying *which* 65216 would invite the reader to check it against the other one.
-        template: "{element}: `{source}` holds {probed_duration} ms ({axis}), and the declared \
-source range {source_start}..{source_end} ({declared_source_span} ms) reaches {over_by} ms past \
-it.",
+        // Two arms (ADR-0157 §2): a declared source range reaching past the file, or a
+        // `source_time` curve resolving outside `[0, duration)` at a painted frame instant —
+        // named at the first, with the side it crossed.
+        template: "{element}: `{source}` holds {probed_duration} ms ({axis}){?source_end}, and \
+the declared source range {source_start}..{source_end} ({declared_source_span} ms) reaches \
+{over_by} ms past it{/source_end}{?instant}, and its `source_time` resolves to {source_time} ms \
+at the painted instant {instant} ms, {side}{/instant}.",
         status: Live,
         census: None,
         sets: &[Disk],
@@ -1711,6 +1715,54 @@ hard edge.",
         template: "`{element}`.{property}: keyframe {record} (t={t}) holds {count} stops, but \
 the first holds {expected}. Every keyframe of one `stops` list holds the same number of stops, \
 because stop i blends with stop i.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0157 §2: `source_start`, `source_end`, `speed` or `overrun` beside a
+        // `source_time`, one finding per field. Advise: the curve is the only author of the
+        // source, so the field says nothing the curve does not, and removing it changes no
+        // frame — the fix is determined by the format's own semantics.
+        code: "E-REMAP-FIELD",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}` carries `source_time`, which alone names the moment of its file \
+on screen, and `{field}` beside it is one more place an edit could leave stale.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0157 §4: a remapped `video` whose `volume` is not the literal `0` — any other
+        // number, any keyframe list, or none (the default is `1`). Advise: the format admits
+        // one value here, so the fix is determined; the sound the author wanted belongs on a
+        // separate `audio` element, which the repair says.
+        code: "E-REMAP-AUDIBLE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}` carries `source_time` and its `volume` is {volume}: a remapped \
+video is silent, because a varying rate has no exact spelling in the mix.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0157 §5: a keyed `source_time` whose element holds a painted frame instant
+        // before its first key or after its last, each end reported on its own. A literal
+        // never fires it.
+        code: "R-REMAP-HELD-END",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}`'s `source_time` holds its value for {held_ms} ms {end} \
+({from}..{to} ms), so the picture freezes there. A deliberate freeze is written as a flat \
+pair of keys, which silences this.",
         status: Live,
         census: None,
         sets: &[Document],

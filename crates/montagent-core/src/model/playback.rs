@@ -26,8 +26,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// `0` is refused because it leaves ADR-0020's own invariant — `end - start` equals
 /// `source range / speed` — undefined, and because no length of timeline can hold a source
 /// that advances by nothing. Negative is refused because reverse playback *"is not
-/// `speed`'s job and is undecided, not ruled out"*: a sign bit smuggled onto a magnitude
-/// would decide it silently, and decide it badly.
+/// `speed`'s job"*: a sign bit smuggled onto a magnitude would decide it silently, and
+/// decide it badly. ADR-0157 has since settled it for video as a falling `source_time`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct Speed(pub f64);
@@ -40,8 +40,9 @@ impl<'de> Deserialize<'de> for Speed {
         if speed <= 0.0 {
             return Err(D::Error::custom(format!(
                 "`speed` is {speed}: a speed is strictly greater than zero — `0` plays \
-                 nothing for any length of time, and reverse playback is its own \
-                 undecided field rather than a negative speed (ADR-0020)"
+                 nothing for any length of time, and reverse playback is a falling \
+                 `source_time` curve on a video rather than a negative speed (ADR-0020, \
+                 ADR-0157)"
             )));
         }
         Ok(Speed(speed))
@@ -56,12 +57,53 @@ impl JsonSchema for Speed {
     fn json_schema(_: &mut SchemaGenerator) -> Schema {
         number_schema(
             "A playback-rate multiplier, strictly greater than zero: `0.645` plays the \
-             source \
-             slower. `0` and negative values are schema errors — reverse is a real need, \
-             deferred to its own explicit field rather than overloaded onto this one as a \
-             sign bit (ADR-0020).",
+             source slower. `0` and negative values are schema errors — reverse, like a \
+             ramp or a freeze, is a `source_time` curve on a video, never a sign bit on \
+             this (ADR-0020, ADR-0157).",
             "exclusiveMinimum",
         )
+    }
+}
+
+/// Which moment of a `video`'s file is on screen, in integer **source** milliseconds
+/// (ADR-0157): the value of `source_time`, in a literal and in every keyframe record.
+///
+/// Negative is refused: there is no moment of a file before its first. A fractional value
+/// is refused by the integer it is read as, as every millisecond in the format is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct SourceTime(pub i64);
+
+impl<'de> Deserialize<'de> for SourceTime {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let ms = i64::deserialize(deserializer)?;
+        if ms < 0 {
+            return Err(D::Error::custom(format!(
+                "`source_time` is {ms}: a source time is a moment of the file in integer \
+                 milliseconds from `0`, and there is none before the first (ADR-0157)"
+            )));
+        }
+        Ok(SourceTime(ms))
+    }
+}
+
+impl JsonSchema for SourceTime {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "SourceTime".into()
+    }
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        Schema::try_from(serde_json::json!({
+            "type": "integer",
+            "format": "int64",
+            "description": "A moment of the video's file in integer source milliseconds: \
+                            which frame is on screen. A literal is a freeze frame; a \
+                            keyframe list is a time-remap curve whose slope is the rate, \
+                            flat to freeze and falling to reverse. Negative is a schema \
+                            error (ADR-0157).",
+            "minimum": 0,
+        }))
+        .expect("an object literal is a schema")
     }
 }
 

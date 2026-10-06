@@ -37,6 +37,7 @@ pub mod overridden;
 pub mod path;
 pub mod quantization;
 pub mod range;
+pub mod remap;
 pub mod retired;
 pub mod runs;
 pub mod schema;

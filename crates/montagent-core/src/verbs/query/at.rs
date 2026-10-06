@@ -164,6 +164,11 @@ pub struct Present {
     /// off the same arithmetic as `source_offset`, so the two cannot disagree.
     #[serde(skip)]
     pub(crate) source_origin: Option<(i64, i64)>,
+    /// A remapped `video`'s readings (ADR-0157 §5), derived and never accepted as input:
+    /// `source_time` rounded as the painter rounds it, and the `rate` the viewer sees. Absent
+    /// on every element that does not carry `source_time`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub derived: Option<Derived>,
     /// **The crop rectangle** — which part of the *source file's own pixels* survive onto
     /// the screen, in source pixel space, for a raster element carrying `cover`/`contain`
     /// and a `clip` (ADR-0013, ADR-0015). `null` where the element carries no raster
@@ -197,6 +202,40 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
+}
+
+/// What `query --at` derives for a remapped `video` (ADR-0157 §5).
+#[derive(Debug, Clone, Serialize)]
+pub struct Derived {
+    /// The source millisecond shown at the instant: `source_time` resolved and rounded
+    /// half-up, the number the painter decodes at ([`crate::remap::source_ms`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_time: Option<i64>,
+    /// The change in that millisecond to the next frame instant, over the frame interval,
+    /// signed, with `×`: `-0.500×` plays backwards at half rate, `0.000×` is frozen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate: Option<String>,
+    /// Why one of the two is missing, where one is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unresolved: Option<String>,
+}
+
+impl Derived {
+    fn of(document: &Loose, element: &Value, instant: i64) -> Derived {
+        let source_time = crate::remap::source_ms(element, instant);
+        let fps = document
+            .value()
+            .get("fps")
+            .and_then(Value::as_i64)
+            .filter(|fps| *fps > 0)
+            .ok_or_else(|| "the project states no `fps` to find the next frame by".to_string());
+        let rate = fps.and_then(|fps| crate::remap::rate(element, instant, fps));
+        Derived {
+            unresolved: source_time.as_ref().err().or(rate.as_ref().err()).cloned(),
+            source_time: source_time.ok(),
+            rate: rate.ok(),
+        }
+    }
 }
 
 /// A `path`'s resolved vertices, each handle made absolute by adding its own vertex.
@@ -483,6 +522,8 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             source_offset,
             source_offset_unresolved,
             source_origin,
+            derived: (detail == Detail::Full && crate::remap::is_remapped(element))
+                .then(|| Derived::of(document, element, instant)),
             crop,
             crop_unresolved,
             ink_box,
@@ -645,6 +686,14 @@ pub(crate) fn source_offset(
         return (None, None, None);
     }
     let unresolved = |reason: &str| (None, Some(reason.to_string()), None);
+    // ADR-0157: a remapped video's offset is its curve at the instant, through the one
+    // resolution function. It has no pass to measure from: every frame is decided alone.
+    if crate::remap::is_remapped(element) {
+        return match crate::remap::source_ms(element, instant) {
+            Ok(ms) => (Some(ms), None, None),
+            Err(reason) => unresolved(&reason),
+        };
+    }
     let (Some(source_start), Some(source_end)) = (
         element.get("source_start").and_then(Value::as_i64),
         element.get("source_end").and_then(Value::as_i64),

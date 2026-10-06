@@ -1841,6 +1841,13 @@ impl<'a> Painter<'a> {
                 fps: self.fps,
                 speed: speed_of(element),
             },
+            // ADR-0157: the curve at the next timeline frame, read through the one
+            // resolution function, so a supplier can tell a 1× stretch a feed may serve.
+            remap: crate::remap::is_remapped(element).then(|| supply::Remap {
+                next: self.frame_number.and_then(|n| {
+                    crate::remap::source_ms(element, crate::exact::instant_of(n + 1, self.fps)).ok()
+                }),
+            }),
         };
         let decoded = self
             .supplier
@@ -2180,6 +2187,10 @@ struct Playhead {
 /// states none. An unreadable `speed` never reaches a supplier: the caption's offset does not
 /// resolve without one, and the painter declines before asking.
 fn speed_of(element: &Value) -> (i128, i128) {
+    // A remapped element has no `speed` (`E-REMAP-FIELD`), and its feeds run at 1×.
+    if crate::remap::is_remapped(element) {
+        return (1, 1);
+    }
     element
         .get("speed")
         .and_then(Value::as_number)

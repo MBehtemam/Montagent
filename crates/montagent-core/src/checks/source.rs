@@ -65,6 +65,12 @@ fn probe_every_source(
     // ADR-0053: a relative `source` resolves against the directory the project file lives
     // in, and nothing else. There is no `assetRoot` and no flag.
     let base = crate::checks::project_dir(document);
+    // The grid a remapped element's curve is checked on: the instants `render` paints.
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .filter(|fps| *fps > 0);
 
     for element in document.elements() {
         let Some(source) = element["source"].as_str() else {
@@ -89,10 +95,13 @@ fn probe_every_source(
         locate(report, before, document.path(), id);
 
         // Only a source that actually answered can be overrun.
-        if let Some(finding) = outcome
-            .probe()
-            .and_then(|probe| overrun(element, probe, source))
-        {
+        if let Some(finding) = outcome.probe().and_then(|probe| {
+            if crate::remap::is_remapped(element) {
+                remap_overrun(element, probe, source, fps?)
+            } else {
+                overrun(element, probe, source)
+            }
+        }) {
             report.push(finding.at_file(document.path()).at_element(id));
         }
     }
@@ -152,6 +161,38 @@ fn overrun(element: &Value, probe: &Probe, declared: &str) -> Option<Finding> {
             .field("declared_source_span", json!(source_end - source_start))
             .field("over_by", json!(source_end - available)),
     )
+}
+
+/// **The remap arm** (ADR-0157 §2): at every painted frame instant in `[start, end)`, the
+/// source time the curve resolves must lie in `[0, duration)`. Named at the first instant
+/// that does not, with the source time there and the side it crossed.
+///
+/// Resolved by [`crate::remap::source_ms`], the function the painter decodes at, so this
+/// check and the render cannot disagree about a frame.
+fn remap_overrun(element: &Value, probe: &Probe, declared: &str, fps: i64) -> Option<Finding> {
+    let start = element["start"].as_i64()?;
+    let end = element["end"].as_i64()?;
+    let axis = Axis::Video;
+    let available = axis.available_ms(probe)?;
+    crate::remap::painted_instants(start, end, fps).find_map(|instant| {
+        let ms = crate::remap::source_ms(element, instant).ok()?;
+        let side = if ms < 0 {
+            "below 0"
+        } else if ms >= available {
+            "at or past the file's end"
+        } else {
+            return None;
+        };
+        Some(
+            Finding::new("E-SOURCE-OVERRUN")
+                .field("source", json!(declared))
+                .field("probed_duration", json!(available))
+                .field("axis", json!(axis.name(probe)))
+                .field("instant", json!(instant))
+                .field("source_time", json!(ms))
+                .field("side", json!(side)),
+        )
+    })
 }
 
 /// Which of ADR-0011's four durations an element's declared range is measured against.
