@@ -58,6 +58,9 @@
 //!   measured through — so the fixture's plateau is a reading of this code's own tolerance
 //!   axis and not of a neighbouring one.
 //!
+//! ADR-0156's named effects `posterize`, `glow` and `directional_blur` joined it with
+//! [#724](https://github.com/MBehtemam/Montagent/issues/724); their formulas are in `named`.
+//!
 //! What is **not** here, and is the core's business rather than an omission: `crossfade`
 //! and a run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
 //! opacity the two bridged elements already carry and a highlight is which of a run's two
@@ -74,6 +77,7 @@ use skia_safe::{
 mod gradient;
 mod grain;
 mod layer_bound;
+mod named;
 
 pub use gradient::{Gradient, GradientKind, Ink};
 pub use grain::grain_draw;
@@ -335,6 +339,18 @@ pub enum Effect {
         mono: bool,
         frame: i64,
     },
+    /// Quantise each colour channel to `levels` steps (ADR-0156 §4). `levels` is already the
+    /// whole number from 2 to 256 the core rounded it to.
+    Posterize { levels: f64 },
+    /// A threshold bloom added over the element (ADR-0156 §4); `radius` reads as `blur`'s.
+    Glow {
+        threshold: f64,
+        radius: f64,
+        intensity: f64,
+    },
+    /// A centred smear along `angle` degrees (clockwise, element space), `length` element
+    /// pixels long in all (ADR-0156 §4).
+    DirectionalBlur { angle: f64, length: f64 },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -701,6 +717,16 @@ impl Effect {
                 None,
                 None,
             ),
+            // ADR-0156's three, each a runtime effect of Montagent's own ([`named`]). An
+            // identity value is no filter at all, so it paints a plain layer: the same bytes
+            // as no member even under a rotation, where a filter layer resamples.
+            Effect::Posterize { levels } => named::posterize(levels),
+            Effect::Glow {
+                threshold,
+                radius,
+                intensity,
+            } => named::glow(threshold, sigma(radius), intensity),
+            Effect::DirectionalBlur { angle, length } => named::directional_blur(angle, length),
             // The one member with a threshold in it, so the one that is a runtime effect
             // rather than a matrix ([`KEYER`]).
             Effect::Chroma {
@@ -831,7 +857,10 @@ impl Effect {
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
             | Effect::Chroma { .. }
-            | Effect::Grain { .. } => [
+            | Effect::Grain { .. }
+            | Effect::Posterize { .. }
+            | Effect::Glow { .. }
+            | Effect::DirectionalBlur { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //
@@ -1573,7 +1602,8 @@ impl Canvas {
             .copied()
             .collect();
         let effects = effects.as_slice();
-        let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        let mut filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        Canvas::crop_directional(canvas, effects, &mut filters, &draw);
         let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
         let grains = grain::plan(canvas, effects, &filters, &draw);
         for (filter, bound) in filters.into_iter().zip(&bounds).rev() {
@@ -1612,6 +1642,48 @@ impl Canvas {
                 shape.erase(canvas, extent, *rect, *radius, *invert, *feather);
             }
             canvas.restore();
+        }
+    }
+
+    /// Crop every `directional_blur` to its reach (ADR-0156 §4), **always**, whether or not
+    /// the bounds hint is on.
+    ///
+    /// Skia cannot bound a runtime-shader filter, so uncropped it is evaluated over the whole
+    /// layer. The crop is the element-space bounds of what the filter is given, walked down
+    /// the chain from what `draw` paints, grown by [`named::directional_reach`]. It changes a
+    /// few edge pixels by a level against no crop (#722), which is harmless only because it
+    /// is never off: hint on and hint off paint the same cropped filter.
+    fn crop_directional(
+        canvas: &skia_safe::Canvas,
+        effects: &[Effect],
+        filters: &mut [Option<ImageFilter>],
+        draw: &dyn Fn(&skia_safe::Canvas),
+    ) {
+        let directional = |effect: &Effect| matches!(effect, Effect::DirectionalBlur { .. });
+        if !effects
+            .iter()
+            .zip(filters.iter())
+            .any(|(effect, filter)| directional(effect) && filter.is_some())
+        {
+            return;
+        }
+        // Nothing drawn crops to nothing, so the shader still never runs over the layer.
+        let mut content = layer_bound::drawn(canvas, draw).unwrap_or_else(Rect::new_empty);
+        for (effect, filter) in effects.iter().zip(filters.iter_mut()) {
+            let Some(built) = filter.take() else {
+                continue;
+            };
+            match *effect {
+                Effect::DirectionalBlur { angle, length } => {
+                    let (cropped, bound) = named::crop_directional(built, content, angle, length);
+                    *filter = cropped;
+                    content = bound;
+                }
+                _ => {
+                    content = built.compute_fast_bounds(content);
+                    *filter = Some(built);
+                }
+            }
         }
     }
 
@@ -2653,5 +2725,43 @@ mod tests {
             same_bytes(&frame, &place, &[tint, shadow(0.0, 0.0, 20.0)]),
             0
         );
+    }
+
+    #[test]
+    fn posterize_and_a_directional_blur_pass_the_bound_on_and_a_glow_takes_it() {
+        // ADR-0156 §4: `posterize` keeps the bound. #722: its own layer and a directional
+        // blur's stay unhinted, and every blur, shadow or glow layer around them keeps its
+        // hint. Flat, rotated and flipped.
+        let posterize = Effect::Posterize { levels: 4.0 };
+        let smear = Effect::DirectionalBlur {
+            angle: 30.0,
+            length: 24.0,
+        };
+        let glow = Effect::Glow {
+            threshold: 0.4,
+            radius: 12.0,
+            intensity: 1.5,
+        };
+        let chains: [(&[Effect], usize); 6] = [
+            (&[blur(14.0), posterize], 1),
+            (&[posterize, blur(14.0)], 1),
+            (&[glow], 1),
+            (&[blur(6.0), smear, shadow(7.5, -3.25, 20.0)], 2),
+            (&[smear, glow, posterize, blur(4.0)], 2),
+            (&[posterize, smear], 0),
+        ];
+        for place in [
+            at(320.37, 180.5, (1.0, 1.0), 0.0),
+            at(300.4, 170.7, (1.3, 0.8), 27.0),
+            at(300.4, 170.7, (-1.2, 1.0), 0.0),
+        ] {
+            for (effects, layers) in chains {
+                assert_eq!(
+                    same_bytes(&frame, &place, effects),
+                    layers,
+                    "{effects:?} at {place:?}"
+                );
+            }
+        }
     }
 }

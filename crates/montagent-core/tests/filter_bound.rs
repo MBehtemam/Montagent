@@ -55,6 +55,19 @@ fn feathered(shape: &str, invert: bool, feather: Value) -> Value {
     json!({"name": "mask", "shape": shape, "invert": invert, "feather": feather})
 }
 
+/// ADR-0156's `glow` (named so, beside the zero-offset `shadow` glow above).
+fn named_glow(threshold: f64, radius: f64, intensity: f64) -> Value {
+    json!({"name": "glow", "threshold": threshold, "radius": radius, "intensity": intensity})
+}
+
+fn posterize(levels: i64) -> Value {
+    json!({"name": "posterize", "levels": levels})
+}
+
+fn directional(angle: f64, length: f64) -> Value {
+    json!({"name": "directional_blur", "angle": angle, "length": length})
+}
+
 /// `SPY` in Cinzel Bold at 150, the trailer's title face, in a box `width`×`height`.
 fn text(width: f64, height: f64) -> Value {
     json!({"type": "text", "font": "cinzel-bold", "size": 150, "color": "#E3C067",
@@ -201,6 +214,15 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         ("grain-flipped-blur-shadow", with(t(), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [grain(5, 0.5, 1, true), blur(6.0), shadow(10.0, 10.0, 20.0)]})), 960.4, 13.7),
         ("image-grain-glow", json!({"type": "image", "source": "img/boat.jpg", "fit": "literal", "y": 540, "width": 640, "height": 360, "rotation": -12, "effects": [grain(9, 0.2, 2, false), glow(30.0, "#FFFFFF", 0.5)]}), 960.4, 13.7),
         ("keyed-grain-amount-blur", with(shape("ellipse", 300.0, 200.0), json!({"y": 540, "effects": [grain(13, 0.0, 4, true), blur(8.0)]})), 960.4, 13.7),
+        // ADR-0156's named effects (#724, #722): a `glow` takes the hint as a blur does, and
+        // `posterize` and `directional_blur` pass the bound on to the layers after them.
+        ("text-glow-rotated", with(t(), json!({"y": 540, "rotation": 24, "effects": [named_glow(0.3, 30.0, 1.5)]})), 960.4, 13.7),
+        ("blur-then-posterize-rotated", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 31, "fill": linear(30.0), "effects": [blur(16.0), posterize(4)]})), 960.4, 13.7),
+        ("posterize-then-shadow-flipped", with(t(), json!({"y": 540, "scale": [-1.2, 0.9], "effects": [posterize(5), shadow(12.0, 8.0, 20.0)]})), 960.4, 13.7),
+        ("directional-then-blur-flipped", with(shape("ellipse", 260.0, 160.0), json!({"y": 540, "scale": [-1.3, 1.1], "effects": [directional(30.0, 40.0), blur(8.0)]})), 960.4, 13.7),
+        ("blur-directional-shadow-rotated-anisotropic", with(t(), json!({"y": 540, "rotation": 20, "scale": [1.6, 0.7], "effects": [blur(4.0), directional(135.0, 60.5), shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        ("all-named-mask-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": 12, "fill": radial(), "effects": [posterize(6), named_glow(0.4, 20.0, 2.0), directional(-20.0, 33.0), {"name": "mask", "shape": "ellipse", "feather": 12}, blur(6.0)]})), 960.4, 13.7),
+        ("keyed-named-effects", with(shape("rect", 300.0, 200.0), json!({"y": 540, "rotation": -15, "fill": linear(200.0), "effects": [posterize(4), named_glow(0.5, 10.0, 1.0), directional(0.0, 10.0), blur(5.0)]})), 960.4, 13.7),
         // Past the σ 135 precondition, so unbounded both ways: #649's `gen_big.py` cases.
         ("rect-blur-sigma150", with(shape("rect", 400.0, 200.0), json!({"y": 540, "effects": [blur(300.0)]})), 960.4, 13.7),
         ("text-scale3-blur-sigma150", with(t(), json!({"y": 500, "scale": [3.0, 3.0], "effects": [blur(100.0)]})), 700.4, 13.7),
@@ -248,6 +270,14 @@ fn edge_project() -> (Value, Vec<(&'static str, i64)>) {
                 shadow["radius"] = keyed(json!(0), json!(41), json!(3));
                 shadow["color"] = keyed(json!("#FF9F2E"), json!("#3BA0FF80"), json!("#00000000"));
                 shadow["opacity"] = keyed(json!(0.2), json!(1), json!(0.55));
+            }
+            "keyed-named-effects" => {
+                let effects = &mut element["effects"];
+                effects[0]["levels"] = keyed(json!(2), json!(17), json!(9));
+                effects[1]["threshold"] = keyed(json!(0.9), json!(0.2), json!(0.55));
+                effects[1]["radius"] = keyed(json!(0), json!(27), json!(4));
+                effects[2]["angle"] = keyed(json!(350), json!(10), json!(95));
+                effects[2]["length"] = keyed(json!(0), json!(41), json!(7));
             }
             "keyed-mask-reveal-then-blur" => {
                 let mask = &mut element["effects"][0];

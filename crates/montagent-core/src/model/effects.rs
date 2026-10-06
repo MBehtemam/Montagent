@@ -15,7 +15,9 @@
 //! remote (`remote = "Self"`, serde's own name for "write the functions, not the impls")
 //! and the trait impls below wrap it — the parse the derive produces, then
 //! [`Effect::checked`]. There is no second enumeration of the vocabulary anywhere: the
-//! members are declared once, here.
+//! members are declared once, here. ADR-0156 adds `grain`, `posterize`, `glow` and
+//! `directional_blur`; the last three's ranges are the fourth rule [`Effect::checked`]
+//! enforces.
 //!
 //! ADR-0088 adds a third rule of the same kind, on `chroma`: three of its four parameters
 //! are bounded to `[0, 1]`, and a Rust `f64` field cannot say so. It joins the other two in
@@ -41,7 +43,7 @@ use super::{Animatable, Colour, Length};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(
     tag = "name",
-    rename_all = "lowercase",
+    rename_all = "snake_case",
     deny_unknown_fields,
     remote = "Self"
 )]
@@ -173,6 +175,139 @@ pub enum Effect {
         size: GrainSize,
         mono: bool,
     },
+    /// Quantise each colour channel to `levels` steps (ADR-0156 §4).
+    ///
+    /// On non-premultiplied sRGB values from 0 to 1, `q = round(v × (levels − 1)) /
+    /// (levels − 1)`, ties away from zero, alpha untouched: `levels: 256` is the identity on
+    /// 8-bit values. A keyed `levels` resolves to a continuous value, which the painter rounds
+    /// half away from zero, the rule `shift` uses.
+    Posterize { levels: Animatable<Levels> },
+    /// A threshold bloom (ADR-0156 §4): the pixels brighter than `threshold` (Rec.709 luma),
+    /// blurred by `radius` read as `blur` reads it, times `intensity`, added over the element
+    /// inside its own layer. There is no `color`: a coloured alpha glow is a zero-offset
+    /// `shadow`.
+    Glow {
+        threshold: Animatable<Fraction>,
+        radius: Animatable<Reach>,
+        intensity: Animatable<Gain>,
+    },
+    /// A centred smear along one direction (ADR-0156 §4). `angle` in degrees, `0`
+    /// horizontal and clockwise positive, as `rotation` is, measured in the element's own
+    /// space; `length` the whole smear in element pixels. Not motion blur: it smears whether
+    /// or not the element moves.
+    DirectionalBlur {
+        angle: Animatable<f64>,
+        length: Animatable<Smear>,
+    },
+}
+
+/// Declares a bounded number type for one named-effect parameter (ADR-0156 §4), the way
+/// [`Fraction`] is declared for `chroma`: the type states the bound in the published schema,
+/// so it reaches the static value and every keyframe record alike, and so the one derived
+/// list of animatable properties reads it as the range a resolved value clamps to (ADR-0146
+/// §5). [`Effect::checked`] enforces it with a message naming the parameter.
+macro_rules! bounded {
+    ($(#[$doc:meta])* $name:ident($inner:ty), $type:literal, $min:expr, $max:expr, $description:literal) => {
+        $(#[$doc])*
+        #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct $name(pub $inner);
+
+        impl $name {
+            /// The bound, inclusive at both ends where it has two.
+            pub const RANGE: (f64, Option<f64>) = ($min, $max);
+
+            fn value(self) -> f64 {
+                self.0 as f64
+            }
+        }
+
+        impl JsonSchema for $name {
+            fn schema_name() -> std::borrow::Cow<'static, str> {
+                stringify!($name).into()
+            }
+
+            fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+                // An integer type states integer bounds, as `Length` does.
+                let bound = |value: f64| {
+                    if $type == "integer" {
+                        serde_json::json!(value as i64)
+                    } else {
+                        serde_json::json!(value)
+                    }
+                };
+                let mut schema = serde_json::json!({
+                    "type": $type,
+                    "description": $description,
+                    "minimum": bound($min),
+                });
+                if let Some(max) = $max {
+                    schema["maximum"] = bound(max);
+                }
+                schemars::Schema::try_from(schema).expect("an object literal is a schema")
+            }
+        }
+
+        impl crate::resolve::Interpolate for $name {
+            type Out = f64;
+
+            fn between(a: &Self, b: &Self, p: f64) -> f64 {
+                f64::between(&a.value(), &b.value(), p)
+            }
+
+            fn held(value: &Self) -> f64 {
+                value.value()
+            }
+        }
+    };
+}
+
+bounded!(
+    /// `posterize`'s `levels`: an integer from 2 to 256 (ADR-0156 §4).
+    Levels(i64),
+    "integer",
+    2.0,
+    Some(256.0),
+    "How many steps each colour channel is quantised to, an integer from `2` to `256` in a \
+     static value and in every keyframe record. `256` is the identity (ADR-0156)."
+);
+
+bounded!(
+    /// `glow`'s `radius`: a number of pixels, at least 0, read as `blur`'s (ADR-0156 §4).
+    Reach(f64),
+    "number",
+    0.0,
+    None::<f64>,
+    "The glow's blur radius in element pixels, at least `0`, read exactly as `blur` reads \
+     its `radius` (σ = radius / 2) (ADR-0156)."
+);
+
+bounded!(
+    /// `glow`'s `intensity`: the gain on the glowing part, from 0 to 4 (ADR-0156 §4).
+    Gain(f64),
+    "number",
+    0.0,
+    Some(4.0),
+    "The gain on the glowing part, from `0` to `4` in a static value and in every keyframe \
+     record. `0` adds nothing (ADR-0156)."
+);
+
+bounded!(
+    /// `directional_blur`'s `length`: the whole smear in element pixels, from 0 to
+    /// [`Smear::MAX`] (ADR-0156 §4).
+    Smear(f64),
+    "number",
+    0.0,
+    Some(Smear::MAX),
+    "The whole smear in element pixels, centred on each pixel, from `0` (the identity) to \
+     `4096` in a static value and in every keyframe record. It takes `ceil(length) + 1` \
+     samples, so a keyed `length` steps the sample count (ADR-0156)."
+);
+
+impl Smear {
+    /// The longest smear: `ceil(length) + 1` samples, and the painter's loop takes at most
+    /// 4,097 (the prototype's cap, #722).
+    pub const MAX: f64 = 4096.0;
 }
 
 /// `grain`'s `seed`: an integer from `0` to `2³¹ − 1`, never keyed (ADR-0156 §4).
@@ -410,6 +545,64 @@ impl Effect {
             }
             return Ok(self);
         }
+
+        // ADR-0156 §5: every range of the named effects is a schema error, in a static value
+        // and in every keyframe record, and the message names the member and the parameter.
+        let named: Vec<Ranged> = match &self {
+            Effect::Posterize { levels } => vec![(
+                "posterize",
+                "levels",
+                stated(levels).into_iter().map(|v| v.value()).collect(),
+                Levels::RANGE,
+            )],
+            Effect::Glow {
+                threshold,
+                radius,
+                intensity,
+            } => vec![
+                (
+                    "glow",
+                    "threshold",
+                    stated(threshold).into_iter().map(|v| v.0).collect(),
+                    (0.0, Some(1.0)),
+                ),
+                (
+                    "glow",
+                    "radius",
+                    stated(radius).into_iter().map(|v| v.value()).collect(),
+                    Reach::RANGE,
+                ),
+                (
+                    "glow",
+                    "intensity",
+                    stated(intensity).into_iter().map(|v| v.value()).collect(),
+                    Gain::RANGE,
+                ),
+            ],
+            Effect::DirectionalBlur { length, .. } => vec![(
+                "directional_blur",
+                "length",
+                stated(length).into_iter().map(|v| v.value()).collect(),
+                Smear::RANGE,
+            )],
+            _ => Vec::new(),
+        };
+        for (member, parameter, values, (min, max)) in named {
+            if let Some(value) = values
+                .into_iter()
+                .find(|value| !(*value >= min && max.is_none_or(|max| *value <= max)))
+            {
+                let range = match max {
+                    Some(max) => format!("from `{min}` to `{max}`"),
+                    None => format!("at least `{min}`"),
+                };
+                return Err(format!(
+                    "`{member}`'s `{parameter}` is {value}: it must be {range}, in a static \
+                     value and in every keyframe record (ADR-0156)"
+                ));
+            }
+        }
+
         if let Effect::Chroma {
             color,
             tolerance,
@@ -526,6 +719,10 @@ impl Effect {
         Ok(self)
     }
 }
+
+/// One named-effect parameter's stated values beside its range: the member, the parameter,
+/// every value it states, and the bound, inclusive, with no upper end where it has none.
+type Ranged = (&'static str, &'static str, Vec<f64>, (f64, Option<f64>));
 
 /// `` `x`, `width` `` — a list of field names, for a sentence.
 fn quoted(names: &[&str]) -> String {

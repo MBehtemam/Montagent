@@ -1120,6 +1120,99 @@ fn paths_paint_the_same_frames_on_any_number_of_painters_and_with_the_bound_hint
     }
 }
 
+/// #724's gating fixture (ADR-0156 §6, ADR-0144): `posterize`, `glow` and
+/// `directional_blur` together with `blur`, a `mask` and a non-`normal` `blend`, under
+/// sub-pixel motion, rotation, non-uniform scale and a flip, with keyed parameters and one
+/// element under `motion_blur`, over a still. 160x90 at 30 fps for 600 ms: 18 frames.
+fn named_effects_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    for asset in ["fonts/Cinzel-Bold.ttf", "img/boat.jpg"] {
+        let to = dir.join(asset);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+        std::fs::copy(trailer().join(asset), &to).expect("copy the trailer's asset");
+    }
+    let keyed = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 600, "v": to, "ease": "linear"}]);
+    let elements = [
+        json!({"id": "ground", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 600,
+               "x": 80, "y": 45, "origin": "center", "width": 160, "height": 90,
+               "fit": "literal",
+               "effects": [{"name": "posterize", "levels": keyed(json!(3), json!(12))}]}),
+        json!({"id": "title", "type": "text", "font": "cinzel-bold", "size": 28,
+               "color": "#F4E2A0", "align": "center", "runs": [{"text": "SPY"}],
+               "width": 120, "height": 40, "start": 0, "end": 600,
+               "x": keyed(json!(76), json!(83)), "y": 40, "origin": "center",
+               "rotation": keyed(json!(-6.0), json!(9.5)), "scale": [1.3, 0.8],
+               "effects": [{"name": "blur", "radius": 1.5},
+                           {"name": "glow", "threshold": keyed(json!(0.3), json!(0.7)),
+                            "radius": 9, "intensity": 1.6},
+                           {"name": "posterize", "levels": 6}],
+               "blend": "screen"}),
+        json!({"id": "streak", "type": "rect", "start": 0, "end": 600,
+               "x": keyed(json!(30), json!(37)), "y": 70, "origin": "center", "width": 40,
+               "height": 10, "fill": "#20C0F0", "rotation": 17, "scale": [-1.2, 1.0],
+               "effects": [{"name": "mask", "shape": "ellipse", "feather": 3},
+                           {"name": "directional_blur",
+                            "angle": keyed(json!(350.0), json!(10.0)),
+                            "length": keyed(json!(4.5), json!(22))},
+                           {"name": "blur", "radius": 2}],
+               "blend": "add"}),
+        json!({"id": "all", "type": "ellipse", "start": 0, "end": 600,
+               "x": keyed(json!(110), json!(126)), "y": 62, "origin": "center", "width": 30,
+               "height": 22, "fill": "#FF9F2E", "rotation": keyed(json!(0.0), json!(40.0)),
+               "effects": [{"name": "posterize", "levels": 4},
+                           {"name": "glow", "threshold": 0.4, "radius": 6, "intensity": 2},
+                           {"name": "directional_blur", "angle": 45, "length": 9.5},
+                           {"name": "mask", "shape": "rect", "x": 2, "y": 2, "width": 26,
+                            "height": 18},
+                           {"name": "blur", "radius": 1}],
+               "motion_blur": {"shutter": 180, "samples": 4},
+               "blend": "overlay"}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+        "duration": 600, "output": "out/named-effects.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "named-effects.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn named_effects_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0156 §6, the gating test (#724): a member that fails it is withdrawn, not excused.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = named_effects_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.frames.len(), 18);
+    assert_ne!(
+        sequential.frames[2], sequential.frames[9],
+        "the scene moves"
+    );
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 1)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2), chunks(10, 1)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// ADR-0155's gating fixture (#719): every element carries `motion_blur`. A fast slide on
 /// `ease-out`, a spin, a rect whose size, radius and colour are keyed, a title staggering in
 /// through `units`, a moving `video`, a still element, and one with `effects`, a `mask` and

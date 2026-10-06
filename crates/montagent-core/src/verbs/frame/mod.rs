@@ -2412,7 +2412,7 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 ///
 /// **The model's enum is the one authority on what an effect is.** The member is
 /// deserialized through [`crate::model::Effect`], whose `deny_unknown_fields` and
-/// lowercase `name` tag are the closed vocabulary ADR-0040 and ADR-0049 fixed — so the
+/// `name` tag are the closed vocabulary ADR-0040, ADR-0049 and ADR-0156 fixed — so the
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
@@ -2528,6 +2528,21 @@ pub(crate) fn effect_of(
             size: u32::from(size.0),
             mono,
             frame,
+        },
+        // ADR-0156 §4: a keyed `levels` resolves to a continuous value, and is rounded half
+        // away from zero (`f64::round`, the rule `shift` uses) into the integer the
+        // quantiser takes, then held in its range.
+        model::Effect::Posterize { .. } => Effect::Posterize {
+            levels: number("levels")?.round().clamp(2.0, 256.0),
+        },
+        model::Effect::Glow { .. } => Effect::Glow {
+            threshold: number("threshold")?,
+            radius: number("radius")?,
+            intensity: number("intensity")?,
+        },
+        model::Effect::DirectionalBlur { .. } => Effect::DirectionalBlur {
+            angle: number("angle")?,
+            length: number("length")?,
         },
     })
 }

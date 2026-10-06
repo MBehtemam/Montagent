@@ -20,8 +20,7 @@
 
 use skia_safe::{
     AlphaType, Canvas as SkCanvas, ColorType, Data, FilterMode, ISize, Image, ImageFilter,
-    ImageInfo, Matrix, MipmapMode, Paint, PictureRecorder, Rect, RuntimeEffect, SamplingOptions,
-    TileMode, images,
+    ImageInfo, Matrix, MipmapMode, Paint, Rect, RuntimeEffect, SamplingOptions, TileMode, images,
 };
 
 use super::Effect;
@@ -68,6 +67,11 @@ half4 main(half4 src, half4 dst) {
 }
 ";
 
+thread_local! {
+    static BLENDER_EFFECT: std::cell::OnceCell<Option<RuntimeEffect>> =
+        const { std::cell::OnceCell::new() };
+}
+
 /// One grain, ready to lay over its layer.
 pub(super) struct Grained {
     image: Image,
@@ -98,7 +102,7 @@ pub(super) fn plan(
         return planned;
     };
     let clip = to_element.map_rect(Rect::from(clip)).0;
-    let Some(mut content) = recorded(canvas, &to_element, draw) else {
+    let Some(mut content) = super::layer_bound::drawn(canvas, draw) else {
         return planned;
     };
     for ((effect, filter), slot) in effects.iter().zip(filters).zip(&mut planned) {
@@ -119,20 +123,6 @@ pub(super) fn plan(
         }
     }
     planned
-}
-
-/// Skia's bounds of what `draw` paints, in element space.
-fn recorded(canvas: &SkCanvas, to_element: &Matrix, draw: &dyn Fn(&SkCanvas)) -> Option<Rect> {
-    let mut recorder = PictureRecorder::new();
-    let everywhere = Rect::new(-1.0e7, -1.0e7, 1.0e7, 1.0e7);
-    let recording = recorder.begin_recording(everywhere, true);
-    recording.set_matrix(&canvas.local_to_device());
-    draw(recording);
-    let device = recorder.finish_recording_as_picture(None)?.cull_rect();
-    if device.is_empty() {
-        return None;
-    }
-    Some(to_element.map_rect(device).0)
 }
 
 /// The cell image covering `area`, with a cell of margin on every side.
@@ -182,12 +172,11 @@ fn cells(area: Rect, seed: u32, amount: f64, size: u32, mono: bool, frame: i64) 
 impl Grained {
     /// Lay the grain over the layer `canvas` is drawing into, in element space.
     pub(super) fn apply(&self, canvas: &SkCanvas) {
-        let Some(blender) = RuntimeEffect::make_for_blender(BLENDER, None)
-            .ok()
-            .and_then(|effect| {
-                effect.make_blender(Data::new_copy(&self.amount.to_ne_bytes()), None)
-            })
-        else {
+        // Compiled once per painter thread, as the other named effects are.
+        let Some(blender) = super::named::compiled(&BLENDER_EFFECT, || {
+            RuntimeEffect::make_for_blender(BLENDER, None).ok()
+        })
+        .and_then(|effect| effect.make_blender(Data::new_copy(&self.amount.to_ne_bytes()), None)) else {
             return;
         };
         let mut local = Matrix::translate((

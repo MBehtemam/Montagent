@@ -141,6 +141,9 @@ fn effect(name: &str) -> Value {
                    "spill": 0.1})
         }
         "grain" => json!({"name": "grain", "seed": 7, "amount": 0.2, "size": 2, "mono": true}),
+        "posterize" => json!({"name": "posterize", "levels": 8}),
+        "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
+        "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }
