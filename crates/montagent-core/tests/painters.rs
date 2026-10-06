@@ -408,10 +408,35 @@ fn every_blend_mode_paints_the_same_frames_on_any_number_of_painters() {
     }
 }
 
+/// Key every parameter of one gradient over 0..600 ms.
+fn key_gradient(gradient: &mut Value) {
+    let list = |from: Value, to: Value, ease: Value| json!([{"t": 0, "v": from}, {"t": 600, "v": to, "ease": ease}]);
+    if gradient["gradient"] == "linear" {
+        let angle = gradient["angle"].as_f64().expect("an angle");
+        gradient["angle"] = list(json!(angle), json!(angle + 140.0), json!("linear"));
+    } else {
+        gradient["center"] = list(json!([0.3, 0.25]), json!([0.8, 0.7]), json!("ease-in-out"));
+        gradient["radius"] = list(json!(0.4), json!(1.3), json!("linear"));
+    }
+    let stops = |a: f64, b: f64, c: &str, d: &str| {
+        json!([{"offset": 0, "color": c}, {"offset": a, "color": d}, {"offset": b, "color": c},
+               {"offset": 1, "color": d}])
+    };
+    gradient["stops"] = list(
+        stops(0.2, 0.6, "#FF3366", "#3366FF00"),
+        stops(0.5, 0.6, "#FFCC00", "#20C0F0"),
+        json!([0.34, 1.56, 0.64, 1]),
+    );
+}
+
 /// ADR-0149 §8's gate, carried into the build: gradient paint on every paint field, under
 /// `blur` and `shadow`, with sub-pixel motion, rotation and non-uniform scale, 18 frames at
 /// 30 fps.
-fn gradient_project(line: u32) -> PathBuf {
+///
+/// With `keyed_gradients`, every parameter of every gradient is a keyframe list over the 600
+/// ms, the stops on a bezier that overshoots (ADR-0149 §3, §4), so the paint differs on every
+/// frame.
+fn gradient_project(line: u32, keyed_gradients: bool) -> PathBuf {
     let dir = tempdir(line);
     let to = dir.join("fonts/Cinzel-Bold.ttf");
     std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
@@ -423,7 +448,7 @@ fn gradient_project(line: u32) -> PathBuf {
     let linear = |angle: f64, from: &str, to: &str| json!({"gradient": "linear", "angle": angle, "stops": stops(from, to)});
     let radial = |center: [f64; 2], radius: f64, from: &str, to: &str| json!({"gradient": "radial", "center": center, "radius": radius, "stops": stops(from, to)});
     let glow = json!({"name": "shadow", "dx": 3, "dy": 2, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
-    let elements = [
+    let mut elements = [
         json!({"id": "sky", "type": "rect", "start": 0, "end": 600, "x": 0, "y": 0,
                "origin": "top-left", "width": 160, "height": 90,
                "fill": linear(160.0, "#101830", "#5A6E80")}),
@@ -446,6 +471,15 @@ fn gradient_project(line: u32) -> PathBuf {
                "origin": "center", "scale": [1.2, 0.9], "rotation": -6,
                "effects": [{"name": "blur", "radius": 1.0}, glow]}),
     ];
+    if keyed_gradients {
+        for element in &mut elements {
+            for paint in ["fill", "stroke", "color"] {
+                if element[paint].is_object() {
+                    key_gradient(&mut element[paint]);
+                }
+            }
+        }
+    }
     let tracks: Vec<Value> = elements
         .into_iter()
         .enumerate()
@@ -474,16 +508,27 @@ fn gradients_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or
     if !has_ffprobe() {
         return;
     }
-    let path = gradient_project(line!());
-    let sequential = rendered(&path, Forced::OnePainter);
-    assert_eq!(sequential.frames.len(), 18);
-    for (painters, chunk) in [(3, 2), (2, 5), (4, 1)] {
-        let chunked = rendered(&path, chunks(painters, chunk));
-        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
-    }
-    for forced in [Forced::OnePainter, chunks(3, 2)] {
-        let unbounded = rendered_unbounded(&path, forced);
-        assert_same(&sequential, &unbounded, "the hint off");
+    // Static paint (slice 1) and every nested parameter keyed (slice 2, #687).
+    for keyed in [false, true] {
+        let path = gradient_project(line!() + u32::from(keyed), keyed);
+        let sequential = rendered(&path, Forced::OnePainter);
+        assert_eq!(sequential.frames.len(), 18);
+        for (painters, chunk) in [(3, 2), (2, 5), (4, 1)] {
+            let chunked = rendered(&path, chunks(painters, chunk));
+            assert_same(
+                &sequential,
+                &chunked,
+                &format!("keyed={keyed}, K={painters}, C={chunk}"),
+            );
+        }
+        for forced in [Forced::OnePainter, chunks(3, 2)] {
+            let unbounded = rendered_unbounded(&path, forced);
+            assert_same(
+                &sequential,
+                &unbounded,
+                &format!("keyed={keyed}, the hint off"),
+            );
+        }
     }
 }
 

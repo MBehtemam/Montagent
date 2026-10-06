@@ -13,6 +13,13 @@
 //! `shift` leaving a keyed `width` and `fill` behind because a six-name list had been copied
 //! into three places.
 //!
+//! A paint's gradient parameters are on the list as nested paths: `fill.angle`,
+//! `fill.center`, `fill.radius` and `fill.stops`, and the same under `stroke` and a text
+//! element's `color` (ADR-0149 §6). A path is read by [`get`], so a tool that walks the list
+//! reads a nested property as it reads a top-level one. A gradient has `angle` or
+//! `center` and `radius`, not both, so a path the element's gradient does not have is
+//! absent, as an undeclared property is.
+//!
 //! Each entry also carries its value [`Kind`], read off the same schema type, because what a
 //! reader does with a list depends on it: an integer splits to the nearest integer, a colour
 //! to bytes, a pair component by component.
@@ -38,9 +45,10 @@
 //! - a resolved `stroke_width` below zero clamps to `0`;
 //! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
 //!   (ADR-0154 §3);
-//! - a paint field holding a gradient (ADR-0149) resolves to that gradient with §4's stop
-//!   fix applied — each offset raised to the largest before it — so what is printed is what
-//!   is drawn. Its parameters are static in this slice;
+//! - a paint field holding a gradient (ADR-0149) resolves every parameter at the instant
+//!   (`angle`, `center`, `radius` and `stops` may each be keyed), then applies §4's fix — each
+//!   offset clamped to 0..1 and raised to the largest before it — so what is printed is what
+//!   is drawn;
 //! - a resolved effect parameter clamps into the range the schema states on it, such as
 //!   `chroma`'s `[0, 1]`;
 //! - a resolved `width` or `height` is left as it is: at or below zero it draws nothing for
@@ -56,7 +64,7 @@ use std::sync::OnceLock;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::model::{Animatable, Colour, Gradient, Points, Scale};
+use crate::model::{Animatable, Colour, Gradient, Points, ResolvedGradient, Scale, Stops};
 use crate::resolve::{self, Interpolate, Unresolvable, VertexAt};
 
 /// What one animatable property's values are, as the schema types them.
@@ -77,6 +85,9 @@ pub enum Kind {
     /// A path's whole vertex list, every `at`, `in` and `out` coordinate interpolated
     /// separately: `points` (ADR-0154 §3).
     Points,
+    /// A gradient's stop list (ADR-0149): each keyframe value is a whole list, blended stop
+    /// by stop — an offset as a number, a colour premultiplied.
+    Stops,
 }
 
 impl Kind {
@@ -148,7 +159,9 @@ fn derive(schema: &Value) -> Table {
     }
 }
 
-/// The properties of one object branch whose type is an `Animatable{T}`, in schema order.
+/// The properties of one object branch whose type is an `Animatable{T}`, in schema order. A
+/// paint is followed by its gradient's parameters as nested paths — `fill.angle`,
+/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6).
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
@@ -166,36 +179,51 @@ fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
                 minimum: None,
                 maximum: None,
             });
+            for parameter in gradient_parameters(defs) {
+                properties.push(Property {
+                    name: format!("{name}.{}", parameter.name),
+                    ..parameter
+                });
+            }
             continue;
         }
-        // The first alternative of an `Animatable{T}` is the static `T`.
-        let mut value = &defs[def]["anyOf"][0];
-        if let Some(target) = value["$ref"]
-            .as_str()
-            .and_then(|reference| reference.strip_prefix("#/$defs/"))
-        {
-            value = &defs[target];
+        if let Some(property) = typed(defs, name, def) {
+            properties.push(property);
         }
-        // The one string the format interpolates is a colour (ADR-0146 §2): `Colour`, or a
-        // member's narrowing of it such as `chroma`'s screen colour. A path's vertex list is
-        // an array the schema names `Points` (ADR-0154 §3).
-        let points = property_def_name(&defs[def]) == Some("Points");
-        let kind = match value["type"].as_str() {
-            _ if points => Kind::Points,
-            Some("string") => Kind::Colour,
-            Some("integer") => Kind::Integer,
-            Some("number") => Kind::Number,
-            Some("array") => Kind::Pair,
-            _ => continue,
-        };
-        properties.push(Property {
-            name: name.clone(),
-            kind,
-            minimum: value["minimum"].as_f64(),
-            maximum: value["maximum"].as_f64(),
-        });
     }
     properties
+}
+
+/// The property named `name` whose type is the `Animatable{T}` definition `def`, read off the
+/// first alternative of it, which is the static `T`. `None` for a type the format does not
+/// interpolate.
+fn typed(defs: &Value, name: &str, def: &str) -> Option<Property> {
+    let mut value = &defs[def]["anyOf"][0];
+    if let Some(target) = value["$ref"]
+        .as_str()
+        .and_then(|reference| reference.strip_prefix("#/$defs/"))
+    {
+        value = &defs[target];
+    }
+    // The one string the format interpolates is a colour (ADR-0146 §2): `Colour`, or a
+    // member's narrowing of it such as `chroma`'s screen colour. A path's vertex list is an
+    // array the schema names `Points` (ADR-0154 §3), and a gradient's stop list one it names
+    // `Stops` (ADR-0149 §3).
+    let kind = match (property_def_name(&defs[def]), value["type"].as_str()) {
+        (Some("Points"), _) => Kind::Points,
+        (Some("Stops"), _) => Kind::Stops,
+        (_, Some("string")) => Kind::Colour,
+        (_, Some("integer")) => Kind::Integer,
+        (_, Some("number")) => Kind::Number,
+        (_, Some("array")) => Kind::Pair,
+        _ => return None,
+    };
+    Some(Property {
+        name: name.to_string(),
+        kind,
+        minimum: value["minimum"].as_f64(),
+        maximum: value["maximum"].as_f64(),
+    })
 }
 
 /// The `$defs` name an `Animatable{T}`'s static alternative refers to, where it names one.
@@ -203,6 +231,28 @@ fn property_def_name(animatable: &Value) -> Option<&str> {
     animatable["anyOf"][0]["$ref"]
         .as_str()?
         .strip_prefix("#/$defs/")
+}
+
+/// A gradient's animatable parameters, read off the `Gradient` definition: every property of
+/// either kind whose type is an `Animatable{T}`, each once, in schema order (ADR-0149 §6).
+fn gradient_parameters(defs: &Value) -> Vec<Property> {
+    let mut out: Vec<Property> = Vec::new();
+    for branch in defs["Gradient"]["oneOf"].as_array().into_iter().flatten() {
+        for (name, property) in branch["properties"].as_object().into_iter().flatten() {
+            let Some(parameter) = property["$ref"]
+                .as_str()
+                .and_then(|reference| reference.strip_prefix("#/$defs/"))
+                .filter(|def| def.starts_with("Animatable"))
+                .and_then(|def| typed(defs, name, def))
+            else {
+                continue;
+            };
+            if !out.iter().any(|seen| seen.name == *name) {
+                out.push(parameter);
+            }
+        }
+    }
+    out
 }
 
 /// **The one list**: every animatable property of `element_type`, in schema order. Empty
@@ -269,11 +319,32 @@ pub fn effect_path(index: usize, key: &str, member: &str) -> String {
 /// ([`crate::model::keyframe::is_keyframe_list`]): `scale`'s own `[sx, sy]` and a path's
 /// static vertex list are static values.
 pub fn records<'a>(element: &'a Value, property: &str) -> Option<&'a Vec<Value>> {
-    let written = element.get(property)?;
-    if !crate::model::keyframe::is_keyframe_list(written) {
-        return None;
-    }
-    written.as_array()
+    let written = get(element, property)?;
+    crate::model::is_keyframe_list(written)
+        .then(|| written.as_array())
+        .flatten()
+}
+
+/// Whether any of a paint's nested properties (`fill.angle`, ADR-0149 §6) is a keyframe list.
+pub fn nested_keyed(element: &Value, property: &str) -> bool {
+    let prefix = format!("{property}.");
+    names()
+        .iter()
+        .filter(|name| name.starts_with(&prefix))
+        .any(|name| records(element, name).is_some())
+}
+
+/// What the document writes at `path` on `element`: a key, or a nested path like
+/// `fill.angle` (ADR-0149 §6), each step a key of the object before it.
+pub fn get<'a>(element: &'a Value, path: &str) -> Option<&'a Value> {
+    path.split('.')
+        .try_fold(element, |value, key| value.get(key))
+}
+
+/// [`get`], to edit in place.
+pub fn get_mut<'a>(element: &'a mut Value, path: &str) -> Option<&'a mut Value> {
+    path.split('.')
+        .try_fold(element, |value, key| value.get_mut(key))
 }
 
 /// One animatable property an element writes, wherever it sits: on the element itself, or
@@ -305,7 +376,11 @@ impl<'a> Declared<'a> {
     /// What it is at `numerator / denominator` ms: **the one resolving function**, with
     /// ADR-0146's clamps applied.
     pub fn read(&self, numerator: i128, denominator: i128) -> Result<Resolved, Unreadable> {
-        let written = &self.owner[self.key()];
+        let Some(written) = get(self.owner, self.key()) else {
+            return Err(Unreadable::Schema(
+                "the property is not written".to_string(),
+            ));
+        };
         raw(written, Some(self.property.kind), numerator, denominator).map(|value| {
             match self.effect {
                 None => clamp(self.element, self.key(), value, numerator, denominator),
@@ -339,7 +414,7 @@ pub fn declared(element: &Value) -> Vec<Declared<'_>> {
     let mut out: Vec<Declared<'_>> = own
         .iter()
         .chain(others)
-        .filter(|property| element.get(property.name.as_str()).is_some())
+        .filter(|property| get(element, property.name.as_str()).is_some())
         .map(|property| Declared {
             path: property.name.clone(),
             element,
@@ -399,10 +474,12 @@ pub enum Resolved {
     Pair([f64; 2]),
     Colour(Colour),
     /// A gradient paint, after ADR-0149 §4's fix: always a literal that can be pasted back.
-    Gradient(Gradient),
+    Gradient(ResolvedGradient),
     /// A path's vertices, each handle an offset from its own vertex as the document writes
     /// it (ADR-0154).
     Points(Vec<VertexAt>),
+    /// A gradient's stop list, fixed as the gradient's own are.
+    Stops(Stops),
 }
 
 impl Resolved {
@@ -443,7 +520,7 @@ pub fn read(
     numerator: i128,
     denominator: i128,
 ) -> Option<Result<Resolved, Unreadable>> {
-    let written = element.get(property)?;
+    let written = get(element, property)?;
     let kind = property_kind(element, property);
     Some(
         raw(written, kind, numerator, denominator)
@@ -511,11 +588,17 @@ fn raw(
         Some(Kind::Colour) => one::<Colour, _>(written, numerator, denominator, |blend| {
             Resolved::Colour(blend.settle())
         }),
-        // A gradient object is static in this slice: it resolves to itself, fixed.
+        Some(Kind::Stops) => one::<Stops, _>(written, numerator, denominator, |blend| {
+            Resolved::Stops(blend.settle())
+        }),
+        // A gradient object resolves every parameter at the instant, then is fixed (§4).
         Some(Kind::Paint) if written.is_object() => {
-            serde_json::from_value::<Gradient>(written.clone())
-                .map(|gradient| Resolved::Gradient(gradient.settled()))
-                .map_err(|e| Unreadable::Schema(e.to_string()))
+            let gradient = serde_json::from_value::<Gradient>(written.clone())
+                .map_err(|e| Unreadable::Schema(e.to_string()))?;
+            gradient
+                .resolve(numerator, denominator)
+                .map(Resolved::Gradient)
+                .map_err(Unreadable::Unresolvable)
         }
         Some(Kind::Paint) => one::<Colour, _>(written, numerator, denominator, |blend| {
             Resolved::Colour(blend.settle())

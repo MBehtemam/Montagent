@@ -40,16 +40,32 @@ two disagree.
 - **Past the ends the first and last colours extend; colour blends in sRGB with premultiplied
   alpha** (ADR-0149), the rule a keyed colour uses across time. A fade to `#00000000` keeps
   its hue rather than passing through grey. There is no repeat or mirror.
-- **Gradient parameters cannot be keyed yet.** `angle`, `center`, `radius` and `stops` are
-  literals, and a paint's keyframe list holds colours, never a gradient: both are schema
-  errors. A paint field holds a keyed colour or a static gradient.
-- **Two reviews** (ADR-0149): `R-GRADIENT-ONE-COLOUR`, a gradient that paints a single colour
-  (its stops share one, or its `radius` is 0); and `R-TEXT-PAINT-OVERRIDDEN`, a text
-  `color` or `stroke` gradient that every run overrides, so it is never drawn. A run's own
-  colour still beats the element's gradient, run by run.
-- **`query --at` prints a gradient as a literal you can paste back**: kind, parameters and
-  stops as written, colours as hex. Where offsets cross, it prints what is drawn: each stop
-  raised to the largest offset before it, keeping its own colour.
+- **A gradient animates in place** (ADR-0149): `angle`, `center`, `radius` and `stops` each
+  take a literal or a keyframe list of their own type, with their own `ease`. `stops` as a
+  keyframe list has a whole stop list as each `v`: every `v` holds the same number of stops
+  (`E-GRADIENT-STOP-COUNT`, naming the first record that differs), and stop *i* blends with
+  stop *i*, its `offset` as a number and its `color` premultiplied. The kind never animates.
+  A paint's keyframe list holds colours, never a gradient, and never a mix: both are schema
+  errors. For flat to gradient, write the flat colour as a gradient whose stops share it, then
+  key the stops:
+  `{"gradient": "linear", "angle": 90, "stops": [{"t": 0, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#FF3366"}]}, {"t": 800, "v": [{"offset": 0, "color": "#FF3366"}, {"offset": 1, "color": "#3366FF"}], "ease": "ease-out"}]}`.
+- **A bezier may carry an offset past its neighbour**: each resolved offset is clamped to
+  `0..1`, then raised to the largest offset before it, and a raised stop keeps its own colour,
+  so a crossing is a hard edge. A resolved `radius` at or below `0` paints the last stop's
+  colour over the box. `query --at` prints what is drawn, always a legal literal.
+- **Two reviews** (ADR-0149): `R-GRADIENT-ONE-COLOUR`, a gradient whose resolved paint is a
+  single colour at every frame `render` paints in the element's range (its stops share one, or
+  its `radius` stays at or below `0`); a flat-to-gradient animation never fires it. And
+  `R-TEXT-PAINT-OVERRIDDEN`, a text `color` or `stroke` that is keyed or a gradient and that
+  every run overrides, so it is never drawn. A run's own colour still beats the element's
+  gradient, run by run.
+- **`query --at` prints a gradient as a literal you can paste back**: kind, resolved
+  parameters and stops, colours as hex, under the paint's own name (`fill`). `validate` and
+  the contact sheet name a nested list by its path: `fill.angle`, `stroke.stops`.
+- **`shift` carries and splits every nested list.** A split writes the resolved value, so it
+  is refused (`E-SHIFT-SPLIT-UNWRITABLE`, naming `fill.stops` and the instant) where the
+  resolved offsets are out of `0..1` or crossed, tested before the fix above; splitting
+  elsewhere is exact to colour byte rounding.
 
 ## Effects and compositing
 

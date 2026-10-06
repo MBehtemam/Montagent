@@ -272,6 +272,8 @@ fn keyframes_of(document: &Loose) -> Vec<(String, String, usize, i64)> {
             continue;
         };
         for (property, container, key) in crate::checks::keyframe_lists(element) {
+            // `key` may be a nested path (`fill.angle`, ADR-0149 §6), and a gradient's own
+            // `stops` is a list of objects that is not a keyframe list: the one test.
             let Some(records) = crate::animatable::records(container, key) else {
                 continue;
             };
@@ -309,9 +311,7 @@ fn keyframe_at(document: &Loose, id: &str, property: &str, index: usize) -> Opti
         let (_, container, key) = crate::checks::keyframe_lists(element)
             .into_iter()
             .find(|(name, _, _)| name == property)?;
-        container
-            .get(key)
-            .and_then(Value::as_array)?
+        crate::animatable::records(container, key)?
             .get(index)?
             .get("t")
             .and_then(Value::as_i64)

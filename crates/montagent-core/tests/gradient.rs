@@ -179,19 +179,8 @@ fn the_schema_refuses_a_malformed_gradient() {
 }
 
 #[test]
-fn the_schema_refuses_a_keyed_gradient_parameter_in_this_slice() {
+fn the_schema_refuses_a_keyframe_list_of_gradients() {
     let stops = two("#FFFFFF", "#000000");
-    refused_saying(
-        refused_fill(json!({"gradient": "linear",
-                            "angle": [{"t": 0, "v": 0}, {"t": 1000, "v": 90, "ease": "linear"}],
-                            "stops": stops})),
-        "cannot be keyed yet",
-    );
-    refused_saying(
-        refused_fill(json!({"gradient": "linear", "angle": 0,
-                            "stops": [{"t": 0, "v": stops}, {"t": 1000, "v": stops, "ease": "linear"}]})),
-        "cannot be keyed yet",
-    );
     // A paint's keyframe list holds colours, never a gradient.
     refused_saying(
         refused_fill(json!([{"t": 0, "v": "#FFFFFF"},

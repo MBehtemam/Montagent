@@ -35,6 +35,10 @@ fn values(kind: Kind) -> (Value, Value) {
             json!([{"at": [10, 390]}, {"at": [200, 10]}, {"at": [390, 390]}]),
             json!([{"at": [10, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
         ),
+        Kind::Stops => (
+            json!([{"offset": 0, "color": "#FF0000"}, {"offset": 1, "color": "#0000FF"}]),
+            json!([{"offset": 0.2, "color": "#00FF00"}, {"offset": 0.8, "color": "#FFFFFF"}]),
+        ),
     }
 }
 
@@ -61,8 +65,27 @@ fn subject(property: &str, records: Value) -> Value {
     } else {
         panic!("`{property}` is animatable on no type this test knows how to write");
     };
-    element[property] = records;
+    // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
+    // gradient whose other parameters are literals.
+    match property.split_once('.') {
+        None => element[property] = records,
+        Some((paint, parameter)) => {
+            let mut gradient = match parameter {
+                "center" | "radius" => json!({"gradient": "radial", "center": [0.5, 0.5],
+                                              "radius": 1}),
+                _ => json!({"gradient": "linear", "angle": 90}),
+            };
+            gradient["stops"] = values(Kind::Stops).0;
+            gradient[parameter] = records;
+            element[paint] = gradient;
+        }
+    }
     element
+}
+
+/// What the document writes at `property`, which may be a nested path.
+fn written<'a>(element: &'a Value, property: &str) -> &'a Value {
+    property.split('.').fold(element, |value, key| &value[key])
 }
 
 /// A project holding `subject`, and a `marker` rect whose `start` is `marker_start`.
@@ -163,7 +186,7 @@ fn keyed_subject(key: &str, member: Option<&str>, records: Value) -> Value {
 /// The keyframe list a tool wrote back for `key` on the subject.
 fn written_list<'a>(subject: &'a Value, key: &str, member: Option<&str>) -> &'a Value {
     match member {
-        None => &subject[key],
+        None => written(subject, key),
         Some(_) => &subject["effects"][1][key],
     }
 }
@@ -220,6 +243,12 @@ fn every_animatable_property_is_carried_by_every_tool() {
         // `query --at` prints its resolved value.
         let document = parse::read(base.path()).unwrap();
         let stack = at::at(&document, 1250, None);
+        // A gradient's parameter is printed inside its paint, resolved: the midpoint is
+        // neither end.
+        let (printed_as, parameter) = match member {
+            None => property.split_once('.').unwrap_or((property, "")),
+            Some(_) => (property.as_str(), ""),
+        };
         let resolved = stack
             .stack
             .iter()
@@ -228,9 +257,13 @@ fn every_animatable_property_is_carried_by_every_tool() {
                 present
                     .values
                     .iter()
-                    .find(|value| value.property == *property)
+                    .find(|value| value.property == printed_as)
             });
-        if !resolved.is_some_and(|value| value.animated && value.value.is_some()) {
+        let midway = |value: &Value| {
+            parameter.is_empty() || (value[parameter] != a && value[parameter] != b)
+        };
+        if !resolved.is_some_and(|value| value.animated && value.value.as_ref().is_some_and(midway))
+        {
             miss("query --at");
         }
 

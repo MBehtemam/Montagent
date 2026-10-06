@@ -39,8 +39,9 @@ use serde_json::{Value, json};
 use crate::animatable::{self, Kind, Property};
 use crate::finding::Finding;
 use crate::media::sidecar::Sidecar;
+use crate::model::paint::StopsBlend;
 use crate::model::{
-    Body, Colour, Ease, EaseName, Element, Keyframe, Points, Project, Scale, Vertex,
+    Body, Colour, Ease, EaseName, Element, Keyframe, Points, Project, Scale, Stops, Vertex,
 };
 use crate::report::{ExitCode, Report};
 use crate::resolve::{self, Blend, Interpolate, VertexAt};
@@ -664,11 +665,14 @@ fn edit_lists(
         return Ok(());
     }
     for (path, property, effect) in &keyed {
+        // A nested path (`fill.angle`, ADR-0149 §6) is found by walking it.
         let list = match effect {
-            None => &mut value[property.name.as_str()],
-            Some(index) => &mut value["effects"][*index][property.name.as_str()],
+            None => animatable::get_mut(&mut value, &property.name),
+            Some(index) => value["effects"][*index].get_mut(property.name.as_str()),
         };
-        edit(path, property, list)?;
+        if let Some(list) = list {
+            edit(path, property, list)?;
+        }
     }
     match serde_json::from_value(value) {
         Ok(edited) => {
@@ -722,6 +726,16 @@ fn split_list(
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
         Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
         Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),
+        // A stop list splits stop by stop, and is refused where the resolved list is not a
+        // legal literal: an offset out of 0..1 or crossed, or a colour out of range. Tested
+        // **before** ADR-0149 §4's fix — testing after it would always pass, and would
+        // silently flatten the curve past the cut.
+        Kind::Stops => split_typed::<Stops>(list, at, delta, |blend: StopsBlend| {
+            match blend.first_fault() {
+                Some(fault) => Err(refuse(fault)),
+                None => Ok(blend.settle()),
+            }
+        }),
         Kind::Colour | Kind::Paint => split_typed::<Colour>(list, at, delta, |blend: Blend| {
             if blend.in_range() {
                 Ok(blend.settle())
