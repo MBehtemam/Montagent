@@ -272,6 +272,13 @@ fn a_unit_offset_draws_where_the_same_offset_on_the_element_draws() {
     let a = project(&[offset], line!());
     let b = project(&[moved], line!());
     assert!(painted(&a, 500) == painted(&b, 500));
+    // And `query --at` reports the pose that frame was drawn with.
+    for unit in in_stack(&stack_at(&a, 500), "t")["units"]
+        .as_array()
+        .unwrap()
+    {
+        assert_eq!((&unit["x"], &unit["y"]), (&json!(12.0), &json!(30.0)));
+    }
 }
 
 // ---------------------------------------------------------------------------

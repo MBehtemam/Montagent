@@ -335,23 +335,24 @@ pub fn bodies(text: &str, by: By, placement: &Placement) -> Bodies {
         }
     }
 
-    let mut body_of_unit = vec![0; count];
     let mut bodies: Vec<Body> = Vec::new();
     let mut body_of_root: Vec<Option<usize>> = vec![None; count];
-    for unit in 0..count {
-        let r = root(&mut parent, unit);
-        let body = *body_of_root[r].get_or_insert_with(|| {
-            bodies.push(Body {
-                units: Vec::new(),
-                joined: false,
-                merged: false,
-                rect: None,
+    let body_of_unit: Vec<usize> = (0..count)
+        .map(|unit| {
+            let r = root(&mut parent, unit);
+            let body = *body_of_root[r].get_or_insert_with(|| {
+                bodies.push(Body {
+                    units: Vec::new(),
+                    joined: false,
+                    merged: false,
+                    rect: None,
+                });
+                bodies.len() - 1
             });
-            bodies.len() - 1
-        });
-        bodies[body].units.push(unit);
-        body_of_unit[unit] = body;
-    }
+            bodies[body].units.push(unit);
+            body
+        })
+        .collect();
     for body in &mut bodies {
         if body.units.len() > 1 {
             body.joined = body.units.iter().any(|&u| joined_units[u]);

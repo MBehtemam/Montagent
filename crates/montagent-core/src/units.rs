@@ -133,7 +133,9 @@ impl Plan {
                     .iter()
                     .filter(|g| g.unit == Some(index));
                 let first = members.next().map_or(0..0, |g| g.range.clone());
-                let last = members.last().map_or(first.clone(), |g| g.range.clone());
+                let last = members
+                    .next_back()
+                    .map_or(first.clone(), |g| g.range.clone());
                 let span = first.start..last.end;
                 let position = if reverse { count - 1 - index } else { index } as i64;
                 Unit {
