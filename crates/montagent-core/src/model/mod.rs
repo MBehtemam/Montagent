@@ -456,6 +456,7 @@ pub enum Body {
     Text(TextElement),
     Rect(Rect),
     Ellipse(Ellipse),
+    Path(PathElement),
     Audio(Audio),
     Transition(Transition),
 }
@@ -470,6 +471,7 @@ impl Body {
             Body::Text(_) => "text",
             Body::Rect(_) => "rect",
             Body::Ellipse(_) => "ellipse",
+            Body::Path(_) => "path",
             Body::Audio(_) => "audio",
             Body::Transition(_) => "transition",
         }
@@ -746,6 +748,159 @@ pub struct Ellipse {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+}
+
+/// A drawing from a list of vertices, in integer pixels from the declared box's top-left
+/// corner (ADR-0154).
+///
+/// A `rect`'s field set less `radius`, plus `closed` and `points`. Its box is placed exactly
+/// as a `rect`'s is, and it **bounds** the drawing without scaling it: resizing the box does
+/// not move a point, so `width`, `height` and `closed` are static, and a keyframe list on any
+/// of them is a schema error. Its stroke is centred on the outline, with a round join and a
+/// butt cap, and `validate` checks that the box contains it (`E-PATH-OUTSIDE-BOX`).
+///
+/// The order follows ADR-0154's own example — `x, y, origin, width, height, closed`, the
+/// paint, then `points` — and the transform tail every visual type shares.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, remote = "Self")]
+pub struct PathElement {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    /// Static on a path: the box bounds the drawing and does not stretch it (ADR-0154 §2).
+    /// Resize a path by editing its points, or animate `scale`.
+    #[serde(deserialize_with = "static_side")]
+    pub width: Length,
+    #[serde(deserialize_with = "static_side")]
+    pub height: Length,
+    /// Whether a last segment runs from the last vertex back to the first. Static: a path
+    /// that opens mid-clip is two elements (ADR-0154 §1).
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    /// Only on a closed path: `fill` with `"closed": false` is a schema error, because the
+    /// format does not close an open path silently to fill it (ADR-0154 §5). Nonzero
+    /// winding, so a self-intersecting outline fills its overlap. A gradient is measured
+    /// against the declared box, as on every shape (ADR-0149).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Paint>,
+    /// Centred on the outline, with a round join and a butt cap (ADR-0154 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Paint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_width: Option<Animatable<Length>>,
+    pub points: Animatable<Points>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+}
+
+impl PathElement {
+    /// ADR-0154 §5's relational rule, which the derive cannot state.
+    fn checked(self) -> Result<Self, String> {
+        if !self.closed && self.fill.is_some() {
+            return Err(
+                "`fill` on a path with `\"closed\": false`: an open path takes only `stroke`, \
+                 and the format does not close a path silently to fill it — set \
+                 `\"closed\": true` or drop `fill` (ADR-0154)"
+                    .to_string(),
+            );
+        }
+        Ok(self)
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Transition`.
+impl Serialize for PathElement {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        PathElement::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PathElement {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        PathElement::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
+}
+
+/// A path's `width` or `height`: a [`Length`], and never a keyframe list (ADR-0154 §2).
+fn static_side<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Length, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    if value.is_array() {
+        return Err(D::Error::custom(
+            "`width` and `height` are static on a path: the box bounds the drawing and does \
+             not stretch it, so resize a path by editing its points, or animate `scale` \
+             (ADR-0154)",
+        ));
+    }
+    Length::deserialize(value).map_err(D::Error::custom)
+}
+
+/// A path's `closed`: a boolean, and never a keyframe list (ADR-0154 §1).
+fn static_closed<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    if value.is_array() {
+        return Err(D::Error::custom(
+            "`closed` is static on a path: a path that opens mid-clip is two elements \
+             (ADR-0154)",
+        ));
+    }
+    bool::deserialize(value).map_err(D::Error::custom)
+}
+
+/// A pair of integer pixels: a vertex's `at`, or a handle's offset from its vertex.
+pub type Pixels = [i64; 2];
+
+/// One vertex of a `path` (ADR-0154 §1).
+///
+/// `at` is the vertex, in integer pixels from the declared box's top-left corner. `in` and
+/// `out` are optional **handles**: integer offsets from their own vertex. `out` shapes the
+/// segment leaving the vertex and `in` the segment arriving at it. A missing handle is a
+/// zero offset, so a vertex with neither is a corner; a written `[0, 0]` draws the same.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Vertex {
+    pub at: Pixels,
+    #[serde(rename = "in", default, skip_serializing_if = "Option::is_none")]
+    pub arriving: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub out: Option<Pixels>,
+}
+
+/// A path's vertex list: one value of `points`, whole, as a keyframe's value is whole
+/// (ADR-0154 §3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Points(pub Vec<Vertex>);
+
+impl JsonSchema for Points {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Points".into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let vertex = generator.subschema_for::<Vertex>().to_value();
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "array",
+            "items": vertex,
+            "description": "A path's vertices, in order. Each segment is a cubic Bezier from \
+                            one vertex's `at` through `at + out`, then the next vertex's \
+                            `at + in`, to that `at`; a closed path adds the segment from the \
+                            last vertex back to the first (ADR-0154).",
+        }))
+        .expect("an object literal is a schema")
+    }
 }
 
 /// `source, source_start, source_end` — ADR-0041's measured order — then the fields the

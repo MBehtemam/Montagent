@@ -22,7 +22,7 @@ pub(super) fn at(element: &Value, property: &str, instant: i64, frame: [f32; 4])
     match animatable::at(element, property, instant)?.ok()? {
         Resolved::Colour(colour) => rgba_of(&colour).map(Ink::Flat),
         Resolved::Gradient(gradient) => Some(Ink::Gradient(Arc::new(shader(&gradient, frame)?))),
-        Resolved::Number(_) | Resolved::Pair(_) => None,
+        Resolved::Number(_) | Resolved::Pair(_) | Resolved::Points(_) => None,
     }
 }
 

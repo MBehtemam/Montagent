@@ -39,9 +39,11 @@ use serde_json::{Value, json};
 use crate::animatable::{self, Kind, Property};
 use crate::finding::Finding;
 use crate::media::sidecar::Sidecar;
-use crate::model::{Body, Colour, Ease, EaseName, Element, Keyframe, Project, Scale};
+use crate::model::{
+    Body, Colour, Ease, EaseName, Element, Keyframe, Points, Project, Scale, Vertex,
+};
 use crate::report::{ExitCode, Report};
-use crate::resolve::{self, Blend, Interpolate};
+use crate::resolve::{self, Blend, Interpolate, VertexAt};
 use crate::slack::{self, Edge, Side, Slack};
 use crate::write;
 
@@ -753,7 +755,44 @@ fn split_list(
                 )))
             }
         }),
+        // A vertex list is integer pixels, and rounding one coordinate would bend the drawing
+        // without saying so: a split is written only where every number already is an
+        // integer (ADR-0154 §3, ADR-0146 §7).
+        Kind::Points => split_typed::<Points>(list, at, delta, |vertices: Vec<VertexAt>| {
+            integer_points(&vertices).ok_or_else(|| {
+                refuse(format!(
+                    "a vertex list with a fractional coordinate ({})",
+                    serde_json::to_string(&vertices).unwrap_or_default()
+                ))
+            })
+        }),
     }
+}
+
+/// The vertex list `vertices` spells, where every coordinate is an integer.
+fn integer_points(vertices: &[VertexAt]) -> Option<Points> {
+    let whole = |value: f64| {
+        let rounded = value.round();
+        ((value - rounded).abs() < 1e-9).then_some(rounded as i64)
+    };
+    let pair = |[x, y]: [f64; 2]| Some([whole(x)?, whole(y)?]);
+    vertices
+        .iter()
+        .map(|vertex| {
+            Some(Vertex {
+                at: pair(vertex.at)?,
+                arriving: match vertex.arriving {
+                    Some(offset) => Some(pair(offset)?),
+                    None => None,
+                },
+                out: match vertex.out {
+                    Some(offset) => Some(pair(offset)?),
+                    None => None,
+                },
+            })
+        })
+        .collect::<Option<Vec<_>>>()
+        .map(Points)
 }
 
 fn split_typed<T>(

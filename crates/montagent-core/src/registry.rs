@@ -1042,6 +1042,64 @@ so `to` must paint above `from`.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0154 §6. Refuse: a vertex is missing, and where it goes is the author's.
+        code: "E-PATH-TOO-FEW-POINTS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0154",
+        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+an {shape} path needs at least {least} vertices, and this value has {count}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0154 §6. Advise: the handle shapes no segment, so dropping it changes nothing
+        // drawn — the fix is fully determined.
+        code: "E-PATH-DANGLING-HANDLE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0154",
+        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0154 §6. Refuse: whether the first value or this one is the intended shape is a
+        // question about intent, and a morph between unlike paths is a later question.
+        code: "E-PATH-KEYFRAME-SHAPE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0154",
+        template: "`{element}`.points: keyframe record {record} (`t` {t}) differs from the \
+first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
+vertex count, and each vertex the same handles.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0154 §4. Refuse: moving the point, growing the box and thinning the stroke each
+        // fix it, and which was meant is the author's.
+        code: "E-PATH-OUTSIDE-BOX",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0154",
+        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
+[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box (inset \
+{inset}).",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],
         repair: None,

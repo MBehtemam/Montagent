@@ -105,7 +105,7 @@ fn references(element: &Value, visual: &[&str]) -> Option<Vec<Finding>> {
                     .repair_value(json!({
                         "value": format!(
                             "set `{side}` to the id of a visual element in the project \
-                             (image, video, text, rect or ellipse)"
+                             (image, video, text, rect, ellipse or path)"
                         )
                     }))
             })

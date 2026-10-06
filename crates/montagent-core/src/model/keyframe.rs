@@ -49,16 +49,7 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
         use serde::de::Error as _;
 
         let value = serde_json::Value::deserialize(deserializer)?;
-        // A keyframe record is an object (ADR-0012 rejected positional pairs: an unlabelled
-        // 2-array has no room for `ease` and becomes genuinely ambiguous once `v` is itself
-        // a list). So an array **of objects** is a keyframe list, and every other array —
-        // `scale`'s own `[sx, sy]`, `clip`'s four integers — is a static value.
-        let keyed = value
-            .as_array()
-            .and_then(|items| items.first())
-            .is_some_and(serde_json::Value::is_object);
-
-        if keyed {
+        if is_keyframe_list(&value) {
             let records = read_records(value).map_err(D::Error::custom)?;
             positional_ease(&records).map_err(D::Error::custom)?;
             positional_t_from(&records).map_err(D::Error::custom)?;
@@ -70,6 +61,27 @@ impl<'de, T: serde::de::DeserializeOwned> Deserialize<'de> for Animatable<T> {
                 .map_err(D::Error::custom)
         }
     }
+}
+
+/// **ADR-0012's shape test**: whether a written value is a keyframe list rather than a
+/// static value. The one statement of it, which every reader of a permissive tree asks.
+///
+/// A keyframe record is an object (ADR-0012 rejected positional pairs: an unlabelled
+/// 2-array has no room for `ease` and becomes genuinely ambiguous once `v` is itself a
+/// list). So `scale`'s own `[sx, sy]` and `clip`'s four integers are static values. A
+/// static value may itself be a list of objects — a path's `points` is a list of vertices
+/// (ADR-0154) — so a keyframe list is an array whose first item is an object carrying one of
+/// a record's own keys: `t`, `t_from`, `v` or `ease`. A vertex carries none of them.
+pub fn is_keyframe_list(value: &serde_json::Value) -> bool {
+    value
+        .as_array()
+        .and_then(|items| items.first())
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|first| {
+            ["t", "t_from", "v", "ease"]
+                .iter()
+                .any(|key| first.contains_key(*key))
+        })
 }
 
 /// One record at a time, so a fault inside one says which one.

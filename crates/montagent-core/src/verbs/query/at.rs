@@ -78,7 +78,7 @@ use crate::media::probe::Outcome;
 use crate::media::session::Session;
 use crate::model::{Animatable, Length};
 use crate::permissive::Loose;
-use crate::resolve::{self, Unresolvable};
+use crate::resolve::{self, Unresolvable, VertexAt};
 use crate::stack::{Stack, Unresolved};
 
 use super::Named;
@@ -176,6 +176,34 @@ pub struct Present {
     /// lists a run overrides, the units it moves with, and its pose at the instant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub units: Option<Vec<crate::units::UnitRow>>,
+    /// A `path`'s resolved vertices with their **absolute** control points — `at`,
+    /// `at + in` and `at + out` — in box pixels from the declared box's top-left corner
+    /// (ADR-0154 §6), so a containment finding reads without adding offsets up. The
+    /// resolved `points` in `values` keeps the document's relative form. Absent on every
+    /// other type, and where `points` does not resolve.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<Vec<VertexAt>>,
+}
+
+/// A `path`'s resolved vertices, each handle made absolute by adding its own vertex.
+fn absolute_vertices(element: &Value, instant: i64) -> Option<Vec<VertexAt>> {
+    let Ok(crate::animatable::Resolved::Points(vertices)) =
+        crate::animatable::at(element, "points", instant)?
+    else {
+        return None;
+    };
+    let absolute =
+        |at: [f64; 2], offset: Option<[f64; 2]>| offset.map(|[dx, dy]| [at[0] + dx, at[1] + dy]);
+    Some(
+        vertices
+            .into_iter()
+            .map(|vertex| VertexAt {
+                arriving: absolute(vertex.at, vertex.arriving),
+                out: absolute(vertex.at, vertex.out),
+                at: vertex.at,
+            })
+            .collect(),
+    )
 }
 
 /// What a running `wipe`, `slide` or `push` does to one element's geometry (ADR-0150).
@@ -419,6 +447,10 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             }
             _ => (None, None),
         };
+        let path = match kind {
+            Some("path") => absolute_vertices(element, instant),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -445,6 +477,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 }),
                 _ => None,
             },
+            path,
         });
     }
 

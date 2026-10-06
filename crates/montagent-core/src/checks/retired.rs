@@ -483,7 +483,7 @@ fn opaque_eight_digit(value: &Value) -> Option<String> {
 /// so that an element whose `type` is absent or misspelled — a schema question, and
 /// another ticket's — does not collect a non-bypassable refusal on the way past.
 fn is_visual_non_text(type_name: &str) -> bool {
-    matches!(type_name, "image" | "video" | "rect" | "ellipse")
+    matches!(type_name, "image" | "video" | "rect" | "ellipse" | "path")
 }
 
 /// On an image or a video the message names the rect's own position and the aperture; on
@@ -494,7 +494,7 @@ fn is_visual_non_text(type_name: &str) -> bool {
 fn gravity_replacement(type_name: &str) -> String {
     match type_name {
         "image" | "video" => "`x`, `y`, `origin` and the aperture's `clip`".into(),
-        "text" | "rect" | "ellipse" => "`origin`".into(),
+        "text" | "rect" | "ellipse" | "path" => "`origin`".into(),
         _ => "`x`, `y`, `origin` and the aperture's `clip` — or `origin` alone, on a text \
 or shape element"
             .into(),

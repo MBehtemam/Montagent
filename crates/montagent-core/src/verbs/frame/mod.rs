@@ -372,6 +372,34 @@ fn undrawable(detail: impl Into<String>) -> Finding {
     Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
 }
 
+/// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
+/// `at` through `at + out`, then the next vertex's `at + in`, to that `at`; on a closed path a
+/// last segment back to the first vertex, then a close. A missing handle is a zero offset.
+fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
+    let Some(first) = vertices.first() else {
+        return Vec::new();
+    };
+    let point = |[x, y]: [f64; 2]| (x as f32, y as f32);
+    let plus = |at: [f64; 2], offset: Option<[f64; 2]>| {
+        let [dx, dy] = offset.unwrap_or([0.0, 0.0]);
+        point([at[0] + dx, at[1] + dy])
+    };
+    let segment = |from: &crate::resolve::VertexAt, to: &crate::resolve::VertexAt| {
+        let (ax, ay) = plus(from.at, from.out);
+        let (bx, by) = plus(to.at, to.arriving);
+        let (x, y) = point(to.at);
+        PathEl::Cubic(ax, ay, bx, by, x, y)
+    };
+    let (x, y) = point(first.at);
+    let mut outline = vec![PathEl::Move(x, y)];
+    outline.extend(vertices.windows(2).map(|pair| segment(&pair[0], &pair[1])));
+    if closed && let Some(last) = vertices.last() {
+        outline.push(segment(last, first));
+        outline.push(PathEl::Close);
+    }
+    outline
+}
+
 fn no_extent() -> Finding {
     Finding::new("E-NOT-PAINTED-NO-EXTENT").field(
         "detail",
@@ -1239,6 +1267,7 @@ impl<'a> Painter<'a> {
             // unpainted would say the picture is missing something it is not.
             Some("transition") => {}
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
+            Some("path") => self.path(canvas, name, element),
             Some("image") | Some("video") => self.raster(canvas, name, element, kind, playhead),
             // Reachable, because `frame` reads the document permissively and never calls
             // `document.strict()` — see `E-NOT-PAINTED-UNDRAWABLE`.
@@ -1463,6 +1492,31 @@ impl<'a> Painter<'a> {
             self.collapsed(name, element);
             return;
         };
+        let Some(paint) = self.shape_paint(name, element, extent) else {
+            return;
+        };
+        let shape = match kind {
+            Some("ellipse") => Shape::Ellipse,
+            _ => Shape::Rect {
+                radius: animatable::number_at(element, "radius", self.instant, 0.0),
+            },
+        };
+        let effects = self.effects_of(name, element);
+        canvas.shape(
+            shape,
+            extent,
+            &self.transform(element),
+            &paint,
+            self.clip(element),
+            &effects,
+        );
+        self.painted.push(name.to_string());
+    }
+
+    /// A shape's `fill`, `stroke` and `stroke_width` at the instant, through the one
+    /// resolving function (ADR-0146), or `None` where it paints nothing this frame — named
+    /// where it states no paint at all.
+    fn shape_paint(&mut self, name: &str, element: &Value, extent: Extent) -> Option<Fill> {
         // A gradient is measured against the declared box, and the stroke uses the same
         // box as the fill (ADR-0149 §2).
         let declared = [0.0, 0.0, extent.width as f32, extent.height as f32];
@@ -1476,24 +1530,44 @@ impl<'a> Painter<'a> {
             // keyed box does (ADR-0146): only a shape that states no paint at all is the
             // finding.
             if animatable::records(element, "stroke_width").is_some() && paint.stroke.is_some() {
-                return;
+                return None;
             }
             // ADR-0014: a shape with neither fill nor stroke is a schema error naming both,
             // "because an element that deliberately renders nothing and an element that
             // forgot its paint must not look alike". Saying so here is the same rule at the
             // surface an agent is looking at.
             self.defer(name, Finding::new("E-NOT-PAINTED-NO-PAINT"));
-            return;
+            return None;
         }
-        let shape = match kind {
-            Some("ellipse") => Shape::Ellipse,
-            _ => Shape::Rect {
-                radius: animatable::number_at(element, "radius", self.instant, 0.0),
-            },
+        Some(paint)
+    }
+
+    /// A `path` (ADR-0154): its vertices at the instant, through the one resolving function
+    /// that clamps an overshoot into the inset box, as cubic segments in element space.
+    fn path(&mut self, canvas: &mut Canvas, name: &str, element: &Value) {
+        let Some(extent) = self.extent(element) else {
+            self.collapsed(name, element);
+            return;
         };
+        let Some(paint) = self.shape_paint(name, element, extent) else {
+            return;
+        };
+        let Some(Ok(animatable::Resolved::Points(vertices))) =
+            animatable::at(element, "points", self.instant)
+        else {
+            self.defer(
+                name,
+                undrawable("its `points` do not read as a vertex list"),
+            );
+            return;
+        };
+        let closed = element
+            .get("closed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let effects = self.effects_of(name, element);
-        canvas.shape(
-            shape,
+        canvas.path(
+            &outline_of(&vertices, closed),
             extent,
             &self.transform(element),
             &paint,

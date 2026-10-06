@@ -260,9 +260,8 @@ fn describe_edges(edges: &[Edge<'_>]) -> String {
 /// Every keyframe `t` in `document`, as `(element id, property name, index within that
 /// property's own list, t)`.
 ///
-/// The shape test mirrors `Animatable`'s own deserializer (`crate::model::keyframe`): an
-/// array whose first item is an object is a keyframe list; everything else — including
-/// `scale`'s own `[sx, sy]` — is a static value and contributes nothing here.
+/// The shape test is `Animatable`'s own ([`crate::animatable::records`]): a static value —
+/// `scale`'s own `[sx, sy]`, a path's vertex list — contributes nothing here.
 ///
 /// A stagger's unit lists are named as `crate::checks::keyframe_lists` names them —
 /// `units.y`, `runs[3].unit.y` — and drift like any list (ADR-0151 §5).
@@ -273,12 +272,9 @@ fn keyframes_of(document: &Loose) -> Vec<(String, String, usize, i64)> {
             continue;
         };
         for (property, container, key) in crate::checks::keyframe_lists(element) {
-            let Some(records) = container.get(key).and_then(Value::as_array) else {
+            let Some(records) = crate::animatable::records(container, key) else {
                 continue;
             };
-            if !records.first().is_some_and(Value::is_object) {
-                continue;
-            }
             for (index, record) in records.iter().enumerate() {
                 if let Some(t) = record.get("t").and_then(Value::as_i64) {
                     out.push((id.to_string(), property.clone(), index, t));

@@ -17,7 +17,7 @@ use crate::report::Report;
 
 /// The types whose declared box is drawn geometry. A `text` element's box is a container
 /// claim the lines are checked against, never what is drawn (ADR-0135).
-const DRAWN_BOX: [&str; 4] = ["rect", "ellipse", "image", "video"];
+const DRAWN_BOX: [&str; 5] = ["rect", "ellipse", "path", "image", "video"];
 
 /// The finding, naming its cause. The cause is the box: a `mask` hiding every frame joins
 /// it when effect parameters animate.

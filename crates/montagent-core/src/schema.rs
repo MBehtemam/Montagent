@@ -27,7 +27,48 @@ pub fn generate() -> Value {
     publish_mask_rect(&mut schema);
     publish_chroma_bounds(&mut schema);
     publish_transition_fields(&mut schema);
+    publish_path_fill(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0154 §5's relational rule about a path's `fill` in the schema, where the types
+/// can only say it in their deserializer (`crate::model::PathElement`'s `checked`).
+///
+/// [`publish_transition_fields`]'s arrangement, for its reason: `fill` is a declared property
+/// of the one path shape, so `additionalProperties: false` cannot withdraw it where
+/// `closed` is `false`.
+fn publish_path_fill(schema: &mut Value) {
+    let Some(Value::Object(path)) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+        .and_then(|branches| {
+            branches.iter_mut().find(|branch| {
+                branch.pointer("/properties/type/const") == Some(&Value::String("path".into()))
+            })
+        })
+    else {
+        return;
+    };
+
+    let mut ordered = serde_json::Map::new();
+    for (key, value) in std::mem::take(path) {
+        ordered.insert(key.clone(), value);
+        if key == "required" {
+            ordered.insert(
+                "if".into(),
+                json!({"properties": {"closed": {"const": false}}, "required": ["closed"]}),
+            );
+            ordered.insert(
+                "then".into(),
+                json!({
+                    "not": {"required": ["fill"]},
+                    "description": "An open path takes only `stroke`: the format does not \
+                                    close a path silently to fill it (ADR-0154).",
+                }),
+            );
+        }
+    }
+    *path = ordered;
 }
 
 /// Say ADR-0150's two relational rules about a transition's `direction` and `ease` in the
