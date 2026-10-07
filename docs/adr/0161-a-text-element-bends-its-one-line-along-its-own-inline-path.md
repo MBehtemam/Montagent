@@ -5,6 +5,10 @@ amends: 0154 (its point vocabulary is also written inline on `text`, and its fou
 
 # A text element bends its one line along its own inline path
 
+> **Amended by [ADR-0164](0164-path-offset-reaches-one-curve-length-past-each-end-and-a-closed-path-draws-a-body-only-if-it-fits-the-loop.md)**: `path_offset` ranges over [−1, 2], so one element slides on
+> and off an open curve, and an overshoot clamps there. On a closed path a body is drawn only
+> if its whole advance fits within one loop, so the seam never overlaps.
+
 [#713](https://github.com/MBehtemam/Montagent/issues/713), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0154](0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md)
