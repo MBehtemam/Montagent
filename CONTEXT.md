@@ -309,6 +309,15 @@ worst-case bound, never a measured overlap.
 ([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
 _Avoid_: padding, margin (for the inset), stroke extent
 
+**Trim window**:
+The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
+of the outline's length, measured from the shape's dash start point and turned around a closed
+outline by `trim_offset` in turns. A window is **empty** when its start is not before its end,
+and draws nothing; it is **full** from 0 to 1, and draws the closed outline with no ends. It
+shapes the stroke only, never the fill. A **draw-on** is a window whose end grows.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
+_Avoid_: trim path (for the window), reveal, progress, percent (the unit is a fraction)
+
 **Fill**:
 The paint inside a shape's outline. Optional when a `stroke` is
 present, giving an outlined shape; a shape with neither is a schema error naming both,

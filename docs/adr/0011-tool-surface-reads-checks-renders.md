@@ -9,7 +9,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by thirty-four later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-five later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -152,6 +152,8 @@ status: accepted
 >   reports a remapped element's `source_time` and a derived `rate`
 > - [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md) — `query --at`
 >   reports a path's inset and reach factor, the raw dash offset and an informative outline length
+> - [ADR-0160](0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md) — `query --at`
+>   reports a trimmed element's raw trim values and the window drawn: `[a, b]`, `empty` or `full`
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

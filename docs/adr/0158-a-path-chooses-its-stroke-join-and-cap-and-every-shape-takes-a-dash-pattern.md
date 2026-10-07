@@ -5,6 +5,12 @@ amends: 0154 (the round-join, butt-cap pin is lifted; the inset widens to the st
 
 # A path chooses its stroke join and cap, and every shape takes a dash pattern
 
+> **Amended by [ADR-0160](0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md).** A cap also draws at a trim's
+> ends: an element carrying `trim_start` or `trim_end` counts wherever §3 and §4 say "where a
+> cap draws", so `E-STROKE-CAP-UNDRAWN` and the square-cap reach factor follow it.
+> `E-STROKE-NO-STROKE` covers the three trim fields, and the dash pattern stays anchored to the
+> outline under a trim.
+
 [#711](https://github.com/MBehtemam/Montagent/issues/711), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0154](0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md)
