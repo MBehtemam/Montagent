@@ -86,7 +86,9 @@ pub use grain::grain_draw;
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
 pub use layer_bound::set_enabled as bound_filter_layers;
-pub use projection::{Facing, Footprint, Projection, ReachBox, eye_bound, footprint, reach_box};
+pub use projection::{
+    Facing, Footprint, Projection, ReachBox, clears_the_eye, eye_bound, footprint, reach_box,
+};
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -200,6 +200,13 @@ pub fn eye_bound(extent: Extent, origin: (f64, f64), effects: &[Effect]) -> f64 
         .fold(0.0, f64::max)
 }
 
+/// Whether `perspective` clears the eye bound `bound` (ADR-0167 §5): strictly greater, and a
+/// value that is not a number clears nothing. The one definition the painter, `query --at` and
+/// `validate` share, so none of them can disagree about an element that sits on the line.
+pub fn clears_the_eye(perspective: f64, bound: f64) -> bool {
+    perspective > bound
+}
+
 /// Where a projected element is at one instant: which way it faces and the frame-space
 /// quadrilateral of its reach-widened box.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -279,7 +286,10 @@ pub(super) fn paint(
     draw: &dyn Fn(&skia_safe::Canvas),
 ) {
     if projection.facing() != Facing::Front
-        || !(projection.perspective > eye_bound(extent, transform.origin, effects))
+        || !clears_the_eye(
+            projection.perspective,
+            eye_bound(extent, transform.origin, effects),
+        )
     {
         return;
     }
@@ -287,7 +297,7 @@ pub(super) fn paint(
         transform.scale.0.abs() * f64::from(base.0),
         transform.scale.1.abs() * f64::from(base.1),
     );
-    if !(kx > 0.0 && ky > 0.0 && kx.is_finite() && ky.is_finite()) {
+    if kx <= 0.0 || ky <= 0.0 || !kx.is_finite() || !ky.is_finite() {
         return;
     }
     let reach = reach_box(extent, effects);

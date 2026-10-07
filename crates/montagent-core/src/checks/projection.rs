@@ -23,6 +23,7 @@
 //! **Document-only**: every number is a literal in the file, resolved by the one resolving
 //! function, and nothing is painted.
 
+use montagent_render::canvas::clears_the_eye;
 use serde_json::{Value, json};
 
 use crate::finding::Finding;
@@ -103,7 +104,7 @@ fn eye(element: &Value, instants: &[Instant]) -> Option<Finding> {
         .rev()
         .filter_map(|at| {
             let (projection, r) = projection::eye_at(element, *at)?;
-            (!(projection.perspective > r)).then_some((*at, projection.perspective, r))
+            (!clears_the_eye(projection.perspective, r)).then_some((*at, projection.perspective, r))
         })
         // The worst: the corner that gets furthest past the eye.
         .max_by(|a, b| (a.2 - a.1).total_cmp(&(b.2 - b.1)))?;

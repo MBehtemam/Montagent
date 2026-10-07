@@ -213,6 +213,27 @@ impl Bounds {
 /// `scale` and `rotation` as the painter places it (translate, rotate, scale, about the
 /// origin), then cut to `clip`. `None` where it has no readable box or `clip` leaves none.
 fn bounds(element: &Value, instant: i64, frame: (i64, i64)) -> Option<Bounds> {
+    // A projected element's box is the bounds of its projected quadrilateral (ADR-0167 §6),
+    // the one reading every check of a frame-space box shares.
+    if crate::projection::projects(element) {
+        let placed = crate::projection::placed(element, (i128::from(instant), 1), frame)?;
+        let (mut left, mut top, mut right, mut bottom) = placed.footprint.bounds();
+        if let Some(clip) = clip_rect(element) {
+            left = left.max(clip.x as f64);
+            top = top.max(clip.y as f64);
+            right = right.min((clip.x + clip.width) as f64);
+            bottom = bottom.min((clip.y + clip.height) as f64);
+        }
+        return (left < right && top < bottom).then_some(Bounds {
+            left,
+            top,
+            right,
+            bottom,
+            // A quadrilateral is not its bounds, so as for a rotated box, two bounds that
+            // meet are no proof that the boxes do.
+            rotated: true,
+        });
+    }
     let width = element.get("width").and_then(Value::as_i64)? as f64;
     let height = element.get("height").and_then(Value::as_i64)? as f64;
     if width <= 0.0 || height <= 0.0 {

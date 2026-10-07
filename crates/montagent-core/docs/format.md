@@ -98,7 +98,7 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   a trimmed move is spelled.
 - **An animatable property is one the schema types as a literal or a keyframe list**
   (ADR-0146); a list on any other field is a schema error. Today: `x`, `y`, `scale`,
-  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`;
+  `rotation`, `swivel`, `tilt`, `perspective`, `opacity` on every visual element; `volume` on `video` and `audio`;
   `source_time` on `video`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
@@ -186,6 +186,52 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `scale`, `rotation`, `opacity`, as fields on the element. No transform is nested,
   inherited or composed, and no element's transform is relative to another's.
 - **`scale` is always `[sx, sy]`** (ADR-0012), never a bare number.
+- **Projection: `swivel`, `tilt` and `perspective`** (ADR-0167, ADR-0168) turn an element in
+  front of an eye, on `image`, `video`, `text`, `rect`, `ellipse` and `path`. They are animatable
+  numbers and are never normalised.
+  - `swivel` is degrees about the element's vertical axis. Positive sends the right edge away
+    (CSS `rotateY`, Premiere's Swivel).
+  - `tilt` is degrees about its horizontal axis. Positive sends the top edge away (CSS `rotateX`,
+    Premiere's Tilt).
+  - `perspective` is the eye's distance from the element's plane, in px (CSS's `perspective`),
+    greater than 0. It is required whenever `swivel` or `tilt` is written (`E-PROJECTION-PERSPECTIVE-MISSING`)
+    and is a dead value without one (`E-PROJECTION-PERSPECTIVE-ALONE`). A smaller value only makes
+    the foreshortening stronger, and `scale` stays the one control of size.
+  - **The order:** the element is drawn flat, with its `effects` and its `mask` in list order, and
+    that layer is projected about `origin`, with the eye in front of the origin point. `scale`,
+    `rotation` and `x`/`y` then act on the projected picture, so `rotation` spins the projected
+    shape in the frame. With `origin: "center-left"` a swivel opens like a door. `clip` stays frame
+    space and `opacity` and `blend` wrap the projected layer. Text and paths are projected as the
+    flat picture they are drawn into, never as vectors.
+  - **The two angles compose as the CSS string `perspective(d) rotateX(tilt) rotateY(swivel)`:**
+    the swivel turns the element first and the tilt turns it in its already swivelled frame.
+  - **A written angle always projects**, at any value, even `0`, so the path depends on the
+    file's keys and never on a value at an instant: a keyed `swivel` that passes through 0 does
+    not switch path for one frame. Writing `swivel: 0` therefore changes an element's pixels
+    slightly, by a resample (up to a few levels), where leaving the field out changes nothing. An
+    element with neither field is drawn exactly as it always was.
+  - **Facing away draws nothing.** While the element faces away, or is exactly edge-on (an angle
+    of 90° or 270°), it paints nothing, as under `opacity: 0`. A card flip is therefore two
+    elements: the front swivels 0 to 180 and the back −180 to 0. A mirrored back is a second
+    element with `scale: [-1, 1]`. An ease that overshoots past 90° blinks the element out for
+    those frames, and `query --at` shows it as `facing`.
+  - **The eye bound** (`E-PROJECTION-EYE`): `perspective` must exceed r, the distance from the
+    origin point to the farthest corner of the element's box widened by the reach of every effect
+    (a blur's and a glow's `⌈3σ⌉`, a shadow's offset and `⌈3σ⌉`, a directional blur's reach), at
+    every key and every eased extreme of `perspective`, of the box and of each effect's reach.
+    It does not depend on the angles. A 1920 × 1080 element needs more than about 1102 about
+    `center` and more than about 1994 about `center-left`; on an `image` or `video` a strong
+    perspective on a large picture needs a smaller box scaled back up, which loses resolution.
+  - **Strong foreshortening is softer.** The near edge is magnified by about d / (d − r), so it
+    softens as `perspective` approaches r, and a larger value reduces that. Above 2×
+    `R-PROJECTION-SOFT` (a review) names the magnification and the value that brings it back.
+    `R-PROJECTION-AWAY` (a review) says no instant of the element's presence faces the eye.
+  - **A shadow tilts with its card**, because it is drawn flat with the element. One that falls
+    straight down from a tilted card needs a second element.
+  - **A nest takes no projection**, and neither does a mirrored back or a `backface` field.
+  - **What the checks read:** every check that reads an element's frame-space box (`R-OFF-CANVAS`,
+    the layer tie, `NOT COVERED`) uses the axis-aligned bounds of its projected quadrilateral,
+    which `query --at` prints as `ink_box` with the four `corners` and the `facing`.
 - **`clip` is a static frame-space rectangle** and never animates (ADR-0025): it is simultaneously the
   aperture the source is drawn through and the fixed denominator a `fit` claim is checked
   against. It does not rotate and does not scale with the element — which is exactly what

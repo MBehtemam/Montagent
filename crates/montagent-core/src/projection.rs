@@ -9,7 +9,8 @@
 //! (ADR-0146's lesson about copied lists, and `tests/projection.rs`'s conformance test).
 
 use montagent_render::canvas::{
-    Blend, Effect, Extent, Facing, Footprint, Projection, Transform, eye_bound, footprint,
+    Blend, Effect, Extent, Facing, Footprint, Projection, Transform, clears_the_eye, eye_bound,
+    footprint,
 };
 use serde_json::Value;
 
@@ -207,7 +208,7 @@ pub fn placed(element: &Value, t: (i128, i128), frame: (i64, i64)) -> Option<Pla
     let projection = transform.projection?;
     let effects = effects_at(element, t);
     let bound = eye_bound(extent, transform.origin, &effects);
-    if !(projection.perspective > bound) {
+    if !clears_the_eye(projection.perspective, bound) {
         return None;
     }
     Some(Placed {

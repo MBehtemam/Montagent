@@ -542,6 +542,54 @@ fn the_layer_tie_reads_the_projected_bounds_not_the_flat_box() {
 }
 
 #[test]
+fn a_blended_projected_card_is_measured_by_its_bounds_as_a_rotated_one_is() {
+    // Over a plate the blend has something to blend with; over nothing it has not. A turned
+    // card's bounds meeting the plate are no proof that the card does, as for a rotation.
+    let report = |over: Option<Value>, turned: Value| {
+        let mut blended = card(120, 80, json!({"x": 320, "y": 180, "blend": "screen"}));
+        for (key, value) in turned.as_object().expect("an object") {
+            blended[key] = value.clone();
+        }
+        let mut tracks = vec![];
+        if let Some(plate) = over {
+            tracks.push(json!({"name": "under", "layer": 1, "elements": [plate]}));
+        }
+        tracks.push(json!({"name": "over", "layer": 2, "elements": [blended]}));
+        let mut document = project(640, 360, &[]);
+        document["tracks"] = Value::Array(tracks);
+        validated(&document)
+    };
+    let plate = json!({"id": "plate", "type": "rect", "start": 0, "end": 1000,
+        "x": 320, "y": 180, "width": 300, "height": 200, "fill": "#335577"});
+    let projected = json!({"swivel": 30, "perspective": 900});
+    let rotated = json!({"rotation": 30});
+    for turned in [projected, rotated] {
+        let alone = report(None, turned.clone());
+        assert_eq!(
+            of(&alone, "R-BLEND-BACKGROUND-ONLY").len(),
+            1,
+            "{turned}: {:#?}",
+            alone.findings
+        );
+    }
+    assert_eq!(
+        of(
+            &report(
+                Some(plate.clone()),
+                json!({"swivel": 30, "perspective": 900})
+            ),
+            "R-BLEND-BACKGROUND-ONLY"
+        )
+        .len(),
+        of(
+            &report(Some(plate), json!({"rotation": 30})),
+            "R-BLEND-BACKGROUND-ONLY"
+        )
+        .len()
+    );
+}
+
+#[test]
 fn a_keyed_angle_is_motion_so_motion_blur_on_it_is_not_still() {
     let blurred = |swivel: Value| {
         card_report(

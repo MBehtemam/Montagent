@@ -458,7 +458,7 @@ pub(crate) fn overshoots(ease: &Ease) -> Vec<f64> {
         .filter(|s| *s > 0.0 && *s < 1.0)
         .filter(|s| {
             let progress = cubic(y1, y2, *s);
-            progress > 1.0 || progress < 0.0
+            !(0.0..=1.0).contains(&progress)
         })
         .map(|s| cubic(x1, x2, s))
         .collect();

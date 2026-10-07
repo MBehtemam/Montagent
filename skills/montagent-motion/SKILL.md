@@ -47,6 +47,34 @@ An entrance with a small overshoot that settles. The overshoot is the curve: one
 - **Stagger:** one beat when each item lands on its own beat; 60–120 ms between items inside one beat.
 - **Look:** `frame` at the start plus 40 % of the length, where the overshoot peaks, and check nothing clips the frame edge or a neighbour. Then `preview` a span from just before the first pop to just after the last.
 
+### Card flip and door swing
+
+A flat element turned in front of an eye: `swivel` about its vertical axis, `tilt` about its horizontal one, and the `perspective` that is the eye's distance in px. It turns about `origin`, so `center` flips a card and `center-left` hangs a door on its edge. Positive `swivel` sends the right edge away and positive `tilt` sends the top edge away. An element facing away, or exactly edge-on, draws nothing, so a **card flip is two elements**: the front swivels 0 to 180 and the back swivels −180 to 0, and the back carries `scale: [-1, 1]` so its face reads the right way round. They sit on two layers, because two elements on one layer whose boxes overlap are `E-LAYER-TIE`.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/flip.mp4",
+  "tracks": [
+    {"name": "front", "layer": 11, "elements": [
+      {"id": "front", "type": "rect", "start": 200, "end": 2000, "x": 640, "y": 540, "origin": "center", "width": 480, "height": 320, "fill": "#FF5A36", "swivel": [{"t": 300, "v": 0}, {"t": 1000, "v": 180, "ease": "ease-in-out"}], "perspective": 1400}
+    ]},
+    {"name": "back", "layer": 10, "elements": [
+      {"id": "back", "type": "rect", "start": 200, "end": 2000, "x": 640, "y": 540, "origin": "center", "width": 480, "height": 320, "fill": "#2B6CFF", "scale": [-1, 1], "swivel": [{"t": 300, "v": -180}, {"t": 1000, "v": 0, "ease": "ease-in-out"}], "perspective": 1400}
+    ]},
+    {"name": "door", "layer": 20, "elements": [
+      {"id": "door", "type": "rect", "start": 200, "end": 2000, "x": 1300, "y": 540, "origin": "center-left", "width": 360, "height": 600, "fill": "#E3C067", "swivel": [{"t": 300, "v": 0}, {"t": 1000, "v": -70, "ease": "ease-in-out"}], "perspective": 1400}
+    ]}
+  ]
+}
+```
+
+- **Eye:** `perspective` must exceed the distance from `origin` to the farthest corner of the box, with any shadow or blur counted: about 1102 for a 1920 × 1080 element about `center`, 1994 about `center-left`. `validate` names the smallest value that passes.
+- **Strength:** a smaller `perspective` turns harder. Below twice that distance the near edge is magnified more than 2× and goes soft, and `validate` says so as `R-PROJECTION-SOFT`; this recipe keeps clear of it.
+- **Length:** 500–900 ms for a flip, 600–1000 ms for a door. Ease in and out. An ease that overshoots past 90° makes the element blink out for those frames.
+- **A written angle always projects.** Writing `swivel: 0` changes the element's pixels slightly, by a resample, where leaving the field out does not. Keep the field on a flip from first frame to last, so there is no one-frame jump.
+- **Effects:** a `shadow`, `blur` or `mask` is drawn flat and turns with the card, so a shadow tilts with it. A shadow that falls straight down needs a second element.
+- **Look:** `frame` at the start, at 90° (nothing of the turned element should draw there) and at the end. Then `preview` the flip, and check the back lands where the front was.
+
 ### Hold, then clear
 
 An entrance's last keyframe already holds, so a hold costs nothing. An exit starts with a keyframe at the held value, at the moment the exit begins. `validate` reports that keyframe as `R-EASE-INERT`, and the findings guide explains why that's expected.
