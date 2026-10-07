@@ -65,6 +65,9 @@ pub enum NotAxisAligned {
     /// A non-zero resolved `rotation`. Frame-space coverage under a rotation is a
     /// parallelogram, not a rectangle, and this module answers in rectangles only.
     Rotated(f64),
+    /// The element carries a projection (ADR-0167): its flat box is not where it is drawn.
+    /// [`frame_rect`] answers for it, in the bounds of its projected quadrilateral.
+    Projected,
 }
 
 /// This element's own drawn rectangle in frame space — `x`/`y`/`origin` placing the
@@ -86,6 +89,9 @@ pub fn drawn_rect(
     // property rather than read as one integer; at or below zero it occupies nothing.
     let (width, height) = crate::animatable::painted_box(element, i128::from(instant), 1)?;
 
+    if crate::projection::projects(element) {
+        return Some(Err(NotAxisAligned::Projected));
+    }
     let rotation = number::<f64>(element, "rotation", instant, 0.0);
     if rotation != 0.0 {
         return Some(Err(NotAxisAligned::Rotated(rotation)));
@@ -113,6 +119,29 @@ pub fn drawn_rect(
         width: scaled_width.round() as i64,
         height: scaled_height.round() as i64,
     }))
+}
+
+/// **Where the element is in the frame**, as the rectangle every geometric check reads: its
+/// [`drawn_rect`], or for a projected element the whole-pixel bounds of its projected
+/// quadrilateral (ADR-0167 §6), through [`crate::projection::placed`], the placement the
+/// painter and `query --at` read too. That quadrilateral is the reach-widened box carried
+/// through `scale`, `rotation` and `x`/`y`, so a projected element answers where a rotated
+/// one is refused.
+///
+/// The box is the element's wherever it faces: an element turned away paints nothing, as
+/// under `opacity: 0`, and an element faded to nothing is still somewhere (ADR-0044,
+/// ADR-0060). `None` where the box cannot be read, or the `perspective` does not clear the
+/// eye bound (`E-PROJECTION-EYE`'s case).
+pub fn frame_rect(
+    element: &Value,
+    instant: i64,
+    frame: (i64, i64),
+) -> Option<Result<Rect, NotAxisAligned>> {
+    if crate::projection::projects(element) {
+        return crate::projection::placed(element, (i128::from(instant), 1), frame)
+            .map(|placed| Ok(placed.bounds()));
+    }
+    drawn_rect(element, instant, frame)
 }
 
 /// One property, resolved at `instant` with the renderer's own default where the element
@@ -224,7 +253,7 @@ pub(crate) fn bridged_visible_rect(
     frame: (i64, i64),
     bridge: &crate::transition::Bridge,
 ) -> Option<Result<Rect, NotAxisAligned>> {
-    match drawn_rect(element, instant, frame)? {
+    match frame_rect(element, instant, frame)? {
         Err(not_axis_aligned) => Some(Err(not_axis_aligned)),
         Ok(rect) => {
             let moved = Rect {

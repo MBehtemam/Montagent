@@ -35,6 +35,7 @@ pub mod mask;
 pub mod motion_blur;
 pub mod overridden;
 pub mod path;
+pub mod projection;
 pub mod quantization;
 pub mod range;
 pub mod remap;

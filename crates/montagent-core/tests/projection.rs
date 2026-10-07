@@ -207,6 +207,311 @@ fn a_face_turned_away_or_edge_on_paints_nothing() {
     }
 }
 
+// ---- query --at ----------------------------------------------------------------------
+
+/// The stack row of `card` in `query --at instant`.
+#[track_caller]
+fn viewed(project: &Value, instant: i64) -> Value {
+    let dir = tempdir(std::panic::Location::caller().line());
+    let path = write_project(&dir, "p.montagent.json", &canonical(&project.to_string()));
+    let answer = montagent_core::verbs::query::query(
+        &path,
+        &montagent_core::verbs::query::Ask {
+            at: Some(instant),
+            ..Default::default()
+        },
+    );
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "query --at did not answer: {}",
+        serde_json::to_string_pretty(&answer.to_json()).unwrap_or_default()
+    );
+    answer.to_json()["query"]["stack"]
+        .as_array()
+        .expect("a stack")
+        .iter()
+        .find(|row| row["id"] == "card")
+        .expect("the card is present")
+        .clone()
+}
+
+fn number(value: &Value) -> f64 {
+    value.as_f64().expect("a number")
+}
+
+#[test]
+fn query_at_prints_the_resolved_angles_the_facing_and_the_corners() {
+    let view = viewed(
+        &project(
+            1280,
+            720,
+            &[card(
+                400,
+                250,
+                json!({"swivel": 35, "tilt": 20, "perspective": 900}),
+            )],
+        ),
+        0,
+    );
+    let projection = &view["projection"];
+    assert_eq!(projection["swivel"], 35.0);
+    assert_eq!(projection["tilt"], 20.0);
+    assert_eq!(projection["perspective"], 900.0);
+    assert_eq!(projection["facing"], "front");
+    let expected = [
+        (463.41, 191.10),
+        (780.35, 292.98),
+        (792.79, 506.14),
+        (443.26, 453.94),
+    ];
+    for (corner, (x, y)) in projection["corners"]
+        .as_array()
+        .expect("four corners")
+        .iter()
+        .zip(expected)
+    {
+        assert!((number(&corner[0]) - x).abs() < 0.01, "{corner} vs {x}");
+        assert!((number(&corner[1]) - y).abs() < 0.01, "{corner} vs {y}");
+    }
+    // `ink_box` holds the bounds of the quadrilateral.
+    let ink = &view["ink_box"];
+    assert!((number(&ink["x"]) - 443.26).abs() < 0.01, "{ink}");
+    assert!((number(&ink["y"]) - 191.10).abs() < 0.01, "{ink}");
+    assert!(
+        (number(&ink["width"]) - (792.79 - 443.26)).abs() < 0.02,
+        "{ink}"
+    );
+    assert!(
+        (number(&ink["height"]) - (506.14 - 191.10)).abs() < 0.02,
+        "{ink}"
+    );
+}
+
+#[test]
+fn query_at_says_away_or_edge_prints_the_corners_and_leaves_the_ink_box_empty() {
+    for (swivel, facing) in [(120, "away"), (90, "edge"), (-270, "edge"), (-200, "away")] {
+        let view = viewed(
+            &project(
+                640,
+                360,
+                &[card(
+                    200,
+                    100,
+                    json!({"swivel": swivel, "perspective": 1000}),
+                )],
+            ),
+            0,
+        );
+        assert_eq!(view["projection"]["facing"], facing, "swivel {swivel}");
+        assert_eq!(
+            view["projection"]["corners"].as_array().map(Vec::len),
+            Some(4),
+            "swivel {swivel}"
+        );
+        assert_eq!(view["ink_box"], Value::Null, "swivel {swivel}");
+    }
+}
+
+#[test]
+fn query_at_prints_no_projection_for_an_element_that_writes_no_angle() {
+    let view = viewed(&project(640, 360, &[card(200, 100, json!({}))]), 0);
+    assert!(view.get("projection").is_none(), "{view}");
+}
+
+// ---- validate ------------------------------------------------------------------------
+
+use montagent_core::finding::Finding;
+use montagent_core::report::Report;
+
+#[track_caller]
+fn validated(project: &Value) -> Report {
+    let dir = tempdir(std::panic::Location::caller().line());
+    let path = write_project(&dir, "p.montagent.json", &canonical(&project.to_string()));
+    montagent_core::validate(&path)
+}
+
+/// The findings of `code`, in the order the report holds them.
+fn of<'a>(report: &'a Report, code: &str) -> Vec<&'a Finding> {
+    report.findings.iter().filter(|f| f.code == code).collect()
+}
+
+/// One `card` on a 640×360 frame, validated.
+#[track_caller]
+fn card_report(width: u32, height: u32, extra: Value) -> Report {
+    validated(&project(640, 360, &[card(width, height, extra)]))
+}
+
+#[test]
+fn an_angle_without_a_perspective_is_an_error_naming_the_field() {
+    for field in ["swivel", "tilt"] {
+        let report = card_report(200, 100, json!({field: 20}));
+        let found = of(&report, "E-PROJECTION-PERSPECTIVE-MISSING");
+        assert_eq!(found.len(), 1, "{field}: {:#?}", report.findings);
+        assert_eq!(found[0].fields["field"], field);
+    }
+    assert!(
+        of(
+            &card_report(200, 100, json!({"swivel": 20, "perspective": 900})),
+            "E-PROJECTION-PERSPECTIVE-MISSING"
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn a_perspective_with_no_angle_key_is_dead_but_an_angle_of_zero_is_an_angle() {
+    let alone = card_report(200, 100, json!({"perspective": 900}));
+    assert_eq!(of(&alone, "E-PROJECTION-PERSPECTIVE-ALONE").len(), 1);
+    // A `0`, static or keyed, counts as present.
+    for angle in [
+        json!({"swivel": 0}),
+        json!({"tilt": 0}),
+        json!({"swivel": [{"t": 0, "v": 0}, {"t": 500, "v": 0, "ease": "linear"}]}),
+    ] {
+        let mut element = json!({"perspective": 900});
+        for (key, value) in angle.as_object().unwrap() {
+            element[key] = value.clone();
+        }
+        let report = card_report(200, 100, element);
+        assert!(
+            of(&report, "E-PROJECTION-PERSPECTIVE-ALONE").is_empty(),
+            "{angle}: {:#?}",
+            report.findings
+        );
+    }
+}
+
+/// The 320×180 card about `center`: r is the half-diagonal, 183.58.
+#[test]
+fn the_eye_bound_names_the_instant_r_and_the_smallest_perspective_that_passes() {
+    let at = |perspective: Value| {
+        card_report(320, 180, json!({"swivel": 10, "perspective": perspective}))
+    };
+    let report = at(json!(183));
+    let found = of(&report, "E-PROJECTION-EYE");
+    assert_eq!(found.len(), 1, "{:#?}", report.findings);
+    assert_eq!(found[0].fields["at"], 0);
+    assert_eq!(found[0].fields["r"], 183.58);
+    assert_eq!(found[0].fields["minimum"], 184);
+    // 184 clears r = 183.58.
+    assert!(of(&at(json!(184)), "E-PROJECTION-EYE").is_empty());
+    // A keyed perspective is looked at where it is keyed.
+    let keyed = at(json!([{"t": 0, "v": 400}, {"t": 600, "v": 150, "ease": "linear"}]));
+    let found = of(&keyed, "E-PROJECTION-EYE");
+    assert_eq!(found.len(), 1, "{:#?}", keyed.findings);
+    assert_eq!(found[0].fields["at"], 600);
+}
+
+#[test]
+fn the_eye_bound_reads_the_reach_of_every_effect_not_the_bare_box() {
+    // 200 clears the bare box (183.58) but a shadow cast 30 px down and right, blurred by
+    // ⌈3σ⌉ = 15 more, puts the far corner 245.5 px from the centre.
+    let shadowed = json!({"swivel": 10, "perspective": 200, "effects": [
+        {"name": "shadow", "dx": 30, "dy": 30, "radius": 10, "color": "#000000", "opacity": 0.5}]});
+    let report = card_report(320, 180, shadowed);
+    let found = of(&report, "E-PROJECTION-EYE");
+    assert_eq!(found.len(), 1, "{:#?}", report.findings);
+    assert_eq!(found[0].fields["r"], 245.46);
+    assert_eq!(found[0].fields["minimum"], 246);
+    assert!(
+        of(
+            &card_report(320, 180, json!({"swivel": 10, "perspective": 200})),
+            "E-PROJECTION-EYE"
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn the_eye_bound_reads_the_eased_extreme_of_a_keyed_perspective() {
+    // Both keys clear r (183.58), but the bezier overshoots past 1, so between them the
+    // value dips to about 106: an eased extreme, not a key.
+    let overshoot = |ease: Value| {
+        card_report(
+            320,
+            180,
+            json!({"swivel": 10, "perspective": [
+                {"t": 0, "v": 300}, {"t": 1000, "v": 250, "ease": ease}]}),
+        )
+    };
+    let report = overshoot(json!([0.25, 5.0, 0.75, 5.0]));
+    let found = of(&report, "E-PROJECTION-EYE");
+    assert_eq!(found.len(), 1, "{:#?}", report.findings);
+    let at = found[0].fields["at"].as_f64().expect("an instant");
+    assert!(
+        at > 0.0 && at < 1000.0,
+        "the extreme is inside the segment: {at}"
+    );
+    assert!(of(&overshoot(json!("linear")), "E-PROJECTION-EYE").is_empty());
+}
+
+#[test]
+fn an_element_that_never_faces_the_eye_is_a_review_and_one_that_does_for_a_moment_is_not() {
+    let away =
+        |swivel: Value| card_report(200, 100, json!({"swivel": swivel, "perspective": 1000}));
+    for turned in [json!(120), json!(90), json!(-270)] {
+        let report = away(turned.clone());
+        assert_eq!(
+            of(&report, "R-PROJECTION-AWAY").len(),
+            1,
+            "{turned}: {:#?}",
+            report.findings
+        );
+    }
+    assert!(of(&away(json!(89)), "R-PROJECTION-AWAY").is_empty());
+    // A flip that starts facing the eye draws for part of its life.
+    let flip = away(json!([{"t": 0, "v": 0}, {"t": 800, "v": 180, "ease": "linear"}]));
+    assert!(
+        of(&flip, "R-PROJECTION-AWAY").is_empty(),
+        "{:#?}",
+        flip.findings
+    );
+    // Keys that are both away, with a front-facing stretch between them.
+    let spin = away(json!([{"t": 0, "v": 100}, {"t": 800, "v": 460, "ease": "linear"}]));
+    assert!(
+        of(&spin, "R-PROJECTION-AWAY").is_empty(),
+        "{:#?}",
+        spin.findings
+    );
+    let back = away(json!([{"t": 0, "v": 100}, {"t": 800, "v": 260, "ease": "linear"}]));
+    assert_eq!(of(&back, "R-PROJECTION-AWAY").len(), 1);
+}
+
+#[test]
+fn strong_foreshortening_is_a_review_naming_the_magnification_and_the_value_for_two() {
+    // r = 183.58, so 2r is 367.17 and d = 300 magnifies the near edge 300 / 116.42 = 2.58.
+    let soft =
+        |perspective: u32| card_report(320, 180, json!({"swivel": 10, "perspective": perspective}));
+    let report = soft(300);
+    let found = of(&report, "R-PROJECTION-SOFT");
+    assert_eq!(found.len(), 1, "{:#?}", report.findings);
+    assert_eq!(found[0].fields["magnification"], 2.6);
+    assert_eq!(found[0].fields["minimum"], 368);
+    assert!(of(&soft(400), "R-PROJECTION-SOFT").is_empty());
+    // At or inside the eye bound the error speaks, and the review does not.
+    assert!(of(&soft(183), "R-PROJECTION-SOFT").is_empty());
+}
+
+#[test]
+fn off_canvas_reads_the_projected_bounds_not_the_flat_box() {
+    let on_frame = |x: i64, swivel: i64, perspective: u32| {
+        card_report(
+            200,
+            100,
+            json!({"x": x, "y": 180, "swivel": swivel, "perspective": perspective}),
+        )
+    };
+    // The flat box [600, 800] meets the frame, but swivelled -80 about its centre the card's
+    // near edge swings out to 684..720, past the frame's right edge at 640.
+    assert_eq!(of(&on_frame(700, -80, 1000), "R-OFF-CANVAS").len(), 1);
+    assert!(of(&on_frame(700, 0, 1000), "R-OFF-CANVAS").is_empty());
+    // The flat box [-200, 0] never meets the frame, but swivelled -30 under a close eye the
+    // near right edge swings in to about x = 48.
+    assert_eq!(of(&on_frame(-100, 0, 120), "R-OFF-CANVAS").len(), 1);
+    assert!(of(&on_frame(-100, -30, 120), "R-OFF-CANVAS").is_empty());
+}
+
 // ---- the path an element takes -------------------------------------------------------
 
 /// A white card whose rotation and scale make the resample show: an axis-aligned card at a

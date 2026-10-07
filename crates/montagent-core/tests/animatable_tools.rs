@@ -85,6 +85,14 @@ fn subject(property: &str, records: Value) -> Value {
             return element;
         }
     }
+    // An angle needs an eye, and an eye with no angle is dead (ADR-0167 §8). The eye clears
+    // this 400 × 400 box's half-diagonal, 282.9, and the angles stay at 0 so that `perspective`
+    // is the one thing that moves.
+    match property {
+        "swivel" | "tilt" => element["perspective"] = json!(5000),
+        "perspective" => element["swivel"] = json!(0),
+        _ => {}
+    }
     // A trim offset rotates a window, and with none it is `E-TRIM-OFFSET` (ADR-0160).
     if property == "trim_offset" {
         element["trim_end"] = json!(0.5);
@@ -239,7 +247,12 @@ fn every_animatable_property_is_carried_by_every_tool() {
     );
     for (property, kind, key, member) in &every {
         let (kind, key, member) = (*kind, key.as_str(), *member);
-        let (a, b) = values(kind);
+        // An eye that clears the 400 × 400 box's half-diagonal, 282.9 (ADR-0167 §5), at both
+        // ends of the move: `0.25` and `0.75` px would put the eye inside the element.
+        let (a, b) = match key {
+            "perspective" if member.is_none() => (json!(2000), json!(2600)),
+            _ => values(kind),
+        };
         let keyed = keyed_subject(
             key,
             member,

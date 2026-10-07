@@ -199,16 +199,20 @@ fn union_if_it_never_meets(
 ) -> Option<Rect> {
     let mut union: Option<Rect> = None;
     for instant in crate::checks::box_samples(&[element], range) {
-        let rect = match geometry::drawn_rect(element, instant, frame) {
+        let rect = match geometry::frame_rect(element, instant, frame) {
             Some(rect) => rect.ok()?,
             // A keyed box at or below zero occupies nothing at this instant (ADR-0146), and
             // nothing does not meet the frame. A box that is never stated never adds a rect,
             // so it is never reported.
             None => continue,
         };
+        // A projected box is already the bounds of everything its layer holds (ADR-0167
+        // §6), and a stagger's units are cut to that layer, so there is nothing to widen.
         let rect = match reach {
-            Some(reach) => widened(rect, reach, element, instant),
-            None => rect,
+            Some(reach) if !crate::projection::projects(element) => {
+                widened(rect, reach, element, instant)
+            }
+            _ => rect,
         };
         if rect.intersect(canvas).is_some() {
             return None;

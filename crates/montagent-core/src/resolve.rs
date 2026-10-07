@@ -418,6 +418,54 @@ fn bezier([x1, y1, x2, y2]: [f64; 4], x: f64) -> f64 {
     cubic(y1, y2, s)
 }
 
+/// **The eased extremes inside a segment**: the fractions of the segment's time, strictly
+/// between its ends, at which the eased progress turns past `0` or `1` (a bezier's `y`
+/// overshoot, ADR-0012), in ascending order. A value at one of them is further from its
+/// record than either record is, which no check that reads only the keys can see.
+///
+/// Empty for `step`, for any ease whose `y` stays inside `[0, 1]`, and so for every named ease.
+/// Derived exactly, from the roots of the curve's slope in `s` and the curve's own `x` there,
+/// so a check names the instant the extreme falls at and not one near it.
+pub(crate) fn overshoots(ease: &Ease) -> Vec<f64> {
+    let [x1, y1, x2, y2] = match ease {
+        Ease::Named(name) => match name.bezier() {
+            Some(points) => points,
+            None => return Vec::new(),
+        },
+        Ease::Bezier(points) => *points,
+    };
+    // `slope` is `3 [(1-s)² y1 + 2 (1-s) s (y2-y1) + s² (1-y2)]`, a quadratic `a s² + b s + c`.
+    let (a, b, c) = (
+        y1 - 2.0 * (y2 - y1) + (1.0 - y2),
+        -2.0 * y1 + 2.0 * (y2 - y1),
+        y1,
+    );
+    let mut roots = Vec::new();
+    if a.abs() < 1e-12 {
+        if b.abs() > 1e-12 {
+            roots.push(-c / b);
+        }
+    } else {
+        let discriminant = b * b - 4.0 * a * c;
+        if discriminant >= 0.0 {
+            let root = discriminant.sqrt();
+            roots.push((-b - root) / (2.0 * a));
+            roots.push((-b + root) / (2.0 * a));
+        }
+    }
+    let mut fractions: Vec<f64> = roots
+        .into_iter()
+        .filter(|s| *s > 0.0 && *s < 1.0)
+        .filter(|s| {
+            let progress = cubic(y1, y2, *s);
+            progress > 1.0 || progress < 0.0
+        })
+        .map(|s| cubic(x1, x2, s))
+        .collect();
+    fractions.sort_by(f64::total_cmp);
+    fractions
+}
+
 /// One coordinate of the curve at parameter `s`, with the endpoints fixed at 0 and 1.
 fn cubic(c1: f64, c2: f64, s: f64) -> f64 {
     let r = 1.0 - s;

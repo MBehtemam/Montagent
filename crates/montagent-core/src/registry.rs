@@ -2106,6 +2106,86 @@ frame. Write the rect you meant, or drop `invert`.",
         census: None,
         sets: &[Document],
     },
+    // ---- Projection (#787, ADR-0167, ADR-0168). -------------------------------------
+    //
+    // Three errors and two reviews, all document-only. The bound behind `E-PROJECTION-EYE`
+    // and `R-PROJECTION-SOFT` is the rasterizer's own (`montagent_render::canvas::eye_bound`),
+    // over the same effect reach it draws, so what is checked is what is painted.
+    CheckSpec {
+        // ADR-0167 §8. Refuse: how far away the eye sits is a look, and the author's to
+        // choose; the finding only says what has to hold of it.
+        code: "E-PROJECTION-PERSPECTIVE-MISSING",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element}: `{field}` turns the element in front of an eye, and there is no \
+`perspective` to say how far away the eye is. Add a `perspective` greater than the distance \
+from `origin` to the farthest corner of the box (about 1102 for a 1920 × 1080 element turned \
+about `center`), or drop `{field}`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`: dropping it changes nothing
+        // drawn.
+        code: "E-PROJECTION-PERSPECTIVE-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element}.perspective: there is no `swivel` or `tilt` for it to project, and \
+`perspective` alone moves nothing. Drop it, or add the `swivel` or `tilt` you meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §5, §8. Advise: the smallest value that clears the bound is determined by
+        // the document, and the message names it so the fix is one edit.
+        code: "E-PROJECTION-EYE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element}.perspective: at {at} ms the eye is {perspective} px from the \
+plane, but the farthest corner of the box, with its effects, is {r} px from `origin`, so a \
+corner reaches the eye. Make `perspective` at least {minimum} at that instant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8: the counterpart of `R-MASK-ERASES-ALL`. A review, not an error: a
+        // static pose turned away can be a halfway state while a card flip is written.
+        code: "R-PROJECTION-AWAY",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element} faces away from the eye, or edge-on, at every instant it is \
+present, so it paints nothing. Turn it toward the eye (`swivel` and `tilt` within 90 degrees \
+of 0) for some of its range, or drop the element.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0168 §3. A review: strong foreshortening may be intended, and an agent can leave
+        // it standing. `d < 2r`, stated as the near edge's magnification `d / (d - r)`.
+        code: "R-PROJECTION-SOFT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0168",
+        template: "{element}.perspective: at {at} ms the near edge is magnified {magnification}× \
+(`perspective` {perspective} against r {r}), which draws it soft. A `perspective` of {minimum} \
+brings it back to 2×. Leave it where strong foreshortening is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     // ---- `chroma` (#342, ADR-0088). -------------------------------------------------
     //
     // Four findings, and **not one of them keys a frame**. ADR-0006 keeps `validate` to

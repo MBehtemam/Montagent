@@ -83,6 +83,7 @@ use crate::stack::{Stack, Unresolved};
 
 use super::Named;
 use super::geometry::{self, InkBox, NotAxisAligned, Rect, clip_rect, covers_the_frame};
+use montagent_render::canvas::Facing;
 
 /// The resolved stack at one instant.
 #[derive(Debug, Clone, Serialize)]
@@ -182,6 +183,14 @@ pub struct Present {
     /// refuses on.
     pub ink_box: Option<InkBox>,
     pub ink_box_unresolved: Option<String>,
+    /// A projected element's reading (ADR-0167 §7): the resolved `swivel`, `tilt` and
+    /// `perspective`, which way it `facing`, and the frame-space `corners` of its
+    /// reach-widened box. Absent on an element that writes no angle or no `perspective`, and
+    /// where the `perspective` does not clear the eye bound (`E-PROJECTION-EYE`). On a
+    /// projected element `ink_box` holds the bounds of `corners`, and is `null` while the
+    /// element faces `away` or `edge`, when nothing is painted and the corners are still here.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projection: Option<ProjectionView>,
     /// Where a running `wipe`, `slide` or `push` has put this element (ADR-0150): moved
     /// outside its own transform, or cut to one side of a wipe's edge. `null` where no such
     /// transition bridges it at this instant — a crossfade changes only opacity, which this
@@ -223,6 +232,20 @@ pub struct Present {
     /// field, so an untrimmed element's answer is unchanged byte for byte.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trim: Option<TrimReport>,
+}
+
+/// What `query --at` reports of a projected element (ADR-0167 §7).
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectionView {
+    pub swivel: f64,
+    pub tilt: f64,
+    pub perspective: f64,
+    /// `front`, `away` or `edge`. The last two paint nothing.
+    pub facing: &'static str,
+    /// The four frame-space corners in the box's order (top-left, top-right, bottom-right,
+    /// bottom-left), to 0.01 px: the reach-widened box projected about `origin`, then carried
+    /// through `scale`, `rotation` and `x`/`y`, moved by a running slide or push.
+    pub corners: [[f64; 2]; 4],
 }
 
 /// What `query --at` reports of a trimmed stroke (ADR-0160 §7).
@@ -609,6 +632,15 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             None => crate::transition::Bridge::default(),
         };
 
+        // A projected element's placement, where the frame is legal and the view is full:
+        // the same `crate::projection::placed` the painter and the checks read (ADR-0167 §6).
+        let placed = match (detail, frame) {
+            (Detail::Full, Some(frame)) if covers_the_frame(kind) => {
+                crate::projection::placed(element, (i128::from(instant), 1), frame)
+            }
+            _ => None,
+        };
+
         // An invisible element (a resolved `opacity` of exactly `0`) contributes nothing
         // to `NOT COVERED` either way, so its rotation — which would otherwise force the
         // whole computation to refuse — is not this instant's concern. One call into
@@ -628,10 +660,18 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                         )
                     });
                 }
+                // A projected element turned away or edge-on paints nothing (ADR-0167 §4),
+                // so it covers nothing; one facing front covers the bounds of its
+                // quadrilateral, an over-approximation as an ellipse's box is.
+                Some(Ok(_))
+                    if placed
+                        .as_ref()
+                        .is_some_and(|placed| placed.facing() != Facing::Front) => {}
                 Some(Ok(visible)) => covering.push(visible),
                 // No readable box, or a `clip` that excludes the element entirely: either
-                // way it paints nothing and covers nothing.
-                None => {}
+                // way it paints nothing and covers nothing. A projected element's box is
+                // answered by `frame_rect`, so it is never refused here.
+                None | Some(Err(NotAxisAligned::Projected)) => {}
             }
         }
 
@@ -675,6 +715,36 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 Some("the project carries no legal `frame`".to_string()),
             ),
             _ => (None, None),
+        };
+
+        // A projected element's `ink_box` is the bounds of its quadrilateral, whatever its
+        // type, and empty while it paints nothing (ADR-0167 §7).
+        let moved = |value: f64, by: i64| value + by as f64;
+        let (ink_box, ink_box_unresolved, projection) = match placed {
+            Some(placed) => {
+                let to_two = |value: f64| (value * 100.0).round() / 100.0;
+                let bounds = placed.footprint.bounds();
+                let ink = (placed.facing() == Facing::Front).then(|| InkBox {
+                    x: moved(bounds.0, bridge.offset.0),
+                    y: moved(bounds.1, bridge.offset.1),
+                    width: bounds.2 - bounds.0,
+                    height: bounds.3 - bounds.1,
+                });
+                let view = ProjectionView {
+                    swivel: placed.projection.swivel,
+                    tilt: placed.projection.tilt,
+                    perspective: placed.projection.perspective,
+                    facing: placed.facing().as_str(),
+                    corners: placed.footprint.corners.map(|(x, y)| {
+                        [
+                            to_two(moved(x, bridge.offset.0)),
+                            to_two(moved(y, bridge.offset.1)),
+                        ]
+                    }),
+                };
+                (ink, None, Some(view))
+            }
+            None => (ink_box, ink_box_unresolved, None),
         };
 
         let blend = blend_word(element, kind);
@@ -727,6 +797,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             crop_unresolved,
             ink_box,
             ink_box_unresolved,
+            projection,
             transition: match (bridge.moves_or_cuts(), frame) {
                 (true, Some(frame)) => Some(Moved {
                     offset: [bridge.offset.0, bridge.offset.1],
@@ -1010,6 +1081,16 @@ fn crop_for(
                     "its resolved `rotation` is {degrees}°; the crop rectangle is not \
                      derived for a rotated element"
                 )),
+            );
+        }
+        Some(Err(NotAxisAligned::Projected)) => {
+            return (
+                None,
+                Some(
+                    "it carries a projection; the crop rectangle is not derived for a \
+                     projected element"
+                        .to_string(),
+                ),
             );
         }
         Some(Ok(rect)) => rect,

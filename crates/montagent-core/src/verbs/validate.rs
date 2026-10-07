@@ -241,6 +241,10 @@ fn run_checks(
     // ADR-0158 §6–§7: a stroke join, miter limit or cap with nothing to shape, a miter and
     // its limit apart, and a cap where none draws. Document-only.
     crate::checks::stroke::check(document, report);
+    // ADR-0167 and ADR-0168's projection checks: the perspective an angle needs, the eye
+    // bound, and the two reviews. Document-only, decided from literals at keys and eased
+    // extremes without painting a frame.
+    crate::checks::projection::check(document, report);
     // ADR-0147's `R-BLEND-BACKGROUND-ONLY`: a blended element with nothing beneath it,
     // decided from boxes at the instants `render` paints. Document-only.
     crate::checks::blend::check(document, report);
