@@ -1,0 +1,155 @@
+Ink outside the declared box, per scene, on every frame rendered at 30 fps.
+slack = least distance in whole pixels from the ink's bounding box to the box edge
+(left, top, right, bottom); 0 means ink on the box's outermost pixel row.
+
+draw-on: 90 frames, non-zero pixels outside every box: 0
+  drawon-wave      box x 80..867, y 330..657   ink x 80..867, y 330..657   least slack (0, 0, 0, 0)
+  drawon-zig       box x 1000..1787, y 330..657   ink x 1000..1787, y 330..657   least slack (0, 0, 0, 0)
+
+loaders: 120 frames, non-zero pixels outside every box: 0
+  loader-ellipse   box x 140..559, y 360..779   ink x 140..559, y 360..779   least slack (0, 0, 0, 0)
+  loader-rect      box x 750..1169, y 360..779   ink x 750..1169, y 360..779   least slack (0, 0, 0, 0)
+  loader-rrect     box x 1360..1779, y 360..779   ink x 1360..1779, y 360..779   least slack (0, 0, 0, 0)
+
+square-cap: 120 frames, non-zero pixels outside every box: 0
+  sq-octagon       box x 120..763, y 320..863   ink x 120..756, y 327..861   least slack (0, 7, 7, 2)
+  sq-diamond       box x 1100..1643, y 320..863   ink x 1100..1643, y 321..863   least slack (0, 1, 0, 0)
+  per frame: frame, ink pixels outside every box, least slack per element (sq-octagon, sq-diamond; '-' = no ink)
+    0 0 7 -
+    1 0 7 1
+    2 0 7 1
+    3 0 7 1
+    4 0 7 1
+    5 0 7 1
+    6 0 7 1
+    7 0 7 1
+    8 0 7 1
+    9 0 7 1
+    10 0 7 1
+    11 0 7 1
+    12 0 7 0
+    13 0 7 1
+    14 0 2 1
+    15 0 7 1
+    16 0 7 1
+    17 0 7 1
+    18 0 7 1
+    19 0 7 1
+    20 0 7 1
+    21 0 7 1
+    22 0 7 1
+    23 0 7 1
+    24 0 7 0
+    25 0 7 1
+    26 0 7 1
+    27 0 0 1
+    28 0 7 1
+    29 0 7 1
+    30 0 7 1
+    31 0 7 1
+    32 0 7 1
+    33 0 7 1
+    34 0 7 1
+    35 0 7 1
+    36 0 7 0
+    37 0 7 1
+    38 0 7 1
+    39 0 6 1
+    40 0 7 1
+    41 0 7 1
+    42 0 7 1
+    43 0 7 1
+    44 0 7 1
+    45 0 7 1
+    46 0 7 1
+    47 0 7 1
+    48 0 7 7
+    49 0 7 7
+    50 0 7 7
+    51 0 7 7
+    52 0 5 7
+    53 0 7 7
+    54 0 7 7
+    55 0 7 7
+    56 0 7 7
+    57 0 7 7
+    58 0 7 7
+    59 0 7 7
+    60 0 7 7
+    61 0 7 1
+    62 0 7 1
+    63 0 7 1
+    64 0 7 1
+    65 0 7 1
+    66 0 7 1
+    67 0 7 1
+    68 0 7 1
+    69 0 7 1
+    70 0 7 1
+    71 0 7 1
+    72 0 7 0
+    73 0 7 1
+    74 0 7 1
+    75 0 7 1
+    76 0 7 1
+    77 0 7 1
+    78 0 7 1
+    79 0 7 1
+    80 0 7 1
+    81 0 7 1
+    82 0 7 1
+    83 0 7 1
+    84 0 0 0
+    85 0 7 1
+    86 0 7 1
+    87 0 7 1
+    88 0 7 1
+    89 0 7 1
+    90 0 7 1
+    91 0 7 1
+    92 0 7 1
+    93 0 7 1
+    94 0 7 1
+    95 0 7 1
+    96 0 7 0
+    97 0 7 1
+    98 0 7 1
+    99 0 7 1
+    100 0 7 1
+    101 0 7 1
+    102 0 7 1
+    103 0 7 1
+    104 0 7 1
+    105 0 7 1
+    106 0 7 1
+    107 0 7 1
+    108 0 7 -
+    109 0 7 -
+    110 0 7 -
+    111 0 7 -
+    112 0 7 -
+    113 0 7 -
+    114 0 7 -
+    115 0 7 -
+    116 0 7 -
+    117 0 7 -
+    118 0 7 -
+    119 0 7 -
+
+crossing: 90 frames, non-zero pixels outside every box: 0
+  crossing         box x 180..1707, y 420..647   ink x 180..1707, y 469..647   least slack (0, 49, 0, 0)
+
+overshoot: 90 frames, non-zero pixels outside every box: 0
+  over-end         box x 180..1707, y 380..407   ink x 180..1707, y 380..407   least slack (0, 0, 0, 0)
+  over-start       box x 180..1707, y 640..667   ink x 180..1707, y 640..667   least slack (0, 0, 0, 0)
+
+dashed: 90 frames, non-zero pixels outside every box: 0
+  dash-drawon      box x 180..1699, y 380..399   ink x 190..1689, y 380..399   least slack (10, 0, 10, 0)
+  dot-drawoff      box x 180..1699, y 560..779   ink x 180..1679, y 610..779   least slack (0, 50, 20, 0)
+
+full: 90 frames, non-zero pixels outside every box: 0
+  full-ellipse     box x 100..459, y 380..739   ink x 100..459, y 380..739   least slack (0, 0, 0, 0)
+  full-rect        box x 540..899, y 380..739   ink x 540..899, y 380..739   least slack (0, 0, 0, 0)
+  full-dash-rrect  box x 980..1339, y 380..739   ink x 980..1339, y 380..739   least slack (0, 0, 0, 0)
+  full-path        box x 1420..1813, y 380..773   ink x 1424..1808, y 385..768   least slack (4, 5, 5, 5)
+

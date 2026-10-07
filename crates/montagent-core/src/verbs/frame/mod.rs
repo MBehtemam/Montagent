@@ -406,7 +406,35 @@ pub(crate) fn stroke_style_of(
                 .collect(),
             offset: animatable::number_read(element, "stroke_dash_offset", t.0, t.1, 0.0),
         });
-    StrokeStyle { join, cap, dash }
+    StrokeStyle {
+        join,
+        cap,
+        dash,
+        trim: trim_of(element, t),
+    }
+}
+
+/// prototype(#760, ADR-0160): an element's trim at the instant `t`, or `None` where it
+/// carries no trim field — presence, not value, so an untrimmed element is untouched.
+/// `trim_start` and `trim_end` resolve through the one resolving function, which clamps an
+/// overshoot to [0, 1]; the offset stays raw.
+pub(crate) fn trim_of(element: &Value, t: (i128, i128)) -> Option<montagent_render::canvas::Trim> {
+    if ["trim_start", "trim_end", "trim_offset"]
+        .iter()
+        .all(|key| element.get(*key).is_none())
+    {
+        return None;
+    }
+    let closed = match element.get("type").and_then(Value::as_str) {
+        Some("path") => element.get("closed").and_then(Value::as_bool).unwrap_or(false),
+        _ => true,
+    };
+    Some(montagent_render::canvas::Trim {
+        start: animatable::number_read(element, "trim_start", t.0, t.1, 0.0),
+        end: animatable::number_read(element, "trim_end", t.0, t.1, 1.0),
+        offset: animatable::number_read(element, "trim_offset", t.0, t.1, 0.0),
+        closed,
+    })
 }
 
 /// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
@@ -1641,13 +1669,14 @@ impl<'a> Painter<'a> {
             },
         };
         let effects = self.effects_of(name, element);
-        let dash = stroke_style_of(element, self.t).dash;
+        let style = stroke_style_of(element, self.t);
         canvas.shape_styled(
             shape,
             extent,
             &self.transform(element),
             &paint,
-            dash.as_ref(),
+            style.dash.as_ref(),
+            style.trim.as_ref(),
             self.clip(element),
             &effects,
         );

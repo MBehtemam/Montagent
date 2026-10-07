@@ -1134,8 +1134,9 @@ element a `stroke` and a `stroke_width` above 0.",
         threshold: Internal,
         adr: "ADR-0158",
         template: "`{element}`.stroke_cap: {cap} draws nowhere, because the path is `closed` and has \
-no `stroke_dash` — a cap draws only at an open path's two ends and at each dash's ends. Drop \
-`stroke_cap`, or set `closed` to false, or add a `stroke_dash`.",
+no `stroke_dash`, `trim_start` or `trim_end` — a cap draws only at an open path's two ends, at \
+each dash's ends and at a trim's ends. Drop `stroke_cap`, or set `closed` to false, or add a \
+`stroke_dash` or a trim.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1172,6 +1173,31 @@ cap. {repair_text}.",
         adr: "ADR-0158",
         template: "`{element}`.stroke_dash_offset: there is no `stroke_dash` for it to move. Drop \
 it, or add a `stroke_dash`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // prototype(#760): ADR-0160 §7's errors, rough wording for the owner to judge.
+    CheckSpec {
+        code: "E-TRIM-EMPTY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.{field}: the trim window is empty on every frame — `trim_start` is \
+{start} and `trim_end` is {end}, and a stroke draws only the part of its outline from start to \
+end, so this element draws no stroke. Lower `trim_start` below `trim_end`, or drop the trim.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-TRIM-OFFSET",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.trim_offset: {why}. Drop `trim_offset`{fix}.",
         status: Live,
         census: None,
         sets: &[Document],

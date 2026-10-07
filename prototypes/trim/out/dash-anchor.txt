@@ -1,0 +1,5 @@
+Dashed lines trimmed at 0.5 against the same lines untrimmed: inside the window
+(the drawn half, less 30 px at the trim end) every pixel must be the same bytes.
+
+dash-drawon    window region x 180..910: inked 9760 px, differing 0 px (max 0) -> SAME; ink in the trimmed-away half: 0 px
+dot-drawoff    window region x 970..1700: inked 6280 px, differing 265 px (max 10) -> DIFFERS; ink in the trimmed-away half: 0 px

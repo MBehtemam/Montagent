@@ -1,0 +1,30 @@
+error  E-PATH-OUTSIDE-BOX  outside-square-trim
+  `outside-square-trim`.points: vertex 0's `at` sits at [10,100] in box pixels, outside the inset box [15, 185] × [15, 185] that keeps the stroke inside the declared box: inset 15 = ceil(√2 × 20 / 2), from `stroke_cap` "square". This bound is worst-case, not a measured overlap.
+error  E-PATH-OUTSIDE-BOX  outside-square-trim
+  `outside-square-trim`.points: vertex 1's `at` sits at [190,100] in box pixels, outside the inset box [15, 185] × [15, 185] that keeps the stroke inside the declared box: inset 15 = ceil(√2 × 20 / 2), from `stroke_cap` "square". This bound is worst-case, not a measured overlap.
+error  E-PATH-OUTSIDE-BOX  outside-square-trim
+  `outside-square-trim`.points: vertex 2's `at` sits at [100,190] in box pixels, outside the inset box [15, 185] × [15, 185] that keeps the stroke inside the declared box: inset 15 = ceil(√2 × 20 / 2), from `stroke_cap` "square". This bound is worst-case, not a measured overlap.
+error  E-TRIM-EMPTY  start-one-alone
+  `start-one-alone`.trim_start: the trim window is empty on every frame — `trim_start` is 1 and `trim_end` is 1 (the default), and a stroke draws only the part of its outline from start to end, so this element draws no stroke. Lower `trim_start` below `trim_end`, or drop the trim.
+error  E-TRIM-EMPTY  end-zero-alone
+  `end-zero-alone`.trim_end: the trim window is empty on every frame — `trim_start` is 0 (the default) and `trim_end` is 0, and a stroke draws only the part of its outline from start to end, so this element draws no stroke. Lower `trim_start` below `trim_end`, or drop the trim.
+error  E-TRIM-EMPTY  start-past-end
+  `start-past-end`.trim_start: the trim window is empty on every frame — `trim_start` is 0.6 and `trim_end` is 0.4, and a stroke draws only the part of its outline from start to end, so this element draws no stroke. Lower `trim_start` below `trim_end`, or drop the trim.
+error  E-TRIM-OFFSET  offset-open
+  `offset-open`.trim_offset: the path is open, and an offset rotates the window only around a closed outline — an open line has no round to wrap onto. Drop `trim_offset`, or set `closed` to true.
+error  E-TRIM-OFFSET  offset-no-window
+  `offset-no-window`.trim_offset: there is no `trim_start` or `trim_end`, so the window is the whole outline and rotating it draws nothing different. Drop `trim_offset`, or give the window an end with `trim_start` or `trim_end`.
+error  E-TRIM-OFFSET  offset-open-no-window
+  `offset-open-no-window`.trim_offset: the path is open, and an offset rotates the window only around a closed outline — an open line has no round to wrap onto. Drop `trim_offset`, or set `closed` to true.
+error  E-TRIM-OFFSET  offset-open-no-window
+  `offset-open-no-window`.trim_offset: there is no `trim_start` or `trim_end`, so the window is the whole outline and rotating it draws nothing different. Drop `trim_offset`, or give the window an end with `trim_start` or `trim_end`.
+error  E-STROKE-NO-STROKE  trim-no-stroke
+  `trim-no-stroke`.trim_start: it has no `stroke`, so `trim_start` shapes nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.
+error  E-STROKE-NO-STROKE  trim-no-stroke
+  `trim-no-stroke`.trim_end: it has no `stroke`, so `trim_end` shapes nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.
+error  E-STROKE-NO-STROKE  trim-no-stroke
+  `trim-no-stroke`.trim_offset: it has no `stroke`, so `trim_offset` shapes nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.
+error  E-STROKE-NO-STROKE  trim-zero-width
+  `trim-zero-width`.trim_end: its `stroke_width` is 0 on every key, so the stroke never draws, so `trim_end` shapes nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.
+error  E-STROKE-CAP-UNDRAWN  closed-cap-untrimmed
+  `closed-cap-untrimmed`.stroke_cap: round draws nowhere, because the path is `closed` and has no `stroke_dash`, `trim_start` or `trim_end` — a cap draws only at an open path's two ends, at each dash's ends and at a trim's ends. Drop `stroke_cap`, or set `closed` to false, or add a `stroke_dash` or a trim.

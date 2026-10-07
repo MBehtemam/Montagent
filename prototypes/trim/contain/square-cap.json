@@ -1,0 +1,185 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 4000,
+ "output": "../out/contain-square-cap.mp4",
+ "tracks": [
+  {
+   "name": "sq-octagon",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "sq-octagon",
+     "type": "path",
+     "start": 0,
+     "end": 4000,
+     "x": 120,
+     "y": 320,
+     "origin": "top-left",
+     "width": 644,
+     "height": 544,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 30,
+     "stroke_cap": "square",
+     "trim_start": 0,
+     "trim_end": [
+      {
+       "t": 0,
+       "v": 0.2
+      },
+      {
+       "t": 1950,
+       "v": 0.45,
+       "ease": "linear"
+      },
+      {
+       "t": 3900,
+       "v": 0.2,
+       "ease": "linear"
+      }
+     ],
+     "trim_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3900,
+       "v": 2,
+       "ease": "linear"
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        172,
+        22
+       ]
+      },
+      {
+       "at": [
+        472,
+        22
+       ]
+      },
+      {
+       "at": [
+        622,
+        172
+       ]
+      },
+      {
+       "at": [
+        622,
+        372
+       ]
+      },
+      {
+       "at": [
+        472,
+        522
+       ]
+      },
+      {
+       "at": [
+        172,
+        522
+       ]
+      },
+      {
+       "at": [
+        22,
+        372
+       ]
+      },
+      {
+       "at": [
+        22,
+        172
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sq-diamond",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "sq-diamond",
+     "type": "path",
+     "start": 0,
+     "end": 4000,
+     "x": 1100,
+     "y": 320,
+     "origin": "top-left",
+     "width": 544,
+     "height": 544,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 30,
+     "stroke_cap": "square",
+     "trim_start": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 0,
+       "ease": "linear"
+      },
+      {
+       "t": 3600,
+       "v": 1,
+       "ease": "linear"
+      }
+     ],
+     "trim_end": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 1600,
+       "v": 1,
+       "ease": "linear"
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        272,
+        22
+       ]
+      },
+      {
+       "at": [
+        522,
+        272
+       ]
+      },
+      {
+       "at": [
+        272,
+        522
+       ]
+      },
+      {
+       "at": [
+        22,
+        272
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,114 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-overshoot.mp4",
+ "tracks": [
+  {
+   "name": "over-end",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "over-end",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "trim_end": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 1,
+       "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+       ]
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        14,
+        14
+       ]
+      },
+      {
+       "at": [
+        1514,
+        14
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "over-start",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "over-start",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 180,
+     "y": 640,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "trim_start": [
+      {
+       "t": 0,
+       "v": 0.6
+      },
+      {
+       "t": 2000,
+       "v": 0,
+       "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+       ]
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        14,
+        14
+       ]
+      },
+      {
+       "at": [
+        1514,
+        14
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

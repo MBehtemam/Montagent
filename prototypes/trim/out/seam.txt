@@ -1,0 +1,16 @@
+Windows [0.75, 0.25] (trim_start 0, trim_end 0.5, trim_offset 0.75), straddling the
+start point, against the same element untrimmed, in an 80x80 square centred on the
+start point. A cap or a seam there shows as a large difference (a missing join
+wedge, or a cap's bulge); antialiasing alone stays within a few levels.
+
+control = the same window with the second piece started by a move
+(MONTAGENT_PROTO_SPLIT_SEAM), i.e. two ends meeting at the start point.
+
+seam-ellipse     start (468, 310): inked  2017 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:    0 px differ (max   0)
+seam-rect        start (552, 112): inked  1920 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:  144 px differ (max 242)
+seam-rrect       start (1110, 112): inked  2008 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:    3 px differ (max   6)
+seam-path-miter  start (1524, 124): inked  1920 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:  144 px differ (max 242)
+seam-path-round  start (72, 612): inked  1993 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:  166 px differ (max 242)
+seam-dash-rect   start (552, 612): inked  1584 px; vs untrimmed:    0 px differ (max   0 levels) SAME;  control:    0 px differ (max   0)
+seam-dash-on     start (1032, 612): inked  1392 px; vs untrimmed:  144 px differ (max 242 levels) DIFFERS;  control:  144 px differ (max 242)
+seam-ellipse     away from the start, at 0.125 (410, 450): inked 2501 px; vs untrimmed 1 px differ (max 2): `draw_oval` against the cut conic outline, not a seam

@@ -1,0 +1,14 @@
+paths                        frames=10    SAME
+morph                        frames=180   SAME
+keyframe-coincidence         frames=50    SAME
+keyframe-cross-boundary      frames=50    SAME
+unpainted-visual-state       frames=50    SAME
+long-state                   frames=225   SAME
+en-halloween-decorating      frames=1631  SAME
+video-decode                 frames=300   SAME
+strokes                      frames=660   SAME
+gap0-dashed                  frames=30    SAME
+query --at 1500 text  query.json                               SAME
+query --at 1500 json  query.json                               SAME
+query --at 1500 text  paths.montagent.json                     SAME
+query --at 1500 json  paths.montagent.json                     SAME

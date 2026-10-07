@@ -1,0 +1,42 @@
+== query query.json --at 1500
+  L0  crossing               path     0..3000  x 180, y 420, stroke #F2F2F2, stroke_width 28, trim_start 0.682759 (animated), trim_end 0.32069 (animated), points [{"at":[14.0,214.0],"out":[400.0,-200.0]}, {"at":[1514.0,214.0],"in":[-400.0,-200.0]}], drawn: empty, blend normal
+  L1  full-rect              rect     0..3000  x 540, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 0.37, drawn: full, blend normal
+  L2  full-ellipse           ellipse  0..3000  x 100, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 1.25 (animated), drawn: full, blend normal
+  L3  loader-ellipse         ellipse  0..3600  x 140, y 360, width 420, height 420, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 0.25, trim_offset 1.25 (animated), drawn: [0.25, 0.5], blend normal
+  L4  over-end               path     0..3000  x 180, y 380, stroke #F2F2F2, stroke_width 28, trim_end 1.059647 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L5  over-start             path     0..3000  x 180, y 640, stroke #F2F2F2, stroke_width 28, trim_start -0.035788 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L6  cross-past-turn        rect     0..3000  x 0, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.3, trim_end 0.9, trim_offset 1.5, drawn: [0.8, 0.4], blend normal
+  L7  cross-keyed-past-turn  ellipse  0..3000  x 400, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.1, trim_end 0.6, trim_offset 1.5 (animated), drawn: [0.6, 0.1], blend normal
+
+== query query.json --at 1000
+  L0  crossing               path     0..3000  x 180, y 420, stroke #F2F2F2, stroke_width 28, trim_start 0.482759 (animated), trim_end 0.517241 (animated), points [{"at":[14.0,214.0],"out":[400.0,-200.0]}, {"at":[1514.0,214.0],"in":[-400.0,-200.0]}], drawn: [0.482759, 0.517241], blend normal
+  L1  full-rect              rect     0..3000  x 540, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 0.37, drawn: full, blend normal
+  L2  full-ellipse           ellipse  0..3000  x 100, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 0.833333 (animated), drawn: full, blend normal
+  L3  loader-ellipse         ellipse  0..3600  x 140, y 360, width 420, height 420, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 0.25, trim_offset 0.833333 (animated), drawn: [0.833333, 0.083333], blend normal
+  L4  over-end               path     0..3000  x 180, y 380, stroke #F2F2F2, stroke_width 28, trim_end 1.087401 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L5  over-start             path     0..3000  x 180, y 640, stroke #F2F2F2, stroke_width 28, trim_start -0.05244 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L6  cross-past-turn        rect     0..3000  x 0, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.3, trim_end 0.9, trim_offset 1.5, drawn: [0.8, 0.4], blend normal
+  L7  cross-keyed-past-turn  ellipse  0..3000  x 400, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.1, trim_end 0.6, trim_offset 1 (animated), drawn: [0.1, 0.6], blend normal
+
+== query query.json --at 2900
+  L0  crossing               path     0..3000  x 180, y 420, stroke #F2F2F2, stroke_width 28, trim_start 0.2 (animated), trim_end 0.9 (animated), points [{"at":[14.0,214.0],"out":[400.0,-200.0]}, {"at":[1514.0,214.0],"in":[-400.0,-200.0]}], drawn: [0.2, 0.9], blend normal
+  L1  full-rect              rect     0..3000  x 540, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 0.37, drawn: full, blend normal
+  L2  full-ellipse           ellipse  0..3000  x 100, y 380, width 360, height 360, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 1, trim_offset 2.416667 (animated), drawn: full, blend normal
+  L3  loader-ellipse         ellipse  0..3600  x 140, y 360, width 420, height 420, stroke #F2F2F2, stroke_width 24, trim_start 0, trim_end 0.25, trim_offset 2.416667 (animated), drawn: [0.416667, 0.666667], blend normal
+  L4  over-end               path     0..3000  x 180, y 380, stroke #F2F2F2, stroke_width 28, trim_end 1 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L5  over-start             path     0..3000  x 180, y 640, stroke #F2F2F2, stroke_width 28, trim_start 0 (animated), points [{"at":[14.0,14.0]}, {"at":[1514.0,14.0]}], drawn: [0, 1], blend normal
+  L6  cross-past-turn        rect     0..3000  x 0, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.3, trim_end 0.9, trim_offset 1.5, drawn: [0.8, 0.4], blend normal
+  L7  cross-keyed-past-turn  ellipse  0..3000  x 400, y 0, width 300, height 200, stroke #F2F2F2, stroke_width 10, trim_start 0.1, trim_end 0.6, trim_offset 2.9 (animated), drawn: [0, 0.5], blend normal
+
+== query query.json --at 1500 --json: each element's trim block
+crossing {"trim_start": 0.6827586206896551, "trim_end": 0.32068965517241377, "drawn": "empty"}
+full-rect {"trim_start": 0.0, "trim_end": 1.0, "trim_offset": 0.37, "drawn": "full"}
+full-ellipse {"trim_start": 0.0, "trim_end": 1.0, "trim_offset": 1.25, "drawn": "full"}
+loader-ellipse {"trim_start": 0.0, "trim_end": 0.25, "trim_offset": 1.25, "drawn": "[0.25, 0.5]"}
+over-end {"trim_end": 1.0596468599640332, "drawn": "[0, 1]"}
+over-start {"trim_start": -0.03578811597841991, "drawn": "[0, 1]"}
+cross-past-turn {"trim_start": 0.3, "trim_end": 0.9, "trim_offset": 1.5, "drawn": "[0.8, 0.4]"}
+cross-keyed-past-turn {"trim_start": 0.1, "trim_end": 0.6, "trim_offset": 1.5, "drawn": "[0.6, 0.1]"}
+
+== query ../joins-caps-dashes/query.json --at 1500 --json: untrimmed elements carry no trim block
+elements with a trim key: 0 of 11

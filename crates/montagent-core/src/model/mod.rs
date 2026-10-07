@@ -784,6 +784,14 @@ pub struct Rect {
     pub stroke_dash: Option<DashList>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// prototype(#760, ADR-0160 §2): the window of the outline the stroke draws, as
+    /// fractions of its length, and its rotation in turns around a closed outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -850,6 +858,14 @@ pub struct Ellipse {
     pub stroke_dash: Option<DashList>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// prototype(#760, ADR-0160 §2): the window of the outline the stroke draws, as
+    /// fractions of its length, and its rotation in turns around a closed outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -897,6 +913,55 @@ impl<'de> Deserialize<'de> for MiterLimit {
                  greatest miter tip distance in multiples of half the stroke width (ADR-0158)"
             ))),
         }
+    }
+}
+
+/// prototype(#760, ADR-0160 §2): `trim_start` / `trim_end`, a fraction of the outline's
+/// length from 0 to 1 inclusive, in a static value and in every keyframe record.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct TrimFraction(pub f64);
+
+impl JsonSchema for TrimFraction {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "TrimFraction".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A fraction of the outline's length, from `0` to `1` inclusive, in a \
+                            static value and in every keyframe record (ADR-0160).",
+            "minimum": 0.0,
+            "maximum": 1.0,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl<'de> Deserialize<'de> for TrimFraction {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value.as_f64() {
+            Some(v) if (0.0..=1.0).contains(&v) => Ok(TrimFraction(v)),
+            _ => Err(D::Error::custom(format!(
+                "a trim value is {value}: `trim_start` and `trim_end` are numbers from 0 to 1, \
+                 fractions of the outline's length, in every keyframe value too (ADR-0160)"
+            ))),
+        }
+    }
+}
+
+impl crate::resolve::Interpolate for TrimFraction {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
     }
 }
 
@@ -983,6 +1048,14 @@ pub struct PathElement {
     pub stroke_dash: Option<DashList>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// prototype(#760, ADR-0160 §2): the window of the outline the stroke draws, as
+    /// fractions of its length, and its rotation in turns around a closed outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,

@@ -17,13 +17,68 @@ use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
 
-const SHAPING: [&str; 5] = [
+const SHAPING: [&str; 8] = [
     "stroke_join",
     "stroke_miter_limit",
     "stroke_cap",
     "stroke_dash",
     "stroke_dash_offset",
+    // prototype(#760, ADR-0160 §7): `E-STROKE-NO-STROKE` covers the trim fields.
+    "trim_start",
+    "trim_end",
+    "trim_offset",
 ];
+
+/// prototype(#760, ADR-0160 §5, §7): `E-TRIM-EMPTY` and `E-TRIM-OFFSET`.
+fn trim(element: &Value, kind: Option<&str>, push: &mut dyn FnMut(Finding)) {
+    let start = element.get("trim_start");
+    let end = element.get("trim_end");
+    let keyed = |v: Option<&Value>| v.is_some_and(Value::is_array);
+    if (start.is_some() || end.is_some()) && !keyed(start) && !keyed(end) {
+        let s = start.and_then(Value::as_f64);
+        let e = end.and_then(Value::as_f64);
+        let (sv, ev) = (s.unwrap_or(0.0), e.unwrap_or(1.0));
+        // The literal as written, so the replace target is in front of the agent.
+        let shown = |v: Option<&Value>, default: &str| {
+            v.map_or(format!("{default} (the default)"), Value::to_string)
+        };
+        if (start.is_none() || s.is_some()) && (end.is_none() || e.is_some()) && sv >= ev {
+            let field = if start.is_some() { "trim_start" } else { "trim_end" };
+            push(
+                Finding::new("E-TRIM-EMPTY")
+                    .field("field", json!(field))
+                    .field("start", json!(shown(start, "0")))
+                    .field("end", json!(shown(end, "1"))),
+            );
+        }
+    }
+    if element.get("trim_offset").is_some() {
+        let open = kind == Some("path")
+            && element.get("closed").and_then(Value::as_bool) != Some(true);
+        if open {
+            push(
+                Finding::new("E-TRIM-OFFSET")
+                    .field(
+                        "why",
+                        json!("the path is open, and an offset rotates the window only around a closed outline — an open line has no round to wrap onto"),
+                    )
+                    .field("fix", json!(", or set `closed` to true"))
+                    .repair_value(json!({"value": "drop `trim_offset`"})),
+            );
+        }
+        if start.is_none() && end.is_none() {
+            push(
+                Finding::new("E-TRIM-OFFSET")
+                    .field(
+                        "why",
+                        json!("there is no `trim_start` or `trim_end`, so the window is the whole outline and rotating it draws nothing different"),
+                    )
+                    .field("fix", json!(", or give the window an end with `trim_start` or `trim_end`"))
+                    .repair_value(json!({"value": "drop `trim_offset`"})),
+            );
+        }
+    }
+}
 
 pub fn check(document: &Loose, report: &mut Report) {
     for (track, element) in document.elements_in_tracks() {
@@ -91,10 +146,16 @@ pub fn check(document: &Loose, report: &mut Report) {
 
         let closed = element.get("closed").and_then(Value::as_bool);
         let dash = element.get("stroke_dash").and_then(Value::as_array);
+        trim(element, kind, &mut push);
+
+        // prototype(#760, ADR-0160 §6): a closed path carrying `trim_start` or `trim_end`
+        // draws its cap at the trim's ends.
+        let trimmed = element.get("trim_start").is_some() || element.get("trim_end").is_some();
         if kind == Some("path")
             && closed == Some(true)
             && element.get("stroke_cap").is_some()
             && dash.is_none()
+            && !trimmed
         {
             push(Finding::new("E-STROKE-CAP-UNDRAWN").field(
                 "cap",

@@ -1,0 +1,21 @@
+Frames with no ink at all, per element (frame n is at n/30 s from the element's start).
+
+draw-on: 90 frames
+  drawon-wave      empty frames: 0  (1 frames)
+  drawon-zig       empty frames: 0  (1 frames)
+
+square-cap: 120 frames
+  sq-octagon       empty frames: none
+  sq-diamond       empty frames: 0, 108-119  (13 frames)
+
+crossing: 90 frames
+  crossing         empty frames: 32-59  (28 frames)
+
+overshoot: 90 frames
+  over-end         empty frames: 0  (1 frames)
+  over-start       empty frames: none
+
+dashed: 90 frames
+  dash-drawon      empty frames: 0  (1 frames)
+  dot-drawoff      empty frames: 74-89  (16 frames)
+

@@ -208,6 +208,45 @@ pub struct Present {
     /// length from the painter's own path measure.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stroke: Option<Value>,
+    /// prototype(#760, ADR-0160 §7): only on an element carrying a trim field — the three
+    /// trim values raw (before the overshoot clamp, the offset unwrapped) and the window
+    /// drawn: `[a, b]`, `empty` or `full`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trim: Option<Value>,
+}
+
+/// prototype(#760): the `trim` block of `query --at`. It also rewrites the `trim_start` and
+/// `trim_end` rows of `values` to the raw value, so the text line matches what was written.
+fn trim_of(element: &Value, instant: i64, values: &mut [Resolved]) -> Option<Value> {
+    use montagent_render::canvas::{Drawn, trim_window};
+    let t = (i128::from(instant), 1);
+    let trim = crate::verbs::frame::trim_of(element, t)?;
+    let raw = |key: &str| crate::animatable::number_unclamped(element, key, t.0, t.1);
+    for row in values.iter_mut() {
+        if matches!(row.property.as_str(), "trim_start" | "trim_end") {
+            if let Some(v) = raw(&row.property) {
+                row.value = Some(json!(v));
+            }
+        }
+    }
+    let six = |v: f64| {
+        let s = format!("{:.6}", v);
+        let s = s.trim_end_matches('0').trim_end_matches('.');
+        if s.is_empty() || s == "-" { "0".to_string() } else { s.to_string() }
+    };
+    let drawn = match trim_window(&trim) {
+        Drawn::Empty => "empty".to_string(),
+        Drawn::Full => "full".to_string(),
+        Drawn::Window(a, b) => format!("[{}, {}]", six(a), six(b)),
+    };
+    let mut out = serde_json::Map::new();
+    for key in ["trim_start", "trim_end", "trim_offset"] {
+        if let Some(v) = raw(key) {
+            out.insert(key.into(), json!(v));
+        }
+    }
+    out.insert("drawn".into(), json!(drawn));
+    Some(Value::Object(out))
 }
 
 /// prototype(#750): the `stroke` block of `query --at`.
@@ -568,6 +607,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             _ => None,
         };
         let stroke = stroke_of(element, kind, instant);
+        let mut values_now = values(element, instant);
         present.push(Present {
             stroke,
             stagger,
@@ -577,7 +617,8 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             end,
             layer,
             layer_unresolved,
-            values: values(element, instant),
+            trim: trim_of(element, instant, &mut values_now),
+            values: values_now,
             blend,
             motion_blur,
             motion,

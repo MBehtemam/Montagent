@@ -1,0 +1,109 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 4000,
+ "output": "../out/contain-loaders.mp4",
+ "tracks": [
+  {
+   "name": "loader-ellipse",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "loader-ellipse",
+     "type": "ellipse",
+     "start": 0,
+     "end": 4000,
+     "x": 140,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "trim_start": 0,
+     "trim_end": 0.25,
+     "trim_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3600,
+       "v": 3,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loader-rect",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "loader-rect",
+     "type": "rect",
+     "start": 0,
+     "end": 4000,
+     "x": 750,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "trim_start": 0,
+     "trim_end": 0.25,
+     "trim_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3600,
+       "v": 3,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loader-rrect",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "loader-rrect",
+     "type": "rect",
+     "start": 0,
+     "end": 4000,
+     "x": 1360,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "radius": 90,
+     "trim_start": 0,
+     "trim_end": 0.25,
+     "trim_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3600,
+       "v": 3,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

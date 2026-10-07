@@ -1,0 +1,97 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 1000,
+ "output": "out/x.mp4",
+ "tracks": [
+  {
+   "name": "dash-drawon",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "dash-drawon",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 20,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 20,
+     "stroke_dash": [
+      60,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        10
+       ]
+      },
+      {
+       "at": [
+        1510,
+        10
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dot-drawoff",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "dot-drawoff",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 180,
+     "y": 560,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 220,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 20,
+     "stroke_cap": "round",
+     "stroke_dash": [
+      0,
+      40
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        210
+       ],
+       "out": [
+        400,
+        -200
+       ]
+      },
+      {
+       "at": [
+        1510,
+        210
+       ],
+       "in": [
+        -400,
+        -200
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

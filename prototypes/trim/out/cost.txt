@@ -1,0 +1,6 @@
+run 1  trim  load1 45.85  20.47 s  29.66 ms/frame
+run 1  plain  load1 51.99  14.93 s  21.63 ms/frame
+run 2  trim  load1 61.38  11.73 s  17.00 ms/frame
+run 2  plain  load1 49.23  14.08 s  20.41 ms/frame
+run 3  trim  load1 43.32  11.72 s  16.99 ms/frame
+run 3  plain  load1 34.74  13.90 s  20.15 ms/frame

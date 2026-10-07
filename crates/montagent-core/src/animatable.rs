@@ -553,6 +553,20 @@ pub fn number_read(
         .unwrap_or(default)
 }
 
+/// prototype(#760, ADR-0160 §7): a number as written, before ADR-0146 §5's clamp — what
+/// `query --at` prints for the trim fields, so each matches the agent's literal.
+pub fn number_unclamped(
+    element: &Value,
+    property: &str,
+    numerator: i128,
+    denominator: i128,
+) -> Option<f64> {
+    let written = get(element, property)?;
+    raw(written, property_kind(element, property), numerator, denominator)
+        .ok()?
+        .number()
+}
+
 /// [`at`], read as a colour, where the element declares a readable one.
 pub fn colour_at(element: &Value, property: &str, instant: i64) -> Option<Colour> {
     at(element, property, instant)?.ok()?.colour()
@@ -640,6 +654,8 @@ fn clamp(
     };
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
+        // prototype(#760, ADR-0160 §5): an overshooting ease clamps to [0, 1].
+        "trim_start" | "trim_end" => number.clamp(0.0, 1.0),
         "radius" => number.clamp(0.0, half_shorter(sides(element, numerator, denominator))),
         _ => number,
     })
@@ -712,7 +728,12 @@ pub fn path_reach(element: &Value) -> Reach {
         .unwrap_or(1)
         .max(1);
     let closed = element.get("closed").and_then(Value::as_bool).unwrap_or(false);
-    let cap_draws = !closed || element.get("stroke_dash").is_some();
+    // prototype(#760, ADR-0160 §6): a cap also draws at a trim's ends, decided by the
+    // presence of `trim_start` or `trim_end`, not their values.
+    let cap_draws = !closed
+        || element.get("stroke_dash").is_some()
+        || element.get("trim_start").is_some()
+        || element.get("trim_end").is_some();
     let square = cap_draws && element.get("stroke_cap").and_then(Value::as_str) == Some("square");
     let by_join = (limit * w + 1) / 2;
     let by_cap = if square {

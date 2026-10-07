@@ -2165,6 +2165,10 @@ fn resolved_cells(element: &Value) -> String {
             None => format!("{property} {}{animated}", resolved_number(&value["value"])),
         });
     }
+    // prototype(#760, ADR-0160 §7): the trim window drawn, on a trimmed element only.
+    if let Some(drawn) = element["trim"]["drawn"].as_str() {
+        cells.push(format!("drawn: {drawn}"));
+    }
     // ADR-0147: every visual member says how it composites, `normal` included.
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));

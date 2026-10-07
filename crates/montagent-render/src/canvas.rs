@@ -226,6 +226,9 @@ pub struct StrokeStyle {
     pub join: Join,
     pub cap: Cap,
     pub dash: Option<Dash>,
+    /// prototype(#760): `None` on an element that carries no trim field, which draws exactly
+    /// as before.
+    pub trim: Option<Trim>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -320,6 +323,120 @@ pub fn outline_length(path: &Path) -> f64 {
         total += f64::from(contour.length());
     }
     total
+}
+
+/// prototype(#760, ADR-0160): an element's trim fields at an instant. `start` and `end` are
+/// already through the resolver's [0, 1] clamp; `offset` is raw, in turns, and wrapped only
+/// in [`trim_window`]. `closed` is whether the outline is closed (a `rect`, an `ellipse`, a
+/// `path` with `"closed": true`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Trim {
+    pub start: f64,
+    pub end: f64,
+    pub offset: f64,
+    pub closed: bool,
+}
+
+/// prototype(#760, ADR-0160 §5, §7): what a trimmed stroke draws, as fractions of the outline
+/// from its start point.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Drawn {
+    /// start ≥ end: no stroke, under any cap.
+    Empty,
+    /// start 0 and end 1 on a closed outline, under any offset: the outline whole, no ends.
+    Full,
+    /// `[a, b]` after the clamp and the wrap; `a > b` crosses the start point.
+    Window(f64, f64),
+}
+
+/// prototype(#760): the one window rule the painter and `query --at` share. The offset moves
+/// the window forward by `offset mod 1` of the outline; it never makes a window empty or not.
+/// On an open outline the offset is `validate`'s error, and is ignored here.
+pub fn trim_window(trim: &Trim) -> Drawn {
+    let (s, e) = (trim.start.clamp(0.0, 1.0), trim.end.clamp(0.0, 1.0));
+    if s >= e {
+        return Drawn::Empty;
+    }
+    if s <= 0.0 && e >= 1.0 {
+        return if trim.closed {
+            Drawn::Full
+        } else {
+            Drawn::Window(0.0, 1.0)
+        };
+    }
+    if !trim.closed {
+        return Drawn::Window(s, e);
+    }
+    let o = trim.offset.rem_euclid(1.0);
+    let mut a = (s + o).rem_euclid(1.0);
+    let mut b = (e + o).rem_euclid(1.0);
+    // The wrap is f64 arithmetic: 0.1 + (2.9 mod 1) is 0.9999999999999999, not 1. Within
+    // 1e-12 of the start point a window starts there, and a window that ends on the start
+    // point ends there; neither crosses into a vanishing piece.
+    const SNAP: f64 = 1e-12;
+    if a > 1.0 - SNAP {
+        a = 0.0;
+    }
+    if b < SNAP {
+        b = 1.0;
+    }
+    if a == b {
+        return Drawn::Empty;
+    }
+    Drawn::Window(a, b)
+}
+
+/// prototype(#760): stroke the window `[a, b]` (fractions; `a > b` crosses the start point)
+/// of `outline`'s first contour with `stroke`. The window is cut with
+/// `ContourMeasure::getSegment`. A crossing window with no dash is one contour: the piece to
+/// the end of the outline, then the piece from its start appended without a move, so the
+/// stroker joins the two with the paint's join and draws no cap or seam there. With a dash,
+/// each piece is dashed with its phase advanced by the distance its piece starts at, so the
+/// dashes sit where they sit untrimmed (ADR-0160 §6); a crossing window is then two pieces.
+fn stroke_window(
+    canvas: &skia_safe::Canvas,
+    outline: &Path,
+    a: f64,
+    b: f64,
+    dash: Option<&Dash>,
+    stroke: &skia_safe::Paint,
+) {
+    let Some(contour) = skia_safe::ContourMeasureIter::new(outline, false, None).next() else {
+        return;
+    };
+    let len = f64::from(contour.length());
+    let mut pieces: Vec<(Path, f64)> = Vec::new();
+    let mut builder = PathBuilder::new();
+    if a < b {
+        let _ = contour.get_segment((a * len) as f32, (b * len) as f32, &mut builder, true);
+        pieces.push((builder.detach(), a * len));
+    } else if dash.is_some() {
+        let _ = contour.get_segment((a * len) as f32, len as f32, &mut builder, true);
+        pieces.push((builder.detach(), a * len));
+        let mut builder = PathBuilder::new();
+        let _ = contour.get_segment(0.0, (b * len) as f32, &mut builder, true);
+        pieces.push((builder.detach(), 0.0));
+    } else {
+        // prototype(#760): `MONTAGENT_PROTO_SPLIT_SEAM` is the seam probe's negative control:
+        // the second piece starts with a move, so the two ends meet as two ends.
+        let split = std::env::var_os("MONTAGENT_PROTO_SPLIT_SEAM").is_some();
+        let _ = contour.get_segment((a * len) as f32, len as f32, &mut builder, true);
+        let _ = contour.get_segment(0.0, (b * len) as f32, &mut builder, split);
+        pieces.push((builder.detach(), a * len));
+    }
+    for (piece, from) in pieces {
+        let mut paint = stroke.clone();
+        if let Some(dash) = dash {
+            let shifted = Dash {
+                intervals: dash.intervals.clone(),
+                offset: dash.offset + from,
+            };
+            if let Some(effect) = shifted.effect() {
+                paint.set_path_effect(effect);
+            }
+        }
+        canvas.draw_path(&piece, &paint);
+    }
 }
 
 /// prototype(#750): a path element's outline, as the painter builds it.
@@ -1390,7 +1507,7 @@ impl Canvas {
         clip: Option<Region>,
         effects: &[Effect],
     ) {
-        self.shape_styled(shape, extent, transform, paint, None, clip, effects);
+        self.shape_styled(shape, extent, transform, paint, None, None, clip, effects);
     }
 
     /// prototype(#750): [`Self::shape`] with an optional dash pattern (ADR-0158 §5). With
@@ -1403,6 +1520,7 @@ impl Canvas {
         transform: &Transform,
         paint: &Fill,
         dash: Option<&Dash>,
+        trim: Option<&Trim>,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1441,6 +1559,27 @@ impl Canvas {
             let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
+            // prototype(#760): a partial window strokes a cut of the same outline the dashes
+            // use; an empty one draws no stroke; a full one falls through to the untrimmed
+            // drawing below, byte for byte.
+            if let Some(trim) = trim {
+                match trim_window(trim) {
+                    Drawn::Empty => return,
+                    Drawn::Full => {}
+                    Drawn::Window(a, b) => {
+                        let Some(outline) = shape_outline(
+                            shape,
+                            extent.width as f32,
+                            extent.height as f32,
+                            paint.stroke_width as f32,
+                        ) else {
+                            return;
+                        };
+                        stroke_window(canvas, &outline, a, b, dash, &stroke);
+                        return;
+                    }
+                }
+            }
             // prototype(#750): a dashed shape strokes the outline built with ADR-0158 §5's
             // start and direction; its join stays Skia's default miter (limit 4), and every
             // dash end is butt.
@@ -1564,6 +1703,17 @@ impl Canvas {
                 Cap::Round => skia_safe::PaintCap::Round,
                 Cap::Square => skia_safe::PaintCap::Square,
             });
+            // prototype(#760): trim, as on a shape.
+            if let Some(trim) = &style.trim {
+                match trim_window(trim) {
+                    Drawn::Empty => return,
+                    Drawn::Full => {}
+                    Drawn::Window(a, b) => {
+                        stroke_window(canvas, &path, a, b, style.dash.as_ref(), &stroke);
+                        return;
+                    }
+                }
+            }
             if let Some(effect) = style.dash.as_ref().and_then(Dash::effect) {
                 stroke.set_path_effect(effect);
             }

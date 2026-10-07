@@ -1,0 +1,2 @@
+painting 1,1000  frames=90  full window vs untrimmed: SAME
+painting 10,7    frames=90  full window vs untrimmed: SAME

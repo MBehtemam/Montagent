@@ -1,0 +1,22 @@
+     Running tests/animatable.rs
+test the_list_is_what_the_schema_types_as_animatable ... FAILED
+  left: ["x", "y", "width", "height", "fill", "fill.angle", "fill.stops", "fill.center", "fill.radius", "stroke", "stroke.angle", "stroke.stops", "stroke.center", "stroke.radius", "stroke_width", "stroke_dash_offset", "trim_start", "trim_end", "trim_offset", "radius", "scale", "rotation", "opacity"]
+ right: ["x", "y", "width", "height", "fill", "fill.angle", "fill.stops", "fill.center", "fill.radius", "stroke", "stroke.angle", "stroke.stops", "stroke.center", "stroke.radius", "stroke_width", "radius", "scale", "rotation", "opacity"]
+test result: FAILED. 27 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+     Running tests/animatable_tools.rs
+test every_animatable_property_is_carried_by_every_tool ... FAILED
+assertion `left == right` failed: `stroke_dash_offset`: [Finding { code: "E-DASH-OFFSET-ALONE", class: Error, location: Location { file: "fixtures/en-halloween-decorating/animatable-tools-base.montagent.json", line: None, column: None, byte_offset: None, track: Some("a"), element: Some("subject") }, fields: {}, repair: Some(Advise(Object {"value": String("drop `stroke_dash_offset`")})), census: None, citation: None, reason: None }]
+  left: Errors
+ right: Ok
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.45s
+     Running tests/filter_bound.rs
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.21s
+     Running tests/motion_blur.rs
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+     Running tests/painters.rs
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.11s
+     Running tests/path.rs
+test points_is_on_the_one_list_as_a_whole_list_value_and_the_box_is_not ... FAILED
+  left: ["x", "y", "fill", "fill.angle", "fill.stops", "fill.center", "fill.radius", "stroke", "stroke.angle", "stroke.stops", "stroke.center", "stroke.radius", "stroke_width", "stroke_dash_offset", "trim_start", "trim_end", "trim_offset", "points", "scale", "rotation", "opacity"]
+ right: ["x", "y", "fill", "fill.angle", "fill.stops", "fill.center", "fill.radius", "stroke", "stroke.angle", "stroke.stops", "stroke.center", "stroke.radius", "stroke_width", "points", "scale", "rotation", "opacity"]
+test result: FAILED. 28 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s

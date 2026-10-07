@@ -1,0 +1,30 @@
+{
+ "seam-ellipse": [
+  468.0,
+  310.0
+ ],
+ "seam-rect": [
+  552.0,
+  112.0
+ ],
+ "seam-rrect": [
+  1110,
+  112.0
+ ],
+ "seam-path-miter": [
+  1524,
+  124
+ ],
+ "seam-path-round": [
+  72,
+  612
+ ],
+ "seam-dash-rect": [
+  552.0,
+  612.0
+ ],
+ "seam-dash-on": [
+  1032.0,
+  612.0
+ ]
+}

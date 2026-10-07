@@ -1,0 +1,2035 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#1A1D22",
+ "duration": 23000,
+ "output": "out/trim.mp4",
+ "tracks": [
+  {
+   "name": "title-draw-on",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "title-draw-on",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "Draw-on: trim_end keyed 0 to 1 under a round cap — no dot on the first frame"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-drawon-wave",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "box-drawon-wave",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 330,
+     "origin": "top-left",
+     "width": 788,
+     "height": 328,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-drawon-wave",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "inset-drawon-wave",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 94,
+     "y": 344,
+     "origin": "top-left",
+     "width": 760,
+     "height": 300,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "drawon-wave",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "drawon-wave",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 330,
+     "origin": "top-left",
+     "width": 788,
+     "height": 328,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        14,
+        314
+       ],
+       "out": [
+        260,
+        -300
+       ]
+      },
+      {
+       "at": [
+        394,
+        164
+       ],
+       "in": [
+        -120,
+        0
+       ],
+       "out": [
+        120,
+        0
+       ]
+      },
+      {
+       "at": [
+        774,
+        14
+       ],
+       "in": [
+        -260,
+        300
+       ]
+      }
+     ],
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-drawon-wave",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "label-drawon-wave",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 274,
+     "origin": "top-left",
+     "width": 788,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "trim_end 0 to 1, linear, round cap"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-drawon-zig",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "box-drawon-zig",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 1000,
+     "y": 330,
+     "origin": "top-left",
+     "width": 788,
+     "height": 328,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-drawon-zig",
+   "layer": 6,
+   "elements": [
+    {
+     "id": "inset-drawon-zig",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 1014,
+     "y": 344,
+     "origin": "top-left",
+     "width": 760,
+     "height": 300,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "drawon-zig",
+   "layer": 7,
+   "elements": [
+    {
+     "id": "drawon-zig",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1000,
+     "y": 330,
+     "origin": "top-left",
+     "width": 788,
+     "height": 328,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        14,
+        314
+       ]
+      },
+      {
+       "at": [
+        214,
+        14
+       ]
+      },
+      {
+       "at": [
+        414,
+        314
+       ]
+      },
+      {
+       "at": [
+        614,
+        14
+       ]
+      },
+      {
+       "at": [
+        774,
+        314
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-drawon-zig",
+   "layer": 8,
+   "elements": [
+    {
+     "id": "label-drawon-zig",
+     "type": "text",
+     "start": 0,
+     "end": 3000,
+     "x": 1000,
+     "y": 274,
+     "origin": "top-left",
+     "width": 788,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "trim_end 0 to 1, ease-in-out, round cap"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "title-loaders",
+   "layer": 9,
+   "elements": [
+    {
+     "id": "title-loaders",
+     "type": "text",
+     "start": 3000,
+     "end": 7000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "Ring loaders: window [0, 0.25], trim_offset keyed 0 to 3 turns — red dot = start point"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-loader-ellipse",
+   "layer": 10,
+   "elements": [
+    {
+     "id": "box-loader-ellipse",
+     "type": "rect",
+     "start": 3000,
+     "end": 7000,
+     "x": 140,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "loader-ellipse",
+   "layer": 11,
+   "elements": [
+    {
+     "id": "loader-ellipse",
+     "type": "ellipse",
+     "start": 3000,
+     "end": 7000,
+     "x": 140,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-loader-ellipse",
+   "layer": 12,
+   "elements": [
+    {
+     "id": "label-loader-ellipse",
+     "type": "text",
+     "start": 3000,
+     "end": 7000,
+     "x": 140,
+     "y": 304,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "ellipse: start 3 o'clock"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-loader-ellipse",
+   "layer": 13,
+   "elements": [
+    {
+     "id": "mark-loader-ellipse",
+     "type": "ellipse",
+     "start": 3000,
+     "end": 7000,
+     "x": 548,
+     "y": 570,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-loader-rect",
+   "layer": 14,
+   "elements": [
+    {
+     "id": "box-loader-rect",
+     "type": "rect",
+     "start": 3000,
+     "end": 7000,
+     "x": 750,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "loader-rect",
+   "layer": 15,
+   "elements": [
+    {
+     "id": "loader-rect",
+     "type": "rect",
+     "start": 3000,
+     "end": 7000,
+     "x": 750,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24
+    }
+   ]
+  },
+  {
+   "name": "label-loader-rect",
+   "layer": 16,
+   "elements": [
+    {
+     "id": "label-loader-rect",
+     "type": "text",
+     "start": 3000,
+     "end": 7000,
+     "x": 750,
+     "y": 304,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "rect: start = top-left corner"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-loader-rect",
+   "layer": 17,
+   "elements": [
+    {
+     "id": "mark-loader-rect",
+     "type": "ellipse",
+     "start": 3000,
+     "end": 7000,
+     "x": 762,
+     "y": 372,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-loader-rrect",
+   "layer": 18,
+   "elements": [
+    {
+     "id": "box-loader-rrect",
+     "type": "rect",
+     "start": 3000,
+     "end": 7000,
+     "x": 1360,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "loader-rrect",
+   "layer": 19,
+   "elements": [
+    {
+     "id": "loader-rrect",
+     "type": "rect",
+     "start": 3000,
+     "end": 7000,
+     "x": 1360,
+     "y": 360,
+     "origin": "top-left",
+     "width": 420,
+     "height": 420,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "radius": 90
+    }
+   ]
+  },
+  {
+   "name": "label-loader-rrect",
+   "layer": 20,
+   "elements": [
+    {
+     "id": "label-loader-rrect",
+     "type": "text",
+     "start": 3000,
+     "end": 7000,
+     "x": 1360,
+     "y": 304,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "rect, radius 90: start = arc's end"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-loader-rrect",
+   "layer": 21,
+   "elements": [
+    {
+     "id": "mark-loader-rrect",
+     "type": "ellipse",
+     "start": 3000,
+     "end": 7000,
+     "x": 1450,
+     "y": 372,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "title-square-cap",
+   "layer": 22,
+   "elements": [
+    {
+     "id": "title-square-cap",
+     "type": "text",
+     "start": 7000,
+     "end": 11000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "A closed path trimmed under a square cap: the ends stay inside the box"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-sq-octagon",
+   "layer": 23,
+   "elements": [
+    {
+     "id": "box-sq-octagon",
+     "type": "rect",
+     "start": 7000,
+     "end": 11000,
+     "x": 120,
+     "y": 320,
+     "origin": "top-left",
+     "width": 644,
+     "height": 544,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-sq-octagon",
+   "layer": 24,
+   "elements": [
+    {
+     "id": "inset-sq-octagon",
+     "type": "rect",
+     "start": 7000,
+     "end": 11000,
+     "x": 142,
+     "y": 342,
+     "origin": "top-left",
+     "width": 600,
+     "height": 500,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "sq-octagon",
+   "layer": 25,
+   "elements": [
+    {
+     "id": "sq-octagon",
+     "type": "path",
+     "start": 7000,
+     "end": 11000,
+     "x": 120,
+     "y": 320,
+     "origin": "top-left",
+     "width": 644,
+     "height": 544,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 30,
+     "points": [
+      {
+       "at": [
+        172,
+        22
+       ]
+      },
+      {
+       "at": [
+        472,
+        22
+       ]
+      },
+      {
+       "at": [
+        622,
+        172
+       ]
+      },
+      {
+       "at": [
+        622,
+        372
+       ]
+      },
+      {
+       "at": [
+        472,
+        522
+       ]
+      },
+      {
+       "at": [
+        172,
+        522
+       ]
+      },
+      {
+       "at": [
+        22,
+        372
+       ]
+      },
+      {
+       "at": [
+        22,
+        172
+       ]
+      }
+     ],
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-sq-octagon",
+   "layer": 26,
+   "elements": [
+    {
+     "id": "label-sq-octagon",
+     "type": "text",
+     "start": 7000,
+     "end": 11000,
+     "x": 120,
+     "y": 264,
+     "origin": "top-left",
+     "width": 644,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "closed octagon, square cap: window 0.2–0.45 orbiting 2 turns, inset 22"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-sq-octagon",
+   "layer": 27,
+   "elements": [
+    {
+     "id": "mark-sq-octagon",
+     "type": "ellipse",
+     "start": 7000,
+     "end": 11000,
+     "x": 292,
+     "y": 342,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-sq-diamond",
+   "layer": 28,
+   "elements": [
+    {
+     "id": "box-sq-diamond",
+     "type": "rect",
+     "start": 7000,
+     "end": 11000,
+     "x": 1100,
+     "y": 320,
+     "origin": "top-left",
+     "width": 544,
+     "height": 544,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-sq-diamond",
+   "layer": 29,
+   "elements": [
+    {
+     "id": "inset-sq-diamond",
+     "type": "rect",
+     "start": 7000,
+     "end": 11000,
+     "x": 1122,
+     "y": 342,
+     "origin": "top-left",
+     "width": 500,
+     "height": 500,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "sq-diamond",
+   "layer": 30,
+   "elements": [
+    {
+     "id": "sq-diamond",
+     "type": "path",
+     "start": 7000,
+     "end": 11000,
+     "x": 1100,
+     "y": 320,
+     "origin": "top-left",
+     "width": 544,
+     "height": 544,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 30,
+     "points": [
+      {
+       "at": [
+        272,
+        22
+       ]
+      },
+      {
+       "at": [
+        522,
+        272
+       ]
+      },
+      {
+       "at": [
+        272,
+        522
+       ]
+      },
+      {
+       "at": [
+        22,
+        272
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-sq-diamond",
+   "layer": 31,
+   "elements": [
+    {
+     "id": "label-sq-diamond",
+     "type": "text",
+     "start": 7000,
+     "end": 11000,
+     "x": 1100,
+     "y": 264,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "closed diamond, square cap: draw on, then off, inset 22"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-sq-diamond",
+   "layer": 32,
+   "elements": [
+    {
+     "id": "mark-sq-diamond",
+     "type": "ellipse",
+     "start": 7000,
+     "end": 11000,
+     "x": 1372,
+     "y": 342,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "title-crossing",
+   "layer": 33,
+   "elements": [
+    {
+     "id": "title-crossing",
+     "type": "text",
+     "start": 11000,
+     "end": 14000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "Keyed trim_start and trim_end cross: nothing is drawn between the crossings"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-crossing",
+   "layer": 34,
+   "elements": [
+    {
+     "id": "box-crossing",
+     "type": "rect",
+     "start": 11000,
+     "end": 14000,
+     "x": 180,
+     "y": 420,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 228,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-crossing",
+   "layer": 35,
+   "elements": [
+    {
+     "id": "inset-crossing",
+     "type": "rect",
+     "start": 11000,
+     "end": 14000,
+     "x": 194,
+     "y": 434,
+     "origin": "top-left",
+     "width": 1500,
+     "height": 200,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "crossing",
+   "layer": 36,
+   "elements": [
+    {
+     "id": "crossing",
+     "type": "path",
+     "start": 11000,
+     "end": 14000,
+     "x": 180,
+     "y": 420,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 228,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        14,
+        214
+       ],
+       "out": [
+        400,
+        -200
+       ]
+      },
+      {
+       "at": [
+        1514,
+        214
+       ],
+       "in": [
+        -400,
+        -200
+       ]
+      }
+     ],
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-crossing",
+   "layer": 37,
+   "elements": [
+    {
+     "id": "label-crossing",
+     "type": "text",
+     "start": 11000,
+     "end": 14000,
+     "x": 180,
+     "y": 364,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "trim_start 0 to 0.7 to 0.2, trim_end 1 to 0.3 to 0.9: nothing drawn from ~1.04 s to ~1.98 s"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "title-overshoot",
+   "layer": 38,
+   "elements": [
+    {
+     "id": "title-overshoot",
+     "type": "text",
+     "start": 14000,
+     "end": 17000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "An overshooting bezier ease on the trim fields, clamped to [0, 1]"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-over-end",
+   "layer": 39,
+   "elements": [
+    {
+     "id": "box-over-end",
+     "type": "rect",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-over-end",
+   "layer": 40,
+   "elements": [
+    {
+     "id": "inset-over-end",
+     "type": "rect",
+     "start": 14000,
+     "end": 17000,
+     "x": 194,
+     "y": 394,
+     "origin": "top-left",
+     "width": 1500,
+     "height": 1,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "over-end",
+   "layer": 41,
+   "elements": [
+    {
+     "id": "over-end",
+     "type": "path",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        14,
+        14
+       ]
+      },
+      {
+       "at": [
+        1514,
+        14
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-over-end",
+   "layer": 42,
+   "elements": [
+    {
+     "id": "label-over-end",
+     "type": "text",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 324,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "trim_end 0 to 1 under [0.34, 1.56, 0.64, 1]: passes 1, clamped"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-over-start",
+   "layer": 43,
+   "elements": [
+    {
+     "id": "box-over-start",
+     "type": "rect",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 640,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-over-start",
+   "layer": 44,
+   "elements": [
+    {
+     "id": "inset-over-start",
+     "type": "rect",
+     "start": 14000,
+     "end": 17000,
+     "x": 194,
+     "y": 654,
+     "origin": "top-left",
+     "width": 1500,
+     "height": 1,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "over-start",
+   "layer": 45,
+   "elements": [
+    {
+     "id": "over-start",
+     "type": "path",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 640,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 28,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 28,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        14,
+        14
+       ]
+      },
+      {
+       "at": [
+        1514,
+        14
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-over-start",
+   "layer": 46,
+   "elements": [
+    {
+     "id": "label-over-start",
+     "type": "text",
+     "start": 14000,
+     "end": 17000,
+     "x": 180,
+     "y": 584,
+     "origin": "top-left",
+     "width": 1528,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "trim_start 0.6 to 0 under the same ease: passes 0, clamped"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "title-dashed",
+   "layer": 47,
+   "elements": [
+    {
+     "id": "title-dashed",
+     "type": "text",
+     "start": 17000,
+     "end": 20000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "Dashes drawing on: the pattern holds still, the window reveals it (dim = untrimmed)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-dash-drawon",
+   "layer": 48,
+   "elements": [
+    {
+     "id": "box-dash-drawon",
+     "type": "rect",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 20,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-dash-drawon",
+   "layer": 49,
+   "elements": [
+    {
+     "id": "inset-dash-drawon",
+     "type": "rect",
+     "start": 17000,
+     "end": 20000,
+     "x": 190,
+     "y": 390,
+     "origin": "top-left",
+     "width": 1500,
+     "height": 1,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "ghost-dash-drawon",
+   "layer": 50,
+   "elements": [
+    {
+     "id": "ghost-dash-drawon",
+     "type": "path",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 20,
+     "closed": false,
+     "stroke": "#3A404A",
+     "stroke_width": 20,
+     "stroke_dash": [
+      60,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        10
+       ]
+      },
+      {
+       "at": [
+        1510,
+        10
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-drawon",
+   "layer": 51,
+   "elements": [
+    {
+     "id": "dash-drawon",
+     "type": "path",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 380,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 20,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 20,
+     "stroke_dash": [
+      60,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        10
+       ]
+      },
+      {
+       "at": [
+        1510,
+        10
+       ]
+      }
+     ],
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-dash-drawon",
+   "layer": 52,
+   "elements": [
+    {
+     "id": "label-dash-drawon",
+     "type": "text",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 324,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "[60, 30], butt: trim_end 0 to 1"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-dot-drawoff",
+   "layer": 53,
+   "elements": [
+    {
+     "id": "box-dot-drawoff",
+     "type": "rect",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 560,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 220,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-dot-drawoff",
+   "layer": 54,
+   "elements": [
+    {
+     "id": "inset-dot-drawoff",
+     "type": "rect",
+     "start": 17000,
+     "end": 20000,
+     "x": 190,
+     "y": 570,
+     "origin": "top-left",
+     "width": 1500,
+     "height": 200,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "ghost-dot-drawoff",
+   "layer": 55,
+   "elements": [
+    {
+     "id": "ghost-dot-drawoff",
+     "type": "path",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 560,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 220,
+     "closed": false,
+     "stroke": "#3A404A",
+     "stroke_width": 20,
+     "stroke_cap": "round",
+     "stroke_dash": [
+      0,
+      40
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        210
+       ],
+       "out": [
+        400,
+        -200
+       ]
+      },
+      {
+       "at": [
+        1510,
+        210
+       ],
+       "in": [
+        -400,
+        -200
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dot-drawoff",
+   "layer": 56,
+   "elements": [
+    {
+     "id": "dot-drawoff",
+     "type": "path",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 560,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 220,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 20,
+     "stroke_cap": "round",
+     "stroke_dash": [
+      0,
+      40
+     ],
+     "points": [
+      {
+       "at": [
+        10,
+        210
+       ],
+       "out": [
+        400,
+        -200
+       ]
+      },
+      {
+       "at": [
+        1510,
+        210
+       ],
+       "in": [
+        -400,
+        -200
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-dot-drawoff",
+   "layer": 57,
+   "elements": [
+    {
+     "id": "label-dot-drawoff",
+     "type": "text",
+     "start": 17000,
+     "end": 20000,
+     "x": 180,
+     "y": 504,
+     "origin": "top-left",
+     "width": 1520,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "[0, 40], round: trim_start 0 to 1 (draw-off)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "title-full",
+   "layer": 58,
+   "elements": [
+    {
+     "id": "title-full",
+     "type": "text",
+     "start": 20000,
+     "end": 23000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 1800,
+     "height": 64,
+     "font": "oswald",
+     "size": 40,
+     "color": "#FFFFFF",
+     "align": "start",
+     "runs": [
+      {
+       "text": "The full window [0, 1] under an offset: drawn whole, byte-identical to untrimmed"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "box-full-ellipse",
+   "layer": 59,
+   "elements": [
+    {
+     "id": "box-full-ellipse",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 100,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "full-ellipse",
+   "layer": 60,
+   "elements": [
+    {
+     "id": "full-ellipse",
+     "type": "ellipse",
+     "start": 20000,
+     "end": 23000,
+     "x": 100,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24
+    }
+   ]
+  },
+  {
+   "name": "label-full-ellipse",
+   "layer": 61,
+   "elements": [
+    {
+     "id": "label-full-ellipse",
+     "type": "text",
+     "start": 20000,
+     "end": 23000,
+     "x": 100,
+     "y": 324,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "ellipse, offset keyed 0 to 2.5"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-full-ellipse",
+   "layer": 62,
+   "elements": [
+    {
+     "id": "mark-full-ellipse",
+     "type": "ellipse",
+     "start": 20000,
+     "end": 23000,
+     "x": 448,
+     "y": 560,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-full-rect",
+   "layer": 63,
+   "elements": [
+    {
+     "id": "box-full-rect",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 540,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "full-rect",
+   "layer": 64,
+   "elements": [
+    {
+     "id": "full-rect",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 540,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "effects": [
+      {
+       "name": "shadow",
+       "dx": 10,
+       "dy": 10,
+       "radius": 8,
+       "color": "#000000",
+       "opacity": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-full-rect",
+   "layer": 65,
+   "elements": [
+    {
+     "id": "label-full-rect",
+     "type": "text",
+     "start": 20000,
+     "end": 23000,
+     "x": 540,
+     "y": 324,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "rect, offset 0.37"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-full-rect",
+   "layer": 66,
+   "elements": [
+    {
+     "id": "mark-full-rect",
+     "type": "ellipse",
+     "start": 20000,
+     "end": 23000,
+     "x": 552,
+     "y": 392,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-full-dash-rrect",
+   "layer": 67,
+   "elements": [
+    {
+     "id": "box-full-dash-rrect",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 980,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "full-dash-rrect",
+   "layer": 68,
+   "elements": [
+    {
+     "id": "full-dash-rrect",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 980,
+     "y": 380,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "radius": 60,
+     "stroke_dash": [
+      50,
+      25
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-full-dash-rrect",
+   "layer": 69,
+   "elements": [
+    {
+     "id": "label-full-dash-rrect",
+     "type": "text",
+     "start": 20000,
+     "end": 23000,
+     "x": 980,
+     "y": 324,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "dashed rounded rect, offset 0.37"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-full-dash-rrect",
+   "layer": 70,
+   "elements": [
+    {
+     "id": "mark-full-dash-rrect",
+     "type": "ellipse",
+     "start": 20000,
+     "end": 23000,
+     "x": 1040,
+     "y": 392,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "box-full-path",
+   "layer": 71,
+   "elements": [
+    {
+     "id": "box-full-path",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 1420,
+     "y": 380,
+     "origin": "top-left",
+     "width": 394,
+     "height": 394,
+     "stroke": "#5A5F68",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "inset-full-path",
+   "layer": 72,
+   "elements": [
+    {
+     "id": "inset-full-path",
+     "type": "rect",
+     "start": 20000,
+     "end": 23000,
+     "x": 1437,
+     "y": 397,
+     "origin": "top-left",
+     "width": 360,
+     "height": 360,
+     "stroke": "#2E5C8A",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "full-path",
+   "layer": 73,
+   "elements": [
+    {
+     "id": "full-path",
+     "type": "path",
+     "start": 20000,
+     "end": 23000,
+     "x": 1420,
+     "y": 380,
+     "origin": "top-left",
+     "width": 394,
+     "height": 394,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 24,
+     "points": [
+      {
+       "at": [
+        17,
+        17
+       ]
+      },
+      {
+       "at": [
+        377,
+        17
+       ]
+      },
+      {
+       "at": [
+        197,
+        377
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "label-full-path",
+   "layer": 74,
+   "elements": [
+    {
+     "id": "label-full-path",
+     "type": "text",
+     "start": 20000,
+     "end": 23000,
+     "x": 1420,
+     "y": 324,
+     "origin": "top-left",
+     "width": 620,
+     "height": 44,
+     "font": "oswald",
+     "size": 28,
+     "color": "#C8CCD2",
+     "align": "start",
+     "runs": [
+      {
+       "text": "closed path, square cap, offset 0.37"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "mark-full-path",
+   "layer": 75,
+   "elements": [
+    {
+     "id": "mark-full-path",
+     "type": "ellipse",
+     "start": 20000,
+     "end": 23000,
+     "x": 1437,
+     "y": 397,
+     "origin": "center",
+     "width": 12,
+     "height": 12,
+     "fill": "#FF3B30"
+    }
+   ]
+  },
+  {
+   "name": "legend",
+   "layer": 76,
+   "elements": [
+    {
+     "id": "legend",
+     "type": "text",
+     "start": 0,
+     "end": 23000,
+     "x": 60,
+     "y": 1000,
+     "origin": "top-left",
+     "width": 1200,
+     "height": 41,
+     "font": "oswald",
+     "size": 26,
+     "color": "#8A9099",
+     "align": "start",
+     "runs": [
+      {
+       "text": "grey = declared box   blue = inset box [m, w−m] × [m, h−m]"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "fonts": {
+  "oswald": [
+   {
+    "file": "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  }
+ }
+}

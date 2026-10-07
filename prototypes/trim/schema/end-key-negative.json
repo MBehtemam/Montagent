@@ -1,0 +1,42 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#1A1D22",
+ "duration": 1000,
+ "output": "out/x.mp4",
+ "tracks": [
+  {
+   "name": "t",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "r",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "trim_end": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 1000,
+       "v": -0.1,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
