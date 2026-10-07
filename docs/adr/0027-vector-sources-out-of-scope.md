@@ -5,7 +5,7 @@ amends: 0015 (discharges its "sources with no intrinsic pixel dimensions" deferr
 
 # Vector sources are out of scope for v1
 
-> **Amended by [ADR-0170](0170-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md).**
+> **Amended by [ADR-0171](0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md).**
 > The "reopens as a fresh scope question" clause is discharged: SVG and Lottie were asked about
 > and both refused as sources, each on its own grounds, with reopen triggers. Both are
 > pre-rendered through `montagent-prerender`. The size rule stays unadopted, with a recorded lean.
