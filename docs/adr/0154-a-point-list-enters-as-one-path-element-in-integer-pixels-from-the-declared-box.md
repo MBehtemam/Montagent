@@ -9,6 +9,11 @@ amends: 0014 (`line`, `polygon` and `path` are no longer rejected; one `path` el
 > chooses `stroke_join` and `stroke_cap`, the inset of §4 widens to `ceil(k × w / 2)` by the
 > stroke's reach factor, and `E-PATH-OUTSIDE-BOX` names that factor.
 
+> **Amended by [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md).** The point vocabulary is also written
+> inline on `text`, as the curve a line of text follows. `E-PATH-TOO-FEW-POINTS`,
+> `E-PATH-DANGLING-HANDLE`, `E-PATH-KEYFRAME-SHAPE` and `E-PATH-OUTSIDE-BOX` fire on a text's
+> `path` too, the last with the text's own inset.
+
 [#701](https://github.com/MBehtemam/Montagent/issues/701), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0014](0014-stroke-is-paint-the-text-box-is-required.md) rejected `line`, `polygon` and
