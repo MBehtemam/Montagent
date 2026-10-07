@@ -787,7 +787,15 @@ fn the_renderer_validate_query_and_the_contact_sheet_agree_on_every_projected_el
 fn nothing_is_painted_while_the_card_faces_away_or_is_edge_on() {
     let empty = png_at(&[], 0);
     let flip = card(json!({"swivel": keyed(0.0, 180.0), "perspective": 2000}));
-    assert_eq!(png_at(&[flip.clone()], 500), empty, "edge-on at 90°");
-    assert_eq!(png_at(&[flip.clone()], 600), empty, "away past 90°");
+    assert_eq!(
+        png_at(std::slice::from_ref(&flip), 500),
+        empty,
+        "edge-on at 90°"
+    );
+    assert_eq!(
+        png_at(std::slice::from_ref(&flip), 600),
+        empty,
+        "away past 90°"
+    );
     assert_ne!(png_at(&[flip], 400), empty, "front before 90°");
 }

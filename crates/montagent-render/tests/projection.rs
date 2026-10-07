@@ -33,7 +33,10 @@ fn turned(swivel: f64, tilt: f64, perspective: f64) -> Projection {
 
 /// The five cases of the accepted prototype's corner table (#786's report), each with its
 /// corners as the report prints them, to two decimals: TL, TR, BR, BL.
-fn prototype_cases() -> Vec<(&'static str, Transform, [(f64, f64); 4])> {
+/// One case: its name, its transform, and the four corners the report prints.
+type Case = (&'static str, Transform, [(f64, f64); 4]);
+
+fn prototype_cases() -> Vec<Case> {
     let mut rotated = transform(640.0, 360.0, (0.5, 0.5), Some(turned(40.0, -25.0, 1000.0)));
     rotated.rotation = 30.0;
     rotated.scale = (1.3, 0.8);
