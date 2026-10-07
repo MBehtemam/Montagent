@@ -1139,16 +1139,63 @@ set `\"miter\"`{/missing}.",
         sets: &[Document],
     },
     CheckSpec {
-        // ADR-0158 §3. Refuse: dropping the cap and opening the path are both fixes, and
-        // which was meant is the author's.
+        // ADR-0158 §3. Refuse: dropping the cap, opening the path and dashing it are all
+        // fixes, and which was meant is the author's. It names `closed` and `stroke_dash`,
+        // because an edit to either can make a cap draw or stop drawing.
         code: "E-STROKE-CAP-UNDRAWN",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0158",
         template: "`{element}`.stroke_cap: a `\"{cap}\"` cap draws nowhere, because the path is \
-`closed` and a cap draws only at an open path's two ends. Drop `stroke_cap`, or set `closed` \
-to false.",
+`closed` and has no `stroke_dash`, and a cap draws only at an open path's two ends and at each \
+dash's ends. Drop `stroke_cap`, set `closed` to false, or add a `stroke_dash`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5. Refuse: whether the doubled list or a shorter one was meant is the
+        // author's.
+        code: "E-DASH-SHAPE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash: {?odd}it has {count} entries, an odd number; the \
+format does not repeat an odd list as SVG does, so write the doubled list out{/odd}{!odd}its \
+entries add up to 0, so there is no pattern to repeat{/odd}. A pattern alternates dash, gap, \
+dash, gap, starting with a dash.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5. Refuse: a round cap, a square cap and a longer dash each draw
+        // something different, and which was meant is the author's.
+        code: "E-DASH-ZERO-BUTT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash[{index}]: a zero-length dash draws nothing under a \
+butt cap. {?shape}A `{kind}`'s dash ends are always butt; draw dots with a `path` with \
+`\"stroke_cap\": \"round\"`{/shape}{!shape}Set `stroke_cap` to `\"round\"` for a dot, or \
+`\"square\"` for a square{/shape}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5, which makes it an error and names no code for it. Advise: the offset
+        // moves nothing, so dropping it changes nothing drawn.
+        code: "E-DASH-OFFSET-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash_offset: there is no `stroke_dash` for it to move. \
+Drop it, or add a `stroke_dash`.",
         status: Live,
         census: None,
         sets: &[Document],

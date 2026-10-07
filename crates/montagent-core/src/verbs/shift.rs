@@ -723,6 +723,20 @@ fn split_list(
         }
     };
     match property.kind {
+        // A dash offset is refused where it is not already whole: rounding it would jump
+        // marching ants by a fraction of a pixel at the cut (ADR-0158 §5).
+        Kind::Integer if property.name == "stroke_dash_offset" => {
+            split_typed::<i64>(list, at, delta, |raw: f64| {
+                let rounded = raw.round();
+                match (raw - rounded).abs() < 1e-9 {
+                    true => Ok(rounded as i64),
+                    false => Err(refuse(format!(
+                        "a fractional dash offset ({})",
+                        round6(raw)
+                    ))),
+                }
+            })
+        }
         Kind::Integer => split_typed::<i64>(list, at, delta, |raw| bounded(raw).map(round_i64)),
         Kind::Number => split_typed::<f64>(list, at, delta, |raw| bounded(raw).map(round6)),
         Kind::Pair => split_typed::<Scale>(list, at, delta, |raw| Ok(round_scale(raw))),

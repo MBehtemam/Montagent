@@ -9,6 +9,10 @@
 //! Everything is asserted through the core verb API — seam 1 — against a project file, which
 //! is the only seam an agent can ever observe.
 
+// One `json!` literal writes every animatable property the schema publishes, which is deeper
+// than the macro's default recursion allows.
+#![recursion_limit = "256"]
+
 use montagent_core::Wire;
 use montagent_core::report::ExitCode;
 use montagent_core::verbs::query::{self, Ask};
@@ -602,7 +606,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 {"name": "visual", "layer": 0, "elements": [
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
-                     "stroke": "#FFFFFF", "stroke_width": 1, "radius": 2,
+                     "stroke": "#FFFFFF", "stroke_width": 1, "stroke_dash": [2, 1],
+                     "stroke_dash_offset": 1, "radius": 2,
                      "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0,
                      "effects": [{"name": "mask", "shape": "circle", "feather": 4},
                                  {"name": "shadow", "dx": 1, "dy": 1, "radius": 2,

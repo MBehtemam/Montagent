@@ -112,8 +112,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use montagent_render::canvas::{
-    Accumulation, Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape,
-    PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform,
+    Accumulation, Canvas, Dash, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect,
+    MaskShape, PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform,
 };
 use montagent_render::decode::Pace;
 
@@ -372,12 +372,23 @@ fn undrawable(detail: impl Into<String>) -> Finding {
     Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
 }
 
-/// A path's stroke join and cap as written (ADR-0158), through the one reading the reach is
-/// computed from. A `"miter"` with no limit — `validate`'s `E-STROKE-MITER-LIMIT`, which
-/// `render` refuses — is read as limit 1, as the reach reads it.
-fn stroke_style(element: &Value) -> StrokeStyle {
+/// A shape's dash pattern at `numerator / denominator` ms (ADR-0158 §5): the static list,
+/// and `stroke_dash_offset` through the one resolving function, wrapped by the canvas.
+/// `None` with no `stroke_dash`, or one `validate`'s `E-DASH-SHAPE` refuses.
+fn dash_at(element: &Value, numerator: i128, denominator: i128) -> Option<Dash> {
+    let pattern = crate::stroke::drawable_dash(element)?;
+    let offset =
+        animatable::number_read(element, "stroke_dash_offset", numerator, denominator, 0.0);
+    Dash::new(&pattern, offset)
+}
+
+/// A path's stroke join, cap and dash as written (ADR-0158), through the one reading the
+/// reach is computed from. A `"miter"` with no limit — `validate`'s `E-STROKE-MITER-LIMIT`,
+/// which `render` refuses — is read as limit 1, as the reach reads it.
+fn stroke_style(element: &Value, numerator: i128, denominator: i128) -> StrokeStyle {
     use montagent_render::canvas::{Cap, Join};
     StrokeStyle {
+        dash: dash_at(element, numerator, denominator),
         join: match crate::stroke::join(element) {
             crate::stroke::Join::Round => Join::Round,
             crate::stroke::Join::Bevel => Join::Bevel,
@@ -396,7 +407,9 @@ fn stroke_style(element: &Value) -> StrokeStyle {
 /// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
 /// `at` through `at + out`, then the next vertex's `at + in`, to that `at`; on a closed path a
 /// last segment back to the first vertex, then a close. A missing handle is a zero offset.
-fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
+///
+/// `query --at` measures this very outline for a dashed path's length (ADR-0158 §7).
+pub(crate) fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
     let Some(first) = vertices.first() else {
         return Vec::new();
     };
@@ -1630,6 +1643,7 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
+            dash_at(element, self.t.0, self.t.1).as_ref(),
             self.clip(element),
             &effects,
         );
@@ -1694,7 +1708,7 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
-            stroke_style(element),
+            stroke_style(element, self.t.0, self.t.1),
             self.clip(element),
             &effects,
         );

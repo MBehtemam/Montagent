@@ -374,6 +374,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.center",
             "stroke.radius",
             "stroke_width",
+            "stroke_dash_offset",
             "radius",
             "scale",
             "rotation",
@@ -398,6 +399,7 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.center",
             "stroke.radius",
             "stroke_width",
+            "stroke_dash_offset",
             "scale",
             "rotation",
             "opacity"

@@ -2169,14 +2169,28 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
-    // ADR-0158 §7: a path's inset and the reach factor it came from.
+    // ADR-0158 §7: a path's inset and the reach factor it came from, and a dashed shape's
+    // raw offset with its informative outline length.
     if let Some(stroke) = element.get("stroke").filter(|stroke| stroke.is_object()) {
-        cells.push(format!(
-            "inset {} (k {}: {})",
-            stroke["inset"],
-            stroke["reach_factor"].as_str().unwrap_or("?"),
-            stroke["reach_source"].as_str().unwrap_or("?"),
-        ));
+        if stroke.get("inset").is_some() {
+            cells.push(format!(
+                "inset {} (k {}: {})",
+                stroke["inset"],
+                stroke["reach_factor"].as_str().unwrap_or("?"),
+                stroke["reach_source"].as_str().unwrap_or("?"),
+            ));
+        }
+        let number = |value: f64| match value.fract() == 0.0 {
+            true => format!("{value:.0}"),
+            false => format!("{value}"),
+        };
+        if let Some(offset) = stroke["dash_offset"].as_f64() {
+            let mut cell = format!("dash_offset {}", number(offset));
+            if let Some(length) = stroke["outline_length"].as_f64() {
+                cell.push_str(&format!(" (outline {} px, informative)", number(length)));
+            }
+            cells.push(cell);
+        }
     }
     // ADR-0155: the field as written, shutter/samples, then the frame's moving or still.
     if let Some(blur) = element.get("motion_blur").filter(|blur| blur.is_object()) {

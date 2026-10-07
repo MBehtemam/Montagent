@@ -203,34 +203,91 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
-    /// A `path`'s stroke reach (ADR-0158 §7): the inset `m` its control points must keep
-    /// from the box's edges, and the reach factor `k` with where it came from. Absent on
-    /// every other type.
+    /// A shape's stroke (ADR-0158 §7): on a `path`, the inset `m` its control points must
+    /// keep from the box's edges and the reach factor `k` with where it came from; on a
+    /// dashed `path`, `rect` or `ellipse`, the resolved dash offset and the informative
+    /// outline length. Absent on every other type, and on an undashed `rect` or `ellipse`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stroke: Option<StrokeReach>,
 }
 
-/// What `query --at` reports of a path's stroke (ADR-0158 §7). The dash offset and the
-/// informative outline length of a dashed shape belong here too, with the dashes.
+/// What `query --at` reports of a shape's stroke (ADR-0158 §7).
 #[derive(Debug, Clone, Serialize)]
 pub struct StrokeReach {
     /// `m = ceil(k × w / 2)`, in box pixels: the margin ADR-0154's containment check keeps.
-    pub inset: i64,
+    /// A path's alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inset: Option<i64>,
     /// `k`: `1`, the miter limit, or `√2`.
-    pub reach_factor: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reach_factor: Option<String>,
     /// Where `k` came from: the miter limit, the square cap, or neither.
-    pub reach_source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reach_source: Option<String>,
+    /// `stroke_dash_offset` at the instant, **raw**: through the one resolving function, and
+    /// not wrapped into the pattern's period as the painter wraps it, so it matches what the
+    /// file says. `0` where a dashed shape writes none. Absent with no `stroke_dash`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dash_offset: Option<f64>,
+    /// The length of the outline the pattern runs along, by the painter's own outline and
+    /// Skia's path measure, to 0.01 px. Informative, not a contract: it is a measure of a
+    /// curve, not a number in the file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline_length: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline_length_note: Option<&'static str>,
 }
 
 impl StrokeReach {
-    fn of(element: &Value) -> StrokeReach {
-        let reach = crate::stroke::reach(element);
-        StrokeReach {
-            inset: reach.inset,
-            reach_factor: reach.source.factor(),
-            reach_source: reach.source.describe(),
+    /// `None` on a `rect` or `ellipse` with no dash pattern, which has nothing to report.
+    fn of(element: &Value, kind: &str, instant: i64) -> Option<StrokeReach> {
+        let reach = (kind == "path").then(|| crate::stroke::reach(element));
+        let dashed = crate::stroke::dash(element).is_some();
+        if reach.is_none() && !dashed {
+            return None;
         }
+        let outline_length = dashed
+            .then(|| outline_length(element, kind, instant))
+            .flatten()
+            .map(|length| (length * 100.0).round() / 100.0);
+        Some(StrokeReach {
+            inset: reach.map(|reach| reach.inset),
+            reach_factor: reach.map(|reach| reach.source.factor()),
+            reach_source: reach.map(|reach| reach.source.describe()),
+            dash_offset: dashed
+                .then(|| crate::animatable::number_at(element, "stroke_dash_offset", instant, 0.0)),
+            outline_length,
+            outline_length_note: outline_length
+                .map(|_| "informative, not a contract: the painter's own path measure, at 1:1"),
+        })
     }
+}
+
+/// The length of the outline a shape's dash pattern runs along at `instant`, from the very
+/// outline the painter strokes and Skia's own path measure (ADR-0158 §7), so `query`
+/// computes no second length. `None` where the element has no outline at the instant.
+fn outline_length(element: &Value, kind: &str, instant: i64) -> Option<f64> {
+    use montagent_render::canvas::{Extent, Shape};
+    let at = i128::from(instant);
+    if kind == "path" {
+        let Ok(crate::animatable::Resolved::Points(vertices)) =
+            crate::animatable::at(element, "points", instant)?
+        else {
+            return None;
+        };
+        let closed = element.get("closed").and_then(Value::as_bool) == Some(true);
+        let outline = crate::verbs::frame::outline_of(&vertices, closed);
+        return Some(montagent_render::canvas::path_outline_length(&outline));
+    }
+    let (width, height) = crate::animatable::painted_box(element, at, 1)?;
+    let shape = match kind {
+        "ellipse" => Shape::Ellipse,
+        _ => Shape::Rect {
+            radius: crate::animatable::number_at(element, "radius", instant, 0.0),
+        },
+    };
+    let stroke_width = crate::animatable::number_at(element, "stroke_width", instant, 0.0);
+    montagent_render::canvas::shape_outline_length(shape, Extent { width, height }, stroke_width)
 }
 
 /// What `query --at` derives for a remapped `video` (ADR-0157 §5).
@@ -531,12 +588,13 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             }
             _ => (None, None),
         };
-        let (path, stroke) = match kind {
-            Some("path") => (
-                absolute_vertices(element, instant),
-                Some(StrokeReach::of(element)),
-            ),
-            _ => (None, None),
+        let path = match kind {
+            Some("path") => absolute_vertices(element, instant),
+            _ => None,
+        };
+        let stroke = match kind {
+            Some(kind @ ("path" | "rect" | "ellipse")) => StrokeReach::of(element, kind, instant),
+            _ => None,
         };
         present.push(Present {
             stagger,

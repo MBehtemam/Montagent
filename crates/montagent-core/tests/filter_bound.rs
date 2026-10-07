@@ -209,6 +209,10 @@ fn cases() -> Vec<(&'static str, Value, f64, f64)> {
         // ADR-0158 (#751): a miter's tip and a square cap's corner reach past half the width.
         ("path-miter10-zigzag-shadow-edge", json!({"type": "path", "width": 300, "height": 200, "closed": false, "stroke": "#FFFFFF", "stroke_width": 8, "stroke_join": "miter", "stroke_miter_limit": 10, "points": [{"at": [40, 160]}, {"at": [120, 40]}, {"at": [130, 160]}, {"at": [260, 40]}], "y": 1000, "effects": [shadow(10.0, -8.0, 12.0)]}), 1800.4, 13.7),
         ("path-square-cap-rotated-blur", json!({"type": "path", "width": 300, "height": 60, "closed": false, "stroke": "#3BA0FF", "stroke_width": 20, "stroke_cap": "square", "stroke_join": "bevel", "points": [{"at": [15, 30]}, {"at": [150, 45]}, {"at": [285, 30]}], "y": 540, "rotation": 45, "effects": [blur(6.0)]}), 960.4, 13.7),
+        // ADR-0158 §5 (#752): a dash pattern on the inset outline, and square-capped dashes.
+        ("rect-dashed-rotated-anisotropic-shadow", with(shape("rect", 300.0, 160.0), json!({"y": 540, "rotation": 20, "scale": [-1.5, 0.6], "radius": 30, "stroke": "#FF3B30", "stroke_width": 12, "stroke_dash": [30, 12, 6, 12], "stroke_dash_offset": -7, "effects": [shadow(10.0, -6.0, 16.0)]})), 960.4, 13.7),
+        ("ellipse-dashed-tiny-blur", with(shape("ellipse", 300.0, 200.0), json!({"y": 540, "stroke": "#FF3B30", "stroke_width": 20, "stroke_dash": [40, 20], "stroke_dash_offset": 13, "effects": [blur(2.0)]})), 960.4, 13.7),
+        ("path-square-dashes-closed-shadow-edge", json!({"type": "path", "width": 300, "height": 200, "closed": true, "stroke": "#FFFFFF", "stroke_width": 14, "stroke_cap": "square", "stroke_dash": [0, 30], "points": [{"at": [10, 10]}, {"at": [290, 10]}, {"at": [150, 190]}], "y": 1000, "effects": [shadow(0.0, 0.0, 3.0)]}), 1800.4, 13.7),
         // Grain (ADR-0156 §4, #725): a plain layer that keeps the bound and passes it on, as
         // a mask does. Its cells ride the transform, so it is crossed with every one.
         ("grain-then-blur", with(shape("rect", 300.0, 200.0), json!({"y": 540, "fill": linear(30.0), "effects": [grain(7, 0.3, 2, true), blur(12.0)]})), 960.4, 13.7),
