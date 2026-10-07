@@ -748,6 +748,14 @@ other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fract
 [ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
 _Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
 
+**Master stage**:
+The one processing stage on the summed mix of the whole project, written as the optional
+top-level `master`. It is not a track and not a bus: it holds a small closed set, a loudness
+target (`target_lufs`) the renderer reaches with one measured gain, and a true-peak ceiling
+(`ceiling_dbtp`). With no `master`, the mix is left exactly as summed. Effects attach to
+elements and to the master stage, never to tracks.
+_Avoid_: mix (the summing itself), bus, master track, output (the destination path)
+
 **Gap**:
 A stretch of a track with no element in it. Gaps are legal and ordinary — the
 silence between two narration lines is a gap. A gap is never an error, which is
