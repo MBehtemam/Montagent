@@ -5,6 +5,10 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by [ADR-0169](./0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md)**: the "Audio effects" boundary marker is discharged.
+> Audio effects are `audio_effects: [...]`, a separate ordered list on `audio` and `video`
+> elements, in the same `{name, ...params}` shape; no member is shared with `effects`.
+
 > **Amended by [ADR-0167](./0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)**: the "3D / perspective distortion" refusal is
 > withdrawn for a per-element projection. `swivel`, `tilt` and `perspective` join the
 > transform, not `effects`; an element may be projected, never placed. A camera, depth
