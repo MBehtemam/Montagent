@@ -1,0 +1,23 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#14161C",
+  "duration": 3000,
+  "output": "out/07-project-then-rotate.mp4",
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"ghost","type":"image","start":0,"end":3000,"source":"media/cards.jpg","x":640,"y":360,"width":400,"height":250,"fit":"literal","scale":[{"t":0,"v":[1,1]},{"t":3000,"v":[1.4,0.8],"ease":"linear"}],"rotation":[{"t":0,"v":0},{"t":3000,"v":90,"ease":"linear"}],"opacity":0.25}
+      ]
+    },
+    {
+      "name": "t1",
+      "layer": 1,
+      "elements": [
+        {"id":"card","type":"image","start":0,"end":3000,"source":"media/cards.jpg","x":640,"y":360,"width":400,"height":250,"fit":"literal","scale":[{"t":0,"v":[1,1]},{"t":3000,"v":[1.4,0.8],"ease":"linear"}],"rotation":[{"t":0,"v":0},{"t":3000,"v":90,"ease":"linear"}],"swivel":50,"perspective":800}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#8E97AA",
+  "duration": 3000,
+  "output": "out/05-grain-directional.mp4",
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"floor","type":"rect","start":0,"end":3000,"x":640,"y":620,"width":1280,"height":200,"fill":"#5D6577"}
+      ]
+    },
+    {
+      "name": "t1",
+      "layer": 1,
+      "elements": [
+        {"id":"card","type":"image","start":0,"end":3000,"source":"media/cards.jpg","x":640,"y":360,"width":520,"height":325,"fit":"literal","swivel":[{"t":0,"v":-40},{"t":3000,"v":40,"ease":"linear"}],"tilt":[{"t":0,"v":25},{"t":1500,"v":-15,"ease":"ease-in-out"},{"t":3000,"v":25,"ease":"ease-in-out"}],"perspective":1100,"effects":[{"name":"mask","shape":"rect","radius":36},{"name":"shadow","dx":18,"dy":26,"radius":24,"color":"#000000","opacity":0.75},{"name":"grain","seed":7,"amount":0.18,"size":3,"mono":true},{"name":"directional_blur","angle":0,"length":24}]}
+      ]
+    }
+  ]
+}

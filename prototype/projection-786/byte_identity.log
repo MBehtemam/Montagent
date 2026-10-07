@@ -1,0 +1,313 @@
+running 3 tests
+
+## byte_identity_blur_shadow_mask_card
+04-blur-shadow-mask.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 180
+  04-blur-shadow-mask.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 4 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 6 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 7 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 8 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 9 C=30 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 2 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 2 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C=30 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C=30 hint=off hinted=   0: IDENTICAL
+ok
+
+## byte_identity_blur_shadow_mask_card_1080p
+tmp-04-1080.montagent.json: baseline one painter, hint on: 90 frames of 6220800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 180
+  tmp-04-1080.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 1 C= 1 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 1 C= 7 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 2 C= 1 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 2 C= 7 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 3 C= 1 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 3 C= 7 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 6 C= 1 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 6 C= 1 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K= 6 C= 7 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K= 6 C= 7 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K=10 C= 1 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  tmp-04-1080.montagent.json K=10 C= 7 hint=on  hinted= 180: IDENTICAL
+  tmp-04-1080.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+ok
+
+## byte_identity_every_scene
+01-card-flip.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 70, away/edge 91, eye-refused 0, hinted layers 0
+  01-card-flip.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  01-card-flip.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+02-door-swing.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 71, away/edge 0, eye-refused 0, hinted layers 0
+  02-door-swing.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  02-door-swing.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+03-tilted-screen.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 0
+  03-tilted-screen.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  03-tilted-screen.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+04-blur-shadow-mask.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 180
+  04-blur-shadow-mask.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 1 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 7 hint=on  hinted= 180: IDENTICAL
+  04-blur-shadow-mask.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+05-grain-directional.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 90
+  05-grain-directional.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 1 C= 1 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 1 C= 7 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 2 C= 1 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 2 C= 7 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 3 C= 1 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 3 C= 7 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 5 C= 1 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K= 5 C= 7 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K=10 C= 1 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  05-grain-directional.montagent.json K=10 C= 7 hint=on  hinted=  90: IDENTICAL
+  05-grain-directional.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+06-text-and-path.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 180, away/edge 0, eye-refused 0, hinted layers 0
+  06-text-and-path.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  06-text-and-path.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+07-project-then-rotate.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 0
+  07-project-then-rotate.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  07-project-then-rotate.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+08-motion-blur-flip.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 96, away/edge 195, eye-refused 0, hinted layers 0
+  08-motion-blur-flip.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  08-motion-blur-flip.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+09-eye-bound.montagent.json: baseline one painter, hint on: 90 frames of 2764800 bytes; projected paints 90, away/edge 0, eye-refused 0, hinted layers 0
+  09-eye-bound.montagent.json K=1 (verb thread) hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 1 C= 1 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 1 C= 1 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 1 C= 7 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 1 C= 7 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 2 C= 1 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 2 C= 1 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 2 C= 7 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 2 C= 7 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 3 C= 1 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 3 C= 1 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 3 C= 7 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 3 C= 7 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 5 C= 1 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 5 C= 1 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 5 C= 7 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K= 5 C= 7 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K=10 C= 1 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K=10 C= 1 hint=off hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K=10 C= 7 hint=on  hinted=   0: IDENTICAL
+  09-eye-bound.montagent.json K=10 C= 7 hint=off hinted=   0: IDENTICAL
+ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 324.82s

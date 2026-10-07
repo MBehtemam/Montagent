@@ -2156,6 +2156,24 @@ impl<'a> Painter<'a> {
             } else {
                 blend_of(element)
             },
+            // Prototype #786 (ADR-0167): projected only where `perspective` is written and
+            // an angle is; an absent `perspective` is `validate`'s error, painted flat here.
+            projection: match (
+                element.get("swivel").is_some() || element.get("tilt").is_some(),
+                element.get("perspective").is_some(),
+            ) {
+                (true, true) => Some(montagent_render::canvas::Projection {
+                    swivel: geometry::number_at::<f64>(element, "swivel", self.t, 0.0),
+                    tilt: geometry::number_at::<f64>(element, "tilt", self.t, 0.0),
+                    perspective: geometry::number_at::<f64>(
+                        element,
+                        "perspective",
+                        self.t,
+                        f64::INFINITY,
+                    ),
+                }),
+                _ => None,
+            },
         }
     }
 

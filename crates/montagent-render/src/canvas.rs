@@ -134,6 +134,155 @@ pub struct Transform {
     /// transform property, and static, but carried here beside `opacity` because the two
     /// are applied together by the one layer the element is composited through.
     pub blend: Blend,
+    /// Prototype #786 (ADR-0167): the element is drawn flat into a layer with its effects
+    /// and mask, and the layer is projected about `origin`. `None`, or both angles at 0,
+    /// paints exactly as before.
+    pub projection: Option<Projection>,
+}
+
+/// ADR-0167's three numbers at one instant (prototype #786).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Projection {
+    /// Degrees about the vertical axis; positive sends the right edge away (CSS `rotateY`).
+    pub swivel: f64,
+    /// Degrees about the horizontal axis; positive sends the top edge away (CSS `rotateX`).
+    pub tilt: f64,
+    /// The eye's distance from the plane, in px (CSS `perspective`).
+    pub perspective: f64,
+}
+
+/// Which way a projected plane faces the eye (ADR-0167 §4, §7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Facing {
+    Front,
+    Away,
+    Edge,
+}
+
+impl Projection {
+    /// Whether this projection changes anything: an angle away from 0 (ADR-0167 §1).
+    pub fn active(&self) -> bool {
+        self.swivel != 0.0 || self.tilt != 0.0
+    }
+
+    /// The facing, decided in degree space so that exactly 90° is edge-on rather than a
+    /// sliver from `cos(90°) ≈ 6e-17`. The rotated normal's z is `cos(swivel)·cos(tilt)`
+    /// whichever order the two rotations compose in.
+    pub fn facing(&self) -> Facing {
+        // +1 front, -1 back, 0 edge, for one angle.
+        let side = |degrees: f64| {
+            let a = degrees.rem_euclid(360.0);
+            if a == 90.0 || a == 270.0 {
+                0
+            } else if !(90.0..=270.0).contains(&a) {
+                1
+            } else {
+                -1
+            }
+        };
+        match side(self.swivel) * side(self.tilt) {
+            0 => Facing::Edge,
+            1 => Facing::Front,
+            _ => Facing::Away,
+        }
+    }
+
+    /// The 3×3 projective map of origin-relative element coordinates (z = 0) to
+    /// origin-relative picture coordinates: CSS `perspective(d) rotateX(tilt)
+    /// rotateY(swivel)` with the z row dropped — the swivel acts on the element first
+    /// (a guess: ADR-0167 does not order the two angles). Row-major, f64.
+    pub fn matrix(&self) -> [[f64; 3]; 3] {
+        let (ss, cs) = self.swivel.to_radians().sin_cos();
+        let (st, ct) = self.tilt.to_radians().sin_cos();
+        let d = self.perspective;
+        [
+            [cs, 0.0, 0.0],
+            [ss * st, ct, 0.0],
+            [ss * ct / d, -st / d, 1.0],
+        ]
+    }
+
+    /// Map one origin-relative point through [`Projection::matrix`].
+    pub fn apply(&self, (x, y): (f64, f64)) -> (f64, f64) {
+        let m = self.matrix();
+        let w = m[2][0] * x + m[2][1] * y + m[2][2];
+        (
+            (m[0][0] * x + m[0][1] * y + m[0][2]) / w,
+            (m[1][0] * x + m[1][1] * y + m[1][2]) / w,
+        )
+    }
+}
+
+/// The reach-widened box an element's flat layer covers, in element units, as
+/// `(left, top, right, bottom)` around the declared box `(0, 0, w, h)` (ADR-0167 §5):
+/// each effect's declared reach summed in list order. A guess at "declared reach":
+/// blur and glow ⌈3σ⌉; a shadow its offset plus ⌈3σ⌉ on the side it falls to; a directional blur half its length along its angle; every other member none.
+pub fn reach_box(extent: Extent, effects: &[Effect]) -> (f64, f64, f64, f64) {
+    let (mut l, mut t, mut r, mut b) = (0.0_f64, 0.0_f64, extent.width, extent.height);
+    for effect in effects {
+        match *effect {
+            Effect::Blur { radius } | Effect::Glow { radius, .. } => {
+                let k = (3.0 * f64::from(sigma(radius))).ceil();
+                (l, t, r, b) = (l - k, t - k, r + k, b + k);
+            }
+            Effect::Shadow { dx, dy, radius, .. } => {
+                let k = (3.0 * f64::from(sigma(radius))).ceil();
+                (l, t, r, b) = (
+                    l.min(l + dx - k),
+                    t.min(t + dy - k),
+                    r.max(r + dx + k),
+                    b.max(b + dy + k),
+                );
+            }
+            Effect::DirectionalBlur { angle, length } => {
+                let (rx, ry) = named::directional_reach(angle, length);
+                let (rx, ry) = (f64::from(rx), f64::from(ry));
+                (l, t, r, b) = (l - rx, t - ry, r + rx, b + ry);
+            }
+            _ => {}
+        }
+    }
+    (l, t, r, b)
+}
+
+/// The smallest legal eye distance's bound r (ADR-0167 §5): the distance from the origin
+/// point to the farthest corner of the reach-widened box, in element units.
+pub fn eye_bound(extent: Extent, origin: (f64, f64), effects: &[Effect]) -> f64 {
+    let (l, t, r, b) = reach_box(extent, effects);
+    let (ox, oy) = (origin.0 * extent.width, origin.1 * extent.height);
+    [(l, t), (r, t), (r, b), (l, b)]
+        .iter()
+        .map(|(x, y)| ((x - ox).powi(2) + (y - oy).powi(2)).sqrt())
+        .fold(0.0, f64::max)
+}
+
+/// The four frame-space corners of the reach-widened box, projected about `origin` and
+/// carried through `scale`, `rotation` and `x`/`y` (ADR-0167 §6–§7), in the box's order:
+/// top-left, top-right, bottom-right, bottom-left. With no active projection, the plain
+/// transform's corners.
+pub fn projected_corners(
+    extent: Extent,
+    transform: &Transform,
+    effects: &[Effect],
+) -> [(f64, f64); 4] {
+    let (l, t, r, b) = reach_box(extent, effects);
+    let (ox, oy) = (
+        transform.origin.0 * extent.width,
+        transform.origin.1 * extent.height,
+    );
+    let (sin, cos) = transform.rotation.to_radians().sin_cos();
+    [(l, t), (r, t), (r, b), (l, b)].map(|(x, y)| {
+        let q = (x - ox, y - oy);
+        let (px, py) = match transform.projection {
+            Some(p) if p.active() => p.apply(q),
+            _ => q,
+        };
+        let (sx, sy) = (px * transform.scale.0, py * transform.scale.1);
+        (
+            transform.x + sx * cos - sy * sin,
+            transform.y + sx * sin + sy * cos,
+        )
+    })
 }
 
 /// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
@@ -1781,11 +1930,28 @@ impl Canvas {
             canvas.rotate(transform.rotation as f32, None);
         }
         canvas.scale((transform.scale.0 as f32, transform.scale.1 as f32));
-        canvas.translate((
-            (-transform.origin.0 * extent.width) as f32,
-            (-transform.origin.1 * extent.height) as f32,
-        ));
-        Canvas::through(canvas, extent, effects, draw);
+        let force = proto786::FORCE_FLAT.load(std::sync::atomic::Ordering::Relaxed);
+        match transform.projection.filter(|p| p.active() || force) {
+            None => {
+                canvas.translate((
+                    (-transform.origin.0 * extent.width) as f32,
+                    (-transform.origin.1 * extent.height) as f32,
+                ));
+                Canvas::through(canvas, extent, effects, draw);
+            }
+            Some(projection) => {
+                let base = self.base;
+                projected(
+                    canvas,
+                    extent,
+                    transform,
+                    projection,
+                    base,
+                    effects,
+                    &draw,
+                );
+            }
+        }
         if layered {
             canvas.restore();
         }
@@ -1825,6 +1991,12 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
+        // Prototype #786: no effect, bounds hint, grain plan or directional crop ever runs
+        // under a perspective matrix (ADR-0167 §3).
+        assert!(
+            !canvas.local_to_device_as_3x3().has_perspective(),
+            "an effect chain under a perspective matrix"
+        );
         // A `grain` at `amount: 0` is no member at all, rather than a layer that changes
         // nothing: the identity paints the bytes of the list without it (ADR-0156).
         let effects: Vec<Effect> = effects
@@ -1984,6 +2156,122 @@ impl Canvas {
             scale,
         })
     }
+}
+
+/// Transparent layer pixels kept around a projected element's flat layer, so its edge is a
+/// mipmapped fade into transparent rather than the image's clamped border.
+const FLAT_PAD: f64 = 2.0;
+
+/// Prototype #786 counters, process-wide so a test can read them across painter threads.
+#[doc(hidden)]
+pub mod proto786 {
+    use std::sync::atomic::{AtomicBool, AtomicUsize};
+    /// Flat layers drawn through a projection.
+    pub static PROJECTED: AtomicUsize = AtomicUsize::new(0);
+    /// Projected paints skipped because the element faced away or was edge-on.
+    pub static AWAY: AtomicUsize = AtomicUsize::new(0);
+    /// Projected paints skipped because `perspective` did not exceed the eye bound.
+    pub static EYE_REFUSED: AtomicUsize = AtomicUsize::new(0);
+    /// Blur/shadow/glow layers the bounds hint bounded (any matrix).
+    pub static HINTED: AtomicUsize = AtomicUsize::new(0);
+    /// Force the flat-layer path even with both angles at 0, to measure what it changes.
+    pub static FORCE_FLAT: AtomicBool = AtomicBool::new(false);
+}
+
+/// Draw one element through ADR-0167's projection (prototype #786). `canvas` holds
+/// translate · rotate · scale already.
+///
+/// 1. Facing away or edge-on draws nothing (§4). A `perspective` at or inside the eye
+///    bound (§5) draws nothing either: `validate` would refuse it.
+/// 2. The element is drawn **flat**, with its effects and mask in list order, on a raster
+///    surface of its own covering the reach-widened box (§5) plus [`FLAT_PAD`], at
+///    `|scale|` × the canvas's base scale layer pixels per element unit, under a matrix
+///    that is a translation and a positive scale only. So the bounds hint, `grain::plan`
+///    and `crop_directional` never see a perspective matrix.
+/// 3. That layer's snapshot is drawn once on `canvas` through PROJECT · origin offset,
+///    sampled by `sampling_for` (ADR-0132), antialiased at its edge.
+fn projected(
+    canvas: &skia_safe::Canvas,
+    extent: Extent,
+    transform: &Transform,
+    projection: Projection,
+    base: (f32, f32),
+    effects: &[Effect],
+    draw: &dyn Fn(&skia_safe::Canvas),
+) {
+    if projection.facing() != Facing::Front {
+        proto786::AWAY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        return;
+    }
+    if projection.perspective <= eye_bound(extent, transform.origin, effects) {
+        proto786::EYE_REFUSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        return;
+    }
+    let (kx, ky) = (
+        transform.scale.0.abs() * f64::from(base.0),
+        transform.scale.1.abs() * f64::from(base.1),
+    );
+    if kx <= 0.0 || ky <= 0.0 || !kx.is_finite() || !ky.is_finite() {
+        return;
+    }
+    let (l, t, r, b) = reach_box(extent, effects);
+    // Whole layer pixels on every side, so the box's top-left lands at a whole-pixel
+    // translation of the flat surface.
+    let pad_l = (-l * kx).ceil() + FLAT_PAD;
+    let pad_t = (-t * ky).ceil() + FLAT_PAD;
+    let width = (pad_l + (r * kx).ceil() + FLAT_PAD) as i32;
+    let height = (pad_t + (b * ky).ceil() + FLAT_PAD) as i32;
+    let info = ImageInfo::new(
+        ISize::new(width, height),
+        ColorType::RGBA8888,
+        AlphaType::Premul,
+        None,
+    );
+    let Some(mut flat) = surfaces::raster(&info, None, None) else {
+        return;
+    };
+    {
+        let layer = flat.canvas();
+        layer.clear(Color::TRANSPARENT);
+        layer.translate((pad_l as f32, pad_t as f32));
+        layer.scale((kx as f32, ky as f32));
+        // The flat element: everything outside the reach-widened box is cut, so the
+        // projected quadrilateral of §6 contains everything the element paints.
+        layer.clip_rect(
+            Rect::from_ltrb(l as f32, t as f32, r as f32, b as f32),
+            None,
+            Some(true),
+        );
+        Canvas::through(layer, extent, effects, draw);
+    }
+    let image = flat.image_snapshot();
+
+    let m = projection.matrix();
+    let project = Matrix::new_all(
+        m[0][0] as f32,
+        m[0][1] as f32,
+        m[0][2] as f32,
+        m[1][0] as f32,
+        m[1][1] as f32,
+        m[1][2] as f32,
+        m[2][0] as f32,
+        m[2][1] as f32,
+        m[2][2] as f32,
+    );
+    canvas.save();
+    canvas.concat(&project);
+    canvas.translate((
+        (-transform.origin.0 * extent.width) as f32,
+        (-transform.origin.1 * extent.height) as f32,
+    ));
+    canvas.scale(((1.0 / kx) as f32, (1.0 / ky) as f32));
+    canvas.translate((-pad_l as f32, -pad_t as f32));
+    let to_device = canvas.local_to_device_as_3x3();
+    let mut paint = SkPaint::default();
+    paint.set_anti_alias(true);
+    canvas.draw_image_with_sampling_options(&image, (0, 0), sampling_for(&to_device), Some(&paint));
+    canvas.restore();
+    proto786::PROJECTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Which of [`Canvas::text`]'s two passes is being painted.
@@ -2464,6 +2752,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2633,6 +2922,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
             },
             None,
             &[],
@@ -2961,6 +3251,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -3010,6 +3301,7 @@ mod tests {
             rotation,
             opacity: 1.0,
             blend: Blend::Normal,
+            projection: None,
         }
     }
 

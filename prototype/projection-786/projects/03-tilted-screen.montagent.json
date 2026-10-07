@@ -1,0 +1,16 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#14161C",
+  "duration": 3000,
+  "output": "out/03-tilted-screen.mp4",
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"screen","type":"video","start":0,"end":3000,"source":"media/clip.mp4","source_start":0,"source_end":3000,"x":640,"y":360,"width":640,"height":360,"fit":"literal","swivel":[{"t":0,"v":-30},{"t":3000,"v":30,"ease":"linear"}],"tilt":[{"t":0,"v":0},{"t":1500,"v":28,"ease":"ease-in-out"},{"t":3000,"v":0,"ease":"ease-in-out"}],"perspective":1100,"effects":[{"name":"mask","shape":"rect","radius":16}]}
+      ]
+    }
+  ]
+}

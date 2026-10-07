@@ -1,0 +1,23 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#14161C",
+  "duration": 3000,
+  "output": "out/02-door-swing.mp4",
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"frame","type":"rect","start":0,"end":3000,"x":430,"y":360,"origin":"center-left","width":420,"height":520,"fill":"#3A2A1A"}
+      ]
+    },
+    {
+      "name": "t1",
+      "layer": 1,
+      "elements": [
+        {"id":"door","type":"image","start":0,"end":3000,"source":"media/cards.jpg","x":440,"y":360,"origin":"center-left","width":400,"height":500,"fit":"literal","swivel":[{"t":300,"v":0},{"t":1500,"v":-75,"ease":"ease-in-out"},{"t":2700,"v":0,"ease":"ease-in-out"}],"perspective":900}
+      ]
+    }
+  ]
+}

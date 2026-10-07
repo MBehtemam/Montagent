@@ -211,6 +211,18 @@
               "description": "Degrees clockwise, and **never normalised into `[0,360)`** — `1080` is three turns,\nand a writer that wraps it silently renders one third of the motion.",
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -312,6 +324,18 @@
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
               "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
@@ -462,6 +486,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -576,6 +612,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -677,6 +725,18 @@
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
               "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {
@@ -799,6 +859,18 @@
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
             "rotation": {
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "swivel": {
+              "description": "Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right\nedge away (CSS `rotateY`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top\nedge away (CSS `rotateX`).",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).",
               "$ref": "#/$defs/Animatabledouble"
             },
             "opacity": {

@@ -555,6 +555,17 @@ pub struct Image {
     /// and a writer that wraps it silently renders one third of the motion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -605,6 +616,17 @@ pub struct Video {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -732,6 +754,17 @@ pub struct TextElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -926,6 +959,17 @@ pub struct Rect {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1002,6 +1046,17 @@ pub struct Ellipse {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1095,6 +1150,17 @@ pub struct PathElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the vertical axis, positive sends the right
+    /// edge away (CSS `rotateY`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): degrees about the horizontal axis, positive sends the top
+    /// edge away (CSS `rotateX`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// Prototype #786 (ADR-0167): the eye's distance in px (CSS `perspective`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

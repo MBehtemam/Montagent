@@ -144,7 +144,7 @@ pub use painters::Painting;
 #[doc(hidden)]
 pub use painters::{
     FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, fail_frames, force_painting,
-    tap_frames,
+    take_frame_bytes, tap_frame_bytes, tap_frames,
 };
 
 const TOOL: &str = "render";

@@ -1,0 +1,23 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#14161C",
+  "duration": 3000,
+  "output": "out/01-card-flip.mp4",
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"front","type":"image","start":0,"end":3000,"source":"media/cards.jpg","x":640,"y":360,"width":480,"height":300,"fit":"literal","swivel":[{"t":300,"v":0},{"t":2700,"v":180,"ease":"ease-in-out"}],"perspective":1200,"effects":[{"name":"mask","shape":"rect","radius":28}]}
+      ]
+    },
+    {
+      "name": "t1",
+      "layer": 1,
+      "elements": [
+        {"id":"back","type":"rect","start":0,"end":3000,"x":640,"y":360,"width":480,"height":300,"fill":{"gradient":"linear","angle":135,"stops":[{"offset":0,"color":"#2B5CE6"},{"offset":1,"color":"#9B2BE6"}]},"stroke":"#FFFFFF","stroke_width":10,"radius":28,"swivel":[{"t":300,"v":-180},{"t":2700,"v":0,"ease":"ease-in-out"}],"perspective":1200}
+      ]
+    }
+  ]
+}

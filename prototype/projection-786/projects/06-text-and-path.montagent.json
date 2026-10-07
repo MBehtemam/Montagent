@@ -1,0 +1,25 @@
+{
+  "frame": {"width": 1280, "height": 720},
+  "fps": 30,
+  "background": "#14161C",
+  "duration": 3000,
+  "output": "out/06-text-and-path.mp4",
+  "fonts": {"cinzel-bold": [{"file": "media/Cinzel-Bold.ttf"}]},
+  "fontVendor": {"media/Cinzel-Bold.ttf": {"licence": "OFL-1.1", "source": "google/fonts ofl/cinzel, instanced wght=700", "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+  "tracks": [
+    {
+      "name": "t0",
+      "layer": 0,
+      "elements": [
+        {"id":"title","type":"text","start":0,"end":3000,"x":380,"y":360,"width":420,"height":200,"font":"cinzel-bold","size":150,"color":"#E3C067","align":"center","runs":[{"text":"SPY"}],"swivel":[{"t":0,"v":-60},{"t":1500,"v":60,"ease":"ease-in-out"},{"t":3000,"v":-60,"ease":"ease-in-out"}],"perspective":900}
+      ]
+    },
+    {
+      "name": "t1",
+      "layer": 1,
+      "elements": [
+        {"id":"star","type":"path","start":0,"end":3000,"x":920,"y":360,"width":320,"height":300,"closed":true,"fill":"#FFCC00","stroke":"#FFFFFF","stroke_width":6,"points":[{"at":[160,10]},{"at":[224,208]},{"at":[56,86]},{"at":[264,86]},{"at":[96,208]}],"tilt":[{"t":0,"v":-55},{"t":1500,"v":55,"ease":"ease-in-out"},{"t":3000,"v":-55,"ease":"ease-in-out"}],"perspective":900}
+      ]
+    }
+  ]
+}

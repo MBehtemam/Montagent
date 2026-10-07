@@ -119,6 +119,9 @@ pub(super) fn hints(
                 *hint = plan.pinned(output);
                 #[cfg(test)]
                 HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
+                if hint.is_some() {
+                    super::proto786::HINTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
                 content = output;
             }
             // Its own layer stays unhinted and passes the bound on (#722): a hint on it

@@ -204,8 +204,31 @@ impl Drop for FrameTap {
     }
 }
 
+thread_local! {
+    /// Prototype #786: every frame's raw RGB bytes, where a byte tap is open.
+    static BYTES: RefCell<Option<Vec<Vec<u8>>>> = const { RefCell::new(None) };
+}
+
+/// Prototype #786: record every frame's raw RGB bytes at the encoder's input on this thread
+/// until [`take_frame_bytes`] takes them. For byte-for-byte comparisons, not hashes.
+#[doc(hidden)]
+pub fn tap_frame_bytes() {
+    BYTES.with(|cell| *cell.borrow_mut() = Some(Vec::new()));
+}
+
+/// Prototype #786: the bytes recorded since [`tap_frame_bytes`], closing the tap.
+#[doc(hidden)]
+pub fn take_frame_bytes() -> Vec<Vec<u8>> {
+    BYTES.with(|cell| cell.borrow_mut().take().unwrap_or_default())
+}
+
 /// Hash `rgb` into this thread's tap, where one is open.
 pub(super) fn tapped(rgb: &[u8]) {
+    BYTES.with(|cell| {
+        if let Some(frames) = cell.borrow_mut().as_mut() {
+            frames.push(rgb.to_vec());
+        }
+    });
     TAP.with(|cell| {
         if let Some(hashes) = cell.borrow_mut().as_mut() {
             let mut hasher = DefaultHasher::new();
