@@ -8,6 +8,10 @@ amends: 0040 (writes the `...shape params` ellipsis it left unwritten, and state
 > **Amended by [ADR-0152](0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md)**: the parameter set
 > is the rect, `radius`, `invert` and `feather`; the rect is still the one shape-independent set.
 
+> **Amended by [ADR-0163](0163-a-mask-takes-a-closed-path-inline-measured-from-its-own-rect.md)**: `shape` gains `path`, which reads the rect as its
+> declared box and gates a second field, `points`, beside `radius`. The rect is still shared by
+> every shape.
+
 **Ticket:** [#185](https://github.com/MBehtemam/Montagent/issues/185), graduated from
 [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md).
 
