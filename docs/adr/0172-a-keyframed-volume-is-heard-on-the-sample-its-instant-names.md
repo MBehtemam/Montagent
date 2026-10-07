@@ -65,9 +65,11 @@ On the dev's M1 Pro, `ffmpeg` alone, the mix chain encoded to AAC 160k:
 | 6-min element, fade on every 30 fps frame (10,799 commands) | 8.2 s | ≈125 s | 5.4 s |
 | 6-min element, 1 s fade in and out (61 commands) | 5.4–5.7 s | — | 5.2–5.9 s |
 
-The machine was loaded (1-minute load 4–7), so these are paired runs, not ADR-0142 protocol
-timings. They show the shape. The pieces graph is no slower than today's on the worst case,
-and the common case is within noise.
+These runs mixed the element with a second input through `amix`, as `render` does. The check
+script runs the element alone and measured the worst case at 9.4 s today, 9.5 s with pieces
+and 123.6 s with one `asendcmd`. The machine was loaded (1-minute load 4–11), so these are
+paired runs, not ADR-0142 protocol timings. They show the shape. The pieces graph is no
+slower than today's on the worst case, and the common case is within noise.
 
 ## Evidence
 
