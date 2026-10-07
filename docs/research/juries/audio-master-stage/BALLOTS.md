@@ -6,7 +6,7 @@ packet blind, with none of the Judge's recommendations in it, and was asked to j
 agents actually work with Montagent. The packets are [`QUESTION-ROUND-1.md`](QUESTION-ROUND-1.md)
 and [`QUESTION-ROUND-2.md`](QUESTION-ROUND-2.md). Votes are exact. Juror 3's ballots are verbatim; Jurors 1 and 2 are lightly condensed from the full ballots, which were reported verbatim to the owner in session. Both times the
 owner ruled with the Judge's read. The decision is
-[ADR-0171](../../../adr/0171-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md).
+[ADR-0172](../../../adr/0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md).
 
 ## Round 1 (Q1 to Q4)
 

@@ -754,7 +754,7 @@ top-level `master`. It is not a track and not a bus: it holds a small closed set
 target (`target_lufs`) the renderer reaches with one measured gain, and a true-peak ceiling
 (`ceiling_dbtp`). With no `master`, the mix is left exactly as summed. Effects attach to
 elements and to the master stage, never to tracks.
-([ADR-0171](docs/adr/0171-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md))
+([ADR-0172](docs/adr/0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md))
 _Avoid_: mix (the summing itself), bus, master track, output (the destination path)
 
 **Gap**:
