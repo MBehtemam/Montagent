@@ -100,6 +100,27 @@ pub fn peak_db(path: &Path, from: f64, to: f64) -> f64 {
         .unwrap_or(f64::NEG_INFINITY)
 }
 
+/// The file's audio as 48 kHz mono `f32` samples, from sample 0 of the stream — what a
+/// claim about *which sample* something happens at is read against.
+pub fn samples(path: &Path) -> Vec<f32> {
+    let tools = montagent_core::media::tools::resolve().expect("ffmpeg");
+    let out = Command::new(tools.ffmpeg)
+        .args(["-v", "error", "-i"])
+        .arg(path)
+        .args(["-vn", "-ac", "1", "-ar", "48000", "-f", "f32le", "-"])
+        .output()
+        .expect("run ffmpeg");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    out.stdout
+        .chunks_exact(4)
+        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+        .collect()
+}
+
 /// Where the audio crosses between speech and silence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Edge {

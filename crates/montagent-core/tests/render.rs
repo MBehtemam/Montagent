@@ -951,6 +951,68 @@ fn volume_speed_and_loop_go_through_the_mix() {
 }
 
 #[test]
+fn a_keyframed_volume_changes_on_the_sample_its_instant_names() {
+    if !has_ffprobe() {
+        return;
+    }
+    // A 1 kHz tone (48 samples a period, so the step lands on a zero crossing) from an AAC
+    // file, whose decoder hands the mix 1024-sample frames. The level steps 0.25 → 1.0 at
+    // frame 7 of 25 fps: 280 ms, sample 13440 — which is 896 samples short of the next
+    // 1024 boundary, so a command that waits for a frame to start is heard 18.7 ms late
+    // (the research for #797, `FFMPEG-FILTERS.md` §4.3).
+    let dir = tempdir(line!());
+    let tone = dir.join("tone.m4a");
+    let made = std::process::Command::new(
+        montagent_core::media::tools::resolve()
+            .expect("an ffmpeg")
+            .ffmpeg,
+    )
+    .args(["-hide_banner", "-loglevel", "error", "-y"])
+    .args(["-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=1"])
+    .args(["-c:a", "aac", "-b:a", "192k"])
+    .arg(&tone)
+    .status()
+    .expect("ffmpeg runs")
+    .success();
+    assert!(made);
+    let body = project(
+        r#""duration":1000,"output":"out/step.mp4","#,
+        &format!(
+            r##"{{"id":"tone","type":"audio","start":0,"end":1000,"source":"{}",
+                "source_start":0,"source_end":1000,
+                "volume":[{{"t":0,"v":0.25}},{{"t":280,"v":1.0,"ease":"step"}}]}}"##,
+            tone.display().to_string().replace('\\', "/")
+        ),
+    );
+    let path = write_project(&dir, "p.montagent.json", &body);
+    let json = rendered(&path, &full());
+    assert_eq!(json["render"]["mixed"], serde_json::json!(["tone"]));
+
+    // Read through an AAC encode and decode, so not to the sample: the level is the peak
+    // of the steady stretches either side, and the change is the first sample past their
+    // midpoint. The tone rises through it 5 samples after a zero crossing; anything within
+    // half a millisecond of 13440 is the step on its sample, and the defect is 896 late.
+    let pcm = common::media::samples(&dir.join("out/step.mp4"));
+    let peak = |range: std::ops::Range<usize>| {
+        pcm[range].iter().fold(0f32, |m, s| m.max(s.abs()))
+    };
+    let (low, high) = (peak(4_800..12_000), peak(19_200..40_000));
+    assert!(
+        high > 3.0 * low,
+        "the two levels are 12 dB apart: {low} then {high}"
+    );
+    let changed = (4_800..40_000)
+        .find(|&i| pcm[i].abs() > (low + high) / 2.0)
+        .expect("the level changes");
+    assert!(
+        (13_440..13_440 + 24).contains(&changed),
+        "the step at 280 ms is sample 13440; the level changed at sample {changed} \
+         ({:+} samples)",
+        changed as i64 - 13_440
+    );
+}
+
+#[test]
 fn a_video_elements_embedded_audio_is_the_same_volume_field() {
     if !has_ffprobe() {
         return;
