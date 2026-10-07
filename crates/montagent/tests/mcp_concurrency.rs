@@ -57,6 +57,26 @@ fn slow_project(dir: &Path, name: &str) -> PathBuf {
     path
 }
 
+/// A project that holds the encode slot for seconds even on a fast machine: a 1080p frame
+/// costs several times the 640x360 one, so the queue test's first render cannot finish
+/// between its first frame report and the second call's first heartbeat.
+fn slot_holding_project(dir: &Path, name: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.montagent.json"));
+    std::fs::write(
+        &path,
+        format!(
+            r##"{{"frame":{{"width":1920,"height":1080}},"fps":25,"background":"#000000",
+  "duration":10000,"output":"out/{name}.mp4",
+  "tracks":[{{"name":"only","layer":0,"elements":[
+    {{"id":"card","type":"rect","start":0,"end":10000,"x":960,"y":540,"width":600,
+      "height":300,"fill":"#FF0000"}}]}}]}}
+"##
+        ),
+    )
+    .expect("write project");
+    path
+}
+
 /// One line the server wrote to stdout, and when it arrived.
 struct Line {
     at: Instant,
@@ -171,6 +191,25 @@ impl Server {
             .collect()
     }
 
+    /// Read until this token's call reports its first frame: it has taken the encode slot,
+    /// since frames are only reported once the slot is held.
+    fn wait_until_encoding(&mut self, token: &str) {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while !self.progress(token).iter().any(|l| {
+            l.value["params"]["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("frames"))
+        }) {
+            assert!(
+                Instant::now() < deadline,
+                "the render with token {token} never started encoding"
+            );
+            if let Ok(line) = self.lines.recv_timeout(Duration::from_millis(100)) {
+                self.seen.push(line);
+            }
+        }
+    }
+
     fn stderr(&self) -> String {
         std::fs::read_to_string(&self.stderr).unwrap_or_default()
     }
@@ -269,13 +308,14 @@ fn a_second_render_waits_for_the_encode_slot_and_says_what_it_waits_behind() {
         return;
     }
     let dir = scratch_dir("render-behind-render");
-    let first = slow_project(&dir, "first").display().to_string();
+    let first = slot_holding_project(&dir, "first").display().to_string();
     let second = slow_project(&dir, "second").display().to_string();
     let mut server = Server::start(&dir);
 
     server.call(2, "render", json!({"project": first}), Some("a"));
-    // Let the first call take the slot before the second arrives.
-    std::thread::sleep(Duration::from_millis(300));
+    // The second arrives only once the first holds the slot, not after a guess at how long
+    // taking it takes.
+    server.wait_until_encoding("a");
     server.call(3, "render", json!({"project": second}), Some("b"));
     server.wait_for(2);
     server.wait_for(3);
