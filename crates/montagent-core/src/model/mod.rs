@@ -717,6 +717,15 @@ pub struct TextElement {
     /// ligatures off as a non-zero `letter_spacing` does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub units: Option<Units>,
+    /// prototype(#764): the one line bent along this curve, in ADR-0154's point vocabulary,
+    /// in integer pixels from the text's declared box's top-left (ADR-0161 §2). A guide,
+    /// never painted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<TextPath>,
+    /// prototype(#764): where the line sits along `path`, as a fraction of its length; `align`
+    /// names which point of the line sits there (ADR-0161 §5). Default 0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_offset: Option<Animatable<Fraction>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1003,6 +1012,16 @@ fn static_closed<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::
         ));
     }
     bool::deserialize(value).map_err(D::Error::custom)
+}
+
+/// prototype(#764): a text's own guide curve (ADR-0161 §2): `closed`, static, and `points`,
+/// animatable as one whole list.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextPath {
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    pub points: Animatable<Points>,
 }
 
 /// A pair of integer pixels: a vertex's `at`, or a handle's offset from its vertex.

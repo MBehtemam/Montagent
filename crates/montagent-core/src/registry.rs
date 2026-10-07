@@ -1052,8 +1052,8 @@ so `to` must paint above `from`.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-an {shape} path needs at least {least} vertices, and this value has {count}.",
+        template: "`{element}`.{field}{?record} in keyframe record {record} (`t` {t}){/record}: \
+on a `{kind}`, an {shape} path needs at least {least} vertices, and this value has {count}.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1066,8 +1066,8 @@ an {shape} path needs at least {least} vertices, and this value has {count}.",
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
+        template: "`{element}`.{field}{?record} in keyframe record {record} (`t` {t}){/record}: \
+on a `{kind}`, vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1080,7 +1080,7 @@ vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Dr
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points: keyframe record {record} (`t` {t}) differs from the \
+        template: "`{element}`.{field}: on a `{kind}`, keyframe record {record} (`t` {t}) differs from the \
 first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
 vertex count, and each vertex the same handles.",
         status: Live,
@@ -1098,11 +1098,42 @@ vertex count, and each vertex the same handles.",
         adr: "ADR-0154",
         // ADR-0158 §7's own example names `k` and where it came from, and says the bound is
         // worst-case, so an agent does not hunt for an overlap that is not there.
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+        template: "`{element}`.{field}{?record} in keyframe record {record} (`t` {t}){/record}: \
 vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
-[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box: inset \
-{inset} = ceil({k} × {width} / 2), from {source}. This bound is worst-case, not a measured \
-overlap.",
+[{inset}, {right}] × [{inset}, {bottom}]{?text} of this `text`: inset {derivation}. The inset \
+keeps a plain glyph sitting on the curve inside the box; it is a frame convention, not a \
+containment guarantee, and `measure` reports the bent line's ink.{/text}{!text} that keeps the \
+stroke inside the declared box: inset {inset} = ceil({k} × {width} / 2), from {source}. This \
+bound is worst-case, not a measured overlap.{/text}",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // prototype(#764), ADR-0161 §3. Refuse: whether to drop the break or split the
+        // line into a second text element is the author's.
+        code: "E-TEXT-PATH-BREAK",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.runs[{run}]: its text holds a line break, and a text carrying \
+`path` sets one line only. Remove the break, or put the second line in a second text element \
+with its own `path`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // prototype(#764), ADR-0161 §8. Advise: the field places nothing, so dropping it
+        // changes nothing drawn.
+        code: "E-TEXT-PATH-OFFSET-ORPHAN",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.path_offset: this text carries no `path`, so `path_offset` places \
+nothing. Drop it, or give the text a `path`.",
         status: Live,
         census: None,
         sets: &[Document],

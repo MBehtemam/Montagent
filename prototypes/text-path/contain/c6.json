@@ -1,0 +1,335 @@
+{
+ "frame": {
+  "width": 1700,
+  "height": 980
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c6-banner",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c6-banner",
+     "type": "text",
+     "start": 12000,
+     "end": 16000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 1100,
+     "height": 380,
+     "font": "brand",
+     "size": 64,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "WAVING BANNER"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "t": 12000,
+        "v": [
+         {
+          "at": [
+           64,
+           140
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           388,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           712,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           1036,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ]
+         }
+        ]
+       },
+       {
+        "t": 13000,
+        "v": [
+         {
+          "at": [
+           64,
+           240
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           388,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           712,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           1036,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ]
+         }
+        ],
+        "ease": "ease-in-out"
+       },
+       {
+        "t": 14000,
+        "v": [
+         {
+          "at": [
+           64,
+           140
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           388,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           712,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           1036,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ]
+         }
+        ],
+        "ease": "ease-in-out"
+       },
+       {
+        "t": 15000,
+        "v": [
+         {
+          "at": [
+           64,
+           240
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           388,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           712,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           1036,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ]
+         }
+        ],
+        "ease": "ease-in-out"
+       },
+       {
+        "t": 16000,
+        "v": [
+         {
+          "at": [
+           64,
+           140
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           388,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           712,
+           140
+          ],
+          "in": [
+           -130,
+           0
+          ],
+          "out": [
+           130,
+           0
+          ]
+         },
+         {
+          "at": [
+           1036,
+           240
+          ],
+          "in": [
+           -130,
+           0
+          ]
+         }
+        ],
+        "ease": "ease-in-out"
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.5
+    }
+   ]
+  }
+ ]
+}

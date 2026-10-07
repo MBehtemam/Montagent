@@ -37,12 +37,33 @@ struct Literal {
 
 pub fn check(document: &Loose, report: &mut Report) {
     for (track, element) in document.elements_in_tracks() {
-        if element.get("type").and_then(Value::as_str) != Some("path") {
+        // prototype(#764): the four errors fire on a text's `path` too (ADR-0161 §8), read off
+        // a stand-in that carries the text's box, its `path.closed` and `path.points`, and the
+        // text's `m` as its inset.
+        let is_text = crate::text_path::has_path(element);
+        if element.get("type").and_then(Value::as_str) != Some("path") && !is_text {
             continue;
         }
+        let stand_in;
+        let (element, field, kind) = if is_text {
+            let mut v = element.get("path").cloned().unwrap_or(Value::Null);
+            for key in ["id", "width", "height", "size", "runs", "stroke_width", "type"] {
+                if let Some(value) = element.get(key) {
+                    v[key] = value.clone();
+                }
+            }
+            stand_in = v;
+            (&stand_in, "path.points", "text")
+        } else {
+            (element, "points", "path")
+        };
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
         let mut push = |finding: Finding| {
-            let finding = finding.at_file(document.path()).at_element(&subject);
+            let finding = finding
+                .field("field", json!(field))
+                .field("kind", json!(kind))
+                .at_file(document.path())
+                .at_element(&subject);
             report.push(match track {
                 Some(track) => finding.at_track(track),
                 None => finding,
@@ -194,7 +215,8 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
         return Vec::new();
     };
     let reach = crate::stroke::reach(element);
-    let m = reach.inset;
+    let text = element.get("type").and_then(Value::as_str) == Some("text");
+    let m = if text { crate::text_path::inset(element) } else { reach.inset };
     let inside = |[x, y]: [i64; 2]| (m..=width - m).contains(&x) && (m..=height - m).contains(&y);
     let mut out = Vec::new();
     for (index, vertex) in literal.vertices.iter().enumerate() {
@@ -222,7 +244,13 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
                     .field("bottom", json!(height - m))
                     .field("k", json!(reach.source.factor()))
                     .field("width", json!(reach.width))
-                    .field("source", json!(reach.source.describe())),
+                    .field("source", json!(reach.source.describe()))
+                    .field("text", json!(text))
+                    .field("derivation", json!(if text {
+                        crate::text_path::derivation(element)
+                    } else {
+                        String::new()
+                    })),
                 literal,
             ));
         }

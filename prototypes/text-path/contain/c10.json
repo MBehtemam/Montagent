@@ -1,0 +1,141 @@
+{
+ "frame": {
+  "width": 1800,
+  "height": 900
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c10-grow",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c10-grow",
+     "type": "text",
+     "start": 12000,
+     "end": 16000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 1200,
+     "height": 300,
+     "font": "brand",
+     "size": 60,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "THE CURVE GROWS AND SHRINKS"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "t": 12000,
+        "v": [
+         {
+          "at": [
+           60,
+           200
+          ],
+          "out": [
+           60,
+           -60
+          ]
+         },
+         {
+          "at": [
+           360,
+           200
+          ],
+          "in": [
+           -60,
+           -60
+          ]
+         }
+        ]
+       },
+       {
+        "t": 14000,
+        "v": [
+         {
+          "at": [
+           60,
+           200
+          ],
+          "out": [
+           300,
+           -60
+          ]
+         },
+         {
+          "at": [
+           1140,
+           200
+          ],
+          "in": [
+           -300,
+           -60
+          ]
+         }
+        ],
+        "ease": "linear"
+       },
+       {
+        "t": 16000,
+        "v": [
+         {
+          "at": [
+           60,
+           200
+          ],
+          "out": [
+           60,
+           -60
+          ]
+         },
+         {
+          "at": [
+           360,
+           200
+          ],
+          "in": [
+           -60,
+           -60
+          ]
+         }
+        ],
+        "ease": "linear"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,242 @@
+{
+ "frame": {
+  "width": 2300,
+  "height": 1020
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c13-end",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c13-end",
+     "type": "text",
+     "start": 20000,
+     "end": 24000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 1100,
+     "height": 340,
+     "font": "brand",
+     "size": 64,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "ALIGN END AT 0.97"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         64,
+         110
+        ],
+        "out": [
+         194,
+         0
+        ]
+       },
+       {
+        "at": [
+         550,
+         230
+        ],
+        "in": [
+         -194,
+         0
+        ],
+        "out": [
+         194,
+         0
+        ]
+       },
+       {
+        "at": [
+         1036,
+         110
+        ],
+        "in": [
+         -194,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "end",
+     "path_offset": 0.97
+    }
+   ]
+  },
+  {
+   "name": "c13-stagger-slide",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "c13-stagger-slide",
+     "type": "text",
+     "start": 20000,
+     "end": 24000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 1700,
+     "height": 420,
+     "font": "brand",
+     "size": 64,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "STAGGER WHILE SLIDING"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         64,
+         130
+        ],
+        "out": [
+         157,
+         0
+        ]
+       },
+       {
+        "at": [
+         457,
+         290
+        ],
+        "in": [
+         -157,
+         0
+        ],
+        "out": [
+         157,
+         0
+        ]
+       },
+       {
+        "at": [
+         850,
+         130
+        ],
+        "in": [
+         -157,
+         0
+        ],
+        "out": [
+         157,
+         0
+        ]
+       },
+       {
+        "at": [
+         1243,
+         290
+        ],
+        "in": [
+         -157,
+         0
+        ],
+        "out": [
+         157,
+         0
+        ]
+       },
+       {
+        "at": [
+         1636,
+         130
+        ],
+        "in": [
+         -157,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "start",
+     "path_offset": [
+      {
+       "t": 20000,
+       "v": 0
+      },
+      {
+       "t": 24000,
+       "v": 0.55,
+       "ease": "ease-in-out"
+      }
+     ],
+     "units": {
+      "by": "letter",
+      "every": 80,
+      "y": [
+       {
+        "t": 20000,
+        "v": -160
+       },
+       {
+        "t": 20600,
+        "v": 0,
+        "ease": "ease-out"
+       }
+      ],
+      "rotation": [
+       {
+        "t": 20000,
+        "v": -90
+       },
+       {
+        "t": 20600,
+        "v": 0,
+        "ease": "ease-out"
+       }
+      ],
+      "opacity": [
+       {
+        "t": 20000,
+        "v": 0
+       },
+       {
+        "t": 20300,
+        "v": 1,
+        "ease": "linear"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

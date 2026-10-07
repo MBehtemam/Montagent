@@ -48,7 +48,11 @@ pub fn check(document: &Loose, report: &mut Report) {
     let heights = declared_heights(document);
 
     for (track, element) in document.elements_in_tracks() {
-        if element.get("type").and_then(Value::as_str) != Some("text") {
+        // prototype(#764): the derived-height checks do not apply to a text on a path
+        // (ADR-0161 §7).
+        if element.get("type").and_then(Value::as_str) != Some("text")
+            || crate::text_path::has_path(element)
+        {
             continue;
         }
         let Some(finding) = candidate(element, &heights) else {

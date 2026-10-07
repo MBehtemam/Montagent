@@ -235,6 +235,7 @@ fn run_checks(
     // ADR-0154 §6: a path's vertex count, dangling handles, keyframe shape and containment,
     // decided from every literal value of `points`. Document-only.
     crate::checks::path::check(document, report);
+    crate::checks::text_path::check(document, report);
     // ADR-0158 §6–§7: a stroke join, miter limit or cap with nothing to shape, a miter and
     // its limit apart, and a cap where none draws. Document-only.
     crate::checks::stroke::check(document, report);

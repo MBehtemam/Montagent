@@ -165,6 +165,16 @@ fn derive(schema: &Value) -> Table {
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
+        // prototype(#764): a text's `path` carries one animatable list, `path.points`.
+        if property["$ref"].as_str() == Some("#/$defs/TextPath") {
+            properties.push(Property {
+                name: format!("{name}.points"),
+                kind: Kind::Points,
+                minimum: None,
+                maximum: None,
+            });
+            continue;
+        }
         let Some(def) = property["$ref"]
             .as_str()
             .and_then(|reference| reference.strip_prefix("#/$defs/"))
@@ -676,6 +686,10 @@ fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
 /// `k` (ADR-0158 §4), or `0` with no stroke, from the largest value a keyed `stroke_width`
 /// states (ADR-0154 §4). See [`crate::stroke::reach`].
 pub fn path_inset(element: &Value) -> i64 {
+    // prototype(#764): on a text, ADR-0161 §7's `m`.
+    if element.get("type").and_then(Value::as_str) == Some("text") {
+        return crate::text_path::inset(element);
+    }
     crate::stroke::reach(element).inset
 }
 

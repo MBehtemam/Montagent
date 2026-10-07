@@ -1,0 +1,112 @@
+{
+ "frame": {
+  "width": 1500,
+  "height": 1020
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c5-stagger",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c5-stagger",
+     "type": "text",
+     "start": 8000,
+     "end": 12000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 900,
+     "height": 420,
+     "font": "brand",
+     "size": 80,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "DROP IN"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         80,
+         340
+        ],
+        "out": [
+         185,
+         -227
+        ]
+       },
+       {
+        "at": [
+         820,
+         340
+        ],
+        "in": [
+         -185,
+         -227
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.5,
+     "units": {
+      "by": "letter",
+      "every": 120,
+      "y": [
+       {
+        "t": 8000,
+        "v": -200
+       },
+       {
+        "t": 8700,
+        "v": 0,
+        "ease": "ease-out"
+       }
+      ],
+      "opacity": [
+       {
+        "t": 8000,
+        "v": 0
+       },
+       {
+        "t": 8400,
+        "v": 1,
+        "ease": "linear"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

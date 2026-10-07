@@ -1,0 +1,709 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#101418",
+ "duration": 1000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "arc-forward-box",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "arc-forward-box",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "stroke": "#3A3F46",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "arc-forward-inset",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "arc-forward-inset",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 132,
+     "y": 132,
+     "origin": "top-left",
+     "width": 676,
+     "height": 236,
+     "stroke": "#2B4C7E",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "arc-forward-guide",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "arc-forward-guide",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "closed": false,
+     "stroke": "#5A6470",
+     "stroke_width": 2,
+     "points": [
+      {
+       "at": [
+        72,
+        308
+       ],
+       "out": [
+        169,
+        -200
+       ]
+      },
+      {
+       "at": [
+        748,
+        308
+       ],
+       "in": [
+        -169,
+        -200
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "arc-reversed-box",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "arc-reversed-box",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 560,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "stroke": "#3A3F46",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "arc-reversed-inset",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "arc-reversed-inset",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 132,
+     "y": 632,
+     "origin": "top-left",
+     "width": 676,
+     "height": 236,
+     "stroke": "#2B4C7E",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "arc-reversed-guide",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "arc-reversed-guide",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 560,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "closed": false,
+     "stroke": "#5A6470",
+     "stroke_width": 2,
+     "points": [
+      {
+       "at": [
+        748,
+        308
+       ],
+       "out": [
+        -169,
+        -200
+       ]
+      },
+      {
+       "at": [
+        72,
+        308
+       ],
+       "in": [
+        169,
+        -200
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "circle-clockwise-box",
+   "layer": 6,
+   "elements": [
+    {
+     "id": "circle-clockwise-box",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 40,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "stroke": "#3A3F46",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "circle-clockwise-inset",
+   "layer": 7,
+   "elements": [
+    {
+     "id": "circle-clockwise-inset",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 1050,
+     "y": 90,
+     "origin": "top-left",
+     "width": 380,
+     "height": 380,
+     "stroke": "#2B4C7E",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "circle-clockwise-guide",
+   "layer": 8,
+   "elements": [
+    {
+     "id": "circle-clockwise-guide",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 40,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "closed": true,
+     "stroke": "#5A6470",
+     "stroke_width": 2,
+     "points": [
+      {
+       "at": [
+        240,
+        70
+       ],
+       "in": [
+        -94,
+        0
+       ],
+       "out": [
+        94,
+        0
+       ]
+      },
+      {
+       "at": [
+        410,
+        240
+       ],
+       "in": [
+        0,
+        -94
+       ],
+       "out": [
+        0,
+        94
+       ]
+      },
+      {
+       "at": [
+        240,
+        410
+       ],
+       "in": [
+        94,
+        0
+       ],
+       "out": [
+        -94,
+        0
+       ]
+      },
+      {
+       "at": [
+        70,
+        240
+       ],
+       "in": [
+        0,
+        94
+       ],
+       "out": [
+        0,
+        -94
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "circle-reversed-box",
+   "layer": 9,
+   "elements": [
+    {
+     "id": "circle-reversed-box",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 560,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "stroke": "#3A3F46",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "circle-reversed-inset",
+   "layer": 10,
+   "elements": [
+    {
+     "id": "circle-reversed-inset",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 1050,
+     "y": 610,
+     "origin": "top-left",
+     "width": 380,
+     "height": 380,
+     "stroke": "#2B4C7E",
+     "stroke_width": 1
+    }
+   ]
+  },
+  {
+   "name": "circle-reversed-guide",
+   "layer": 11,
+   "elements": [
+    {
+     "id": "circle-reversed-guide",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 560,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "closed": true,
+     "stroke": "#5A6470",
+     "stroke_width": 2,
+     "points": [
+      {
+       "at": [
+        70,
+        240
+       ],
+       "in": [
+        0,
+        -94
+       ],
+       "out": [
+        0,
+        94
+       ]
+      },
+      {
+       "at": [
+        240,
+        410
+       ],
+       "in": [
+        -94,
+        0
+       ],
+       "out": [
+        94,
+        0
+       ]
+      },
+      {
+       "at": [
+        410,
+        240
+       ],
+       "in": [
+        0,
+        94
+       ],
+       "out": [
+        0,
+        -94
+       ]
+      },
+      {
+       "at": [
+        240,
+        70
+       ],
+       "in": [
+        94,
+        0
+       ],
+       "out": [
+        -94,
+        0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "arc-forward",
+   "layer": 12,
+   "elements": [
+    {
+     "id": "arc-forward",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 60,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "font": "brand",
+     "size": 72,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "ALONG THE ARC"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         72,
+         308
+        ],
+        "out": [
+         169,
+         -200
+        ]
+       },
+       {
+        "at": [
+         748,
+         308
+        ],
+        "in": [
+         -169,
+         -200
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.5
+    }
+   ]
+  },
+  {
+   "name": "arc-reversed",
+   "layer": 13,
+   "elements": [
+    {
+     "id": "arc-reversed",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 560,
+     "origin": "top-left",
+     "width": 820,
+     "height": 380,
+     "font": "brand",
+     "size": 72,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "ALONG THE ARC"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         748,
+         308
+        ],
+        "out": [
+         -169,
+         -200
+        ]
+       },
+       {
+        "at": [
+         72,
+         308
+        ],
+        "in": [
+         169,
+         -200
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.5
+    }
+   ]
+  },
+  {
+   "name": "circle-clockwise",
+   "layer": 14,
+   "elements": [
+    {
+     "id": "circle-clockwise",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 40,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "font": "brand",
+     "size": 50,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "OUTSIDE THE CIRCLE * "
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": true,
+      "points": [
+       {
+        "at": [
+         240,
+         70
+        ],
+        "in": [
+         -94,
+         0
+        ],
+        "out": [
+         94,
+         0
+        ]
+       },
+       {
+        "at": [
+         410,
+         240
+        ],
+        "in": [
+         0,
+         -94
+        ],
+        "out": [
+         0,
+         94
+        ]
+       },
+       {
+        "at": [
+         240,
+         410
+        ],
+        "in": [
+         94,
+         0
+        ],
+        "out": [
+         -94,
+         0
+        ]
+       },
+       {
+        "at": [
+         70,
+         240
+        ],
+        "in": [
+         0,
+         94
+        ],
+        "out": [
+         0,
+         -94
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.0
+    }
+   ]
+  },
+  {
+   "name": "circle-reversed",
+   "layer": 15,
+   "elements": [
+    {
+     "id": "circle-reversed",
+     "type": "text",
+     "start": 0,
+     "end": 1000,
+     "x": 1000,
+     "y": 560,
+     "origin": "top-left",
+     "width": 480,
+     "height": 480,
+     "font": "brand",
+     "size": 50,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "INSIDE THE CIRCLE * "
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": true,
+      "points": [
+       {
+        "at": [
+         70,
+         240
+        ],
+        "in": [
+         0,
+         -94
+        ],
+        "out": [
+         0,
+         94
+        ]
+       },
+       {
+        "at": [
+         240,
+         410
+        ],
+        "in": [
+         -94,
+         0
+        ],
+        "out": [
+         94,
+         0
+        ]
+       },
+       {
+        "at": [
+         410,
+         240
+        ],
+        "in": [
+         0,
+         94
+        ],
+        "out": [
+         0,
+         -94
+        ]
+       },
+       {
+        "at": [
+         240,
+         70
+        ],
+        "in": [
+         94,
+         0
+        ],
+        "out": [
+         -94,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.0
+    }
+   ]
+  }
+ ]
+}

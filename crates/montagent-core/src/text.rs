@@ -2169,6 +2169,27 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
+    // prototype(#764), ADR-0161 §8: a text on a path's curve length and hidden letters.
+    if let Some(bent) = element.get("text_path").filter(|v| v.is_object()) {
+        match bent.get("unresolved").and_then(Value::as_str) {
+            Some(reason) => cells.push(format!("path unresolved: {reason}")),
+            None => {
+                cells.push(format!(
+                    "path length {} (informative: the painter's own path measure)",
+                    bent["length"]
+                ));
+                let hidden = match &bent["hidden"] {
+                    Value::Array(letters) => letters
+                        .iter()
+                        .map(|l| l.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or("?").to_string(),
+                };
+                cells.push(format!("hidden: {hidden}"));
+            }
+        }
+    }
     // ADR-0158 §7: a path's inset and the reach factor it came from, and a dashed shape's
     // raw offset with its informative outline length.
     if let Some(stroke) = element.get("stroke").filter(|stroke| stroke.is_object()) {

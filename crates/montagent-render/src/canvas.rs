@@ -2034,6 +2034,40 @@ pub fn path_outline_length(outline: &[PathEl]) -> f64 {
     measured(&path_of(outline))
 }
 
+/// prototype(#764): a text's guide curve, measured once: its length and the point and
+/// tangent angle (radians, y-down) at any distance along it, by Skia's `ContourMeasure` over
+/// the very outline a `path` element strokes. Only the first contour: a text's `path` is one
+/// figure.
+pub struct Curve {
+    measure: Option<skia_safe::ContourMeasure>,
+    pub length: f64,
+    pub closed: bool,
+}
+
+impl Curve {
+    pub fn of(outline: &[PathEl]) -> Curve {
+        let path = path_of(outline);
+        let measure = skia_safe::ContourMeasureIter::new(&path, false, None).next();
+        let length = measure.as_ref().map(|m| f64::from(m.length())).unwrap_or(0.0);
+        let closed = measure.as_ref().is_some_and(|m| m.is_closed());
+        Curve {
+            measure,
+            length,
+            closed,
+        }
+    }
+
+    /// `(x, y, angle)` at distance `d`, `d` in `[0, length]`.
+    pub fn at(&self, d: f64) -> Option<(f64, f64, f64)> {
+        let (point, tangent) = self.measure.as_ref()?.pos_tan(d as f32)?;
+        Some((
+            f64::from(point.x),
+            f64::from(point.y),
+            f64::from(tangent.y).atan2(f64::from(tangent.x)),
+        ))
+    }
+}
+
 /// Every contour's length, summed, by the measure Skia's dash lays a pattern along at 1:1.
 ///
 /// Skia measures a curve by chords within a tolerance, so a curve's figure falls a little

@@ -1,0 +1,127 @@
+{
+ "frame": {
+  "width": 1000,
+  "height": 600
+ },
+ "fps": 30,
+ "background": "#101418",
+ "duration": 5000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "keyed",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "keyed",
+     "type": "text",
+     "start": 0,
+     "end": 5000,
+     "x": 40,
+     "y": 40,
+     "origin": "top-left",
+     "width": 700,
+     "height": 300,
+     "font": "brand",
+     "size": 60,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "SHIFT ME"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "t": 1000,
+        "v": [
+         {
+          "at": [
+           60,
+           240
+          ],
+          "out": [
+           145,
+           -133
+          ]
+         },
+         {
+          "at": [
+           640,
+           240
+          ],
+          "in": [
+           -145,
+           -133
+          ]
+         }
+        ]
+       },
+       {
+        "t": 3000,
+        "v": [
+         {
+          "at": [
+           60,
+           240
+          ],
+          "out": [
+           145,
+           -56
+          ]
+         },
+         {
+          "at": [
+           640,
+           240
+          ],
+          "in": [
+           -145,
+           -56
+          ]
+         }
+        ],
+        "ease": "linear"
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": [
+      {
+       "t": 1000,
+       "v": 0.2
+      },
+      {
+       "t": 3000,
+       "v": 0.8,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

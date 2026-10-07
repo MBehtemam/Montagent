@@ -1,0 +1,171 @@
+{
+ "frame": {
+  "width": 1200,
+  "height": 1000
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c9-long-open",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c9-long-open",
+     "type": "text",
+     "start": 16000,
+     "end": 20000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 600,
+     "height": 300,
+     "font": "brand",
+     "size": 56,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "THIS LINE IS FAR LONGER THAN ITS CURVE"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         56,
+         244
+        ],
+        "out": [
+         122,
+         -133
+        ]
+       },
+       {
+        "at": [
+         544,
+         244
+        ],
+        "in": [
+         -122,
+         -133
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "c9-long-closed",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "c9-long-closed",
+     "type": "text",
+     "start": 16000,
+     "end": 20000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 400,
+     "height": 400,
+     "font": "brand",
+     "size": 56,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "ONE LOOP ONLY * THE REST IS NOT DRAWN * SEE QUERY"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": true,
+      "points": [
+       {
+        "at": [
+         200,
+         80
+        ],
+        "in": [
+         -66,
+         0
+        ],
+        "out": [
+         66,
+         0
+        ]
+       },
+       {
+        "at": [
+         320,
+         200
+        ],
+        "in": [
+         0,
+         -66
+        ],
+        "out": [
+         0,
+         66
+        ]
+       },
+       {
+        "at": [
+         200,
+         320
+        ],
+        "in": [
+         66,
+         0
+        ],
+        "out": [
+         -66,
+         0
+        ]
+       },
+       {
+        "at": [
+         80,
+         200
+        ],
+        "in": [
+         0,
+         66
+        ],
+        "out": [
+         0,
+         -66
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

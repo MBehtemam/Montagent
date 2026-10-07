@@ -1,0 +1,102 @@
+{
+ "frame": {
+  "width": 1500,
+  "height": 1020
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c7-stroke",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c7-stroke",
+     "type": "text",
+     "start": 8000,
+     "end": 12000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 900,
+     "height": 420,
+     "font": "brand",
+     "size": 84,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "OUTLINED"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         90,
+         160
+        ],
+        "out": [
+         144,
+         0
+        ]
+       },
+       {
+        "at": [
+         450,
+         260
+        ],
+        "in": [
+         -144,
+         0
+        ],
+        "out": [
+         144,
+         0
+        ]
+       },
+       {
+        "at": [
+         810,
+         160
+        ],
+        "in": [
+         -144,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "center",
+     "path_offset": 0.5,
+     "stroke": "#FF3366",
+     "stroke_width": 6
+    }
+   ]
+  }
+ ]
+}

@@ -2045,11 +2045,19 @@ impl<'a> Painter<'a> {
             ),
         );
         let paints = paints_of(element, &runs, self.t, self.instant, declared);
-        let unit_of_glyph = unit_draws(element, &placement, self.t);
-        let glyphs: Vec<Glyph> = placement
-            .glyphs
+        // prototype(#764): a text carrying `path` draws every glyph through its body's place
+        // on the curve, and a glyph whose body is off the curve not at all.
+        let bent = crate::text_path::bend(element, &placement, self.t);
+        let unit_of_glyph = match &bent {
+            Some(bent) => bent.glyph.clone(),
+            None => unit_draws(element, &placement, self.t),
+        };
+        let drawn: Vec<usize> = (0..placement.glyphs.len())
+            .filter(|i| bent.is_none() || unit_of_glyph.get(*i).copied().flatten().is_some())
+            .collect();
+        let glyphs: Vec<Glyph> = drawn
             .iter()
-            .enumerate()
+            .map(|&i| (i, &placement.glyphs[i]))
             .map(|(i, glyph)| Glyph {
                 unit: unit_of_glyph.get(i).copied().flatten(),
                 x: glyph.x,
@@ -2072,14 +2080,26 @@ impl<'a> Painter<'a> {
             .map(|outline| outline.iter().copied().map(path_element).collect())
             .collect();
 
+        if let Some(bent) = &bent {
+            proto_probe(name, self.instant, bent, &drawn);
+        }
         let effects = self.effects_of(name, element);
-        canvas.text(
-            &glyphs,
-            &outlines,
-            Extent {
+        // prototype(#764): a text on a path is pivoted about its declared box, the frame its
+        // `points` are written in (ADR-0161 §7).
+        let extent = match &bent {
+            Some(_) => Extent {
+                width: element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
+                height: element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
+            },
+            None => Extent {
                 width: placement.width,
                 height: placement.height,
             },
+        };
+        canvas.text(
+            &glyphs,
+            &outlines,
+            extent,
             &self.transform(element),
             self.clip(element),
             &effects,
@@ -2361,7 +2381,7 @@ fn paints_of(
 /// A body moves on the timing of its first unit in reading order — a joined piece's first
 /// letter, a merged glyph's first cluster — and turns and scales about the pivot `origin`
 /// picks in its box.
-fn unit_draws(
+pub(crate) fn unit_draws(
     element: &Value,
     placement: &montagent_text::Placement,
     t: (i128, i128),
@@ -2392,6 +2412,77 @@ fn unit_draws(
         .iter()
         .map(|body| body.and_then(|body| draws.get(body).copied().flatten()))
         .collect()
+}
+
+/// prototype(#764): `MONTAGENT_PROTO_HIDDEN=<file>` appends, per painted text-on-path, the
+/// letters whose glyphs were *not* handed to the canvas, read off the drawn glyph list.
+/// `MONTAGENT_PROTO_LIFT=<file>` appends each drawn body's lift-off: the larger distance from
+/// either end of its baseline (its midpoint ± half its advance along the tangent) to the
+/// curve, by dense sampling.
+fn proto_probe(
+    name: &str,
+    instant: i64,
+    bent: &crate::text_path::Bent,
+    drawn: &[usize],
+) {
+    use std::io::Write as _;
+    let append = |var: &str, line: String| {
+        if let Some(path) = std::env::var_os(var)
+            && let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
+        {
+            let _ = writeln!(file, "{line}");
+        }
+    };
+    if std::env::var_os("MONTAGENT_PROTO_HIDDEN").is_some() {
+        // From the glyph list the canvas is handed (`drawn`, indices into the placement's
+        // glyphs): a letter is shown when any glyph of its body is in that list.
+        let mut shown: Vec<usize> = Vec::new();
+        for g in drawn {
+            if let Some(letters) = bent.glyph_letters.get(*g) {
+                shown.extend(letters.iter().copied());
+            }
+        }
+        let mut hidden: Vec<usize> = bent
+            .bodies
+            .iter()
+            .flat_map(|b| b.letters.iter().copied())
+            .filter(|l| !shown.contains(l))
+            .collect();
+        hidden.sort_unstable();
+        let words = if hidden.is_empty() {
+            "none".to_string()
+        } else {
+            format!("{hidden:?}")
+        };
+        append("MONTAGENT_PROTO_HIDDEN", format!("{instant} {name} {words}"));
+    }
+    if std::env::var_os("MONTAGENT_PROTO_LIFT").is_some() {
+        let samples: Vec<(f64, f64)> = {
+            let n = (bent.length * 4.0).ceil().max(1.0) as usize;
+            (0..=n)
+                .filter_map(|i| bent.curve.at(bent.length * i as f64 / n as f64))
+                .map(|(x, y, _)| (x, y))
+                .collect()
+        };
+        let distance = |(x, y): (f64, f64)| {
+            samples
+                .iter()
+                .map(|(sx, sy)| ((sx - x).powi(2) + (sy - y).powi(2)).sqrt())
+                .fold(f64::INFINITY, f64::min)
+        };
+        for body in bent.bodies.iter().filter(|b| b.drawn) {
+            let Some((px, py, theta)) = body.on_curve else {
+                continue;
+            };
+            let h = body.advance / 2.0;
+            let (sin, cos) = theta.sin_cos();
+            let lift = distance((px + h * cos, py + h * sin)).max(distance((px - h * cos, py - h * sin)));
+            append(
+                "MONTAGENT_PROTO_LIFT",
+                format!("{instant} {name} letters={:?} advance={:.2} lift={lift:.2}", body.letters, body.advance),
+            );
+        }
+    }
 }
 
 fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {

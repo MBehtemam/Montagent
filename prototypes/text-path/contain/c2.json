@@ -1,0 +1,215 @@
+{
+ "frame": {
+  "width": 1580,
+  "height": 900
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 24000,
+ "fonts": {
+  "brand": [
+   {
+    "file": "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"
+   },
+   {
+    "file": "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"
+   }
+  ]
+ },
+ "fontVendor": {
+  "../../../fixtures/benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf": {
+   "licence": "OFL-1.1",
+   "source": "google/fonts ofl/oswald, instanced wght=600",
+   "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"
+  },
+  "../../../fixtures/letter-spacing/fonts/NotoNaskhArabic-Regular.ttf": {
+   "licence": "OFL-1.1",
+   "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+   "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"
+  }
+ },
+ "tracks": [
+  {
+   "name": "c2-wave-on",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "c2-wave-on",
+     "type": "text",
+     "start": 0,
+     "end": 2000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 980,
+     "height": 300,
+     "font": "brand",
+     "size": 64,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "SLIDING ON"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         64,
+         90
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         348,
+         210
+        ],
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         632,
+         90
+        ],
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         916,
+         210
+        ],
+        "in": [
+         -114,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "end",
+     "path_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 2000,
+       "v": 1,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "c2-wave-off",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "c2-wave-off",
+     "type": "text",
+     "start": 2000,
+     "end": 4000,
+     "x": 300,
+     "y": 300,
+     "origin": "top-left",
+     "width": 980,
+     "height": 300,
+     "font": "brand",
+     "size": 64,
+     "color": "#FFFFFF",
+     "runs": [
+      {
+       "text": "SLIDING OFF"
+      }
+     ],
+     "caption": false,
+     "path": {
+      "closed": false,
+      "points": [
+       {
+        "at": [
+         64,
+         90
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         348,
+         210
+        ],
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         632,
+         90
+        ],
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         916,
+         210
+        ],
+        "in": [
+         -114,
+         0
+        ]
+       }
+      ]
+     },
+     "align": "start",
+     "path_offset": [
+      {
+       "t": 2000,
+       "v": 0
+      },
+      {
+       "t": 4000,
+       "v": 1,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

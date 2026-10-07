@@ -209,6 +209,10 @@ pub struct Present {
     /// outline length. Absent on every other type, and on an undashed `rect` or `ellipse`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stroke: Option<StrokeReach>,
+    /// prototype(#764): a text carrying `path` (ADR-0161 §8): `path_offset` raw, the curve's
+    /// length, and the letters hidden at the instant. Absent on every other element.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_path: Option<Value>,
 }
 
 /// What `query --at` reports of a shape's stroke (ADR-0158 §7).
@@ -596,6 +600,14 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             Some(kind @ ("path" | "rect" | "ellipse")) => StrokeReach::of(element, kind, instant),
             _ => None,
         };
+        let text_path = match (kind, detail) {
+            (Some("text"), Detail::Full) => crate::text_path::report(document, element, instant)
+                .map(|report| match report {
+                    Ok(report) => serde_json::to_value(report).unwrap_or(Value::Null),
+                    Err(reason) => serde_json::json!({"unresolved": reason}),
+                }),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -629,6 +641,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             },
             path,
             stroke,
+            text_path,
         });
     }
 
