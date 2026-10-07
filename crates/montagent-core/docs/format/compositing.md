@@ -138,12 +138,18 @@ two disagree.
 - **`"invert": true` on a `mask` keeps the outside of the shape and erases the inside** (ADR-0152).
   A static boolean: omitted or `false` is the plain mask, and a mask that flips mid-clip is two
   elements. Masks in one list intersect, so `[mask ellipse, mask smaller ellipse with invert]`
-  keeps a ring.
+  keeps a ring. A plain and an inverted mask of one shape are complements wherever either
+  keeps a pixel whole or erases it whole. On the partly covered pixels of a hard edge they may
+  differ, because the shape and its inverse are antialiased separately. To split one source
+  across two masks that rebuild it (an `add`-blended pair, say), write a `feather` of 1 or
+  more (ADR-0165). Two stacked elements with complementary masks still show the backdrop along
+  the edge, by c·(1 − c) where one keeps c, whatever the masks are.
 - **`feather` on a `mask` softens its edge, and only its edge** (ADR-0152). A non-negative
   integer in unscaled element units that rides the transform; omitted and `0` are the same hard
   edge. It reads as a `blur` radius: the mask's coverage is blurred by a Gaussian of
   σ = `feather` / 2, centred on the edge, so the ramp reaches past the rect as far as it falls
-  short of it, and an inverted feathered mask keeps exactly what the plain one erases.
+  short of it, and an inverted feathered mask keeps what the plain one erases, within one level of 255
+  (ADR-0165).
   `[mask, blur]` also blurs the picture; `feather` does not. It may be keyed, and resolves
   unrounded between keys.
 - **`R-MASK-ERASES-ALL` (`review`)** (ADR-0152): an inverted `rect` mask with no `radius` or

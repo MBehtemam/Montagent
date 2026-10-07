@@ -559,47 +559,81 @@ fn a_self_crossing_outline_keeps_its_overlap_by_the_nonzero_rule() {
 }
 
 #[test]
-fn an_inverted_path_mask_is_the_exact_complement_of_the_plain_one() {
+fn a_mask_and_its_inverted_twin_are_complements_off_the_edge_and_within_one_level_when_feathered() {
+    // ADR-0165 §1, over every mask shape. A hard pair is two erasers, the shape and its
+    // inverse fill, each antialiased on its own: complements wherever either keeps a pixel
+    // whole or erases it whole, free to differ on the partly covered edge. A feathered pair
+    // is one blurred coverage kept `DstIn` and `DstOut`, so it sums to the plate within one
+    // level of 255 on every pixel. Each case is `(label, shape fields, must the edge show)`.
     let outline = json!([{"at": [10, 90]}, {"at": [50, 10], "out": [30, 0]},
                          {"at": [90, 90], "in": [0, -30]}]);
-    for feather in [None, Some(12)] {
-        let fields = |invert: bool| {
-            let mut fields = json!({"invert": invert});
-            if let Some(feather) = feather {
-                fields["feather"] = json!(feather);
-            }
-            fields
-        };
-        let plain = painted(plate(json!([path_mask(outline.clone(), fields(false))])));
-        let inverted = painted(plate(json!([path_mask(outline.clone(), fields(true))])));
-        // A feathered pair is one blurred coverage kept `DstIn` and `DstOut`, so it sums
-        // to the plate on every pixel, to a unit of rounding. A hard pair is two erasers,
-        // the shape and its inverse fill, each antialiased on its own: off that rim they
-        // are exact complements, as every mask shape's are.
-        let (mut partial, mut rim) = (0, 0);
-        for y in 0..100 {
-            for x in 0..100 {
-                let (p, i) = (kept(&plain, x, y), kept(&inverted, x, y));
-                let whole = |value: i32| value == 0 || value == 255;
-                if feather.is_some() {
-                    assert!(
-                        (p + i - 255).abs() <= 1,
-                        "feather {feather:?} at ({x}, {y}): plain {p}, inverted {i}"
-                    );
-                } else if whole(p) && whole(i) {
-                    assert_eq!(p + i, 255, "at ({x}, {y}) off the rim");
-                } else {
-                    rim += 1;
+    let cases = [
+        // An axis-aligned rect on whole pixels may have no partly covered pixel at all, so
+        // its hard case is not required to draw an edge. That is not a failure.
+        (
+            "rect",
+            json!({"shape": "rect", "x": 10, "y": 20, "width": 80, "height": 60}),
+            false,
+        ),
+        (
+            "rounded rect",
+            json!({"shape": "rect", "x": 10, "y": 20, "width": 80, "height": 60,
+                                "radius": 14}),
+            true,
+        ),
+        (
+            "circle",
+            json!({"shape": "circle", "x": 15, "y": 15, "width": 70, "height": 70}),
+            true,
+        ),
+        (
+            "ellipse",
+            json!({"shape": "ellipse", "x": 10, "y": 20, "width": 80, "height": 60}),
+            true,
+        ),
+        ("path", json!({"shape": "path", "points": outline}), true),
+    ];
+    for (label, shape, edge_shows) in cases {
+        for feather in [None, Some(12)] {
+            let twin = |invert: bool| {
+                let mut mask = shape.clone();
+                mask["name"] = json!("mask");
+                mask["invert"] = json!(invert);
+                if let Some(feather) = feather {
+                    mask["feather"] = json!(feather);
                 }
-                partial += i32::from(!whole(p));
+                painted(plate(json!([mask])))
+            };
+            let (plain, inverted) = (twin(false), twin(true));
+            let (mut partial, mut rim) = (0, 0);
+            for y in 0..100 {
+                for x in 0..100 {
+                    let (p, i) = (kept(&plain, x, y), kept(&inverted, x, y));
+                    let whole = |value: i32| value == 0 || value == 255;
+                    if feather.is_some() {
+                        assert!(
+                            (p + i - 255).abs() <= 1,
+                            "{label}, feather {feather:?} at ({x}, {y}): plain {p}, inverted {i}"
+                        );
+                    } else if whole(p) && whole(i) {
+                        assert_eq!(p + i, 255, "{label} at ({x}, {y}) off the edge");
+                    } else {
+                        rim += 1;
+                    }
+                    partial += i32::from(!whole(p));
+                }
             }
+            if edge_shows {
+                assert!(
+                    partial > 0,
+                    "{label}, feather {feather:?}: an edge was drawn"
+                );
+            }
+            // The hard edge is a pixel or two wide along the outline, and no wider.
+            assert!(rim < 500, "{label}: {rim} edge pixels");
+            // Outside the element there is nothing to keep either way.
+            assert_eq!((red(&plain, 20, 20), red(&inverted, 20, 20)), (0, 0));
         }
-        assert!(partial > 0, "feather {feather:?}: an edge was drawn");
-        // On the rim the two erasers' coverages are supersampled apart, as an ellipse's or
-        // a rect's are; the rim is a pixel or two wide along the outline, and no wider.
-        assert!(rim < 500, "{rim} rim pixels");
-        // Outside the element there is nothing to keep either way.
-        assert_eq!((red(&plain, 20, 20), red(&inverted, 20, 20)), (0, 0));
     }
 }
 
