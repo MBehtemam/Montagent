@@ -43,7 +43,7 @@ pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
-pub use stroke::{MiterLimit, StrokeCap, StrokeJoin};
+pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
@@ -781,6 +781,15 @@ pub struct Rect {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// The dash pattern, run along the inset outline the stroke is drawn on, from its
+    /// top-left corner clockwise — where a `radius` arc meets the top edge (ADR-0158 §5).
+    /// Static. Every dash end is butt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -842,6 +851,14 @@ pub struct Ellipse {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// The dash pattern, run along the inset outline the stroke is drawn on, from 3 o'clock
+    /// clockwise (ADR-0158 §5). Static. Every dash end is butt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -910,6 +927,14 @@ pub struct PathElement {
     /// square cap widens the box's inset by √2 (ADR-0158 §3, §4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_cap: Option<StrokeCap>,
+    /// The dash pattern, run from `points[0]` in `points` order, through the closing segment
+    /// on a closed path (ADR-0158 §5). Static. Each dash's ends take `stroke_cap`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,

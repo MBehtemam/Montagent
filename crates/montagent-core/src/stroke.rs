@@ -6,9 +6,10 @@
 //! field is read from the element as written, so a malformed value — the schema check's to
 //! report — reads as absent here, never as a guess.
 //!
-//! **Where dashes go** (ADR-0158 §5, the next slice): a dash makes a cap draw on a closed
-//! path too, which is [`caps_draw`]'s one other case; the reach itself is unchanged by
-//! dashes, because every dash end and every join inside a dash lies on the curve.
+//! **Dashes** (ADR-0158 §5): a dash makes a cap draw on a closed path too, which is
+//! [`caps_draw`]'s one other case; the reach is otherwise unchanged by dashes, because every
+//! dash end and every join inside a dash lies on the curve. [`dash`] is the pattern's one
+//! reading, for `validate`, `query --at` and the painter alike.
 
 use serde_json::Value;
 
@@ -91,10 +92,33 @@ pub fn cap(element: &Value) -> Cap {
     }
 }
 
-/// Whether a cap draws anywhere on this path: at an open path's two ends. A closed path has
-/// none until it is dashed (ADR-0158 §3; dashes are the next slice).
+/// Whether a cap draws anywhere on this path: at an open path's two ends, and at both ends of
+/// every dash. A closed path with no `stroke_dash` has none (ADR-0158 §3).
 pub fn caps_draw(element: &Value) -> bool {
     element.get("closed").and_then(Value::as_bool) == Some(false)
+        || element.get("stroke_dash").is_some()
+}
+
+/// The element's `stroke_dash` as written (ADR-0158 §5): its entries, where it is a list of
+/// 2 to 16 integers each at least 0. Anything else is the schema's to report, and reads as
+/// absent.
+pub fn dash(element: &Value) -> Option<Vec<i64>> {
+    let entries = element.get("stroke_dash")?.as_array()?;
+    if !(2..=16).contains(&entries.len()) {
+        return None;
+    }
+    entries
+        .iter()
+        .map(|entry| entry.as_i64().filter(|length| *length >= 0))
+        .collect()
+}
+
+/// A dash pattern the painter can draw: an even number of entries with a total above 0.
+/// Anything else is `validate`'s `E-DASH-SHAPE`, which `render` refuses.
+pub fn drawable_dash(element: &Value) -> Option<Vec<i64>> {
+    dash(element).filter(|pattern| {
+        pattern.len() % 2 == 0 && !pattern.is_empty() && pattern.iter().sum::<i64>() > 0
+    })
 }
 
 /// The path's reach (ADR-0158 §4): `k` is the larger of the join factor (the miter limit,

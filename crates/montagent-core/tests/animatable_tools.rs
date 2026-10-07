@@ -71,6 +71,10 @@ fn subject(property: &str, records: Value) -> Value {
     } else {
         panic!("`{property}` is animatable on no type this test knows how to write");
     };
+    // A dash offset moves a pattern, and with none it is `E-DASH-OFFSET-ALONE` (ADR-0158).
+    if property == "stroke_dash_offset" {
+        element["stroke_dash"] = json!([10, 6]);
+    }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
     match property.split_once('.') {

@@ -221,14 +221,57 @@ pub struct Fill {
 
 /// How a `path`'s stroke turns its corners and ends its open ends (ADR-0158 §2–§3).
 ///
-/// A path's alone: a `rect` or `ellipse` stroke keeps the join the painter has always drawn
-/// it with, and a glyph's its round join. The default is ADR-0154's pin, a round join and a
-/// butt cap, so a path that writes neither paints the bytes it always has. A dash pattern,
-/// when the format admits one, is the next member here.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// The join and cap are a path's alone: a `rect` or `ellipse` stroke keeps the join the
+/// painter has always drawn it with, and a glyph's its round join. The default is
+/// ADR-0154's pin, a round join and a butt cap, and no dash, so a path that writes none of
+/// them paints the bytes it always has.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StrokeStyle {
     pub join: Join,
     pub cap: Cap,
+    /// The dash pattern (ADR-0158 §5), run from `points[0]` in points order.
+    pub dash: Option<Dash>,
+}
+
+/// A dash pattern on a stroke (ADR-0158 §5): lengths alternating dash, gap, dash, gap,
+/// starting with a dash, in element pixels along the outline, and the phase — how far into
+/// the pattern the outline's start falls.
+///
+/// The pattern is drawn as written: never doubled, never stretched to fit the outline. The
+/// outline it runs along is built with ADR-0158 §5's start point and direction
+/// ([`Canvas::shape`]), never with Skia's default start index for a rect or an oval, so a
+/// Skia update cannot move where a pattern starts.
+///
+/// **At the start point** Skia joins the pattern across a closed outline's start when the
+/// pattern is "on" there: the dash left over at the end of the outline and the first dash
+/// draw as one, turning a corner with the stroke's join. When the pattern is "off" there, the
+/// leftover is a short gap. Where a dash boundary lands exactly on a vertex, the two ends are
+/// drawn with caps and no join between them, as in SVG.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dash {
+    intervals: Vec<f32>,
+    phase: f32,
+}
+
+impl Dash {
+    /// The pattern `lengths` with `offset` wrapped into `[0, total)`, as SVG and Skia read a
+    /// dash phase: a larger offset moves the dashes back, toward the outline's start. `None`
+    /// for a pattern Skia cannot dash — an odd count or a zero total, which `validate`
+    /// refuses.
+    pub fn new(lengths: &[i64], offset: f64) -> Option<Dash> {
+        let total: i64 = lengths.iter().sum();
+        if lengths.len() % 2 == 1 || lengths.is_empty() || total <= 0 {
+            return None;
+        }
+        Some(Dash {
+            intervals: lengths.iter().map(|length| *length as f32).collect(),
+            phase: offset.rem_euclid(total as f64) as f32,
+        })
+    }
+
+    fn effect(&self) -> Option<skia_safe::PathEffect> {
+        skia_safe::PathEffect::dash(&self.intervals, self.phase)
+    }
 }
 
 /// A stroke's join. A miter corner whose tip would reach past `limit` half-widths from its
@@ -254,8 +297,11 @@ pub enum Cap {
 }
 
 impl StrokeStyle {
-    /// Set the join, miter limit and cap on a stroke paint.
-    fn apply(self, paint: &mut SkPaint) {
+    /// Set the join, miter limit, cap and dash on a stroke paint.
+    fn apply(&self, paint: &mut SkPaint) {
+        if let Some(effect) = self.dash.as_ref().and_then(Dash::effect) {
+            paint.set_path_effect(effect);
+        }
         match self.join {
             Join::Round => {
                 paint.set_stroke_join(skia_safe::PaintJoin::Round);
@@ -1327,13 +1373,20 @@ impl Canvas {
         );
     }
 
-    /// Draw one `rect` or `ellipse` (ADR-0014).
+    /// Draw one `rect` or `ellipse` (ADR-0014), its stroke dashed by `dash` (ADR-0158 §5).
+    ///
+    /// An undashed stroke is Skia's own rect, rounded rect or oval on the inset box. A dashed
+    /// one is drawn on [`inset_outline`]'s explicit outline instead, which starts and runs as
+    /// ADR-0158 §5's table says. Its dash ends are butt, and a rect's corners inside a dash
+    /// keep the miter join every rect stroke has.
+    #[allow(clippy::too_many_arguments)]
     pub fn shape(
         &mut self,
         shape: Shape,
         extent: Extent,
         transform: &Transform,
         paint: &Fill,
+        dash: Option<&Dash>,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1382,6 +1435,14 @@ impl Canvas {
                 // A stroke wider than the box it must fall inside has no inset path to
                 // draw. Filling the box would be a different picture from the one the
                 // document declares, so nothing is drawn and the core says so.
+                return;
+            }
+            if let Some(effect) = dash.and_then(Dash::effect) {
+                let Some(outline) = inset_outline(shape, extent, paint.stroke_width) else {
+                    return;
+                };
+                stroke.set_path_effect(effect);
+                canvas.draw_path(&outline, &stroke);
                 return;
             }
             match shape {
@@ -1898,6 +1959,91 @@ fn unit_bounds(paths: &[Path], glyphs: &[&Glyph]) -> Option<Rect> {
         });
     }
     all.map(|r| <Rect as skia_safe::RoundOut<Rect>>::round_out(&r))
+}
+
+/// The inset outline a `rect`'s or `ellipse`'s stroke is drawn on, built with ADR-0158 §5's
+/// start point and direction rather than Skia's default start index, so a dash pattern runs
+/// from where the format says it does. `None` where a stroke wider than the box leaves no
+/// inset outline to draw.
+///
+/// All three run clockwise on screen (y down):
+///
+/// - a rect with no `radius`: from the inset outline's top-left corner, along the top edge
+///   first;
+/// - a rect with a `radius`: from where the top-left arc meets the top edge. The inset radius
+///   is the declared one less the inset, clamped to half the inset box's shorter side, as
+///   Skia clamps a rounded rect's;
+/// - an ellipse: from 3 o'clock, toward 6 o'clock first.
+///
+/// Each quarter arc is a conic of weight √2/2, Skia's own exact quarter circle.
+fn inset_outline(shape: Shape, extent: Extent, stroke_width: f64) -> Option<Path> {
+    let inset = stroke_width as f32 / 2.0;
+    let (l, t) = (inset, inset);
+    let (r, b) = (extent.width as f32 - inset, extent.height as f32 - inset);
+    if r <= l || b <= t {
+        return None;
+    }
+    let weight = std::f32::consts::FRAC_1_SQRT_2;
+    let mut path = PathBuilder::new();
+    match shape {
+        Shape::Rect { radius } if radius > 0.0 => {
+            let k = (radius as f32 - inset)
+                .max(0.0)
+                .min((r - l) / 2.0)
+                .min((b - t) / 2.0);
+            path.move_to((l + k, t));
+            path.line_to((r - k, t));
+            path.conic_to((r, t), (r, t + k), weight);
+            path.line_to((r, b - k));
+            path.conic_to((r, b), (r - k, b), weight);
+            path.line_to((l + k, b));
+            path.conic_to((l, b), (l, b - k), weight);
+            path.line_to((l, t + k));
+            path.conic_to((l, t), (l + k, t), weight);
+        }
+        Shape::Rect { .. } => {
+            path.move_to((l, t));
+            path.line_to((r, t));
+            path.line_to((r, b));
+            path.line_to((l, b));
+        }
+        Shape::Ellipse => {
+            let (cx, cy) = ((l + r) / 2.0, (t + b) / 2.0);
+            path.move_to((r, cy));
+            path.conic_to((r, b), (cx, b), weight);
+            path.conic_to((l, b), (l, cy), weight);
+            path.conic_to((l, t), (cx, t), weight);
+            path.conic_to((r, t), (r, cy), weight);
+        }
+    }
+    path.close();
+    Some(path.detach())
+}
+
+/// The length of the outline a `rect`'s or `ellipse`'s dash pattern runs along, by Skia's
+/// own path measure over the very outline [`Canvas::shape`] dashes — informative, for
+/// `query --at` (ADR-0158 §7), and never a second computation that could disagree with the
+/// drawing. `None` where there is no inset outline.
+pub fn shape_outline_length(shape: Shape, extent: Extent, stroke_width: f64) -> Option<f64> {
+    inset_outline(shape, extent, stroke_width).map(|path| measured(&path))
+}
+
+/// The length of a `path`'s outline, by the same path measure [`Canvas::path`]'s dash runs
+/// along.
+pub fn path_outline_length(outline: &[PathEl]) -> f64 {
+    measured(&path_of(outline))
+}
+
+/// Every contour's length, summed, by the measure Skia's dash lays a pattern along at 1:1.
+///
+/// Skia measures a curve by chords within a tolerance, so a curve's figure falls a little
+/// short of its exact length (about 0.16% on a 98-px circle). Under an element `scale` the
+/// dash is laid along a finer measure of the same outline, which is one more reason the
+/// figure is informative.
+fn measured(path: &Path) -> f64 {
+    skia_safe::ContourMeasureIter::new(path, false, None)
+        .map(|contour| f64::from(contour.length()))
+        .sum()
 }
 
 /// One outline as a Skia path, at the glyph's own origin.
@@ -2621,6 +2767,7 @@ mod tests {
                 stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF]).into()),
                 stroke_width: 9.0,
             },
+            None,
             None,
             effects,
         );

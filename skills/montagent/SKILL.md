@@ -43,12 +43,13 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Elements and placement**
 
 - Images, video, text, rectangles and ellipses, placed and sized on a frame, layered on tracks: `image`, `video`, `text`, `rect`, `ellipse`, `x`, `y`, `width`, `height`, `origin`, `layer`.
-- Lines, polygons and curves drawn through vertices with handles, filled or stroked with a chosen corner join and end cap, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`, `stroke_join`, `stroke_miter_limit`, `stroke_cap`.
+- Lines, polygons and curves drawn through vertices with handles, filled or stroked with a chosen corner join and end cap, dashed or dotted, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`, `stroke_join`, `stroke_miter_limit`, `stroke_cap`, `stroke_dash`, `stroke_dash_offset`.
+- Dashed outlines on rectangles, ellipses and paths, with the dashes marching along them: `stroke_dash`, `stroke_dash_offset`.
 
 **Motion**
 
 - Keyframe position, scale, rotation and opacity, with named easings or a cubic bezier (overshoot included): `scale`, `rotation`, `opacity`, `ease`.
-- Keyframe a shape's size, corner radius, fill and stroke, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `color`.
+- Keyframe a shape's size, corner radius, fill, stroke and dash offset, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `stroke_dash_offset`, `color`.
 - Motion blur on a moving element: `motion_blur`.
 
 **Paint**

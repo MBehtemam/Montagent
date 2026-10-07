@@ -538,6 +538,14 @@
             "stroke_width": {
               "$ref": "#/$defs/AnimatableLength"
             },
+            "stroke_dash": {
+              "description": "The dash pattern, run along the inset outline the stroke is drawn on, from its\ntop-left corner clockwise — where a `radius` arc meets the top edge (ADR-0158 §5).\nStatic. Every dash end is butt.",
+              "$ref": "#/$defs/DashPattern"
+            },
+            "stroke_dash_offset": {
+              "description": "How far into the pattern the outline's start falls: a larger offset moves the dashes\nback toward the start. Any integer; the painter wraps it (ADR-0158 §5).",
+              "$ref": "#/$defs/Animatableint64"
+            },
             "radius": {
               "description": "A single integer, defaulting to 0 — one corner radius, not four.\n\nThe fixture is measurably square and the README's *\"rounded cream panel\"* was wrong,\nwhich under ADR-0003's asymmetry is **not** evidence against the field: a rounded\nrectangle is unremarkable in the CapCut/Premiere reference class, and admitting it\nnow costs one clause where admitting it later is a schema change.",
               "$ref": "#/$defs/AnimatableLength"
@@ -624,6 +632,14 @@
             },
             "stroke_width": {
               "$ref": "#/$defs/AnimatableLength"
+            },
+            "stroke_dash": {
+              "description": "The dash pattern, run along the inset outline the stroke is drawn on, from 3 o'clock\nclockwise (ADR-0158 §5). Static. Every dash end is butt.",
+              "$ref": "#/$defs/DashPattern"
+            },
+            "stroke_dash_offset": {
+              "description": "How far into the pattern the outline's start falls: a larger offset moves the dashes\nback toward the start. Any integer; the painter wraps it (ADR-0158 §5).",
+              "$ref": "#/$defs/Animatableint64"
             },
             "scale": {
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
@@ -723,6 +739,14 @@
             "stroke_cap": {
               "description": "How an open path's two ends are drawn: `\"butt\"` (the default), `\"round\"` or\n`\"square\"`. Static. A closed path has no end to draw it at, so it is refused there; a\nsquare cap widens the box's inset by √2 (ADR-0158 §3, §4).",
               "$ref": "#/$defs/StrokeCap"
+            },
+            "stroke_dash": {
+              "description": "The dash pattern, run from `points[0]` in `points` order, through the closing segment\non a closed path (ADR-0158 §5). Static. Each dash's ends take `stroke_cap`.",
+              "$ref": "#/$defs/DashPattern"
+            },
+            "stroke_dash_offset": {
+              "description": "How far into the pattern the outline's start falls: a larger offset moves the dashes\nback toward the start. Any integer; the painter wraps it (ADR-0158 §5).",
+              "$ref": "#/$defs/Animatableint64"
             },
             "points": {
               "$ref": "#/$defs/AnimatablePoints"
@@ -3174,6 +3198,17 @@
         }
       ],
       "description": "Which end of the reading order a stagger starts from."
+    },
+    "DashPattern": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 16,
+      "description": "The lengths the stroke alternates, dash, gap, dash, gap, starting with a dash, in element pixels along the outline the stroke is drawn on. Static: animate `stroke_dash_offset` instead. An even number of entries with a total above 0; an odd list is not doubled (ADR-0158)."
     },
     "StrokeJoin": {
       "type": "string",
