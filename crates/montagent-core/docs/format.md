@@ -219,6 +219,11 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
     origin point to the farthest corner of the element's box widened by the reach of every effect
     (a blur's and a glow's `⌈3σ⌉`, a shadow's offset and `⌈3σ⌉`, a directional blur's reach), at
     every key and every eased extreme of `perspective`, of the box and of each effect's reach.
+    A shadow's reach is one-sided: its offset plus `⌈3σ⌉` in the offset's direction, and
+    `⌈3σ⌉` minus the offset on the opposite side when that is positive. `R-PROJECTION-AWAY`
+    looks at the same instants and also at a quarter, a half and three quarters of each
+    `swivel` and `tilt` segment and at least once per 30 degrees between its keys, so a long
+    spin between two keys that face away is not reported as never facing.
     It does not depend on the angles. A 1920 × 1080 element needs more than about 1102 about
     `center` and more than about 1994 about `center-left`; on an `image` or `video` a strong
     perspective on a large picture needs a smaller box scaled back up, which loses resolution.

@@ -113,8 +113,11 @@ pub fn millis((numerator, denominator): Instant) -> f64 {
 /// turning points.
 ///
 /// `across_angles` adds a quarter, a half and three quarters of every segment of `swivel` and
-/// `tilt`, for the one question the turning points cannot answer: whether a key-to-key turn of
-/// more than half a revolution faces the eye in between (`R-PROJECTION-AWAY`).
+/// `tilt`, and at least one sample for every 30 degrees a segment's two keys are apart, for the
+/// one question the turning points cannot answer: whether a key-to-key turn of more than half a
+/// revolution faces the eye in between (`R-PROJECTION-AWAY`). A facing band is 180 degrees wide,
+/// so a sample at most every 30 degrees of travel lands in it on any linear turn, however many
+/// revolutions it makes.
 pub(crate) fn instants(element: &Value, start: i64, end: i64, across_angles: bool) -> Vec<Instant> {
     use crate::animatable::declared;
     use crate::model::Ease;
@@ -160,8 +163,16 @@ pub(crate) fn instants(element: &Value, start: i64, end: i64, across_angles: boo
                 push(from + fraction * (to - from));
             }
             if turns {
-                for fraction in [0.25, 0.5, 0.75] {
-                    push(from + fraction * (to - from));
+                let travel = match (
+                    pair[0].get("v").and_then(Value::as_f64),
+                    pair[1].get("v").and_then(Value::as_f64),
+                ) {
+                    (Some(a), Some(b)) => (b - a).abs(),
+                    _ => 0.0,
+                };
+                let parts = ((travel / 30.0).ceil() as usize).clamp(4, 4096);
+                for part in 1..parts {
+                    push(from + part as f64 / parts as f64 * (to - from));
                 }
             }
         }

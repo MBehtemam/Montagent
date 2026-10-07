@@ -424,6 +424,23 @@ fn the_eye_bound_reads_the_reach_of_every_effect_not_the_bare_box() {
 }
 
 #[test]
+fn a_shadow_with_a_small_offset_also_reaches_the_opposite_side_by_what_the_blur_adds() {
+    // 320 × 180 about `center-right`, so the farthest corner is on the left. A shadow cast
+    // 4 px right and blurred by ⌈3σ⌉ = 15 reaches 15 - 4 = 11 px to the left, 19 to the right
+    // and 15 above and below: the far corner is (320 + 11, 90 + 15) from the origin point,
+    // r = hypot(331, 105) = 347.25. A reach of the offset alone on the left would give 320.
+    let report = card_report(
+        320,
+        180,
+        json!({"origin": "center-right", "swivel": 10, "perspective": 300, "effects": [
+            {"name": "shadow", "dx": 4, "dy": 0, "radius": 10, "color": "#000000", "opacity": 0.5}]}),
+    );
+    let found = of(&report, "E-PROJECTION-EYE");
+    assert_eq!(found.len(), 1, "{:#?}", report.findings);
+    assert_eq!(found[0].fields["r"], 347.25);
+}
+
+#[test]
 fn the_eye_bound_reads_the_eased_extreme_of_a_keyed_perspective() {
     // Both keys clear r (183.58), but the bezier overshoots past 1, so between them the
     // value dips to about 106: an eased extreme, not a key.
@@ -473,6 +490,13 @@ fn an_element_that_never_faces_the_eye_is_a_review_and_one_that_does_for_a_momen
         of(&spin, "R-PROJECTION-AWAY").is_empty(),
         "{:#?}",
         spin.findings
+    );
+    // A turn of more than two revolutions between two keys that both face away.
+    let long = away(json!([{"t": 0, "v": 100}, {"t": 800, "v": 820, "ease": "linear"}]));
+    assert!(
+        of(&long, "R-PROJECTION-AWAY").is_empty(),
+        "{:#?}",
+        long.findings
     );
     let back = away(json!([{"t": 0, "v": 100}, {"t": 800, "v": 260, "ease": "linear"}]));
     assert_eq!(of(&back, "R-PROJECTION-AWAY").len(), 1);

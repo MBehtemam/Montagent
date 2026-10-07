@@ -58,6 +58,8 @@ that brings it back to 2×.
 It is a review, not an error, because strong foreshortening may be intended. An agent can leave it
 standing on a shot meant to be dramatic, as it can `R-MOTION-BLUR-STILL` and `R-PROJECTION-AWAY`.
 
+`R-PROJECTION-AWAY` (ADR-0167 §8) is decided at the same instants plus a quarter, a half and three quarters of every `swivel` and `tilt` segment and at least one sample per 30 degrees of travel between its keys, so a turn of more than half a revolution between two away-facing keys is not reported as never facing.
+
 ## The four tests
 
 | Invariant | How this keeps it |
