@@ -32,8 +32,8 @@ fn values(kind: Kind) -> (Value, Value) {
         Kind::Pair => (json!([1.0, 1.0]), json!([1.2, 1.2])),
         Kind::Colour | Kind::Paint => (json!("#FF0000"), json!("#0000FF")),
         Kind::Points => (
-            json!([{"at": [10, 390]}, {"at": [200, 10]}, {"at": [390, 390]}]),
-            json!([{"at": [10, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
+            json!([{"at": [50, 390]}, {"at": [200, 50]}, {"at": [390, 390]}]),
+            json!([{"at": [50, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
         ),
         Kind::Stops => (
             json!([{"offset": 0, "color": "#FF0000"}, {"offset": 1, "color": "#0000FF"}]),
@@ -74,6 +74,16 @@ fn subject(property: &str, records: Value) -> Value {
     // A dash offset moves a pattern, and with none it is `E-DASH-OFFSET-ALONE` (ADR-0158).
     if property == "stroke_dash_offset" {
         element["stroke_dash"] = json!([10, 6]);
+    }
+    // A text's curve is its own nested `path.points`, and `path_offset` places a line only on
+    // a text carrying one (ADR-0161). Its box fits the points inside the inset `m` = 40.
+    if element["type"] == "text" && (property == "path_offset" || property.starts_with("path.")) {
+        element["height"] = json!(450);
+        element["path"] = json!({"closed": false, "points": values(Kind::Points).0});
+        if property == "path.points" {
+            element["path"]["points"] = records;
+            return element;
+        }
     }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
@@ -264,6 +274,8 @@ fn every_animatable_property_is_carried_by_every_tool() {
         // A gradient's parameter is printed inside its paint, resolved: the midpoint is
         // neither end.
         let (printed_as, parameter) = match member {
+            // A text's curve is printed under its own nested name (ADR-0161).
+            None if property.starts_with("path.") => (property.as_str(), ""),
             None => property.split_once('.').unwrap_or((property, "")),
             Some(_) => (property.as_str(), ""),
         };

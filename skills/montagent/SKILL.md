@@ -63,6 +63,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Text in fonts you vendor, as runs with their own size and colour: `fonts`, `size`, `color`.
 - Letter spacing on a whole text element, keyable: `letter_spacing`.
 - A text element's letters, words or lines animating one after another, with one singled out: `units`, `unit`.
+- One line of text bent along its own curve (straight, arc, wave or circle) and sliding along it: `path` (the `path` element's points) and `path_offset` on `text`, with `align`.
 
 **Compositing**
 

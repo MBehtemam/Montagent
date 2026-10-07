@@ -661,10 +661,11 @@ impl<'de> Deserialize<'de> for Video {
 }
 
 /// `x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's
-/// measured order — then the paint ADR-0014 adds, the transform properties, `effects`, and
-/// last `caption`, which draws nothing and so follows everything that does (ADR-0136).
+/// measured order — then the paint ADR-0014 adds, the spacing and the stagger, the curve the
+/// line may bend along (ADR-0161), the transform properties, `effects`, and last `caption`,
+/// which draws nothing and so follows everything that does (ADR-0136).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct TextElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<Animatable<i64>>,
@@ -717,6 +718,16 @@ pub struct TextElement {
     /// ligatures off as a non-zero `letter_spacing` does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub units: Option<Units>,
+    /// The curve the one line bends along, in a `path` element's point vocabulary, measured
+    /// from this text's declared box (ADR-0161 §2). A guide: it is never painted. A text
+    /// carrying it sets one line only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<TextPath>,
+    /// Where on `path` the point `align` names sits, as a fraction of the curve's length from
+    /// its start (ADR-0161 §5, ADR-0164 §1). Default `0`. Animating it slides the line along
+    /// the curve. Only on a text carrying `path`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_offset: Option<Animatable<PathOffset>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -737,6 +748,104 @@ pub struct TextElement {
     /// (ADR-0136).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caption: Option<bool>,
+}
+
+impl TextElement {
+    /// ADR-0164 §1's range, which [`PathOffset`] states in the schema and a bare number here
+    /// cannot enforce: `path_offset` runs from −1 to 2, in a static value and in every
+    /// keyframe record.
+    fn checked(self) -> Result<Self, String> {
+        let stated: Vec<f64> = match &self.path_offset {
+            None => Vec::new(),
+            Some(Animatable::Static(PathOffset(value))) => vec![*value],
+            Some(Animatable::Keyed(records)) => records.iter().map(|record| record.v.0).collect(),
+        };
+        let (min, max) = PathOffset::RANGE;
+        if let Some(value) = stated
+            .into_iter()
+            .find(|value| !(min..=max).contains(value))
+        {
+            return Err(format!(
+                "`path_offset` is {value}: it is a fraction of the curve's length, from `-1` to \
+                 `2` (one curve length past each end), in a static value and in every keyframe \
+                 record (ADR-0164)"
+            ));
+        }
+        Ok(self)
+    }
+}
+
+/// A text's `path_offset`: a fraction of its curve's length, from −1 to 2 inclusive — one
+/// curve length past each end, so one element can slide a line on and off an open curve
+/// (ADR-0164 §1).
+///
+/// The type states the bound in the published schema, so the one derived list of animatable
+/// properties reads it as the range a resolved value clamps to and a `shift` split may not
+/// leave (ADR-0146 §5, §7). [`TextElement::checked`] enforces it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct PathOffset(pub f64);
+
+impl PathOffset {
+    /// `[minimum, maximum]`.
+    pub const RANGE: (f64, f64) = (-1.0, 2.0);
+}
+
+impl JsonSchema for PathOffset {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "PathOffset".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A fraction of the curve's length, from `-1` to `2` inclusive, in a \
+                            static value and in every keyframe record (ADR-0164).",
+            "minimum": PathOffset::RANGE.0,
+            "maximum": PathOffset::RANGE.1,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for PathOffset {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Transition`.
+impl Serialize for TextElement {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        TextElement::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TextElement {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        TextElement::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
+}
+
+/// A text's own curve (ADR-0161 §2): `closed`, required and static, and `points`, a `path`
+/// element's vertex list in integer pixels from the text's declared box's top-left, keyed as
+/// one whole list of unchanging shape. No other key: it is a guide, and draws nothing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextPath {
+    /// Whether a last segment runs from the last vertex back to the first. Static.
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    pub points: Animatable<Points>,
 }
 
 /// A rounded or square rectangle.

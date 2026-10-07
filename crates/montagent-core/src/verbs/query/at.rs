@@ -214,6 +214,11 @@ pub struct Present {
     /// outline length. Absent on every other type, and on an undashed `rect` or `ellipse`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stroke: Option<StrokeReach>,
+    /// A text carrying `path` (ADR-0161 §8): `path_offset` at the instant, the curve's
+    /// informative length, and the letters the curve hides there. Absent on every other
+    /// element.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_path: Option<crate::text_path::Reading>,
 }
 
 /// What `query --at` reports of a shape's stroke (ADR-0158 §7).
@@ -642,6 +647,10 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             Some(kind @ ("path" | "rect" | "ellipse")) => StrokeReach::of(element, kind, instant),
             _ => None,
         };
+        let text_path = match detail {
+            Detail::Full => crate::text_path::Reading::at(document, element, instant),
+            Detail::Presence => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -676,6 +685,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             path,
             masks: mask_paths(element, instant),
             stroke,
+            text_path,
         });
     }
 
@@ -1018,7 +1028,15 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
         })
         // A gradient's parameters are on the list as nested paths (`fill.angle`), and are
         // printed inside the paint they belong to, resolved and fixed together (ADR-0149 §6).
-        .filter(|declared| declared.effect.is_some() || !declared.path.contains('.'))
+        // A text's curve, `path.points`, belongs to no paint and is printed as itself
+        // (ADR-0161).
+        .filter(|declared| {
+            declared.effect.is_some()
+                || declared.path.split_once('.').is_none_or(|(parent, _)| {
+                    crate::animatable::property(parent).map(|property| property.kind)
+                        != Some(crate::animatable::Kind::Paint)
+                })
+        })
         .map(|declared| {
             let property = declared.path.as_str();
             let animated = declared.records().is_some()

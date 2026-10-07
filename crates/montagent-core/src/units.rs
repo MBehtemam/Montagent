@@ -413,31 +413,7 @@ pub(crate) fn bodies_at(
     plan: &Plan,
     instant: i64,
 ) -> Result<(montagent_text::Placement, montagent_text::units::Bodies), String> {
-    use crate::verbs::measure::{
-        Measurable, align_of, letter_spacing_at, optional_ligatures_off, register, runs_of,
-    };
-    let spec = Measurable::of(element)?;
-    let mut fonts = montagent_text::Fonts::new();
-    for key in std::iter::once(spec.asked.font.clone()).chain(Measurable::keys(element)) {
-        register(document, &key, &mut fonts).map_err(|e| e.to_string())?;
-    }
-    let runs = runs_of(element);
-    let placement = montagent_text::place(
-        &mut fonts,
-        &montagent_text::Spec {
-            runs: &runs,
-            font: &spec.asked.font,
-            size: spec.asked.size,
-            line_height_tenths: spec.asked.line_height_tenths,
-            stroke_width: spec.asked.stroke_width,
-            y: 0,
-            vertical_origin: montagent_text::VerticalOrigin::Top,
-            align: align_of(element),
-            letter_spacing: letter_spacing_at(element, instant),
-            optional_ligatures_off: optional_ligatures_off(element),
-        },
-    )
-    .map_err(|e| e.to_string())?;
+    let placement = crate::text_path::place(document, element, (i128::from(instant), 1))?;
     let bodies = montagent_text::units::bodies(&plan.text, plan.by, &placement);
     Ok((placement, bodies))
 }

@@ -507,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 36,
-        "eighteen keyframe instantiations, first and non-first"
+        seen, 38,
+        "nineteen keyframe instantiations, first and non-first"
     );
 }
 
@@ -626,7 +626,9 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "words", "type": "text", "start": 0, "end": 1000,
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
-                     "runs": [{"text": "hi"}]},
+                     "runs": [{"text": "hi"}],
+                     "path": {"closed": false, "points": [{"at": [20, 30]}, {"at": [80, 30]}]},
+                     "path_offset": 0.5},
                     {"id": "footage", "type": "video", "start": 0, "end": 1000,
                      "source": "reference/kenburns/05.mp4", "source_time": 0,
                      "x": 600, "y": 2, "width": 10, "height": 10, "fit": "literal",
@@ -648,8 +650,11 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 .iter()
                 // An effect parameter is named by its place in `effects` (ADR-0146 §4):
                 // `effects[0].feather (mask)` is the schema's `feather`.
+                // A text's curve is the schema's `points`, nested as `path.points`
+                // (ADR-0161).
                 .map(|value| {
                     let property = value["property"].as_str().unwrap_or("?");
+                    let property = property.strip_prefix("path.").unwrap_or(property);
                     property
                         .split_once("].")
                         .map_or(property, |(_, rest)| {

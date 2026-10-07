@@ -2042,6 +2042,81 @@ pub fn path_outline_length(outline: &[PathEl]) -> f64 {
     measured(&path_of(outline))
 }
 
+/// How much finer than 1:1 a text's curve is measured: [`Curve`].
+const CURVE_RESOLUTION: f32 = 64.0;
+
+/// A text's curve (ADR-0161), measured once: its length, and the point and tangent at any
+/// distance along it, by the same path measure a `path`'s dash runs along (ADR-0158), over
+/// the very outline a `path` element strokes. A text's curve is one figure, so only its
+/// first contour is read.
+///
+/// Measured at [`CURVE_RESOLUTION`] times the dash's resolution: at 1:1 Skia's measure puts a
+/// point up to a tenth of a pixel from its distance along a curve (worst on a straight
+/// segment, whose cubic has its handles on its ends), which a letter would show as uneven
+/// spacing; at 64 it is under a hundredth.
+pub struct Curve {
+    measure: Option<skia_safe::ContourMeasure>,
+    /// The curve's length in box pixels. `0` where the outline has no length.
+    pub length: f64,
+}
+
+impl Curve {
+    pub fn of(outline: &[PathEl]) -> Curve {
+        let measure =
+            skia_safe::ContourMeasureIter::new(&path_of(outline), false, CURVE_RESOLUTION).next();
+        let length = measure
+            .as_ref()
+            .map_or(0.0, |measure| f64::from(measure.length()));
+        Curve { measure, length }
+    }
+
+    /// The point at distance `d` along the curve and the tangent's angle there, in radians
+    /// in y-down screen space. `None` where the curve has no length.
+    pub fn at(&self, d: f64) -> Option<(f64, f64, f64)> {
+        let (point, tangent) = self.measure.as_ref()?.pos_tan(d as f32)?;
+        Some((
+            f64::from(point.x),
+            f64::from(point.y),
+            f64::from(tangent.y).atan2(f64::from(tangent.x)),
+        ))
+    }
+}
+
+/// The tight box of `glyphs`' ink in the text block's own coordinates, through each glyph's
+/// unit matrix and outset by its stroke, as `[left, top, right, bottom]`: what
+/// [`Canvas::text`] would draw, before the element's transform. `None` where no glyph has
+/// ink.
+pub fn glyph_ink(glyphs: &[Glyph], outlines: &[Vec<PathEl>]) -> Option<[f64; 4]> {
+    let mut all: Option<Rect> = None;
+    for glyph in glyphs {
+        let Some(outline) = outlines.get(glyph.outline) else {
+            continue;
+        };
+        let mut matrix = glyph
+            .unit
+            .as_ref()
+            .map_or_else(skia_safe::Matrix::default, unit_matrix);
+        matrix.pre_translate((glyph.x as f32, glyph.y as f32));
+        let bounds = path_of(outline)
+            .with_transform(&matrix)
+            .compute_tight_bounds();
+        if bounds.is_empty() {
+            continue;
+        }
+        let reach = if glyph.paint.stroke.is_some() {
+            glyph.paint.stroke_width as f32
+        } else {
+            0.0
+        };
+        let bounds = bounds.with_outset((reach, reach));
+        all = Some(match all {
+            None => bounds,
+            Some(r) => Rect::join2(r, bounds),
+        });
+    }
+    all.map(|r| [r.left, r.top, r.right, r.bottom].map(f64::from))
+}
+
 /// Every contour's length, summed, by the measure Skia's dash lays a pattern along at 1:1.
 ///
 /// Skia measures a curve by chords within a tolerance, so a curve's figure falls a little

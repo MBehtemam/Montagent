@@ -117,3 +117,70 @@ number, and the ADR is right where the two disagree.
   blocklist of known non-redistributable fonts is refused with no override, a recognised
   open licence is recorded, and anything else needs a `--licence` you have verified. Use
   `montagent fonts list` to see each installed font's status before you try.
+
+## Text on a path (ADR-0161)
+
+- **A text may bend its one line along a curve of its own**: `path: {closed, points}`, in a
+  `path` element's vocabulary (the paths page), measured in integer pixels from **the
+  text's** declared box's top-left. `closed` is required and static; `points` is keyed as one
+  whole list of unchanging shape. The `path` takes no other key. It is a guide and is never
+  painted: to show the guide, add a `path` element with the same points copied in, and keep
+  the two copies in step yourself.
+- **One line only.** A `\n` in any run of a text carrying `path` is `E-TEXT-PATH-BREAK`. A
+  second line on the same curve is a second text element with its own `path`.
+- **`path_offset` places the line** (ADR-0164): a number from `-1` to `2`, keyframe values
+  included, the fraction of the curve's length (by the painter's own path measure) where the
+  point `align` names sits. Default `0`. Below `0` or above `1` that point is off the curve,
+  one curve length past an end at most. Animate it to slide the line along the curve; an
+  ease that overshoots holds at `-1` or `2`. On a text with no `path` it is
+  `E-TEXT-PATH-OFFSET-ORPHAN`.
+- **Slide one element on and off an open curve** with `align: start` and `path_offset` keyed
+  from `-1` to `1`: at `-1` the line ends at or before the curve's start, at `1` it begins at
+  its end. A line longer than its curve cannot fully enter or fully leave in one element: use
+  a stagger's `x`, or a cut to a second element.
+- **On a path, `align` names an end of the curve, not of the reading direction.** `start` is
+  the line's lowest-distance end, its visual left; `center` its middle; `end` its
+  highest-distance end, its visual right. This holds for every script: an Arabic or Hebrew
+  line with the defaults (`start`, offset `0`) starts at the curve's first point and draws.
+  On flat text `start` is a right-to-left line's right edge (above); on a path it is not.
+- **Direction.** The line's visual left-to-right runs in `points` order, for every script. A
+  circle drawn clockwise on screen puts the letters on its outside, reading clockwise. To read
+  along the bottom of a circle, or from inside it, write the points the other way: reverse the
+  list and swap every vertex's `in` and `out`. Reversing a closed list also moves its first
+  vertex, which is where `path_offset: 0` is, so rotate the list to keep the start where it was.
+- **The curve bends the finished flat line.** Layout, `letter_spacing` and the `units` stagger
+  run flat, as above. Then each **rigid body** (a letter, an Arabic joined piece, a ligature
+  such as `fi`) is moved and turned whole at its advance midpoint, never bent: its flat `x`
+  becomes a distance along the curve, its baseline sits on the curve, and its rotation adds
+  to the curve's tangent. So a stagger's `y` lifts a letter along the curve's normal (negative
+  `y` is to the left of travel, above a line read left to right), its `x` slides the letter
+  along the curve, and its `rotation`, `scale` and `opacity` act as on flat text. On a bend
+  tighter than a body is wide, the body's ends lift off the curve: that is the rule, not a
+  defect. Space characters are not drawn on a curve; the gap they leave is.
+- **The box is the frame the curve is written in**, as on a `path` element, so a text on a
+  path pivots `x`, `y`, `origin`, `scale` and `rotation` about its declared box, not the
+  block its line makes. `R-BOX-SLACK` does not run on it.
+- **Past the ends.** On an open path, a body whose distance falls before `0` or past the
+  curve's length is not drawn, so a line slides off an end body by body; a stagger's `x` can
+  slide a letter off too. On a closed path the distance wraps around the start point (so
+  `-0.25` and `0.75` draw the same), and a body is drawn only if its whole advance, where a
+  stagger's `x` has moved it, lies within one loop measured from the line's start
+  (ADR-0164). A body whose middle fits but whose end would reach round onto the first letter
+  is hidden, so no two letters are laid on top of each other; a loop slightly too long for
+  its line can show a gap of up to one letter at the seam. Nothing in `validate` checks that
+  a line fits its curve: that needs the font. Instead **`query --at`** prints, on a text
+  carrying `path` only, the resolved `path_offset`, the curve's length (informative, like a
+  dash outline's), and `hidden:`, the letters not drawn at that instant by their letter
+  index (whitespace not counted), or `none`. A hidden joined piece or ligature lists all its
+  letters. **`measure`** adds the same `hidden:` and the bent line's ink, in box pixels, at
+  the element's first frame.
+- **The inset `m` is a frame convention, not a guarantee.** Every vertex and absolute handle,
+  in every `points` keyframe, must lie inside the box inset by `m = the largest size among
+  the runs + the largest stroke_width among the runs and the element`, or `E-PATH-OUTSIDE-BOX`
+  fires and states `m` and how it was derived. `m` keeps a plain letter sitting on the curve
+  inside the box. A wide body on a tight bend, or a letter a stagger lifts off the curve, can
+  still pass it: `measure`'s bent ink is where that shows. `E-PATH-TOO-FEW-POINTS`,
+  `E-PATH-DANGLING-HANDLE` and `E-PATH-KEYFRAME-SHAPE` fire on the text's `path` as on a
+  `path` element, each naming `path.points` on a `text`.
+- **`shift`** treats `path.points` as a `path`'s points (a cut inside a keyed window it cannot
+  write as integer literals is refused) and splits `path_offset` like any number.

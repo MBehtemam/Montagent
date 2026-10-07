@@ -160,12 +160,27 @@ fn derive(schema: &Value) -> Table {
     }
 }
 
+/// The schema reference of a text's own curve (ADR-0161 §2).
+const TEXT_PATH_REF: &str = "#/$defs/TextPath";
+
 /// The properties of one object branch whose type is an `Animatable{T}`, in schema order. A
 /// paint is followed by its gradient's parameters as nested paths — `fill.angle`,
-/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6).
+/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — and a text's curve is read as
+/// its own nested `path.points` (ADR-0161 §8).
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
+        // A text's own curve carries its one animatable list nested, as `path.points`
+        // (ADR-0161 §8); its `closed` is static.
+        if property["$ref"].as_str() == Some(TEXT_PATH_REF) {
+            for nested in animatable_properties(defs, &defs["TextPath"]) {
+                properties.push(Property {
+                    name: format!("{name}.{}", nested.name),
+                    ..nested
+                });
+            }
+            continue;
+        }
         let Some(def) = property["$ref"]
             .as_str()
             .and_then(|reference| reference.strip_prefix("#/$defs/"))
@@ -642,6 +657,11 @@ fn clamp(
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
         "radius" => number.clamp(0.0, half_shorter(sides(element, numerator, denominator))),
+        // ADR-0164 §1: an overshooting ease holds the line one curve length past an end.
+        "path_offset" => number.clamp(
+            crate::model::PathOffset::RANGE.0,
+            crate::model::PathOffset::RANGE.1,
+        ),
         _ => number,
     })
 }
@@ -685,8 +705,12 @@ fn clamped(
 
 /// A path's **inset**: `ceil(k × stroke_width / 2)`, widened by the stroke's reach factor
 /// `k` (ADR-0158 §4), or `0` with no stroke, from the largest value a keyed `stroke_width`
-/// states (ADR-0154 §4). See [`crate::stroke::reach`].
+/// states (ADR-0154 §4). See [`crate::stroke::reach`]. On a `text`, its curve's inset `m`:
+/// the largest run size plus the largest `stroke_width` (ADR-0161 §7, [`crate::text_path`]).
 pub fn path_inset(element: &Value) -> i64 {
+    if element.get("type").and_then(Value::as_str) == Some("text") {
+        return crate::text_path::Inset::of(element).m;
+    }
     crate::stroke::reach(element).inset
 }
 
