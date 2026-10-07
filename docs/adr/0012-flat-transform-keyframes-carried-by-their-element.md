@@ -5,6 +5,10 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0167](./0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)**: the flat transform gains `swivel`, `tilt` and
+> `perspective`, a projection about `origin` applied before `scale`, `rotation` and `x`/`y`.
+> Skew stays out.
+
 > **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: keyframes are no longer transform-only. A property is
 > animatable where the schema types it so, admitted by three criteria; shape size and paint,
 > element-level text paint and every numeric and colour effect parameter join. `shift`

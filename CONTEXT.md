@@ -98,11 +98,21 @@ _Avoid_: anchor, alignment, pivot
 
 **Transform**:
 Where a visual element sits and how it is drawn — `x`, `y`, `origin`, `scale`,
-`rotation`, `opacity` — as flat fields on the element in absolute integer pixels. There is
+`rotation`, `opacity`, and the Projection's `swivel`, `tilt` and `perspective` — as flat
+fields on the element in absolute integer pixels. There is
 exactly one per element and it is never nested, never inherited and never composed: no
 element's transform is relative to another's. An element's size is declared, never
 defaulted from the source file.
 _Avoid_: matrix, layout, placement (as a field), position (as a field name)
+
+**Projection**:
+An element drawn as a flat plane turned in front of an eye: `swivel` turns it about its
+vertical axis, `tilt` about its horizontal axis, and `perspective` is the eye's distance
+from the plane. It turns about `origin`, before `scale`, `rotation` and `x`/`y`, and it
+carries the element's effects and mask with it. An element may be projected, never placed:
+nothing has a depth, nothing is sorted, and an element facing away draws nothing
+([ADR-0167](docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)).
+_Avoid_: 3D, tilt (for the whole capability: `tilt` is one of its angles), camera, depth
 
 **Keyframe**:
 One `{"t","t_from","v","ease"}` record in a list that makes an animatable property change
