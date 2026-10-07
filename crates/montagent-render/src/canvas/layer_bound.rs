@@ -65,7 +65,8 @@ const MAX_OUTSET: f32 = 512.0;
 const PIN_MARGIN: f32 = 1024.0;
 
 thread_local! {
-    static ENABLED: Cell<bool> = const { Cell::new(true) };
+    // prototype(#750): `MONTAGENT_PROTO_UNBOUND` starts every thread with the hint off.
+    static ENABLED: Cell<bool> = Cell::new(std::env::var_os("MONTAGENT_PROTO_UNBOUND").is_none());
     /// How many layers this thread has hinted, so a test that finds the same bytes both
     /// ways can also say the hint was there to find them.
     #[cfg(test)]
@@ -117,6 +118,10 @@ pub(super) fn hints(
             Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Glow { .. } => {
                 let output = filter.compute_fast_bounds(content);
                 *hint = plan.pinned(output);
+                // prototype(#750): count the hinted layers.
+                if hint.is_some() && std::env::var_os("MONTAGENT_PROTO_COUNT").is_some() {
+                    eprintln!("proto-hint content={content:?} output={output:?}");
+                }
                 #[cfg(test)]
                 HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
                 content = output;
