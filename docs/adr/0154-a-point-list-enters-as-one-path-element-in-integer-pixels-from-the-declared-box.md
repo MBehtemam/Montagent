@@ -14,6 +14,12 @@ amends: 0014 (`line`, `polygon` and `path` are no longer rejected; one `path` el
 > `E-PATH-DANGLING-HANDLE`, `E-PATH-KEYFRAME-SHAPE` and `E-PATH-OUTSIDE-BOX` fire on a text's
 > `path` too, the last with the text's own inset.
 
+> **Amended by [ADR-0162](0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md).** §3's morphing question is settled with no
+> second mechanism: a morph between unlike shapes is written as matching vertex lists, padded
+> by hand with coincident vertices. `E-PATH-KEYFRAME-SHAPE` names that fix, and a new review,
+> `R-PATH-SEAM-CAP`, fires on an open path whose coincident ends meet at a corner under a cap
+> that is not `round`.
+
 [#701](https://github.com/MBehtemam/Montagent/issues/701), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0014](0014-stroke-is-paint-the-text-box-is-required.md) rejected `line`, `polygon` and

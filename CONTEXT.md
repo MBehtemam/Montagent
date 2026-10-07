@@ -1608,6 +1608,16 @@ an SVG `d` string is still refused: a mini-language inside a JSON string is unre
 reading and unmatchable by exact-string replace.
 ([ADR-0154](docs/adr/0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md))
 
+**Morph**:
+One **path** animating into an unlike shape, written as **matching vertex lists**: every
+keyframe value has the same vertex count and the same handles, and the agent makes them match
+by hand. A **coincident vertex**, the same `at` twice, adds a segment of zero length that draws
+nothing, so padding never changes a drawing. Nothing resamples an outline for you, and
+`closed` never changes, so a fill that opens is two elements. The **seam** is where an open
+path's coincident ends meet: two caps, not a join.
+([ADR-0162](docs/adr/0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md))
+_Avoid_: tween (for the shape), shape interpolation, auto-match
+
 **Repeat, repeater, clone**:
 Elsewhere one layer draws as N offset copies. Montagent draws exactly one thing per element,
 so every copy is written out as its own element with its own `id`. A drawn copy with no `id`
