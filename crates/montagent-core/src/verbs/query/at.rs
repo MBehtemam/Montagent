@@ -223,6 +223,71 @@ pub struct Present {
     /// field, so an untrimmed element's answer is unchanged byte for byte.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trim: Option<TrimReport>,
+    /// A projected element's reading (ADR-0167 §7). Absent on an element that writes neither
+    /// `swivel` nor `tilt`, so its answer is unchanged byte for byte.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projection: Option<ProjectionReport>,
+}
+
+/// What `query --at` reports of a projected element (ADR-0167 §7): the three numbers at the
+/// instant, which way it faces, and the four frame-space corners of its box widened by its
+/// effects' reach, from [`crate::projection::quad_at`], the function every check reads.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectionReport {
+    pub swivel: f64,
+    pub tilt: f64,
+    /// `null` where the file writes no `perspective` (`E-PROJECTION-PERSPECTIVE-MISSING`).
+    pub perspective: Option<f64>,
+    /// `front`, `away` or `edge`.
+    pub facing: &'static str,
+    /// Top-left, top-right, bottom-right, bottom-left, in frame pixels to three decimals,
+    /// printed whatever the facing. `null` where the box has no positive size.
+    pub corners: Option<[[f64; 2]; 4]>,
+    /// Whether it paints at the instant.
+    #[serde(skip)]
+    pub(crate) drawn: bool,
+    #[serde(skip)]
+    bounds: Option<[f64; 4]>,
+}
+
+impl ProjectionReport {
+    fn of(element: &Value, instant: i64, frame: (i64, i64), offset: (i64, i64)) -> Self {
+        let t = (i128::from(instant), 1);
+        let projection = crate::projection::at(element, t).expect("a projected element");
+        let quad = crate::projection::quad_at(element, t, frame, offset);
+        let millis = |value: f64| (value * 1000.0).round() / 1000.0 + 0.0;
+        ProjectionReport {
+            swivel: projection.swivel,
+            tilt: projection.tilt,
+            perspective: element.get("perspective").map(|_| projection.perspective),
+            facing: projection.facing().as_str(),
+            corners: quad.map(|quad| quad.corners.map(|(x, y)| [millis(x), millis(y)])),
+            drawn: quad.is_some_and(|quad| quad.drawn),
+            bounds: quad.filter(|quad| quad.drawn).map(|quad| quad.bounds()),
+        }
+    }
+
+    /// The ink box: the corners' bounds while it paints, and why it is empty otherwise.
+    fn ink_box(&self) -> (Option<InkBox>, Option<String>) {
+        if let Some([left, top, right, bottom]) = self.bounds {
+            return (
+                Some(InkBox {
+                    x: left,
+                    y: top,
+                    width: right - left,
+                    height: bottom - top,
+                }),
+                None,
+            );
+        }
+        let why = match (self.corners, self.facing) {
+            (None, _) => "it has no box at this instant",
+            (_, "away") => "it faces away at this instant and paints nothing",
+            (_, "edge") => "it is edge-on at this instant and paints nothing",
+            _ => "its `perspective` does not exceed the eye bound, so it paints nothing",
+        };
+        (None, Some(why.to_string()))
+    }
 }
 
 /// What `query --at` reports of a trimmed stroke (ADR-0160 §7).
@@ -614,7 +679,23 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         // whole computation to refuse — is not this instant's concern. One call into
         // `drawn_rect`, its result reused for both the refusal check and the rectangle
         // itself, rather than computing the same footprint twice.
-        if detail == Detail::Full
+        // A projected element that paints is a quadrilateral, which this answers no better
+        // than a rotated box (ADR-0167 §6); one facing away paints nothing.
+        let projection = match (detail, frame) {
+            (Detail::Full, Some(frame)) if crate::projection::projects(element) => {
+                Some(ProjectionReport::of(element, instant, frame, bridge.offset))
+            }
+            _ => None,
+        };
+        if let Some(report) = &projection
+            && report.drawn
+            && geometry_number_opacity(element, instant) != 0.0
+        {
+            not_covered_unresolved.get_or_insert_with(|| {
+                format!("`{name}` is projected; `NOT COVERED` is answered in rectangles only")
+            });
+        } else if detail == Detail::Full
+            && projection.is_none()
             && covers_the_frame(kind)
             && geometry_number_opacity(element, instant) != 0.0
             && let Some(frame) = frame
@@ -675,6 +756,12 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 Some("the project carries no legal `frame`".to_string()),
             ),
             _ => (None, None),
+        };
+        // ADR-0167 §7: a projected element's ink box is its quadrilateral's bounds, empty
+        // while it paints nothing.
+        let (ink_box, ink_box_unresolved) = match &projection {
+            Some(report) => report.ink_box(),
+            None => (ink_box, ink_box_unresolved),
         };
 
         let blend = blend_word(element, kind);
@@ -741,6 +828,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             stroke,
             text_path,
             trim,
+            projection,
         });
     }
 
@@ -986,6 +1074,16 @@ fn crop_for(
             ),
         );
     };
+    if crate::projection::projects(element) {
+        return (
+            None,
+            Some(
+                "it is projected (ADR-0167), and the crop rectangle is not derived through a \
+                 projection"
+                    .to_string(),
+            ),
+        );
+    }
     let (Some(width), Some(height)) = (
         element.get("width").and_then(Value::as_i64),
         element.get("height").and_then(Value::as_i64),

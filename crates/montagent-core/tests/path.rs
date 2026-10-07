@@ -181,6 +181,9 @@ fn points_is_on_the_one_list_as_a_whole_list_value_and_the_box_is_not() {
             "points",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );

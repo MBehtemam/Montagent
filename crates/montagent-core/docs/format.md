@@ -183,8 +183,9 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `bottom-right`. The middle elides to `center` alone — `center-center` is an error naming
   it, because two spellings of one value break the write-read round trip.
 - **There is exactly one transform per element, and it is flat** (ADR-0012). `x`, `y`, `origin`,
-  `scale`, `rotation`, `opacity`, as fields on the element. No transform is nested,
-  inherited or composed, and no element's transform is relative to another's.
+  `scale`, `rotation`, `opacity`, and the projection's three fields below, as fields on the
+  element. No transform is nested, inherited or composed, and no element's transform is
+  relative to another's.
 - **`scale` is always `[sx, sy]`** (ADR-0012), never a bare number.
 - **`clip` is a static frame-space rectangle** and never animates (ADR-0025): it is simultaneously the
   aperture the source is drawn through and the fixed denominator a `fit` claim is checked
@@ -203,6 +204,42 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`stroke` never enlarges the declared rect** (ADR-0014). On a `rect` or `ellipse` it falls inside
   it; on text it falls outside the glyph contour and grows into the box rather than past it;
   on a `path` it is centred on the outline, and `validate` checks the box contains it (the paths page).
+
+### Projection: `swivel`, `tilt` and `perspective` (ADR-0167, ADR-0168)
+
+Any visual element may be projected: drawn as a flat plane turned in front of an eye. Nothing
+gains a depth, a sort order or an occlusion.
+
+- **`swivel`** turns it about its vertical axis through `origin`, in degrees: positive sends the
+  right edge away (CSS `rotateY`, Premiere's Swivel). **`tilt`** turns it about its horizontal
+  axis: positive sends the top edge away (CSS `rotateX`, Premiere's Tilt). Both animate and
+  are never normalised. **`perspective`** is the eye's distance in px, straight in front of the
+  origin point (CSS's meaning): greater than 0, no default, required with either angle and an
+  error without one. Smaller is stronger foreshortening; `scale` stays the only size control.
+- **The order.** The element is drawn flat with its `effects` and mask, in list order; that
+  picture is projected about `origin`; then `scale`, `rotation` and `x`/`y` act on it. The
+  angles compose as CSS's `perspective(d) rotateX(tilt) rotateY(swivel)`: swivel first. So a
+  shadow tilts with its card (one that stays on the ground is a second element), and text and
+  paths are projected as their flat pixels. `clip` stays frame space; `opacity` and `blend`
+  wrap the projected picture.
+- **A written angle always projects**, even at `0`: writing `swivel: 0` changes an element's
+  bytes slightly (a resample), and a keyed angle passing 0 never switches path. Only an
+  element with neither field is unchanged.
+- **Facing away draws nothing**, and neither does exactly edge-on (90°). A card flip is two
+  elements: the front swivels 0 → 180, the back −180 → 0. A mirrored back is a second element
+  with `scale: [-1, 1]`. An ease that overshoots past 90° blinks the element out for those
+  frames. `R-PROJECTION-AWAY` says when an element never faces the eye.
+- **The eye bound.** `perspective` must exceed r, the distance from the origin point to the
+  farthest corner of the box widened by every effect's reach (a blur's spread, a shadow's
+  offset), at every key and eased extreme; `E-PROJECTION-EYE` names the value that passes. A
+  1920 × 1080 element with no reach needs more than about 1102 about `center` and 1994 about
+  `center-left`. As `perspective` nears r the near edge is magnified about d / (d − r) and
+  draws soft: `R-PROJECTION-SOFT` fires past 2×, and a larger value reduces it.
+- **What the tools read.** The checks (`R-OFF-CANVAS`, the layer tie, `blend`) read the
+  projected quadrilateral's bounds; `query --at` prints `facing`, the four `corners` and the
+  bounds as `ink_box`, empty while it paints nothing. On `text` they project the declared
+  box, which holds the block of lines the picture projects.
+- **A nest takes no projection** (ADR-0167 §10); only an element is projected.
 
 ## Values
 

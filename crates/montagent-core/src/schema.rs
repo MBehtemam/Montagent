@@ -28,7 +28,45 @@ pub fn generate() -> Value {
     publish_transition_fields(&mut schema);
     publish_path_fill(&mut schema);
     publish_video_source(&mut schema);
+    publish_projection(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0167 §1's relational rule in the schema: `perspective` is required wherever
+/// `swivel` or `tilt` is written. The types leave both optional, so that `validate`'s
+/// `E-PROJECTION-PERSPECTIVE-MISSING` gives the targeted message; the published schema
+/// states the rule for a reader outside the binary. The converse, a `perspective` with
+/// neither angle, is `E-PROJECTION-PERSPECTIVE-ALONE` and is not said here.
+fn publish_projection(schema: &mut Value) {
+    let Some(branches) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    for branch in branches {
+        let Value::Object(body) = branch else {
+            continue;
+        };
+        if body
+            .get("properties")
+            .and_then(|properties| properties.get("swivel"))
+            .is_none()
+        {
+            continue;
+        }
+        let mut ordered = serde_json::Map::new();
+        for (key, value) in std::mem::take(body) {
+            ordered.insert(key.clone(), value);
+            if key == "required" {
+                ordered.insert(
+                    "dependentRequired".into(),
+                    json!({"swivel": ["perspective"], "tilt": ["perspective"]}),
+                );
+            }
+        }
+        *body = ordered;
+    }
 }
 
 /// Say ADR-0157's relational rule about how a `video` names its source in the schema, where

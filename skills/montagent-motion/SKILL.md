@@ -1,6 +1,6 @@
 ---
 name: montagent-motion
-description: "Motion graphics and titles in Montagent: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, wipes, pops, colour changes, and trailer effects (slammed titles, glitch cuts, HUDs). Use when a Montagent video is built from graphics and text rather than footage or a character."
+description: "Motion graphics and titles in Montagent: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, wipes, pops, colour changes, card flips and door swings in perspective, and trailer effects (slammed titles, glitch cuts, HUDs). Use when a Montagent video is built from graphics and text rather than footage or a character."
 ---
 
 # Motion graphics and titles
@@ -282,3 +282,52 @@ A loader is an arc orbiting a ring: a window of the outline (`trim_start` 0, `tr
 - **Ends:** an `ellipse`'s or a `rect`'s trim ends are butt. For round ends, draw the ring as a closed `path` (four cubics) with `"stroke_cap": "round"`.
 - **On a `rect`** the window turns the corners with the rect's own square join, a quarter turn being a quarter of the perimeter, not a corner.
 - **Look:** `frame` where the arc crosses 3 o'clock, the ring's start point, and check there is no notch; then `preview` one full turn.
+
+### Flip a card
+
+A card turning over is two elements in the same place: the front swivels 0 → 180 and the back −180 → 0, on the same keys and curve. Each draws nothing while it faces away, so exactly one side shows at a time, and neither shows at the edge-on instant.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/card-flip.mp4",
+  "tracks": [
+    {"name": "back", "layer": 10, "elements": [
+      {"id": "card-back", "type": "rect", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 480, "height": 300, "fill": "#FF5A36", "radius": 24, "swivel": [{"t": 400, "v": -180}, {"t": 1200, "v": 0, "ease": [0.65, 0, 0.35, 1]}], "perspective": 1800}
+    ]},
+    {"name": "front", "layer": 11, "elements": [
+      {"id": "card-front", "type": "rect", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 480, "height": 300, "fill": "#F2E6C9", "radius": 24, "swivel": [{"t": 400, "v": 0}, {"t": 1200, "v": 180, "ease": [0.65, 0, 0.35, 1]}], "perspective": 1800}
+    ]}
+  ]
+}
+```
+
+- **Perspective:** 4–7 × the card's half-diagonal (283 px here). Below 2 × it the near edge goes soft, and `validate` says so with `R-PROJECTION-SOFT`.
+- **Curve:** no overshoot. An ease that carries an angle past 90° blinks the card out for those frames.
+- **Turning about the other axis:** key `tilt` instead of `swivel`, the front 0 → 180 and the back −180 → 0.
+- **A mirrored back,** the front seen through the card, is a second element with `"scale": [-1, 1]`.
+- **Shadows** tilt with the card. A shadow that stays on the ground is its own element.
+- **Length:** 600–900 ms.
+- **Look:** `frame` a quarter and three quarters of the way through, and check one side shows; then `preview` the flip.
+
+### Swing a door
+
+A panel hinged on one edge: put `origin` on the hinge and key `swivel`. With `"origin": "center-left"`, a positive swivel sends the free edge away from the viewer.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/door.mp4",
+  "tracks": [
+    {"name": "doorway", "layer": 10, "elements": [
+      {"id": "doorway", "type": "rect", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 480, "height": 640, "fill": "#FFD60A"}
+    ]},
+    {"name": "door", "layer": 11, "elements": [
+      {"id": "door", "type": "rect", "start": 0, "end": 2000, "x": 720, "y": 540, "origin": "center-left", "width": 480, "height": 640, "fill": "#A0522D", "swivel": [{"t": 300, "v": 0}, {"t": 1300, "v": 75, "ease": [0.34, 1.2, 0.64, 1]}], "perspective": 2200}
+    ]}
+  ]
+}
+```
+
+- **Opening angle:** 60–80°. A small overshoot settles the swing; keep the peak under 90°.
+- **Perspective:** more than the distance from the hinge's midpoint to the far corners (577 px here), or `E-PROJECTION-EYE` names the value that passes; at least twice it keeps the near edge sharp. 4–5 × the width reads as a natural lens.
+- **Length:** 800–1200 ms, with the door held shut for a beat first.
+- **Look:** `frame` at the widest swing and check the hinge edge has not moved; then `preview` the swing.

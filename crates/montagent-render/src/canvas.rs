@@ -78,6 +78,7 @@ mod gradient;
 mod grain;
 mod layer_bound;
 mod named;
+mod projection;
 
 pub use gradient::{Gradient, GradientKind, Ink};
 pub use grain::grain_draw;
@@ -85,6 +86,7 @@ pub use grain::grain_draw;
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
 pub use layer_bound::set_enabled as bound_filter_layers;
+pub use projection::{Facing, Projection, Quad, eye_bound, quad, reach_box};
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +136,11 @@ pub struct Transform {
     /// transform property, and static, but carried here beside `opacity` because the two
     /// are applied together by the one layer the element is composited through.
     pub blend: Blend,
+    /// The projection (ADR-0167), on an element that writes `swivel` or `tilt`: it is drawn
+    /// flat into a layer with its effects and mask, and the layer is drawn through the
+    /// projection about `origin`, innermost, before `scale`, `rotation` and `x`/`y`. `None`
+    /// on an element with neither field, which paints exactly as before (ADR-0168 §1).
+    pub projection: Option<Projection>,
 }
 
 /// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
@@ -1747,6 +1754,14 @@ impl Canvas {
         if extent.width <= 0.0 || extent.height <= 0.0 || transform.opacity <= 0.0 {
             return;
         }
+        // A projected element facing away, edge-on, or reaching the eye paints nothing at
+        // this instant (ADR-0167 §4, §5): the same answer `query --at` and the checks read.
+        if let Some(projection) = transform.projection
+            && !projection::quad(extent, transform, projection, effects).drawn
+        {
+            return;
+        }
+        let base = self.base;
         let canvas = self.surface.canvas();
         canvas.save();
         if let Some(clip) = clip {
@@ -1781,11 +1796,18 @@ impl Canvas {
             canvas.rotate(transform.rotation as f32, None);
         }
         canvas.scale((transform.scale.0 as f32, transform.scale.1 as f32));
-        canvas.translate((
-            (-transform.origin.0 * extent.width) as f32,
-            (-transform.origin.1 * extent.height) as f32,
-        ));
-        Canvas::through(canvas, extent, effects, draw);
+        match transform.projection {
+            None => {
+                canvas.translate((
+                    (-transform.origin.0 * extent.width) as f32,
+                    (-transform.origin.1 * extent.height) as f32,
+                ));
+                Canvas::through(canvas, extent, effects, draw);
+            }
+            Some(projection) => {
+                projected(canvas, extent, transform, projection, base, effects, &draw);
+            }
+        }
         if layered {
             canvas.restore();
         }
@@ -1825,6 +1847,13 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
+        // No effect, bounds hint, grain plan or directional crop ever runs under a
+        // perspective matrix: a projected element runs this on its flat layer (ADR-0167 §3).
+        // A hard assert, on in release, because each of those reads the matrix.
+        assert!(
+            !canvas.local_to_device_as_3x3().has_perspective(),
+            "an effect chain under a perspective matrix (ADR-0167 §3)"
+        );
         // A `grain` at `amount: 0` is no member at all, rather than a layer that changes
         // nothing: the identity paints the bytes of the list without it (ADR-0156).
         let effects: Vec<Effect> = effects
@@ -1984,6 +2013,100 @@ impl Canvas {
             scale,
         })
     }
+}
+
+/// Transparent layer pixels kept around a projected element's flat layer, so its edge is
+/// sampled against transparency rather than against the image's clamped border.
+const FLAT_PAD: f64 = 2.0;
+
+/// Draw one element through its projection (ADR-0167 §3, as the accepted prototype #786
+/// measured it). `canvas` already holds translate · rotate · scale, and the element faces
+/// front with every corner in front of the eye ([`projection::quad`]).
+///
+/// 1. **Flat.** The element is drawn on a raster surface of its own, with its effects and
+///    mask in list order, through the normal [`Canvas::through`]. The surface covers the
+///    reach-widened box ([`reach_box`]) plus [`FLAT_PAD`], rounded out to whole pixels, and
+///    holds `|scale|` layer pixels per element unit (times the canvas's base scale), under a
+///    matrix that is a translation and a positive scale only. What the element paints
+///    outside the reach box, such as text overflowing its block, is cut.
+/// 2. **Projected.** That surface is drawn once through PROJECT · origin offset ·
+///    1/|scale|, sampled by [`sampling_for`] (ADR-0132) and antialiased at its edge. This is
+///    the only draw under a perspective matrix; `opacity`, `blend` and `clip` wrap it as they
+///    wrap every element.
+fn projected(
+    canvas: &skia_safe::Canvas,
+    extent: Extent,
+    transform: &Transform,
+    projection: Projection,
+    base: (f32, f32),
+    effects: &[Effect],
+    draw: &dyn Fn(&skia_safe::Canvas),
+) {
+    let (kx, ky) = (
+        transform.scale.0.abs() * f64::from(base.0),
+        transform.scale.1.abs() * f64::from(base.1),
+    );
+    if !(kx > 0.0 && ky > 0.0 && kx.is_finite() && ky.is_finite()) {
+        return;
+    }
+    let (l, t, r, b) = reach_box(extent, effects);
+    // Whole layer pixels on every side, so the reach box's top-left lands at a whole-pixel
+    // translation of the flat surface.
+    let left = (-l * kx).ceil() + FLAT_PAD;
+    let top = (-t * ky).ceil() + FLAT_PAD;
+    let width = left + (r * kx).ceil() + FLAT_PAD;
+    let height = top + (b * ky).ceil() + FLAT_PAD;
+    if !(width.is_finite() && height.is_finite()) || width > f64::from(i32::MAX) {
+        return;
+    }
+    let info = ImageInfo::new(
+        ISize::new(width as i32, height as i32),
+        ColorType::RGBA8888,
+        AlphaType::Premul,
+        None,
+    );
+    let Some(mut flat) = surfaces::raster(&info, None, None) else {
+        return;
+    };
+    {
+        let layer = flat.canvas();
+        layer.clear(Color::TRANSPARENT);
+        layer.translate((left as f32, top as f32));
+        layer.scale((kx as f32, ky as f32));
+        layer.clip_rect(
+            Rect::from_ltrb(l as f32, t as f32, r as f32, b as f32),
+            None,
+            Some(true),
+        );
+        Canvas::through(layer, extent, effects, draw);
+    }
+    let image = flat.image_snapshot();
+
+    let m = projection.matrix();
+    let project = Matrix::new_all(
+        m[0][0] as f32,
+        m[0][1] as f32,
+        m[0][2] as f32,
+        m[1][0] as f32,
+        m[1][1] as f32,
+        m[1][2] as f32,
+        m[2][0] as f32,
+        m[2][1] as f32,
+        m[2][2] as f32,
+    );
+    canvas.save();
+    canvas.concat(&project);
+    canvas.translate((
+        (-transform.origin.0 * extent.width) as f32,
+        (-transform.origin.1 * extent.height) as f32,
+    ));
+    canvas.scale(((1.0 / kx) as f32, (1.0 / ky) as f32));
+    canvas.translate((-left as f32, -top as f32));
+    let to_device = canvas.local_to_device_as_3x3();
+    let mut paint = SkPaint::default();
+    paint.set_anti_alias(true);
+    canvas.draw_image_with_sampling_options(&image, (0, 0), sampling_for(&to_device), Some(&paint));
+    canvas.restore();
 }
 
 /// Which of [`Canvas::text`]'s two passes is being painted.
@@ -2370,8 +2493,8 @@ fn path_of(outline: &[PathEl]) -> Path {
 /// - **Minification** — the smaller singular value under 1, either axis: bilinear over
 ///   linear mipmaps. Skia's cubics ignore mipmaps and alias here worse than bilinear did
 ///   (#500 measured 29 dB against 38 at ×0.3), which is why one filter cannot serve both
-///   directions. A perspective matrix, which this crate never builds, lands here too: it
-///   is the branch that cannot alias.
+///   directions. A perspective matrix, which only a projected element's flat layer is drawn
+///   through (ADR-0167 §3), lands here too: it is the branch that cannot alias.
 /// - **Magnification** — everything else: Catmull-Rom, which #500 measured at the PIL
 ///   bicubic reference (40.2 dB against 40.0 at ×2.3) where bilinear stair-steps a hard
 ///   edge (32.3).
@@ -2464,6 +2587,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2633,6 +2757,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
             },
             None,
             &[],
@@ -2961,6 +3086,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -3010,6 +3136,7 @@ mod tests {
             rotation,
             opacity: 1.0,
             blend: Blend::Normal,
+            projection: None,
         }
     }
 
