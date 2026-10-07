@@ -98,6 +98,27 @@ def prerender():
     (HERE / "prerender.spec.json").write_text(json.dumps({"source": "media/pulse.mov", "id": "pulse"}) + "\n")
 
 
+def svg_still():
+    """media/mark.png: the pre-render skill's sample SVG, rasterised by its own script through the
+    `resvg` command line (0.48.1 when committed) with the fixture font, so the fixture is the PNG
+    the skill makes. Needs `resvg` on PATH; the committed PNG is what the guard reads."""
+    import tempfile
+
+    skill = HERE.parent.parent / "skills/montagent-prerender"
+    with tempfile.TemporaryDirectory() as tmp:
+        shutil.copy(skill / "references/sample_art.svg", tmp)
+        shutil.copy(HERE / "fonts/Inter-Bold.ttf", tmp)
+        spec = {"name": "mark", "out": "out", "input": "svg", "svg": "sample_art.svg", "width": 480, "height": 270,
+                "render": ["resvg", "--skip-system-fonts", "--use-font-file", "Inter-Bold.ttf",
+                           "-w", "{width}", "-h", "{height}", "sample_art.svg", "{out}"],
+                "files": ["sample_art.svg"], "fonts": ["Inter-Bold.ttf"],
+                "versions": {"resvg": ["resvg", "--version"]}}
+        (Path(tmp) / "spec.json").write_text(json.dumps(spec))
+        subprocess.run([sys.executable, str(skill / "scripts/prerender.py"), "build",
+                        str(Path(tmp) / "spec.json")], check=True)
+        shutil.copyfile(Path(tmp) / "out/mark.png", HERE / "media/mark.png")
+
+
 # A three-level rig in the eval pack's `character/rig.json` shape: every part is a solid
 # block padded so its pivot is the canvas centre, which is what the rig bake relies on.
 RIG = {
@@ -136,3 +157,4 @@ if __name__ == "__main__":
     media()
     rig()
     prerender()
+    svg_still()

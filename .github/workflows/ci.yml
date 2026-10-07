@@ -242,6 +242,9 @@ jobs:
       - name: Every Workaround in skills/ carries a well-formed marker
         run: python3 ci/skills_workarounds.py --lint
 
+      - name: The pre-render skill's SVG route still rebuilds, and still fails on a missing font
+        run: python3 -m unittest ci/test_prerender_still.py
+
       - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
         run: python3 ci/assert_passive_packaging.py
 

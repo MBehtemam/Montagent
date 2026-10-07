@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Turn a code-drawn piece into lossless footage with a recipe beside it, rebuild it, and
-place it in a project.
+"""Turn a code-drawn piece into lossless footage, or an SVG into one PNG, with a recipe beside
+it, rebuild it, and place it in a project.
 
     python3 prerender.py build <spec>             render, encode, verify, write the recipe
     python3 prerender.py rebuild <recipe-dir>     re-run the recipe, compare decoded frames
     python3 prerender.py place <project> <spec>   print <project> with the footage added
+                                                  (a video, or an image for a .png)
 
 Requires Python >= 3.9
 Standard library only, plus ffmpeg on PATH (and `montagent` for `place`).
@@ -23,6 +24,24 @@ drift-guard: place type_on.montagent.json prerender.spec.json
                                        "png": it writes f00000.png, f00001.png ... into
                                        $PRERENDER_FRAMES_DIR
       "versions": {"pillow": ["python3", "-c", "import PIL; print(PIL.__version__)"]}
+    }
+
+An SVG still is the other input, `"input": "svg"`: one rasteriser run, one PNG, one frame.
+
+    {
+      "name": "mark", "out": "media",  the PNG is <out>/<name>.png, its recipe <out>/<name>.recipe/
+      "svg": "art.svg",                required: the SVG, one of `files`
+      "width": 480, "height": 270,     required: literal pixels, the largest size the piece is
+                                       ever shown at; never read from the SVG's viewBox
+      "render": ["resvg", "--skip-system-fonts", "--use-font-file", "Inter-Bold.ttf",
+                 "-w", "{width}", "-h", "{height}", "art.svg", "{out}"],
+                                       required: any tool that writes one RGBA PNG to {out};
+                                       {width} and {height} are filled in with the literals
+      "files": ["art.svg"],            required (the fonts below are added to it)
+      "fonts": ["Inter-Bold.ttf"],     the vendored font files. Every font-family the SVG sets must
+                                       be one of them, and the build fails otherwise; so does a
+                                       font warning from the rasteriser. No fps, no frame count.
+      "versions": {"resvg": ["resvg", "--version"]}   required: the rasteriser's version
     }
 
 Paths in the spec resolve against the spec's folder, and the code runs there. It reads its
@@ -44,16 +63,21 @@ never file bytes. It also decodes the placed footage and compares that. Exit 0 o
 "track": "prerender", "layer": 10, "at": 0, "x": ..., "y": ..., "origin": "center",
 "width": ..., "height": ...}; every key but `source` is optional. It probes the footage,
 refuses it when `probe` does not report alpha, and prints the project with a plain `video`
-element added.
+element added. For a `.png` it adds a plain `image` element instead, of the PNG's own pixel
+size and `"fit": "contain"`, shown for `"duration"` ms (default: to the project's end).
+An SVG's rebuild reports the first pixel that differs.
 """
 
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import struct
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ENCODE = ["ffmpeg", "-y", "-v", "error", "{input}", "-c:v", "png", "-pix_fmt", "rgba", "{out}"]
@@ -91,7 +115,112 @@ def frames_input(recipe, work):
             "-i", str(work / "frames.rgba")]  # fmt: skip
 
 
+FONT_WARNING = re.compile(r"(?i)font.*(warn|no match|not found|missing|fail)|(warn|no match|not found|missing|fail).*font")
+
+
+def draw_svg(recipe, source_dir, work):
+    """Run the rasteriser once, to `work/f00000.png`; a font problem it reports is a failure."""
+    out = work / "f00000.png"
+    argv = [out.as_posix() if part == "{out}" else part for part in recipe["render"]]
+    try:
+        done = subprocess.run(argv, cwd=source_dir, stderr=subprocess.PIPE, text=True)
+    except FileNotFoundError:
+        fail(f"`{argv[0]}` is not on PATH")
+    sys.stderr.write(done.stderr)
+    if done.returncode != 0:
+        fail(f"`{' '.join(argv)}` exited {done.returncode}")
+    for line in done.stderr.splitlines():
+        if FONT_WARNING.search(line):
+            fail(f"the rasteriser could not set the text in a vendored font: {line.strip()}")
+    if not out.exists():
+        fail("the rasteriser wrote no PNG to {out}: the render argv needs `{out}` where the PNG goes")
+    want = (recipe["width"], recipe["height"])
+    got = png_size(out)
+    if got != want:
+        fail(f"the PNG is {got[0]}x{got[1]}, not the recipe's {want[0]}x{want[1]}: "
+             "pass the literal size to the rasteriser")
+
+
+def png_size(path):
+    head = Path(path).read_bytes()[:24]
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        fail(f"{path} is not a PNG")
+    return struct.unpack(">II", head[16:24])
+
+
+GENERIC = {"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "inherit", "initial"}
+
+
+def font_families(path):
+    """Lower-cased family names (name ids 1 and 16) of every face in a TTF, OTF or TTC."""
+    data = Path(path).read_bytes()
+    heads = [0]
+    if data[:4] == b"ttcf":
+        (count,) = struct.unpack(">I", data[8:12])
+        heads = [struct.unpack(">I", data[12 + 4 * i : 16 + 4 * i])[0] for i in range(count)]
+    names = set()
+    for head in heads:
+        (tables,) = struct.unpack(">H", data[head + 4 : head + 6])
+        for i in range(tables):
+            tag, _, offset, _ = struct.unpack(">4sIII", data[head + 12 + 16 * i : head + 28 + 16 * i])
+            if tag != b"name":
+                continue
+            _, count, strings = struct.unpack(">HHH", data[offset : offset + 6])
+            for j in range(count):
+                platform, _, _, name_id, length, at = struct.unpack(
+                    ">HHHHHH", data[offset + 6 + 12 * j : offset + 18 + 12 * j])
+                if name_id in (1, 16):
+                    raw = data[offset + strings + at : offset + strings + at + length]
+                    names.add(raw.decode("utf-16-be" if platform in (0, 3) else "latin-1").strip().lower())
+    return names
+
+
+def check_fonts(svg_path, font_paths):
+    """Fail unless every text span's font-family names a vendored font. Never a system font."""
+    known = set()
+    for font in font_paths:
+        known |= font_families(font)
+    try:
+        root = ET.parse(svg_path).getroot()
+    except ET.ParseError as e:
+        fail(f"{svg_path} is not well-formed XML: {e}")
+    parents = {child: parent for parent in root.iter() for child in parent}
+
+    def families(value):
+        return [f.strip().strip("'\"").strip() for f in value.split(",") if f.strip()]
+
+    def own(el):
+        if "font-family" in el.attrib:
+            return families(el.attrib["font-family"])
+        found = re.search(r"font-family\s*:\s*([^;]+)", el.attrib.get("style", ""))
+        return families(found.group(1)) if found else None
+
+    def vet(chain, where):
+        if not chain or chain[0].lower() not in known:
+            fail(f"{where} sets font-family `{', '.join(chain)}`, which is not a vendored font "
+                 f"(vendored: {', '.join(sorted(known)) or 'none'}): vendor it or convert the text to outlines")
+
+    local = lambda el: el.tag.rsplit("}", 1)[-1]
+    for el in root.iter():
+        if local(el) == "style":
+            for found in re.finditer(r"font-family\s*:\s*([^;}]+)", el.text or ""):
+                vet(families(found.group(1)), "a <style> rule")
+        elif (chain := own(el)) is not None:
+            vet(chain, f"<{local(el)}>")
+    for el in root.iter():
+        if local(el) != "text":
+            continue
+        node = el
+        while node is not None and own(node) is None:
+            node = parents.get(node)
+        if node is None:
+            fail("a <text> has no font-family, so the rasteriser would use a system font: "
+                 "set font-family to a vendored font on it or on a parent")
+
+
 def draw(recipe, source_dir, work):
+    if recipe["input"] == "svg":
+        return draw_svg(recipe, source_dir, work)
     env = dict(os.environ)
     env.update(
         PRERENDER_WIDTH=str(recipe["width"]),
@@ -135,6 +264,9 @@ def drawn_hashes(recipe, work):
 
 
 def encode(recipe, work, out):
+    if recipe["input"] == "svg":  # the rasteriser's PNG is the footage, as written
+        shutil.copyfile(work / "f00000.png", out)
+        return
     run(expand(ENCODE, input=frames_input(recipe, work), out=str(out)))
 
 
@@ -165,15 +297,22 @@ def build(spec_path):
     spec_path = Path(spec_path).resolve()
     spec = json.loads(spec_path.read_text())
     spec["_dir"] = spec_path.parent
-    for key in ("name", "width", "height", "fps", "frames", "render", "files"):
-        if key not in spec:
-            fail(f"the spec needs `{key}`")
     kind = spec.get("input", "rgba")
-    if kind not in ("rgba", "png"):
-        fail('`input` is "rgba" or "png"')
+    if kind not in ("rgba", "png", "svg"):
+        fail('`input` is "rgba", "png" or "svg"')
+    still = kind == "svg"
+    for key in ("name", "width", "height", "render", "files") + (("svg", "versions") if still else ("fps", "frames")):
+        if key not in spec:
+            fail(f"the spec needs `{key}`" + (": the size is literal pixels, never read from a viewBox"
+                                              if key in ("width", "height") and still else ""))
+    if still:
+        if spec["svg"] not in spec["files"]:
+            fail("`svg` is one of `files`")
+        spec["files"] = list(spec["files"]) + [f for f in spec.get("fonts", []) if f not in spec["files"]]
+        check_fonts(spec["_dir"] / spec["svg"], [spec["_dir"] / f for f in spec.get("fonts", [])])
     out_dir = (spec["_dir"] / spec.get("out", ".")).resolve()
     recipe_dir = out_dir / f"{spec['name']}.recipe"
-    footage = out_dir / f"{spec['name']}.mov"
+    footage = out_dir / (f"{spec['name']}.png" if still else f"{spec['name']}.mov")
     out_dir.mkdir(parents=True, exist_ok=True)
     if recipe_dir.exists():
         shutil.rmtree(recipe_dir)
@@ -182,13 +321,20 @@ def build(spec_path):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(spec["_dir"] / rel, target)
 
-    recipe = {
-        "name": spec["name"], "width": spec["width"], "height": spec["height"],
-        "fps": spec["fps"], "frames": spec["frames"], "input": kind,
-        "render": spec["render"], "encode": ENCODE, "decode": DECODE,
-        "footage": os.path.relpath(footage, recipe_dir),
-        "versions": tool_versions(spec),
-    }  # fmt: skip
+    recipe = {"name": spec["name"], "width": spec["width"], "height": spec["height"]}
+    if still:
+        literal = {"{width}": str(spec["width"]), "{height}": str(spec["height"])}
+        recipe.update(
+            frames=1, input="svg", svg=spec["svg"], fonts=spec.get("fonts", []),
+            render=[literal.get(part, part) for part in spec["render"]], decode=DECODE,
+        )  # fmt: skip
+    else:
+        recipe.update(
+            fps=spec["fps"], frames=spec["frames"], input=kind,
+            render=spec["render"], encode=ENCODE, decode=DECODE,
+        )  # fmt: skip
+    recipe["footage"] = os.path.relpath(footage, recipe_dir)
+    recipe["versions"] = tool_versions(spec)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         draw(recipe, spec["_dir"], work)
@@ -208,18 +354,41 @@ def rebuild(recipe_dir):
     recipe_dir = Path(recipe_dir).resolve()
     recipe = json.loads((recipe_dir / "recipe.json").read_text())
     want = recipe["decoded_frame_sha256"]
+    placed = (recipe_dir / recipe["footage"]).resolve()
+    still = recipe["input"] == "svg"
+    if still:
+        source = recipe_dir / "source"
+        check_fonts(source / recipe["svg"], [source / f for f in recipe["fonts"]])
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         draw(recipe, recipe_dir / "source", work)
-        encode(recipe, work, work / "rebuilt.mov")
-        ok = report("rebuild", want, decoded_hashes(recipe, work / "rebuilt.mov"))
-    placed = (recipe_dir / recipe["footage"]).resolve()
+        encode(recipe, work, work / ("rebuilt.png" if still else "rebuilt.mov"))
+        rebuilt = decoded_hashes(recipe, work / ("rebuilt.png" if still else "rebuilt.mov"))
+        ok = report("rebuild", want, rebuilt)
+        if still and not ok and placed.exists():
+            print(first_pixel_difference(recipe, placed, work / "rebuilt.png"))
     if placed.exists():
         ok &= report("footage", want, decoded_hashes(recipe, placed))
     else:
         print(f"footage: {placed} is missing")
         ok = False
     sys.exit(0 if ok else 1)
+
+
+def raw_pixels(path):
+    out = subprocess.run(expand(DECODE, input=["-i", str(path)]), capture_output=True)
+    return out.stdout
+
+
+def first_pixel_difference(recipe, was, now):
+    """Where the rebuilt PNG first departs from the placed one, as x, y and both RGBA values."""
+    a, b = raw_pixels(was), raw_pixels(now)
+    for i in range(0, min(len(a), len(b)), 4):
+        if a[i : i + 4] != b[i : i + 4]:
+            x, y = (i // 4) % recipe["width"], (i // 4) // recipe["width"]
+            return (f"first pixel that differs: ({x}, {y}), placed {tuple(a[i : i + 4])}, "
+                    f"rebuilt {tuple(b[i : i + 4])}")
+    return "no pixel differs in the first frames compared"
 
 
 def report(label, want, got):
@@ -236,6 +405,7 @@ def place(project_path, spec_path):
     project = json.loads(project_path.read_text())
     spec = json.loads(Path(spec_path).read_text())
     source = spec["source"]
+    image = Path(source).suffix.lower() == ".png"
     probed = subprocess.run(["montagent", "probe", "--json", str(project_path.parent / source)],
                             capture_output=True, text=True)  # fmt: skip
     if not probed.stdout:
@@ -243,17 +413,26 @@ def place(project_path, spec_path):
     media = json.loads(probed.stdout)["media"][0]
     if not media["alpha"]["carries"]:
         fail(f"`probe` reports no alpha on {source}: encode it with `-pix_fmt rgba`")
-    ms = media["quad"]["video_stream_ms"]
     at = spec.get("at", 0)
     frame = project["frame"]
+    if image:
+        length = spec.get("duration", project.get("duration", 0) - at)
+        if length <= 0:
+            fail("an image needs `duration` in the placing spec, or a project `duration` past `at`")
+        timing = {"source": source}
+    else:
+        length = media["quad"]["video_stream_ms"]
+        timing = {"source": source, "source_start": 0, "source_end": length, "volume": 0}
+    box = {"width": spec.get("width", media["dimensions"]["width"]),
+           "height": spec.get("height", media["dimensions"]["height"])}  # fmt: skip
+    fit = {"fit": spec.get("fit", "contain")}
     element = {
-        "id": spec.get("id", Path(source).stem), "type": "video",
-        "start": at, "end": at + ms, "source": source, "source_start": 0, "source_end": ms,
-        "volume": 0,
+        "id": spec.get("id", Path(source).stem), "type": "image" if image else "video",
+        "start": at, "end": at + length, **timing,
         "x": spec.get("x", frame["width"] // 2), "y": spec.get("y", frame["height"] // 2),
-        "origin": spec.get("origin", "center"), "fit": spec.get("fit", "contain"),
-        "width": spec.get("width", media["dimensions"]["width"]),
-        "height": spec.get("height", media["dimensions"]["height"]),
+        "origin": spec.get("origin", "center"),
+        # `validate` keeps each type's keys in its own order: an image has `fit` last
+        **(box | fit if image else fit | box),
     }  # fmt: skip
     name = spec.get("track", "prerender")
     track = next((t for t in project["tracks"] if t["name"] == name), None)
