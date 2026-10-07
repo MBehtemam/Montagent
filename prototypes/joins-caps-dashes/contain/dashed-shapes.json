@@ -1,0 +1,88 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-dashed-shapes.mp4",
+ "tracks": [
+  {
+   "name": "dash-rect",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "dash-rect",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 60,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-rrect",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "dash-rrect",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 720,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "radius": 80,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-ellipse",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "dash-ellipse",
+     "type": "ellipse",
+     "start": 0,
+     "end": 3000,
+     "x": 1380,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  }
+ ]
+}

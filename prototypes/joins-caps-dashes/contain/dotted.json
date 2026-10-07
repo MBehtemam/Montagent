@@ -1,0 +1,137 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-dotted.mp4",
+ "tracks": [
+  {
+   "name": "dots-line",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "dots-line",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 100,
+     "y": 300,
+     "origin": "top-left",
+     "width": 776,
+     "height": 16,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_cap": "round",
+     "stroke_dash": [
+      0,
+      32
+     ],
+     "points": [
+      {
+       "at": [
+        8,
+        8
+       ]
+      },
+      {
+       "at": [
+        768,
+        8
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dots-curve",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "dots-curve",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 100,
+     "y": 420,
+     "origin": "top-left",
+     "width": 776,
+     "height": 316,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_cap": "round",
+     "stroke_dash": [
+      0,
+      32
+     ],
+     "points": [
+      {
+       "at": [
+        8,
+        308
+       ],
+       "out": [
+        250,
+        -300
+       ]
+      },
+      {
+       "at": [
+        768,
+        8
+       ],
+       "in": [
+        -250,
+        300
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "squares-diag",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "squares-diag",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1060,
+     "y": 300,
+     "origin": "top-left",
+     "width": 724,
+     "height": 424,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_cap": "square",
+     "stroke_dash": [
+      0,
+      40
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        412
+       ]
+      },
+      {
+       "at": [
+        712,
+        12
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -219,6 +219,116 @@ pub struct Fill {
     pub stroke_width: f64,
 }
 
+/// prototype(#750, ADR-0158): how a stroke is shaped — join, cap and dash pattern. The
+/// default is ADR-0154's pin (round join, butt cap, no dash), which draws exactly as before.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StrokeStyle {
+    pub join: Join,
+    pub cap: Cap,
+    pub dash: Option<Dash>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Join {
+    #[default]
+    Round,
+    Bevel,
+    /// The miter limit, in multiples of half the stroke width (SVG's and Skia's meaning).
+    Miter(f32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Cap {
+    #[default]
+    Butt,
+    Round,
+    Square,
+}
+
+/// A dash pattern in element-space pixels, and the resolved offset — raw, wrapped into
+/// `[0, total)` only here, at paint time (ADR-0158 §5).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dash {
+    pub intervals: Vec<f32>,
+    pub offset: f64,
+}
+
+impl Dash {
+    fn effect(&self) -> Option<skia_safe::PathEffect> {
+        let total: f64 = self.intervals.iter().map(|&v| f64::from(v)).sum();
+        if total <= 0.0 {
+            return None;
+        }
+        let phase = self.offset.rem_euclid(total) as f32;
+        skia_safe::PathEffect::dash(&self.intervals, phase)
+    }
+}
+
+/// prototype(#750): the outline a `rect`'s or `ellipse`'s stroke is dashed along, built with
+/// ADR-0158 §5's start point and direction rather than Skia's default start index: the inset
+/// box (`inset` = half the stroke width), clockwise on screen, from the top-left corner (a
+/// plain rect), from where the top-left arc meets the top edge (a rounded rect), or from 3
+/// o'clock (an ellipse). `None` where the inset leaves no outline.
+pub fn shape_outline(shape: Shape, width: f32, height: f32, stroke_width: f32) -> Option<Path> {
+    let inset = stroke_width / 2.0;
+    let (l, t, r, b) = (inset, inset, width - inset, height - inset);
+    if r <= l || b <= t {
+        return None;
+    }
+    let w = std::f32::consts::FRAC_1_SQRT_2;
+    let mut p = PathBuilder::new();
+    match shape {
+        Shape::Rect { radius } => {
+            // As `draw_round_rect` does: the inset radius, clamped to half the shorter side.
+            let rr = (radius as f32 - inset).max(0.0).min((r - l) / 2.0).min((b - t) / 2.0);
+            if rr > 0.0 {
+                p.move_to((l + rr, t));
+                p.line_to((r - rr, t));
+                p.conic_to((r, t), (r, t + rr), w);
+                p.line_to((r, b - rr));
+                p.conic_to((r, b), (r - rr, b), w);
+                p.line_to((l + rr, b));
+                p.conic_to((l, b), (l, b - rr), w);
+                p.line_to((l, t + rr));
+                p.conic_to((l, t), (l + rr, t), w);
+            } else {
+                p.move_to((l, t));
+                p.line_to((r, t));
+                p.line_to((r, b));
+                p.line_to((l, b));
+            }
+        }
+        Shape::Ellipse => {
+            let (cx, cy) = ((l + r) / 2.0, (t + b) / 2.0);
+            p.move_to((r, cy));
+            p.conic_to((r, b), (cx, b), w);
+            p.conic_to((l, b), (l, cy), w);
+            p.conic_to((l, t), (cx, t), w);
+            p.conic_to((r, t), (r, cy), w);
+        }
+    }
+    p.close();
+    Some(p.detach())
+}
+
+/// prototype(#750, ADR-0158 §7): the outline's length from the same path measure Skia's dash
+/// walks — summed over every contour, a closed contour through its closing segment. This is
+/// the one function `query --at` and the painter would share.
+pub fn outline_length(path: &Path) -> f64 {
+    let mut total = 0.0;
+    for contour in skia_safe::ContourMeasureIter::new(path, false, None) {
+        total += f64::from(contour.length());
+    }
+    total
+}
+
+/// prototype(#750): a path element's outline, as the painter builds it.
+pub fn path_outline(outline: &[PathEl]) -> Path {
+    let mut path = path_of(outline);
+    path.set_fill_type(PathFillType::Winding);
+    path
+}
+
 /// One segment of a glyph's outline, at the glyph's own origin, y-down.
 ///
 /// **The rasterizer's own spelling of the same shape `montagent-text` hands back**, and the
@@ -1280,6 +1390,22 @@ impl Canvas {
         clip: Option<Region>,
         effects: &[Effect],
     ) {
+        self.shape_styled(shape, extent, transform, paint, None, clip, effects);
+    }
+
+    /// prototype(#750): [`Self::shape`] with an optional dash pattern (ADR-0158 §5). With
+    /// none, it draws exactly as `shape` always has.
+    #[allow(clippy::too_many_arguments)]
+    pub fn shape_styled(
+        &mut self,
+        shape: Shape,
+        extent: Extent,
+        transform: &Transform,
+        paint: &Fill,
+        dash: Option<&Dash>,
+        clip: Option<Region>,
+        effects: &[Effect],
+    ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
             return;
         }
@@ -1315,6 +1441,24 @@ impl Canvas {
             let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
+            // prototype(#750): a dashed shape strokes the outline built with ADR-0158 §5's
+            // start and direction; its join stays Skia's default miter (limit 4), and every
+            // dash end is butt.
+            if let Some(dash) = dash {
+                let Some(outline) = shape_outline(
+                    shape,
+                    extent.width as f32,
+                    extent.height as f32,
+                    paint.stroke_width as f32,
+                ) else {
+                    return;
+                };
+                if let Some(effect) = dash.effect() {
+                    stroke.set_path_effect(effect);
+                }
+                canvas.draw_path(&outline, &stroke);
+                return;
+            }
             let path = Rect::from_ltrb(
                 box_rect.left + inset,
                 box_rect.top + inset,
@@ -1361,11 +1505,34 @@ impl Canvas {
         clip: Option<Region>,
         effects: &[Effect],
     ) {
+        self.path_styled(
+            outline,
+            extent,
+            transform,
+            paint,
+            &StrokeStyle::default(),
+            clip,
+            effects,
+        );
+    }
+
+    /// prototype(#750): [`Self::path`] with ADR-0158's join, cap and dash. The default style
+    /// draws exactly as `path` always has.
+    #[allow(clippy::too_many_arguments)]
+    pub fn path_styled(
+        &mut self,
+        outline: &[PathEl],
+        extent: Extent,
+        transform: &Transform,
+        paint: &Fill,
+        style: &StrokeStyle,
+        clip: Option<Region>,
+        effects: &[Effect],
+    ) {
         if paint.fill.is_none() && paint.stroke.is_none() {
             return;
         }
-        let mut path = path_of(outline);
-        path.set_fill_type(PathFillType::Winding);
+        let path = path_outline(outline);
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             // A gradient on either is measured against the declared box (ADR-0149 §2), which
             // is the element space this runs in.
@@ -1380,8 +1547,26 @@ impl Canvas {
             let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
-            stroke.set_stroke_join(skia_safe::PaintJoin::Round);
-            stroke.set_stroke_cap(skia_safe::PaintCap::Butt);
+            match style.join {
+                Join::Round => {
+                    stroke.set_stroke_join(skia_safe::PaintJoin::Round);
+                }
+                Join::Bevel => {
+                    stroke.set_stroke_join(skia_safe::PaintJoin::Bevel);
+                }
+                Join::Miter(limit) => {
+                    stroke.set_stroke_join(skia_safe::PaintJoin::Miter);
+                    stroke.set_stroke_miter(limit);
+                }
+            }
+            stroke.set_stroke_cap(match style.cap {
+                Cap::Butt => skia_safe::PaintCap::Butt,
+                Cap::Round => skia_safe::PaintCap::Round,
+                Cap::Square => skia_safe::PaintCap::Square,
+            });
+            if let Some(effect) = style.dash.as_ref().and_then(Dash::effect) {
+                stroke.set_path_effect(effect);
+            }
             canvas.draw_path(&path, &stroke);
         });
     }

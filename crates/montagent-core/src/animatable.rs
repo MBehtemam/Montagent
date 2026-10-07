@@ -675,11 +675,77 @@ fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
 /// A path's **inset**: `ceil(stroke_width / 2)`, or `0` with no stroke, from the largest
 /// value a keyed `stroke_width` states (ADR-0154 §4).
 pub fn path_inset(element: &Value) -> i64 {
+    path_reach(element).inset
+}
+
+/// prototype(#750, ADR-0158 §4): a path's inset `m = ceil(k × w / 2)` and where `k` came from.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Reach {
+    pub inset: i64,
+    /// `w`: the largest value `stroke_width` states.
+    pub stroke_width: i64,
+    /// `k`, as a reader writes it: `1`, the miter limit, or `√2`.
+    pub k: String,
+    /// Where `k` came from.
+    pub source: String,
+}
+
+/// prototype(#750): ADR-0158 §4. The join factor is the miter limit under `"miter"`, else 1;
+/// the cap factor is √2 for `"square"` where a cap draws (an open path, or any dashed path),
+/// else 1. `ceil(√2 × w / 2)` is computed exactly as the least `m` with `2m² ≥ w²`.
+pub fn path_reach(element: &Value) -> Reach {
+    let none = |w| Reach {
+        inset: 0,
+        stroke_width: w,
+        k: "1".into(),
+        source: "no stroke".into(),
+    };
     if element.get("stroke").is_none() {
-        return 0;
+        return none(0);
     }
-    let width = greatest_length(element, "stroke_width").unwrap_or(0).max(0);
-    (width + 1) / 2
+    let w = greatest_length(element, "stroke_width").unwrap_or(0).max(0);
+    let join_miter = element.get("stroke_join").and_then(Value::as_str) == Some("miter");
+    let limit = element
+        .get("stroke_miter_limit")
+        .and_then(Value::as_i64)
+        .filter(|_| join_miter)
+        .unwrap_or(1)
+        .max(1);
+    let closed = element.get("closed").and_then(Value::as_bool).unwrap_or(false);
+    let cap_draws = !closed || element.get("stroke_dash").is_some();
+    let square = cap_draws && element.get("stroke_cap").and_then(Value::as_str) == Some("square");
+    let by_join = (limit * w + 1) / 2;
+    let by_cap = if square {
+        let mut m = (w + 1) / 2;
+        while 2 * m * m < w * w {
+            m += 1;
+        }
+        m
+    } else {
+        (w + 1) / 2
+    };
+    if by_join >= by_cap && limit > 1 {
+        Reach {
+            inset: by_join,
+            stroke_width: w,
+            k: limit.to_string(),
+            source: format!("`stroke_miter_limit` {limit}"),
+        }
+    } else if square && by_cap > (w + 1) / 2 {
+        Reach {
+            inset: by_cap,
+            stroke_width: w,
+            k: "√2".into(),
+            source: "`stroke_cap` \"square\"".into(),
+        }
+    } else {
+        Reach {
+            inset: (w + 1) / 2,
+            stroke_width: w,
+            k: "1".into(),
+            source: "neither a miter join nor a square cap".into(),
+        }
+    }
 }
 
 /// A path's **inset box**, `[m, width − m] × [m, height − m]`, as `((left, top), (right,

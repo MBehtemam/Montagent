@@ -372,10 +372,47 @@ fn undrawable(detail: impl Into<String>) -> Finding {
     Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
 }
 
+/// prototype(#750, ADR-0158): an element's join, cap and dash at the instant `t`
+/// (numerator, denominator). On a `rect` or `ellipse` only the dash is read. The offset
+/// resolves through the one resolving function and stays raw; the painter wraps it.
+pub(crate) fn stroke_style_of(
+    element: &Value,
+    t: (i128, i128),
+) -> montagent_render::canvas::StrokeStyle {
+    use montagent_render::canvas::{Cap, Dash, Join, StrokeStyle};
+    let join = match element.get("stroke_join").and_then(Value::as_str) {
+        Some("bevel") => Join::Bevel,
+        Some("miter") => Join::Miter(
+            element
+                .get("stroke_miter_limit")
+                .and_then(Value::as_f64)
+                .unwrap_or(4.0) as f32,
+        ),
+        _ => Join::Round,
+    };
+    let cap = match element.get("stroke_cap").and_then(Value::as_str) {
+        Some("round") => Cap::Round,
+        Some("square") => Cap::Square,
+        _ => Cap::Butt,
+    };
+    let dash = element
+        .get("stroke_dash")
+        .and_then(Value::as_array)
+        .map(|list| Dash {
+            intervals: list
+                .iter()
+                .filter_map(Value::as_f64)
+                .map(|v| v as f32)
+                .collect(),
+            offset: animatable::number_read(element, "stroke_dash_offset", t.0, t.1, 0.0),
+        });
+    StrokeStyle { join, cap, dash }
+}
+
 /// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
 /// `at` through `at + out`, then the next vertex's `at + in`, to that `at`; on a closed path a
 /// last segment back to the first vertex, then a close. A missing handle is a zero offset.
-fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
+pub(crate) fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
     let Some(first) = vertices.first() else {
         return Vec::new();
     };
@@ -1604,11 +1641,13 @@ impl<'a> Painter<'a> {
             },
         };
         let effects = self.effects_of(name, element);
-        canvas.shape(
+        let dash = stroke_style_of(element, self.t).dash;
+        canvas.shape_styled(
             shape,
             extent,
             &self.transform(element),
             &paint,
+            dash.as_ref(),
             self.clip(element),
             &effects,
         );
@@ -1668,11 +1707,12 @@ impl<'a> Painter<'a> {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let effects = self.effects_of(name, element);
-        canvas.path(
+        canvas.path_styled(
             &outline_of(&vertices, closed),
             extent,
             &self.transform(element),
             &paint,
+            &stroke_style_of(element, self.t),
             self.clip(element),
             &effects,
         );

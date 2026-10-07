@@ -191,7 +191,8 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
     let (Some(width), Some(height)) = (side("width"), side("height")) else {
         return Vec::new();
     };
-    let m = crate::animatable::path_inset(element);
+    let reach = crate::animatable::path_reach(element);
+    let m = reach.inset;
     let inside = |[x, y]: [i64; 2]| (m..=width - m).contains(&x) && (m..=height - m).contains(&y);
     let mut out = Vec::new();
     for (index, vertex) in literal.vertices.iter().enumerate() {
@@ -216,7 +217,10 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
                     .field("position", json!(position))
                     .field("inset", json!(m))
                     .field("right", json!(width - m))
-                    .field("bottom", json!(height - m)),
+                    .field("bottom", json!(height - m))
+                    .field("k", json!(reach.k))
+                    .field("w", json!(reach.stroke_width))
+                    .field("source", json!(reach.source)),
                 literal,
             ));
         }

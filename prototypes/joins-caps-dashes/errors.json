@@ -1,0 +1,445 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#1A1D22",
+ "duration": 1000,
+ "output": "out/errors.mp4",
+ "tracks": [
+  {
+   "name": "no-stroke",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "no-stroke",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_cap": "round"
+    }
+   ]
+  },
+  {
+   "name": "zero-width",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "zero-width",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 0,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_dash": [
+      10,
+      5
+     ]
+    }
+   ]
+  },
+  {
+   "name": "miter-no-limit",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "miter-no-limit",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_join": "miter"
+    }
+   ]
+  },
+  {
+   "name": "limit-on-round",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "limit-on-round",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_join": "round",
+     "stroke_miter_limit": 4
+    }
+   ]
+  },
+  {
+   "name": "closed-cap",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "closed-cap",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        20
+       ]
+      },
+      {
+       "at": [
+        100,
+        180
+       ]
+      }
+     ],
+     "stroke_cap": "butt"
+    }
+   ]
+  },
+  {
+   "name": "odd-dash",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "odd-dash",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_dash": [
+      10,
+      5,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "name": "zero-dash",
+   "layer": 6,
+   "elements": [
+    {
+     "id": "zero-dash",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_dash": [
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "zero-butt",
+   "layer": 7,
+   "elements": [
+    {
+     "id": "zero-butt",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_dash": [
+      0,
+      10
+     ]
+    }
+   ]
+  },
+  {
+   "name": "zero-butt-rect",
+   "layer": 8,
+   "elements": [
+    {
+     "id": "zero-butt-rect",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 300,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "stroke_dash": [
+      0,
+      10
+     ]
+    }
+   ]
+  },
+  {
+   "name": "outside-miter",
+   "layer": 9,
+   "elements": [
+    {
+     "id": "outside-miter",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 3,
+     "points": [
+      {
+       "at": [
+        10,
+        20
+       ]
+      },
+      {
+       "at": [
+        100,
+        190
+       ]
+      },
+      {
+       "at": [
+        190,
+        20
+       ]
+      }
+     ],
+     "stroke_join": "miter",
+     "stroke_miter_limit": 10
+    }
+   ]
+  },
+  {
+   "name": "outside-square",
+   "layer": 10,
+   "elements": [
+    {
+     "id": "outside-square",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 20,
+     "points": [
+      {
+       "at": [
+        10,
+        100
+       ]
+      },
+      {
+       "at": [
+        190,
+        100
+       ]
+      }
+     ],
+     "stroke_cap": "square"
+    }
+   ]
+  },
+  {
+   "name": "offset-alone",
+   "layer": 11,
+   "elements": [
+    {
+     "id": "offset-alone",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 0,
+     "y": 0,
+     "origin": "top-left",
+     "width": 200,
+     "height": 200,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "points": [
+      {
+       "at": [
+        20,
+        20
+       ]
+      },
+      {
+       "at": [
+        180,
+        180
+       ]
+      }
+     ],
+     "stroke_dash_offset": 5
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,495 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#1A1D22",
+ "duration": 3000,
+ "output": "out/query.mp4",
+ "tracks": [
+  {
+   "name": "dash-rect",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "dash-rect",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 60,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-rrect",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "dash-rrect",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 720,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "radius": 80,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-ellipse",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "dash-ellipse",
+     "type": "ellipse",
+     "start": 0,
+     "end": 3000,
+     "x": 1380,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      60,
+      20,
+      10,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ants-minus",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "ants-minus",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": -240,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ants-plus",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "ants-plus",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 720,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "radius": 40,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": 240,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ants-path",
+   "layer": 5,
+   "elements": [
+    {
+     "id": "ants-path",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1380,
+     "y": 380,
+     "origin": "top-left",
+     "width": 450,
+     "height": 310,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": -240,
+       "ease": "linear"
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        5,
+        305
+       ]
+      },
+      {
+       "at": [
+        225,
+        5
+       ]
+      },
+      {
+       "at": [
+        445,
+        305
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-310",
+   "layer": 6,
+   "elements": [
+    {
+     "id": "seam-310",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 330,
+     "origin": "top-left",
+     "width": 334,
+     "height": 334,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        322
+       ]
+      },
+      {
+       "at": [
+        12,
+        322
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-333",
+   "layer": 7,
+   "elements": [
+    {
+     "id": "seam-333",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 560,
+     "y": 330,
+     "origin": "top-left",
+     "width": 357,
+     "height": 357,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        12
+       ]
+      },
+      {
+       "at": [
+        345,
+        12
+       ]
+      },
+      {
+       "at": [
+        345,
+        345
+       ]
+      },
+      {
+       "at": [
+        12,
+        345
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-circle",
+   "layer": 8,
+   "elements": [
+    {
+     "id": "seam-circle",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1080,
+     "y": 330,
+     "origin": "top-left",
+     "width": 344,
+     "height": 344,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        332,
+        172
+       ],
+       "in": [
+        0,
+        -88
+       ],
+       "out": [
+        0,
+        88
+       ]
+      },
+      {
+       "at": [
+        172,
+        332
+       ],
+       "in": [
+        88,
+        0
+       ],
+       "out": [
+        -88,
+        0
+       ]
+      },
+      {
+       "at": [
+        12,
+        172
+       ],
+       "in": [
+        0,
+        88
+       ],
+       "out": [
+        0,
+        -88
+       ]
+      },
+      {
+       "at": [
+        172,
+        12
+       ],
+       "in": [
+        -88,
+        0
+       ],
+       "out": [
+        88,
+        0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "miter-10",
+   "layer": 9,
+   "elements": [
+    {
+     "id": "miter-10",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1220,
+     "y": 240,
+     "origin": "top-left",
+     "width": 640,
+     "height": 560,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 10,
+     "points": [
+      {
+       "at": [
+        80,
+        480
+       ]
+      },
+      {
+       "at": [
+        121,
+        80
+       ]
+      },
+      {
+       "at": [
+        162,
+        480
+       ]
+      },
+      {
+       "at": [
+        280,
+        80
+       ]
+      },
+      {
+       "at": [
+        380,
+        480
+       ]
+      },
+      {
+       "at": [
+        560,
+        80
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cap-square",
+   "layer": 10,
+   "elements": [
+    {
+     "id": "cap-square",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 900,
+     "y": 300,
+     "origin": "top-left",
+     "width": 358,
+     "height": 358,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 40,
+     "stroke_cap": "square",
+     "points": [
+      {
+       "at": [
+        29,
+        329
+       ]
+      },
+      {
+       "at": [
+        329,
+        29
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

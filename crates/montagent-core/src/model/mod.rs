@@ -779,6 +779,11 @@ pub struct Rect {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// prototype(#750, ADR-0158 §5): a dash pattern along the inset outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashList>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -840,6 +845,11 @@ pub struct Ellipse {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// prototype(#750, ADR-0158 §5): a dash pattern along the inset outline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashList>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -853,6 +863,73 @@ pub struct Ellipse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
 }
+
+/// prototype(#750, ADR-0158 §2): a path's stroke join. Static; omitted is `"round"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum StrokeJoin {
+    Round,
+    Bevel,
+    Miter,
+}
+
+/// prototype(#750, ADR-0158 §3): a path's stroke cap. Static; omitted is `"butt"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum StrokeCap {
+    Butt,
+    Round,
+    Square,
+}
+
+/// prototype(#750, ADR-0158 §2): `stroke_miter_limit`, a static integer from 1 to 10.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct MiterLimit(#[schemars(range(min = 1, max = 10))] pub u8);
+
+impl<'de> Deserialize<'de> for MiterLimit {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value.as_i64() {
+            Some(limit @ 1..=10) if value.is_i64() || value.is_u64() => Ok(MiterLimit(limit as u8)),
+            _ => Err(D::Error::custom(format!(
+                "`stroke_miter_limit` is {value}: it is a static integer from 1 to 10, the \
+                 greatest miter tip distance in multiples of half the stroke width (ADR-0158)"
+            ))),
+        }
+    }
+}
+
+/// prototype(#750, ADR-0158 §5): `stroke_dash`, 2 to 16 integer pixel lengths, dash first.
+/// Evenness and a zero total are `validate`'s `E-DASH-SHAPE`, not the schema's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct DashList(#[schemars(length(min = 2, max = 16))] pub Vec<u32>);
+
+impl<'de> Deserialize<'de> for DashList {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.is_array() && value.as_array().is_some_and(|a| a.first().is_some_and(serde_json::Value::is_object)) {
+            return Err(D::Error::custom(
+                "`stroke_dash` is static: animate `stroke_dash_offset` instead (ADR-0158)",
+            ));
+        }
+        let list = Vec::<u32>::deserialize(value).map_err(|_| {
+            D::Error::custom(
+                "`stroke_dash` is a list of non-negative integer pixel lengths, dash first \
+                 (ADR-0158)",
+            )
+        })?;
+        if !(2..=16).contains(&list.len()) {
+            return Err(D::Error::custom(format!(
+                "`stroke_dash` has {} entries: it takes 2 to 16 (ADR-0158)",
+                list.len()
+            )));
+        }
+        Ok(DashList(list))
+    }
+}
+
 
 /// A drawing from a list of vertices, in integer pixels from the declared box's top-left
 /// corner (ADR-0154).
@@ -895,6 +972,17 @@ pub struct PathElement {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// prototype(#750, ADR-0158): join, miter limit, cap, dash pattern and dash offset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_join: Option<StrokeJoin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_miter_limit: Option<MiterLimit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_cap: Option<StrokeCap>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashList>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,

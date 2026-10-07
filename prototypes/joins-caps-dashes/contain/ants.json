@@ -1,0 +1,136 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-ants.mp4",
+ "tracks": [
+  {
+   "name": "ants-minus",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "ants-minus",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": -240,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ants-plus",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "ants-plus",
+     "type": "rect",
+     "start": 0,
+     "end": 3000,
+     "x": 720,
+     "y": 380,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "radius": 40,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": 240,
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "ants-path",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "ants-path",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1380,
+     "y": 380,
+     "origin": "top-left",
+     "width": 450,
+     "height": 310,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 10,
+     "stroke_dash": [
+      24,
+      16
+     ],
+     "stroke_dash_offset": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 3000,
+       "v": -240,
+       "ease": "linear"
+      }
+     ],
+     "points": [
+      {
+       "at": [
+        5,
+        305
+       ]
+      },
+      {
+       "at": [
+        225,
+        5
+       ]
+      },
+      {
+       "at": [
+        445,
+        305
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

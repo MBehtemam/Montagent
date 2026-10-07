@@ -235,6 +235,7 @@ fn run_checks(
     // ADR-0154 §6: a path's vertex count, dangling handles, keyframe shape and containment,
     // decided from every literal value of `points`. Document-only.
     crate::checks::path::check(document, report);
+    crate::checks::stroke::check(document, report);
     // ADR-0147's `R-BLEND-BACKGROUND-ONLY`: a blended element with nothing beneath it,
     // decided from boxes at the instants `render` paints. Document-only.
     crate::checks::blend::check(document, report);

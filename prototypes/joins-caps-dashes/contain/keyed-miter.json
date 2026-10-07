@@ -1,0 +1,83 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 4000,
+ "output": "../out/contain-keyed-miter.mp4",
+ "tracks": [
+  {
+   "name": "keyed-miter",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "keyed-miter",
+     "type": "path",
+     "start": 0,
+     "end": 4000,
+     "x": 640,
+     "y": 280,
+     "origin": "top-left",
+     "width": 560,
+     "height": 460,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 10,
+     "points": [
+      {
+       "t": 0,
+       "v": [
+        {
+         "at": [
+          80,
+          80
+         ]
+        },
+        {
+         "at": [
+          480,
+          230
+         ]
+        },
+        {
+         "at": [
+          80,
+          380
+         ]
+        }
+       ]
+      },
+      {
+       "t": 4000,
+       "v": [
+        {
+         "at": [
+          80,
+          380
+         ]
+        },
+        {
+         "at": [
+          480,
+          230
+         ]
+        },
+        {
+         "at": [
+          80,
+          80
+         ]
+        }
+       ],
+       "ease": "linear"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

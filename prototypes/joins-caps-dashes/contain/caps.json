@@ -1,0 +1,152 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-caps.mp4",
+ "tracks": [
+  {
+   "name": "cap-butt",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "cap-butt",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 60,
+     "y": 300,
+     "origin": "top-left",
+     "width": 340,
+     "height": 340,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 40,
+     "stroke_cap": "butt",
+     "points": [
+      {
+       "at": [
+        20,
+        320
+       ]
+      },
+      {
+       "at": [
+        320,
+        20
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cap-round",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "cap-round",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 480,
+     "y": 300,
+     "origin": "top-left",
+     "width": 340,
+     "height": 340,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 40,
+     "stroke_cap": "round",
+     "points": [
+      {
+       "at": [
+        20,
+        320
+       ]
+      },
+      {
+       "at": [
+        320,
+        20
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cap-square",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "cap-square",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 900,
+     "y": 300,
+     "origin": "top-left",
+     "width": 358,
+     "height": 358,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 40,
+     "stroke_cap": "square",
+     "points": [
+      {
+       "at": [
+        29,
+        329
+       ]
+      },
+      {
+       "at": [
+        329,
+        29
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "cap-square-level",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "cap-square-level",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1338,
+     "y": 420,
+     "origin": "top-left",
+     "width": 358,
+     "height": 58,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 40,
+     "stroke_cap": "square",
+     "points": [
+      {
+       "at": [
+        29,
+        29
+       ]
+      },
+      {
+       "at": [
+        329,
+        29
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,200 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-seam.mp4",
+ "tracks": [
+  {
+   "name": "seam-310",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "seam-310",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 80,
+     "y": 330,
+     "origin": "top-left",
+     "width": 334,
+     "height": 334,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        322
+       ]
+      },
+      {
+       "at": [
+        12,
+        322
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-333",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "seam-333",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 560,
+     "y": 330,
+     "origin": "top-left",
+     "width": 357,
+     "height": 357,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        12
+       ]
+      },
+      {
+       "at": [
+        345,
+        12
+       ]
+      },
+      {
+       "at": [
+        345,
+        345
+       ]
+      },
+      {
+       "at": [
+        12,
+        345
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-circle",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "seam-circle",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1080,
+     "y": 330,
+     "origin": "top-left",
+     "width": 344,
+     "height": 344,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      50,
+      30
+     ],
+     "points": [
+      {
+       "at": [
+        332,
+        172
+       ],
+       "in": [
+        0,
+        -88
+       ],
+       "out": [
+        0,
+        88
+       ]
+      },
+      {
+       "at": [
+        172,
+        332
+       ],
+       "in": [
+        88,
+        0
+       ],
+       "out": [
+        -88,
+        0
+       ]
+      },
+      {
+       "at": [
+        12,
+        172
+       ],
+       "in": [
+        0,
+        88
+       ],
+       "out": [
+        0,
+        -88
+       ]
+      },
+      {
+       "at": [
+        172,
+        12
+       ],
+       "in": [
+        -88,
+        0
+       ],
+       "out": [
+        88,
+        0
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

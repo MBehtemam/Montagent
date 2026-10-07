@@ -1097,8 +1097,81 @@ vertex count, and each vertex the same handles.",
         adr: "ADR-0154",
         template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
 vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
-[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box (inset \
-{inset}).",
+[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box: inset \
+{inset} = ceil({k} × {w} / 2), from {source}. This bound is worst-case, not a measured overlap.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // prototype(#750): ADR-0158 §7's errors, rough wording for the owner to judge.
+    CheckSpec {
+        code: "E-STROKE-NO-STROKE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {why}, so `{field}` shapes nothing. Drop it, or give the \
+element a `stroke` and a `stroke_width` above 0.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-STROKE-MITER-LIMIT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {detail}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-STROKE-CAP-UNDRAWN",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_cap: {cap} draws nowhere, because the path is `closed` and has \
+no `stroke_dash` — a cap draws only at an open path's two ends and at each dash's ends. Drop \
+`stroke_cap`, or set `closed` to false, or add a `stroke_dash`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-DASH-SHAPE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash: {detail}. A pattern alternates dash, gap, dash, gap, \
+starting with a dash.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-DASH-ZERO-BUTT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash[{index}]: a zero-length dash draws nothing under a butt \
+cap. {repair_text}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "E-DASH-OFFSET-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash_offset: there is no `stroke_dash` for it to move. Drop \
+it, or add a `stroke_dash`.",
         status: Live,
         census: None,
         sets: &[Document],

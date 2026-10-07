@@ -69,7 +69,7 @@
 //! document says.
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::animatable::Unreadable;
 use crate::exact::{self, Decimal};
@@ -203,6 +203,66 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
+    /// prototype(#750, ADR-0158 §7): a path's inset `m` and reach factor `k` with its source;
+    /// on any dashed shape the resolved `stroke_dash_offset`, raw, and an informative outline
+    /// length from the painter's own path measure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<Value>,
+}
+
+/// prototype(#750): the `stroke` block of `query --at`.
+fn stroke_of(element: &Value, kind: Option<&str>, instant: i64) -> Option<Value> {
+    use montagent_render::canvas::{Shape, outline_length, path_outline, shape_outline};
+    if !matches!(kind, Some("path" | "rect" | "ellipse")) || element.get("stroke").is_none() {
+        return None;
+    }
+    let mut out = serde_json::Map::new();
+    if kind == Some("path") {
+        let reach = crate::animatable::path_reach(element);
+        out.insert("inset".into(), json!(reach.inset));
+        out.insert("reach_factor".into(), json!(reach.k));
+        out.insert("reach_source".into(), json!(reach.source));
+    }
+    if element.get("stroke_dash").is_some() {
+        let t = (i128::from(instant), 1);
+        let offset =
+            crate::animatable::number_read(element, "stroke_dash_offset", t.0, t.1, 0.0);
+        out.insert("dash_offset".into(), json!(offset));
+        let stroke_width =
+            crate::animatable::number_read(element, "stroke_width", t.0, t.1, 0.0) as f32;
+        let side = |key| crate::animatable::number_read(element, key, t.0, t.1, 0.0) as f32;
+        let path = match kind {
+            Some("path") => {
+                let Ok(crate::animatable::Resolved::Points(vertices)) =
+                    crate::animatable::at(element, "points", instant)?
+                else {
+                    return Some(Value::Object(out));
+                };
+                let closed = element.get("closed").and_then(Value::as_bool).unwrap_or(false);
+                Some(path_outline(&crate::verbs::frame::outline_of(&vertices, closed)))
+            }
+            Some("rect") => shape_outline(
+                Shape::Rect {
+                    radius: f64::from(side("radius")),
+                },
+                side("width"),
+                side("height"),
+                stroke_width,
+            ),
+            _ => shape_outline(Shape::Ellipse, side("width"), side("height"), stroke_width),
+        };
+        if let Some(path) = path {
+            out.insert(
+                "outline_length".into(),
+                json!((outline_length(&path) * 100.0).round() / 100.0),
+            );
+            out.insert(
+                "outline_length_note".into(),
+                json!("informative, not a contract: the painter's own path measure"),
+            );
+        }
+    }
+    Some(Value::Object(out))
 }
 
 /// What `query --at` derives for a remapped `video` (ADR-0157 §5).
@@ -507,7 +567,9 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             Some("path") => absolute_vertices(element, instant),
             _ => None,
         };
+        let stroke = stroke_of(element, kind, instant);
         present.push(Present {
+            stroke,
             stagger,
             units,
             named,

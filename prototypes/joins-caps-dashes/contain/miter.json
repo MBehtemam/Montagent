@@ -1,0 +1,192 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#000000",
+ "duration": 3000,
+ "output": "../out/contain-miter.mp4",
+ "tracks": [
+  {
+   "name": "miter-1",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "miter-1",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 60,
+     "y": 240,
+     "origin": "top-left",
+     "width": 496,
+     "height": 416,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 1,
+     "points": [
+      {
+       "at": [
+        8,
+        408
+       ]
+      },
+      {
+       "at": [
+        49,
+        8
+       ]
+      },
+      {
+       "at": [
+        90,
+        408
+       ]
+      },
+      {
+       "at": [
+        208,
+        8
+       ]
+      },
+      {
+       "at": [
+        308,
+        408
+       ]
+      },
+      {
+       "at": [
+        488,
+        8
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "miter-4",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "miter-4",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 616,
+     "y": 240,
+     "origin": "top-left",
+     "width": 544,
+     "height": 464,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 4,
+     "points": [
+      {
+       "at": [
+        32,
+        432
+       ]
+      },
+      {
+       "at": [
+        73,
+        32
+       ]
+      },
+      {
+       "at": [
+        114,
+        432
+       ]
+      },
+      {
+       "at": [
+        232,
+        32
+       ]
+      },
+      {
+       "at": [
+        332,
+        432
+       ]
+      },
+      {
+       "at": [
+        512,
+        32
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "miter-10",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "miter-10",
+     "type": "path",
+     "start": 0,
+     "end": 3000,
+     "x": 1220,
+     "y": 240,
+     "origin": "top-left",
+     "width": 640,
+     "height": 560,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 10,
+     "points": [
+      {
+       "at": [
+        80,
+        480
+       ]
+      },
+      {
+       "at": [
+        121,
+        80
+       ]
+      },
+      {
+       "at": [
+        162,
+        480
+       ]
+      },
+      {
+       "at": [
+        280,
+        80
+       ]
+      },
+      {
+       "at": [
+        380,
+        480
+       ]
+      },
+      {
+       "at": [
+        560,
+        80
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

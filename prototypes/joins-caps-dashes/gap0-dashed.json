@@ -1,0 +1,198 @@
+{
+ "frame": {
+  "width": 1920,
+  "height": 1080
+ },
+ "fps": 30,
+ "background": "#1A1D22",
+ "duration": 1000,
+ "output": "out/x.mp4",
+ "tracks": [
+  {
+   "name": "dash-rect",
+   "layer": 0,
+   "elements": [
+    {
+     "id": "dash-rect",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 20,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      10,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-rrect",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "dash-rrect",
+     "type": "rect",
+     "start": 0,
+     "end": 1000,
+     "x": 720,
+     "y": 20,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "radius": 80,
+     "stroke_dash": [
+      10,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "dash-ellipse",
+   "layer": 2,
+   "elements": [
+    {
+     "id": "dash-ellipse",
+     "type": "ellipse",
+     "start": 0,
+     "end": 1000,
+     "x": 1380,
+     "y": 20,
+     "origin": "top-left",
+     "width": 480,
+     "height": 320,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_dash": [
+      10,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seam-310",
+   "layer": 3,
+   "elements": [
+    {
+     "id": "seam-310",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 60,
+     "y": 420,
+     "origin": "top-left",
+     "width": 334,
+     "height": 334,
+     "closed": true,
+     "stroke": "#F2F2F2",
+     "stroke_width": 12,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 2,
+     "stroke_dash": [
+      10,
+      0
+     ],
+     "points": [
+      {
+       "at": [
+        12,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        12
+       ]
+      },
+      {
+       "at": [
+        322,
+        322
+       ]
+      },
+      {
+       "at": [
+        12,
+        322
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "miter-10",
+   "layer": 4,
+   "elements": [
+    {
+     "id": "miter-10",
+     "type": "path",
+     "start": 0,
+     "end": 1000,
+     "x": 720,
+     "y": 420,
+     "origin": "top-left",
+     "width": 640,
+     "height": 560,
+     "closed": false,
+     "stroke": "#F2F2F2",
+     "stroke_width": 16,
+     "stroke_join": "miter",
+     "stroke_miter_limit": 10,
+     "stroke_dash": [
+      10,
+      0
+     ],
+     "points": [
+      {
+       "at": [
+        80,
+        480
+       ]
+      },
+      {
+       "at": [
+        121,
+        80
+       ]
+      },
+      {
+       "at": [
+        162,
+        480
+       ]
+      },
+      {
+       "at": [
+        280,
+        80
+       ]
+      },
+      {
+       "at": [
+        380,
+        480
+       ]
+      },
+      {
+       "at": [
+        560,
+        80
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
