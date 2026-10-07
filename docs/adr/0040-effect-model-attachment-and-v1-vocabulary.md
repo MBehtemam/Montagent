@@ -9,7 +9,7 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > effect parameter is animatable, written in place as a keyframe list; `mask.shape` and
 > every other enum stay static.
 
-> **Amended by eight later ADRs.** Read them before relying on anything below.
+> **Amended by eleven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
 >   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
@@ -45,6 +45,9 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > - [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md) — motion
 >   blur is refused as an `effects` member; each sample takes its effects, mask and `opacity`,
 >   the samples are averaged, then the blend
+> - [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) — the
+>   vocabulary gains `grain`, `glow`, `posterize` and `directional_blur`; later members join
+>   one at a time by their own ADR
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a
