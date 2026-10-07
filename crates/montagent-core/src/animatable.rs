@@ -672,14 +672,11 @@ fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
         .collect()
 }
 
-/// A path's **inset**: `ceil(stroke_width / 2)`, or `0` with no stroke, from the largest
-/// value a keyed `stroke_width` states (ADR-0154 §4).
+/// A path's **inset**: `ceil(k × stroke_width / 2)`, widened by the stroke's reach factor
+/// `k` (ADR-0158 §4), or `0` with no stroke, from the largest value a keyed `stroke_width`
+/// states (ADR-0154 §4). See [`crate::stroke::reach`].
 pub fn path_inset(element: &Value) -> i64 {
-    if element.get("stroke").is_none() {
-        return 0;
-    }
-    let width = greatest_length(element, "stroke_width").unwrap_or(0).max(0);
-    (width + 1) / 2
+    crate::stroke::reach(element).inset
 }
 
 /// A path's **inset box**, `[m, width − m] × [m, height − m]`, as `((left, top), (right,

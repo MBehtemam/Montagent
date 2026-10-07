@@ -1088,17 +1088,67 @@ vertex count, and each vertex the same handles.",
         sets: &[Document],
     },
     CheckSpec {
-        // ADR-0154 §4. Refuse: moving the point, growing the box and thinning the stroke each
-        // fix it, and which was meant is the author's.
+        // ADR-0154 §4, with ADR-0158 §4's reach. Refuse: moving the point, growing the box,
+        // thinning the stroke and lowering the reach each fix it, and which was meant is the
+        // author's.
         code: "E-PATH-OUTSIDE-BOX",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
+        // ADR-0158 §7's own example names `k` and where it came from, and says the bound is
+        // worst-case, so an agent does not hunt for an overlap that is not there.
         template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
 vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
-[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box (inset \
-{inset}).",
+[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box: inset \
+{inset} = ceil({k} × {width} / 2), from {source}. This bound is worst-case, not a measured \
+overlap.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §6. Advise: the field shapes nothing that draws, so dropping it changes
+        // nothing drawn — the fix is fully determined.
+        code: "E-STROKE-NO-STROKE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {?zero}its `stroke_width` is absent or 0 on every \
+value, so the stroke never draws{/zero}{!zero}it has no `stroke`{/zero}, and `{field}` shapes \
+nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §2. Refuse: whether the join or the limit is the intended one is the
+        // author's, and the limit sets the box's inset.
+        code: "E-STROKE-MITER-LIMIT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {?missing}`\"miter\"` needs a `stroke_miter_limit`, an \
+integer from 1 to 10, because the box's inset is computed from it{/missing}{!missing}a limit \
+applies only to `\"miter\"`, and this path's `stroke_join` is `\"{join}\"`. Drop the limit, or \
+set `\"miter\"`{/missing}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §3. Refuse: dropping the cap and opening the path are both fixes, and
+        // which was meant is the author's.
+        code: "E-STROKE-CAP-UNDRAWN",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_cap: a `\"{cap}\"` cap draws nowhere, because the path is \
+`closed` and a cap draws only at an open path's two ends. Drop `stroke_cap`, or set `closed` \
+to false.",
         status: Live,
         census: None,
         sets: &[Document],

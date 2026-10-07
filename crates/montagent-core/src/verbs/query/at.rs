@@ -203,6 +203,34 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
+    /// A `path`'s stroke reach (ADR-0158 §7): the inset `m` its control points must keep
+    /// from the box's edges, and the reach factor `k` with where it came from. Absent on
+    /// every other type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<StrokeReach>,
+}
+
+/// What `query --at` reports of a path's stroke (ADR-0158 §7). The dash offset and the
+/// informative outline length of a dashed shape belong here too, with the dashes.
+#[derive(Debug, Clone, Serialize)]
+pub struct StrokeReach {
+    /// `m = ceil(k × w / 2)`, in box pixels: the margin ADR-0154's containment check keeps.
+    pub inset: i64,
+    /// `k`: `1`, the miter limit, or `√2`.
+    pub reach_factor: String,
+    /// Where `k` came from: the miter limit, the square cap, or neither.
+    pub reach_source: String,
+}
+
+impl StrokeReach {
+    fn of(element: &Value) -> StrokeReach {
+        let reach = crate::stroke::reach(element);
+        StrokeReach {
+            inset: reach.inset,
+            reach_factor: reach.source.factor(),
+            reach_source: reach.source.describe(),
+        }
+    }
 }
 
 /// What `query --at` derives for a remapped `video` (ADR-0157 §5).
@@ -503,9 +531,12 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             }
             _ => (None, None),
         };
-        let path = match kind {
-            Some("path") => absolute_vertices(element, instant),
-            _ => None,
+        let (path, stroke) = match kind {
+            Some("path") => (
+                absolute_vertices(element, instant),
+                Some(StrokeReach::of(element)),
+            ),
+            _ => (None, None),
         };
         present.push(Present {
             stagger,
@@ -539,6 +570,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 _ => None,
             },
             path,
+            stroke,
         });
     }
 

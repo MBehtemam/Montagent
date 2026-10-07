@@ -2169,6 +2169,15 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
+    // ADR-0158 §7: a path's inset and the reach factor it came from.
+    if let Some(stroke) = element.get("stroke").filter(|stroke| stroke.is_object()) {
+        cells.push(format!(
+            "inset {} (k {}: {})",
+            stroke["inset"],
+            stroke["reach_factor"].as_str().unwrap_or("?"),
+            stroke["reach_source"].as_str().unwrap_or("?"),
+        ));
+    }
     // ADR-0155: the field as written, shutter/samples, then the frame's moving or still.
     if let Some(blur) = element.get("motion_blur").filter(|blur| blur.is_object()) {
         let mut cell = format!("motion_blur {}/{}", blur["shutter"], blur["samples"]);

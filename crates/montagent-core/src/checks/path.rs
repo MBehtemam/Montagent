@@ -8,11 +8,13 @@
 //!   or in which handles a vertex carries, so there is no correspondence to interpolate
 //!   along. Named at the first record and the first vertex that differ from the first value.
 //! - `E-PATH-OUTSIDE-BOX`: a vertex or absolute handle outside the inset box
-//!   `[m, width − m] × [m, height − m]`, where `m = ceil(stroke_width / 2)` — from the largest
-//!   value a keyed `stroke_width` states — or `0` with no stroke. A cubic Bezier lies inside
-//!   the convex hull of its control points, and a centred stroke with a round join and a
-//!   butt cap reaches no further than half its width, so this check proves from the file
-//!   alone that the box contains the ink.
+//!   `[m, width − m] × [m, height − m]`, where `m = ceil(k × stroke_width / 2)` — from the
+//!   largest value a keyed `stroke_width` states — or `0` with no stroke. `k` is the stroke's
+//!   reach factor ([`crate::stroke::reach`], ADR-0158 §4): the miter limit for a miter join,
+//!   √2 for a square cap that draws, else 1. A cubic Bezier lies inside the convex hull of
+//!   its control points, and a centred stroke reaches no further than `k` times half its
+//!   width, so this check proves from the file alone that the box contains the ink. The
+//!   bound is worst-case, and the finding says so.
 //!
 //! Every **literal** value of `points` is checked — the static value, or each keyframe's —
 //! and never a resolved one: an in-between value is the resolver's, which clamps an
@@ -191,7 +193,8 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
     let (Some(width), Some(height)) = (side("width"), side("height")) else {
         return Vec::new();
     };
-    let m = crate::animatable::path_inset(element);
+    let reach = crate::stroke::reach(element);
+    let m = reach.inset;
     let inside = |[x, y]: [i64; 2]| (m..=width - m).contains(&x) && (m..=height - m).contains(&y);
     let mut out = Vec::new();
     for (index, vertex) in literal.vertices.iter().enumerate() {
@@ -216,7 +219,10 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
                     .field("position", json!(position))
                     .field("inset", json!(m))
                     .field("right", json!(width - m))
-                    .field("bottom", json!(height - m)),
+                    .field("bottom", json!(height - m))
+                    .field("k", json!(reach.source.factor()))
+                    .field("width", json!(reach.width))
+                    .field("source", json!(reach.source.describe())),
                 literal,
             ));
         }

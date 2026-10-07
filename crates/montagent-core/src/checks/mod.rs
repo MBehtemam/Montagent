@@ -44,6 +44,7 @@ pub mod schema;
 pub mod source;
 pub mod spacing;
 pub mod speed;
+pub mod stroke;
 pub mod tie;
 pub mod track;
 pub mod transition;

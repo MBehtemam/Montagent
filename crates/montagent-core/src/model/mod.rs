@@ -30,6 +30,7 @@ mod element;
 pub mod keyframe;
 pub mod paint;
 pub mod playback;
+pub mod stroke;
 pub mod text;
 
 use std::collections::BTreeMap;
@@ -42,6 +43,7 @@ pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
+pub use stroke::{MiterLimit, StrokeCap, StrokeJoin};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
@@ -860,11 +862,13 @@ pub struct Ellipse {
 /// A `rect`'s field set less `radius`, plus `closed` and `points`. Its box is placed exactly
 /// as a `rect`'s is, and it **bounds** the drawing without scaling it: resizing the box does
 /// not move a point, so `width`, `height` and `closed` are static, and a keyframe list on any
-/// of them is a schema error. Its stroke is centred on the outline, with a round join and a
-/// butt cap, and `validate` checks that the box contains it (`E-PATH-OUTSIDE-BOX`).
+/// of them is a schema error. Its stroke is centred on the outline, with the join and cap
+/// ADR-0158 lets it choose (round and butt by default), and `validate` checks that the box
+/// contains it (`E-PATH-OUTSIDE-BOX`).
 ///
 /// The order follows ADR-0154's own example — `x, y, origin, width, height, closed`, the
-/// paint, then `points` — and the transform tail every visual type shares.
+/// paint, then `points` — and the transform tail every visual type shares. ADR-0158's
+/// stroke fields follow `stroke_width`, in its §1 order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, remote = "Self")]
 pub struct PathElement {
@@ -890,11 +894,22 @@ pub struct PathElement {
     /// against the declared box, as on every shape (ADR-0149).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<Paint>,
-    /// Centred on the outline, with a round join and a butt cap (ADR-0154 §4).
+    /// Centred on the outline, with `stroke_join` and `stroke_cap` (ADR-0154 §4, ADR-0158).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// How two segments meet: `"round"` (the default), `"bevel"` or `"miter"`. Static.
+    /// A miter widens the box's inset by its `stroke_miter_limit` (ADR-0158 §2, §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_join: Option<StrokeJoin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_miter_limit: Option<MiterLimit>,
+    /// How an open path's two ends are drawn: `"butt"` (the default), `"round"` or
+    /// `"square"`. Static. A closed path has no end to draw it at, so it is refused there; a
+    /// square cap widens the box's inset by √2 (ADR-0158 §3, §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_cap: Option<StrokeCap>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
