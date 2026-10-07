@@ -5,6 +5,10 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 
 # `volume` is a keyframable 0..1..>1 multiplier, flat on audio and video elements; ducking is deferred, hand-authored as keyframes
 
+> **Amended by [ADR-0169](./0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md)**: `volume` is post-fader. An element's `audio_effects`
+> list runs after `aloop` and before `volume`, so a fade or a duck is never undone by a
+> compressor; pan/balance follows `volume`.
+>
 > **Amended by [ADR-0077](./0077-the-nine-render-readings-are-ratified.md)**, which states how the mix
 > carries this ADR's decisions: the bus is **48 kHz stereo** so every `aloop` sample count
 > is exact from the document alone, `amix` runs with **`normalize=0`** so two lines at

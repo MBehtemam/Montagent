@@ -732,6 +732,18 @@ ordinary keyframes.
 _Avoid_: gain, level (as a field name — ambiguous with other senses of
 "level" in this glossary), mute
 
+**Audio effect**:
+A member of `audio_effects: [...]` on an `audio` or `video` element. It belongs to a closed,
+named vocabulary that is separate from the visual **Effect** list, and it shapes the element's
+sound: EQ, dynamics, loudness, restoration or a creative effect. The list is ordered because
+processing order changes the sound, and it applies after any loop and before **Volume**, so a
+fade or a duck is never undone by a compressor. Gain and routing (Volume, pan/balance, channel
+operations) are never members: they are flat fields at fixed points. A member may appear twice
+unless its own ADR declares it singular, and `"enabled": false` bypasses it without losing its
+values.
+([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md))
+_Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
+
 **Gap**:
 A stretch of a track with no element in it. Gaps are legal and ordinary — the
 silence between two narration lines is a gap. A gap is never an error, which is
