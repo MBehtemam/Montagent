@@ -113,7 +113,7 @@ use serde_json::{Value, json};
 
 use montagent_render::canvas::{
     Accumulation, Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape,
-    PathEl, Raster, Region, Rgba, Scale, Shape, Transform,
+    PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform,
 };
 use montagent_render::decode::Pace;
 
@@ -370,6 +370,27 @@ fn not_a_frame(document: &Loose) -> Finding {
 /// *"This element cannot be drawn as declared"*, at ADR-0093's one code for it.
 fn undrawable(detail: impl Into<String>) -> Finding {
     Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
+}
+
+/// A path's stroke join and cap as written (ADR-0158), through the one reading the reach is
+/// computed from. A `"miter"` with no limit — `validate`'s `E-STROKE-MITER-LIMIT`, which
+/// `render` refuses — is read as limit 1, as the reach reads it.
+fn stroke_style(element: &Value) -> StrokeStyle {
+    use montagent_render::canvas::{Cap, Join};
+    StrokeStyle {
+        join: match crate::stroke::join(element) {
+            crate::stroke::Join::Round => Join::Round,
+            crate::stroke::Join::Bevel => Join::Bevel,
+            crate::stroke::Join::Miter(limit) => Join::Miter {
+                limit: limit.unwrap_or(1) as f32,
+            },
+        },
+        cap: match crate::stroke::cap(element) {
+            crate::stroke::Cap::Butt => Cap::Butt,
+            crate::stroke::Cap::Round => Cap::Round,
+            crate::stroke::Cap::Square => Cap::Square,
+        },
+    }
 }
 
 /// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
@@ -1673,6 +1694,7 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
+            stroke_style(element),
             self.clip(element),
             &effects,
         );

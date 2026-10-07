@@ -1120,6 +1120,105 @@ fn paths_paint_the_same_frames_on_any_number_of_painters_and_with_the_bound_hint
     }
 }
 
+/// #751's gating fixture (ADR-0158 §8, ADR-0144): all three joins and all three caps, a
+/// miter at limits 4 and 10, and a keyed miter whose in-between corner sharpens past its
+/// limit and snaps to a bevel, under motion, rotation and scale, with `shadow` and `blur`
+/// so the bounds hint is in play. 320×180 at 30 fps for 1100 ms: 33 frames.
+fn stroke_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let moving =
+        |from: i64, to: i64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let shadow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
+    let zigzag = json!([{"at": [12, 60]}, {"at": [40, 12]}, {"at": [60, 60]}, {"at": [80, 12]},
+                        {"at": [108, 60]}]);
+    let join = |id: &str, x: i64, join: Value, limit: Option<i64>, effects: Value| {
+        let mut element = json!({"id": id, "type": "path", "start": 0, "end": 1100,
+            "x": moving(x, x + 5), "y": 45, "origin": "center", "width": 120, "height": 72,
+            "closed": false, "stroke": "#F2F2F2", "stroke_width": 6, "stroke_join": join,
+            "rotation": moving(0, 17), "points": zigzag.clone(), "effects": effects});
+        if let Some(limit) = limit {
+            element["stroke_miter_limit"] = json!(limit);
+        }
+        element
+    };
+    let cap = |id: &str, y: i64, cap: &str, effects: Value| {
+        json!({"id": id, "type": "path", "start": 0, "end": 1100, "x": moving(60, 66),
+               "y": y, "origin": "center", "width": 100, "height": 40, "closed": false,
+               "stroke": "#3BA0FF", "stroke_width": 12, "stroke_cap": cap,
+               "rotation": moving(-30, 25), "scale": [1.2, 0.9],
+               "points": [{"at": [10, 30], "out": [20, -15]}, {"at": [90, 10]}],
+               "effects": effects})
+    };
+    let elements = [
+        join("round", 70, json!("round"), None, json!([shadow])),
+        join(
+            "bevel",
+            160,
+            json!("bevel"),
+            None,
+            json!([{"name": "blur", "radius": 1.5}]),
+        ),
+        join(
+            "miter-4",
+            250,
+            json!("miter"),
+            Some(4),
+            json!([shadow, {"name": "blur", "radius": 2}]),
+        ),
+        cap("butt", 110, "butt", json!([shadow])),
+        cap(
+            "round-cap",
+            140,
+            "round",
+            json!([{"name": "blur", "radius": 2}]),
+        ),
+        cap("square", 168, "square", json!([shadow])),
+        json!({"id": "keyed", "type": "path", "start": 0, "end": 1100, "x": 230, "y": 130,
+               "origin": "center", "width": 120, "height": 80, "closed": false,
+               "stroke": "#FF3B30", "stroke_width": 3, "stroke_join": "miter",
+               "stroke_miter_limit": 10, "stroke_cap": "square",
+               "points": [
+                   {"t": 0, "v": [{"at": [15, 20]}, {"at": [90, 40]}, {"at": [15, 60]}]},
+                   {"t": 1100, "v": [{"at": [15, 60]}, {"at": [90, 40]}, {"at": [15, 20]}],
+                    "ease": "linear"}],
+               "effects": [shadow, {"name": "blur", "radius": 1}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/strokes.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "strokes.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn joins_and_caps_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0158 §8's gating test, under ADR-0144.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = stroke_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 3)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// #724's gating fixture (ADR-0156 §6, ADR-0144): `posterize`, `glow` and
 /// `directional_blur` together with `blur`, a `mask` and a non-`normal` `blend`, under
 /// sub-pixel motion, rotation, non-uniform scale and a flip, with keyed parameters and one

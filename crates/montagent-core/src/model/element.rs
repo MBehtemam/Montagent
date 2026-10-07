@@ -118,6 +118,13 @@ impl<'de> Visitor<'de> for ElementVisitor {
             None => None,
         };
 
+        // Before the body's own `deny_unknown_fields`, whose unknown-key reading would say a
+        // path-only stroke field may belong to a newer format (ADR-0158 §1).
+        if let Some(reason) =
+            super::stroke::off_path(rest.get("type").and_then(Value::as_str), &rest)
+        {
+            return Err(A::Error::custom(format!("`{id}`: {reason}")));
+        }
         let body: Body = serde_json::from_value(Value::Object(rest))
             .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
 

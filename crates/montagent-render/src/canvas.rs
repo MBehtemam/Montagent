@@ -219,6 +219,63 @@ pub struct Fill {
     pub stroke_width: f64,
 }
 
+/// How a `path`'s stroke turns its corners and ends its open ends (ADR-0158 §2–§3).
+///
+/// A path's alone: a `rect` or `ellipse` stroke keeps the join the painter has always drawn
+/// it with, and a glyph's its round join. The default is ADR-0154's pin, a round join and a
+/// butt cap, so a path that writes neither paints the bytes it always has. A dash pattern,
+/// when the format admits one, is the next member here.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct StrokeStyle {
+    pub join: Join,
+    pub cap: Cap,
+}
+
+/// A stroke's join. A miter corner whose tip would reach past `limit` half-widths from its
+/// vertex is drawn beveled — Skia's and SVG's meaning, so under keyed points a corner that
+/// sharpens past the limit snaps from a tip to a bevel on one frame.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Join {
+    #[default]
+    Round,
+    Bevel,
+    Miter {
+        limit: f32,
+    },
+}
+
+/// A stroke's cap, drawn at an open path's two ends.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Cap {
+    #[default]
+    Butt,
+    Round,
+    Square,
+}
+
+impl StrokeStyle {
+    /// Set the join, miter limit and cap on a stroke paint.
+    fn apply(self, paint: &mut SkPaint) {
+        match self.join {
+            Join::Round => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Round);
+            }
+            Join::Bevel => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Bevel);
+            }
+            Join::Miter { limit } => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Miter);
+                paint.set_stroke_miter(limit);
+            }
+        }
+        paint.set_stroke_cap(match self.cap {
+            Cap::Butt => skia_safe::PaintCap::Butt,
+            Cap::Round => skia_safe::PaintCap::Round,
+            Cap::Square => skia_safe::PaintCap::Square,
+        });
+    }
+}
+
 /// One segment of a glyph's outline, at the glyph's own origin, y-down.
 ///
 /// **The rasterizer's own spelling of the same shape `montagent-text` hands back**, and the
@@ -1348,16 +1405,18 @@ impl Canvas {
     /// `(0, 0, width, height)`.
     ///
     /// The fill uses the nonzero winding rule, so a self-intersecting outline fills its
-    /// overlap. The stroke is **centred** on the outline, unlike a `rect`'s, with a round
-    /// join and a butt cap: those reach no further than half the stroke's width from the
-    /// outline, which is what lets `validate` prove from the points alone that the box
-    /// contains the ink. Nothing is clipped to the box.
+    /// overlap. The stroke is **centred** on the outline, unlike a `rect`'s, with `style`'s
+    /// join and cap: those reach no further than the reach factor times half the stroke's
+    /// width from the outline (ADR-0158 §4), which is what lets `validate` prove from the
+    /// points alone that the box contains the ink. Nothing is clipped to the box.
+    #[allow(clippy::too_many_arguments)]
     pub fn path(
         &mut self,
         outline: &[PathEl],
         extent: Extent,
         transform: &Transform,
         paint: &Fill,
+        style: StrokeStyle,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1380,8 +1439,7 @@ impl Canvas {
             let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
-            stroke.set_stroke_join(skia_safe::PaintJoin::Round);
-            stroke.set_stroke_cap(skia_safe::PaintCap::Butt);
+            style.apply(&mut stroke);
             canvas.draw_path(&path, &stroke);
         });
     }

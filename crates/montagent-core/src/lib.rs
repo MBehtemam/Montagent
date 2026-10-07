@@ -66,6 +66,7 @@ pub mod schema;
 pub mod schema_index;
 pub mod slack;
 pub mod stack;
+pub mod stroke;
 pub mod text;
 pub mod track;
 pub(crate) mod transition;

@@ -196,7 +196,7 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   it; on text it falls outside the glyph contour and grows into the box rather than past it;
   on a `path` it is centred on the outline, and `validate` checks the box contains it (below).
 
-### Paths (ADR-0154)
+### Paths (ADR-0154, ADR-0158)
 
 - **A `path` draws a list of vertices in integer pixels from its declared box's top-left
   corner.** It takes a `rect`'s fields except `radius`, plus a required `closed` (a boolean)
@@ -220,19 +220,30 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`fill` needs `"closed": true`**; on an open path it is a schema error. Fill uses the
   nonzero winding rule, so a self-intersecting outline fills its overlap. A gradient `fill`
   or `stroke` is measured against the declared box, as on every shape.
-- **The stroke is centred on the outline**, open or closed, with a round join and a butt
-  cap. **The box contains it:** with the inset `m = ceil(stroke_width / 2)` (0 with no
-  `stroke`, the largest keyed value where `stroke_width` is keyed), every `at`, `at + in`
-  and `at + out` lies in `[m, width − m] × [m, height − m]`, in every literal value of
-  `points`. Outside is `E-PATH-OUTSIDE-BOX`, naming the vertex, the record, the absolute
-  position and `m`. Nothing is clipped to the box.
+- **The stroke is centred on the outline**, open or closed (ADR-0158). `stroke_join` is
+  `"round"` (default), `"bevel"` or `"miter"`; `"miter"` needs `stroke_miter_limit`, an
+  integer 1–10, and a corner whose tip would reach past that many half-widths is beveled.
+  Under keyed `points` a corner that sharpens past the limit snaps to a bevel on one frame.
+  `stroke_cap` is `"butt"` (default), `"round"` or `"square"`, and draws only where the
+  stroke ends: an open path's two ends. All three are static and `path`'s alone. A miter
+  without its limit, or a limit on another join, is `E-STROKE-MITER-LIMIT`; a cap on a
+  closed path is `E-STROKE-CAP-UNDRAWN`; any of them with no `stroke`, or a `stroke_width`
+  absent or 0 on every key, is `E-STROKE-NO-STROKE`.
+- **The box contains the stroke:** with the inset `m = ceil(k × w / 2)`, every `at`,
+  `at + in` and `at + out` lies in `[m, width − m] × [m, height − m]`, in every literal
+  value of `points`. `w` is `stroke_width` (its largest key where keyed, 0 with no
+  `stroke`). The **reach factor** `k` is the larger of the miter limit (for `"miter"`, else
+  1) and √2 (for a `"square"` cap on an open path, else 1). Width 3 under limit 10 gives
+  `m = 15`; width 8 under a square cap, `ceil(4√2) = 6`. The bound is worst-case: it holds
+  the margin even where every corner is gentle. Outside is `E-PATH-OUTSIDE-BOX`, naming the
+  vertex, the record, the absolute position, `m` and `k`. Nothing is clipped to the box.
 - **Keyed `points` is a whole list per keyframe**, interpolated number by number. Every
   value has the same vertex count and each vertex the same handles
   (`E-PATH-KEYFRAME-SHAPE`). An overshooting ease clamps each absolute vertex and handle
   into the inset box at that instant. `shift` cuts a keyed `points` only where every
   resolved number is an integer, and refuses elsewhere.
 - **`query --at` prints a path's `path`**: its resolved vertices with absolute control
-  points in box pixels. `NOT COVERED` counts the declared box, as for an `ellipse`.
+  points in box pixels, and its `stroke`: the inset `m` and `k` with its source. `NOT COVERED` counts the declared box, as for an `ellipse`.
 
 ## Values
 
