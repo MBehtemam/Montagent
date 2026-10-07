@@ -246,3 +246,35 @@ dispatched in parallel. Ballots are verbatim.
 **Reasoning:** The round-1 and round-2 rulings are one coherent contract — every capability ADR will cite "the measured-check ADR" in a single line, and that is the whole point of settling them once. One document also lets the Q10 script be the ADR's own cited evidence, satisfying the evidence rule for the tolerance change it makes to ADR-0172. The repo's convention is clearly that decisions live in ADRs and agent docs point at them, so (b) would put a decision somewhere a future reader of the ADR index cannot find it. The folder layout (fixtures, provenance sidecar, per-capability evidence script, A/B clips plus key plus verdict file) belongs in the same place because it is what the contract's "committed next to the clips" language means.
 
 **Trade-offs:** One ADR that amends two others and fixes a layout will be long; keep it sectioned (test contract / meters and tolerances / bypass identity / A/B record / `verify` amendments / folder layout) so a capability ADR can cite a section. (c) would spread the contract across three documents that each capability must cite and that can drift apart. The cost of (a) is that it is a blocker: no capability ADR can be accepted before this one is, which is correct but means it should be written first and kept short on prose.
+
+## The owner's ruling, round 2
+
+The owner ruled with the Judge's read, in full:
+
+- **Q6:** (c), unanimous. Numbers come from lavfi signals whose generator command is the
+  committed input. One shared committed fixture is used for the ear: **TTS** narration over a
+  music bed (the lead workflow), from a licence-clean TTS voice and a CC0 bed, about 20 s. It has
+  a `PROVENANCE.md` giving the source, engine and voice, licence with any vendor terms quoted, the
+  producing command, and a hash. Restoration's recorded-voice fixture is separate and comes later.
+  A content-dependent check may measure the shared fixture against bypass, but only where a
+  synthetic burst cannot model the behaviour.
+- **Q7:** (c), unanimous. Capability tests measure the PCM of the same graph with the encoder
+  swapped out. Delivery claims measure the decoded AAC. A/B clips go through AAC. An ADR may also
+  commit a PCM pair where AAC could mask the effect, but the verdict it quotes is the AAC listen
+  (Juror 3).
+- **Q8:** a check states its metric, meter and pinned parse; the side of the encoder; the fixture;
+  the expected value and where it comes from (the filter's definition, otherwise a same-run delta
+  against bypass, never a stored render); whether it is one- or two-sided; and its tolerance and
+  where that comes from. The tolerance is max(2 × the measured spread across the three legs, the
+  meter's resolution), and the per-leg table is committed. A borrowed external figure never sets a
+  test's gate (Juror 3). It belongs to `verify` and `review`.
+- **Q9:** (a), unanimous. `enabled: false` produces PCM byte-identical to the document without
+  the member, within one run. A no-new-feature document produces the committed expected
+  filtergraph string.
+- **Q10:** (a), unanimous. Measured in this ticket's follow-up before the ADR is accepted. The
+  signals are an fs/4 sine at 45°, clipped-sine bursts, seeded pink noise, and the shared fixture,
+  with the worst result counting. It runs on all three legs (Jurors 1 and 3) with the native `aac`
+  encoder pinned (Juror 3). The allowance is the worst case across legs plus a margin, rounded up
+  to 0.1 dB.
+- **Q11:** (a), unanimous. One sectioned standing-contract ADR with a Q8 checklist, amending
+  ADR-0172 and ADR-0117, plus one pointer line in `docs/agents/domain.md`.

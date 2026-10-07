@@ -5,6 +5,10 @@ amends: 0055 (clipping past the summed mix is no longer only "the renderer's doc
 
 # The master stage is a top-level loudness target and true-peak ceiling, reached by one measured gain
 
+> **Amended by [ADR-0173](0173-every-audio-capability-is-accepted-by-a-measured-repo-test-and-verify-checks-only-what-master-declares.md)**: sets `verify`'s tolerances. A miss against
+> `target_lufs` is a `review` beyond ±1.0 LU, and a miss against `ceiling_dbtp` beyond +0.5 dB on the
+> decoded AAC (provisional until ADR-0173 §7's measurement).
+
 [What is the master stage, where does it live, and what does it hold?](https://github.com/MBehtemam/Montagent/issues/801)
 on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)) asked for the one
 processing stage the map allows on the final mix. Effects attach to elements and to this stage,
