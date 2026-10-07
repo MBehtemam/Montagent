@@ -1,0 +1,6 @@
+run 1  textpath  load1 40.33  7.94 s  11.03 ms/frame
+run 1  plain  load1 37.42  6.03 s  8.38 ms/frame
+run 2  textpath  load1 32.60  7.93 s  11.01 ms/frame
+run 2  plain  load1 30.79  5.56 s  7.72 ms/frame
+run 3  textpath  load1 28.81  7.64 s  10.62 ms/frame
+run 3  plain  load1 24.76  5.60 s  7.77 ms/frame

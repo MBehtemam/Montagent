@@ -1,0 +1,18 @@
+element                frames    m  ink px outside box worst frame  least slack L/T/R/B (px; negative = past the edge)
+c1-arc                    120   72                   0           0  125/99/124/148
+c10-grow                  120   60                   0           0  30/105/341/91
+c11-mixed                 120   72                   0           0  172/109/190/160
+c12-sizes                 120  110                   0           0  554/199/554/189
+c13-end                   120   64                   0           0  555/59/101/109
+c13-stagger-slide         120   64               20349        2278  85/-65/209/129
+c2-wave-off                60   64                   0           0  68/37/49/89
+c2-wave-on                 60   64                   0           0  52/37/73/89
+c3-badge                  120   54                   0           0  25/25/25/25
+c4-arabic                 120   72                   0           0  67/119/273/61
+c5-stagger                120   80               36369        2655  266/-92/266/234
+c6-banner                 120   64                   0           0  339/87/340/139
+c7-stroke                 120   90                   0           0  296/158/296/153
+c8-tight-arabic           120  100                   0           0  113/147/111/144
+c8-tight-fi               120  100                   0           0  154/106/158/175
+c9-long-closed            120   56                   0           0  34/34/34/34
+c9-long-open              120   56                   0           0  24/98/37/61

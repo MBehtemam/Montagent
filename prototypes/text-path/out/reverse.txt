@@ -1,0 +1,22 @@
+=== validate reverse/reverse.json
+0 errors, 0 reviews, 0 notes, 0 unchecked, 7 layout — reverse/reverse.json
+=== query --at 0 reverse/reverse.json
+L18  arc-forward                    text  0..1000  x 60, y 60, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L19  arc-reversed                   text  0..1000  x 60, y 560, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L20  circle-clockwise               text  0..1000  x 1000, y 40, color #FFFFFF, path_offset 0, blend normal, path length 1068.06 (informative: the painter's own path measure), hidden: none
+L21  circle-reversed                text  0..1000  x 1000, y 560, color #FFFFFF, path_offset 0, blend normal, path length 1068.06 (informative: the painter's own path measure), hidden: none
+L22  circle-reversed-rotated        text  0..1000  x 1440, y 560, color #FFFFFF, path_offset 0, blend normal, path length 1068.06 (informative: the painter's own path measure), hidden: none
+L23  circle-reversed-noswap         text  0..1000  x 1440, y 40, color #FFFFFF, path_offset 0, blend normal, path length 1254.53 (informative: the painter's own path measure), hidden: none
+=== validate reverse/arc-noswap.json (reversed, in and out not swapped)
+error  E-PATH-DANGLING-HANDLE  arc-noswap
+  `arc-noswap`.path.points: on a `text`, vertex 0 carries an `in` that shapes no segment of an open path. Drop it.
+--
+error  E-PATH-DANGLING-HANDLE  arc-noswap
+  `arc-noswap`.path.points: on a `text`, vertex 1 carries an `out` that shapes no segment of an open path. Drop it.
+=== the vertex lists
+arc-forward [{"at": [72, 308], "out": [169, -200]}, {"at": [748, 308], "in": [-169, -200]}]
+arc-reversed [{"at": [748, 308], "out": [-169, -200]}, {"at": [72, 308], "in": [169, -200]}]
+circle-clockwise [{"at": [240, 70], "in": [-94, 0], "out": [94, 0]}, {"at": [410, 240], "in": [0, -94], "out": [0, 94]}, {"at": [240, 410], "in": [94, 0], "out": [-94, 0]}, {"at": [70, 240], "in": [0, 94], "out": [0, -94]}]
+circle-reversed [{"at": [70, 240], "in": [0, -94], "out": [0, 94]}, {"at": [240, 410], "in": [-94, 0], "out": [94, 0]}, {"at": [410, 240], "in": [0, 94], "out": [0, -94]}, {"at": [240, 70], "in": [94, 0], "out": [-94, 0]}]
+circle-reversed-rotated [{"at": [240, 70], "in": [94, 0], "out": [-94, 0]}, {"at": [70, 240], "in": [0, -94], "out": [0, 94]}, {"at": [240, 410], "in": [-94, 0], "out": [94, 0]}, {"at": [410, 240], "in": [0, 94], "out": [0, -94]}]
+circle-reversed-noswap [{"at": [70, 240], "in": [0, 94], "out": [0, -94]}, {"at": [240, 410], "in": [94, 0], "out": [-94, 0]}, {"at": [410, 240], "in": [0, -94], "out": [0, 94]}, {"at": [240, 70], "in": [-94, 0], "out": [94, 0]}]

@@ -1,0 +1,55 @@
+=== shift/keyed.json: shift --at 2000 --delta 250 (path.points keyed at 1000 and 3000)
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — shift/work.json
+error  E-SHIFT-SPLIT-UNWRITABLE  keyed
+  `keyed`.path.points cannot be split at 2000 ms: the curve passes through a vertex list with a fractional coordinate ([{"at":[60.0,240.0],"out":[145.0,-94.5]},{"at":[640.0,240.0],"in":[-145.0,-94.5]}]) there, which is not a legal `path.points`. Shift at another instant, or change the keyframes so the curve stays in range at 2000.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  1 — expand with --verbose
+layout  L-LAYOUT  1 — expand with --verbose
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.
+--- the text's path.points and path_offset after:
+start 0 end 5000
+path.points [{"t": 1000, "v": [{"at": [60, 240], "out": [145, -133]}, {"at": [640, 240], "in": [-145, -133]}]}, {"t": 3000, "v": [{"at": [60, 240], "out": [145, -56]}, {"at": [640, 240], "in": [-145, -56]}], "ease": "linear"}]
+path_offset [{"t": 1000, "v": 0.2}, {"t": 3000, "v": 0.8, "ease": "linear"}]
+
+=== shift/keyed.json: shift --at 500 --delta 250 (path.points keyed at 1000 and 3000)
+0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout — shift/work.json
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.
+--- the text's path.points and path_offset after:
+start 0 end 5250
+path.points [{"t": 1250, "v": [{"at": [60, 240], "out": [145, -133]}, {"at": [640, 240], "in": [-145, -133]}]}, {"t": 3250, "v": [{"at": [60, 240], "out": [145, -56]}, {"at": [640, 240], "in": [-145, -56]}], "ease": "linear"}]
+path_offset [{"t": 1250, "v": 0.2}, {"t": 3250, "v": 0.8, "ease": "linear"}]
+
+=== shift/keyed.json: shift --at 3500 --delta 250 (path.points keyed at 1000 and 3000)
+0 errors, 0 reviews, 0 notes, 0 unchecked, 0 layout — shift/work.json
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.
+--- the text's path.points and path_offset after:
+start 0 end 5250
+path.points [{"t": 1000, "v": [{"at": [60, 240], "out": [145, -133]}, {"at": [640, 240], "in": [-145, -133]}]}, {"t": 3000, "v": [{"at": [60, 240], "out": [145, -56]}, {"at": [640, 240], "in": [-145, -56]}], "ease": "linear"}]
+path_offset [{"t": 1000, "v": 0.2}, {"t": 3000, "v": 0.8, "ease": "linear"}]
+
+=== shift/keyed-even.json: shift --at 2000 --delta 250 (path.points keyed at 1000 and 3000)
+0 errors, 2 reviews, 0 notes, 0 unchecked, 0 layout — shift/work.json
+review  R-EASE-INERT  keyed
+  `keyed`.path.points: 2 consecutive keyframes hold v=[{"at":[60,240],"out":[145,-94]},{"at":[640,240],"in":[-145,-94]}] from t=2000 to t=2250; ease="step" describes no motion.
+review  R-EASE-INERT  keyed
+  `keyed`.path_offset: 2 consecutive keyframes hold v=0.5 from t=2000 to t=2250; ease="step" describes no motion.
+NOT CHECKED
+  This file was not compared against any prior version or instruction.
+  validate verifies that the file is internally legal; it cannot tell you
+  whether it says what you meant it to say.
+--- the text's path.points and path_offset after:
+start 0 end 5250
+path.points [{"t": 1000, "v": [{"at": [60, 240], "out": [145, -133]}, {"at": [640, 240], "in": [-145, -133]}]}, {"t": 2000, "v": [{"at": [60, 240], "out": [145, -94]}, {"at": [640, 240], "in": [-145, -94]}], "ease": "linear"}, {"t": 2250, "v": [{"at": [60, 240], "out": [145, -94]}, {"at": [640, 240], "in": [-145, -94]}], "ease": "step"}, {"t": 3250, "v": [{"at": [60, 240], "out": [145, -55]}, {"at": [640, 240], "in": [-145, -55]}], "ease": "linear"}]
+path_offset [{"t": 1000, "v": 0.2}, {"t": 2000, "v": 0.5, "ease": "linear"}, {"t": 2250, "v": 0.5, "ease": "step"}, {"t": 3250, "v": 0.8, "ease": "linear"}]
+

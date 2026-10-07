@@ -1,0 +1,9 @@
+en-halloween-decorating      frames=1631  SAME
+plain                        frames=720   SAME
+paths                        frames=10    SAME
+morph                        frames=180   SAME
+keyframe-coincidence         frames=50    SAME
+keyframe-cross-boundary      frames=50    SAME
+unpainted-visual-state       frames=50    SAME
+long-state                   frames=225   SAME
+video-decode                 frames=300   SAME

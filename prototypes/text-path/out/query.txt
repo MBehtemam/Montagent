@@ -1,0 +1,62 @@
+=== query --at 0
+L48  c1-arc            text  0..4000  x 60, y 90, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L49  c2-wave-on        text  0..2000  x 900, y 60, color #FFFFFF, path_offset 0 (animated), blend normal, path length 941.44 (informative: the painter's own path measure), hidden: 0 1 2 3 4 5 6 7 8
+L51  c3-badge          text  0..4000  x 1100, y 450, color #FFFFFF, path_offset 0 (animated), effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 1193.61 (informative: the painter's own path measure), hidden: none
+=== query --at 1000
+L48  c1-arc            text  0..4000  x 60, y 90, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L49  c2-wave-on        text  0..2000  x 900, y 60, color #FFFFFF, path_offset 0.5 (animated), blend normal, path length 941.44 (informative: the painter's own path measure), hidden: none
+L51  c3-badge          text  0..4000  x 1100, y 450, color #FFFFFF, path_offset 0.25 (animated), effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 1193.61 (informative: the painter's own path measure), hidden: none
+=== query --at 2400
+L48  c1-arc            text  0..4000     x 60, y 90, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L50  c2-wave-off       text  2000..4000  x 900, y 60, color #FFFFFF, path_offset 0.2 (animated), blend normal, path length 941.44 (informative: the painter's own path measure), hidden: none
+L51  c3-badge          text  0..4000     x 1100, y 450, color #FFFFFF, path_offset 0.6 (animated), effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 1193.61 (informative: the painter's own path measure), hidden: none
+=== query --at 3000
+L48  c1-arc            text  0..4000     x 60, y 90, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L50  c2-wave-off       text  2000..4000  x 900, y 60, color #FFFFFF, path_offset 0.5 (animated), blend normal, path length 941.44 (informative: the painter's own path measure), hidden: none
+L51  c3-badge          text  0..4000     x 1100, y 450, color #FFFFFF, path_offset 0.75 (animated), effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 1193.61 (informative: the painter's own path measure), hidden: none
+=== query --at 3900
+L48  c1-arc            text  0..4000     x 60, y 90, color #FFFFFF, path_offset 0.5, blend normal, path length 763.22 (informative: the painter's own path measure), hidden: none
+L50  c2-wave-off       text  2000..4000  x 900, y 60, color #FFFFFF, path_offset 0.95 (animated), blend normal, path length 941.44 (informative: the painter's own path measure), hidden: 2 3 4 5 6 7 8 9
+L51  c3-badge          text  0..4000     x 1100, y 450, color #FFFFFF, path_offset 0.975 (animated), effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 1193.61 (informative: the painter's own path measure), hidden: none
+=== query --at 6000
+L52  c4-arabic        text  4000..8000  x 60, y 80, color #FFFFFF, blend normal, path length 826.51 (informative: the painter's own path measure), hidden: none
+L53  c11-mixed        text  4000..8000  x 1000, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 826.51 (informative: the painter's own path measure), hidden: none
+L54  c12-sizes        text  4000..8000  x 210, y 490, color #FFFFFF, path_offset 0.5, blend normal, path length 1308.11 (informative: the painter's own path measure), hidden: none
+=== query --at 8100
+L55  c5-stagger        text  8000..12000  x 60, y 120, color #FFFFFF, path_offset 0.5, effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 841.84 (informative: the painter's own path measure), hidden: none
+L56  c7-stroke         text  8000..12000  x 980, y 120, color #FFFFFF, stroke #FF3366, stroke_width 6, path_offset 0.5, blend normal, path length 754.04 (informative: the painter's own path measure), hidden: none
+=== query --at 8300
+L55  c5-stagger        text  8000..12000  x 60, y 120, color #FFFFFF, path_offset 0.5, effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 841.84 (informative: the painter's own path measure), hidden: none
+L56  c7-stroke         text  8000..12000  x 980, y 120, color #FFFFFF, stroke #FF3366, stroke_width 6, path_offset 0.5, blend normal, path length 754.04 (informative: the painter's own path measure), hidden: none
+=== query --at 12000
+L57  c6-banner        text  12000..16000  x 60, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 1028.34 (informative: the painter's own path measure), hidden: none
+L58  c10-grow         text  12000..16000  x 60, y 560, color #FFFFFF, blend normal, path length 320.13 (informative: the painter's own path measure), hidden: 9 10 11 12 13 14 15 16 17 18 19 20 21 22
+=== query --at 13000
+L57  c6-banner        text  12000..16000  x 60, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 1028.34 (informative: the painter's own path measure), hidden: none
+L58  c10-grow         text  12000..16000  x 60, y 560, color #FFFFFF, blend normal, path length 698.49 (informative: the painter's own path measure), hidden: 20 21 22
+=== query --at 13500
+L57  c6-banner        text  12000..16000  x 60, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 972.0 (informative: the painter's own path measure), hidden: none
+L58  c10-grow         text  12000..16000  x 60, y 560, color #FFFFFF, blend normal, path length 891.56 (informative: the painter's own path measure), hidden: none
+=== query --at 14000
+L57  c6-banner        text  12000..16000  x 60, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 1028.34 (informative: the painter's own path measure), hidden: none
+L58  c10-grow         text  12000..16000  x 60, y 560, color #FFFFFF, blend normal, path length 1085.34 (informative: the painter's own path measure), hidden: none
+=== query --at 15000
+L57  c6-banner        text  12000..16000  x 60, y 80, color #FFFFFF, path_offset 0.5, blend normal, path length 1028.34 (informative: the painter's own path measure), hidden: none
+L58  c10-grow         text  12000..16000  x 60, y 560, color #FFFFFF, blend normal, path length 698.49 (informative: the painter's own path measure), hidden: 20 21 22
+=== query --at 18000
+L59  c8-tight-fi            text  16000..20000  x 80, y 120, color #FFFFFF, path_offset 0.5, effects[0].dx (shadow) 6, effects[0].dy (shadow) 8, effects[0].radius (shadow) 6, effects[0].color (shadow) #000000, effects[0].opacity (shadow) 0.8, blend normal, path length 141.29 (informative: the painter's own path measure), hidden: none
+L60  c8-tight-arabic        text  16000..20000  x 480, y 120, color #FFFFFF, path_offset 0.5, blend normal, path length 141.29 (informative: the painter's own path measure), hidden: none
+L61  c9-long-open           text  16000..20000  x 900, y 80, color #FFFFFF, blend normal, path length 542.31 (informative: the painter's own path measure), hidden: 18 19 20 21 22 23 24 25 26 27 28 29 30
+L62  c9-long-closed         text  16000..20000  x 1100, y 480, color #FFFFFF, blend normal, path length 753.31 (informative: the painter's own path measure), hidden: 24 25 26 27 28 29 30 31 32 33 34 35 36 37
+=== query --at 20000
+L63  c13-end                  text  20000..24000  x 60, y 60, color #FFFFFF, path_offset 0.97, blend normal, path length 1008.55 (informative: the painter's own path measure), hidden: none
+L64  c13-stagger-slide        text  20000..24000  x 60, y 520, color #FFFFFF, path_offset 0 (animated), blend normal, path length 1725.96 (informative: the painter's own path measure), hidden: none
+=== query --at 20300
+L63  c13-end                  text  20000..24000  x 60, y 60, color #FFFFFF, path_offset 0.97, blend normal, path length 1008.55 (informative: the painter's own path measure), hidden: none
+L64  c13-stagger-slide        text  20000..24000  x 60, y 520, color #FFFFFF, path_offset 0.00604 (animated), blend normal, path length 1725.96 (informative: the painter's own path measure), hidden: none
+=== query --at 22000
+L63  c13-end                  text  20000..24000  x 60, y 60, color #FFFFFF, path_offset 0.97, blend normal, path length 1008.55 (informative: the painter's own path measure), hidden: none
+L64  c13-stagger-slide        text  20000..24000  x 60, y 520, color #FFFFFF, path_offset 0.275 (animated), blend normal, path length 1725.96 (informative: the painter's own path measure), hidden: none
+=== query --at 23966
+L63  c13-end                  text  20000..24000  x 60, y 60, color #FFFFFF, path_offset 0.97, blend normal, path length 1008.55 (informative: the painter's own path measure), hidden: none
+L64  c13-stagger-slide        text  20000..24000  x 60, y 520, color #FFFFFF, path_offset 0.549925 (animated), blend normal, path length 1725.96 (informative: the painter's own path measure), hidden: none

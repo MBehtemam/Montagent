@@ -1,0 +1,115 @@
+=== errors/path-closed-keyed.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-closed-keyed.json
+error  E-SCHEMA  t
+  t does not fit the published schema: `closed` is static on a path: a path that opens mid-clip is two elements (ADR-0154).
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-closed-keyed.json is not written in the canonical convention: 89 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-dangling-handle.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-dangling-handle.json
+error  E-PATH-DANGLING-HANDLE  t
+  `t`.path.points: on a `text`, vertex 0 carries an `in` that shapes no segment of an open path. Drop it.
+  This finding is advise-class: the fix is fully determined — drop the `in` from vertex 0.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-dangling-handle.json is not written in the canonical convention: 88 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-extra-key.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-extra-key.json
+error  E-SCHEMA-UNKNOWN-KEY  t
+  t: unknown key `stroke` — not a key this Montagent knows, and not one it has retired. It may belong to a newer format revision than this binary implements. Check your Montagent version before removing it. Do not delete the key to make the file validate.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-extra-key.json is not written in the canonical convention: 85 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-keyframe-shape.json
+1 error, 1 review, 0 notes, 0 unchecked, 2 layout — errors/path-keyframe-shape.json
+error  E-PATH-KEYFRAME-SHAPE  t
+  `t`.path.points: on a `text`, keyframe record 2 (`t` 1000) differs from the first record at vertex 2: it has 3 vertices, and the first has 2. Every value of one keyframe list has the same vertex count, and each vertex the same handles.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+review  R-KEYFRAME-UNREACHED  t
+  `t`.path.points: the keyframe at t=1000 declares [{"at":[60.0,240.0],"out":[145.0,-133.0]},{"at":[640.0,240.0],"in":[-145.0,-133.0]},{"at":[350.0,200.0]}], and no frame sampled inside 0..1000 ms reaches it — the nearest is frame 29 at 966.6666666666666 ms, where it resolves to [{"at":[60.0,240.0],"out":[145.0,-133.0]},{"at":[640.0,240.0],"in":[-145.0,-133.0]}].
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-keyframe-shape.json is not written in the canonical convention: 121 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-offset-range.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-offset-range.json
+error  E-SCHEMA  t
+  t does not fit the published schema: `path_offset` is 1.5: it is a fraction of the curve's length, from 0 to 1, in a static value and in every keyframe record (ADR-0161).
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,path_offset,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-offset-range.json is not written in the canonical convention: 85 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-outside-box-run-size.json
+2 errors, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-outside-box-run-size.json
+error  E-PATH-OUTSIDE-BOX  t
+  `t`.path.points: vertex 0's `at` sits at [60,240] in box pixels, outside the inset box [100, 600] × [100, 200] of this `text`: inset 100 = 100 (the largest `size` among the runs) + 0 (the largest `stroke_width` among the runs and the element). The inset keeps a plain glyph sitting on the curve inside the box; it is a frame convention, not a containment guarantee, and `measure` reports the bent line's ink.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+error  E-PATH-OUTSIDE-BOX  t
+  `t`.path.points: vertex 1's `at` sits at [640,240] in box pixels, outside the inset box [100, 600] × [100, 200] of this `text`: inset 100 = 100 (the largest `size` among the runs) + 0 (the largest `stroke_width` among the runs and the element). The inset keeps a plain glyph sitting on the curve inside the box; it is a frame convention, not a containment guarantee, and `measure` reports the bent line's ink.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-outside-box-run-size.json is not written in the canonical convention: 88 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-outside-box.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-outside-box.json
+error  E-PATH-OUTSIDE-BOX  t
+  `t`.path.points: vertex 0's `at` sits at [30,240] in box pixels, outside the inset box [60, 640] × [60, 240] of this `text`: inset 60 = 60 (the largest `size` among the runs) + 0 (the largest `stroke_width` among the runs and the element). The inset keeps a plain glyph sitting on the curve inside the box; it is a frame convention, not a containment guarantee, and `measure` reports the bent line's ink.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-outside-box.json is not written in the canonical convention: 84 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/path-too-few-points.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/path-too-few-points.json
+error  E-PATH-TOO-FEW-POINTS  t
+  `t`.path.points: on a `text`, an open path needs at least 2 vertices, and this value has 1.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/path-too-few-points.json is not written in the canonical convention: 70 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/text-path-break.json
+1 error, 0 reviews, 0 notes, 0 unchecked, 2 layout — errors/text-path-break.json
+error  E-TEXT-PATH-BREAK  t
+  `t`.runs[0]: its text holds a line break, and a text carrying `path` sets one line only. Remove the break, or put the second line in a second text element with its own `path`.
+  This finding is refuse-class: Montagent will not state a repair, because none
+  is determined by the document, the media on disk or the published rendering
+  semantics — and no flag, force mode or write tool can lift it. Do not guess one.
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/text-path-break.json is not written in the canonical convention: 84 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.
+=== errors/text-path-offset-orphan.json
+1 error, 0 reviews, 1 note, 0 unchecked, 2 layout — errors/text-path-offset-orphan.json
+error  E-TEXT-PATH-OFFSET-ORPHAN  t
+  `t`.path_offset: this text carries no `path`, so `path_offset` places nothing. Drop it, or give the text a `path`.
+  This finding is advise-class: the fix is fully determined — drop `path_offset`.
+note  R-BOX-SLACK  t
+  text "t" declares height 300; computed block height is 72 (size 60 × line_height 1.2 × 1 line) — slack 228 (317%).
+layout  L-KEY-ORDER  t
+  t (line 37): key order does not match the schema for `text`; expected id,type,start,end,x,y,origin,width,height,font,size,color,runs,path_offset,caption. Run `montagent fmt`.
+layout  L-LAYOUT
+  errors/text-path-offset-orphan.json is not written in the canonical convention: 60 lines as written, 17 in canonical form, first difference at line 2. Run `montagent fmt`.

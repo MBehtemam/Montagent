@@ -1,0 +1,24 @@
+bounded-1x1000                     frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-2x5                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-3x2                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-4x1                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-5x4                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-6x9                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-7x3                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-8x3                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-9x2                        frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-10x7                       frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+bounded-default                    frames=720  hinted-layers=359    frames:SAME     hidden-log:SAME
+unbounded-1x1000                   frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-2x5                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-3x2                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-4x1                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-5x4                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-6x9                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-7x3                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-8x3                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-9x2                      frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-10x7                     frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+unbounded-default                  frames=720  hinted-layers=0      frames:SAME     hidden-log:SAME
+distinct frame-hash sequences: 1
+distinct hidden logs: 1

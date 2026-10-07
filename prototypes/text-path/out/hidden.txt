@@ -1,0 +1,42 @@
+query --at: 1920 (instant, element) rows over 720 frame instants
+distinct hidden sets per element over the clip (changes of the set, counting the first):
+  c1-arc                 changes=1    distinct=1
+  c10-grow               changes=28   distinct=15
+  c11-mixed              changes=1    distinct=1
+  c12-sizes              changes=1    distinct=1
+  c13-end                changes=1    distinct=1
+  c13-stagger-slide      changes=1    distinct=1
+  c2-wave-off            changes=11   distinct=11
+  c2-wave-on             changes=10   distinct=10
+  c3-badge               changes=1    distinct=1
+  c4-arabic              changes=1    distinct=1
+  c5-stagger             changes=1    distinct=1
+  c6-banner              changes=1    distinct=1
+  c7-stroke              changes=1    distinct=1
+  c8-tight-arabic        changes=1    distinct=1
+  c8-tight-fi            changes=1    distinct=1
+  c9-long-closed         changes=1    distinct=1
+  c9-long-open           changes=1    distinct=1
+
+bounded-10x7.hidden                rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-1x1000.hidden              rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-2x5.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-3x2.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-4x1.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-5x4.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-6x9.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-7x3.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-8x3.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-9x2.hidden                 rows=1920  missing=0 extra=0 differ=0  AGREE
+bounded-default.hidden             rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-10x7.hidden              rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-1x1000.hidden            rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-2x5.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-3x2.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-4x1.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-5x4.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-6x9.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-7x3.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-8x3.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-9x2.hidden               rows=1920  missing=0 extra=0 differ=0  AGREE
+unbounded-default.hidden           rows=1920  missing=0 extra=0 differ=0  AGREE
