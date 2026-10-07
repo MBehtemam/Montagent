@@ -10,6 +10,11 @@
 //! [`caps_draw`]'s one other case; the reach is otherwise unchanged by dashes, because every
 //! dash end and every join inside a dash lies on the curve. [`dash`] is the pattern's one
 //! reading, for `validate`, `query --at` and the painter alike.
+//!
+//! **Trim** (ADR-0160): a trim makes a cap draw on a closed path as a dash does, and is
+//! [`caps_draw`]'s third case; every trim end lies on the curve too. [`window`] is the one
+//! arithmetic of the window drawn, and [`window_at`] its one reading off an element, for
+//! `query --at` and the painter alike.
 
 use serde_json::Value;
 
@@ -92,11 +97,15 @@ pub fn cap(element: &Value) -> Cap {
     }
 }
 
-/// Whether a cap draws anywhere on this path: at an open path's two ends, and at both ends of
-/// every dash. A closed path with no `stroke_dash` has none (ADR-0158 §3).
+/// Whether a cap draws anywhere on this path: at an open path's two ends, at both ends of
+/// every dash, and at a trim's two ends. A closed path with no `stroke_dash`, `trim_start`
+/// or `trim_end` has none (ADR-0158 §3, ADR-0160 §6). Presence decides the trim, not value:
+/// a closed path with an explicit full window counts, and the containment that buys is
+/// conservative, never short.
 pub fn caps_draw(element: &Value) -> bool {
     element.get("closed").and_then(Value::as_bool) == Some(false)
         || element.get("stroke_dash").is_some()
+        || trimmed(element)
 }
 
 /// The element's `stroke_dash` as written (ADR-0158 §5): its entries, where it is a list of
@@ -119,6 +128,83 @@ pub fn drawable_dash(element: &Value) -> Option<Vec<i64>> {
     dash(element).filter(|pattern| {
         pattern.len() % 2 == 0 && !pattern.is_empty() && pattern.iter().sum::<i64>() > 0
     })
+}
+
+/// The part of an outline a trimmed stroke draws (ADR-0160 §4, §5), as fractions of the
+/// outline's length from its start point, in its direction.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Window {
+    /// Start at or past the end: no stroke at all, under any cap.
+    Empty,
+    /// `0` to `1` after the clamp, under any offset: the outline drawn whole, exactly as
+    /// with no trim.
+    Full,
+    /// From `from` to `to`, each in `[0, 1]`. `from > to` means the window crosses the start
+    /// point, and is drawn as one stroke through it.
+    Part { from: f64, to: f64 },
+}
+
+/// How close to the start point a rotated window end snaps onto it, so that `f64`'s
+/// rounding in `0.1 + (2.9 mod 1)` never leaves a window crossing into a piece of length
+/// `1e-16`.
+const SNAP: f64 = 1e-12;
+
+/// **The window a trim draws** (ADR-0160 §4, §5): `trim_start` and `trim_end` clamped to
+/// `[0, 1]`, empty where start ≥ end, full where they are `0` and `1`, and otherwise both
+/// rotated forward by `trim_offset` wrapped into `[0, 1)`. The offset never makes a window
+/// empty or full.
+pub fn window(start: f64, end: f64, offset: f64) -> Window {
+    let (start, end) = (start.clamp(0.0, 1.0), end.clamp(0.0, 1.0));
+    if start >= end {
+        return Window::Empty;
+    }
+    if start <= 0.0 && end >= 1.0 {
+        return Window::Full;
+    }
+    let turn = offset.rem_euclid(1.0);
+    let (mut from, mut to) = (start + turn, end + turn);
+    if from >= 1.0 - SNAP {
+        from = (from - 1.0).max(0.0);
+        to -= 1.0;
+    }
+    if from < SNAP {
+        from = 0.0;
+    }
+    if to > 1.0 + SNAP {
+        to -= 1.0;
+    } else {
+        to = to.min(1.0);
+    }
+    Window::Part { from, to }
+}
+
+/// The trim fields (ADR-0160 §2), in the canonical key order.
+pub const TRIM: [&str; 3] = ["trim_start", "trim_end", "trim_offset"];
+
+/// Whether the element carries a trim window: `trim_start` or `trim_end`, whatever their
+/// values. Presence decides it, so `validate` reads it from the file alone (ADR-0160 §6).
+pub fn trimmed(element: &Value) -> bool {
+    element.get("trim_start").is_some() || element.get("trim_end").is_some()
+}
+
+/// The element's window at `numerator / denominator` ms, through the one resolving function
+/// (ADR-0146), which clamps `trim_start` and `trim_end`. `None` where the element carries no
+/// trim field. On an open path the offset is not read: it is `validate`'s `E-TRIM-OFFSET`
+/// there, which `render` refuses.
+pub fn window_at(element: &Value, numerator: i128, denominator: i128) -> Option<Window> {
+    if !TRIM.iter().any(|field| element.get(*field).is_some()) {
+        return None;
+    }
+    let read = |field, default| {
+        crate::animatable::number_read(element, field, numerator, denominator, default)
+    };
+    let open = element.get("closed").and_then(Value::as_bool) == Some(false);
+    let offset = if open { 0.0 } else { read("trim_offset", 0.0) };
+    Some(window(
+        read("trim_start", 0.0),
+        read("trim_end", 1.0),
+        offset,
+    ))
 }
 
 /// The path's reach (ADR-0158 §4): `k` is the larger of the join factor (the miter limit,

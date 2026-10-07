@@ -1195,17 +1195,19 @@ set `\"miter\"`{/missing}.",
         sets: &[Document],
     },
     CheckSpec {
-        // ADR-0158 §3. Refuse: dropping the cap, opening the path and dashing it are all
-        // fixes, and which was meant is the author's. It names `closed` and `stroke_dash`,
-        // because an edit to either can make a cap draw or stop drawing.
+        // ADR-0158 §3, ADR-0160 §6. Refuse: dropping the cap, opening the path, dashing it
+        // and trimming it are all fixes, and which was meant is the author's. It names
+        // `closed`, `stroke_dash` and the trim, because an edit to any can make a cap draw or
+        // stop drawing.
         code: "E-STROKE-CAP-UNDRAWN",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0158",
         template: "`{element}`.stroke_cap: a `\"{cap}\"` cap draws nowhere, because the path is \
-`closed` and has no `stroke_dash`, and a cap draws only at an open path's two ends and at each \
-dash's ends. Drop `stroke_cap`, set `closed` to false, or add a `stroke_dash`.",
+`closed` and has no `stroke_dash`, `trim_start` or `trim_end`, and a cap draws only at an open \
+path's two ends, at each dash's ends and at a trim's ends. Drop `stroke_cap`, set `closed` to \
+false, or add a `stroke_dash` or a trim.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1252,6 +1254,43 @@ butt cap. {?shape}A `{kind}`'s dash ends are always butt; draw dots with a `path
         adr: "ADR-0158",
         template: "`{element}`.stroke_dash_offset: there is no `stroke_dash` for it to move. \
 Drop it, or add a `stroke_dash`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0160 §5. Refuse: a lower start, a higher end and dropping the trim each draw
+        // something different, and which was meant is the author's. It names `trim_start`
+        // where that is written, else `trim_end`, and quotes both values as written, saying
+        // which is a default, so the replace target is in front of the agent.
+        code: "E-TRIM-EMPTY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.{field}: the trim window is empty on every frame, so this \
+element draws no stroke: `trim_start` is {start} and `trim_end` is {end}, and a stroke draws \
+only the part of its outline from `trim_start` to `trim_end`. Lower `trim_start` below \
+`trim_end`, or drop the trim.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0160 §4, which names the code and asks the message to say which of its two
+        // reasons holds; one finding says both where both do. Advise: an offset on an open
+        // path is never drawn, and one with no window rotates the whole outline onto itself,
+        // so dropping it changes nothing drawn.
+        code: "E-TRIM-OFFSET",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.trim_offset: {?open}the path is open, and an offset rotates the \
+window only around a closed outline: an open line has no round to wrap onto{/open}{?both}. \
+Also, {/both}{?bare}there is no `trim_start` or `trim_end`, so the window is the whole outline \
+and rotating it draws nothing different{/bare}. Drop `trim_offset`{?open}, or set `closed` to \
+true{/open}{?bare}, or give the window an end with `trim_start` or `trim_end`{/bare}.",
         status: Live,
         census: None,
         sets: &[Document],

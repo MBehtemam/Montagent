@@ -2262,6 +2262,10 @@ fn resolved_cells(element: &Value) -> String {
             cells.push(cell);
         }
     }
+    // ADR-0160 §7: a trimmed shape's window as drawn. The raw fields are among the values.
+    if let Some(drawn) = element["trim"]["drawn"].as_str() {
+        cells.push(format!("drawn: {drawn}"));
+    }
     // ADR-0155: the field as written, shutter/samples, then the frame's moving or still.
     if let Some(blur) = element.get("motion_blur").filter(|blur| blur.is_object()) {
         let mut cell = format!("motion_blur {}/{}", blur["shutter"], blur["samples"]);

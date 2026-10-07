@@ -43,7 +43,7 @@ pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
-pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin};
+pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
@@ -899,6 +899,21 @@ pub struct Rect {
     /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the inset outline's length, from where
+    /// the dashes start and clockwise, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends are butt (ADR-0160 §5,
+    /// §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around the closed outline, in turns: any number, wrapped
+    /// by the painter, and the file keeps what is written. Needs `trim_start` or `trim_end`
+    /// (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -968,6 +983,21 @@ pub struct Ellipse {
     /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the inset outline's length, from 3
+    /// o'clock and clockwise, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends are butt (ADR-0160 §5,
+    /// §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around the closed outline, in turns: any number, wrapped
+    /// by the painter, and the file keeps what is written. Needs `trim_start` or `trim_end`
+    /// (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1032,8 +1062,9 @@ pub struct PathElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_miter_limit: Option<MiterLimit>,
     /// How an open path's two ends are drawn: `"butt"` (the default), `"round"` or
-    /// `"square"`. Static. A closed path has no end to draw it at, so it is refused there; a
-    /// square cap widens the box's inset by √2 (ADR-0158 §3, §4).
+    /// `"square"`. Static. A closed path has ends only at its dashes' and its trim's, so it
+    /// is refused there without either; a square cap widens the box's inset by √2 (ADR-0158
+    /// §3, §4, ADR-0160 §6).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_cap: Option<StrokeCap>,
     /// The dash pattern, run from `points[0]` in `points` order, through the closing segment
@@ -1044,6 +1075,21 @@ pub struct PathElement {
     /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the outline's length, from
+    /// `points[0]` in `points` order, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends take `stroke_cap`
+    /// (ADR-0160 §5, §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around a closed path, in turns: any number, wrapped by the
+    /// painter, and the file keeps what is written. Needs `trim_start` or `trim_end`, and
+    /// `"closed": true` (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,

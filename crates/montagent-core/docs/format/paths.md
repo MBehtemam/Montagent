@@ -2,7 +2,7 @@
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
 other pages; read it first. This page holds the rules for a `path` element, its stroke's join
-and cap, and the dash pattern a `path`, a `rect` and an `ellipse` take. Like the rest of the
+and cap, and the dash pattern and trim a `path`, a `rect` and an `ellipse` take. Like the rest of the
 format docs, every rule here is an accepted decision in the ADR series, cited inline by
 number, and the ADR is right where the two disagree.
 
@@ -38,17 +38,17 @@ number, and the ADR is right where the two disagree.
   integer 1–10, and a corner whose tip would reach past that many half-widths is beveled.
   Under keyed `points` a corner that sharpens past the limit snaps to a bevel on one frame.
   `stroke_cap` is `"butt"` (default), `"round"` or `"square"`, and draws only where the
-  stroke ends: an open path's two ends, and both ends of every dash. All three are static
-  and `path`'s alone. A miter without its limit, or a limit on another join, is
-  `E-STROKE-MITER-LIMIT`; a cap on a closed path with no `stroke_dash` is
-  `E-STROKE-CAP-UNDRAWN`; any of them with no `stroke`, or a `stroke_width` absent or 0 on
-  every key, is `E-STROKE-NO-STROKE`.
+  stroke ends: an open path's two ends, both ends of every dash, and a trim's two ends. All
+  three are static and `path`'s alone. A miter without its limit, or a limit on another
+  join, is `E-STROKE-MITER-LIMIT`; a cap on a closed path with no `stroke_dash`,
+  `trim_start` or `trim_end` is `E-STROKE-CAP-UNDRAWN`; any of them with no `stroke`, or a
+  `stroke_width` absent or 0 on every key, is `E-STROKE-NO-STROKE`.
 - **The box contains the stroke:** with the inset `m = ceil(k × w / 2)`, every `at`,
   `at + in` and `at + out` lies in `[m, width − m] × [m, height − m]`, in every literal
   value of `points`. `w` is `stroke_width` (its largest key where keyed, 0 with no
   `stroke`). The **reach factor** `k` is the larger of the miter limit (for `"miter"`, else
-  1) and √2 (for a `"square"` cap where a cap draws: an open path, or any dashed path; else
-  1). Width 3 under limit 10 gives `m = 15`; width 8 under a square cap, `ceil(4√2) = 6`.
+  1) and √2 (for a `"square"` cap where a cap draws: an open path, or any dashed path or
+  path carrying `trim_start` or `trim_end`; else 1). Width 3 under limit 10 gives `m = 15`; width 8 under a square cap, `ceil(4√2) = 6`.
   The bound is worst-case: it holds the margin even where every corner is gentle. Outside is
   `E-PATH-OUTSIDE-BOX`, naming the vertex, the record, the absolute position, `m` and `k`.
   Nothing is clipped to the box. Dashes change nothing else here: every dash end lies on
@@ -150,3 +150,51 @@ number, and the ADR is right where the two disagree.
   as written (not wrapped), and `outline_length`, the painter's own measure of the outline at
   1:1. That length is informative, not a contract: it is a measure of a curve, not a number
   in the file, and on a curve it falls a little short of the exact one.
+
+## Trim (ADR-0160)
+
+- **A stroke can draw a window of its outline**, on a `path`, a `rect` or an `ellipse`,
+  never on text. Three optional fields, each an animatable property: `trim_start` (default
+  `0`) and `trim_end` (default `1`), numbers from 0 to 1 in every keyframe value, and
+  `trim_offset` (default `0`), any number.
+- **The unit is a fraction of the outline's length**, measured along the outline the dashes
+  use, from the same start point in the same direction (the table under Dashes). `0.5` is
+  half way round whatever the outline's size, and stays half way when a vertex moves.
+- **The stroke is trimmed, the fill is not.** A trim field on an element with no stroke, or
+  a `stroke_width` absent or 0 on every key, is `E-STROKE-NO-STROKE`.
+- **Empty:** where `trim_start` ≥ `trim_end` no stroke is drawn at all, under any cap, so a
+  draw-on's first frame shows no dot. A static window that never draws (neither field keyed,
+  an absent one read at its default, so `"trim_start": 1` alone) is `E-TRIM-EMPTY`, which
+  quotes both values. Keyed values may cross mid-animation: nothing draws while they do, and
+  nothing checks it.
+- **Full:** `0` to `1`, under any offset, draws the outline whole, the same bytes as no trim.
+- **The clamp:** an overshooting ease that carries `trim_start` or `trim_end` past 0 or 1
+  draws as 0 or 1.
+- **`trim_offset` rotates the window forward around a closed outline**, in turns: `1` is one
+  full circuit, and a quarter turn on a rect is a quarter of its length, not a corner. Any
+  value is legal; the painter wraps it and the file keeps it. It needs a window and a closed
+  outline: on a path with `"closed": false`, or with neither `trim_start` nor `trim_end`, it
+  is `E-TRIM-OFFSET`, and the message says which.
+- **Crossing the start point:** a window rotated across it is drawn as one stroke through it,
+  turning there with the outline's own join, with no cap and no seam.
+- **Caps draw at the trim's ends:** `stroke_cap` on a path, butt on a `rect` and an
+  `ellipse`. A closed path carrying `trim_start` or `trim_end` takes a cap
+  (`E-STROKE-CAP-UNDRAWN` does not fire), and a `"square"` one widens its inset by √2.
+  `trim_offset` alone does not count.
+- **Dashes stay put.** The pattern is laid along the whole outline first, as it is untrimmed,
+  and the window reveals it: a trim end inside a dash takes the cap, one inside a gap draws
+  nothing there, and a dash "on" across a closed outline's start point stays one dash through
+  it. Only `stroke_dash_offset` moves the pattern. This is unlike After Effects, where the
+  dashes travel with the trim start.
+- **A draw-on** is `trim_end` keyed from 0 to 1, here on an open path with a round cap:
+  `"stroke_cap": "round", "trim_end": [{"t": 0, "v": 0}, {"t": 1200, "v": 1, "ease":
+  [0.65, 0, 0.35, 1]}]`. A draw-off keys `trim_start` from 0 to 1 the same way.
+- **A ring loader** is a quarter of an `ellipse` orbiting: `"trim_start": 0, "trim_end":
+  0.25, "trim_offset": [{"t": 0, "v": 0}, {"t": 3000, "v": 3, "ease": "linear"}]`. A whole
+  number of turns loops with no jump.
+- **`query --at` prints a trimmed shape's `trim`**: `trim_start`, `trim_end` and
+  `trim_offset` at the instant, raw (not clamped, not wrapped), and `drawn`, the window the
+  painter draws: `[a, b]` in fractions from the start point after the clamp and the wrap
+  (`a > b` crosses the start point), `empty`, or `full`. An element with no trim field
+  prints none of it. `shift` refuses a cut where an overshoot carries `trim_start` or
+  `trim_end` past 0 or 1, and cuts `trim_offset` anywhere.

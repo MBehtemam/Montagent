@@ -85,6 +85,10 @@ fn subject(property: &str, records: Value) -> Value {
             return element;
         }
     }
+    // A trim offset rotates a window, and with none it is `E-TRIM-OFFSET` (ADR-0160).
+    if property == "trim_offset" {
+        element["trim_end"] = json!(0.5);
+    }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
     match property.split_once('.') {

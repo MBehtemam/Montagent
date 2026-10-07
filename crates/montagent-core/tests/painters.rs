@@ -1407,6 +1407,120 @@ fn marching_ants_paint_the_same_frames_on_any_number_of_painters_with_the_hint_o
     }
 }
 
+/// #761's gating fixture (ADR-0160 §8, ADR-0144): a round-capped draw-on whose first frame
+/// is empty, a motion-blurred ring loader on a `rect` whose window crosses its start point
+/// (a corner) and one on an `ellipse`, a dashed closed path whose window crosses the start point through
+/// the dash on there, a dashed open path drawing on, and a square-capped closed path whose
+/// keyed start and end cross, under motion, rotation and scale, with `shadow` and `blur` so
+/// the bounds hint is in play. 320×180 at 30 fps for 1100 ms: 33 frames.
+fn trim_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let moving =
+        |from: f64, to: f64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let shadow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
+    let blur = json!({"name": "blur", "radius": 1.5});
+    let loader = |id: &str, kind: &str, x: i64, effects: Value| {
+        let x = json!([{"t": 0, "v": x}, {"t": 1100, "v": x + 4, "ease": "linear"}]);
+        json!({"id": id, "type": kind, "start": 0, "end": 1100, "x": x,
+               "y": 45, "origin": "center", "width": 80, "height": 60, "stroke": "#F2F2F2",
+               "stroke_width": 6, "trim_start": 0, "trim_end": 0.3,
+               "trim_offset": moving(0.6, 2.9), "rotation": moving(0.0, 13.0), "effects": effects})
+    };
+    let mut rounded = loader("rounded", "rect", 160, json!([blur]));
+    rounded["radius"] = json!(16);
+    rounded["scale"] = json!([1.1, 0.9]);
+    // Motion blur samples the keyed window with every other keyed value (ADR-0155).
+    let mut rect = loader("rect", "rect", 60, json!([shadow]));
+    rect["motion_blur"] = json!({"shutter": 180, "samples": 4});
+    let elements = [
+        json!({"id": "draw-on", "type": "path", "start": 0, "end": 1100, "x": 50, "y": 130,
+               "origin": "center", "width": 90, "height": 60, "closed": false,
+               "stroke": "#3BA0FF", "stroke_width": 8, "stroke_cap": "round",
+               "trim_end": [{"t": 0, "v": 0}, {"t": 1000, "v": 1, "ease": [0.65, 0, 0.35, 1]}],
+               "points": [{"at": [10, 50], "out": [30, -44]}, {"at": [80, 10]}],
+               "effects": [shadow]}),
+        rect,
+        rounded,
+        loader(
+            "ellipse",
+            "ellipse",
+            260,
+            json!([shadow, {"name": "blur", "radius": 2}]),
+        ),
+        json!({"id": "dashed-ring", "type": "path", "start": 0, "end": 1100, "x": 140,
+               "y": 130, "origin": "center", "width": 80, "height": 70, "closed": true,
+               "stroke": "#FF3B30", "stroke_width": 5, "stroke_join": "miter",
+               "stroke_miter_limit": 4, "stroke_cap": "butt", "stroke_dash": [18, 6],
+               "stroke_dash_offset": 9, "trim_start": 0.1, "trim_end": 0.6,
+               "trim_offset": moving(0.0, 1.4), "scale": [1.2, 0.9],
+               "points": [{"at": [10, 10]}, {"at": [70, 10], "out": [0, 20]}, {"at": [70, 60]},
+                          {"at": [10, 60]}],
+               "effects": [shadow, {"name": "blur", "radius": 1}]}),
+        json!({"id": "dotted", "type": "path", "start": 0, "end": 1100, "x": 225, "y": 125,
+               "origin": "center", "width": 90, "height": 40, "closed": false,
+               "stroke": "#FFD60A", "stroke_width": 6, "stroke_cap": "round",
+               "stroke_dash": [0, 12], "trim_end": moving(0.0, 1.0),
+               "points": [{"at": [10, 20], "out": [30, -15]}, {"at": [80, 20]}],
+               "effects": [shadow]}),
+        json!({"id": "crossing", "type": "path", "start": 0, "end": 1100, "x": 290,
+               "y": 140, "origin": "center", "width": 50, "height": 50, "closed": true,
+               "stroke": "#34C759", "stroke_width": 6, "stroke_cap": "square",
+               "stroke_join": "bevel", "trim_start": moving(0.0, 0.8),
+               "trim_end": moving(1.0, 0.2), "rotation": moving(0.0, -20.0),
+               "points": [{"at": [25, 5]}, {"at": [45, 25]}, {"at": [25, 45]}, {"at": [5, 25]}],
+               "effects": [blur]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/trim.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "trim.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn trimmed_strokes_paint_the_same_frames_on_one_to_ten_painters_with_the_hint_on_or_off() {
+    // ADR-0160 §8's byte-identity requirement, under ADR-0144: the slice's gating test.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = trim_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the windows move on every frame"
+    );
+    for (painters, chunk) in [
+        (2, 1),
+        (3, 2),
+        (4, 3),
+        (5, 7),
+        (6, 4),
+        (7, 2),
+        (8, 5),
+        (9, 1),
+        (10, 1),
+        (10, 3),
+    ] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2), chunks(10, 1)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// #724's gating fixture (ADR-0156 §6, ADR-0144): `posterize`, `glow` and
 /// `directional_blur` together with `blur`, a `mask` and a non-`normal` `blend`, under
 /// sub-pixel motion, rotation, non-uniform scale and a flip, with keyed parameters and one

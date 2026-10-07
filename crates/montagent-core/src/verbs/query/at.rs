@@ -219,6 +219,56 @@ pub struct Present {
     /// element.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_path: Option<crate::text_path::Reading>,
+    /// A trimmed shape's window (ADR-0160 §7). Absent on an element that carries no trim
+    /// field, so an untrimmed element's answer is unchanged byte for byte.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimReport>,
+}
+
+/// What `query --at` reports of a trimmed stroke (ADR-0160 §7).
+#[derive(Debug, Clone, Serialize)]
+pub struct TrimReport {
+    /// `trim_start` at the instant, **raw**: through the one resolving function but before
+    /// its overshoot clamp, so it matches what the file says. `0` where it is not written.
+    pub trim_start: f64,
+    /// `trim_end`, raw as `trim_start` is. `1` where it is not written.
+    pub trim_end: f64,
+    /// `trim_offset` at the instant, raw: not wrapped into a turn. `0` where it is not
+    /// written.
+    pub trim_offset: f64,
+    /// The window the painter draws, after the clamp and the wrap: `[a, b]` in fractions of
+    /// the outline from its start point (`a > b` crosses it), `empty`, or `full`, the whole
+    /// closed outline with no ends. A whole open path is `[0, 1]`.
+    pub drawn: String,
+}
+
+impl TrimReport {
+    /// `None` where the element carries no trim field.
+    fn of(element: &Value, instant: i64) -> Option<TrimReport> {
+        let window = crate::stroke::window_at(element, i128::from(instant), 1)?;
+        let raw = |field, default| {
+            crate::animatable::unclamped_number_at(element, field, instant).unwrap_or(default)
+        };
+        let fraction = |value: f64| {
+            let rounded = (value * 1e6).round() / 1e6;
+            format!("{}", rounded + 0.0)
+        };
+        let open = element.get("closed").and_then(Value::as_bool) == Some(false);
+        let drawn = match window {
+            crate::stroke::Window::Empty => "empty".to_string(),
+            crate::stroke::Window::Full if open => "[0, 1]".to_string(),
+            crate::stroke::Window::Full => "full".to_string(),
+            crate::stroke::Window::Part { from, to } => {
+                format!("[{}, {}]", fraction(from), fraction(to))
+            }
+        };
+        Some(TrimReport {
+            trim_start: raw("trim_start", 0.0),
+            trim_end: raw("trim_end", 1.0),
+            trim_offset: raw("trim_offset", 0.0),
+            drawn,
+        })
+    }
 }
 
 /// What `query --at` reports of a shape's stroke (ADR-0158 §7).
@@ -651,6 +701,10 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             Detail::Full => crate::text_path::Reading::at(document, element, instant),
             Detail::Presence => None,
         };
+        let trim = match kind {
+            Some("path" | "rect" | "ellipse") => TrimReport::of(element, instant),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -686,6 +740,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             masks: mask_paths(element, instant),
             stroke,
             text_path,
+            trim,
         });
     }
 
@@ -1042,6 +1097,20 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
             let animated = declared.records().is_some()
                 || (declared.property.kind == crate::animatable::Kind::Paint
                     && crate::animatable::nested_keyed(declared.owner, property));
+            // ADR-0160 §7: a trim fraction is printed raw, before the overshoot clamp the
+            // painter applies, so it matches what the file says.
+            if declared.effect.is_none()
+                && matches!(property, "trim_start" | "trim_end")
+                && let Some(raw) =
+                    crate::animatable::unclamped_number_at(element, property, instant)
+            {
+                return Resolved {
+                    property: property.to_string(),
+                    animated,
+                    value: Some(Value::from(raw)),
+                    unresolved: None,
+                };
+            }
             match declared.at(instant) {
                 Ok(value) => match serde_json::to_value(value) {
                     Ok(value) => Resolved {

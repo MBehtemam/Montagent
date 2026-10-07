@@ -235,3 +235,50 @@ A title on an arc, a wave or a circle badge is one `text` with its own `path`: t
 
 - **Size:** one line, 6–20 letters. A curve tighter than the line is tall makes wide letters lift off it.
 - **Look:** `frame` at rest and check the letters sit evenly on the curve with no gap or overlap; then `preview` across the slide.
+
+### Draw a line on
+
+Underlines, arrows, signatures and outlines draw on along their own length. Key `trim_end` from 0 to 1: it is a fraction of the outline's length, so the stroke lands flush at 1 whatever the curve measures, and still does after you move a vertex. Nothing draws on the first frame, with no dot even under a round cap.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/draw-on.mp4",
+  "tracks": [
+    {"name": "line", "layer": 10, "elements": [
+      {"id": "underline", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 600, "origin": "center", "width": 800, "height": 200, "closed": false, "stroke": "#FF5A36", "stroke_width": 12, "stroke_cap": "round", "trim_end": [{"t": 200, "v": 0}, {"t": 1100, "v": 1, "ease": [0.65, 0, 0.35, 1]}], "points": [{"at": [40, 150], "out": [260, -120]}, {"at": [760, 60], "in": [-240, 0]}]}
+    ]}
+  ]
+}
+```
+
+- **Direction:** the line draws from `points[0]` to the last vertex. To draw it the other way, reverse the list. To draw it off, key `trim_start` from 0 to 1 after it lands.
+- **Ends:** a `round` cap reads as a pen; `butt` (the default) as a wipe.
+- **A closed outline** draws on the same way, from `points[0]` in points order on a path, from the top-left corner clockwise on a `rect` and from 3 o'clock clockwise on an `ellipse`. A trim on a closed path counts as an end, so a `stroke_cap` is fine there.
+- **Dashes** stay where they are while the window reveals them; they do not slide along with it.
+- **Length:** 600–1000 ms for a line, `[0.65, 0, 0.35, 1]`; scale with the length on screen.
+- **Look:** `frame` at the first frame (nothing drawn) and half way through; then `preview` the draw.
+
+### Spin a ring loader
+
+A loader is an arc orbiting a ring: a window of the outline (`trim_start` 0, `trim_end` 0.25) rotated by `trim_offset`, which is in turns and keyed linearly from 0 to a whole number. The arc crosses the ring's start point as one stroke, with no seam, and a whole number of turns loops with no jump.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 3000, "loop": true, "output": "out/loader.mp4",
+  "tracks": [
+    {"name": "track", "layer": 10, "elements": [
+      {"id": "ring-track", "type": "ellipse", "start": 0, "end": 3000, "x": 960, "y": 540, "origin": "center", "width": 160, "height": 160, "stroke": "#FFFFFF33", "stroke_width": 14}
+    ]},
+    {"name": "arc", "layer": 11, "elements": [
+      {"id": "ring-arc", "type": "ellipse", "start": 0, "end": 3000, "x": 960, "y": 540, "origin": "center", "width": 160, "height": 160, "stroke": "#FF5A36", "stroke_width": 14, "trim_start": 0, "trim_end": 0.25, "trim_offset": [{"t": 0, "v": 0}, {"t": 3000, "v": 3, "ease": "linear"}]}
+    ]}
+  ]
+}
+```
+
+- **Speed:** about one turn a second. `linear` only: any other ease stalls the arc once a cycle.
+- **The loop's join:** the last key sits on the loop's end, so no frame reaches it and `validate` says so with `R-KEYFRAME-UNREACHED`. Here that is expected: the frame that would reach it is the loop's first, three whole turns on.
+- **Breathing arc:** key `trim_end` between 0.1 and 0.6 as well, on its own ease; the offset keeps it turning.
+- **Ends:** an `ellipse`'s or a `rect`'s trim ends are butt. For round ends, draw the ring as a closed `path` (four cubics) with `"stroke_cap": "round"`.
+- **On a `rect`** the window turns the corners with the rect's own square join, a quarter turn being a quarter of the perimeter, not a corner.
+- **Look:** `frame` where the arc crosses 3 o'clock, the ring's start point, and check there is no notch; then `preview` one full turn.
