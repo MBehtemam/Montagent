@@ -181,3 +181,30 @@ Screenshots and product stills get a slow push while on screen. A crossfade betw
 - **Crossfade:** one beat (400–600 ms), ending on the beat the second still owns.
 - **Frame:** a `mask` with a 20–32 px `radius`, plus a `shadow` with `dy` 16–32, `radius` 40–64 and `opacity` 0.25–0.4, in the ground's darkest colour.
 - **Look:** `preview` across the crossfade and check the two stills hold the same size through the join, with no jump.
+
+### Morph one shape into another
+
+A morph, shape to shape, is one `path` whose `points` are keyed, and the tween runs number by number between the keyframe values. Those values must be matching vertex lists: the same vertex count, and each vertex the same handles. Nothing matches them for you, so write them to match. Here a square becomes a triangle: the triangle's apex is written twice, and the square's top edge closes into it.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 2000, "output": "out/morph.mp4",
+  "tracks": [
+    {"name": "shape", "layer": 10, "elements": [
+      {"id": "shape", "type": "path", "start": 0, "end": 2000, "x": 960, "y": 540, "origin": "center", "width": 400, "height": 400, "closed": true, "fill": "#FF5A36", "points": [{"t": 500, "v": [{"at": [40, 40]}, {"at": [360, 40]}, {"at": [360, 360]}, {"at": [40, 360]}]}, {"t": 1300, "v": [{"at": [200, 40]}, {"at": [200, 40]}, {"at": [360, 360]}, {"at": [40, 360]}], "ease": [0.65, 0, 0.35, 1]}]}
+    ]}
+  ]
+}
+```
+
+1. **Pad the shorter list** with coincident vertices (the same `at` twice), and write `[0, 0]` for a handle one side lacks. Neither changes the drawing: a coincident vertex adds a segment that draws nothing, and `[0, 0]` draws the same as a missing handle.
+2. **Match the start vertex**, so each vertex travels to the nearest point of the other shape and not across it. Start both lists at the same place, the top for instance.
+3. **Match the winding direction**: both lists clockwise on screen, or both counter-clockwise. Otherwise the outline turns inside out on the way.
+4. **Split a segment for a smoother in-between.** Padding at a vertex starts several vertices from one point. Instead, add the extra vertex partway along a segment, near the vertex of the other shape it travels to. A straight segment splits exactly at any integer point on it. A curve splits to the nearest integers, which moves the drawing by under half a pixel.
+5. **A rect is four corners**, and a circle of radius *r* is four cubics with handles of `0.5523 × r`, rounded to integers: its top vertex is `{"at": [cx, cy − r], "in": [−h, 0], "out": [h, 0]}` with *h* that handle length, and the other three turn the same way. It is not pixel-identical to an `ellipse`.
+6. **A shape that will morph is a `path` from its first frame.** An element never changes its `type`. Where an `ellipse` must stay exact until the morph, keep it and cut to the `path` at the morph's start; the step at the cut is under half a pixel.
+7. **Closed to open, stroke only:** write one open path throughout (`"closed": false`), the closed shape with its last `at` on its first. Its ends meet at a seam: use a `round` cap, or keep the seam smooth. The paths page of `montagent://format.md` has the rest, and `R-PATH-SEAM-CAP` names a seam that shows.
+8. **A fill that opens is two elements**, the filled closed `path` and the open one, joined by a cut or a `crossfade`. `closed` never changes within an element.
+
+- **Length:** 500–900 ms, `[0.65, 0, 0.35, 1]`. A morph reads as one change; give it the time a big move gets.
+- **Look:** `frame` at the middle of the morph and check the in-between shape has no twist or fold; then `preview` across it.

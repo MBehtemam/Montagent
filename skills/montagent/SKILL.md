@@ -45,6 +45,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Images, video, text, rectangles and ellipses, placed and sized on a frame, layered on tracks: `image`, `video`, `text`, `rect`, `ellipse`, `x`, `y`, `width`, `height`, `origin`, `layer`.
 - Lines, polygons and curves drawn through vertices with handles, filled or stroked with a chosen corner join and end cap, dashed or dotted, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`, `stroke_join`, `stroke_miter_limit`, `stroke_cap`, `stroke_dash`, `stroke_dash_offset`.
 - Dashed outlines on rectangles, ellipses and paths, with the dashes marching along them: `stroke_dash`, `stroke_dash_offset`.
+- A shape morphing into an unlike one, with matching vertex lists written by hand: `path`, `points`.
 
 **Motion**
 
@@ -110,7 +111,6 @@ A piece can mix these: load each skill whose row it touches.
 
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
-- Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
 - 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
 - Changing an element's image over time. Use one element per image, each shown for its own span (`montagent-character`). <!-- workaround: #518 · replaced by: an image that changes over time -->
@@ -123,5 +123,6 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - Spring easing. Use a cubic bezier with overshoot, or keyframes baked out. ([ADR-0146](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md))
 - A repeat or copy construct. Write each copy out as its own element. ([ADR-0148](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md))
 - A matte taken from another element. Use the element's own `mask`. ([ADR-0150](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+- Automatic vertex matching between unlike paths. Pad the lists by hand (`montagent-motion`). ([ADR-0162](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md))
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
 - An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))

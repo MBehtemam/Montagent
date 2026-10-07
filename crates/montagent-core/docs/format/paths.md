@@ -58,6 +58,41 @@ number, and the ADR is right where the two disagree.
 - **`query --at` prints a path's `path`**: its resolved vertices with absolute control
   points in box pixels, and its `stroke`: the inset `m` and `k` with its source. `NOT COVERED` counts the declared box, as for an `ellipse`.
 
+## Morphing between unlike shapes (ADR-0162)
+
+- **A morph is one keyed `points` list of matching vertex lists**: every value has the same
+  vertex count, and each vertex the same handles. The lists are matched by hand; **nothing
+  resamples an outline**, and a mismatch stays `E-PATH-KEYFRAME-SHAPE`.
+- **Padding never changes a drawing.** A written `[0, 0]` draws the same as a missing handle,
+  and a coincident vertex (the same `at` twice, no handles between them) adds a segment of
+  zero length, which draws nothing. So the shorter list takes coincident vertices (the same
+  `at` twice), and a handle one side lacks is written `[0, 0]`.
+- **`closed` is static**, so one keyframe list never crosses it. A stroke-only morph between
+  a closed and an open shape is one open path throughout, the closed shape written with its
+  last `at` on its first. **A fill that opens is two elements**, joined by a cut or a
+  `crossfade`: an open path takes no `fill`.
+- **The seam.** Where an open path's first and last `at` coincide, the two ends meet as two
+  caps, and `stroke_join` does not apply there. A `"round"` cap hides the seam. A butt cap
+  (the default) is invisible where the seam is smooth and notches a corner seam; a
+  `"square"` cap spurs one.
+- **`R-PATH-SEAM-CAP` (`review`)** fires for a `path` with `"closed": false`, a `stroke`, no
+  `stroke_dash`, and a `stroke_cap` absent, `"butt"` or `"square"`, once for each literal
+  value of `points` (the static one, or each keyframe's, named by record and `t`) whose first
+  and last `at` are equal and whose seam is a corner:
+  - the **leaving direction** at vertex 0 is its `out` if non-zero; else the first non-zero
+    of `v1.at + v1.in − v0.at` and `v1.at − v0.at`. A segment of zero length (its four
+    control points equal) is passed over, and the next one, from `v1`, decides;
+  - the **arriving direction** at the last vertex `vn` is `−vn.in` if non-zero; else the first
+    non-zero of `vn.at − (vp.at + vp.out)` and `vn.at − vp.at` for the vertex `vp` before it,
+    moving back past zero-length segments the same way;
+  - the seam is **smooth** when the two have the same direction: cross product 0 and dot
+    product above 0, in exact integers. Anything else is a corner;
+  - where either end has no direction, every segment there being zero-length, it is silent.
+
+  The fix is `"stroke_cap": "round"`, or a smooth seam. Under `stroke_dash` the pattern's
+  phase decides whether the seam is inked, so the review is silent there (the dash seam
+  below).
+
 ## Dashes (ADR-0158 §5)
 
 - **`stroke_dash` is a list of lengths, dash, gap, dash, gap, starting with a dash**, on a
