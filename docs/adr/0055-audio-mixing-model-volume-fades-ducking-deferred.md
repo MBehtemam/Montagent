@@ -5,6 +5,11 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 
 # `volume` is a keyframable 0..1..>1 multiplier, flat on audio and video elements; ducking is deferred, hand-authored as keyframes
 
+> **Amended by [ADR-0170](./0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md)**: the rejection of dB below is
+> scoped to `volume`. Every other audio level is written in dB (LUFS for a loudness target, dBTP
+> for a true-peak ceiling), with the unit in its key (`gain_db`); `volume` stays the one linear
+> level, with no dB sibling.
+>
 > **Amended by [ADR-0169](./0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md)**: `volume` is post-fader. An element's `audio_effects`
 > list runs after `aloop` and before `volume`, so a fade or a duck is never undone by a
 > compressor; pan/balance follows `volume`.
