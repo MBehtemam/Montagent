@@ -5,6 +5,10 @@ amends: 0084 (`shape` gains `path`, and gates a second field, `points`, beside `
 
 # A mask takes a closed path inline, measured from its own rect
 
+> **Amended by [ADR-0165](0165-a-hard-edged-inverted-mask-is-the-complement-off-the-edge-and-a-feathered-pair-sums-within-one-level.md)**: §5's "`invert` keeps exactly the complement" holds only where
+> either mask keeps a pixel whole or erases it whole. On a hard antialiased edge the two may differ;
+> a feathered pair sums within one level of 255.
+
 [#715](https://github.com/MBehtemam/Montagent/issues/715), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0152](0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md)
