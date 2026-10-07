@@ -72,6 +72,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
 - Soften a mask's edge, and animate the softness: `mask`, `feather`.
+- Mask an element through any closed outline drawn point by point, and animate the outline: `mask`, `shape`, `points`.
 
 **Effects**
 

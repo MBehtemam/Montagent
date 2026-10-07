@@ -192,6 +192,10 @@ fn keyed_subject(key: &str, member: Option<&str>, records: Value) -> Value {
     };
     let mut element = subject("x", json!(540));
     let mut keyed = effect(member);
+    // `points` is a field of a `path` mask only (ADR-0163 §3).
+    if (member, key) == ("mask", "points") {
+        keyed["shape"] = json!("path");
+    }
     keyed[key] = records;
     element["effects"] = json!([effect(member), keyed]);
     element

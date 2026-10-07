@@ -24,6 +24,13 @@
 //! and never a resolved one: an in-between value is the resolver's, which clamps an
 //! overshoot into the same inset box (`crate::animatable`). A value that does not read as a
 //! vertex list is the schema check's to report and is passed over here.
+//!
+//! # Hosts
+//!
+//! A vertex list has more than one host: a `path` element, a `path` mask (ADR-0163 §6),
+//! and a text's inline path (ADR-0161). The checks run on a [`Host`], which says where the
+//! list is written, what a finding calls it, whether it is closed, and the box it must lie
+//! in. Each host builds its own and calls [`points`]; none keeps a copy of the checks.
 
 use serde_json::{Value, json};
 
@@ -31,6 +38,97 @@ use crate::finding::Finding;
 use crate::model::{Points, Vertex};
 use crate::permissive::Loose;
 use crate::report::Report;
+use crate::stroke::Reach;
+
+/// One vertex list to check, wherever it is written.
+pub(crate) struct Host<'a> {
+    /// The object the `points` key is written in: the element, or the effect member.
+    pub owner: &'a Value,
+    /// What a finding calls the list, after the element: `points`, `effects[1].points`.
+    pub property: String,
+    /// Whether the list closes, where that reads. `None` skips the vertex count and the
+    /// dangling handles, which turn on it: an unreadable `closed` is the schema check's.
+    pub closed: Option<bool>,
+    /// The box every vertex and absolute handle must lie in, where it reads.
+    pub bounds: Option<Bounds>,
+    /// Fields every finding of this host carries beside its own, such as a mask's `index`.
+    pub fields: Vec<(&'static str, Value)>,
+}
+
+/// The box a vertex list lies in, and the inset it keeps from the box's edges.
+pub(crate) enum Bounds {
+    /// A `path` element's declared box, inset by its stroke's reach (ADR-0154 §4, ADR-0158
+    /// §4).
+    Stroked {
+        width: i64,
+        height: i64,
+        reach: Reach,
+    },
+    /// A box with no stroke to keep inside it, inset `0`: a mask's (ADR-0163 §6). `rect`
+    /// says which rect the box is, in the words a finding prints.
+    Bare {
+        width: i64,
+        height: i64,
+        rect: &'static str,
+    },
+}
+
+impl Bounds {
+    fn inset(&self) -> i64 {
+        match self {
+            Bounds::Stroked { reach, .. } => reach.inset,
+            Bounds::Bare { .. } => 0,
+        }
+    }
+
+    fn sides(&self) -> (i64, i64) {
+        match *self {
+            Bounds::Stroked { width, height, .. } | Bounds::Bare { width, height, .. } => {
+                (width, height)
+            }
+        }
+    }
+
+    /// What `E-PATH-OUTSIDE-BOX` says of where the inset came from.
+    fn fields(&self, finding: Finding) -> Finding {
+        match self {
+            Bounds::Stroked { reach, .. } => finding
+                .field("k", json!(reach.source.factor()))
+                .field("width", json!(reach.width))
+                .field("source", json!(reach.source.describe())),
+            Bounds::Bare { rect, .. } => finding.field("rect", json!(rect)),
+        }
+    }
+}
+
+/// Every point finding for `host`: the vertex count and the dangling handles where its
+/// closing reads, the keyframe shape, and the box where it reads (ADR-0154 §6).
+pub(crate) fn points(host: &Host<'_>) -> Vec<Finding> {
+    let literals = literals(host.owner);
+    let mut out = Vec::new();
+    if let Some(closed) = host.closed {
+        for literal in &literals {
+            out.extend(too_few(literal, closed));
+            if !closed {
+                out.extend(dangling(literal));
+            }
+        }
+    }
+    out.extend(keyframe_shape(&literals));
+    if let Some(bounds) = &host.bounds {
+        for literal in &literals {
+            out.extend(outside(bounds, literal));
+        }
+    }
+    out.into_iter()
+        .map(|finding| {
+            host.fields.iter().fold(
+                finding.field("property", json!(host.property)),
+                |finding, (name, value)| finding.field(*name, value.clone()),
+            )
+        })
+        .collect()
+}
 
 /// One literal value of `points`, and where it was written: `None` for a static value, or
 /// the keyframe record's 1-based position and its `t`.
@@ -52,36 +150,38 @@ pub fn check(document: &Loose, report: &mut Report) {
                 None => finding,
             });
         };
-        let literals = literals(element);
-        let closed = element.get("closed").and_then(Value::as_bool);
-        if let Some(closed) = closed {
-            for literal in &literals {
-                too_few(literal, closed).into_iter().for_each(&mut push);
-                if !closed {
-                    dangling(literal).into_iter().for_each(&mut push);
-                }
-            }
-        }
-        if let Some(finding) = keyframe_shape(&literals) {
-            push(finding);
-        }
-        for literal in &literals {
-            outside(element, literal).into_iter().for_each(&mut push);
-        }
-        for literal in &literals {
+        let side = |key| element.get(key).and_then(Value::as_i64);
+        let host = Host {
+            owner: element,
+            property: "points".to_string(),
+            closed: element.get("closed").and_then(Value::as_bool),
+            bounds: match (side("width"), side("height")) {
+                (Some(width), Some(height)) => Some(Bounds::Stroked {
+                    width,
+                    height,
+                    reach: crate::stroke::reach(element),
+                }),
+                _ => None,
+            },
+            fields: Vec::new(),
+        };
+        points(&host).into_iter().for_each(&mut push);
+        // A `path` element's own review, not a host's: a mask path always closes, so it
+        // has no seam to cap.
+        for literal in &literals(element) {
             seam_cap(element, literal).into_iter().for_each(&mut push);
         }
     }
 }
 
-/// Every literal value of the element's `points` that reads as a vertex list.
-fn literals(element: &Value) -> Vec<Literal> {
+/// Every literal value of `owner`'s `points` that reads as a vertex list.
+fn literals(owner: &Value) -> Vec<Literal> {
     let read = |value: &Value| {
         serde_json::from_value::<Points>(value.clone())
             .ok()
             .map(|points| points.0)
     };
-    match crate::animatable::records(element, "points") {
+    match crate::animatable::records(owner, "points") {
         Some(records) => records
             .iter()
             .enumerate()
@@ -92,7 +192,7 @@ fn literals(element: &Value) -> Vec<Literal> {
                 })
             })
             .collect(),
-        None => element
+        None => owner
             .get("points")
             .and_then(read)
             .map(|vertices| {
@@ -195,13 +295,9 @@ fn keyframe_shape(literals: &[Literal]) -> Option<Finding> {
     None
 }
 
-fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
-    let side = |key| element.get(key).and_then(Value::as_i64);
-    let (Some(width), Some(height)) = (side("width"), side("height")) else {
-        return Vec::new();
-    };
-    let reach = crate::stroke::reach(element);
-    let m = reach.inset;
+fn outside(bounds: &Bounds, literal: &Literal) -> Vec<Finding> {
+    let (width, height) = bounds.sides();
+    let m = bounds.inset();
     let inside = |[x, y]: [i64; 2]| (m..=width - m).contains(&x) && (m..=height - m).contains(&y);
     let mut out = Vec::new();
     for (index, vertex) in literal.vertices.iter().enumerate() {
@@ -220,16 +316,15 @@ fn outside(element: &Value, literal: &Literal) -> Vec<Finding> {
                 continue;
             }
             out.push(located(
-                Finding::new("E-PATH-OUTSIDE-BOX")
-                    .field("vertex", json!(index))
-                    .field("handle", json!(handle))
-                    .field("position", json!(position))
-                    .field("inset", json!(m))
-                    .field("right", json!(width - m))
-                    .field("bottom", json!(height - m))
-                    .field("k", json!(reach.source.factor()))
-                    .field("width", json!(reach.width))
-                    .field("source", json!(reach.source.describe())),
+                bounds.fields(
+                    Finding::new("E-PATH-OUTSIDE-BOX")
+                        .field("vertex", json!(index))
+                        .field("handle", json!(handle))
+                        .field("position", json!(position))
+                        .field("inset", json!(m))
+                        .field("right", json!(width - m))
+                        .field("bottom", json!(height - m)),
+                ),
                 literal,
             ));
         }

@@ -382,7 +382,7 @@ pub struct UnitDraw {
 /// set, precisely so a second shadow has somewhere to go — and **the order is semantically
 /// real**: `[blur, shadow]` casts a shadow from an already-blurred silhouette, `[shadow,
 /// blur]` blurs a picture that already has a hard-edged shadow in it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
     /// Gaussian blur, one parameter (ADR-0040).
     Blur { radius: f64 },
@@ -462,7 +462,7 @@ pub enum Effect {
 /// rect can carry travels beside this on [`Effect::Mask`] rather than inside it, because
 /// ADR-0084 gives all three shapes one field set and lets `shape` say only which figure is
 /// drawn in it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MaskShape {
     /// The largest circle inscribed in the mask rect — diameter `min(width, height)`,
     /// centred on that rect.
@@ -471,6 +471,11 @@ pub enum MaskShape {
     Rect,
     /// The ellipse inscribed in the mask rect.
     Ellipse,
+    /// A closed outline (ADR-0163), already resolved, clamped into its box and offset by
+    /// the mask rect's `x` and `y`: in element space, as the other three are drawn. Filled
+    /// by the nonzero rule, the rule a `path` element fills with, so the rect plays no part
+    /// in drawing it — it bounded the points, and never scales them.
+    Path(Vec<PathEl>),
 }
 
 /// The rect a mask shape is inscribed in — **element-local, in unscaled element units**,
@@ -535,7 +540,7 @@ impl MaskShape {
     ///
     /// With `invert` the eraser is the shape itself: the mask keeps the outside and
     /// erases the inside, through the same `Clear` draw (ADR-0152 §1).
-    fn eraser(self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
+    fn eraser(&self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
         let mut path = self.figure(extent, rect, radius);
         if !invert {
             path.set_fill_type(PathFillType::InverseWinding);
@@ -544,7 +549,7 @@ impl MaskShape {
     }
 
     /// The shape itself, cut in `rect` (the element's own where `None`), in element space.
-    fn figure(self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
+    fn figure(&self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
         let rect = rect.unwrap_or_else(|| MaskRect::of(extent));
         let mut path = PathBuilder::new();
         match self {
@@ -575,6 +580,9 @@ impl MaskShape {
             MaskShape::Ellipse => {
                 path.add_oval(rect.rect(), None, None);
             }
+            // `path_of` is the `path` element's own outline builder; its default fill
+            // type is the nonzero winding rule.
+            MaskShape::Path(outline) => return path_of(outline),
         }
         path.detach()
     }
@@ -605,7 +613,7 @@ impl MaskShape {
     ///   the blurred shape is already 0. `DstIn` reaches only as far as the layer, so
     ///   without it what lies beyond the layer would be kept.
     fn erase(
-        self,
+        &self,
         canvas: &skia_safe::Canvas,
         extent: Extent,
         rect: Option<MaskRect>,
@@ -772,8 +780,8 @@ impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
     /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
-    fn filter(self) -> Option<ImageFilter> {
-        match self {
+    fn filter(&self) -> Option<ImageFilter> {
+        match *self {
             // A `grain` is drawn over its own layer by [`Canvas::through`], as a mask is.
             Effect::Mask { .. } | Effect::Grain { .. } => None,
             Effect::Blur { radius } => {
@@ -877,8 +885,8 @@ impl Effect {
     /// so the alpha row is identity in every one of them and a transparent pixel stays
     /// transparent however hard it is tinted. The translation column is in unit rather
     /// than byte range, which is why `brightness` writes `amount` and not `amount × 255`.
-    fn matrix(self) -> [f32; 20] {
-        match self {
+    fn matrix(&self) -> [f32; 20] {
+        match *self {
             Effect::Saturation { amount } => {
                 // The identity is `amount: 1`, so `0` is the grayscale case ADR-0049
                 // folded the `grayscale` member into and `>1` oversaturates.
@@ -1718,7 +1726,7 @@ impl Canvas {
         let effects: Vec<Effect> = effects
             .iter()
             .filter(|effect| !matches!(effect, Effect::Grain { amount, .. } if *amount <= 0.0))
-            .copied()
+            .cloned()
             .collect();
         let effects = effects.as_slice();
         let mut filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
@@ -2920,14 +2928,14 @@ mod tests {
 
     #[test]
     fn a_colour_filter_anywhere_in_the_list_leaves_every_layer_unbounded() {
-        let tint = Effect::Tint {
+        let tint = || Effect::Tint {
             colour: Rgba([0x30, 0x60, 0xFF, 0xFF]),
             amount: 0.5,
         };
         let place = at(320.4, 180.2, (1.0, 1.0), 0.0);
-        assert_eq!(same_bytes(&frame, &place, &[blur(14.0), tint]), 0);
+        assert_eq!(same_bytes(&frame, &place, &[blur(14.0), tint()]), 0);
         assert_eq!(
-            same_bytes(&frame, &place, &[tint, shadow(0.0, 0.0, 20.0)]),
+            same_bytes(&frame, &place, &[tint(), shadow(0.0, 0.0, 20.0)]),
             0
         );
     }
@@ -2937,23 +2945,23 @@ mod tests {
         // ADR-0156 §4: `posterize` keeps the bound. #722: its own layer and a directional
         // blur's stay unhinted, and every blur, shadow or glow layer around them keeps its
         // hint. Flat, rotated and flipped.
-        let posterize = Effect::Posterize { levels: 4.0 };
-        let smear = Effect::DirectionalBlur {
+        let posterize = || Effect::Posterize { levels: 4.0 };
+        let smear = || Effect::DirectionalBlur {
             angle: 30.0,
             length: 24.0,
         };
-        let glow = Effect::Glow {
+        let glow = || Effect::Glow {
             threshold: 0.4,
             radius: 12.0,
             intensity: 1.5,
         };
         let chains: [(&[Effect], usize); 6] = [
-            (&[blur(14.0), posterize], 1),
-            (&[posterize, blur(14.0)], 1),
-            (&[glow], 1),
-            (&[blur(6.0), smear, shadow(7.5, -3.25, 20.0)], 2),
-            (&[smear, glow, posterize, blur(4.0)], 2),
-            (&[posterize, smear], 0),
+            (&[blur(14.0), posterize()], 1),
+            (&[posterize(), blur(14.0)], 1),
+            (&[glow()], 1),
+            (&[blur(6.0), smear(), shadow(7.5, -3.25, 20.0)], 2),
+            (&[smear(), glow(), posterize(), blur(4.0)], 2),
+            (&[posterize(), smear()], 0),
         ];
         for place in [
             at(320.37, 180.5, (1.0, 1.0), 0.0),

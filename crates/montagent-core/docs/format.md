@@ -101,9 +101,11 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
   `color`, `stroke`, `stroke_width` and `letter_spacing`; every numeric and colour
-  parameter inside `effects`, named `effects[1].radius (blur)` (see the compositing page).
+  parameter inside `effects`, named `effects[1].radius (blur)`, and a path mask's `points`
+  (see the compositing page).
   A gradient's `angle`, `center`, `radius` and `stops` are keyable inside the paint, named by
-  path (`fill.angle`). The box of an `image`, `video`, `text` or `path`, a path's `closed`,
+  path (`fill.angle`). The box of an `image`, `video`, `text` or `path`, a path mask's
+  `width` and `height`, a path's `closed`,
   `clip`, enums, and run and highlight paint stay static. A run's paint
   still beats the element's keyed value; where every
   run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).

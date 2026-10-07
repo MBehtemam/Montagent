@@ -2519,6 +2519,26 @@ pub(crate) fn effect_of(
                 model::MaskShape::Circle => MaskShape::Circle,
                 model::MaskShape::Rect => MaskShape::Rect,
                 model::MaskShape::Ellipse => MaskShape::Ellipse,
+                // ADR-0163: the outline resolved and clamped into its box by the one
+                // resolving function, then offset by the rect's resolved `x` and `y`, so a
+                // keyed `x` moves the whole mask. The bare form's rect sits at `(0, 0)`.
+                model::MaskShape::Path => {
+                    let Ok(animatable::Resolved::Points(vertices)) = read("points")? else {
+                        return None;
+                    };
+                    let (dx, dy) = match x {
+                        Some(_) => (number("x")?, number("y")?),
+                        None => (0.0, 0.0),
+                    };
+                    let placed: Vec<crate::resolve::VertexAt> = vertices
+                        .into_iter()
+                        .map(|vertex| crate::resolve::VertexAt {
+                            at: [vertex.at[0] + dx, vertex.at[1] + dy],
+                            ..vertex
+                        })
+                        .collect();
+                    MaskShape::Path(outline_of(&placed, true))
+                }
             },
             // ADR-0084's all-or-none rect. The model refuses a partial tuple on the way
             // in, so the only two shapes that reach here are all four and none — and

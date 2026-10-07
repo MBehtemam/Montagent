@@ -1498,6 +1498,10 @@
             "radius": {
               "$ref": "#/$defs/AnimatableLength"
             },
+            "points": {
+              "description": "A `path` mask's outline (ADR-0163): exactly a `path` element's vertex list, in\ninteger pixels from the mask rect's top-left corner, or the element's own rect's\nwhere the rect is omitted. The rect bounds the outline and never scales it, so\nunder `path` its `width` and `height` are static, and a keyed `x` or `y` moves the\nwhole mask. Always closed: the last segment runs back to the first vertex, and\nthe kept area is the interior by the nonzero rule. Required under `path` and an\nunknown key under the other three shapes. Animatable as a `path`'s `points` is:\nwhole lists, interpolated number by number.",
+              "$ref": "#/$defs/AnimatablePoints"
+            },
             "invert": {
               "type": "boolean",
               "description": "Keep the pixels **outside** the shape and erase the inside (ADR-0152 §1).\nOmitted means `false`; a written `false` is legal and the same picture. A\nboolean is not an animatable type (ADR-0146), so a keyframe list here is a\nschema error with no rule of its own. Masks in one list still intersect, so\n`[mask ellipse, mask smaller ellipse inverted]` keeps a ring."
@@ -1555,7 +1559,63 @@
             },
             "description": "`radius` is a field of `shape: \"rect\"` only: an inscribed circle or ellipse has no corners to round, and a field the renderer cannot honour is worse than no field (ADR-0084, ADR-0014, ADR-0007)."
           },
-          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\n**One rect, shared by all three shapes** (ADR-0084). `x`, `y`, `width`, `height`\nname the rect the shape is inscribed in — `circle` is the largest circle inscribed\nin it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn\nthere, never which fields exist. The four are **all-or-none**, element-local\nintegers measured from the element rect's top-left whatever the `origin` keyword\nis, and their identity value is the element's own rect: a bare\n`{\"name\": \"mask\", \"shape\": \"circle\"}` (ADR-0068's form) is the same declaration\nreached by the same arithmetic, not a legacy spelling beside this one.\n\n`radius` rounds the corners of a `rect` mask, identity `0`. On `circle` or\n`ellipse` it is an unknown key naming its reason, exactly as `radius` is on a drawn\nellipse (ADR-0014): an inscribed ellipse has no corners to round.\n\nThe mask is declared inside the element's box in unscaled units, so the element's\n`scale` grows it and its `rotation` turns it — the rule a `blur` radius and a\n`stroke_width` already follow.\n\nThe rect and `radius` are animatable (ADR-0146): integer keyframe values that\nresolve unrounded. `width`, `height` and `radius` are lengths, so a negative one is a\nschema error and `0` is legal. A plain mask whose resolved `width` or `height` is at\nor below zero hides the whole element for that frame, which is how a reveal starts."
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "shape": {
+                    "const": "path"
+                  }
+                },
+                "required": [
+                  "shape"
+                ]
+              },
+              "then": {
+                "required": [
+                  "points"
+                ],
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "width": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "width"
+                      ]
+                    },
+                    "then": false
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "height": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "height"
+                      ]
+                    },
+                    "then": false
+                  }
+                ],
+                "description": "A `path` mask carries its closed outline inline as `points`, measured from its rect, which bounds the outline and never scales it: `width` and `height` are static, so reshape the mask by editing its `points` (ADR-0163)."
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "points"
+                  ]
+                },
+                "description": "`points` is a field of `shape: \"path\"` only (ADR-0163)."
+              }
+            }
+          ],
+          "description": "A shape mask, shape-only — no image source, no alpha or soft mask.\n\n**One rect, shared by every shape** (ADR-0084). `x`, `y`, `width`, `height`\nname the rect the shape is inscribed in — `circle` is the largest circle inscribed\nin it, `rect` is it, `ellipse` fills it, and a `path`'s `points` are measured from\nit (ADR-0163) — and `shape` selects which figure is drawn there, never which fields\nthe rect has. The four are **all-or-none**, element-local\nintegers measured from the element rect's top-left whatever the `origin` keyword\nis, and their identity value is the element's own rect: a bare\n`{\"name\": \"mask\", \"shape\": \"circle\"}` (ADR-0068's form) is the same declaration\nreached by the same arithmetic, not a legacy spelling beside this one.\n\n`radius` rounds the corners of a `rect` mask, identity `0`. On `circle` or\n`ellipse` it is an unknown key naming its reason, exactly as `radius` is on a drawn\nellipse (ADR-0014): an inscribed ellipse has no corners to round.\n\nThe mask is declared inside the element's box in unscaled units, so the element's\n`scale` grows it and its `rotation` turns it — the rule a `blur` radius and a\n`stroke_width` already follow.\n\nThe rect and `radius` are animatable (ADR-0146): integer keyframe values that\nresolve unrounded. `width`, `height` and `radius` are lengths, so a negative one is a\nschema error and `0` is legal. A plain mask whose resolved `width` or `height` is at\nor below zero hides the whole element for that frame, which is how a reveal starts."
         },
         {
           "type": "object",
@@ -1840,9 +1900,10 @@
       "enum": [
         "circle",
         "rect",
-        "ellipse"
+        "ellipse",
+        "path"
       ],
-      "description": "The figure an [`Effect::Mask`] draws in its rect (ADR-0084).\n\nNot a schema discriminator: all three shapes take the same fields, and `shape` says\nwhich figure is cut in them. ADR-0049's two-level-lookup objection is why — an agent\nthat has learned `mask` has learned all of `mask`."
+      "description": "The figure an [`Effect::Mask`] draws in its rect (ADR-0084).\n\nNot a schema discriminator: every shape takes the same rect, and `shape` says which\nfigure is cut in it. `shape` gates two fields beside it, `radius` under `rect` and\n`points` under `path` (ADR-0163 §3), each one only one figure can read. ADR-0049's two-level-lookup objection is why — an agent\nthat has learned `mask` has learned all of `mask`."
     },
     "AnimatableLength": {
       "anyOf": [
@@ -1910,6 +1971,123 @@
         },
         "v": {
           "$ref": "#/$defs/Length"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AnimatablePoints": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Points",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframePoints"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframePoints"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "Points": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Vertex"
+      },
+      "description": "A path's vertices, in order. Each segment is a cubic Bezier from one vertex's `at` through `at + out`, then the next vertex's `at + in`, to that `at`; a closed path adds the segment from the last vertex back to the first (ADR-0154)."
+    },
+    "Vertex": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "in": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "out": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "at"
+      ],
+      "description": "One vertex of a `path` (ADR-0154 §1).\n\n`at` is the vertex, in integer pixels from the declared box's top-left corner. `in` and\n`out` are optional **handles**: integer offsets from their own vertex. `out` shapes the\nsegment leaving the vertex and `in` the segment arriving at it. A missing handle is a\nzero offset, so a vertex with neither is a corner; a written `[0, 0]` draws the same."
+    },
+    "FirstKeyframePoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/Points"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframePoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/Points"
         },
         "ease": {
           "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
@@ -3234,123 +3412,6 @@
         "square"
       ],
       "description": "`stroke_cap`: how an open path's two ends are drawn. `\"butt\"` when omitted."
-    },
-    "AnimatablePoints": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/Points",
-          "description": "Constant for the element's whole life."
-        },
-        {
-          "type": "array",
-          "prefixItems": [
-            {
-              "$ref": "#/$defs/FirstKeyframePoints"
-            }
-          ],
-          "items": {
-            "$ref": "#/$defs/KeyframePoints"
-          },
-          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
-          "minItems": 1
-        }
-      ],
-      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
-    },
-    "Points": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/Vertex"
-      },
-      "description": "A path's vertices, in order. Each segment is a cubic Bezier from one vertex's `at` through `at + out`, then the next vertex's `at + in`, to that `at`; a closed path adds the segment from the last vertex back to the first (ADR-0154)."
-    },
-    "Vertex": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "at": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "minItems": 2,
-          "maxItems": 2
-        },
-        "in": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "minItems": 2,
-          "maxItems": 2
-        },
-        "out": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "minItems": 2,
-          "maxItems": 2
-        }
-      },
-      "required": [
-        "at"
-      ],
-      "description": "One vertex of a `path` (ADR-0154 §1).\n\n`at` is the vertex, in integer pixels from the declared box's top-left corner. `in` and\n`out` are optional **handles**: integer offsets from their own vertex. `out` shapes the\nsegment leaving the vertex and `in` the segment arriving at it. A missing handle is a\nzero offset, so a vertex with neither is a corner; a written `[0, 0]` draws the same."
-    },
-    "FirstKeyframePoints": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "type": "integer",
-          "format": "int64",
-          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
-        },
-        "t_from": {
-          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
-          "$ref": "#/$defs/FirstDerivation"
-        },
-        "v": {
-          "$ref": "#/$defs/Points"
-        }
-      },
-      "required": [
-        "t",
-        "v"
-      ],
-      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
-    },
-    "KeyframePoints": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "type": "integer",
-          "format": "int64",
-          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
-        },
-        "t_from": {
-          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
-          "$ref": "#/$defs/Derivation"
-        },
-        "v": {
-          "$ref": "#/$defs/Points"
-        },
-        "ease": {
-          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
-          "$ref": "#/$defs/Ease"
-        }
-      },
-      "required": [
-        "t",
-        "v",
-        "ease"
-      ],
-      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "AudioOverrun": {
       "oneOf": [

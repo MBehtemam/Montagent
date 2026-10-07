@@ -454,7 +454,8 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
             (
                 "mask",
-                vec!["x", "y", "width", "height", "radius", "feather"]
+                // ADR-0163 §4: a path mask's `points` animates as a `path`'s does.
+                vec!["x", "y", "width", "height", "radius", "points", "feather"]
             ),
             ("tint", vec!["color", "amount"]),
             ("saturation", vec!["amount"]),

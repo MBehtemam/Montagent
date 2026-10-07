@@ -1052,7 +1052,7 @@ so `to` must paint above `from`.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
 an {shape} path needs at least {least} vertices, and this value has {count}.",
         status: Live,
         census: None,
@@ -1066,7 +1066,7 @@ an {shape} path needs at least {least} vertices, and this value has {count}.",
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
 vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
         status: Live,
         census: None,
@@ -1081,7 +1081,7 @@ vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Dr
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points: keyframe record {record} (`t` {t}) differs from the \
+        template: "`{element}`.{property}: keyframe record {record} (`t` {t}) differs from the \
 first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
 vertex count, and each vertex the same handles. To morph between unlike shapes, give the \
 shorter list coincident vertices (the same `at` twice) and write `[0, 0]` for a handle one \
@@ -1101,11 +1101,12 @@ side lacks.",
         adr: "ADR-0154",
         // ADR-0158 §7's own example names `k` and where it came from, and says the bound is
         // worst-case, so an agent does not hunt for an overlap that is not there.
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
-[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box: inset \
-{inset} = ceil({k} × {width} / 2), from {source}. This bound is worst-case, not a measured \
-overlap.",
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
+vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the \
+{?k}inset box [{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the \
+declared box: inset {inset} = ceil({k} × {width} / 2), from {source}. This bound is \
+worst-case, not a measured overlap.{/k}{?rect}mask's box [0, {right}] × [0, {bottom}], \
+{rect}, with no inset: a mask has no stroke (ADR-0163).{/rect}",
         status: Live,
         census: None,
         sets: &[Document],

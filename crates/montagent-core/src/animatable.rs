@@ -44,7 +44,8 @@
 //!   `mask`'s to half the shorter side of its own rect;
 //! - a resolved `stroke_width` below zero clamps to `0`;
 //! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
-//!   (ADR-0154 §3);
+//!   (ADR-0154 §3), and a path mask's into its box with no inset: its written rect, or the
+//!   element's resolved rect where the rect is omitted (ADR-0163 §4);
 //! - a paint field holding a gradient (ADR-0149) resolves every parameter at the instant
 //!   (`angle`, `center`, `radius` and `stops` may each be keyed), then applies §4's fix — each
 //!   offset clamped to 0..1 and raised to the largest before it — so what is printed is what
@@ -645,13 +646,23 @@ fn clamp(
     })
 }
 
-/// ADR-0154 §3's overshoot rule: every absolute vertex and handle position clamped into the
-/// inset box at that instant, each handle then written back as an offset from its clamped
-/// vertex. Where a path's box does not read, the vertices are left as they resolved.
+/// ADR-0154 §3's overshoot rule on a `path` element: its vertices [`clamped`] into the
+/// inset box at that instant. Where a path's box does not read, the vertices are left as
+/// they resolved.
 fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
-    let Some(((left, top), (right, bottom))) = inset_box(element) else {
-        return vertices;
-    };
+    match inset_box(element) {
+        Some(bounds) => clamped(vertices, bounds),
+        None => vertices,
+    }
+}
+
+/// Every absolute vertex and handle position clamped into `((left, top), (right, bottom))`,
+/// each handle then written back as an offset from its clamped vertex: the overshoot rule
+/// of every host of a vertex list (ADR-0154 §3, ADR-0163 §4).
+fn clamped(
+    vertices: Vec<VertexAt>,
+    ((left, top), (right, bottom)): ((f64, f64), (f64, f64)),
+) -> Vec<VertexAt> {
     let clamp = |[x, y]: [f64; 2]| [x.clamp(left, right), y.clamp(top, bottom)];
     vertices
         .into_iter()
@@ -705,10 +716,21 @@ fn clamp_parameter(
     numerator: i128,
     denominator: i128,
 ) -> Resolved {
+    let key = declared.key();
+    // ADR-0163 §4: a path mask's outline clamps into its box at the instant, inset 0 — the
+    // written rect, or the element's resolved rect where the rect is omitted.
+    if let (Resolved::Points(vertices), "mask", "points") = (&value, member, key) {
+        let Some((width, height)) = mask_sides(declared.element, index, numerator, denominator)
+            .or_else(|| sides(declared.element, numerator, denominator))
+        else {
+            return value;
+        };
+        let corner = (width.max(0.0), height.max(0.0));
+        return Resolved::Points(clamped(vertices.clone(), ((0.0, 0.0), corner)));
+    }
     let Resolved::Number(number) = value else {
         return value;
     };
-    let key = declared.key();
     if member == "mask" {
         match key {
             "width" | "height" => return Resolved::Number(number),
@@ -883,5 +905,17 @@ pub fn greatest_length(element: &Value, property: &str) -> Option<i64> {
     match serde_json::from_value::<Animatable<i64>>(written.clone()).ok()? {
         Animatable::Static(value) => Some(value),
         Animatable::Keyed(records) => records.iter().map(|record| record.v).max(),
+    }
+}
+
+/// The smallest value a length property ever states — its static value, or the least of its
+/// keyframe values. What a path mask's outline is checked against where its rect is the
+/// element's own and the element's size is keyed (ADR-0163 §6): inside the smallest box, it
+/// lies inside the element at every instant.
+pub fn least_length(element: &Value, property: &str) -> Option<i64> {
+    let written = element.get(property)?;
+    match serde_json::from_value::<Animatable<i64>>(written.clone()).ok()? {
+        Animatable::Static(value) => Some(value),
+        Animatable::Keyed(records) => records.iter().map(|record| record.v).min(),
     }
 }
