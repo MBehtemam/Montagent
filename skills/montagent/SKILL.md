@@ -51,6 +51,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Motion**
 
 - Keyframe position, scale, rotation and opacity, with named easings or a cubic bezier (overshoot included): `scale`, `rotation`, `opacity`, `ease`.
+- Turn any visual element in perspective about its own axes, as in a card flip, a door swing or a tilted screen: `swivel`, `tilt`, `perspective`.
 - Keyframe a shape's size, corner radius, fill, stroke and dash offset, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `stroke_dash_offset`, `color`.
 - Motion blur on a moving element: `motion_blur`.
 
@@ -114,7 +115,6 @@ A piece can mix these: load each skill whose row it touches.
 
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
-- 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
 - Changing an element's image over time. Use one element per image, each shown for its own span (`montagent-character`). <!-- workaround: #518 · replaced by: an image that changes over time -->
 - Reading a track's tempo or beats. Find the beat grid with the script in `montagent-craft`. <!-- workaround: #547 · replaced by: tempo and downbeat from probe -->

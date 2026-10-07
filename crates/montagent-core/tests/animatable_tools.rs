@@ -89,6 +89,21 @@ fn subject(property: &str, records: Value) -> Value {
     if property == "trim_offset" {
         element["trim_end"] = json!(0.5);
     }
+    // A projection's angle needs a `perspective`, and a `perspective` needs an angle and must
+    // stand further from `origin` than the box's corners (ADR-0167): 1000 and 3000 here.
+    if matches!(property, "swivel" | "tilt") {
+        element["perspective"] = json!(2000);
+    }
+    if property == "perspective" {
+        element["swivel"] = json!(10);
+        let mut records = records;
+        for record in records.as_array_mut().into_iter().flatten() {
+            let v = record["v"].as_f64().unwrap_or(0.5);
+            record["v"] = json!(v * 4000.0);
+        }
+        element[property] = records;
+        return element;
+    }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
     match property.split_once('.') {

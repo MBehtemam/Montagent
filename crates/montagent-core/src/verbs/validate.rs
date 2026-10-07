@@ -247,6 +247,9 @@ fn run_checks(
     // ADR-0155's `R-MOTION-BLUR-STILL`: a `motion_blur` on an element that never moves
     // inside its own range. Document-only, decided without painting a frame.
     crate::checks::motion_blur::check(document, report);
+    // ADR-0167 §8 and ADR-0168 §3: a projection's `perspective` missing or alone, the eye
+    // bound, strong foreshortening, and an element that never faces the eye. Document-only.
+    crate::checks::projection::check(document, report);
     // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
     // decided on the frame grid without painting a frame.
     crate::checks::grain::check(document, report);

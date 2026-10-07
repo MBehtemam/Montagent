@@ -727,8 +727,10 @@ carries, so a fade is two records rather than a dedicated field. There is no
 `mute` — a `video` element's embedded audio is the same audio a `volume` of
 `0` already silences. Automatic ducking (one element's level reacting to
 another's presence) is out of scope; the same outcome is hand-authored as
-ordinary keyframes.
-([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md))
+ordinary keyframes. Volume is the format's one linear level: every other
+audio level is in decibels, with the unit in its key.
+([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md),
+[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
 _Avoid_: gain, level (as a field name — ambiguous with other senses of
 "level" in this glossary), mute
 
@@ -740,8 +742,10 @@ processing order changes the sound, and it applies after any loop and before **V
 fade or a duck is never undone by a compressor. Gain and routing (Volume, pan/balance, channel
 operations) are never members: they are flat fields at fixed points. A member may appear twice
 unless its own ADR declares it singular, and `"enabled": false` bypasses it without losing its
-values.
-([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md))
+values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`, `_dbtp`); its
+other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction.
+([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
+[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
 _Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
 
 **Gap**:

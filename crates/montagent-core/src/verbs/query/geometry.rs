@@ -77,11 +77,28 @@ pub enum NotAxisAligned {
 ///
 /// `None` where `width`/`height` cannot be read, or resolve at or below zero at `instant` —
 /// not this module's fact to report; `validate`'s schema check already does.
+///
+/// **A projected element answers with its quadrilateral's bounds** (ADR-0167 §6): the box
+/// widened by its effects' reach, projected about `origin` and carried through `scale`,
+/// `rotation` and `x`/`y` by [`crate::projection::quad`], rounded out to whole pixels. It is
+/// a rectangle whatever its `rotation`, so it never refuses. At an instant it faces away or
+/// is edge-on it paints nothing, as under `opacity: 0`, and like a faded box it is still
+/// somewhere: these bounds.
 pub fn drawn_rect(
     element: &Value,
     instant: i64,
     frame: (i64, i64),
 ) -> Option<Result<Rect, NotAxisAligned>> {
+    if crate::projection::projects(element) {
+        let [left, top, right, bottom] = crate::projection::quad(element, instant, frame)?.bounds();
+        let (left, top) = (left.floor() as i64, top.floor() as i64);
+        return Some(Ok(Rect {
+            x: left,
+            y: top,
+            width: right.ceil() as i64 - left,
+            height: bottom.ceil() as i64 - top,
+        }));
+    }
     // A shape's box may be keyed (ADR-0146), so it is resolved like every other animatable
     // property rather than read as one integer; at or below zero it occupies nothing.
     let (width, height) = crate::animatable::painted_box(element, i128::from(instant), 1)?;
