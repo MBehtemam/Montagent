@@ -245,6 +245,11 @@ jobs:
       - name: The pre-render skill's SVG route still rebuilds, and still fails on a missing font
         run: python3 -m unittest ci/test_prerender_still.py
 
+      - name: The pre-render skill's Lottie route still rebuilds, refuses what a player skips, and draws one fresh player per frame
+        run: |
+          python3 -m pip install thorvg-python==1.1.3
+          python3 -m unittest ci/test_prerender_lottie.py
+
       - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
         run: python3 ci/assert_passive_packaging.py
 

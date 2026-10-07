@@ -1,11 +1,11 @@
 ---
 name: montagent-prerender
-description: "Bring a look drawn in code into a Montagent video as lossless footage with alpha, or a vector drawing (an SVG still) in as one PNG image, each with a recipe that rebuilds it. Load when the look is not an `effects` member (distortions, mosaic, lens flare, a particle or shader piece), when the brief asks for generative or code-drawn visuals, or when you are handed an SVG."
+description: "Bring a look drawn in code, or a Lottie animation, into a Montagent video as lossless footage with alpha, or a vector drawing (an SVG still) in as one PNG image, each with a recipe that rebuilds it. Load when the look is not an `effects` member (distortions, mosaic, lens flare, a particle or shader piece), when the brief asks for generative or code-drawn visuals, or when you are handed an SVG or a Lottie file."
 ---
 
-# Pre-render: a code-drawn piece as footage, an SVG as one image
+# Pre-render: a code-drawn piece or a Lottie as footage, an SVG as one image
 
-Two routes, one set of [common rules](#common-rules). A **code-drawn piece** becomes footage, placed as a `video`: read it first. An **SVG still** becomes one PNG, placed as an `image`: jump to [the SVG route](#the-svg-route). Both are drawn once, outside the render, so every painter decodes the same pixels.
+Three routes, one set of [common rules](#common-rules). A **code-drawn piece** becomes footage, placed as a `video`: read it first. An **SVG still** becomes one PNG, placed as an `image`: jump to [the SVG route](#the-svg-route). A **Lottie animation** becomes footage too, drawn one fresh player per frame: jump to [the Lottie route](#the-lottie-route). All are drawn once, outside the render, so every painter decodes the same pixels.
 
 Montagent has no shader or script file ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md)). A look outside the `effects` list is drawn in your own code, encoded once as footage, and placed as an ordinary `video`. The format, the schema and the painter stay as they are ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) §7).
 
@@ -14,6 +14,8 @@ Montagent has no shader or script file ([ADR-0017](https://github.com/MBehtemam/
 Take the named route first. Read the `effects` list in `montagent://schema/index.json`: when a member makes the look (blur, shadow, tint, a `blend`, a keyed `mask`), use it. Pre-render only when no member, paint or blend composes the look: distortions, mosaic, lens flare, particles, a procedural pattern.
 
 Reach for the SVG route when you are handed a vector drawing (a logo, an icon, an illustration) as an SVG file, or when a still is easiest to draw as SVG. No element accepts an SVG file ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md)). An SVG that animates (SMIL or CSS) is not this route: it rasterises as one still frame and the motion is lost. Key the placed image's own `scale`, `rotation` and `opacity` instead.
+
+Reach for the Lottie route when you are handed a Lottie JSON file (an After Effects export, a LottieFiles animation), or when a motion is easiest to take from one. No element accepts a Lottie file ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md)). It costs three things. **A fixed resolution:** the footage is raster at the size you render it. **A recipe toolchain:** a Lottie player installed to reproduce the piece (never to render the project). **Footage size:** PNG in a MOV runs from about 6 MB per second for smooth art to 141 MB per second for noisy art, at 1080p and 25 fps, so render at the size shown and no larger. If the motion is a few shapes, keying native `rect`, `ellipse` and `path` elements is smaller and stays sharp.
 
 A pre-rendered piece is fixed footage. Its size, fps and length are set when you render it. Changing the look means rendering again, so settle the brief's size, fps and duration first, and match the project's `fps`.
 
@@ -84,9 +86,48 @@ The PNG has intrinsic pixel dimensions, so it enters as an ordinary `image`, and
 
 Run `validate`. The image is an ordinary one: key `opacity`, `scale` and `position`, add `effects`, lay it on a track. <!-- guard-ok: position -->
 
+## The Lottie route
+
+**Input:** a Lottie JSON file, a size, an fps and a frame range. The Lottie's own `w`, `h` and `fr` are inputs to choose from, not rules: the size follows the common rules (the largest size shown, as literals), and you write the fps and the frame count in the spec. <!-- guard-ok: w h fr -->
+
+1. **Choose a player** that can write RGBA frames, and record its name and version in `versions`. The skill does not pick one: the pre-render runs once outside the render and the painters never see the player. [The sample player](references/lottie_frame.py) is ThorVG through `pip install thorvg-python==1.1.3`. <!-- guard-ok: versions -->
+2. **Spec.** Write a build spec beside the Lottie with `"input": "lottie"`: `name`, `out`, `lottie`, the literal `width` and `height`, `fps`, `frames`, `render`, `files`, `fonts` and `versions`. `render` is the player's argv, with `{width}`, `{height}`, `{frame}` and `{out}` where they go: it draws **one** frame as raw RGBA into `{out}`. Optional `start` and `step` set which Lottie frame each footage frame is (frame `i` is `start + i * step`; `step` defaults to the Lottie's `fr` divided by `fps`). Run `python3 scripts/prerender.py --help` for every key. <!-- guard-ok: input name out lottie width height fps frames render files fonts versions start step build w h fr i -->
+3. **Build.** `python3 scripts/prerender.py build <spec>` first reads the Lottie and refuses it, naming each case, if it uses an **expression**, a **layer effect** the player is not recorded as drawing (list the ones it is in `allow_effects`), or **text** whose font has neither embedded glyph paths nor a vendored file in `fonts`. A player drops all of these without a sound, so a build that carried on would ship a different animation. It then runs `render` once per frame, a **new process each time**, reads the player's own report of what it skipped (any line saying skipped, ignored or unsupported is a build failure: treat it as one), encodes **one** `<name>.mov` as [the codec](#the-codec) says, and fails on the first frame that differs from what the player drew. <!-- guard-ok: build allow_effects fonts -->
+4. **Place** the footage as a plain `video` element, or with `place` as in [the steps](#the-steps). Run `validate` and `montagent probe` the MOV: confirm it reports alpha (`carries: true`). Then `frame` a tile where the piece is up and check the transparent parts show what is behind. <!-- guard-ok: place -->
+
+**Why a fresh player per frame.** The harness never seeks one player forward. ThorVG ignores a frame change under 0.001, so where a seek lands depends on the previous seek, and Skottie's seek mutates its animation object. A frame drawn after others can differ from the same frame drawn first, and the rebuild would not match. A player whose seek is a pure function of the frame number may be reused only if you checked that (draw frames in two orders and compare decoded hashes) and wrote the check in the spec's `notes`, which the recipe keeps. Otherwise use one process per frame, as `build` does. <!-- guard-ok: build notes -->
+
+**Text.** A Lottie whose text names a font needs that font vendored (`montagent fonts vendor`, listed in `fonts`, and handed to the player); one with embedded glyph paths needs none. A font that cannot be found is a build failure.
+
+The sample spec, for [the sample Lottie](references/sample_lottie.json) (shapes, an embedded-glyph text layer and a keyed fade, with transparent areas), 50 frames at 25 fps: <!-- guard-ok: fonts -->
+
+```json fragment
+{
+  "name": "lottie", "out": "media", "input": "lottie", "lottie": "sample_lottie.json", "width": 320, "height": 180, "fps": 25, "frames": 50,
+  "render": ["python3", "lottie_frame.py", "sample_lottie.json", "{width}", "{height}", "{frame}", "{out}"],
+  "files": ["sample_lottie.json", "lottie_frame.py"],
+  "versions": {"thorvg-python": ["python3", "-c", "import importlib.metadata as m; print(m.version('thorvg-python'))"]}
+}
+```
+
+The footage is an ordinary `video`, placed at its own size with `fit` of `contain`:
+
+```json
+{
+  "frame": {"width": 640, "height": 360}, "fps": 25, "background": "#101418", "duration": 2000, "output": "out/lottie.mp4",
+  "tracks": [
+    {"name": "art", "layer": 10, "elements": [
+      {"id": "lottie", "type": "video", "start": 0, "end": 2000, "source": "media/lottie.mov", "source_start": 0, "source_end": 2000, "volume": 0, "x": 320, "y": 180, "origin": "center", "width": 320, "height": 180, "fit": "contain"}
+    ]}
+  ]
+}
+```
+
+Run `validate`. Key `opacity`, `scale` and `position`, add `effects`, lay it on a track like any clip. Do not retime or restyle the animation inside the project: change the Lottie or the spec and run `build` again. <!-- guard-ok: position build -->
+
 ## The codec
 
-Footage (the code-drawn route) is **PNG in a MOV**, `-c:v png -pix_fmt rgba`, and `build` writes exactly that. It is the codec checked to return every byte of RGBA, alpha included, through Montagent's decoder. Keep `-pix_fmt rgba` explicit: left to itself, ffmpeg can pick `rgb24` and drop the alpha. <!-- guard-ok: build rgb24 -->
+Footage (the code-drawn and Lottie routes) is **PNG in a MOV**, `-c:v png -pix_fmt rgba`, and `build` writes exactly that. It is the codec checked to return every byte of RGBA, alpha included, through Montagent's decoder. Keep `-pix_fmt rgba` explicit: left to itself, ffmpeg can pick `rgb24` and drop the alpha. <!-- guard-ok: build rgb24 -->
 
 Any `yuva` pixel format is not exact from RGBA: FFV1 `yuva444p` and VP9 lossless both change pixels, and ProRes 4444 is lossy. A lossy or `yuva` encode makes the recipe's hashes meaningless, so do not swap one in. FFV1 with `bgra` also round-trips and is smaller on noisy frames, but this skill uses PNG. <!-- guard-ok: yuva yuva444p rgb24 bgra -->
 
@@ -94,7 +135,7 @@ If `build` stops on a missing `png` encoder, the installed ffmpeg is unusual: in
 
 ## The recipe
 
-The common rules' recipe, in full. `build` writes `<name>.recipe/` beside the footage (beside the PNG, on the SVG route). It holds a copy of the code (the SVG and the font files, on the SVG route), and `recipe.json`: the commands, the tool versions, the size, fps and frame count, and the hash of every **decoded** frame, read with `-f rawvideo -pix_fmt rgba`. The project never names the recipe or the code. <!-- guard-ok: build -->
+The common rules' recipe, in full. `build` writes `<name>.recipe/` beside the footage (beside the PNG, on the SVG route). It holds a copy of the code (the SVG and the font files on the SVG route; the Lottie, the player script and the fonts on the Lottie route), and `recipe.json`: the commands, the tool versions, the size, fps and frame count, and the hash of every **decoded** frame, read with `-f rawvideo -pix_fmt rgba`. The project never names the recipe or the code. <!-- guard-ok: build -->
 
 To rebuild, or to check the footage still matches what its recipe made:
 
@@ -102,4 +143,4 @@ To rebuild, or to check the footage still matches what its recipe made:
 python3 scripts/prerender.py rebuild <name>.recipe
 ```
 
-It re-runs the code from the recipe's own copy, encodes again, and compares decoded-frame hashes, never file bytes (container metadata changes the bytes and not the pixels). It prints `rebuild: match` and `footage: match`, or the first frame that differs and exits 1. After you edit the code, copy it into the recipe by running `build` again. A mismatch with the code unchanged means a tool version changed: compare `versions` in `recipe.json` against the machine. <!-- guard-ok: build versions --> On the SVG route the recipe is one frame: the command with its literal size, the rasteriser's version, and one decoded-pixel hash. `rebuild` re-runs the rasteriser and reports `rebuild: match`, or the first pixel that differs; a font the recipe's copy no longer holds fails it. To change the drawing, edit your SVG and run `build` again. The recipe, like the SVG, stays outside the project file. <!-- guard-ok: rebuild build -->
+It re-runs the code from the recipe's own copy, encodes again, and compares decoded-frame hashes, never file bytes (container metadata changes the bytes and not the pixels). It prints `rebuild: match` and `footage: match`, or the first frame that differs and exits 1. After you edit the code, copy it into the recipe by running `build` again. A mismatch with the code unchanged means a tool version changed: compare `versions` in `recipe.json` against the machine. <!-- guard-ok: build versions --> On the SVG route the recipe is one frame: the command with its literal size, the rasteriser's version, and one decoded-pixel hash. `rebuild` re-runs the rasteriser and reports `rebuild: match`, or the first pixel that differs; a font the recipe's copy no longer holds fails it. To change the drawing, edit your SVG and run `build` again. The recipe, like the SVG, stays outside the project file. <!-- guard-ok: rebuild build --> On the Lottie route the recipe also lists each footage frame's Lottie frame, the player's name and version, and any `allow_effects` and `notes`; `rebuild` reads the Lottie again and refuses it for an expression, as `build` does, then compares decoded-frame hashes and reports the first footage frame that differs, so editing one keyframe is named by the frame it first changes. <!-- guard-ok: rebuild build allow_effects notes -->

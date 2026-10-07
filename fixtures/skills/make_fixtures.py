@@ -119,6 +119,29 @@ def svg_still():
         shutil.copyfile(Path(tmp) / "out/mark.png", HERE / "media/mark.png")
 
 
+def lottie_footage():
+    """media/lottie.mov: the pre-render skill's sample Lottie (`references/sample_lottie.json`: shapes,
+    embedded-glyph text and a keyed fade), 50 frames at 320x180 and 25 fps, built by its own script
+    through its sample ThorVG player (`pip install thorvg-python==1.1.3`), one fresh player per
+    frame. The committed MOV is what the guard reads."""
+    import tempfile
+
+    skill = HERE.parent.parent / "skills/montagent-prerender"
+    with tempfile.TemporaryDirectory() as tmp:
+        for name in ("sample_lottie.json", "lottie_frame.py"):
+            shutil.copy(skill / "references" / name, tmp)
+        spec = {"name": "lottie", "out": "out", "input": "lottie", "lottie": "sample_lottie.json",
+                "width": 320, "height": 180, "fps": 25, "frames": 50,
+                "render": [sys.executable, "lottie_frame.py", "sample_lottie.json", "{width}", "{height}", "{frame}", "{out}"],
+                "files": ["sample_lottie.json", "lottie_frame.py"],
+                "versions": {"thorvg-python": [sys.executable, "-c",
+                                               "import importlib.metadata as m; print(m.version('thorvg-python'))"]}}
+        (Path(tmp) / "spec.json").write_text(json.dumps(spec))
+        subprocess.run([sys.executable, str(skill / "scripts/prerender.py"), "build",
+                        str(Path(tmp) / "spec.json")], check=True)
+        shutil.copyfile(Path(tmp) / "out/lottie.mov", HERE / "media/lottie.mov")
+
+
 # A three-level rig in the eval pack's `character/rig.json` shape: every part is a solid
 # block padded so its pivot is the canvas centre, which is what the rig bake relies on.
 RIG = {
@@ -158,3 +181,4 @@ if __name__ == "__main__":
     rig()
     prerender()
     svg_still()
+    lottie_footage()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Turn a code-drawn piece into lossless footage, or an SVG into one PNG, with a recipe beside
-it, rebuild it, and place it in a project.
+"""Turn a code-drawn piece or a Lottie into lossless footage, or an SVG into one PNG, with a
+recipe beside it, rebuild it, and place it in a project.
 
     python3 prerender.py build <spec>             render, encode, verify, write the recipe
     python3 prerender.py rebuild <recipe-dir>     re-run the recipe, compare decoded frames
@@ -44,6 +44,34 @@ An SVG still is the other input, `"input": "svg"`: one rasteriser run, one PNG, 
       "versions": {"resvg": ["resvg", "--version"]}   required: the rasteriser's version
     }
 
+A Lottie animation is the third input, `"input": "lottie"`: footage, one fresh player per frame.
+
+    {
+      "name": "intro", "out": "media",  the footage is <out>/<name>.mov
+      "lottie": "intro.json",          required: the Lottie file, one of `files`
+      "width": 320, "height": 180,     required: literal pixels, the largest size the piece is
+                                       ever shown at; the Lottie's own w and h are not read
+      "fps": 25, "frames": 50,         required: the footage's, written here; the Lottie's own
+                                       fr is an input to choose from, not a rule
+      "start": 0, "step": 1,           the Lottie frame of footage frame 0 (default 0) and the
+                                       Lottie frames per footage frame (default fr / fps); the
+                                       frame of footage frame i is start + i * step, and a
+                                       frame past the Lottie's out point fails
+      "render": ["python3", "lottie_frame.py", "intro.json", "{width}", "{height}", "{frame}", "{out}"],
+                                       required: the player, as an argv. It is run once per
+                                       frame, a new process each time, and writes that frame as
+                                       raw RGBA to {out}. Never one instance seeked forward
+      "files": ["intro.json", "lottie_frame.py"],  required
+      "fonts": ["Inter-Bold.ttf"],     the vendored font files, for text that has no embedded glyphs
+      "allow_effects": ["Fill"],       layer effects (by name) the player is known to draw
+      "notes": "...",                  kept in the recipe, e.g. the check that lets a player be reused
+      "versions": {"thorvg": ["python3", "-c", "..."]}   required: the player's name and version
+    }
+
+The build fails, naming each, on a Lottie that uses an expression, a layer effect not in
+`allow_effects`, or text whose font has neither embedded glyphs nor a vendored file, and on any
+stderr line from the player that reports something skipped or ignored.
+
 Paths in the spec resolve against the spec's folder, and the code runs there. It reads its
 size from the environment: PRERENDER_WIDTH, PRERENDER_HEIGHT, PRERENDER_FPS,
 PRERENDER_FRAMES (and PRERENDER_FRAMES_DIR for "png"). Use integer arithmetic or a fixed
@@ -78,6 +106,7 @@ import sys
 import struct
 import tempfile
 import xml.etree.ElementTree as ET
+from fractions import Fraction
 from pathlib import Path
 
 ENCODE = ["ffmpeg", "-y", "-v", "error", "{input}", "-c:v", "png", "-pix_fmt", "rgba", "{out}"]
@@ -218,7 +247,113 @@ def check_fonts(svg_path, font_paths):
                  "set font-family to a vendored font on it or on a parent")
 
 
+SKIPPED = re.compile(r"(?i)skip|unsupported|not supported|ignor|dropp?ed|warn|not found|missing")
+
+
+def lottie_layers(root):
+    """Every layer of a Lottie, the root's and each precomp asset's."""
+    yield from root.get("layers", [])
+    for asset in root.get("assets", []):
+        yield from asset.get("layers", [])
+
+
+def lottie_expressions(node, found):
+    """Append every expression a property carries (a string `x` beside its `k`)."""
+    if isinstance(node, dict):
+        if isinstance(node.get("x"), str) and "k" in node:
+            found.append(node["x"])
+        for value in node.values():
+            lottie_expressions(value, found)
+    elif isinstance(node, list):
+        for value in node:
+            lottie_expressions(value, found)
+
+
+def check_lottie(path, font_paths, allow_effects=()):
+    """Fail, naming each, on what a player would skip: expressions, layer effects not allowed,
+    and text whose font has no embedded glyphs and no vendored file."""
+    try:
+        root = json.loads(Path(path).read_text())
+    except (OSError, ValueError) as e:
+        fail(f"{path} is not a readable Lottie JSON file: {e}")
+    known = set()
+    for font in font_paths:
+        known |= font_families(font)
+    fonts = {f.get("fName"): f for f in root.get("fonts", {}).get("list", [])}
+    glyphs = {(c.get("fFamily"), c.get("style"), c.get("ch")) for c in root.get("chars", [])}
+    problems = []
+    for layer in lottie_layers(root):
+        name = layer.get("nm", f"layer {layer.get('ind', '?')}")
+        found = []
+        lottie_expressions(layer, found)
+        for expression in found:
+            problems.append(f"layer `{name}` uses an expression: {expression.strip().splitlines()[0][:60]}")
+        for effect in layer.get("ef", []):
+            label = effect.get("mn") or effect.get("nm") or "unnamed"
+            if label not in allow_effects and effect.get("nm") not in allow_effects:
+                problems.append(f"layer `{name}` uses the layer effect `{label}`, which the player is not "
+                                "recorded as drawing (`allow_effects` names the ones it is)")
+        if layer.get("ty") != 5:
+            continue
+        for key in layer.get("t", {}).get("d", {}).get("k", []):
+            style = key.get("s", {})
+            font = fonts.get(style.get("f"))
+            if font is None:
+                problems.append(f"text layer `{name}` names the font `{style.get('f')}`, which the "
+                                "Lottie does not list in `fonts`")
+                continue
+            family = font.get("fFamily")
+            letters = {c for c in style.get("t", "") if c not in " \r\n\u0003"}
+            bare = sorted(c for c in letters if (family, font.get("fStyle"), c) not in glyphs)
+            if bare and (family or "").lower() not in known:
+                problems.append(f"text layer `{name}` is set in `{family}` with no embedded glyphs for "
+                                f"{''.join(bare)!r} and no vendored font file for it "
+                                f"(vendored: {', '.join(sorted(known)) or 'none'}): embed the glyphs or vendor it")
+    if problems:
+        fail("the player would skip or substitute what the Lottie asks for:\n  " + "\n  ".join(problems))
+
+
+def lottie_frame_list(spec, root):
+    """The Lottie frame of every footage frame: start + i * step, exactly, then as a float."""
+    fps = Fraction(str(spec["fps"]))
+    step = Fraction(str(spec["step"])) if "step" in spec else Fraction(str(root["fr"])) / fps
+    start = Fraction(str(spec.get("start", 0)))
+    frames = [start + step * i for i in range(spec["frames"])]
+    if frames and frames[-1] > Fraction(str(root.get("op", 0))):
+        fail(f"footage frame {spec['frames'] - 1} is Lottie frame {float(frames[-1])}, past the "
+             f"animation's out point {root.get('op')}: shorten `frames` or change `start` and `step`")
+    return [float(f) for f in frames]
+
+
+def draw_lottie(recipe, source_dir, work):
+    """One fresh player process per frame; a skip or an ignore it reports is a failure."""
+    size = recipe["width"] * recipe["height"] * 4
+    one = work / "one.rgba"
+    with open(work / "frames.rgba", "wb") as frames:
+        for i, frame in enumerate(recipe["lottie_frames"]):
+            one.unlink(missing_ok=True)
+            argv = [part.replace("{frame}", repr(frame)).replace("{out}", one.as_posix())
+                    for part in recipe["render"]]
+            try:
+                done = subprocess.run(argv, cwd=source_dir, stderr=subprocess.PIPE, text=True)
+            except FileNotFoundError:
+                fail(f"`{argv[0]}` is not on PATH")
+            sys.stderr.write(done.stderr)
+            if done.returncode != 0:
+                fail(f"`{' '.join(argv)}` exited {done.returncode}")
+            for line in done.stderr.splitlines():
+                if SKIPPED.search(line):
+                    fail(f"the player reports something skipped on footage frame {i}: {line.strip()}")
+            data = one.read_bytes() if one.exists() else b""
+            if len(data) != size:
+                fail(f"footage frame {i}: the player wrote {len(data)} bytes to {{out}}, not "
+                     f"{recipe['width']}x{recipe['height']} RGBA ({size})")
+            frames.write(data)
+
+
 def draw(recipe, source_dir, work):
+    if recipe["input"] == "lottie":
+        return draw_lottie(recipe, source_dir, work)
     if recipe["input"] == "svg":
         return draw_svg(recipe, source_dir, work)
     env = dict(os.environ)
@@ -255,7 +390,7 @@ def stream_hashes(argv, size):
 def drawn_hashes(recipe, work):
     """Hashes of the frames the code drew: bytes of frames.rgba, or the PNGs decoded."""
     size = recipe["width"] * recipe["height"] * 4
-    if recipe["input"] == "rgba":
+    if recipe["input"] in ("rgba", "lottie"):
         data = (work / "frames.rgba").read_bytes()
         if len(data) != size * recipe["frames"]:
             fail(f"the code wrote {len(data)} bytes, not {recipe['frames']} frames of {size}")
@@ -298,10 +433,12 @@ def build(spec_path):
     spec = json.loads(spec_path.read_text())
     spec["_dir"] = spec_path.parent
     kind = spec.get("input", "rgba")
-    if kind not in ("rgba", "png", "svg"):
-        fail('`input` is "rgba", "png" or "svg"')
+    if kind not in ("rgba", "png", "svg", "lottie"):
+        fail('`input` is "rgba", "png", "svg" or "lottie"')
     still = kind == "svg"
-    for key in ("name", "width", "height", "render", "files") + (("svg", "versions") if still else ("fps", "frames")):
+    lottie = kind == "lottie"
+    extra = ("svg", "versions") if still else ("fps", "frames", "lottie", "versions") if lottie else ("fps", "frames")
+    for key in ("name", "width", "height", "render", "files") + extra:
         if key not in spec:
             fail(f"the spec needs `{key}`" + (": the size is literal pixels, never read from a viewBox"
                                               if key in ("width", "height") and still else ""))
@@ -310,6 +447,13 @@ def build(spec_path):
             fail("`svg` is one of `files`")
         spec["files"] = list(spec["files"]) + [f for f in spec.get("fonts", []) if f not in spec["files"]]
         check_fonts(spec["_dir"] / spec["svg"], [spec["_dir"] / f for f in spec.get("fonts", [])])
+    if lottie:
+        if spec["lottie"] not in spec["files"]:
+            fail("`lottie` is one of `files`")
+        spec["files"] = list(spec["files"]) + [f for f in spec.get("fonts", []) if f not in spec["files"]]
+        fonts = [spec["_dir"] / f for f in spec.get("fonts", [])]
+        check_lottie(spec["_dir"] / spec["lottie"], fonts, spec.get("allow_effects", []))
+        lottie_frames = lottie_frame_list(spec, json.loads((spec["_dir"] / spec["lottie"]).read_text()))
     out_dir = (spec["_dir"] / spec.get("out", ".")).resolve()
     recipe_dir = out_dir / f"{spec['name']}.recipe"
     footage = out_dir / (f"{spec['name']}.png" if still else f"{spec['name']}.mov")
@@ -328,6 +472,16 @@ def build(spec_path):
             frames=1, input="svg", svg=spec["svg"], fonts=spec.get("fonts", []),
             render=[literal.get(part, part) for part in spec["render"]], decode=DECODE,
         )  # fmt: skip
+    elif lottie:
+        literal = {"{width}": str(spec["width"]), "{height}": str(spec["height"])}
+        recipe.update(
+            fps=spec["fps"], frames=spec["frames"], input="lottie", lottie=spec["lottie"],
+            fonts=spec.get("fonts", []), allow_effects=spec.get("allow_effects", []),
+            lottie_frames=lottie_frames, render=[literal.get(part, part) for part in spec["render"]],
+            encode=ENCODE, decode=DECODE,
+        )  # fmt: skip
+        if "notes" in spec:
+            recipe["notes"] = spec["notes"]
     else:
         recipe.update(
             fps=spec["fps"], frames=spec["frames"], input=kind,
@@ -359,6 +513,9 @@ def rebuild(recipe_dir):
     if still:
         source = recipe_dir / "source"
         check_fonts(source / recipe["svg"], [source / f for f in recipe["fonts"]])
+    if recipe["input"] == "lottie":
+        source = recipe_dir / "source"
+        check_lottie(source / recipe["lottie"], [source / f for f in recipe["fonts"]], recipe["allow_effects"])
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         draw(recipe, recipe_dir / "source", work)
