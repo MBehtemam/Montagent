@@ -8,6 +8,10 @@ amends: 0007 (`dir` is drawn, as the isolate this ADR always said it was, and it
 > declared `width`: like the painter, it aligns them inside the block the lines make and places
 > that block by `origin`.
 
+> **Amended by [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md).** On a text on a path, `align` does not
+> follow the line's direction: `start`, `center` and `end` name the line's lowest-distance end,
+> middle and highest-distance end along the curve.
+
 # A run's `dir` is an isolate, and `start`/`end` follow the line's own direction
 
 [#457](https://github.com/MBehtemam/Montagent/issues/457), which closes §2 and §6 of

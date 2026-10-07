@@ -300,6 +300,15 @@ unchanging shape.
 _Avoid_: polyline, polygon, line (as types), anchor point (for a vertex), control point (for
 a handle as written; it is an offset), viewBox
 
+**Text on a path**:
+A text element whose one line is bent along its own curve, written in the text's box: the
+curve is written on the text, never borrowed from another element, and is never drawn. The
+curve bends the line as laid out flat, so a letter's place along the line becomes its distance
+along the curve, and each letter or joined piece is moved and turned whole, never bent.
+([ADR-0161](docs/adr/0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md))
+_Avoid_: curved text, warped text (the glyphs are not bent), guide path (there is no separate
+element), arc text (an arc is one curve among many)
+
 **Reach factor**:
 How far a path's stroke can reach from its outline, in half stroke widths: `k`, the larger
 of the `stroke_miter_limit` (for a `"miter"` join) and √2 (for a `"square"` cap where a cap
