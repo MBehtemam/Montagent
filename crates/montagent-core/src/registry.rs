@@ -1074,7 +1074,8 @@ vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Dr
     },
     CheckSpec {
         // ADR-0154 §6. Refuse: whether the first value or this one is the intended shape is a
-        // question about intent, and a morph between unlike paths is a later question.
+        // question about intent. ADR-0162 §5: a morph between unlike shapes is written as
+        // matching vertex lists, so the message names how to pad one, and names no skill.
         code: "E-PATH-KEYFRAME-SHAPE",
         classes: &[Error],
         repair: Some(Refuse),
@@ -1082,7 +1083,9 @@ vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Dr
         adr: "ADR-0154",
         template: "`{element}`.points: keyframe record {record} (`t` {t}) differs from the \
 first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
-vertex count, and each vertex the same handles.",
+vertex count, and each vertex the same handles. To morph between unlike shapes, give the \
+shorter list coincident vertices (the same `at` twice) and write `[0, 0]` for a handle one \
+side lacks.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1103,6 +1106,23 @@ vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset
 [{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box: inset \
 {inset} = ceil({k} × {width} / 2), from {source}. This bound is worst-case, not a measured \
 overlap.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0162 §4: an open path whose first and last `at` coincide draws its seam as two
+        // caps meeting, and a `butt` or `square` cap leaves a notch or a spur where the seam
+        // is a corner. Decided from the file's integers alone; a review, since a `round` cap
+        // and a smooth seam each fix it, and which was meant is the author's.
+        code: "R-PATH-SEAM-CAP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0162",
+        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
+the path's ends meet at a corner under a `{cap}` cap, which draws a {mark} at the seam. Write \
+`\"stroke_cap\": \"round\"`, or make the seam smooth.",
         status: Live,
         census: None,
         sets: &[Document],

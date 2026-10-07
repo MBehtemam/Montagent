@@ -31,7 +31,7 @@ served beside this one and each fitting one read. Read a page before you write w
   (`posterize`, `glow`, `directional_blur`), `motion_blur`, and transitions.
 - **`montagent://format/paths.md`**: a `path` element and stroke shapes. Vertices and
   handles, `closed` and `fill`, `stroke_join` and `stroke_cap`, the inset that keeps the
-  stroke in the box, and the `stroke_dash` pattern and offset on a `path`, `rect` or
+  stroke in the box, a morph between unlike shapes and its seam, and the `stroke_dash` pattern and offset on a `path`, `rect` or
   `ellipse`.
 
 ## How you edit a project
