@@ -5,6 +5,10 @@ amends: 0040 (the `effects` vocabulary gains `grain`, `glow`, `posterize` and `d
 
 # Four named effects join the effects list, and a code-drawn piece enters as pre-rendered footage
 
+> **Amended by [ADR-0171](0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md).**
+> §7's pre-render route widens from a code-drawn piece to an SVG still and a Lottie animation,
+> under shared size, text and recipe rules.
+
 [#704](https://github.com/MBehtemam/Montagent/issues/704), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663). The painter already runs a
 runtime shader (the chroma keyer), but the format reaches only eight `effects` members. The
