@@ -9,7 +9,8 @@
 //! # Two rules the derive cannot state
 //!
 //! ADR-0084 gives `mask` one shape-independent rect and a `radius` whose legality depends
-//! on `shape`. Neither is expressible in a `#[derive(Deserialize)]` enum variant: one is a
+//! on `shape`; ADR-0163 adds `points`, gated the same way, and a rect held static under
+//! `path`. Neither is expressible in a `#[derive(Deserialize)]` enum variant: one is a
 //! relation between four optional fields, the other makes a declared field an *unknown key*
 //! under two of three `shape` values. So the derive is generated against [`Effect`] as a
 //! remote (`remote = "Self"`, serde's own name for "write the functions, not the impls")
@@ -34,7 +35,7 @@ use schemars::JsonSchema;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{Animatable, Colour, Length};
+use super::{Animatable, Colour, Length, Points};
 
 /// One member of the closed vocabulary, discriminated by `name`.
 ///
@@ -64,10 +65,11 @@ pub enum Effect {
     },
     /// A shape mask, shape-only — no image source, no alpha or soft mask.
     ///
-    /// **One rect, shared by all three shapes** (ADR-0084). `x`, `y`, `width`, `height`
+    /// **One rect, shared by every shape** (ADR-0084). `x`, `y`, `width`, `height`
     /// name the rect the shape is inscribed in — `circle` is the largest circle inscribed
-    /// in it, `rect` is it, `ellipse` fills it — and `shape` selects which figure is drawn
-    /// there, never which fields exist. The four are **all-or-none**, element-local
+    /// in it, `rect` is it, `ellipse` fills it, and a `path`'s `points` are measured from
+    /// it (ADR-0163) — and `shape` selects which figure is drawn there, never which fields
+    /// the rect has. The four are **all-or-none**, element-local
     /// integers measured from the element rect's top-left whatever the `origin` keyword
     /// is, and their identity value is the element's own rect: a bare
     /// `{"name": "mask", "shape": "circle"}` (ADR-0068's form) is the same declaration
@@ -97,6 +99,16 @@ pub enum Effect {
         height: Option<Animatable<Length>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         radius: Option<Animatable<Length>>,
+        /// A `path` mask's outline (ADR-0163): exactly a `path` element's vertex list, in
+        /// integer pixels from the mask rect's top-left corner, or the element's own rect's
+        /// where the rect is omitted. The rect bounds the outline and never scales it, so
+        /// under `path` its `width` and `height` are static, and a keyed `x` or `y` moves the
+        /// whole mask. Always closed: the last segment runs back to the first vertex, and
+        /// the kept area is the interior by the nonzero rule. Required under `path` and an
+        /// unknown key under the other three shapes. Animatable as a `path`'s `points` is:
+        /// whole lists, interpolated number by number.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        points: Option<Animatable<Points>>,
         /// Keep the pixels **outside** the shape and erase the inside (ADR-0152 §1).
         /// Omitted means `false`; a written `false` is legal and the same picture. A
         /// boolean is not an animatable type (ADR-0146), so a keyframe list here is a
@@ -660,6 +672,7 @@ impl Effect {
             width,
             height,
             radius,
+            points,
             invert: _,
             feather: _,
         } = &self
@@ -707,13 +720,62 @@ impl Effect {
         // The reason sits between the two markers that check reads, so it is in front of
         // anyone holding the raw parse error while the finding stays the shared one.
         if radius.is_some() && *shape != MaskShape::Rect {
+            let reason = match shape {
+                // ADR-0163 §3: a path's corners are its own vertices, rounded by its handles.
+                MaskShape::Path => "a path mask's corners are its own vertices, shaped by \
+                                    their handles"
+                    .to_string(),
+                _ => format!(
+                    "an inscribed {shape} has no corners to round",
+                    shape = shape.as_str()
+                ),
+            };
             return Err(format!(
-                "unknown field `radius` on a `{shape}` mask: an inscribed {shape} has no \
-                 corners to round, so `radius` is a field of `shape: \"rect\"` only \
-                 (ADR-0084, ADR-0014) — expected one of `name`, `shape`, {rect}",
+                "unknown field `radius` on a `{shape}` mask: {reason}, so `radius` is a field \
+                 of `shape: \"rect\"` only (ADR-0084, ADR-0014) — expected one of `name`, \
+                 `shape`, {rect}",
                 shape = shape.as_str(),
                 rect = quoted(&MASK_RECT),
             ));
+        }
+
+        // ADR-0163 §3: `points` is the second field `shape` gates, beside `radius` — required
+        // under `path`, and an unknown key in serde's own form under the other three, for
+        // `radius`'s reason above.
+        match (shape, points) {
+            (MaskShape::Path, None) => {
+                return Err(
+                    "missing field `points`: a `path` mask carries its closed outline inline, \
+                     as a `points` vertex list measured from the mask's rect (ADR-0163)"
+                        .to_string(),
+                );
+            }
+            (MaskShape::Path, Some(_)) => {}
+            (shape, Some(_)) => {
+                return Err(format!(
+                    "unknown field `points` on a `{shape}` mask: only a `path` mask draws an \
+                     outline from vertices, so `points` is a field of `shape: \"path\"` only \
+                     (ADR-0163) — expected one of `name`, `shape`, {rect}",
+                    shape = shape.as_str(),
+                    rect = quoted(&MASK_RECT),
+                ));
+            }
+            (_, None) => {}
+        }
+
+        // ADR-0163 §2: under `path` the rect is the outline's declared box, which bounds it
+        // and never scales it, so resizing it changes nothing drawn — ADR-0154's reason for
+        // a `path` element's static box, carried over.
+        if *shape == MaskShape::Path
+            && [width, height]
+                .into_iter()
+                .any(|side| matches!(side, Some(Animatable::Keyed(_))))
+        {
+            return Err(
+                "`width` and `height` are static on a `path` mask: its rect bounds the outline \
+                 and never scales it, so reshape the mask by editing its `points` (ADR-0163)"
+                    .to_string(),
+            );
         }
 
         Ok(self)
@@ -744,7 +806,22 @@ impl Serialize for Effect {
 
 impl<'de> Deserialize<'de> for Effect {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Effect::deserialize(deserializer)?
+        // ADR-0163 §3's stray `closed`, read before the derive, which would refuse it as a
+        // bare unknown field. Not in serde's unknown-field form, deliberately: that form is
+        // `E-SCHEMA-UNKNOWN-KEY`, whose text forbids deleting the key, and the one repair
+        // here is deleting it. As `E-SCHEMA` the sentence itself reaches the author.
+        let written = serde_json::Value::deserialize(deserializer)?;
+        if written.get("name").and_then(serde_json::Value::as_str) == Some("mask")
+            && written.get("shape").and_then(serde_json::Value::as_str) == Some("path")
+            && written.get("closed").is_some()
+        {
+            return Err(D::Error::custom(
+                "`closed` on a `path` mask: a mask path always closes; drop `closed`. Its \
+                 last segment always runs from the last vertex back to the first (ADR-0163)",
+            ));
+        }
+        Effect::deserialize(written)
+            .map_err(D::Error::custom)?
             .checked()
             .map_err(D::Error::custom)
     }
@@ -752,8 +829,9 @@ impl<'de> Deserialize<'de> for Effect {
 
 /// The figure an [`Effect::Mask`] draws in its rect (ADR-0084).
 ///
-/// Not a schema discriminator: all three shapes take the same fields, and `shape` says
-/// which figure is cut in them. ADR-0049's two-level-lookup objection is why — an agent
+/// Not a schema discriminator: every shape takes the same rect, and `shape` says which
+/// figure is cut in it. `shape` gates two fields beside it, `radius` under `rect` and
+/// `points` under `path` (ADR-0163 §3), each one only one figure can read. ADR-0049's two-level-lookup objection is why — an agent
 /// that has learned `mask` has learned all of `mask`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -761,6 +839,9 @@ pub enum MaskShape {
     Circle,
     Rect,
     Ellipse,
+    // A closed outline written inline as `points`, measured from the rect (ADR-0163). A
+    // plain comment rather than a doc one, so the schema keeps publishing a bare `enum`.
+    Path,
 }
 
 impl MaskShape {
@@ -770,6 +851,7 @@ impl MaskShape {
             MaskShape::Circle => "circle",
             MaskShape::Rect => "rect",
             MaskShape::Ellipse => "ellipse",
+            MaskShape::Path => "path",
         }
     }
 }

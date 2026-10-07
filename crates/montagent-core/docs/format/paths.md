@@ -17,6 +17,9 @@ number, and the ADR is right where the two disagree.
   integer, and no other key. `in` and `out` are optional **handles**: offsets from their
   own vertex. A missing handle is a zero offset, so a vertex with neither is a corner, and a
   written `[0, 0]` draws the same.
+- **The same `points` list is also a mask's outline**: a `mask` with `"shape": "path"`
+  writes it inline, measured from the mask's rect and always closed (ADR-0163). See the
+  compositing page.
 - **Each segment is a cubic Bezier** from one vertex's `at` through `at + out`, then the next
   vertex's `at + in`, to that `at`. A closed path adds the segment from the last vertex back
   to the first, using the last `out` and the first `in`. There is no `line` or `polygon`

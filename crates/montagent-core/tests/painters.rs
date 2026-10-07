@@ -1120,6 +1120,106 @@ fn paths_paint_the_same_frames_on_any_number_of_painters_and_with_the_bound_hint
     }
 }
 
+/// ADR-0163 §7's run (#768): path masks with keyed `points` (one easing past its box, so
+/// the clamp is painted), `feather` keyed and static, `invert`, a keyed mask `x`, and
+/// `[mask, blur]` and `[blur, mask]` so the bounds hint is in play, on elements rotating,
+/// non-uniformly scaled and moving by sub-pixels, over a still. 320×180 at 30 fps for
+/// 1100 ms: 33 frames.
+fn path_mask_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let to = dir.join("img/boat.jpg");
+    std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+    std::fs::copy(trailer().join("img/boat.jpg"), &to).expect("copy the trailer's photo");
+    let moving =
+        |from: i64, to: i64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let blur = |radius: f64| json!({"name": "blur", "radius": radius});
+    let shadow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 8, "color": "#FF9F2E", "opacity": 0.8});
+    let blob = |apex: i64, reach: i64| {
+        json!([{"at": [6, 70], "out": [10, -30]}, {"at": [50, apex], "in": [-reach, 0], "out": [reach, 0]},
+               {"at": [94, 70], "in": [-10, -30]}, {"at": [50, 76]}])
+    };
+    let elements = [
+        json!({"id": "photo", "type": "image", "source": "img/boat.jpg", "start": 0, "end": 1100,
+               "x": 160, "y": 90, "origin": "center", "width": 320, "height": 180,
+               "fit": "literal"}),
+        // `[mask, blur]`: a keyed, feathered blob on a turning, squashed, drifting plate,
+        // its last key overshooting the top of the box.
+        json!({"id": "blob", "type": "rect", "start": 0, "end": 1100, "x": moving(60, 69),
+               "y": 60, "origin": "center", "width": 100, "height": 80, "fill": "#F2F2F2",
+               "rotation": moving(0, 37), "scale": [1.3, 0.8],
+               "effects": [
+                   {"name": "mask", "shape": "path", "feather": 9, "points": [
+                       {"t": 0, "v": blob(30, 20)},
+                       {"t": 600, "v": blob(6, 34), "ease": [0.34, 1.8, 0.64, 1.0]},
+                       {"t": 1100, "v": blob(24, 12), "ease": "ease-in-out"}]},
+                   blur(3.0)]}),
+        // `[blur, mask]`: an inverted, feathered star (nonzero, so its centre is kept by
+        // the plain mask and cut by this one) in a written rect whose `x` is keyed.
+        json!({"id": "star", "type": "ellipse", "start": 0, "end": 1100, "x": 160,
+               "y": moving(60, 67), "origin": "center", "width": 120, "height": 90,
+               "fill": "#3BA0FF", "rotation": -14,
+               "scale": [{"t": 0, "v": [1.1, 0.9]}, {"t": 1100, "v": [0.8, 1.2], "ease": "linear"}],
+               "effects": [blur(2.0),
+                   {"name": "mask", "shape": "path", "x": moving(10, 25), "y": 8,
+                    "width": 80, "height": 76, "invert": true,
+                    "feather": [{"t": 0, "v": 0}, {"t": 700, "v": 15, "ease": "ease-out"}],
+                    "points": [{"at": [40, 2]}, {"at": [64, 74]}, {"at": [2, 28]}, {"at": [78, 28]},
+                               {"at": [16, 74]}]},
+                   shadow]}),
+        // A hard path mask and a hard inverted one in one list, cutting a ring-like band,
+        // on a turning plate with a shadow after them.
+        json!({"id": "band", "type": "rect", "start": 100, "end": 1100,
+               "x": moving(250, 243), "y": 120, "origin": "center", "width": 110, "height": 90,
+               "fill": "#FF3B30", "rotation": moving(8, -20), "scale": [0.9, 1.25],
+               "effects": [
+                   {"name": "mask", "shape": "path", "points": [
+                       {"t": 100, "v": [{"at": [5, 45], "out": [0, -40]}, {"at": [105, 45], "in": [0, -40], "out": [0, 40]}, {"at": [5, 45], "in": [0, 40]}]},
+                       {"t": 1100, "v": [{"at": [15, 45], "out": [0, -30]}, {"at": [95, 45], "in": [0, -30], "out": [0, 30]}, {"at": [15, 45], "in": [0, 30]}], "ease": "linear"}]},
+                   {"name": "mask", "shape": "path", "x": 30, "y": 25, "width": 50, "height": 40,
+                    "invert": true,
+                    "points": [{"at": [0, 20]}, {"at": [25, 0]}, {"at": [50, 20]}, {"at": [25, 40]}]},
+                   shadow]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/path-masks.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "path-masks.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn path_masks_paint_the_same_frames_on_one_to_ten_painters_with_the_hint_on_or_off() {
+    // ADR-0163 §7: no prototype gate, so this run is the gate. If it fails, the slice fails.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = path_mask_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the masks move on every frame"
+    );
+    for (painters, chunk) in [(2, 1), (3, 2), (4, 3), (5, 7), (7, 2), (10, 1), (10, 3)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2), chunks(10, 1)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// #751's gating fixture (ADR-0158 §8, ADR-0144): all three joins and all three caps, a
 /// miter at limits 4 and 10, and a keyed miter whose in-between corner sharpens past its
 /// limit and snaps to a bevel, under motion, rotation and scale, with `shadow` and `blur`

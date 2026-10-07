@@ -150,6 +150,41 @@ two disagree.
   `feather` whose rect contains the element's keeps no pixel, and the bare form always does.
   Write the rect you meant, or drop `invert`; writing the covering rect out does not silence it.
   Keyed rects, `radius`, `feather` and element sizes are never reported.
+- **`"shape": "path"` masks through any closed outline** (ADR-0163), written inline in a
+  `path` element's vertex vocabulary (see the paths page):
+
+  ```json
+  {"name": "mask", "shape": "path",
+   "points": [{"at": [40, 300]}, {"at": [220, 40], "out": [60, 0]},
+              {"at": [400, 280], "in": [-40, -60]}]}
+  ```
+
+  `points` is required under `path` and an unknown key under the other shapes; `radius` is
+  an unknown key under `path`.
+- **A path mask's `points` are measured from its rect, which bounds them and never scales
+  them.** Omit the rect, the common case, and the points are element-local pixels from the
+  element rect's top-left. Written, the rect is still all-or-none: a keyed `x` or `y` moves
+  the whole mask without keying a vertex, and `width` and `height` are static, so a keyframe
+  list on either is a schema error; reshape the mask by editing its `points`. It rides the
+  transform as every mask does.
+- **A path mask always closes**: the last segment runs from the last vertex back to the
+  first, using the last `out` and the first `in`. There is no `closed` field, and a stray
+  one is a schema error saying *a mask path always closes; drop `closed`.*
+- **It keeps the outline's interior by the nonzero rule**, the rule a `path` fills with, so a
+  self-crossing outline keeps its overlap. A hole is a second, inverted mask in the same list.
+  `invert` and `feather` work as on every shape. `points` animates as a `path`'s does: a
+  whole list per keyframe, number by number, and an overshoot clamps each absolute vertex
+  and handle into the mask's box at that instant.
+- **`validate` runs the point checks on a path mask's `points`**, in every literal value:
+  `E-PATH-TOO-FEW-POINTS` (three vertices at least), `E-PATH-KEYFRAME-SHAPE`, and
+  `E-PATH-OUTSIDE-BOX` with an inset of `0`, against the written rect, or the element's own
+  rect where it is omitted. Where that element's `width` or `height` is keyed, the box is the
+  smallest literal value of each. A feather reaching past the box is fine. Each finding
+  names the mask's index in `effects`. `R-MASK-ERASES-ALL` and `R-MASK-CIRCLE-NON-SQUARE`
+  never fire on a path mask. `query --at` prints each path mask's resolved outline with
+  absolute control points, in box pixels, under `masks`.
+- **A mask never names another element's outline** (ADR-0150): two masks that want one
+  outline each carry a copy of its `points`.
 
 ## Grain
 

@@ -30,8 +30,13 @@
 //! against a keyed element size, is silent: those can be a wipe, and the check never
 //! fires on one. An inverted `circle` or `ellipse` keeps the corners and is never read.
 //!
+//! A `path` mask (ADR-0163 §6) gets neither review: a path is written out vertex by vertex,
+//! so an outline that covers the element is deliberate. It gets ADR-0154 §6's point checks
+//! instead, through the host-generic `crate::checks::path::points`, on its closed outline
+//! with an inset of `0` against the mask's box.
+//!
 //! Read permissively throughout: an `effects` that is not an array, a member that is not an
-//! object, a `shape` that is not one of the three words, a rect field that is not an integer
+//! object, a `shape` that is not one of the four words, a rect field that is not an integer
 //! — all are the schema check's to name, and simply are not read here.
 
 use serde_json::{Value, json};
@@ -61,6 +66,7 @@ pub fn check(document: &Loose, report: &mut Report) {
             ]
             .into_iter()
             .flatten()
+            .chain(path_points(element, effect, index))
             {
                 let mut finding = finding.at_file(file).at_element(subject.clone());
                 if let Some(track) = track {
@@ -70,6 +76,59 @@ pub fn check(document: &Loose, report: &mut Report) {
             }
         }
     }
+}
+
+/// A `path` mask's point checks (ADR-0163 §6): ADR-0154 §6's, through the one host-generic
+/// [`crate::checks::path::points`], on a closed list with an inset of `0`.
+///
+/// The box is the mask's rect: the written one, whose `width` and `height` are static under
+/// `path`, or the element's own where the rect is omitted. Where the element's size is
+/// keyed, the box is the smallest literal value of each side, so an outline inside it lies
+/// inside the element at every instant. The painter is unaffected: the box never scales or
+/// moves a point. A rect that does not read is the schema check's, and only the box-free
+/// checks run.
+fn path_points(element: &Value, effect: &Value, index: usize) -> Vec<Finding> {
+    use crate::checks::path::{Bounds, Host, points};
+    if effect.get("name").and_then(Value::as_str) != Some("mask")
+        || effect.get("shape").and_then(Value::as_str) != Some("path")
+    {
+        return Vec::new();
+    }
+    let side = |owner: &Value, key| owner.get(key).and_then(Value::as_i64);
+    let written = MASK_RECT.map(|field| effect.get(field).is_some());
+    let bounds = if written.iter().all(|written| *written) {
+        side(effect, "width")
+            .zip(side(effect, "height"))
+            .map(|(width, height)| Bounds::Bare {
+                width,
+                height,
+                rect: "the mask's written rect",
+            })
+    } else if written.iter().any(|written| *written) {
+        None
+    } else {
+        let keyed = ["width", "height"]
+            .into_iter()
+            .any(|key| crate::animatable::records(element, key).is_some());
+        crate::animatable::least_length(element, "width")
+            .zip(crate::animatable::least_length(element, "height"))
+            .map(|(width, height)| Bounds::Bare {
+                width,
+                height,
+                rect: if keyed {
+                    "the element's own rect at its smallest keyed `width` and `height`"
+                } else {
+                    "the element's own rect"
+                },
+            })
+    };
+    points(&Host {
+        owner: effect,
+        property: format!("effects[{index}].points"),
+        closed: Some(true),
+        bounds,
+        fields: vec![("index", json!(index))],
+    })
 }
 
 /// This effect's finding, if it is a `circle` mask whose rect is not square.

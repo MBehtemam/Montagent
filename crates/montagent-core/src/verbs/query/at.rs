@@ -203,6 +203,11 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
+    /// Every `path` mask's resolved outline with absolute control points, by its position
+    /// in `effects` (ADR-0163 §6), as `path` is for a `path` element. Absent where the
+    /// element carries no path mask.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub masks: Option<Vec<MaskPath>>,
     /// A shape's stroke (ADR-0158 §7): on a `path`, the inset `m` its control points must
     /// keep from the box's edges and the reach factor `k` with where it came from; on a
     /// dashed `path`, `rect` or `ellipse`, the resolved dash offset and the informative
@@ -331,18 +336,59 @@ fn absolute_vertices(element: &Value, instant: i64) -> Option<Vec<VertexAt>> {
     else {
         return None;
     };
-    let absolute =
+    Some(absolute(vertices))
+}
+
+/// Each handle made absolute by adding its own vertex.
+fn absolute(vertices: Vec<VertexAt>) -> Vec<VertexAt> {
+    let plus =
         |at: [f64; 2], offset: Option<[f64; 2]>| offset.map(|[dx, dy]| [at[0] + dx, at[1] + dy]);
-    Some(
-        vertices
-            .into_iter()
-            .map(|vertex| VertexAt {
-                arriving: absolute(vertex.at, vertex.arriving),
-                out: absolute(vertex.at, vertex.out),
-                at: vertex.at,
+    vertices
+        .into_iter()
+        .map(|vertex| VertexAt {
+            arriving: plus(vertex.at, vertex.arriving),
+            out: plus(vertex.at, vertex.out),
+            at: vertex.at,
+        })
+        .collect()
+}
+
+/// One `path` mask's resolved outline (ADR-0163 §6).
+#[derive(Debug, Clone, Serialize)]
+pub struct MaskPath {
+    /// The mask's zero-based position in `effects`.
+    pub index: usize,
+    /// Its resolved vertices with absolute control points, in box pixels from the mask's
+    /// box: its written rect's top-left corner, or the element's own where it is omitted.
+    pub path: Vec<VertexAt>,
+}
+
+/// Every `path` mask the element carries, resolved at `instant` through the one resolving
+/// function, which clamps an overshoot into the mask's box. `None` where it carries none.
+fn mask_paths(element: &Value, instant: i64) -> Option<Vec<MaskPath>> {
+    let masks: Vec<MaskPath> = element
+        .get("effects")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .filter(|(_, effect)| {
+            effect.get("name").and_then(Value::as_str) == Some("mask")
+                && effect.get("shape").and_then(Value::as_str) == Some("path")
+        })
+        .filter_map(|(index, _)| {
+            let Ok(crate::animatable::Resolved::Points(vertices)) =
+                crate::animatable::effect_parameter(element, index, "points")?.at(instant)
+            else {
+                return None;
+            };
+            Some(MaskPath {
+                index,
+                path: absolute(vertices),
             })
-            .collect(),
-    )
+        })
+        .collect();
+    (!masks.is_empty()).then_some(masks)
 }
 
 /// What a running `wipe`, `slide` or `push` does to one element's geometry (ADR-0150).
@@ -628,6 +674,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 _ => None,
             },
             path,
+            masks: mask_paths(element, instant),
             stroke,
         });
     }

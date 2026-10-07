@@ -230,6 +230,36 @@ fn publish_mask_rect(schema: &mut Value) {
                                     no field (ADR-0084, ADR-0014, ADR-0007).",
                 }),
             );
+            // ADR-0163 §2, §3: `points`, the second field `shape` gates, and the rect held
+            // static under `path`. An `allOf` of one conditional beside the `radius` one, so
+            // each rule keeps a conditional of its own. `closed` needs nothing here: it is
+            // not a declared property, so `additionalProperties: false` already refuses it.
+            ordered.insert(
+                "allOf".into(),
+                json!([{
+                    "if": {"properties": {"shape": {"const": "path"}}, "required": ["shape"]},
+                    "then": {
+                        "required": ["points"],
+                        // A keyframe list is an array; a static side is an integer. Said as
+                        // two conditions rather than a `properties` block, which would read
+                        // as an object shape of its own and have to be closed.
+                        "allOf": (["width", "height"].map(|side| json!({
+                            "if": {"properties": {side: {"type": "array"}}, "required": [side]},
+                            "then": false,
+                        }))),
+                        "description": "A `path` mask carries its closed outline inline as \
+                                        `points`, measured from its rect, which bounds the \
+                                        outline and never scales it: `width` and `height` \
+                                        are static, so reshape the mask by editing its \
+                                        `points` (ADR-0163).",
+                    },
+                    "else": {
+                        "not": {"required": ["points"]},
+                        "description": "`points` is a field of `shape: \"path\"` only \
+                                        (ADR-0163).",
+                    },
+                }]),
+            );
         }
     }
     *mask = ordered;
