@@ -37,7 +37,8 @@
 //! the pages in [`FORMAT_PAGES`] are served but not listed, and their URIs are not frozen.
 //! A rule goes on the page whose subject it is: a `text` element's rule on the text page;
 //! a rule about how elements combine (an effect, `blend`, a mask, a key, a transition, a
-//! paint drawn through the box) on the compositing page; and everything else (time,
+//! paint drawn through the box) on the compositing page; a `path`'s rule, and a stroke's
+//! join, cap and dash pattern on any shape, on the paths page; and everything else (time,
 //! stacking, geometry, values, sources) in `format.md`. When a page nears the budget, it is
 //! split along its own `##` seams into another page listed beside it, never trimmed.
 
@@ -62,6 +63,12 @@ macro_rules! format_text_uri {
 macro_rules! format_compositing_uri {
     () => {
         "montagent://format/compositing.md"
+    };
+}
+
+macro_rules! format_paths_uri {
+    () => {
+        "montagent://format/paths.md"
     };
 }
 
@@ -196,6 +203,10 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
     FormatPage {
         uri: format_compositing_uri!(),
         text: include_str!("../docs/format/compositing.md"),
+    },
+    FormatPage {
+        uri: format_paths_uri!(),
+        text: include_str!("../docs/format/paths.md"),
     },
 ];
 

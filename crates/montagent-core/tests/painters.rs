@@ -1219,6 +1219,94 @@ fn joins_and_caps_paint_the_same_frames_on_any_number_of_painters_with_the_hint_
     }
 }
 
+/// #752's gating fixture (ADR-0158 §8, ADR-0144): marching ants on all three shapes — a
+/// `rect`, a rounded `rect`, an `ellipse` and a closed `path` — and a dotted open path,
+/// each `stroke_dash_offset` keyed through whole and fractional values in both signs, under
+/// motion, rotation and scale, with `shadow` and `blur` so the bounds hint is in play.
+/// 320×180 at 30 fps for 1100 ms: 33 frames.
+fn dash_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let moving =
+        |from: i64, to: i64| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let shadow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 6, "color": "#FF9F2E", "opacity": 0.8});
+    let blur = json!({"name": "blur", "radius": 1.5});
+    let ants = |id: &str, kind: &str, x: i64, y: i64, offset: i64, effects: Value| {
+        json!({"id": id, "type": kind, "start": 0, "end": 1100, "x": moving(x, x + 4), "y": y,
+               "origin": "center", "width": 90, "height": 60, "stroke": "#F2F2F2",
+               "stroke_width": 4, "stroke_dash": [10, 6], "stroke_dash_offset": moving(0, offset),
+               "rotation": moving(0, 13), "effects": effects})
+    };
+    let mut rounded = ants("rounded", "rect", 160, 45, 48, json!([blur]));
+    rounded["radius"] = json!(18);
+    rounded["scale"] = json!([1.1, 0.9]);
+    rounded["stroke_dash"] = json!([14, 4, 2, 4]);
+    let elements = [
+        ants("rect", "rect", 60, 45, -48, json!([shadow])),
+        rounded,
+        ants(
+            "ellipse",
+            "ellipse",
+            260,
+            45,
+            -77,
+            json!([shadow, {"name": "blur", "radius": 2}]),
+        ),
+        json!({"id": "closed", "type": "path", "start": 0, "end": 1100, "x": moving(80, 86),
+               "y": 125, "origin": "center", "width": 120, "height": 80, "closed": true,
+               "stroke": "#3BA0FF", "stroke_width": 5, "stroke_join": "miter",
+               "stroke_miter_limit": 4, "stroke_cap": "square", "stroke_dash": [18, 7],
+               "stroke_dash_offset": moving(0, -100), "rotation": moving(-10, 12),
+               "points": [{"at": [20, 20]}, {"at": [100, 20], "out": [0, 20]},
+                          {"at": [100, 60]}, {"at": [20, 60]}],
+               "effects": [shadow, {"name": "blur", "radius": 1}]}),
+        json!({"id": "dots", "type": "path", "start": 0, "end": 1100, "x": 230, "y": 130,
+               "origin": "center", "width": 140, "height": 40, "closed": false,
+               "stroke": "#FF3B30", "stroke_width": 6, "stroke_cap": "round",
+               "stroke_dash": [0, 12], "stroke_dash_offset": moving(0, 36),
+               "scale": [1.3, 0.8],
+               "points": [{"at": [10, 20], "out": [40, -15]}, {"at": [130, 20]}],
+               "effects": [shadow]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/dashes.mp4", "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "dashes.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn marching_ants_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+    // ADR-0158 §8's gating test for dashes, under ADR-0144.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = dash_project(line!());
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the ants march on every frame"
+    );
+    for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 3)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}
+
 /// #724's gating fixture (ADR-0156 §6, ADR-0144): `posterize`, `glow` and
 /// `directional_blur` together with `blur`, a `mask` and a non-`normal` `blend`, under
 /// sub-pixel motion, rotation, non-uniform scale and a flip, with keyed parameters and one

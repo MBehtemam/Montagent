@@ -94,10 +94,17 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     // ADR-0014 adds three fields to a shape — `stroke`, `stroke_width` and `radius` — in
     // the order that ADR's own headings introduce them, after ADR-0041's measured six.
+    // ADR-0158's dash fields follow `stroke_width`, as its stroke fields do on a `path`.
     assert_eq!(
-        &rect[12..15],
-        &["stroke", "stroke_width", "radius"],
-        "the three fields ADR-0014 adds, in its own order (#212)"
+        &rect[12..17],
+        &[
+            "stroke",
+            "stroke_width",
+            "stroke_dash",
+            "stroke_dash_offset",
+            "radius"
+        ],
+        "the three fields ADR-0014 adds, in its own order (#212), and ADR-0158's two"
     );
 
     // `ellipse` is `rect`'s order **minus `radius`**, and the difference is exactly one

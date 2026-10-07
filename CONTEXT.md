@@ -309,6 +309,14 @@ worst-case bound, never a measured overlap.
 ([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
 _Avoid_: padding, margin (for the inset), stroke extent
 
+**Dash pattern**:
+A stroke's `stroke_dash`, the lengths it alternates (dash, gap, dash, gap), drawn as written
+along the outline from a fixed start point, with `stroke_dash_offset` how far into the
+pattern that start falls. The **seam** is where a closed outline's pattern meets itself at the
+start point. **Marching ants** are an offset keyed linearly through whole periods.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: dash array (for the field), phase (for the offset), line style
+
 **Trim window**:
 The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
 of the outline's length, measured from the shape's dash start point and turned around a closed

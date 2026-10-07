@@ -302,6 +302,7 @@ fn invert(sheet: &mut Canvas, strip: Region) {
             stroke_width: 0.0,
         },
         None,
+        None,
         &[],
     );
 }
