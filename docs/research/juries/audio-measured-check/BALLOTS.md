@@ -111,3 +111,29 @@ Ballots are verbatim.
 **Reasoning:** The packet says reverb, pitch and voice changers have no honest number, and that is correct: there is no scalar that says a reverb is right. What a smoke check can honestly claim is that the effect ran, changed the signal, did not break the container, did not blow the level, and did not alter the timeline. Each of those is a measurable yes/no with a defensible threshold that holds across builds, which matters because the pitch chain is on the list of filters that change bytes across builds, so byte or hash assertions are exactly what a smoke check must avoid. Assertion (3) is the one that catches the most common real failure, an effect silently bypassed by a bad filter-graph string; (2) catches the pitch chain's classic failure of stretching time; (4) catches a reverb that doubles level. The owner's ear remains the acceptance for quality, and the A/B of Q4 still happens; the smoke check only guards the pipeline.
 
 **Trade-offs:** A smoke check passes a reverb that sounds terrible, by design; the alternative, inventing a number (a decay-time estimate, a pitch-detector's reported shift), would be a numeric ADR claim needing a re-executable check whose reproduction across builds the determinism fact says is not guaranteed, and it would be read as a quality guarantee it is not. The "not identical to bypass" floor must be picked with care so a very subtle effect at low mix does not fail; stating the floor and the fixture's mix setting in the ADR handles it. Skipping the smoke check entirely would leave these three capabilities with no CI coverage at all, which breaks the standing rule that every ADR names a check.
+
+## The owner's ruling
+
+The owner ruled with the Judge's read, in full:
+
+- **Q1:** (c), unanimous. Every capability gets a repo integration test on a fixed fixture,
+  ported from the prototype's evidence script (same metric, same fixture), asserted at a stated
+  tolerance and never by hash. `verify` checks only what `master` declares.
+- **Q2:** ffmpeg's own meters (`ebur128=peak=true`, `astats`, a filter plus `astats` or
+  `aspectralstats`), unanimous. The ADR names the meter, and the test pins how it parses the
+  output and fails loudly if parsing breaks (Juror 3). A Rust FFT in the test is allowed for
+  band energy only, if an ffmpeg-filtered measurement proves noisy across legs (Juror 1).
+- **Q3:** loudness ±1 LU in both directions, unanimous. The below-target miss is not suppressed;
+  its message names heavy limiting and the headroom review as the likely cause (Juror 2). Keeping
+  `verify` independent rules out reading the document's other findings. True peak: a `review` above
+  `ceiling_dbtp` + 0.5 dB (Jurors 1 and 3), provisional until a committed script measures AAC
+  160k overshoot after `alimiter`.
+- **Q4:** commit the clips the owner judged (Jurors 1 and 2), stated as a record and not a
+  reference to compare against. Use a blind X/Y listen with a committed key (Jurors 1 and 3). The
+  verdict goes in a file next to the clips, and the ADR quotes it.
+- **Q5:** the smoke check is the common core of all three ballots: it renders; its length is
+  exact or within a stated bound; 48 kHz stereo is preserved; it is not silent; it has no
+  NaN/Inf or clipping; it is not a no-op against bypass; its loudness stays within a generous
+  window of bypass. Pitch shift moves from smoke to measured, as a fundamental shift on a sine
+  fixture within a tolerance (Juror 2). Echo and reverb also assert their tail (Juror 1).
+  Reverb and voice changers stay smoke.
