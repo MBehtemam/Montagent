@@ -46,6 +46,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Lines, polygons and curves drawn through vertices with handles, filled or stroked with a chosen corner join and end cap, dashed or dotted, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`, `stroke_join`, `stroke_miter_limit`, `stroke_cap`, `stroke_dash`, `stroke_dash_offset`.
 - Dashed outlines on rectangles, ellipses and paths, with the dashes marching along them: `stroke_dash`, `stroke_dash_offset`.
 - A shape morphing into an unlike one, with matching vertex lists written by hand: `path`, `points`.
+- Draw a stroke on along its outline, or orbit an arc around a ring, on paths, rectangles and ellipses: `trim_start`, `trim_end`, `trim_offset`.
 
 **Motion**
 

@@ -326,6 +326,16 @@ start point. **Marching ants** are an offset keyed linearly through whole period
 ([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
 _Avoid_: dash array (for the field), phase (for the offset), line style
 
+**Trim**:
+The part of a stroke's outline that draws: the **window** from `trim_start` to `trim_end`,
+fractions of the outline's length measured along the dash outline, rotated around a closed
+outline by `trim_offset` in turns. A window is **empty** (start ≥ end: no stroke at all),
+**full** (0 to 1: drawn as with no trim), or crosses the start point as one stroke. A
+**draw-on** keys `trim_end` from 0 to 1; a **ring loader** keys `trim_offset` linearly through
+whole turns. The fill is never trimmed, and the dashes stay put.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
+_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset)
+
 **Trim window**:
 The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
 of the outline's length, measured from the shape's dash start point and turned around a closed

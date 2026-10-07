@@ -43,6 +43,8 @@
 //! - a resolved `radius` clamps to half the shorter side of the box at the same instant — a
 //!   `mask`'s to half the shorter side of its own rect;
 //! - a resolved `stroke_width` below zero clamps to `0`;
+//! - a resolved `trim_start` or `trim_end` clamps to `[0, 1]` (ADR-0160 §5). `query --at`
+//!   prints both raw, through [`unclamped_number_at`], so they match what the file says;
 //! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
 //!   (ADR-0154 §3), and a path mask's into its box with no inset: its written rect, or the
 //!   element's resolved rect where the rect is omitted (ADR-0163 §4);
@@ -569,6 +571,21 @@ pub fn number_read(
         .unwrap_or(default)
 }
 
+/// A number property at `instant` **before** ADR-0146 §5's clamp: what an overshooting ease
+/// carries it to, for `query --at`'s raw trim values (ADR-0160 §7). `None` where the element
+/// does not declare it, or it does not read as a number.
+pub fn unclamped_number_at(element: &Value, property: &str, instant: i64) -> Option<f64> {
+    let written = get(element, property)?;
+    raw(
+        written,
+        property_kind(element, property),
+        i128::from(instant),
+        1,
+    )
+    .ok()?
+    .number()
+}
+
 /// [`at`], read as a colour, where the element declares a readable one.
 pub fn colour_at(element: &Value, property: &str, instant: i64) -> Option<Colour> {
     at(element, property, instant)?.ok()?.colour()
@@ -656,6 +673,7 @@ fn clamp(
     };
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
+        "trim_start" | "trim_end" => number.clamp(0.0, 1.0),
         "radius" => number.clamp(0.0, half_shorter(sides(element, numerator, denominator))),
         // ADR-0164 §1: an overshooting ease holds the line one curve length past an end.
         "path_offset" => number.clamp(

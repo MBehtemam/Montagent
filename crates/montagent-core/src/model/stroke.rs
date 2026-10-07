@@ -212,3 +212,58 @@ impl JsonSchema for DashPattern {
         .expect("an object literal is a schema")
     }
 }
+
+/// `trim_start` and `trim_end` (ADR-0160 §2): a fraction of the outline's length, from `0`
+/// to `1` inclusive, in a static value and in every keyframe record.
+///
+/// The type states the bound in the published schema, so the one derived list of animatable
+/// properties reads it as the range a resolved value clamps to and a `shift` split may not
+/// leave (ADR-0146 §5, §7).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct TrimFraction(pub f64);
+
+impl<'de> Deserialize<'de> for TrimFraction {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let fraction = f64::deserialize(deserializer)?;
+        if !(0.0..=1.0).contains(&fraction) {
+            return Err(D::Error::custom(format!(
+                "a trim value is {fraction}: `trim_start` and `trim_end` are numbers from 0 to \
+                 1, fractions of the outline's length, in a static value and in every keyframe \
+                 record (ADR-0160)"
+            )));
+        }
+        Ok(TrimFraction(fraction))
+    }
+}
+
+impl JsonSchema for TrimFraction {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "TrimFraction".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "A fraction of the outline's length, measured from its start point \
+                            along the outline the dashes use: from `0` to `1` inclusive, in a \
+                            static value and in every keyframe record (ADR-0160).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for TrimFraction {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}

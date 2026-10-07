@@ -33,7 +33,8 @@ served beside this one and each fitting one read. Read a page before you write w
 - **`montagent://format/paths.md`**: a `path` element and stroke shapes. Vertices and
   handles, `closed` and `fill`, `stroke_join` and `stroke_cap`, the inset that keeps the
   stroke in the box, a morph between unlike shapes and its seam, and the `stroke_dash` pattern and offset on a `path`, `rect` or
-  `ellipse`.
+  `ellipse`, and the trim (`trim_start`, `trim_end`, `trim_offset`) that draws a window of
+  the stroke.
 
 ## How you edit a project
 

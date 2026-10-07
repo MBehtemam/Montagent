@@ -113,7 +113,7 @@ use serde_json::{Value, json};
 
 use montagent_render::canvas::{
     Accumulation, Canvas, Dash, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect,
-    MaskShape, PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform,
+    MaskShape, PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform, Trim,
 };
 use montagent_render::decode::Pace;
 
@@ -382,13 +382,25 @@ fn dash_at(element: &Value, numerator: i128, denominator: i128) -> Option<Dash> 
     Dash::new(&pattern, offset)
 }
 
-/// A path's stroke join, cap and dash as written (ADR-0158), through the one reading the
-/// reach is computed from. A `"miter"` with no limit — `validate`'s `E-STROKE-MITER-LIMIT`,
-/// which `render` refuses — is read as limit 1, as the reach reads it.
+/// A shape's trim window at `numerator / denominator` ms (ADR-0160), through the one
+/// resolving function. `None` with no trim field and for a full window, both of which the
+/// canvas draws exactly as an untrimmed stroke.
+fn trim_at(element: &Value, numerator: i128, denominator: i128) -> Option<Trim> {
+    match crate::stroke::window_at(element, numerator, denominator)? {
+        crate::stroke::Window::Full => None,
+        crate::stroke::Window::Empty => Some(Trim::Empty),
+        crate::stroke::Window::Part { from, to } => Some(Trim::Part { from, to }),
+    }
+}
+
+/// A path's stroke join, cap, dash and trim as written (ADR-0158, ADR-0160), through the one
+/// reading the reach is computed from. A `"miter"` with no limit — `validate`'s
+/// `E-STROKE-MITER-LIMIT`, which `render` refuses — is read as limit 1, as the reach reads it.
 fn stroke_style(element: &Value, numerator: i128, denominator: i128) -> StrokeStyle {
     use montagent_render::canvas::{Cap, Join};
     StrokeStyle {
         dash: dash_at(element, numerator, denominator),
+        trim: trim_at(element, numerator, denominator),
         join: match crate::stroke::join(element) {
             crate::stroke::Join::Round => Join::Round,
             crate::stroke::Join::Bevel => Join::Bevel,
@@ -1644,6 +1656,7 @@ impl<'a> Painter<'a> {
             &self.transform(element),
             &paint,
             dash_at(element, self.t.0, self.t.1).as_ref(),
+            trim_at(element, self.t.0, self.t.1),
             self.clip(element),
             &effects,
         );

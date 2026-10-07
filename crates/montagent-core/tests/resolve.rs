@@ -507,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 38,
-        "nineteen keyframe instantiations, first and non-first"
+        seen, 40,
+        "twenty keyframe instantiations, first and non-first"
     );
 }
 
@@ -607,7 +607,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
                      "stroke": "#FFFFFF", "stroke_width": 1, "stroke_dash": [2, 1],
-                     "stroke_dash_offset": 1, "radius": 2,
+                     "stroke_dash_offset": 1, "trim_start": 0.1, "trim_end": 0.9,
+                     "trim_offset": 0.25, "radius": 2,
                      "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0,
                      "effects": [{"name": "mask", "shape": "circle", "feather": 4},
                                  {"name": "shadow", "dx": 1, "dy": 1, "radius": 2,

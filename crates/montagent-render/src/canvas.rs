@@ -231,6 +231,31 @@ pub struct StrokeStyle {
     pub cap: Cap,
     /// The dash pattern (ADR-0158 §5), run from `points[0]` in points order.
     pub dash: Option<Dash>,
+    /// The part of the outline the stroke draws (ADR-0160), measured from `points[0]` in
+    /// points order. `None` draws it whole, as a full window does.
+    pub trim: Option<Trim>,
+}
+
+/// A trimmed stroke's window (ADR-0160 §4–§6), resolved by the core: what is left once a
+/// full window has been told apart, which draws exactly as no trim and so is `None` where a
+/// trim is asked for.
+///
+/// - **Empty** draws no stroke at all, under any cap: Skia would draw a dot for a
+///   zero-length segment under a round cap, and a draw-on must not pop one on its first
+///   frame.
+/// - **A part** runs from `from` to `to`, fractions of the outline's length from its start
+///   point in its direction, measured by the same path measure the dashes are laid along.
+///   `from > to` crosses the start point, and is drawn as **one contour** through it, so the
+///   outline's own join turns there and no cap is drawn.
+///
+/// **Dashes stay put.** The pattern is laid along the whole outline first, exactly as an
+/// untrimmed stroke lays it — the dash that is "on" across a closed outline's start point
+/// stays one dash through it — and the window then keeps the part of each dash it covers.
+/// A dash's phase never depends on the trim, and a trim end inside a dash takes the cap.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Trim {
+    Empty,
+    Part { from: f64, to: f64 },
 }
 
 /// A dash pattern on a stroke (ADR-0158 §5): lengths alternating dash, gap, dash, gap,
@@ -272,6 +297,56 @@ impl Dash {
     fn effect(&self) -> Option<skia_safe::PathEffect> {
         skia_safe::PathEffect::dash(&self.intervals, self.phase)
     }
+
+    /// Every dash along one contour of `length`, as `(start, end)` distances, exactly where
+    /// Skia's dash path effect lays them: its phase arithmetic in `f32` and its walk in
+    /// `f64` (`SkDashPath::CalcDashParameters` and `InternalFilter`). On a closed contour
+    /// that starts inside a dash, the first dash is skipped and laid after the last one; where
+    /// the last one runs on to the end of the contour, the two are **one dash** through the
+    /// start point, `(start, length + first)`.
+    fn along(&self, length: f32, closed: bool) -> Vec<(f64, f64)> {
+        let count = self.intervals.len();
+        let total: f32 = self.intervals.iter().sum();
+        let mut phase = self.phase;
+        if phase >= total {
+            phase %= total;
+        }
+        let (mut index, mut first) = (0, self.intervals[0]);
+        for (i, &gap) in self.intervals.iter().enumerate() {
+            if phase > gap || (phase == gap && gap != 0.0) {
+                phase -= gap;
+            } else {
+                (index, first) = (i, gap - phase);
+                break;
+            }
+        }
+        let initial = index;
+        let mut dashes = Vec::new();
+        let mut skip = closed;
+        let mut added = false;
+        let mut distance = 0.0_f64;
+        let mut dlen = f64::from(first);
+        while distance < f64::from(length) {
+            added = false;
+            if index % 2 == 0 && !skip {
+                added = true;
+                let end = distance + dlen;
+                dashes.push((distance, end.min(f64::from(length))));
+            }
+            distance += dlen;
+            skip = false;
+            index = (index + 1) % count;
+            dlen = f64::from(self.intervals[index]);
+        }
+        if closed && initial % 2 == 0 && first >= 0.0 {
+            let first = f64::from(first);
+            match (added, dashes.last_mut()) {
+                (true, Some(last)) => last.1 = f64::from(length) + first,
+                _ => dashes.push((0.0, first)),
+            }
+        }
+        dashes
+    }
 }
 
 /// A stroke's join. A miter corner whose tip would reach past `limit` half-widths from its
@@ -297,11 +372,10 @@ pub enum Cap {
 }
 
 impl StrokeStyle {
-    /// Set the join, miter limit, cap and dash on a stroke paint.
+    /// Set the join, miter limit and cap on a stroke paint. The dash is the caller's: an
+    /// untrimmed stroke takes it as Skia's path effect, and a trimmed one is dashed and cut
+    /// by [`trimmed`].
     fn apply(&self, paint: &mut SkPaint) {
-        if let Some(effect) = self.dash.as_ref().and_then(Dash::effect) {
-            paint.set_path_effect(effect);
-        }
         match self.join {
             Join::Round => {
                 paint.set_stroke_join(skia_safe::PaintJoin::Round);
@@ -1387,6 +1461,10 @@ impl Canvas {
     /// one is drawn on [`inset_outline`]'s explicit outline instead, which starts and runs as
     /// ADR-0158 §5's table says. Its dash ends are butt, and a rect's corners inside a dash
     /// keep the miter join every rect stroke has.
+    ///
+    /// A trimmed stroke (ADR-0160) is cut from that same explicit outline, so the window is
+    /// measured from where the dashes start; its ends are butt. `trim` is `None` with no
+    /// trim and for a full window, both of which draw exactly as before trim existed.
     #[allow(clippy::too_many_arguments)]
     pub fn shape(
         &mut self,
@@ -1395,6 +1473,7 @@ impl Canvas {
         transform: &Transform,
         paint: &Fill,
         dash: Option<&Dash>,
+        trim: Option<Trim>,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1444,6 +1523,18 @@ impl Canvas {
                 // draw. Filling the box would be a different picture from the one the
                 // document declares, so nothing is drawn and the core says so.
                 return;
+            }
+            match trim {
+                Some(Trim::Empty) => return,
+                Some(Trim::Part { from, to }) => {
+                    let Some(outline) = inset_outline(shape, extent, paint.stroke_width) else {
+                        return;
+                    };
+                    let cut = trimmed(canvas, &outline, (from, to), dash);
+                    canvas.draw_path(&cut, &stroke);
+                    return;
+                }
+                None => {}
             }
             if let Some(effect) = dash.and_then(Dash::effect) {
                 let Some(outline) = inset_outline(shape, extent, paint.stroke_width) else {
@@ -1509,7 +1600,20 @@ impl Canvas {
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
             style.apply(&mut stroke);
-            canvas.draw_path(&path, &stroke);
+            match style.trim {
+                // The fill is never trimmed (ADR-0160 §3); an empty window draws no stroke.
+                Some(Trim::Empty) => {}
+                Some(Trim::Part { from, to }) => {
+                    let cut = trimmed(canvas, &path, (from, to), style.dash.as_ref());
+                    canvas.draw_path(&cut, &stroke);
+                }
+                None => {
+                    if let Some(effect) = style.dash.as_ref().and_then(Dash::effect) {
+                        stroke.set_path_effect(effect);
+                    }
+                    canvas.draw_path(&path, &stroke);
+                }
+            }
         });
     }
 
@@ -2026,6 +2130,103 @@ fn inset_outline(shape: Shape, extent: Extent, stroke_width: f64) -> Option<Path
     }
     path.close();
     Some(path.detach())
+}
+
+/// The part of `outline` a trimmed stroke draws (ADR-0160): the window `(from, to)`, in
+/// fractions of the outline's length, cut from it with Skia's own path measure, after
+/// `dash` has been laid along the whole outline.
+///
+/// The measure takes the resolution scale Skia's stroker and dasher take from the canvas
+/// matrix, so a dash kept whole by the window is cut at the very distances the untrimmed
+/// dash is. Each piece starts with a move; a piece that crosses a closed outline's start
+/// point continues through it with no move, so the stroker joins it there with the paint's
+/// own join and draws no cap.
+fn trimmed(
+    canvas: &skia_safe::Canvas,
+    outline: &Path,
+    window: (f64, f64),
+    dash: Option<&Dash>,
+) -> Path {
+    let mut builder = PathBuilder::new();
+    let Some(contour) = skia_safe::ContourMeasureIter::new(
+        outline,
+        false,
+        res_scale(&canvas.local_to_device_as_3x3()),
+    )
+    .next() else {
+        return builder.detach();
+    };
+    let length = contour.length();
+    let whole = f64::from(length);
+    for (lo, hi) in window_pieces(whole, contour.is_closed(), window, dash) {
+        // Distances as Skia's dasher hands them to the measure: `f64` narrowed to `f32`.
+        let mut segment = |lo: f64, hi: f64, moved: bool| {
+            // `false` for a zero-length piece, which still appends a dot's zero-length line
+            // for the stroker to cap, as it does for the dasher.
+            let _ = contour.get_segment(lo as f32, hi as f32, &mut builder, moved);
+        };
+        if hi <= whole {
+            segment(lo, hi, true);
+        } else if lo >= whole {
+            segment(lo - whole, hi - whole, true);
+        } else {
+            segment(lo, whole, true);
+            segment(0.0, hi - whole, false);
+        }
+    }
+    builder.detach()
+}
+
+/// The pieces a window keeps of one contour of `length`, as distances `(lo, hi)` with
+/// `0 ≤ lo < length` and `hi ≤ lo + length`; a piece whose `hi` passes `length` runs on
+/// through the start point.
+///
+/// Undashed, that is the window itself. Dashed, it is every dash ([`Dash::along`])
+/// intersected with the window around the closed outline: each pair is compared at the
+/// window's own place and one turn either side, so a dash and a window that each cross the
+/// start point meet once, and a window that covers both ends of a dash keeps both. A
+/// zero-length dash — a dot — is kept where it lies inside the window, ends included.
+fn window_pieces(
+    length: f64,
+    closed: bool,
+    (from, to): (f64, f64),
+    dash: Option<&Dash>,
+) -> Vec<(f64, f64)> {
+    let start = from * length;
+    let end = if from > to {
+        (to + 1.0) * length
+    } else {
+        to * length
+    };
+    let Some(dash) = dash else {
+        return vec![(start, end)];
+    };
+    let turns: &[f64] = if closed { &[-1.0, 0.0, 1.0] } else { &[0.0] };
+    let mut pieces = Vec::new();
+    for (on, off) in dash.along(length as f32, closed) {
+        for turn in turns {
+            let lo = on.max(start + turn * length);
+            let hi = off.min(end + turn * length);
+            if lo < hi || (on == off && lo == hi) {
+                pieces.push((lo, hi));
+            }
+        }
+    }
+    pieces
+}
+
+/// The resolution scale Skia's stroker and dasher measure a path at under `matrix`
+/// (`SkDraw::ComputeResScaleForStroking`): the larger of the matrix's two column lengths,
+/// or 1 where that is not a positive finite number.
+fn res_scale(matrix: &Matrix) -> f32 {
+    let sx = (matrix.scale_x() * matrix.scale_x() + matrix.skew_y() * matrix.skew_y()).sqrt();
+    let sy = (matrix.skew_x() * matrix.skew_x() + matrix.scale_y() * matrix.scale_y()).sqrt();
+    let scale = sx.max(sy);
+    if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    }
 }
 
 /// The length of the outline a `rect`'s or `ellipse`'s dash pattern runs along, by Skia's
@@ -2850,6 +3051,7 @@ mod tests {
                 stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF]).into()),
                 stroke_width: 9.0,
             },
+            None,
             None,
             None,
             effects,
