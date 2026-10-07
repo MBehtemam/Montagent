@@ -101,7 +101,8 @@
 //!   had to supply, and two narration lines at `1.0` are each still at `1.0` (ADR-0055).
 //! - **A keyframed `volume` is the value `resolve` computes on every sampled frame**, sent
 //!   as timed commands rather than re-expressed in `ffmpeg`'s expression language
-//!   (ADR-0055).
+//!   (ADR-0055). ADR-0172 amends it: each command is heard on the sample its instant
+//!   names, not on the next decoder frame (`keyed_volume`).
 //!
 //! ## Where a `video` element's pixels come from (ADR-0141)
 //!
@@ -1920,7 +1921,7 @@ fn chain(
                         })
                     };
                     let initial = at(start)?;
-                    let mut commands = String::new();
+                    let mut changes = Vec::new();
                     let mut last = initial;
                     let Some(first) = exact::frame_at_or_after(start, fps) else {
                         return Err(Declined::Internal(format!(
@@ -1935,22 +1936,12 @@ fn chain(
                         }
                         let v = at(instant)?;
                         if (v - last).abs() > 1e-6 {
-                            commands.push_str(&format!(
-                                "{} volume@{label} volume {};",
-                                seconds(instant - start),
-                                ratio(v)
-                            ));
+                            changes.push((instant - start, v));
                             last = v;
                         }
                         n += 1;
                     }
-                    if !commands.is_empty() {
-                        filter.push_str(&format!(",asendcmd=c='{commands}'"));
-                    }
-                    filter.push_str(&format!(
-                        ",volume@{label}=volume={}:eval=frame",
-                        ratio(initial)
-                    ));
+                    filter.push_str(&keyed_volume(&label, initial, &changes));
                 }
             }
         }
@@ -1964,6 +1955,80 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
+}
+
+/// The most `volume` commands one `asendcmd` carries (ADR-0172).
+///
+/// `asendcmd` scans every command it holds on every frame it passes, so one instance costs
+/// frames × commands. A fade across a six-minute element at 30 fps sends a command on every
+/// frame, and on 1 ms frames that one scan was over two minutes of the render. Cut into
+/// pieces of this many, it is linear in the element's length. 256 was the fastest of 64, 256
+/// and 1024 on that fade: fewer pieces scan more, more pieces cost more to split and join.
+const COMMANDS_PER_PIECE: usize = 256;
+
+/// A keyframed `volume`'s filters: the `volume` filter at `initial`, and each `(ms, value)`
+/// change sent to it as a timed command — heard on the sample its millisecond names
+/// (ADR-0172, amending ADR-0077's reading 9).
+///
+/// `asendcmd` fires a command on the first frame that *starts* at or after its time, so on
+/// the decoder's frames (1024 samples for AAC) a change is heard up to one frame late. Every
+/// command time is a whole millisecond, so 1 ms frames put a frame start under each one at
+/// any fps; `p=0` leaves the last frame unpadded, so the element keeps its exact length.
+/// Past [`COMMANDS_PER_PIECE`] the stream is split at a command's time into pieces with their
+/// own `asendcmd` and `volume`, each starting at the value the piece before it ended on, and
+/// joined again. The frames go back to 1024 samples after, so nothing downstream pays for
+/// the small ones.
+fn keyed_volume(label: &str, initial: f64, changes: &[(i64, f64)]) -> String {
+    let volume = |name: &str, from: f64, changes: &[(i64, f64)]| {
+        let mut text = String::new();
+        if !changes.is_empty() {
+            text.push_str("asendcmd=c='");
+            for (t, v) in changes {
+                text.push_str(&format!(
+                    "{} volume@{name} volume {};",
+                    seconds(*t),
+                    ratio(*v)
+                ));
+            }
+            text.push_str("',");
+        }
+        text.push_str(&format!("volume@{name}=volume={}:eval=frame", ratio(from)));
+        text
+    };
+    if changes.is_empty() {
+        return format!(",{}", volume(label, initial, changes));
+    }
+    let mut filter = format!(",asetnsamples=n={}:p=0,", MIX_RATE / 1000);
+    let pieces: Vec<&[(i64, f64)]> = changes.chunks(COMMANDS_PER_PIECE).collect();
+    if let [only] = pieces[..] {
+        filter.push_str(&volume(label, initial, only));
+    } else {
+        // `asegment` keeps each piece's timestamps, so its commands keep theirs; `concat`
+        // wants each piece to start at 0, so the timestamps are reset after the commands.
+        let cuts: Vec<String> = pieces[1..]
+            .iter()
+            .map(|piece| seconds(piece[0].0))
+            .collect();
+        filter.push_str(&format!("asegment=timestamps={}", cuts.join("|")));
+        for k in 0..pieces.len() {
+            filter.push_str(&format!("[{label}s{k}]"));
+        }
+        filter.push(';');
+        let mut from = initial;
+        for (k, piece) in pieces.iter().enumerate() {
+            filter.push_str(&format!(
+                "[{label}s{k}]{},asetpts=PTS-STARTPTS[{label}p{k}];",
+                volume(&format!("{label}_{k}"), from, piece)
+            ));
+            from = piece[piece.len() - 1].1;
+        }
+        for k in 0..pieces.len() {
+            filter.push_str(&format!("[{label}p{k}]"));
+        }
+        filter.push_str(&format!("concat=n={}:v=0:a=1", pieces.len()));
+    }
+    filter.push_str(",asetnsamples=n=1024:p=0");
+    filter
 }
 
 /// Milliseconds as `ffmpeg`'s decimal seconds — in the string, never through a float
@@ -2093,6 +2158,30 @@ mod tests {
         assert_eq!(atempo_chain(0.25), vec!["0.5", "0.5"]);
         assert_eq!(atempo_chain(0.2), vec!["0.5", "0.5", "0.8"]);
         assert_eq!(atempo_chain(3.0), vec!["2", "1.5"]);
+    }
+
+    /// ADR-0172: commands go on 1 ms frames, at most [`COMMANDS_PER_PIECE`] to an
+    /// `asendcmd`, and a keyframe list whose value never moves is the `volume` filter alone.
+    #[test]
+    fn keyed_volume_cuts_its_commands_into_pieces_on_one_millisecond_frames() {
+        assert_eq!(
+            keyed_volume("v0", 0.5, &[]),
+            ",volume@v0=volume=0.5:eval=frame"
+        );
+        assert_eq!(
+            keyed_volume("v0", 0.5, &[(266, 1.0)]),
+            ",asetnsamples=n=48:p=0,asendcmd=c='0.266 volume@v0 volume 1;',\
+             volume@v0=volume=0.5:eval=frame,asetnsamples=n=1024:p=0"
+        );
+        let changes: Vec<(i64, f64)> = (1..=COMMANDS_PER_PIECE as i64 + 1)
+            .map(|t| (t * 10, 1.0 - t as f64 / 1000.0))
+            .collect();
+        let graph = keyed_volume("v3", 1.0, &changes);
+        assert!(graph.starts_with(",asetnsamples=n=48:p=0,asegment=timestamps=2.570[v3s0][v3s1];"));
+        assert!(graph.contains("[v3s0]asendcmd=c='0.010 volume@v3_0 volume 0.999;"));
+        // The second piece starts at the level the first one ended on.
+        assert!(graph.contains("[v3s1]asendcmd=c='2.570 volume@v3_1 volume 0.743;',volume@v3_1=volume=0.744:eval=frame,asetpts=PTS-STARTPTS[v3p1];"));
+        assert!(graph.ends_with("[v3p0][v3p1]concat=n=2:v=0:a=1,asetnsamples=n=1024:p=0"));
     }
 
     /// #517: an unbounded `apad` after an `amix` intermittently never ends on ffmpeg 9, so

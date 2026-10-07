@@ -16,6 +16,12 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 > around reading 1's floored frame instant. The frame instant still decides presence and a
 > video's source frame.
 
+> **Amended by [ADR-0172](0172-a-keyframed-volume-is-heard-on-the-sample-its-instant-names.md)**:
+> reading 9's commands are heard on the sample their instant names, on 1 ms frames and in
+> pieces of at most 256 commands. Its claim that a per-frame step is "below what the filter
+> could have resolved anyway" no longer holds; that interval was the decoder's frame, and it
+> made the command up to 21 ms late.
+
 **Ticket:** [#287](https://github.com/MBehtemam/Montagent/issues/287), from
 [#215](https://github.com/MBehtemam/Montagent/issues/215).
 

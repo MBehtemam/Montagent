@@ -950,66 +950,114 @@ fn volume_speed_and_loop_go_through_the_mix() {
     assert!(peak_db(&written, 8.1, 9.4) < -60.0, "volume 0 is silence");
 }
 
-#[test]
-fn a_keyframed_volume_changes_on_the_sample_its_instant_names() {
-    if !has_ffprobe() {
-        return;
-    }
-    // A 1 kHz tone (48 samples a period, so the step lands on a zero crossing) from an AAC
-    // file, whose decoder hands the mix 1024-sample frames. The level steps 0.25 → 1.0 at
-    // frame 7 of 25 fps: 280 ms, sample 13440 — which is 896 samples short of the next
-    // 1024 boundary, so a command that waits for a frame to start is heard 18.7 ms late
-    // (the research for #797, `FFMPEG-FILTERS.md` §4.3).
-    let dir = tempdir(line!());
+/// Where a keyframed `volume` step from `0.25` up to `1.0` is heard: the first sample of the
+/// render's audio past the midpoint of the two levels either side of `expected`.
+///
+/// The source is a 1 kHz tone (48 samples a period, so a step on a whole millisecond is on
+/// a zero crossing) in an AAC file, whose decoder hands the mix 1024-sample frames. The
+/// project is 30 fps, the benchmark's rate, whose instants floor to 33, 66, 100 ms — so no
+/// frame grid coarser than 1 ms lands on all of them.
+fn step_heard_at(line: u32, ms: i64, volume: &str, expected: usize) -> usize {
+    let dir = tempdir(line);
     let tone = dir.join("tone.m4a");
     let made = std::process::Command::new(
         montagent_core::media::tools::resolve()
             .expect("an ffmpeg")
             .ffmpeg,
     )
-    .args(["-hide_banner", "-loglevel", "error", "-y"])
-    .args(["-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=1"])
+    .args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+    ])
+    .arg(format!(
+        "sine=frequency=1000:sample_rate=48000:duration={}",
+        ms / 1000
+    ))
     .args(["-c:a", "aac", "-b:a", "192k"])
     .arg(&tone)
     .status()
     .expect("ffmpeg runs")
     .success();
     assert!(made);
-    let body = project(
-        r#""duration":1000,"output":"out/step.mp4","#,
-        &format!(
-            r##"{{"id":"tone","type":"audio","start":0,"end":1000,"source":"{}",
-                "source_start":0,"source_end":1000,
-                "volume":[{{"t":0,"v":0.25}},{{"t":280,"v":1.0,"ease":"step"}}]}}"##,
-            tone.display().to_string().replace('\\', "/")
-        ),
-    );
+    let body = canonical(&format!(
+        r##"{{"frame":{{"width":200,"height":200}},"fps":30,"background":"#000000",
+            "duration":{ms},"output":"out/step.mp4",
+            "tracks":[{{"name":"only","layer":0,"elements":[
+              {{"id":"tone","type":"audio","start":0,"end":{ms},"source":"{}",
+                "source_start":0,"source_end":{ms},"volume":{volume}}}]}}]}}"##,
+        tone.display().to_string().replace('\\', "/")
+    ));
     let path = write_project(&dir, "p.montagent.json", &body);
     let json = rendered(&path, &full());
     assert_eq!(json["render"]["mixed"], serde_json::json!(["tone"]));
 
-    // Read through an AAC encode and decode, so not to the sample: the level is the peak
-    // of the steady stretches either side, and the change is the first sample past their
-    // midpoint. The tone rises through it 5 samples after a zero crossing; anything within
-    // half a millisecond of 13440 is the step on its sample, and the defect is 896 late.
     let pcm = common::media::samples(&dir.join("out/step.mp4"));
-    let peak = |range: std::ops::Range<usize>| {
-        pcm[range].iter().fold(0f32, |m, s| m.max(s.abs()))
-    };
-    let (low, high) = (peak(4_800..12_000), peak(19_200..40_000));
+    let peak = |range: std::ops::Range<usize>| pcm[range].iter().fold(0f32, |m, s| m.max(s.abs()));
+    let (low, high) = (
+        peak(expected - 9_600..expected - 2_400),
+        peak(expected + 4_800..expected + 24_000),
+    );
     assert!(
         high > 3.0 * low,
-        "the two levels are 12 dB apart: {low} then {high}"
+        "the two levels are about 12 dB apart: {low} then {high}"
     );
-    let changed = (4_800..40_000)
+    (expected - 9_600..expected + 24_000)
         .find(|&i| pcm[i].abs() > (low + high) / 2.0)
-        .expect("the level changes");
+        .expect("the level changes")
+}
+
+/// Read through an AAC encode and decode, so not to the sample: the tone rises past the
+/// midpoint about 6 samples after the zero crossing the step is on. Anything inside half a
+/// millisecond after `expected` is the step on its own sample. A command that waits for a
+/// 1024-sample frame to start is hundreds of samples late, and one on a frame of
+/// `48000 / fps` samples is 32 late.
+#[track_caller]
+fn assert_on_its_sample(changed: usize, expected: usize, ms: i64) {
     assert!(
-        (13_440..13_440 + 24).contains(&changed),
-        "the step at 280 ms is sample 13440; the level changed at sample {changed} \
+        (expected..expected + 24).contains(&changed),
+        "the step at {ms} ms is sample {expected}; the level changed at sample {changed} \
          ({:+} samples)",
-        changed as i64 - 13_440
+        changed as i64 - expected as i64
     );
+}
+
+#[test]
+fn a_keyframed_volume_changes_on_the_sample_its_instant_names() {
+    if !has_ffprobe() {
+        return;
+    }
+    // Frame 8 of 30 fps is 266 ms, sample 12768: 544 samples short of the next 1024
+    // boundary, which is where the step was heard before ADR-0172 (`FFMPEG-FILTERS.md`
+    // §4.3, the research for #797).
+    let changed = step_heard_at(
+        line!(),
+        1000,
+        r#"[{"t":0,"v":0.25},{"t":266,"v":1.0,"ease":"step"}]"#,
+        12_768,
+    );
+    assert_on_its_sample(changed, 12_768, 266);
+}
+
+#[test]
+fn a_keyframed_volume_past_one_command_piece_still_changes_on_its_sample() {
+    if !has_ffprobe() {
+        return;
+    }
+    // A 9 s creep from 0.25 to 0.26 moves the level on every one of its 270 frames: more
+    // commands than one `asendcmd` piece holds, so the step at frame 278 (9266 ms, sample
+    // 444768) is in the second piece, after the stream was split and joined.
+    let changed = step_heard_at(
+        line!(),
+        10_000,
+        r#"[{"t":0,"v":0.25},{"t":9000,"v":0.26,"ease":"linear"},{"t":9266,"v":1.0,"ease":"step"}]"#,
+        444_768,
+    );
+    assert_on_its_sample(changed, 444_768, 9266);
 }
 
 #[test]
