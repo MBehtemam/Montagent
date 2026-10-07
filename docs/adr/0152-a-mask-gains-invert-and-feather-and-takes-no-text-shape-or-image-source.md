@@ -5,6 +5,9 @@ amends: 0040 (the `mask` member gains `invert` and `feather`; an image- or luma-
 
 # A mask gains `invert` and `feather`, and takes no text, shape or image source
 
+> **Amended by [ADR-0163](0163-a-mask-takes-a-closed-path-inline-measured-from-its-own-rect.md)**: the shape source §3 left waiting on paths enters, as
+> `shape: "path"` with its `points` inline and always closed. A text or image source is unchanged.
+
 [#688](https://github.com/MBehtemam/Montagent/issues/688), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0150](0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md)

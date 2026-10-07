@@ -475,12 +475,12 @@ _Avoid_: greenscreen (the technique, not the member), chromakey, despill (that i
 `spill`, one parameter of this member)
 
 **Mask**:
-An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) that
+An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`, `path`) that
 keeps an element's rendered pixels where the shape is and erases the rest.
 Shape-only: a mask sourced from an image is deferred, since it introduces a second
 asset reference and unresolved fitting/colour-space questions, and a mask sourced
 from text is refused — footage through letters is a paint, not a mask.
-**Its parameters are one rect, shared by all three shapes**:
+**Its parameters are one rect, shared by every shape**:
 `x`, `y`, `width`, `height` name the rect the shape is inscribed in, and `shape`
 selects which figure is drawn in it — never which fields exist, because a
 per-shape field set would be the two-level lookup ADR-0049 refused. The four are
@@ -500,12 +500,17 @@ from `0`. A bare `mask` key outside `effects` is a retired spelling. **`invert`*
 shape instead of the inside. **`feather`** softens the mask's edge, centred on it,
 read as a `blur` radius is, so an inverted feathered mask is the exact complement
 of the plain one. Masks in one list intersect, so a mask and a smaller inverted one
-keep a ring.
+keep a ring. **A `path` mask** draws any closed outline: its `points` are written
+inline, in the vertex vocabulary of a `path` element, measured from the mask's rect,
+which bounds them and never scales them. It always closes, keeps the outline's
+interior by the same winding rule a `path` fills with, and never names another
+element's outline.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md),
 [ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md),
 [ADR-0146](docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md),
-[ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md))
+[ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md),
+[ADR-0163](docs/adr/0163-a-mask-takes-a-closed-path-inline-measured-from-its-own-rect.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
 different concept that happens to sound alike; a mask is carried by the transform,
