@@ -1,11 +1,11 @@
 {
  "frame": {
-  "width": 1000,
-  "height": 600
+  "width": 1200,
+  "height": 900
  },
  "fps": 30,
- "background": "#101418",
- "duration": 1000,
+ "background": "#000000",
+ "duration": 24000,
  "fonts": {
   "brand": [
    {
@@ -30,25 +30,25 @@
  },
  "tracks": [
   {
-   "name": "t",
+   "name": "c9-long-open",
    "layer": 0,
    "elements": [
     {
-     "id": "t",
+     "id": "c9-long-open",
      "type": "text",
-     "start": 0,
-     "end": 1000,
-     "x": 40,
-     "y": 40,
+     "start": 16000,
+     "end": 20000,
+     "x": 300,
+     "y": 300,
      "origin": "top-left",
-     "width": 700,
+     "width": 600,
      "height": 300,
      "font": "brand",
-     "size": 60,
+     "size": 56,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "HELLO"
+       "text": "THIS LINE IS FAR LONGER THAN ITS CURVE"
       }
      ],
      "caption": false,
@@ -56,61 +56,24 @@
       "closed": false,
       "points": [
        {
-        "t": 0,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         }
+        "at": [
+         56,
+         244
+        ],
+        "out": [
+         122,
+         -133
         ]
        },
        {
-        "t": 1000,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           350,
-           200
-          ]
-         }
+        "at": [
+         544,
+         244
         ],
-        "ease": "linear"
+        "in": [
+         -122,
+         -133
+        ]
        }
       ]
      }

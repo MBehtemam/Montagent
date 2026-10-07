@@ -1,7 +1,7 @@
 {
  "frame": {
-  "width": 960,
-  "height": 960
+  "width": 1000,
+  "height": 1000
  },
  "fps": 30,
  "background": "#000000",
@@ -30,136 +30,89 @@
  },
  "tracks": [
   {
-   "name": "c8-tight-fi",
+   "name": "c9-long-closed",
    "layer": 0,
    "elements": [
     {
-     "id": "c8-tight-fi",
+     "id": "c9-long-closed",
      "type": "text",
      "start": 16000,
      "end": 20000,
      "x": 300,
      "y": 300,
      "origin": "top-left",
-     "width": 360,
-     "height": 360,
+     "width": 400,
+     "height": 400,
      "font": "brand",
-     "size": 100,
+     "size": 56,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "fi"
+       "text": "ONE LOOP ONLY * THE REST IS NOT DRAWN * SEE QUERY"
       }
      ],
      "caption": false,
      "path": {
-      "closed": false,
+      "closed": true,
       "points": [
        {
         "at": [
-         135,
-         230
-        ],
-        "out": [
-         0,
-         -25
-        ]
-       },
-       {
-        "at": [
-         180,
-         185
+         200,
+         80
         ],
         "in": [
-         -25,
+         -66,
          0
         ],
         "out": [
-         25,
+         66,
          0
         ]
        },
        {
         "at": [
-         225,
-         230
+         320,
+         200
         ],
         "in": [
          0,
-         -25
+         -66
+        ],
+        "out": [
+         0,
+         66
+        ]
+       },
+       {
+        "at": [
+         200,
+         320
+        ],
+        "in": [
+         66,
+         0
+        ],
+        "out": [
+         -66,
+         0
+        ]
+       },
+       {
+        "at": [
+         80,
+         200
+        ],
+        "in": [
+         0,
+         66
+        ],
+        "out": [
+         0,
+         -66
         ]
        }
       ]
-     },
-     "align": "center",
-     "path_offset": 0.5
-    }
-   ]
-  },
-  {
-   "name": "c8-tight-arabic",
-   "layer": 1,
-   "elements": [
-    {
-     "id": "c8-tight-arabic",
-     "type": "text",
-     "start": 16000,
-     "end": 20000,
-     "x": 300,
-     "y": 300,
-     "origin": "top-left",
-     "width": 360,
-     "height": 360,
-     "font": "brand",
-     "size": 100,
-     "color": "#FFFFFF",
-     "runs": [
-      {
-       "text": "بسم"
-      }
-     ],
-     "caption": false,
-     "path": {
-      "closed": false,
-      "points": [
-       {
-        "at": [
-         135,
-         230
-        ],
-        "out": [
-         0,
-         -25
-        ]
-       },
-       {
-        "at": [
-         180,
-         185
-        ],
-        "in": [
-         -25,
-         0
-        ],
-        "out": [
-         25,
-         0
-        ]
-       },
-       {
-        "at": [
-         225,
-         230
-        ],
-        "in": [
-         0,
-         -25
-        ]
-       }
-      ]
-     },
-     "align": "center",
-     "path_offset": 0.5
+     }
     }
    ]
   }

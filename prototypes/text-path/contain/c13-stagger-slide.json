@@ -30,75 +30,8 @@
  },
  "tracks": [
   {
-   "name": "c13-end",
-   "layer": 0,
-   "elements": [
-    {
-     "id": "c13-end",
-     "type": "text",
-     "start": 20000,
-     "end": 24000,
-     "x": 300,
-     "y": 300,
-     "origin": "top-left",
-     "width": 1100,
-     "height": 340,
-     "font": "brand",
-     "size": 64,
-     "color": "#FFFFFF",
-     "runs": [
-      {
-       "text": "ALIGN END AT 0.97"
-      }
-     ],
-     "caption": false,
-     "path": {
-      "closed": false,
-      "points": [
-       {
-        "at": [
-         64,
-         110
-        ],
-        "out": [
-         194,
-         0
-        ]
-       },
-       {
-        "at": [
-         550,
-         230
-        ],
-        "in": [
-         -194,
-         0
-        ],
-        "out": [
-         194,
-         0
-        ]
-       },
-       {
-        "at": [
-         1036,
-         110
-        ],
-        "in": [
-         -194,
-         0
-        ]
-       }
-      ]
-     },
-     "align": "end",
-     "path_offset": 0.97
-    }
-   ]
-  },
-  {
    "name": "c13-stagger-slide",
-   "layer": 1,
+   "layer": 0,
    "elements": [
     {
      "id": "c13-stagger-slide",

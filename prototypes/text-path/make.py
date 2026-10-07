@@ -297,21 +297,15 @@ def main():
     # (300, 300) in a frame 600 px larger than it.
     for scene, words, ts in all_cases:
         start, end = scene * SCENE, (scene + 1) * SCENE
-        group = [timed(t, start, end) for t in ts]
-        bw = max(t["width"] for t in group)
-        bh = max(t["height"] for t in group)
-        cdoc = head(width=bw + 600, height=bh + 600, font_prefix="../")
-        cdoc["background"] = "#000000"
-        cdoc["duration"] = 6 * SCENE
-        els = []
-        for t in group:
-            t = copy.deepcopy(t)
+        for t in ts:
+            t = timed(t, start, end)
+            cdoc = head(width=t["width"] + 600, height=t["height"] + 600, font_prefix="../")
+            cdoc["background"] = "#000000"
+            cdoc["duration"] = 6 * SCENE
             t["x"], t["y"] = 300, 300
             t.pop("effects", None)
-            els.append(t)
-        cdoc["tracks"] = tracks_of(els)
-        name = ts[0]["id"].split("-")[0]
-        write(f"contain/{name}.json", cdoc)
+            cdoc["tracks"] = tracks_of([t])
+            write(f"contain/{t['id']}.json", cdoc)
 
     # Minimal bad files, one per code.
     def mini(t, name):
@@ -328,12 +322,12 @@ def main():
     mini(b, "text-path-offset-orphan")
     b = copy.deepcopy(good); b["path"]["points"] = [{"at": [100, 200]}]
     mini(b, "path-too-few-points")
-    b = copy.deepcopy(good); b["path"]["points"][0]["in"] = [-10, 0]
+    b = copy.deepcopy(good); b["path"]["points"][0]["in"] = [10, 0]
     mini(b, "path-dangling-handle")
     b = copy.deepcopy(good)
     p0 = b["path"]["points"]
     p1 = copy.deepcopy(p0) + [{"at": [350, 200]}]
-    b["path"]["points"] = [{"t": 0, "v": p0}, {"t": 1000, "v": p1}]
+    b["path"]["points"] = [{"t": 0, "v": p0}, {"t": 1000, "v": p1, "ease": "linear"}]
     mini(b, "path-keyframe-shape")
     b = copy.deepcopy(good); b["path"]["points"][0]["at"] = [30, 240]
     mini(b, "path-outside-box")
@@ -358,6 +352,12 @@ def main():
     st["start"], st["end"] = 0, 5000
     sdoc["tracks"] = tracks_of([st])
     write("shift/keyed.json", sdoc)
+    # The same, with handles that move 78 px: the midpoint at 2000 is whole.
+    even = copy.deepcopy(sdoc)
+    pts = even["tracks"][0]["elements"][0]["path"]["points"][1]["v"]
+    pts[0]["out"][1] += 1
+    pts[1]["in"][1] += 1
+    write("shift/keyed-even.json", even)
 
     # `path_reverse`: the arc and the circle reversed by hand, against the originals.
     rdoc = head(width=1920, height=1080, duration=1000, font_prefix="../")
@@ -368,14 +368,31 @@ def main():
                reverse(arc(w, h, size, 150)), align="center", path_offset=0.5)
     cw = text("circle-clockwise", 1000, 40, 480, 480, 50, ["OUTSIDE THE CIRCLE * "],
               circle(240, 240, 170), closed=True, align="center", path_offset=0.0)
+    # Reversed and swapped, as a first attempt writes it: the start vertex moves from 12 to
+    # 9 o'clock, so `path_offset` 0 lands a quarter turn away.
     ccw = text("circle-reversed", 1000, 560, 480, 480, 50, ["INSIDE THE CIRCLE * "],
                reverse(circle(240, 240, 170)), closed=True, align="center", path_offset=0.0)
+    # Reversed, swapped, and rotated so the 12 o'clock vertex is first again.
+    r = reverse(circle(240, 240, 170))
+    rot = text("circle-reversed-rotated", 1440, 560, 480, 480, 50, ["INSIDE THE CIRCLE * "],
+               r[-1:] + r[:-1], closed=True, align="center", path_offset=0.0)
+    # Reversed without swapping `in` and `out`: a closed path validates and draws a wrong
+    # curve; on the open arc it is E-PATH-DANGLING-HANDLE.
+    noswap = list(reversed(circle(240, 240, 170)))
+    bad = text("circle-reversed-noswap", 1440, 40, 480, 480, 50, ["NO SWAP * "],
+               noswap, closed=True, align="center", path_offset=0.0)
     els = []
-    for t in (fwd, rev, cw, ccw):
+    for t in (fwd, rev, cw, ccw, rot, bad):
         t["start"], t["end"] = 0, 1000
         els += decor(t, 0, 1000)
-    rdoc["tracks"] = tracks_of(els + [fwd, rev, cw, ccw])
+    rdoc["tracks"] = tracks_of(els + [fwd, rev, cw, ccw, rot, bad])
     write("reverse/reverse.json", rdoc)
+    d = head(width=1000, height=600, duration=1000, font_prefix="../")
+    arc_noswap = text("arc-noswap", 40, 40, w, h, size, ["ALONG THE ARC"],
+                      list(reversed(arc(w, h, size, 150))), align="center", path_offset=0.5)
+    arc_noswap["start"], arc_noswap["end"] = 0, 1000
+    d["tracks"] = tracks_of([arc_noswap])
+    write("reverse/arc-noswap.json", d)
 
 
 if __name__ == "__main__":

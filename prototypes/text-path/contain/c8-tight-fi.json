@@ -1,11 +1,11 @@
 {
  "frame": {
-  "width": 1000,
-  "height": 600
+  "width": 960,
+  "height": 960
  },
  "fps": 30,
- "background": "#101418",
- "duration": 1000,
+ "background": "#000000",
+ "duration": 24000,
  "fonts": {
   "brand": [
    {
@@ -30,25 +30,25 @@
  },
  "tracks": [
   {
-   "name": "t",
+   "name": "c8-tight-fi",
    "layer": 0,
    "elements": [
     {
-     "id": "t",
+     "id": "c8-tight-fi",
      "type": "text",
-     "start": 0,
-     "end": 1000,
-     "x": 40,
-     "y": 40,
+     "start": 16000,
+     "end": 20000,
+     "x": 300,
+     "y": 300,
      "origin": "top-left",
-     "width": 700,
-     "height": 300,
+     "width": 360,
+     "height": 360,
      "font": "brand",
-     "size": 60,
+     "size": 100,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "HELLO"
+       "text": "fi"
       }
      ],
      "caption": false,
@@ -56,64 +56,43 @@
       "closed": false,
       "points": [
        {
-        "t": 0,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         }
+        "at": [
+         135,
+         230
+        ],
+        "out": [
+         0,
+         -25
         ]
        },
        {
-        "t": 1000,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           350,
-           200
-          ]
-         }
+        "at": [
+         180,
+         185
         ],
-        "ease": "linear"
+        "in": [
+         -25,
+         0
+        ],
+        "out": [
+         25,
+         0
+        ]
+       },
+       {
+        "at": [
+         225,
+         230
+        ],
+        "in": [
+         0,
+         -25
+        ]
        }
       ]
-     }
+     },
+     "align": "center",
+     "path_offset": 0.5
     }
    ]
   }

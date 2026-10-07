@@ -30,25 +30,25 @@
  },
  "tracks": [
   {
-   "name": "t",
+   "name": "arc-noswap",
    "layer": 0,
    "elements": [
     {
-     "id": "t",
+     "id": "arc-noswap",
      "type": "text",
      "start": 0,
      "end": 1000,
      "x": 40,
      "y": 40,
      "origin": "top-left",
-     "width": 700,
-     "height": 300,
+     "width": 820,
+     "height": 380,
      "font": "brand",
-     "size": 60,
+     "size": 72,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "HELLO"
+       "text": "ALONG THE ARC"
       }
      ],
      "caption": false,
@@ -56,64 +56,29 @@
       "closed": false,
       "points": [
        {
-        "t": 0,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         }
+        "at": [
+         748,
+         308
+        ],
+        "in": [
+         -169,
+         -200
         ]
        },
        {
-        "t": 1000,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           350,
-           200
-          ]
-         }
+        "at": [
+         72,
+         308
         ],
-        "ease": "linear"
+        "out": [
+         169,
+         -200
+        ]
        }
       ]
-     }
+     },
+     "align": "center",
+     "path_offset": 0.5
     }
    ]
   }

@@ -2430,7 +2430,8 @@ fn proto_probe(
         if let Some(path) = std::env::var_os(var)
             && let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
         {
-            let _ = writeln!(file, "{line}");
+            // One write per line, so lines from parallel painters never interleave.
+            let _ = file.write_all(format!("{line}\n").as_bytes());
         }
     };
     if std::env::var_os("MONTAGENT_PROTO_HIDDEN").is_some() {

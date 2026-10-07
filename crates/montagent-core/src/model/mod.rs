@@ -724,7 +724,11 @@ pub struct TextElement {
     pub path: Option<TextPath>,
     /// prototype(#764): where the line sits along `path`, as a fraction of its length; `align`
     /// names which point of the line sits there (ADR-0161 §5). Default 0.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "path_offset_in_range"
+    )]
     pub path_offset: Option<Animatable<Fraction>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
@@ -1022,6 +1026,33 @@ pub struct TextPath {
     #[serde(deserialize_with = "static_closed")]
     pub closed: bool,
     pub points: Animatable<Points>,
+}
+
+/// prototype(#764): `path_offset` is a fraction of the curve, from 0 to 1, in a static value
+/// and in every keyframe record (ADR-0161 §8: the schema's range error).
+fn path_offset_in_range<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Animatable<Fraction>>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    let written: Vec<serde_json::Value> = match &value {
+        serde_json::Value::Array(records) => {
+            records.iter().filter_map(|r| r.get("v").cloned()).collect()
+        }
+        other => vec![other.clone()],
+    };
+    for v in written {
+        if let Some(n) = v.as_f64()
+            && !(0.0..=1.0).contains(&n)
+        {
+            return Err(D::Error::custom(format!(
+                "`path_offset` is {n}: it is a fraction of the curve's length, from 0 to 1, in a \
+                 static value and in every keyframe record (ADR-0161)"
+            )));
+        }
+    }
+    Animatable::<Fraction>::deserialize(value)
+        .map(Some)
+        .map_err(D::Error::custom)
 }
 
 /// A pair of integer pixels: a vertex's `at`, or a handle's offset from its vertex.

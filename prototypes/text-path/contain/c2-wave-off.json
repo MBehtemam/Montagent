@@ -1,11 +1,11 @@
 {
  "frame": {
-  "width": 1000,
-  "height": 600
+  "width": 1580,
+  "height": 900
  },
  "fps": 30,
- "background": "#101418",
- "duration": 1000,
+ "background": "#000000",
+ "duration": 24000,
  "fonts": {
   "brand": [
    {
@@ -30,25 +30,25 @@
  },
  "tracks": [
   {
-   "name": "t",
+   "name": "c2-wave-off",
    "layer": 0,
    "elements": [
     {
-     "id": "t",
+     "id": "c2-wave-off",
      "type": "text",
-     "start": 0,
-     "end": 1000,
-     "x": 40,
-     "y": 40,
+     "start": 2000,
+     "end": 4000,
+     "x": 300,
+     "y": 300,
      "origin": "top-left",
-     "width": 700,
+     "width": 980,
      "height": 300,
      "font": "brand",
-     "size": 60,
+     "size": 64,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "HELLO"
+       "text": "SLIDING OFF"
       }
      ],
      "caption": false,
@@ -56,64 +56,67 @@
       "closed": false,
       "points": [
        {
-        "t": 0,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         }
+        "at": [
+         64,
+         90
+        ],
+        "out": [
+         114,
+         0
         ]
        },
        {
-        "t": 1000,
-        "v": [
-         {
-          "at": [
-           60,
-           240
-          ],
-          "out": [
-           145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           640,
-           240
-          ],
-          "in": [
-           -145,
-           -133
-          ]
-         },
-         {
-          "at": [
-           350,
-           200
-          ]
-         }
+        "at": [
+         348,
+         210
         ],
-        "ease": "linear"
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         632,
+         90
+        ],
+        "in": [
+         -114,
+         0
+        ],
+        "out": [
+         114,
+         0
+        ]
+       },
+       {
+        "at": [
+         916,
+         210
+        ],
+        "in": [
+         -114,
+         0
+        ]
        }
       ]
-     }
+     },
+     "align": "start",
+     "path_offset": [
+      {
+       "t": 2000,
+       "v": 0
+      },
+      {
+       "t": 4000,
+       "v": 1,
+       "ease": "linear"
+      }
+     ]
     }
    ]
   }

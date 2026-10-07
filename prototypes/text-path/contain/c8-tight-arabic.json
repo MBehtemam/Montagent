@@ -1,7 +1,7 @@
 {
  "frame": {
-  "width": 1200,
-  "height": 1000
+  "width": 960,
+  "height": 960
  },
  "fps": 30,
  "background": "#000000",
@@ -30,25 +30,25 @@
  },
  "tracks": [
   {
-   "name": "c9-long-open",
+   "name": "c8-tight-arabic",
    "layer": 0,
    "elements": [
     {
-     "id": "c9-long-open",
+     "id": "c8-tight-arabic",
      "type": "text",
      "start": 16000,
      "end": 20000,
      "x": 300,
      "y": 300,
      "origin": "top-left",
-     "width": 600,
-     "height": 300,
+     "width": 360,
+     "height": 360,
      "font": "brand",
-     "size": 56,
+     "size": 100,
      "color": "#FFFFFF",
      "runs": [
       {
-       "text": "THIS LINE IS FAR LONGER THAN ITS CURVE"
+       "text": "بسم"
       }
      ],
      "caption": false,
@@ -57,113 +57,42 @@
       "points": [
        {
         "at": [
-         56,
-         244
+         135,
+         230
         ],
         "out": [
-         122,
-         -133
+         0,
+         -25
         ]
        },
        {
         "at": [
-         544,
-         244
+         180,
+         185
         ],
         "in": [
-         -122,
-         -133
+         -25,
+         0
+        ],
+        "out": [
+         25,
+         0
+        ]
+       },
+       {
+        "at": [
+         225,
+         230
+        ],
+        "in": [
+         0,
+         -25
         ]
        }
       ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "c9-long-closed",
-   "layer": 1,
-   "elements": [
-    {
-     "id": "c9-long-closed",
-     "type": "text",
-     "start": 16000,
-     "end": 20000,
-     "x": 300,
-     "y": 300,
-     "origin": "top-left",
-     "width": 400,
-     "height": 400,
-     "font": "brand",
-     "size": 56,
-     "color": "#FFFFFF",
-     "runs": [
-      {
-       "text": "ONE LOOP ONLY * THE REST IS NOT DRAWN * SEE QUERY"
-      }
-     ],
-     "caption": false,
-     "path": {
-      "closed": true,
-      "points": [
-       {
-        "at": [
-         200,
-         80
-        ],
-        "in": [
-         -66,
-         0
-        ],
-        "out": [
-         66,
-         0
-        ]
-       },
-       {
-        "at": [
-         320,
-         200
-        ],
-        "in": [
-         0,
-         -66
-        ],
-        "out": [
-         0,
-         66
-        ]
-       },
-       {
-        "at": [
-         200,
-         320
-        ],
-        "in": [
-         66,
-         0
-        ],
-        "out": [
-         -66,
-         0
-        ]
-       },
-       {
-        "at": [
-         80,
-         200
-        ],
-        "in": [
-         0,
-         66
-        ],
-        "out": [
-         0,
-         -66
-        ]
-       }
-      ]
-     }
+     },
+     "align": "center",
+     "path_offset": 0.5
     }
    ]
   }

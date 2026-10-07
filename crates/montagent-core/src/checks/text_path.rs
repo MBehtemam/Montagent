@@ -38,7 +38,10 @@ pub fn check(document: &Loose, report: &mut Report) {
                 }
             }
         } else if element.get("path_offset").is_some() {
-            push(Finding::new("E-TEXT-PATH-OFFSET-ORPHAN"));
+            push(
+                Finding::new("E-TEXT-PATH-OFFSET-ORPHAN")
+                    .repair_value(json!({"value": "drop `path_offset`"})),
+            );
         }
     }
 }
