@@ -2073,3 +2073,149 @@ fn text_on_a_path_paints_the_same_frames_on_one_to_ten_painters_with_the_hint_on
         assert_same(&sequential, &unbounded, "the hint off");
     }
 }
+
+/// #787's gating fixture (ADR-0167 §3, ADR-0168, ADR-0144): projected elements on a 320×180
+/// frame at 30 fps for 1100 ms (33 frames). A card flip (a front 0 → 180 and a back −180 → 0,
+/// each drawing nothing past 90°), a door swing about `center-left`, a projected `video`
+/// under a rounded mask, projected text with a shadow, a projected stroked `path`, a still
+/// with `blur`, `shadow`, `mask`, `grain` and `directional_blur` drawn flat and projected, a
+/// card under `motion_blur` passing 90°, and a projected card that is also rotated and
+/// scaled.
+fn projection_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    for asset in ["fonts/Cinzel-Bold.ttf", "img/boat.jpg"] {
+        let to = dir.join(asset);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+        std::fs::copy(trailer().join(asset), &to).expect("copy the trailer's asset");
+    }
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let moving = |from: Value, to: Value| json!([{"t": 0, "v": from}, {"t": 1100, "v": to, "ease": "linear"}]);
+    let shadow = json!({"name": "shadow", "dx": 3, "dy": 4, "radius": 6, "color": "#000000", "opacity": 0.6});
+    let elements = [
+        json!({"id": "front", "type": "rect", "start": 0, "end": 1100, "x": 45, "y": 45,
+               "origin": "center", "width": 70, "height": 50, "fill": "#E8D9B0", "radius": 6,
+               "swivel": moving(json!(0), json!(180)), "perspective": 400,
+               "effects": [shadow]}),
+        json!({"id": "back", "type": "rect", "start": 0, "end": 1100, "x": 45, "y": 45,
+               "origin": "center", "width": 70, "height": 50, "fill": "#3B6EA8", "radius": 6,
+               "swivel": moving(json!(-180), json!(0)), "perspective": 400,
+               "effects": [shadow]}),
+        json!({"id": "door", "type": "rect", "start": 0, "end": 1100, "x": 90, "y": 45,
+               "origin": "center-left", "width": 60, "height": 70, "fill": "#A0522D",
+               "stroke": "#F2F2F2", "stroke_width": 3,
+               "swivel": [{"t": 0, "v": 0}, {"t": 550, "v": -75, "ease": "ease-in-out"},
+                          {"t": 1100, "v": 0, "ease": "ease-in-out"}],
+               "perspective": 400}),
+        json!({"id": "screen", "type": "video", "start": 0, "end": 1100, "source": clip,
+               "source_start": 0, "source_end": 1100, "x": 200, "y": 45, "origin": "center",
+               "width": 64, "height": 48, "fit": "literal", "volume": 0,
+               "swivel": 20, "tilt": moving(json!(-30), json!(30)), "perspective": 300,
+               "effects": [{"name": "mask", "shape": "rect", "radius": 8}]}),
+        json!({"id": "title", "type": "text", "font": "cinzel-bold", "size": 28,
+               "color": "#E3C067", "align": "center", "runs": [{"text": "SPY"}],
+               "width": 120, "height": 50, "start": 0, "end": 1100, "x": 275, "y": 45,
+               "origin": "center", "caption": false,
+               "swivel": moving(json!(-50), json!(50)), "perspective": 300,
+               "effects": [shadow]}),
+        json!({"id": "star", "type": "path", "start": 0, "end": 1100, "x": 40, "y": 130,
+               "origin": "center", "width": 60, "height": 60, "closed": true,
+               "stroke": "#FFD60A", "stroke_width": 3, "stroke_join": "round",
+               "tilt": moving(json!(0), json!(60)), "perspective": 300,
+               "points": [{"at": [30, 4]}, {"at": [38, 24]}, {"at": [56, 24]}, {"at": [42, 36]},
+                          {"at": [48, 56]}, {"at": [30, 44]}, {"at": [12, 56]}, {"at": [18, 36]},
+                          {"at": [4, 24]}, {"at": [22, 24]}]}),
+        json!({"id": "still", "type": "image", "source": "img/boat.jpg", "start": 0,
+               "end": 1100, "x": 120, "y": 130, "origin": "center", "width": 80, "height": 45,
+               "fit": "literal", "swivel": 35, "tilt": moving(json!(12), json!(-12)),
+               "perspective": 400,
+               "effects": [{"name": "blur", "radius": 1.5}, shadow,
+                           {"name": "mask", "shape": "rect", "radius": 6},
+                           {"name": "grain", "seed": 7, "amount": 0.15, "size": 2, "mono": true},
+                           {"name": "directional_blur", "angle": 30, "length": 8}]}),
+        json!({"id": "blurred", "type": "rect", "start": 0, "end": 1100, "x": 200, "y": 130,
+               "origin": "center", "width": 50, "height": 40, "fill": "#34C759",
+               "swivel": moving(json!(45), json!(135)), "perspective": 300,
+               "motion_blur": {"shutter": 360, "samples": 8}}),
+        json!({"id": "turned", "type": "rect", "start": 0, "end": 1100, "x": 275, "y": 130,
+               "origin": "center", "width": 50, "height": 30, "fill": "#FF3B30",
+               "swivel": 50, "perspective": 300, "rotation": moving(json!(0.0), json!(90.0)),
+               "scale": moving(json!([1.0, 1.0]), json!([1.4, 0.8])),
+               "effects": [{"name": "blur", "radius": 1}]}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/projection.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "projection.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn projected_elements_paint_the_same_frames_on_one_to_ten_painters_with_the_hint_on_or_off() {
+    // ADR-0167 §11's byte identity, in the build (#787), under ADR-0144: the slice's gating
+    // test. The video keeps an unforced render on one painter, so every run is forced.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = projection_project(line!());
+    let validated = montagent_core::validate(&path);
+    assert_eq!(
+        validated.exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        validated.findings
+    );
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the projections move on every frame"
+    );
+    let mut runs = 1;
+    for (painters, chunk) in [
+        (1, 2),
+        (2, 1),
+        (3, 2),
+        (4, 3),
+        (5, 7),
+        (6, 4),
+        (7, 2),
+        (8, 5),
+        (9, 1),
+        (10, 1),
+        (10, 3),
+        (3, 40),
+    ] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+        runs += 1;
+    }
+    for forced in [
+        Forced::OnePainter,
+        chunks(2, 1),
+        chunks(3, 2),
+        chunks(5, 7),
+        chunks(10, 1),
+        chunks(10, 3),
+    ] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+        runs += 1;
+    }
+    println!("{runs} renders of 33 frames, every frame byte-identical to one painter's");
+}

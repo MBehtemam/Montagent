@@ -381,6 +381,9 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "radius",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -408,6 +411,9 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "trim_offset",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -432,6 +438,9 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "path_offset",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -442,7 +451,16 @@ fn the_list_is_what_the_schema_types_as_animatable() {
     assert_eq!(spacing.minimum, None);
     assert_eq!(
         names_of("image"),
-        ["x", "y", "scale", "rotation", "opacity"]
+        [
+            "x",
+            "y",
+            "scale",
+            "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
+            "opacity"
+        ]
     );
     assert_eq!(names_of("audio"), ["volume"]);
     assert!(names_of("transition").is_empty());

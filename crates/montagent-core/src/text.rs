@@ -2205,6 +2205,22 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
+    // ADR-0167 §7: a projected element's facing and its four corners, TL TR BR BL. The
+    // three numbers are among the values above where written.
+    if let Some(projection) = element.get("projection").filter(|p| p.is_object()) {
+        let corners = match projection["corners"].as_array() {
+            Some(corners) => corners
+                .iter()
+                .map(|corner| format!("({}, {})", corner[0], corner[1]))
+                .collect::<Vec<_>>()
+                .join(" "),
+            None => "none".to_string(),
+        };
+        cells.push(format!(
+            "facing {}, corners {corners}",
+            projection["facing"].as_str().unwrap_or("?")
+        ));
+    }
     // ADR-0161 §8: a text on a path's offset, its curve's informative length, and the
     // letters the curve hides.
     if let Some(bent) = element.get("text_path").filter(|bent| bent.is_object()) {

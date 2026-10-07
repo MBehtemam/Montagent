@@ -391,6 +391,7 @@ fn sample(
             rotation: 0.0,
             opacity: 1.0,
             blend: montagent_render::canvas::Blend::Normal,
+            projection: None,
             origin: (0.0, 0.0),
         },
         None,

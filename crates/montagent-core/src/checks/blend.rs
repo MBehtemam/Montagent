@@ -123,8 +123,8 @@ pub fn check(document: &Loose, report: &mut Report) {
             }
             Outcome::NotChecked(instant) => report.not_checked(format!(
                 "{CODE} on {}: at {instant} ms every box beneath it that meets its bounding \
-                 box is rotated, or it is, and bounding boxes alone cannot prove the boxes \
-                 meet.",
+                 box is rotated or projected, or it is, and bounding boxes alone cannot prove \
+                 the boxes meet.",
                 blended.id
             )),
         }
@@ -213,6 +213,13 @@ impl Bounds {
 /// `scale` and `rotation` as the painter places it (translate, rotate, scale, about the
 /// origin), then cut to `clip`. `None` where it has no readable box or `clip` leaves none.
 fn bounds(element: &Value, instant: i64, frame: (i64, i64)) -> Option<Bounds> {
+    // A projected element's bounding box is its quadrilateral's (ADR-0167 §6), facing away
+    // or not, as a box under `opacity: 0` still counts here; it bounds a quadrilateral, as a
+    // rotated box's does.
+    if crate::projection::projects(element) {
+        let [left, top, right, bottom] = crate::projection::quad(element, instant, frame)?.bounds();
+        return clipped(element, left, top, right, bottom, true);
+    }
     let width = element.get("width").and_then(Value::as_i64)? as f64;
     let height = element.get("height").and_then(Value::as_i64)? as f64;
     if width <= 0.0 || height <= 0.0 {
@@ -239,6 +246,18 @@ fn bounds(element: &Value, instant: i64, frame: (i64, i64)) -> Option<Bounds> {
         top = top.min(py);
         bottom = bottom.max(py);
     }
+    clipped(element, left, top, right, bottom, rotation != 0.0)
+}
+
+/// A bounding box cut to the element's `clip`, or `None` where nothing is left.
+fn clipped(
+    element: &Value,
+    mut left: f64,
+    mut top: f64,
+    mut right: f64,
+    mut bottom: f64,
+    rotated: bool,
+) -> Option<Bounds> {
     if let Some(clip) = clip_rect(element) {
         left = left.max(clip.x as f64);
         top = top.max(clip.y as f64);
@@ -250,6 +269,6 @@ fn bounds(element: &Value, instant: i64, frame: (i64, i64)) -> Option<Bounds> {
         top,
         right,
         bottom,
-        rotated: rotation != 0.0,
+        rotated,
     })
 }

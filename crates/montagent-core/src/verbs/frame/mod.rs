@@ -123,7 +123,7 @@ use crate::media::Source;
 use crate::media::established::{self, Use};
 use crate::media::session::Session;
 use crate::media::tools::{self, Missing};
-use crate::model::{self, Colour, Origin};
+use crate::model::{self, Colour};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -2126,36 +2126,27 @@ impl<'a> Painter<'a> {
     /// have acted about it, so adding it there is the same as moving the finished element:
     /// it acts outside the element's own transform, and `scale` and `rotation` keep working
     /// underneath, untouched.
+    ///
+    /// The placement itself, the projection included, is [`crate::projection::placed`]: the
+    /// same reading the one geometry function every check asks takes (ADR-0167 §6).
     fn transform(&self, element: &Value) -> Transform {
-        let (frame_width, frame_height) = self.frame;
         let bridge = self.bridge(element);
-        let origin = match element.get("origin") {
-            None | Some(Value::Null) => Origin::Center,
-            Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
-        };
+        let placed = crate::projection::placed(element, self.t, self.frame);
         Transform {
-            x: geometry::number_at::<i64>(element, "x", self.t, frame_width as f64 / 2.0)
-                + bridge.offset.0 as f64,
-            y: geometry::number_at::<i64>(element, "y", self.t, frame_height as f64 / 2.0)
-                + bridge.offset.1 as f64,
-            origin: geometry::origin_fraction(origin),
-            scale: {
-                let [sx, sy] =
-                    geometry::number_at::<[f64; 2]>(element, "scale", self.t, [1.0, 1.0]);
-                (sx, sy)
-            },
-            rotation: geometry::number_at::<f64>(element, "rotation", self.t, 0.0),
+            x: placed.x + bridge.offset.0 as f64,
+            y: placed.y + bridge.offset.1 as f64,
             // The declared opacity, times whatever crossfade this element is bridged by.
             // Multiplied rather than replaced: a crossfade is a ramp *on* what the
             // document says, so an element already keyframed to 0.5 fades from 0.5 rather
             // than jumping to 1 to start.
-            opacity: geometry::number_at::<f64>(element, "opacity", self.t, 1.0) * bridge.fade,
+            opacity: placed.opacity * bridge.fade,
             // A sample is painted in `normal`: the average blends once (ADR-0155 §4).
             blend: if self.sampling {
                 montagent_render::canvas::Blend::Normal
             } else {
                 blend_of(element)
             },
+            ..placed
         }
     }
 

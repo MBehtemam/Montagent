@@ -1295,6 +1295,83 @@ true{/open}{?bare}, or give the window an end with `trim_start` or `trim_end`{/b
         census: None,
         sets: &[Document],
     },
+    // ---- Projection (#787, ADR-0167, ADR-0168). ----------------------------------------
+    CheckSpec {
+        // ADR-0167 §8. Refuse: how far the eye sits is the author's choice, and no value
+        // follows from the document. The published schema states the rule as well.
+        code: "E-PROJECTION-PERSPECTIVE-MISSING",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: `{angles}` is written with no `perspective`, and a \
+projected element needs the eye's distance in px to be drawn in perspective. Add a \
+`perspective`, or drop `{angles}`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`. Advise: with neither angle
+        // written the element is not projected, so dropping it changes nothing drawn. An
+        // angle written as `0` counts as written (ADR-0168 §1).
+        code: "E-PROJECTION-PERSPECTIVE-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: there is no `swivel` or `tilt` for it to project, \
+so it changes nothing. Drop it, or add the angle you meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §5, §8. Advise: the bound names the one value that clears it, so the fix
+        // is one edit (ADR-0167's four tests).
+        code: "E-PROJECTION-EYE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: at {instant} ms ({why}) `perspective` is \
+{perspective}, and the farthest corner of the box, widened by its effects' reach, is {r} px from \
+`origin`, so part of the element would reach the eye. `perspective` must exceed that at every \
+key and eased extreme: {passing} is the smallest whole value that passes there.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0168 §3: the near edge's magnification d / (d − r) past 2. A review, because
+        // strong foreshortening may be meant; the trigger is stated as the magnification.
+        code: "R-PROJECTION-SOFT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0168",
+        template: "{element}: at {instant} ms the near edge is magnified {magnification}× by \
+the projection, so it draws soft. A `perspective` of {perspective} or more brings it back to 2×; \
+leave it where the strong foreshortening is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8, the counterpart of `R-MASK-ERASES-ALL`: a projected element that faces
+        // away or is edge-on at every instant of its presence draws nothing.
+        code: "R-PROJECTION-AWAY",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element} faces away or is edge-on at every instant of {start}..{end} ms, so \
+it draws nothing. A projected element draws only while its front faces the eye: \
+`cos(swivel) × cos(tilt)` above 0.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     CheckSpec {
         code: "R-CAPTION-PACE",
         classes: &[Review],

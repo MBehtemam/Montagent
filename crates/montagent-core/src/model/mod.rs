@@ -139,6 +139,57 @@ impl JsonSchema for Length {
     }
 }
 
+/// `perspective` (ADR-0167 §1): the eye's distance from the element's plane, in px, in a
+/// static value and in every keyframe record. Greater than `0`; there is no default, and the
+/// field is required wherever `swivel` or `tilt` is written.
+///
+/// The type states the bound in the published schema, as [`Length`] states its own.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct Perspective(pub f64);
+
+impl<'de> Deserialize<'de> for Perspective {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let px = f64::deserialize(deserializer)?;
+        if !(px > 0.0 && px.is_finite()) {
+            return Err(D::Error::custom(format!(
+                "a perspective is {px}: `perspective` is the eye's distance in px, a number \
+                 greater than 0, in a static value and in every keyframe record (ADR-0167)"
+            )));
+        }
+        Ok(Perspective(px))
+    }
+}
+
+impl JsonSchema for Perspective {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Perspective".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": 0.0,
+            "description": "The eye's distance from the element's plane, in px: greater than \
+                            `0`, in a static value and in every keyframe record (ADR-0167).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for Perspective {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        <f64 as crate::resolve::Interpolate>::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
 impl<'de> Deserialize<'de> for Colour {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let text = String::deserialize(d)?;
@@ -555,6 +606,21 @@ pub struct Image {
     /// and a writer that wraps it silently renders one third of the motion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -605,6 +671,21 @@ pub struct Video {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -732,6 +813,21 @@ pub struct TextElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -926,6 +1022,21 @@ pub struct Rect {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1002,6 +1113,21 @@ pub struct Ellipse {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1095,6 +1221,21 @@ pub struct PathElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

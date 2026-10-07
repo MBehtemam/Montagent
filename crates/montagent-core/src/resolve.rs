@@ -418,6 +418,45 @@ fn bezier([x1, y1, x2, y2]: [f64; 4], x: f64) -> f64 {
     cubic(y1, y2, s)
 }
 
+/// The **eased extremes** of one segment: the fractions of its time, strictly inside it, at
+/// which the eased progress stops rising or falling — where an overshooting curve turns. A
+/// value keyed with this ease reaches its own extremes there or at the segment's ends, so a
+/// check that must hold "at every key and eased extreme" (ADR-0167 §5) reads these. Empty for
+/// `step`, which holds, and for a curve that never turns.
+pub(crate) fn eased_extremes(ease: &Ease) -> Vec<f64> {
+    let [x1, y1, x2, y2] = match ease {
+        Ease::Named(name) => match name.bezier() {
+            Some(points) => points,
+            None => return Vec::new(),
+        },
+        Ease::Bezier(points) => *points,
+    };
+    // dy/ds = 3(1−s)²·y1 + 6(1−s)s·(y2 − y1) + 3s²·(1 − y2), a quadratic a·s² + b·s + c.
+    let a = 3.0 * y1 - 6.0 * (y2 - y1) + 3.0 * (1.0 - y2);
+    let b = -6.0 * y1 + 6.0 * (y2 - y1);
+    let c = 3.0 * y1;
+    let roots: Vec<f64> = if a.abs() < 1e-12 {
+        if b.abs() < 1e-12 {
+            Vec::new()
+        } else {
+            vec![-c / b]
+        }
+    } else {
+        let discriminant = b * b - 4.0 * a * c;
+        if discriminant < 0.0 {
+            Vec::new()
+        } else {
+            let root = discriminant.sqrt();
+            vec![(-b - root) / (2.0 * a), (-b + root) / (2.0 * a)]
+        }
+    };
+    roots
+        .into_iter()
+        .filter(|s| *s > 0.0 && *s < 1.0)
+        .map(|s| cubic(x1, x2, s))
+        .collect()
+}
+
 /// One coordinate of the curve at parameter `s`, with the endpoints fixed at 0 and 1.
 fn cubic(c1: f64, c2: f64, s: f64) -> f64 {
     let r = 1.0 - s;
