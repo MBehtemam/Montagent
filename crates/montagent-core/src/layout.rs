@@ -54,6 +54,9 @@ pub enum Published<'a> {
     /// front of every branch's property list in the published schema, so there is no
     /// second rule here for it.
     Element(&'a str),
+    /// One member of an element's `effects` list, by its `name` (#774). ADR-0163 §3 states
+    /// the mask's: `name, shape, x, y, width, height, radius, points, invert, feather`.
+    Effect(&'a str),
 }
 
 impl Published<'_> {
@@ -64,6 +67,12 @@ impl Published<'_> {
     /// alone. That is the mid-edit file ADR-0042 insists stays formattable.
     pub fn of_element(element: &Value) -> Published<'_> {
         Published::Element(element.get("type").and_then(Value::as_str).unwrap_or(""))
+    }
+
+    /// The shape of one `effects` member, read off its own `name` — the same leniency as
+    /// [`Published::of_element`]: a member with no string `name` has no published order.
+    pub fn of_effect(member: &Value) -> Published<'_> {
+        Published::Effect(member.get("name").and_then(Value::as_str).unwrap_or(""))
     }
 }
 
@@ -78,6 +87,7 @@ pub fn canonical_order(published: Published<'_>) -> Option<&'static [String]> {
         Published::Project => Some(&orders.project),
         Published::Track => Some(&orders.track),
         Published::Element(type_name) => orders.elements.get(type_name).map(Vec::as_slice),
+        Published::Effect(name) => orders.effects.get(name).map(Vec::as_slice),
     }
 }
 
@@ -124,18 +134,21 @@ pub fn is_canonical(published: Published<'_>, object: &Map<String, Value>) -> bo
 /// order for reordered, every track's elements sorted by `start`, and everything else left
 /// exactly as it was written.
 ///
-/// Three structures, because three is what the schema declares an order for: the header,
-/// each track, and each element. An object nested inside an element — a keyframe, a run, an
-/// effect — keeps the order it was written in: ADR-0041 states its rule for *"a universal
-/// prefix, then each type's property order"* and then scopes it, *"the universal prefix and
-/// per-type tail apply within an element only"*. Extending it downward would be this module
-/// inventing format, which is the ADR's own boundary.
+/// Four structures: the header, each track, each element, and each member of an element's
+/// `effects` list (#774) — the one nested object whose key order a decision states
+/// (ADR-0163 §3 for a mask), and whose order the schema publishes branch by branch. Any
+/// other object nested inside an element — a keyframe, a run, a vertex, and the keyframe
+/// records inside a member — keeps the order it was written in: ADR-0041 scopes its rule to
+/// *"within an element only"*, and extending it further down would be this module inventing
+/// format. The members themselves keep their order in the list, which is significant
+/// (ADR-0040): only the keys inside each one move.
 pub fn canonicalise(document: &Value) -> Value {
     walk(document, Reach::WholeDocument)
 }
 
 /// The same, leaving each element's own key order as written — the header, the tracks, the
-/// element sort and the line layout canonical, each element's keys untouched.
+/// element sort, each `effects` member's keys and the line layout canonical, each element's
+/// own keys untouched.
 ///
 /// Not a second convention. It exists so a report can subtract what `L-KEY-ORDER` already
 /// says: compared against the file as written, what is left is exactly the part of a
@@ -177,10 +190,10 @@ fn walk_track(track: &Value, reach: Reach) -> Value {
 
     let mut out = reorder(Published::Track, object);
     if let Some(Value::Array(elements)) = out.get("elements") {
-        let mut elements: Vec<Value> = match reach {
-            Reach::WholeDocument => elements.iter().map(canonical_element).collect(),
-            Reach::ExceptElements => elements.clone(),
-        };
+        let mut elements: Vec<Value> = elements
+            .iter()
+            .map(|element| canonical_element(element, reach))
+            .collect();
         sort_by_start(&mut elements);
         out.insert("elements".into(), Value::Array(elements));
     }
@@ -210,10 +223,36 @@ fn sort_by_start(elements: &mut [Value]) {
     });
 }
 
-fn canonical_element(element: &Value) -> Value {
-    match element.as_object() {
-        Some(object) => Value::Object(reorder(Published::of_element(element), object)),
-        None => element.clone(),
+/// One element: its own keys canonical where `reach` says so, and the keys of each of its
+/// `effects` members canonical either way.
+///
+/// The members are canonical under both reaches because an out-of-order member is not what
+/// `L-KEY-ORDER` names — that finding is about the element's own keys and states their
+/// expected order — so it must be what `L-LAYOUT`'s comparison sees, or `fmt --check` would
+/// stay silent about a rewrite `fmt` then makes.
+fn canonical_element(element: &Value, reach: Reach) -> Value {
+    let Some(object) = element.as_object() else {
+        return element.clone();
+    };
+
+    let mut out = match reach {
+        Reach::WholeDocument => reorder(Published::of_element(element), object),
+        Reach::ExceptElements => object.clone(),
+    };
+    if let Some(Value::Array(effects)) = out.get("effects") {
+        let effects: Vec<Value> = effects.iter().map(canonical_effect).collect();
+        out.insert("effects".into(), Value::Array(effects));
+    }
+    Value::Object(out)
+}
+
+/// One `effects` member, its keys in the order its `name`'s branch publishes. A member that
+/// is not an object, or whose `name` is absent or unknown — a mid-edit member — is left as
+/// written, by [`reorder`]'s own rule for a shape with no published order.
+fn canonical_effect(member: &Value) -> Value {
+    match member.as_object() {
+        Some(object) => Value::Object(reorder(Published::of_effect(member), object)),
+        None => member.clone(),
     }
 }
 
@@ -225,6 +264,7 @@ struct Orders {
     project: Vec<String>,
     track: Vec<String>,
     elements: BTreeMap<String, Vec<String>>,
+    effects: BTreeMap<String, Vec<String>>,
 }
 
 fn orders() -> &'static Orders {
@@ -235,6 +275,7 @@ fn orders() -> &'static Orders {
             project: keys_of(schema.get("properties")),
             track: keys_of(schema.pointer("/$defs/Track/properties")),
             elements: element_orders(&schema),
+            effects: effect_orders(&schema),
         }
     })
 }
@@ -248,18 +289,44 @@ fn keys_of(properties: Option<&Value>) -> Vec<String> {
 
 /// One entry per branch of the element union, keyed by that branch's `type` const.
 fn element_orders(schema: &Value) -> BTreeMap<String, Vec<String>> {
+    branch_orders(schema, "/$defs/Element/oneOf", "type")
+}
+
+/// One entry per branch of the `Effect` union, keyed by that branch's `name` const.
+///
+/// The schema declares each branch's fields in the order the model declares them, which is
+/// the order serde's writer emits them — with one difference, the tag. `Effect` is an
+/// internally tagged enum: serde writes `name` **first**, and schemars lists it **last**,
+/// after the variant's fields. So the order here is the branch's properties with `name`
+/// hoisted to the front, which is the writer's order exactly (ADR-0163 §3 writes the mask's
+/// as `name, shape, …`). `tests/fmt_effects.rs` holds the two together for every member.
+fn effect_orders(schema: &Value) -> BTreeMap<String, Vec<String>> {
+    branch_orders(schema, "/$defs/Effect/oneOf", "name")
+        .into_iter()
+        .map(|(name, keys)| {
+            let order = std::iter::once("name".to_string())
+                .chain(keys.into_iter().filter(|key| key != "name"))
+                .collect();
+            (name, order)
+        })
+        .collect()
+}
+
+/// Each branch of the discriminated union at `pointer`, keyed by its `tag` const, mapped to
+/// its properties in declaration order.
+fn branch_orders(schema: &Value, pointer: &str, tag: &str) -> BTreeMap<String, Vec<String>> {
     let mut orders = BTreeMap::new();
     let branches = schema
-        .pointer("/$defs/Element/oneOf")
+        .pointer(pointer)
         .and_then(Value::as_array)
-        .expect("the published element is a discriminated union");
+        .unwrap_or_else(|| panic!("the published schema has a discriminated union at {pointer}"));
 
     for branch in branches {
         let Some(properties) = branch.get("properties").and_then(Value::as_object) else {
             continue;
         };
         let Some(type_name) = properties
-            .get("type")
+            .get(tag)
             .and_then(|tag| tag.get("const"))
             .and_then(Value::as_str)
         else {
