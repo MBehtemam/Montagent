@@ -2073,3 +2073,132 @@ fn text_on_a_path_paints_the_same_frames_on_one_to_ten_painters_with_the_hint_on
         assert_same(&sequential, &unbounded, "the hint off");
     }
 }
+
+/// ADR-0167 §11's gate and #787's fixture (ADR-0168, ADR-0144): a card flip and a door swing;
+/// a projected `video`; projected `text` and a `path`; a card with `mask`, `shadow`, `grain`,
+/// `directional_blur` and `blur`; a card under `motion_blur` that passes 90°; and a projected
+/// element that is also rotated and scaled. A keyed swivel crosses 0 and a keyed `x` moves by
+/// sub-pixels. 320×180 at 30 fps for 1100 ms: 33 frames.
+fn projection_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let to = dir.join("fonts/Cinzel-Bold.ttf");
+    std::fs::create_dir_all(to.parent().expect("a parent")).expect("asset dir");
+    std::fs::copy(trailer().join("fonts/Cinzel-Bold.ttf"), &to).expect("copy the trailer's face");
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let keyed = |records: &[(i64, f64)]| {
+        Value::Array(
+            records
+                .iter()
+                .enumerate()
+                .map(|(i, (t, v))| match i {
+                    0 => json!({"t": t, "v": v}),
+                    _ => json!({"t": t, "v": v, "ease": "linear"}),
+                })
+                .collect(),
+        )
+    };
+    let shadow = json!({"name": "shadow", "dx": 4, "dy": 3, "radius": 8, "color": "#FF9F2E", "opacity": 0.8});
+    let elements = [
+        // A door swing: hinged on its left edge, opening away and back.
+        json!({"id": "door", "type": "rect", "start": 0, "end": 1100, "x": 20, "y": 50,
+               "origin": "center-left", "width": 90, "height": 70, "fill": "#8A5A2B",
+               "swivel": keyed(&[(0, 0.0), (550, -70.0), (1100, 0.0)]), "perspective": 400}),
+        // A card flip: the front turns away at 90 and the back, a mirrored second element,
+        // turns into view.
+        json!({"id": "front", "type": "rect", "start": 0, "end": 1100, "x": 160, "y": 45,
+               "origin": "center", "width": 70, "height": 50, "fill": "#3BA0FF",
+               "swivel": keyed(&[(0, 0.0), (1100, 180.0)]), "perspective": 500}),
+        json!({"id": "back", "type": "rect", "start": 0, "end": 1100, "x": 160, "y": 45,
+               "origin": "center", "width": 70, "height": 50, "fill": "#FF3B30",
+               "scale": [-1, 1], "swivel": keyed(&[(0, -180.0), (1100, 0.0)]), "perspective": 500}),
+        json!({"id": "footage", "type": "video", "start": 0, "end": 1100, "source": clip,
+               "source_start": 0, "source_end": 1100, "x": 262, "y": 45, "origin": "center",
+               "width": 64, "height": 48, "fit": "literal", "volume": 0,
+               "swivel": keyed(&[(0, 25.0), (1100, -35.0)]),
+               "tilt": keyed(&[(0, -10.0), (1100, 20.0)]), "perspective": 500,
+               "effects": [{"name": "mask", "shape": "rect", "x": 4, "y": 4, "width": 56,
+                            "height": 40, "radius": 8}]}),
+        json!({"id": "word", "type": "text", "font": "cinzel-bold", "size": 30,
+               "color": "#E3C067", "align": "center", "runs": [{"text": "SPY"}], "width": 110,
+               "height": 40, "start": 0, "end": 1100, "x": 60, "y": 130, "origin": "center",
+               "swivel": keyed(&[(0, -40.0), (1100, 40.0)]), "perspective": 600}),
+        json!({"id": "star", "type": "path", "start": 0, "end": 1100, "x": 130, "y": 130,
+               "origin": "center", "width": 60, "height": 60, "closed": true,
+               "stroke": "#F2F2F2", "stroke_width": 3, "fill": "#20C0F0",
+               "points": [{"at": [30, 4]}, {"at": [38, 22]}, {"at": [56, 24]}, {"at": [42, 36]},
+                          {"at": [46, 54]}, {"at": [30, 44]}, {"at": [14, 54]}, {"at": [18, 36]},
+                          {"at": [4, 24]}, {"at": [22, 22]}],
+               "tilt": keyed(&[(0, 35.0), (1100, -35.0)]), "perspective": 500}),
+        // Every effect that reaches or reads the layer, on a card that turns both ways.
+        json!({"id": "fx", "type": "rect", "start": 0, "end": 1100,
+               "x": [{"t": 0, "v": 200}, {"t": 1100, "v": 207, "ease": "linear"}], "y": 130, "origin": "center",
+               "width": 80, "height": 56, "fill": "#F2F2F2",
+               "swivel": keyed(&[(0, 35.0), (1100, -20.0)]),
+               "tilt": keyed(&[(0, 10.0), (1100, 25.0)]), "perspective": 900,
+               "effects": [{"name": "mask", "shape": "ellipse", "feather": 6}, shadow,
+                           {"name": "grain", "seed": 3, "amount": 0.2, "size": 2, "mono": false},
+                           {"name": "directional_blur", "angle": 30, "length": 8},
+                           {"name": "blur", "radius": 2}]}),
+        // Passes 90 degrees inside one frame's shutter.
+        json!({"id": "blurred", "type": "rect", "start": 0, "end": 1100, "x": 290, "y": 130,
+               "origin": "center", "width": 50, "height": 40, "fill": "#7CFC00",
+               "swivel": keyed(&[(0, 30.0), (1100, 150.0)]), "perspective": 700,
+               "motion_blur": {"shutter": 360, "samples": 8}}),
+        // Projected, then rotated and scaled.
+        json!({"id": "turned", "type": "rect", "start": 0, "end": 1100, "x": 95, "y": 90,
+               "origin": "center", "width": 50, "height": 30, "fill": "#FF8C00",
+               "rotation": keyed(&[(0, 0.0), (1100, 37.0)]), "scale": [1.3, 0.8],
+               "swivel": 50, "tilt": -20, "perspective": 800}),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/projection.mp4",
+        "fonts": {"cinzel-bold": [{"file": "fonts/Cinzel-Bold.ttf"}]},
+        "fontVendor": {"fonts/Cinzel-Bold.ttf": {
+            "licence": "OFL-1.1",
+            "source": "google/fonts ofl/cinzel, instanced wght=700",
+            "sha256": "c9ac320a5f48ecb57db76bc0b942ccc39eb89994e37fb182a454ec273ee43e02"}},
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "projection.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn projections_paint_the_same_frames_on_one_to_ten_painters_with_the_hint_on_or_off() {
+    // ADR-0167 §11's gate: if this fails, the slice fails.
+    if !has_ffprobe() {
+        return;
+    }
+    let path = projection_project(line!());
+    let validated = montagent_core::validate(&path);
+    assert_eq!(
+        validated.exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        validated.findings
+    );
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the cards turn on every frame"
+    );
+    for (painters, chunk) in [(2, 1), (3, 2), (4, 3), (5, 7), (7, 2), (10, 1), (10, 3)] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2), chunks(10, 1)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}

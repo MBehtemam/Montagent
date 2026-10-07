@@ -512,6 +512,262 @@ fn off_canvas_reads_the_projected_bounds_not_the_flat_box() {
     assert!(of(&on_frame(-100, -30, 120), "R-OFF-CANVAS").is_empty());
 }
 
+#[test]
+fn the_layer_tie_reads_the_projected_bounds_not_the_flat_box() {
+    // Two elements on one layer. The card's flat box [600, 800] meets the plate's [550, 650],
+    // but swivelled -80 its quadrilateral is 684..720 and clear of it.
+    let tied = |swivel: Option<i64>| {
+        let mut moving = card(
+            200,
+            100,
+            json!({"id": "moving", "x": 700, "y": 180, "perspective": 1000}),
+        );
+        if let Some(swivel) = swivel {
+            moving["swivel"] = json!(swivel);
+        }
+        let plate = json!({"id": "plate", "type": "rect", "start": 0, "end": 1000,
+            "x": 600, "y": 180, "width": 100, "height": 100, "fill": "#FF0000"});
+        let mut document = project(1280, 360, &[]);
+        document["tracks"] = json!([
+            {"name": "a", "layer": 5, "elements": [moving]},
+            {"name": "b", "layer": 5, "elements": [plate]},
+        ]);
+        validated(&document)
+    };
+    assert_eq!(of(&tied(Some(-80)), "E-LAYER-TIE").len(), 0);
+    // Written `swivel: 0` is the flat box exactly, and the two do overlap.
+    assert_eq!(of(&tied(Some(0)), "E-LAYER-TIE").len(), 1);
+    // And a projected element is measured where a rotated one is refused.
+    assert!(of(&tied(Some(-80)), "U-LAYER-TIE-ROTATED").is_empty());
+}
+
+#[test]
+fn a_keyed_angle_is_motion_so_motion_blur_on_it_is_not_still() {
+    let blurred = |swivel: Value| {
+        card_report(
+            200,
+            100,
+            json!({"swivel": swivel, "perspective": 1000,
+                   "motion_blur": {"shutter": 180, "samples": 8}}),
+        )
+    };
+    assert_eq!(of(&blurred(json!(10)), "R-MOTION-BLUR-STILL").len(), 1);
+    let keyed = blurred(json!([{"t": 0, "v": 0}, {"t": 500, "v": 40, "ease": "linear"}]));
+    assert!(
+        of(&keyed, "R-MOTION-BLUR-STILL").is_empty(),
+        "{:#?}",
+        keyed.findings
+    );
+}
+
+#[test]
+fn a_motion_blur_sample_that_faces_away_is_transparent_and_the_divisor_stays_full() {
+    // One 40 ms frame holds a turn through 90 degrees: about half of a 360-degree
+    // shutter's samples face the eye. Each draws the white card; the rest draw nothing, and
+    // the mean over all of them is a white card at about half strength, never a full one.
+    let element = card(
+        200,
+        100,
+        json!({"perspective": 2000, "swivel": [
+                   {"t": 0, "v": 0}, {"t": 80, "v": 180, "ease": "linear"}],
+               "motion_blur": {"shutter": 360, "samples": 16}}),
+    );
+    // The frame at 40 ms spans 20 to 60 ms of a turn that is at 45 degrees and at 135.
+    let picture = painted(&project(640, 360, &[element]), 40);
+    let centre = picture.get_pixel(320, 180).0[0];
+    assert!(
+        (60..=200).contains(&centre),
+        "the centre is neither fully painted nor empty: {centre}"
+    );
+}
+
+// ---- the renderer, validate, query and the contact sheet agree ------------------------
+
+/// The pixel bounds of everything not black: `(left, top, right, bottom)`, right and bottom
+/// exclusive.
+fn lit_bounds(picture: &image::RgbaImage, threshold: u8) -> (u32, u32, u32, u32) {
+    let (mut l, mut t, mut r, mut b) = (u32::MAX, u32::MAX, 0, 0);
+    for (x, y, pixel) in picture.enumerate_pixels() {
+        if pixel.0[0] > threshold {
+            (l, t, r, b) = (l.min(x), t.min(y), r.max(x + 1), b.max(y + 1));
+        }
+    }
+    (l, t, r, b)
+}
+
+/// **The conformance test** (ADR-0146's lesson about copied lists): where the renderer paints
+/// a projected card, where `query --at` says its box is, and where `validate` says it never
+/// is are one place, each read through its own verb and none through the others' code.
+#[test]
+fn the_renderer_query_and_validate_agree_on_where_a_projected_card_is() {
+    let turned = |extra: Value| {
+        card(220, 120, {
+            let mut element = json!({"x": 300, "y": 200, "swivel": 50, "tilt": -30,
+                    "perspective": 700, "rotation": 15, "scale": [1.2, 0.9]});
+            for (key, value) in extra.as_object().expect("an object") {
+                element[key] = value.clone();
+            }
+            element
+        })
+    };
+
+    // Tight, with no effects: the painted bounds are the bounds query prints, to a pixel.
+    let plain = project(640, 400, &[turned(json!({}))]);
+    let ink = &viewed(&plain, 0)["ink_box"];
+    let (x, y) = (number(&ink["x"]), number(&ink["y"]));
+    let (w, h) = (number(&ink["width"]), number(&ink["height"]));
+    let (l, t, r, b) = lit_bounds(&painted(&plain, 0), 0);
+    assert!((f64::from(l) - x.floor()).abs() <= 1.0, "left {l} vs {x}");
+    assert!((f64::from(t) - y.floor()).abs() <= 1.0, "top {t} vs {y}");
+    assert!(
+        (f64::from(r) - (x + w).ceil()).abs() <= 1.0,
+        "right {r} vs {}",
+        x + w
+    );
+    assert!(
+        (f64::from(b) - (y + h).ceil()).abs() <= 1.0,
+        "bottom {b} vs {}",
+        y + h
+    );
+
+    // With effects: the box is widened by their reach, and nothing the renderer paints,
+    // down to the faintest pixel of a blurred shadow, falls outside it.
+    let shadowed = project(
+        640,
+        400,
+        &[turned(json!({"effects": [
+            {"name": "shadow", "dx": 24, "dy": 16, "radius": 12, "color": "#FFFFFF", "opacity": 1},
+            {"name": "blur", "radius": 4}]}))],
+    );
+    let ink = &viewed(&shadowed, 0)["ink_box"];
+    let (x, y) = (number(&ink["x"]), number(&ink["y"]));
+    let (w, h) = (number(&ink["width"]), number(&ink["height"]));
+    let (l, t, r, b) = lit_bounds(&painted(&shadowed, 0), 0);
+    assert!(f64::from(l) >= x.floor() - 1.0 && f64::from(t) >= y.floor() - 1.0);
+    assert!(f64::from(r) <= (x + w).ceil() + 1.0 && f64::from(b) <= (y + h).ceil() + 1.0);
+    // And the effects did widen it: the shadowed box is larger than the bare one.
+    assert!(w > number(&viewed(&plain, 0)["ink_box"]["width"]) + 20.0);
+
+    // `validate`'s R-OFF-CANVAS reports the same rectangle for the same card moved off the
+    // frame: a frame too small to meet it, so the finding names the box it computed.
+    let aside = project(100, 100, &[turned(json!({"x": 700, "y": 700}))]);
+    let off = validated(&aside);
+    let found = of(&off, "R-OFF-CANVAS");
+    assert_eq!(found.len(), 1, "{:#?}", off.findings);
+    let moved = viewed(&aside, 0);
+    let ink = &moved["ink_box"];
+    let reported = |field: &str| found[0].fields[field].as_i64().expect("whole pixels");
+    assert_eq!(reported("x"), number(&ink["x"]).floor() as i64);
+    assert_eq!(reported("y"), number(&ink["y"]).floor() as i64);
+    assert_eq!(
+        reported("x") + reported("width"),
+        (number(&ink["x"]) + number(&ink["width"])).ceil() as i64
+    );
+}
+
+#[test]
+fn the_contact_sheet_marks_the_three_fields_where_they_change() {
+    use montagent_core::verbs::frame::{Ask as FrameAsk, frame};
+    let element = card(
+        200,
+        100,
+        json!({"swivel": [{"t": 0, "v": 0}, {"t": 400, "v": 30, "ease": "linear"},
+                          {"t": 800, "v": 0, "ease": "linear"}],
+               "tilt": [{"t": 0, "v": 0}, {"t": 400, "v": 10, "ease": "linear"},
+                        {"t": 800, "v": 0, "ease": "linear"}],
+               "perspective": [{"t": 0, "v": 900}, {"t": 400, "v": 1200, "ease": "linear"},
+                               {"t": 800, "v": 900, "ease": "linear"}]}),
+    );
+    let dir = tempdir(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &canonical(&project(320, 180, &[element]).to_string()),
+    );
+    let sheet = frame(
+        &path,
+        &FrameAsk {
+            from: Some(0),
+            to: Some(800),
+            keyframes: true,
+            ..FrameAsk::default()
+        },
+    )
+    .to_json();
+    let points: Vec<String> = sheet["sheet"]["provenance"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|tile| tile["keyframes"].as_array().into_iter().flatten())
+        .filter_map(|point| point.as_str().map(String::from))
+        .collect();
+    for field in ["swivel", "tilt", "perspective"] {
+        assert!(
+            points
+                .iter()
+                .any(|p| p.starts_with(&format!("card.{field}@"))),
+            "{field} has no change point on the sheet: {points:?}"
+        );
+    }
+}
+
+// ---- shift ---------------------------------------------------------------------------
+
+#[test]
+fn shift_moves_a_projected_elements_keyed_angles_and_perspective() {
+    use montagent_core::verbs::shift::{Ask as ShiftAsk, shift};
+    let element = card(
+        200,
+        100,
+        json!({"swivel": [{"t": 100, "v": 0}, {"t": 600, "v": 40, "ease": "linear"}],
+               "tilt": [{"t": 100, "v": 0}, {"t": 600, "v": 10, "ease": "linear"}],
+               "perspective": [{"t": 100, "v": 1000}, {"t": 600, "v": 1400, "ease": "linear"}]}),
+    );
+    let dir = tempdir(std::panic::Location::caller().line());
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &canonical(&project(640, 360, &[element]).to_string()),
+    );
+    let answer = shift(
+        &path,
+        &ShiftAsk {
+            at: 300,
+            delta: 200,
+            scope: None,
+            release: Vec::new(),
+        },
+    );
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        answer.report().findings
+    );
+    let text = std::fs::read_to_string(&path).expect("the file");
+    let written: Value = serde_json::from_str(&text).expect("a project");
+    let card = &written["tracks"][0]["elements"][0];
+    // Every one of the three was split at 300 and shifted, as `x` and `opacity` are.
+    for field in ["swivel", "tilt", "perspective"] {
+        let ts: Vec<i64> = card[field]
+            .as_array()
+            .unwrap_or_else(|| panic!("{field} stays a keyframe list"))
+            .iter()
+            .map(|record| record["t"].as_i64().expect("a t"))
+            .collect();
+        assert!(ts.contains(&100), "{field}: {ts:?}");
+        assert!(
+            ts.contains(&300),
+            "{field} is split where the shift cuts: {ts:?}"
+        );
+        assert!(
+            ts.contains(&500),
+            "{field} after the cut moves by 200: {ts:?}"
+        );
+        assert!(ts.contains(&800), "{field}: {ts:?}");
+    }
+}
+
 // ---- the path an element takes -------------------------------------------------------
 
 /// A white card whose rotation and scale make the resample show: an axis-aligned card at a
