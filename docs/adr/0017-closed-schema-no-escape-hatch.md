@@ -5,6 +5,9 @@ amends: 0016 (settles the unknown-key policy ADR-0016 requires and does not take
 
 # The project schema is closed everywhere, and there is no in-band escape hatch
 
+> **Amended by [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)**: reaffirmed, not reopened. An open shader or script file
+> stays refused, and a code-drawn look enters as pre-rendered footage instead.
+
 [#75](https://github.com/MBehtemam/Montagent/issues/75). ADR-0016 spends the format's entire
 forward-compatibility budget on the unknown-key error, and states plainly that its mechanism
 "does not exist" unless the schema is closed to unknown keys — but no accepted document had
