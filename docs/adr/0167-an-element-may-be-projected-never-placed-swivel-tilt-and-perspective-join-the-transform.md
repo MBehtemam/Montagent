@@ -5,6 +5,11 @@ amends: 0040 (its "3D / perspective distortion" refusal on model grounds: a per-
 
 # An element may be projected, never placed: `swivel`, `tilt` and `perspective` join the transform
 
+> **Amended by [ADR-0168](./0168-a-written-angle-always-projects-swivel-applies-before-tilt-and-strong-foreshortening-is-a-review.md)**: an element carrying `swivel` or `tilt` is always
+> projected, even at 0°, and only an element with neither field is unchanged (§1). The angles
+> compose as CSS's `perspective(d) rotateX(tilt) rotateY(swivel)` (§2). A review,
+> `R-PROJECTION-SOFT`, fires when the near edge's magnification d / (d − r) exceeds 2 (§8).
+
 [#705](https://github.com/MBehtemam/Montagent/issues/705), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0040](0040-effect-model-attachment-and-v1-vocabulary.md) refused "3D / perspective
