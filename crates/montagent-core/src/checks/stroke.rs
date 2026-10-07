@@ -38,7 +38,10 @@ pub fn check(document: &Loose, report: &mut Report) {
             });
         };
         if let Some(zero) = unstroked(element) {
-            for field in SHAPING.iter().filter(|field| element.get(**field).is_some()) {
+            for field in SHAPING
+                .iter()
+                .filter(|field| element.get(**field).is_some())
+            {
                 push(
                     Finding::new("E-STROKE-NO-STROKE")
                         .field("field", json!(field))

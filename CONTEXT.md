@@ -300,6 +300,15 @@ unchanging shape.
 _Avoid_: polyline, polygon, line (as types), anchor point (for a vertex), control point (for
 a handle as written; it is an offset), viewBox
 
+**Reach factor**:
+How far a path's stroke can reach from its outline, in half stroke widths: `k`, the larger
+of the `stroke_miter_limit` (for a `"miter"` join) and √2 (for a `"square"` cap where a cap
+draws), else 1. The **inset** `m = ceil(k × w / 2)` is the margin every vertex and handle
+keeps from the declared box's edges, so the box contains the ink on every frame. It is a
+worst-case bound, never a measured overlap.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: padding, margin (for the inset), stroke extent
+
 **Fill**:
 The paint inside a shape's outline. Optional when a `stroke` is
 present, giving an outlined shape; a shape with neither is a schema error naming both,

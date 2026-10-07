@@ -1151,10 +1151,27 @@ fn stroke_project(line: u32) -> PathBuf {
     };
     let elements = [
         join("round", 70, json!("round"), None, json!([shadow])),
-        join("bevel", 160, json!("bevel"), None, json!([{"name": "blur", "radius": 1.5}])),
-        join("miter-4", 250, json!("miter"), Some(4), json!([shadow, {"name": "blur", "radius": 2}])),
+        join(
+            "bevel",
+            160,
+            json!("bevel"),
+            None,
+            json!([{"name": "blur", "radius": 1.5}]),
+        ),
+        join(
+            "miter-4",
+            250,
+            json!("miter"),
+            Some(4),
+            json!([shadow, {"name": "blur", "radius": 2}]),
+        ),
         cap("butt", 110, "butt", json!([shadow])),
-        cap("round-cap", 140, "round", json!([{"name": "blur", "radius": 2}])),
+        cap(
+            "round-cap",
+            140,
+            "round",
+            json!([{"name": "blur", "radius": 2}]),
+        ),
         cap("square", 168, "square", json!([shadow])),
         json!({"id": "keyed", "type": "path", "start": 0, "end": 1100, "x": 230, "y": 130,
                "origin": "center", "width": 120, "height": 80, "closed": false,

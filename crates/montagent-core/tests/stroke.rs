@@ -80,19 +80,25 @@ fn a_square_cap_on_a_closed_path_adds_no_factor() {
 #[test]
 fn the_larger_factor_wins_and_a_miter_names_its_limit_over_a_square_cap() {
     // Limit 2 against √2: the miter is the larger factor.
-    let reach = stroke::reach(&open(json!({"stroke_join": "miter", "stroke_miter_limit": 2,
-        "stroke_cap": "square", "stroke_width": 8})));
+    let reach = stroke::reach(&open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 2,
+        "stroke_cap": "square", "stroke_width": 8}),
+    ));
     assert_eq!((reach.inset, reach.source), (8, Source::MiterLimit(2)));
     // Limit 1 always bevels, and √2 is the larger factor.
-    let reach = stroke::reach(&open(json!({"stroke_join": "miter", "stroke_miter_limit": 1,
-        "stroke_cap": "square", "stroke_width": 8})));
+    let reach = stroke::reach(&open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 1,
+        "stroke_cap": "square", "stroke_width": 8}),
+    ));
     assert_eq!((reach.inset, reach.source), (6, Source::SquareCap));
 }
 
 #[test]
 fn a_keyed_stroke_width_widens_by_its_largest_key() {
-    let reach = stroke::reach(&open(json!({"stroke_join": "miter", "stroke_miter_limit": 4,
-        "stroke_width": [{"t": 0, "v": 2}, {"t": 500, "v": 5, "ease": "linear"}]})));
+    let reach = stroke::reach(&open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 4,
+        "stroke_width": [{"t": 0, "v": 2}, {"t": 500, "v": 5, "ease": "linear"}]}),
+    ));
     assert_eq!(reach.inset, 10);
 }
 
@@ -160,8 +166,10 @@ fn schema_error(element: Value, says: &str) {
 #[test]
 fn a_path_takes_a_join_a_limit_and_a_cap() {
     assert_eq!(
-        errors(open(json!({"stroke_join": "miter", "stroke_miter_limit": 4,
-                           "stroke_cap": "square"}))),
+        errors(open(
+            json!({"stroke_join": "miter", "stroke_miter_limit": 4,
+                           "stroke_cap": "square"})
+        )),
         []
     );
     for join in ["round", "bevel"] {
@@ -175,7 +183,10 @@ fn a_path_takes_a_join_a_limit_and_a_cap() {
 #[test]
 fn each_field_is_static() {
     let keyed = |v: Value| json!([{"t": 0, "v": v}, {"t": 500, "v": v, "ease": "linear"}]);
-    schema_error(open(json!({"stroke_join": keyed(json!("bevel"))})), "static");
+    schema_error(
+        open(json!({"stroke_join": keyed(json!("bevel"))})),
+        "static",
+    );
     schema_error(open(json!({"stroke_cap": keyed(json!("round"))})), "static");
     schema_error(
         open(json!({"stroke_join": "miter", "stroke_miter_limit": keyed(json!(4))})),
@@ -230,7 +241,9 @@ fn on_a_rect_an_ellipse_or_text_each_field_is_refused_as_belonging_to_path() {
                 base["type"]
             );
             assert!(
-                errors.iter().all(|(code, _)| code != "E-SCHEMA-UNKNOWN-KEY"),
+                errors
+                    .iter()
+                    .all(|(code, _)| code != "E-SCHEMA-UNKNOWN-KEY"),
                 "not the newer-format unknown key: {errors:#?}"
             );
         }
@@ -303,10 +316,7 @@ fn any_cap_on_a_closed_path_is_undrawn_and_names_closed() {
     }
     for cap in ["butt", "round", "square"] {
         let element = open(json!({"stroke_cap": cap}));
-        assert_eq!(
-            fired(element, "E-STROKE-CAP-UNDRAWN"),
-            Vec::<Value>::new()
-        );
+        assert_eq!(fired(element, "E-STROKE-CAP-UNDRAWN"), Vec::<Value>::new());
     }
 }
 
@@ -370,9 +380,7 @@ fn outside_the_box_names_k_and_its_source_and_says_the_bound_is_worst_case() {
     let found = fired(element.clone(), "E-PATH-OUTSIDE-BOX");
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0]["k"], json!("√2"));
-    assert!(
-        prose(element).contains("inset 15 = ceil(√2 × 20 / 2), from `stroke_cap` \"square\""),
-    );
+    assert!(prose(element).contains("inset 15 = ceil(√2 × 20 / 2), from `stroke_cap` \"square\""),);
 }
 
 #[test]
@@ -380,11 +388,13 @@ fn the_overshoot_clamp_uses_the_widened_inset() {
     // The apex sinks from box y 20 to 60 under an ease whose `y` far below 0 carries it up
     // past the top of the 200×200 box. A miter limit of 5 on width 4 makes the inset 10, so
     // the clamped apex sits at y 10, not at the 2 a round join would give.
-    let element = open(json!({"stroke_join": "miter", "stroke_miter_limit": 5, "stroke_width": 4,
+    let element = open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 5, "stroke_width": 4,
         "points": [
             {"t": 0, "v": [{"at": [20, 90]}, {"at": [50, 20]}, {"at": [90, 90]}]},
             {"t": 1000, "v": [{"at": [20, 90]}, {"at": [50, 60]}, {"at": [90, 90]}],
-             "ease": [0.5, -3.0, 0.5, 1.0]}]}));
+             "ease": [0.5, -3.0, 0.5, 1.0]}]}),
+    );
     let resolved = montagent_core::animatable::at(&element, "points", 300)
         .expect("points are declared")
         .expect("points resolve");
@@ -445,8 +455,16 @@ fn each_join_draws_its_own_corner_and_the_limit_bevels_past_it() {
         WHITE,
         "a miter reaches past the round join"
     );
-    assert_eq!(below_round(json!({})), BLACK, "the round join stops at y 165");
-    assert_eq!(below_bevel(json!({})), WHITE, "the round join reaches y 163");
+    assert_eq!(
+        below_round(json!({})),
+        BLACK,
+        "the round join stops at y 165"
+    );
+    assert_eq!(
+        below_bevel(json!({})),
+        WHITE,
+        "the round join reaches y 163"
+    );
     assert_eq!(
         below_bevel(json!({"stroke_join": "bevel"})),
         BLACK,
@@ -474,7 +492,11 @@ fn each_cap_draws_its_own_end() {
     let (butt, round, square) = (line(None), line(Some("round")), line(Some("square")));
     assert_eq!(pixel(&butt, 162, 100), BLACK, "butt");
     assert_eq!(pixel(&round, 162, 100), WHITE, "round, on the axis");
-    assert_eq!(pixel(&round, 164, 104), BLACK, "round, outside its half-disc");
+    assert_eq!(
+        pixel(&round, 164, 104),
+        BLACK,
+        "round, outside its half-disc"
+    );
     assert_eq!(pixel(&square, 164, 104), WHITE, "square, in its corner");
     assert_eq!(pixel(&square, 165, 100), BLACK, "square, past its end");
 }
@@ -537,11 +559,13 @@ fn a_keyed_miter_whose_in_between_corners_sharpen_past_the_limit_stays_in_the_bo
     // keys and closes to 0° and back in between. Limit 10, width 4: inset 20, and the tip
     // reaches at most 20 px right of x 140, to the box's right edge. Past the limit the
     // corner snaps to a bevel.
-    let element = open(json!({"stroke_join": "miter", "stroke_miter_limit": 10, "stroke_width": 4,
+    let element = open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 10, "stroke_width": 4,
         "points": [
             {"t": 0, "v": [{"at": [20, 30]}, {"at": [140, 80]}, {"at": [20, 130]}]},
             {"t": 1000, "v": [{"at": [20, 130]}, {"at": [140, 80]}, {"at": [20, 30]}],
-             "ease": "linear"}]}));
+             "ease": "linear"}]}),
+    );
     contained("keyed miter", element, 30);
 }
 
@@ -549,8 +573,10 @@ fn a_keyed_miter_whose_in_between_corners_sharpen_past_the_limit_stays_in_the_bo
 fn a_miter_corner_just_inside_limit_ten_stays_in_the_box() {
     // Half-angle atan(10 / 80) = 7.1°, a miter ratio of 8.06 at width 8: the tip sits 32 px
     // above the vertex at box y 40, inside the inset 40 = ceil(10 × 8 / 2).
-    let element = open(json!({"stroke_join": "miter", "stroke_miter_limit": 10, "stroke_width": 8,
-        "points": [{"at": [70, 120]}, {"at": [80, 40]}, {"at": [90, 120]}]}));
+    let element = open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 10, "stroke_width": 8,
+        "points": [{"at": [70, 120]}, {"at": [80, 40]}, {"at": [90, 120]}]}),
+    );
     contained("miter 10", element, 30);
 }
 
@@ -575,7 +601,9 @@ fn queried(element: Value) -> Value {
 
 #[test]
 fn query_at_reports_a_miter_paths_inset_and_reach_beside_its_control_points() {
-    let present = queried(open(json!({"stroke_join": "miter", "stroke_miter_limit": 10})));
+    let present = queried(open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 10}),
+    ));
     assert_eq!(
         present["stroke"],
         json!({"inset": 15, "reach_factor": "10", "reach_source": "`stroke_miter_limit` 10"}),
@@ -596,7 +624,9 @@ fn query_at_reports_a_miter_paths_inset_and_reach_beside_its_control_points() {
 fn query_at_prose_names_the_inset_and_its_reach() {
     use montagent_core::verbs::query::{Ask, query};
     use montagent_core::wire::{Wire, render_query};
-    let path = project(&[open(json!({"stroke_join": "miter", "stroke_miter_limit": 10}))]);
+    let path = project(&[open(
+        json!({"stroke_join": "miter", "stroke_miter_limit": 10}),
+    )]);
     let ask = Ask {
         at: Some(0),
         ..Ask::default()
