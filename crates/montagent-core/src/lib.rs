@@ -57,6 +57,7 @@ pub mod model;
 pub mod motion_blur;
 pub mod parse;
 pub mod permissive;
+pub mod projection;
 pub mod registry;
 pub mod remap;
 pub mod report;

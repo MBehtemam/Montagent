@@ -78,6 +78,7 @@ mod gradient;
 mod grain;
 mod layer_bound;
 mod named;
+mod projection;
 
 pub use gradient::{Gradient, GradientKind, Ink};
 pub use grain::grain_draw;
@@ -85,6 +86,7 @@ pub use grain::grain_draw;
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
 pub use layer_bound::set_enabled as bound_filter_layers;
+pub use projection::{Facing, Footprint, Projection, ReachBox, eye_bound, footprint, reach_box};
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +136,12 @@ pub struct Transform {
     /// transform property, and static, but carried here beside `opacity` because the two
     /// are applied together by the one layer the element is composited through.
     pub blend: Blend,
+    /// Present exactly when the element writes a `swivel` or a `tilt` (ADR-0168 §1): the
+    /// element is drawn flat, with its effects and mask, and that layer is projected about
+    /// `origin`, innermost, so `scale`, `rotation` and `x`/`y` act on the projected picture.
+    /// Present at 0° too, so the path depends on the file's keys and never on a value at an
+    /// instant. `None` paints exactly as an element always has.
+    pub projection: Option<Projection>,
 }
 
 /// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
@@ -1781,11 +1789,20 @@ impl Canvas {
             canvas.rotate(transform.rotation as f32, None);
         }
         canvas.scale((transform.scale.0 as f32, transform.scale.1 as f32));
-        canvas.translate((
-            (-transform.origin.0 * extent.width) as f32,
-            (-transform.origin.1 * extent.height) as f32,
-        ));
-        Canvas::through(canvas, extent, effects, draw);
+        match transform.projection {
+            None => {
+                canvas.translate((
+                    (-transform.origin.0 * extent.width) as f32,
+                    (-transform.origin.1 * extent.height) as f32,
+                ));
+                Canvas::through(canvas, extent, effects, draw);
+            }
+            Some(projection) => {
+                projection::paint(
+                    canvas, extent, transform, projection, self.base, effects, &draw,
+                );
+            }
+        }
         if layered {
             canvas.restore();
         }
@@ -1825,6 +1842,14 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
+        // ADR-0167 §3: no effect, bounds hint, grain plan or directional crop ever runs under
+        // a perspective matrix. A projected element is drawn flat onto a surface of its own
+        // first ([`projection::paint`]), so a perspective matrix here is a painter bug, and
+        // the one thing that could break byte identity across painters. Kept in release.
+        assert!(
+            !canvas.local_to_device_as_3x3().has_perspective(),
+            "an effect chain under a perspective matrix"
+        );
         // A `grain` at `amount: 0` is no member at all, rather than a layer that changes
         // nothing: the identity paints the bytes of the list without it (ADR-0156).
         let effects: Vec<Effect> = effects
@@ -2464,6 +2489,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2633,6 +2659,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
             },
             None,
             &[],
@@ -2961,6 +2988,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -3010,6 +3038,7 @@ mod tests {
             rotation,
             opacity: 1.0,
             blend: Blend::Normal,
+            projection: None,
         }
     }
 

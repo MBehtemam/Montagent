@@ -2156,6 +2156,9 @@ impl<'a> Painter<'a> {
             } else {
                 blend_of(element)
             },
+            // A written angle always projects, at any value (ADR-0168 §1); the samples of a
+            // motion-blurred frame evaluate it at their own instants (ADR-0167 §9).
+            projection: crate::projection::at(element, self.t),
         }
     }
 
