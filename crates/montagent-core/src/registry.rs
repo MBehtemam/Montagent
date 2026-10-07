@@ -2119,7 +2119,7 @@ frame. Write the rect you meant, or drop `invert`.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0167",
-        template: "{element}: `{field}` turns the element in front of an eye, and there is no \
+        template: "{element}: writing `{field}` turns the element in front of an eye, and there is no \
 `perspective` to say how far away the eye is. Add a `perspective` greater than the distance \
 from `origin` to the farthest corner of the box (about 1102 for a 1920 × 1080 element turned \
 about `center`), or drop `{field}`.",
