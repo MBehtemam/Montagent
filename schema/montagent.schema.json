@@ -448,6 +448,14 @@
               "description": "A stagger over the element's letters, words or lines (ADR-0151 §2–§3): each unit runs\nthe block's lists late by its delay. A `by: letter` block switches the optional\nligatures off as a non-zero `letter_spacing` does.",
               "$ref": "#/$defs/Units"
             },
+            "path": {
+              "description": "The curve the one line bends along, in a `path` element's point vocabulary, measured\nfrom this text's declared box (ADR-0161 §2). A guide: it is never painted. A text\ncarrying it sets one line only.",
+              "$ref": "#/$defs/TextPath"
+            },
+            "path_offset": {
+              "description": "Where on `path` the point `align` names sits, as a fraction of the curve's length from\nits start (ADR-0161 §5, ADR-0164 §1). Default `0`. Animating it slides the line along\nthe curve. Only on a text carrying `path`.",
+              "$ref": "#/$defs/AnimatablePathOffset"
+            },
             "scale": {
               "$ref": "#/$defs/AnimatableArray_size_2_of_double"
             },
@@ -485,7 +493,7 @@
             "size",
             "runs"
           ],
-          "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the transform properties, `effects`, and\nlast `caption`, which draws nothing and so follows everything that does (ADR-0136)."
+          "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the spacing and the stagger, the curve the\nline may bend along (ADR-0161), the transform properties, `effects`, and last `caption`,\nwhich draws nothing and so follows everything that does (ADR-0136)."
         },
         {
           "type": "object",
@@ -3376,6 +3384,104 @@
         }
       ],
       "description": "Which end of the reading order a stagger starts from."
+    },
+    "TextPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "closed": {
+          "type": "boolean",
+          "description": "Whether a last segment runs from the last vertex back to the first. Static."
+        },
+        "points": {
+          "$ref": "#/$defs/AnimatablePoints"
+        }
+      },
+      "required": [
+        "closed",
+        "points"
+      ],
+      "description": "A text's own curve (ADR-0161 §2): `closed`, required and static, and `points`, a `path`\nelement's vertex list in integer pixels from the text's declared box's top-left, keyed as\none whole list of unchanging shape. No other key: it is a guide, and draws nothing."
+    },
+    "AnimatablePathOffset": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PathOffset",
+          "description": "Constant for the element's whole life."
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/FirstKeyframePathOffset"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/KeyframePathOffset"
+          },
+          "description": "Keyframed. Clamps at both ends (ADR-0012): before the first record the value is the\nfirst value, after the last it is the last, so *\"and then it holds\"* costs no syntax.\nRecords must be written with strictly increasing `t` (ADR-0082) — array order is\nclock order.",
+          "minItems": 1
+        }
+      ],
+      "description": "A property that is either one value or a list of keyframe records.\n\nThe polymorphism is the format's, not a convenience: ADR-0055 restates it for `volume`\nas *\"the same scalar-or-keyframe-array polymorphism every other animatable property\nalready has.\"* It is deliberately **not** the same as the `scale` union ADR-0012\nrejected — that was two shapes for one *value* (`1.08` versus `[1.08, 1.08]`), which\nputs a shape test in every consumer; this is a value versus its animation over time,\nwhich no amount of normalising can collapse."
+    },
+    "PathOffset": {
+      "type": "number",
+      "format": "double",
+      "description": "A fraction of the curve's length, from `-1` to `2` inclusive, in a static value and in every keyframe record (ADR-0164).",
+      "minimum": -1.0,
+      "maximum": 2.0
+    },
+    "FirstKeyframePathOffset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/FirstDerivation"
+        },
+        "v": {
+          "$ref": "#/$defs/PathOffset"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "The first record of a keyframe list, which carries no `ease`: `ease` describes the segment *arriving at* a record, and nothing arrives at the first one. Writing one here is a schema error naming the convention, never an ignored field (ADR-0012, ADR-0038). Its `t_from`, where it carries one, is narrowed for the same reason (ADR-0086)."
+    },
+    "KeyframePathOffset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Milliseconds on the project's one absolute clock. Legal outside the element's own\nrange — that is how a trimmed move is spelled, and seven of the fixture's photo\nelements carry one."
+        },
+        "t_from": {
+          "description": "What this record's own `t` was derived from, where the author recorded it\n(ADR-0086).\n\n**Immediately after `t`**, which is the whole of ADR-0086's key-order\nspecification: ADR-0041 derives canonical order from schema order, and schema order\nis this struct's declaration order, so adjacency to the annotated value costs\nnothing to state twice and cannot drift.\n\nOptional, and its absence means *no claim* — never a claim of independence\n(ADR-0086's sixth condition of admission). Required was measured and rejected: on\nthe committed fixture it would put an escape value on 121 instants to check 14.",
+          "$ref": "#/$defs/Derivation"
+        },
+        "v": {
+          "$ref": "#/$defs/PathOffset"
+        },
+        "ease": {
+          "description": "The shape of the interpolation **arriving at** this record from the previous one.\n\nADR-0038: required on every record except the first, where it is a schema error.\nPresence is a pure function of position in the list, so there is never an absent\nvalue to default, normalise, or keep in sync with SPLIT's equality check. The\n`Option` here carries that positional rule, not a default.",
+          "$ref": "#/$defs/Ease"
+        }
+      },
+      "required": [
+        "t",
+        "v",
+        "ease"
+      ],
+      "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "DashPattern": {
       "type": "array",

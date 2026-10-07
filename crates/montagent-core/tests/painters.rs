@@ -1773,3 +1773,189 @@ fn time_remapped_video_paints_the_same_frames_on_any_number_of_painters() {
         assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
     }
 }
+
+/// ADR-0161 §9's run (#765): texts bent along their own curves, on a 320×180 frame at 30 fps
+/// for 1100 ms (33 frames): a centred arc turning under a `shadow` (so the bounds hint is in
+/// play), a title sliding on along a wave, a circle badge wrapping under a `blur`, a fading
+/// letter stagger with a `shadow`, a stroked banner with keyed points, and a mixed Arabic
+/// line sliding under motion blur.
+fn text_path_project(line: u32) -> PathBuf {
+    let dir = tempdir(line);
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
+    for (from, to) in [
+        (
+            fixtures.join("benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"),
+            "fonts/Oswald-SemiBold.ttf",
+        ),
+        (
+            fixtures.join("letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"),
+            "fonts/Naskh.ttf",
+        ),
+    ] {
+        let to = dir.join(to);
+        std::fs::create_dir_all(to.parent().expect("a parent")).expect("font dir");
+        std::fs::copy(from, &to).expect("copy the fixture font");
+    }
+    let ramp = |from: Value, to: Value, until: i64| json!([{"t": 0, "v": from}, {"t": until, "v": to, "ease": "ease-in-out"}]);
+    let arc = json!([{"at": [24, 70], "out": [40, -40]}, {"at": [136, 70], "in": [-40, -40]}]);
+    let wave = |amp: i64| {
+        json!([{"at": [20, 40], "out": [25, -amp]},
+               {"at": [80, 40], "in": [-25, amp], "out": [25, -amp]},
+               {"at": [140, 40], "in": [-25, amp]}])
+    };
+    let circle = json!([
+        {"at": [50, 15], "in": [-19, 0], "out": [19, 0]},
+        {"at": [85, 50], "in": [0, -19], "out": [0, 19]},
+        {"at": [50, 85], "in": [19, 0], "out": [-19, 0]},
+        {"at": [15, 50], "in": [0, 19], "out": [0, -19]}]);
+    let text = |id: &str, x: i64, y: i64, size: i64, words: &str, extra: Value| {
+        let mut element = json!({"id": id, "type": "text", "start": 0, "end": 1100, "x": x,
+            "y": y, "origin": "top-left", "width": 160, "height": 90, "font": "titles",
+            "size": size, "color": "#F2E6C9", "runs": [{"text": words}], "caption": false});
+        for (key, value) in extra.as_object().expect("fields") {
+            element[key] = value.clone();
+        }
+        element
+    };
+    let elements = [
+        text(
+            "arc",
+            0,
+            0,
+            18,
+            "OVER THE ARC",
+            json!({"align": "center",
+            "path": {"closed": false, "points": arc}, "path_offset": 0.5,
+            "rotation": ramp(json!(0.0), json!(12.0), 1100),
+            "effects": [{"name": "shadow", "dx": 2, "dy": 3, "radius": 4, "color": "#000000",
+                         "opacity": 0.7}]}),
+        ),
+        text(
+            "slide",
+            160,
+            0,
+            14,
+            "SLIDING ON",
+            json!({"align": "end",
+            "path": {"closed": false, "points": wave(14)},
+            "path_offset": ramp(json!(0.0), json!(1.0), 1000)}),
+        ),
+        text(
+            "badge",
+            0,
+            85,
+            12,
+            "ROUND AND ROUND IT GOES",
+            json!({"width": 100,
+            "height": 100, "path": {"closed": true, "points": circle},
+            "path_offset": ramp(json!(0.0), json!(1.0), 1000),
+            "effects": [{"name": "blur", "radius": 1}]}),
+        ),
+        text(
+            "stagger",
+            100,
+            80,
+            18,
+            "DROP IN",
+            json!({"align": "center",
+            "path": {"closed": false, "points": arc}, "path_offset": 0.5,
+            "units": {"by": "letter", "every": 70, "y": ramp(json!(-40), json!(0), 500),
+                      "rotation": ramp(json!(-30.0), json!(0.0), 500),
+                      "opacity": ramp(json!(0.0), json!(1.0), 400)},
+            "effects": [{"name": "shadow", "dx": 2, "dy": 2, "radius": 3, "color": "#000000",
+                         "opacity": 0.6}]}),
+        ),
+        text(
+            "banner",
+            160,
+            60,
+            14,
+            "WAVING BANNER",
+            json!({"align": "center",
+            "path": {"closed": false, "points": [
+                {"t": 0, "v": wave(14)}, {"t": 550, "v": wave(-14), "ease": "ease-in-out"},
+                {"t": 1100, "v": wave(14), "ease": "ease-in-out"}]},
+            "path_offset": 0.5, "stroke": "#7A1F1F", "stroke_width": 2}),
+        ),
+        text(
+            "arabic",
+            160,
+            95,
+            16,
+            "بسم الله 2026",
+            json!({
+            "path": {"closed": false, "points": [{"at": [20, 60], "out": [40, -30]},
+                                                  {"at": [140, 60], "in": [-40, -30]}]},
+            "path_offset": ramp(json!(0.0), json!(0.2), 1100),
+            "motion_blur": {"shutter": 180, "samples": 4}}),
+        ),
+    ];
+    let tracks: Vec<Value> = elements
+        .into_iter()
+        .enumerate()
+        .map(|(i, element)| json!({"name": format!("t{i}"), "layer": i, "elements": [element]}))
+        .collect();
+    let project = json!({
+        "frame": {"width": 320, "height": 180}, "fps": 30, "background": "#101418",
+        "duration": 1100, "output": "out/text-path.mp4",
+        "fonts": {"titles": [{"file": "fonts/Oswald-SemiBold.ttf"}, {"file": "fonts/Naskh.ttf"}]},
+        "fontVendor": {
+            "fonts/Oswald-SemiBold.ttf": {
+                "licence": "OFL-1.1",
+                "source": "google/fonts ofl/oswald, instanced wght=600",
+                "sha256": "442420449b66e3f8a49025fbb229a8b4b1efa5f7be9458a7c3244498d34f8de9"},
+            "fonts/Naskh.ttf": {
+                "licence": "OFL-1.1",
+                "source": "notofonts/arabic NotoNaskhArabic-v2.019",
+                "sha256": "eb5cde7fecba8c6a481039257fe02d5fd69b7b0e36f8afc56ee22f4b1d7e8c21"},
+        },
+        "tracks": tracks,
+    });
+    write_project(
+        &dir,
+        "text-path.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+#[test]
+fn text_on_a_path_paints_the_same_frames_on_one_to_ten_painters_with_the_hint_on_or_off() {
+    // ADR-0161 §9's byte identity, in the build (#765).
+    if !has_ffprobe() {
+        return;
+    }
+    let path = text_path_project(line!());
+    let validated = montagent_core::validate(&path);
+    assert_eq!(
+        validated.exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        validated.findings
+    );
+    let sequential = rendered(&path, Forced::OnePainter);
+    assert_eq!(sequential.exit, ExitCode::Ok, "{}", sequential.answer);
+    assert_eq!(sequential.frames.len(), 33);
+    assert!(
+        sequential.frames.windows(2).all(|pair| pair[0] != pair[1]),
+        "the texts move on every frame"
+    );
+    for (painters, chunk) in [
+        (2, 1),
+        (3, 2),
+        (4, 3),
+        (5, 7),
+        (6, 4),
+        (7, 2),
+        (8, 5),
+        (9, 1),
+        (10, 1),
+        (10, 3),
+    ] {
+        let chunked = rendered(&path, chunks(painters, chunk));
+        assert_same(&sequential, &chunked, &format!("K={painters}, C={chunk}"));
+    }
+    for forced in [Forced::OnePainter, chunks(3, 2), chunks(10, 1)] {
+        let unbounded = rendered_unbounded(&path, forced);
+        assert_same(&sequential, &unbounded, "the hint off");
+    }
+}

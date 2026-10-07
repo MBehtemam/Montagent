@@ -428,6 +428,28 @@ pub fn ink_box(
             "its resolved `scale` is {scale:?}; the ink box is not derived at a scaled size"
         ));
     }
+    // A text on a path draws its bent line in its declared box (ADR-0161 §7): the ink box is
+    // that line's ink, moved to where the box sits.
+    if crate::text_path::carries_path(element) {
+        let ink = crate::text_path::ink_at(document, element, instant)?
+            .ok_or_else(|| "no letter is drawn on its curve at this instant".to_string())?;
+        let origin = match element.get("origin") {
+            None | Some(Value::Null) => Origin::Center,
+            Some(value) => serde_json::from_value(value.clone())
+                .map_err(|_| format!("`origin` is not one of the nine keywords: {value}"))?,
+        };
+        let (fx, fy) = origin_fraction(origin);
+        let side = |key| element.get(key).and_then(Value::as_f64).unwrap_or(0.0);
+        let left = number::<i64>(element, "x", instant, frame.0 as f64 / 2.0) - fx * side("width");
+        let top = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0) - fy * side("height");
+        let [l, t, r, b] = ink;
+        return Ok(InkBox {
+            x: left + l,
+            y: top + t,
+            width: r - l,
+            height: b - t,
+        });
+    }
     let spec = Measurable::of(element)?;
 
     let mut fonts = montagent_text::Fonts::new();

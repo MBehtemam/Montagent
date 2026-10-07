@@ -280,6 +280,11 @@ pub struct Text {
     /// versions of this data legitimately disagree, so a set of offsets that did not name
     /// its source would be unfalsifiable.
     pub segmenter: Segmenter,
+    /// A text carrying `path`, at its first frame (ADR-0161 §8): the bent line's ink in
+    /// pixels from the declared box's top-left, and the letters the curve hides. The numbers
+    /// above are the flat line's. Absent on a text with no `path`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<crate::text_path::Reading>,
 }
 
 /// The style the measurement was taken in, read back off the element.
@@ -491,7 +496,10 @@ pub(crate) fn try_measure_element_at(
     // edit can falsify silently.
     .map_err(ElementError::Font)?;
 
-    Ok(Text::of(spec.asked, measured))
+    Ok(Text {
+        path: crate::text_path::Reading::first_frame(document, element),
+        ..Text::of(spec.asked, measured)
+    })
 }
 
 /// Measure every element in `elements`, in order, never rejecting the call for one bad slot
@@ -617,6 +625,7 @@ impl Text {
             ink_seams: measured.ink_seams,
             lines: measured.lines,
             segmenter: measured.segmenter,
+            path: None,
         }
     }
 }

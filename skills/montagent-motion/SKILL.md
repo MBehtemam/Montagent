@@ -208,3 +208,30 @@ A morph, shape to shape, is one `path` whose `points` are keyed, and the tween r
 
 - **Length:** 500–900 ms, `[0.65, 0, 0.35, 1]`. A morph reads as one change; give it the time a big move gets.
 - **Look:** `frame` at the middle of the morph and check the in-between shape has no twist or fold; then `preview` across it.
+
+### Bend a title along a curve
+
+A title on an arc, a wave or a circle badge is one `text` with its own `path`: the `path` element's `points`, measured from the text's box. `path_offset` (a fraction of the curve's length, -1 to 2) places the point `align` names, and keying it slides the line along the curve. Here a title sits centred on an arc, then slides along it.
+
+```json
+{
+  "frame": {"width": 1920, "height": 1080}, "fps": 30, "background": "#101418", "duration": 3000, "output": "out/arc.mp4",
+  "fonts": {"title": [{"file": "fonts/Inter-Bold.ttf"}]},
+  "fontVendor": {"fonts/Inter-Bold.ttf": {"licence": "OFL-1.1", "source": "https://github.com/rsms/inter", "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"}},
+  "tracks": [
+    {"name": "title", "layer": 20, "elements": [
+      {"id": "arc", "type": "text", "start": 0, "end": 3000, "x": 960, "y": 540, "origin": "center", "width": 1400, "height": 500, "font": "title", "size": 96, "color": "#F5F0E6", "align": "center", "runs": [{"text": "OVER THE TOP"}], "path": {"closed": false, "points": [{"at": [120, 380], "out": [380, -260]}, {"at": [1280, 380], "in": [-380, -260]}]}, "path_offset": [{"t": 0, "v": 0.5}, {"t": 1500, "v": 0.5, "ease": "linear"}, {"t": 2600, "v": 0.65, "ease": [0.65, 0, 0.35, 1]}], "caption": false}
+    ]}
+  ]
+}
+```
+
+1. **Keep every point inside the box, inset by the largest run `size` plus the largest `stroke_width`**: here 96, so the points stay within `[96, 1304] × [96, 404]`. `validate` names a point outside it.
+2. **`align` names an end of the curve**, not of the reading direction: `start` at offset 0 puts the line's left end on the curve's start, for Arabic too. Centre a title with `align: center` and `path_offset: 0.5`.
+3. **Slide on and off:** `align: start`, `path_offset` keyed from -1 to 1 brings the line in from the curve's start and takes it out past the end, in one element. A line longer than its curve cannot fully enter or leave: use a stagger's `x`, or a cut.
+4. **A circle badge** is four cubic vertices with handles of `0.5523 × r` (the morph recipe gives the vertex shape), clockwise on screen so the letters stand outside it. Write the list counter-clockwise to read along the bottom or from inside.
+5. **A letter stagger reads along the curve:** a `units` `y` lifts each letter off the curve along its normal, and `x` slides it along.
+6. **Fit:** `query --at` prints `hidden:` for the letters past an open end or beyond one loop of a circle; tighten the text or lengthen the curve until nothing is hidden. `measure` gives the bent line's ink, to size the box.
+
+- **Size:** one line, 6–20 letters. A curve tighter than the line is tall makes wide letters lift off it.
+- **Look:** `frame` at rest and check the letters sit evenly on the curve with no gap or overlap; then `preview` across the slide.

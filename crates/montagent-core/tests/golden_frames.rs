@@ -647,3 +647,52 @@ fn a_fine_cut_out_shrunk_reads_through_the_mipmaps() {
     let project = sampled(&dir, "sampling-shrunk", 160, &source, 0.3);
     against_sampling_golden("sampling-shrunk", &rendered(&project, 500, /* full */ true));
 }
+
+#[test]
+fn flat_text_renders_as_it_did_before_text_could_bend_along_a_path() {
+    // ADR-0161 changed the text painter: a text carrying `path` draws through its curve, and
+    // every other text must draw exactly as before. This golden was written by `main` before
+    // that change (#765), over what the painter's flat route carries: Arabic joined pieces, a
+    // mixed-direction line, letter spacing, a run's stroke, and a fading letter stagger
+    // caught mid-flight under a shadow.
+    let dir = tempdir(line!());
+    let fixtures = fixture_dir().join("..");
+    let font = |relative: &str| {
+        common::with_forward_slashes(&fixtures.join(relative).display().to_string())
+    };
+    let (latin, naskh) = (
+        font("benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"),
+        font("letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"),
+    );
+    let project = write_project(
+        &dir,
+        "flat-text.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":640,"height":360}},"fps":25,"background":"#101418",
+                "fonts":{{"title":[{{"file":"{latin}"}},{{"file":"{naskh}"}}]}},
+                "tracks":[{{"name":"text","layer":0,"elements":[
+                  {{"id":"arabic","type":"text","start":0,"end":1000,"x":320,"y":60,
+                    "origin":"center","width":600,"height":80,"font":"title","size":44,
+                    "color":"#9FE3FF","align":"center",
+                    "runs":[{{"text":"بسم الله الرحمن الرحيم"}}],"caption":false}},
+                  {{"id":"mixed","type":"text","start":0,"end":1000,"x":320,"y":140,
+                    "origin":"center","width":600,"height":70,"font":"title","size":36,
+                    "color":"#F5F0E6","align":"end","letter_spacing":60,
+                    "runs":[{{"text":"عام 2026 سعيد "}},
+                            {{"text":"NEW","stroke":"#FF5A36","stroke_width":3}}],
+                    "caption":false}},
+                  {{"id":"stagger","type":"text","start":0,"end":1000,"x":320,"y":260,
+                    "origin":"center","width":600,"height":110,"font":"title","size":72,
+                    "color":"#F2E6C9","align":"center","runs":[{{"text":"DROP IN fi"}}],
+                    "units":{{"by":"letter","every":60,"origin":"bottom-center",
+                      "y":[{{"t":0,"v":-60}},{{"t":500,"v":0,"ease":"ease-out"}}],
+                      "rotation":[{{"t":0,"v":-30.0}},{{"t":500,"v":0.0,"ease":"ease-out"}}],
+                      "opacity":[{{"t":0,"v":0.0}},{{"t":400,"v":1.0,"ease":"linear"}}]}},
+                    "effects":[{{"name":"shadow","dx":3,"dy":4,"radius":5,"color":"#000000",
+                                 "opacity":0.7}}],
+                    "caption":false}}
+                ]}}]}}"##
+        )),
+    );
+    against_golden("flat-text", &rendered(&project, 280, /* full */ true));
+}

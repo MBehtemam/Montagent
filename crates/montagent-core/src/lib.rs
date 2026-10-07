@@ -68,6 +68,7 @@ pub mod slack;
 pub mod stack;
 pub mod stroke;
 pub mod text;
+pub(crate) mod text_path;
 pub mod track;
 pub(crate) mod transition;
 pub(crate) mod units;

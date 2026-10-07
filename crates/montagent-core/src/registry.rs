@@ -1053,7 +1053,8 @@ so `to` must paint above `from`.",
         threshold: Internal,
         adr: "ADR-0154",
         template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
-an {shape} path needs at least {least} vertices, and this value has {count}.",
+{?kind}on a `{kind}`, {/kind}an {shape} path needs at least {least} vertices, and this value has \
+{count}.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1067,7 +1068,8 @@ an {shape} path needs at least {least} vertices, and this value has {count}.",
         threshold: Internal,
         adr: "ADR-0154",
         template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
+{?kind}on a `{kind}`, {/kind}vertex {vertex} carries an `{handle}` that shapes no segment of an \
+open path. Drop it.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1081,8 +1083,8 @@ vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Dr
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.{property}: keyframe record {record} (`t` {t}) differs from the \
-first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
+        template: "`{element}`.{property}: {?kind}on a `{kind}`, {/kind}keyframe record {record} \
+(`t` {t}) differs from the first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
 vertex count, and each vertex the same handles. To morph between unlike shapes, give the \
 shorter list coincident vertices (the same `at` twice) and write `[0, 0]` for a handle one \
 side lacks.",
@@ -1102,11 +1104,44 @@ side lacks.",
         // ADR-0158 §7's own example names `k` and where it came from, and says the bound is
         // worst-case, so an agent does not hunt for an overlap that is not there.
         template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the \
-{?k}inset box [{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the \
-declared box: inset {inset} = ceil({k} × {width} / 2), from {source}. This bound is \
+{?kind}on a `{kind}`, {/kind}vertex {vertex}'s `{handle}` sits at {position} in box pixels, \
+outside the {?k}inset box [{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside \
+the declared box: inset {inset} = ceil({k} × {width} / 2), from {source}. This bound is \
 worst-case, not a measured overlap.{/k}{?rect}mask's box [0, {right}] × [0, {bottom}], \
-{rect}, with no inset: a mask has no stroke (ADR-0163).{/rect}",
+{rect}, with no inset: a mask has no stroke (ADR-0163).{/rect}{?derivation}inset box \
+[{inset}, {right}] × [{inset}, {bottom}] that keeps a plain glyph sitting on the curve inside \
+the declared box: inset {derivation}. The inset is a frame convention, not a containment \
+guarantee: a wide letter on a tight bend, or one a stagger lifts off the curve, can still pass \
+the box, and `measure` reports the bent line's ink (ADR-0161).{/derivation}",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0161 §3. Refuse: dropping the break and moving the second line to a text of
+        // its own each fix it, and which was meant is the author's.
+        code: "E-TEXT-PATH-BREAK",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.runs[{run}]: its text holds a line break (`\\n`), and a text \
+carrying `path` sets one line only. Remove the break, or put the second line in a text element \
+of its own with its own `path`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0161 §8. Advise: the field places nothing without a `path`, so dropping it
+        // changes nothing drawn — the fix is fully determined.
+        code: "E-TEXT-PATH-OFFSET-ORPHAN",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.path_offset: this text carries no `path`, so `path_offset` places \
+nothing. Drop it, or give the text a `path` to slide along.",
         status: Live,
         census: None,
         sets: &[Document],

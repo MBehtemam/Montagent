@@ -422,6 +422,8 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.radius",
             "stroke_width",
             "letter_spacing",
+            "path.points",
+            "path_offset",
             "scale",
             "rotation",
             "opacity"

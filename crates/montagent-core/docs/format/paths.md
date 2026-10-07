@@ -60,6 +60,9 @@ number, and the ADR is right where the two disagree.
   resolved number is an integer, and refuses elsewhere.
 - **`query --at` prints a path's `path`**: its resolved vertices with absolute control
   points in box pixels, and its `stroke`: the inset `m` and `k` with its source. `NOT COVERED` counts the declared box, as for an `ellipse`.
+- **A `text` takes the same vertex list as its own `path`**, a guide its one line bends
+  along (ADR-0161), with the same four errors and its own inset; the text page has its
+  rules.
 
 ## Morphing between unlike shapes (ADR-0162)
 

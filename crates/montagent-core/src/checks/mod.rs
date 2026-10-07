@@ -45,6 +45,7 @@ pub mod source;
 pub mod spacing;
 pub mod speed;
 pub mod stroke;
+pub mod text_path;
 pub mod tie;
 pub mod track;
 pub mod transition;

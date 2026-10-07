@@ -71,6 +71,13 @@ pub(crate) enum Bounds {
         height: i64,
         rect: &'static str,
     },
+    /// A text's declared box, inset by ADR-0161 §7's `m`: the largest run size plus the
+    /// largest `stroke_width`.
+    Text {
+        width: i64,
+        height: i64,
+        inset: crate::text_path::Inset,
+    },
 }
 
 impl Bounds {
@@ -78,14 +85,15 @@ impl Bounds {
         match self {
             Bounds::Stroked { reach, .. } => reach.inset,
             Bounds::Bare { .. } => 0,
+            Bounds::Text { inset, .. } => inset.m,
         }
     }
 
     fn sides(&self) -> (i64, i64) {
         match *self {
-            Bounds::Stroked { width, height, .. } | Bounds::Bare { width, height, .. } => {
-                (width, height)
-            }
+            Bounds::Stroked { width, height, .. }
+            | Bounds::Bare { width, height, .. }
+            | Bounds::Text { width, height, .. } => (width, height),
         }
     }
 
@@ -97,6 +105,7 @@ impl Bounds {
                 .field("width", json!(reach.width))
                 .field("source", json!(reach.source.describe())),
             Bounds::Bare { rect, .. } => finding.field("rect", json!(rect)),
+            Bounds::Text { inset, .. } => finding.field("derivation", json!(inset.derivation())),
         }
     }
 }
@@ -172,6 +181,29 @@ pub fn check(document: &Loose, report: &mut Report) {
             seam_cap(element, literal).into_iter().for_each(&mut push);
         }
     }
+}
+
+/// The four point errors on a text's `path` (ADR-0161 §8), each naming the element type, its
+/// box inset by §7's `m`. A `closed` that does not read is the schema check's, and only the
+/// checks that do not turn on it run.
+pub(crate) fn text_points(element: &Value) -> Vec<Finding> {
+    let Some(path) = element.get("path").filter(|path| path.is_object()) else {
+        return Vec::new();
+    };
+    let side = |key| element.get(key).and_then(Value::as_i64);
+    points(&Host {
+        owner: path,
+        property: "path.points".to_string(),
+        closed: path.get("closed").and_then(Value::as_bool),
+        bounds: side("width")
+            .zip(side("height"))
+            .map(|(width, height)| Bounds::Text {
+                width,
+                height,
+                inset: crate::text_path::Inset::of(element),
+            }),
+        fields: vec![("kind", json!("text"))],
+    })
 }
 
 /// Every literal value of `owner`'s `points` that reads as a vertex list.

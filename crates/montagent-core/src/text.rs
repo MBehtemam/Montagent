@@ -1290,6 +1290,42 @@ fn element_block(measure: &Value) -> String {
             pixels(&measure["ink_bottom"])
         ),
     );
+    // ADR-0161 §8: on a text on a path the numbers above are the flat line's; this is the
+    // bent line, at the element's first frame.
+    if let Some(bent) = measure.get("path").filter(|bent| bent.is_object()) {
+        field(
+            "on its path",
+            match bent["unresolved"].as_str() {
+                Some(reason) => format!("unresolved: {reason}"),
+                None => format!(
+                    "ink {}  (box pixels, at the first frame — ADR-0161)",
+                    match bent["ink"].as_array() {
+                        Some(ink) => format!(
+                            "x {} .. {}, y {} .. {} px",
+                            pixels(&ink[0]),
+                            pixels(&ink[2]),
+                            pixels(&ink[1]),
+                            pixels(&ink[3])
+                        ),
+                        None => "none".to_string(),
+                    }
+                ),
+            },
+        );
+        if bent["unresolved"].is_null() {
+            field(
+                "hidden",
+                match &bent["hidden"] {
+                    Value::Array(letters) => letters
+                        .iter()
+                        .map(Value::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or("?").to_string(),
+                },
+            );
+        }
+    }
 
     out.push_str("\n  LINES\n");
     for line in lines {
@@ -2168,6 +2204,40 @@ fn resolved_cells(element: &Value) -> String {
     // ADR-0147: every visual member says how it composites, `normal` included.
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
+    }
+    // ADR-0161 §8: a text on a path's offset, its curve's informative length, and the
+    // letters the curve hides.
+    if let Some(bent) = element.get("text_path").filter(|bent| bent.is_object()) {
+        // A written `path_offset` is already among the values above; the default is not.
+        let written = element["values"]
+            .as_array()
+            .is_some_and(|values| values.iter().any(|v| v["property"] == "path_offset"));
+        let number = |value: &Value| match value.as_f64() {
+            Some(value) if value.fract() == 0.0 => format!("{value:.0}"),
+            Some(value) => format!("{value}"),
+            None => "?".to_string(),
+        };
+        if !written {
+            cells.push(format!(
+                "path_offset {} (default)",
+                number(&bent["path_offset"])
+            ));
+        }
+        cells.push(match bent["unresolved"].as_str() {
+            Some(reason) => format!("path unresolved: {reason}"),
+            None => format!(
+                "curve {} px (informative), hidden: {}",
+                number(&bent["length"]),
+                match &bent["hidden"] {
+                    Value::Array(letters) => letters
+                        .iter()
+                        .map(Value::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or("?").to_string(),
+                }
+            ),
+        });
     }
     // ADR-0158 §7: a path's inset and the reach factor it came from, and a dashed shape's
     // raw offset with its informative outline length.

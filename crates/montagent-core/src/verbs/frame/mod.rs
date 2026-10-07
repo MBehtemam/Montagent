@@ -2045,41 +2045,37 @@ impl<'a> Painter<'a> {
             ),
         );
         let paints = paints_of(element, &runs, self.t, self.instant, declared);
-        let unit_of_glyph = unit_draws(element, &placement, self.t);
-        let glyphs: Vec<Glyph> = placement
-            .glyphs
-            .iter()
-            .enumerate()
-            .map(|(i, glyph)| Glyph {
-                unit: unit_of_glyph.get(i).copied().flatten(),
-                x: glyph.x,
-                y: glyph.y,
-                outline: glyph.outline,
-                // A glyph whose run index has no paint is unreachable — `paints_of` maps
-                // the same array `montagent_text::place` indexed into — and is painted in
-                // the default ink rather than skipped, so a future divergence shows up as
-                // a black letter rather than as a hole.
-                paint: paints.get(glyph.run).cloned().unwrap_or(Fill {
-                    fill: Some(DEFAULT_INK.into()),
-                    stroke: None,
-                    stroke_width: 0.0,
-                }),
-            })
-            .collect();
-        let outlines: Vec<Vec<PathEl>> = placement
-            .outlines
-            .iter()
-            .map(|outline| outline.iter().copied().map(path_element).collect())
-            .collect();
+        // A text on a path draws every glyph through its body's place on the curve, and a
+        // glyph whose body is off the curve not at all (ADR-0161). Its declared box is the
+        // frame its curve is written in, so it pivots about that box, as a `path` does.
+        let (glyphs, extent) = match crate::text_path::bend(element, &placement, self.t) {
+            Some(bent) => (
+                glyphs_of(&placement, &bent.glyphs, &paints, true),
+                Extent {
+                    width: element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
+                    height: element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
+                },
+            ),
+            None => (
+                glyphs_of(
+                    &placement,
+                    &unit_draws(element, &placement, self.t),
+                    &paints,
+                    false,
+                ),
+                Extent {
+                    width: placement.width,
+                    height: placement.height,
+                },
+            ),
+        };
+        let outlines = outlines_of(&placement);
 
         let effects = self.effects_of(name, element);
         canvas.text(
             &glyphs,
             &outlines,
-            Extent {
-                width: placement.width,
-                height: placement.height,
-            },
+            extent,
             &self.transform(element),
             self.clip(element),
             &effects,
@@ -2361,7 +2357,7 @@ fn paints_of(
 /// A body moves on the timing of its first unit in reading order — a joined piece's first
 /// letter, a merged glyph's first cluster — and turns and scales about the pivot `origin`
 /// picks in its box.
-fn unit_draws(
+pub(crate) fn unit_draws(
     element: &Value,
     placement: &montagent_text::Placement,
     t: (i128, i128),
@@ -2392,6 +2388,54 @@ fn unit_draws(
         .iter()
         .map(|body| body.and_then(|body| draws.get(body).copied().flatten()))
         .collect()
+}
+
+/// The glyphs a text's placement paints, each through its unit matrix where it has one and
+/// in its run's paint. Where `only_placed` is set — a text on a path (ADR-0161) — a glyph
+/// with no matrix is not drawn at all; otherwise it is drawn where it was laid out.
+pub(crate) fn glyphs_of(
+    placement: &montagent_text::Placement,
+    units: &[Option<montagent_render::canvas::UnitDraw>],
+    paints: &[Fill],
+    only_placed: bool,
+) -> Vec<Glyph> {
+    placement
+        .glyphs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !only_placed || units.get(*i).copied().flatten().is_some())
+        .map(|(i, glyph)| Glyph {
+            unit: units.get(i).copied().flatten(),
+            x: glyph.x,
+            y: glyph.y,
+            outline: glyph.outline,
+            // A glyph whose run index has no paint is unreachable — `paints_of` maps the
+            // same array `montagent_text::place` indexed into — and is painted in the default
+            // ink rather than skipped, so a future divergence shows up as a black letter
+            // rather than as a hole.
+            paint: paints.get(glyph.run).cloned().unwrap_or(Fill {
+                fill: Some(DEFAULT_INK.into()),
+                stroke: None,
+                stroke_width: 0.0,
+            }),
+        })
+        .collect()
+}
+
+/// A placement's distinct outlines, in the rasterizer's spelling.
+pub(crate) fn outlines_of(placement: &montagent_text::Placement) -> Vec<Vec<PathEl>> {
+    placement
+        .outlines
+        .iter()
+        .map(|outline| outline.iter().copied().map(path_element).collect())
+        .collect()
+}
+
+/// A text element's per-run paints at `t`, measured against `declared` (ADR-0149 §2).
+pub(crate) fn text_paints(element: &Value, t: (i128, i128), declared: [f32; 4]) -> Vec<Fill> {
+    let runs = crate::verbs::measure::runs_of(element);
+    let instant = (t.0 / t.1.max(1)) as i64;
+    paints_of(element, &runs, t, instant, declared)
 }
 
 fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {
