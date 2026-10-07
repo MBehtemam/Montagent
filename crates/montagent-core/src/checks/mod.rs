@@ -202,7 +202,17 @@ pub(crate) fn keyframe_records<'a>(
 /// is deliberate — it changes what a collision *looks like* and not whether there is one
 /// (ADR-0060), and an element faded to nothing is still somewhere (ADR-0044). A test holds
 /// this list inside the animatable one.
-pub const MOVES_THE_BOX: [&str; 6] = ["x", "y", "width", "height", "scale", "rotation"];
+pub const MOVES_THE_BOX: [&str; 9] = [
+    "x",
+    "y",
+    "width",
+    "height",
+    "scale",
+    "rotation",
+    "swivel",
+    "tilt",
+    "perspective",
+];
 
 /// **ADR-0060's sample set**: every keyframe boundary inside `window`, its own two ends,
 /// and the midpoint of every consecutive pair — over every element in `elements`.

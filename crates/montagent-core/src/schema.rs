@@ -28,6 +28,7 @@ pub fn generate() -> Value {
     publish_transition_fields(&mut schema);
     publish_path_fill(&mut schema);
     publish_video_source(&mut schema);
+    publish_projection(&mut schema);
     header_first(schema)
 }
 
@@ -62,6 +63,44 @@ fn publish_video_source(schema: &mut Value) {
         }
     }
     *video = ordered;
+}
+
+/// Say ADR-0167 §1's relational rule about a projection in the schema: an angle needs the
+/// `perspective` that gives it an eye. `dependentRequired`, as [`publish_mask_rect`]'s
+/// all-or-none is, on each of the six visual elements. The model leaves it to `validate`'s
+/// `E-PROJECTION-PERSPECTIVE-MISSING`, which names the fix; the reverse (`perspective`
+/// alone) is `E-PROJECTION-PERSPECTIVE-ALONE`, which a schema cannot say about a `0` angle.
+fn publish_projection(schema: &mut Value) {
+    let Some(branches) = schema
+        .pointer_mut("/$defs/Element/oneOf")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    for branch in branches {
+        let Value::Object(element) = branch else {
+            continue;
+        };
+        let projected = ["image", "video", "text", "rect", "ellipse", "path"];
+        let kind = element
+            .get("properties")
+            .and_then(|properties| properties.pointer("/type/const"))
+            .and_then(Value::as_str);
+        if !kind.is_some_and(|kind| projected.contains(&kind)) {
+            continue;
+        }
+        let mut ordered = serde_json::Map::new();
+        for (key, value) in std::mem::take(element) {
+            ordered.insert(key.clone(), value);
+            if key == "required" {
+                ordered.insert(
+                    "dependentRequired".into(),
+                    json!({"swivel": ["perspective"], "tilt": ["perspective"]}),
+                );
+            }
+        }
+        *element = ordered;
+    }
 }
 
 /// Say ADR-0154 §5's relational rule about a path's `fill` in the schema, where the types

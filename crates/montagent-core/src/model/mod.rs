@@ -555,6 +555,21 @@ pub struct Image {
     /// and a writer that wraps it silently renders one third of the motion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -605,6 +620,21 @@ pub struct Video {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -732,6 +762,21 @@ pub struct TextElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -926,6 +971,21 @@ pub struct Rect {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1002,6 +1062,21 @@ pub struct Ellipse {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1095,6 +1170,21 @@ pub struct PathElement {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).
+    /// Positive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any
+    /// value, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).
+    /// Positive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any
+    /// value, even `0`, it always takes the projected path. Never normalised.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance from the element's plane, in px: CSS's `perspective`, greater than
+    /// the farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`
+    /// or `tilt` is written, and meaningless without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

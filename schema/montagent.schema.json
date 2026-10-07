@@ -211,6 +211,18 @@
               "description": "Degrees clockwise, and **never normalised into `[0,360)`** — `1080` is three turns,\nand a writer that wraps it silently renders one third of the motion.",
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -237,6 +249,14 @@
             "height",
             "fit"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "description": "`source, x, y, origin, width, height, fit, clip, scale` — ADR-0041's measured order —\nthen the two transform properties ADR-0012 declares after `scale`, then `effects`."
         },
         {
@@ -314,6 +334,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -350,6 +382,14 @@
             "height",
             "fit"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "anyOf": [
             {
               "required": [
@@ -462,6 +502,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -493,6 +545,14 @@
             "size",
             "runs"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "description": "`x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's\nmeasured order — then the paint ADR-0014 adds, the spacing and the stagger, the curve the\nline may bend along (ADR-0161), the transform properties, `effects`, and last `caption`,\nwhich draws nothing and so follows everything that does (ADR-0136)."
         },
         {
@@ -576,6 +636,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -600,6 +672,14 @@
             "width",
             "height"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "description": "A rounded or square rectangle.\n\n**`rect` and `ellipse` are two types rather than one with a `shape` discriminator\ninside it** (ADR-0014): ADR-0012 already made the field set a function of `type`, so a\nsecond narrowing mechanism would add a second, *omissible* one — and a malformed\nellipse missing its discriminator would render as a rect, silently and plausibly, which\nis this format's named failure class.\n\nThey are also two *structs*, and the one field that differs is why: ADR-0014's heading\nis *\"`radius` is a field on `rect`\"*, so `radius` on an ellipse is an unknown key rather\nthan a field that quietly does nothing. An ellipse inscribing its rect has no corners to\nround, and ADR-0007 has ruled twice that *\"a field the renderer cannot honour is worse\nthan no field.\"*\n\nADR-0041's measured order is `x, y, origin, width, height, fill`; the three fields\nADR-0014 adds follow, in the order that ADR's own headings introduce them — `stroke`,\n`stroke_width`, then `radius`. ADR-0041 hands a new field's position to the ADR that\nintroduces it and ADR-0014 did not take it explicitly, so that reading is this\nticket's and is raised as [#274](https://github.com/MBehtemam/Montagent/issues/274)\nrather than left to be discovered from the struct."
         },
         {
@@ -679,6 +759,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -703,6 +795,14 @@
             "width",
             "height"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "description": "An ellipse inscribing its declared rect — which is exactly what distinguishes it from\nthe point-list shapes ADR-0014 rejected: it needs no new placement rule.\n\n[`Rect`]'s field set minus `radius`; see that type for why the two are separate.\n\n**Contradicts a parenthetical in [ADR-0041], and says so rather than overriding it\nsilently** (`docs/agents/domain.md`). That ADR writes *\"`video` and `ellipse` have no\ncommitted instance to measure yet; per the rule above, whichever ADR first fixes their\nfull property set (they inherit `image`'s and `rect`'s shape respectively) fixes their\norder too\"* — and the shape an ellipse would inherit now carries `radius`. The same\nsentence is what resolves it: the ADR that fixes a type's full property set fixes it,\nand that ADR is ADR-0014, whose own heading is *\"`radius` is a field on `rect`\"*. So the\ninheritance holds for every field ADR-0041 measured and stops at the one ADR-0014 gave\nto `rect` alone. Raised as [#274](https://github.com/MBehtemam/Montagent/issues/274)\nrather than left as a discrepancy a reader has to reconcile.\n\n[ADR-0041]: ../../../../docs/adr/0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md"
         },
         {
@@ -801,6 +901,18 @@
             "rotation": {
               "$ref": "#/$defs/Animatabledouble"
             },
+            "swivel": {
+              "description": "Degrees about the element's vertical axis, drawn flat then projected (ADR-0167).\nPositive sends the right edge away: CSS `rotateY`, Premiere's Swivel. Written at any\nvalue, even `0`, it always takes the projected path (ADR-0168 §1). Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "tilt": {
+              "description": "Degrees about the element's horizontal axis, applied after `swivel` (ADR-0168 §2).\nPositive sends the top edge away: CSS `rotateX`, Premiere's Tilt. Written at any\nvalue, even `0`, it always takes the projected path. Never normalised.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
+            "perspective": {
+              "description": "The eye's distance from the element's plane, in px: CSS's `perspective`, greater than\nthe farthest corner's distance from `origin` (ADR-0167 §5). Required whenever `swivel`\nor `tilt` is written, and meaningless without one.",
+              "$ref": "#/$defs/Animatabledouble"
+            },
             "opacity": {
               "$ref": "#/$defs/Animatabledouble"
             },
@@ -827,6 +939,14 @@
             "closed",
             "points"
           ],
+          "dependentRequired": {
+            "swivel": [
+              "perspective"
+            ],
+            "tilt": [
+              "perspective"
+            ]
+          },
           "if": {
             "properties": {
               "closed": {
