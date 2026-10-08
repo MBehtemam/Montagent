@@ -98,9 +98,8 @@ fn the_index_holds_every_element_type_and_effect_name_with_its_required_keys() {
 }
 
 #[test]
-fn the_audio_effects_section_is_in_the_index_and_empty_until_a_member_exists() {
-    // ADR-0169: the union is declared and has no branch, so it is served as a section
-    // with no entries rather than as a whole `$def`.
+fn the_audio_effects_section_is_in_the_index_with_one_entry_per_member() {
+    // ADR-0169: the union is served as a section of its members, never as a whole `$def`.
     let schema = montagent_core::schema::generate();
     let index = index();
     let listed = index["audio_effects"]

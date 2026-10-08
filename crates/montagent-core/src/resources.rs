@@ -73,6 +73,12 @@ macro_rules! format_transitions_uri {
     };
 }
 
+macro_rules! format_audio_effects_uri {
+    () => {
+        "montagent://format/audio-effects.md"
+    };
+}
+
 macro_rules! format_paths_uri {
     () => {
         "montagent://format/paths.md"
@@ -214,6 +220,10 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
     FormatPage {
         uri: format_transitions_uri!(),
         text: include_str!("../docs/format/transitions.md"),
+    },
+    FormatPage {
+        uri: format_audio_effects_uri!(),
+        text: include_str!("../docs/format/audio-effects.md"),
     },
     FormatPage {
         uri: format_paths_uri!(),
