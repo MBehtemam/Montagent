@@ -148,8 +148,10 @@ fn publish_path_fill(schema: &mut Value) {
 ///
 /// [`publish_mask_rect`]'s `radius` arrangement, for its reason: both fields are declared
 /// properties of the one transition shape, so `additionalProperties: false` cannot withdraw
-/// them under `crossfade`. One conditional says both halves: `then` requires `direction`
-/// where `kind` is `crossfade`'s complement, and `else` refuses both on a crossfade.
+/// them under `crossfade`. One conditional says both halves: `then` refuses both on a
+/// crossfade, and `else` requires `direction` on the three motion kinds. ADR-0176's
+/// `audio_crossfade` is the one kind the `else` branches again on: it requires `audio`
+/// (`constant_power` or `constant_gain`) and refuses `direction` and `ease`.
 fn publish_transition_fields(schema: &mut Value) {
     let Some(Value::Object(transition)) = schema
         .pointer_mut("/$defs/Element/oneOf")
@@ -184,9 +186,29 @@ fn publish_transition_fields(schema: &mut Value) {
             ordered.insert(
                 "else".into(),
                 json!({
-                    "required": ["direction"],
-                    "description": "A `wipe`, `slide` or `push` names the way its motion \
-                                    travels (ADR-0150).",
+                    "if": {
+                        "properties": {"kind": {"const": "audio_crossfade"}},
+                        "required": ["kind"],
+                    },
+                    "then": {
+                        "required": ["audio"],
+                        "not": {"anyOf": [{"required": ["direction"]}, {"required": ["ease"]}]},
+                        "if": {"properties": {"audio": {"const": "cut"}}, "required": ["audio"]},
+                        "then": {
+                            "not": {},
+                            "description": "`cut` is refused on an `audio_crossfade`: a kind \
+                                            with nothing to do is a mistake.",
+                        },
+                        "description": "An `audio_crossfade` paints nothing and names its \
+                                        curve: `audio` is required and is `constant_power` \
+                                        or `constant_gain`; `direction` and `ease` are not \
+                                        fields of it (ADR-0176).",
+                    },
+                    "else": {
+                        "required": ["direction"],
+                        "description": "A `wipe`, `slide` or `push` names the way its motion \
+                                        travels (ADR-0150).",
+                    },
                 }),
             );
         }

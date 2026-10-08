@@ -183,7 +183,7 @@ fn running(
         })?,
     };
     let direction = match kind {
-        TransitionKind::Crossfade => None,
+        TransitionKind::Crossfade | TransitionKind::AudioCrossfade => None,
         _ => Some(
             element
                 .get("direction")
@@ -192,7 +192,7 @@ fn running(
         ),
     };
     let ease = match (kind, element.get("ease")) {
-        (TransitionKind::Crossfade, _) | (_, None) => None,
+        (TransitionKind::Crossfade | TransitionKind::AudioCrossfade, _) | (_, None) => None,
         (_, Some(ease)) => {
             Some(serde_json::from_value::<Ease>(ease.clone()).map_err(|_| Unusable::Ease)?)
         }
@@ -270,6 +270,10 @@ fn unit(direction: Direction) -> (i64, i64) {
 impl Running {
     /// This transition's contribution to the element called `id`, if it bridges it.
     fn bridge(&self, id: &str) -> Option<Bridge> {
+        // An `audio_crossfade` paints nothing (ADR-0176).
+        if self.kind == TransitionKind::AudioCrossfade {
+            return None;
+        }
         let incoming = if id == self.to {
             true
         } else if id == self.from {
@@ -307,7 +311,7 @@ impl Running {
                 ..Bridge::default()
             },
             // Unreachable: a crossfade has no direction and returned above.
-            (TransitionKind::Crossfade, _) => Bridge::default(),
+            (TransitionKind::Crossfade | TransitionKind::AudioCrossfade, _) => Bridge::default(),
         })
     }
 
