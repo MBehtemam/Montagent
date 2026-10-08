@@ -1241,6 +1241,8 @@ fn audio_parameter(key: &str, value: &Value) -> String {
         format!("{shown} dB")
     } else if key.ends_with("_ms") {
         format!("{shown} ms")
+    } else if key.ends_with("_lufs") {
+        format!("{shown} LUFS")
     } else {
         format!("{key} {shown}")
     }

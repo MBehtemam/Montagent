@@ -93,3 +93,25 @@ fn query_at_says_nothing_of_an_empty_list() {
     let answer = queried("audio", json!([]));
     assert!(bed(&answer).get("audio_effects").is_none(), "{answer}");
 }
+
+#[test]
+fn query_at_describes_normalize_loudness_by_its_target_in_lufs() {
+    let answer = queried(
+        "audio",
+        json!([
+            {"name": "highpass", "frequency_hz": 80, "slope_db_per_oct": 12},
+            {"name": "normalize_loudness", "target_lufs": -38},
+        ]),
+    );
+    let listed = &bed(&answer)["audio_effects"][1];
+    assert_eq!(listed["name"], "normalize_loudness", "{answer}");
+    assert_eq!(listed["target_lufs"], -38, "{answer}");
+    assert_eq!(listed["index"], 1);
+    assert_eq!(listed["enabled"], true);
+    let text = montagent_core::text::render(&answer, montagent_core::text::Options::default())
+        .expect("renders");
+    assert!(
+        text.contains("audio_effects[1] normalize_loudness -38 LUFS"),
+        "{text}"
+    );
+}

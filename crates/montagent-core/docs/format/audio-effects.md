@@ -56,3 +56,38 @@ All four are stackable: a high-pass and three bells is ordinary.
 24 dB/oct`, then `audio_effects[1] bell 1500 Hz -6 dB q 1.4`, and `(bypassed)` after a
 disabled member. Change one number and `query` again; a gentle EQ is hard to hear on speech,
 so check a change against the numbers, not only by ear.
+
+## Loudness: `normalize_loudness`
+
+```json
+{ "name": "normalize_loudness", "target_lufs": -23 }
+```
+
+- **One fixed gain** that brings the element's own integrated loudness to `target_lufs`. It
+  is measured on the element's placed window: its whole `start`..`end` after the trim,
+  `speed` and any loop, at the member's position in the list, so an EQ ahead of it is part
+  of what it measures and one after it is not. It never rides the level.
+- **`target_lufs`** is required, -40..-6, and has no default. Write the number: dialogue at
+  -23, and a music bed 15 LU under the voice at -38.
+- **One per element**: a second enabled copy is `E-AUDIO-EFFECT-SINGULAR`.
+- `volume` applies after it, so the element ends at `target_lufs` plus `volume` in dB, and a
+  `volume` duck moves it on purpose. `master` applies to the sum afterwards.
+- A `--from`/`--to` render and `preview` apply the gain the whole window measured.
+- `render` reports each member's `measured_lufs` and `applied_gain_db` under `normalized`.
+
+| Finding | Class | When |
+| --- | --- | --- |
+| `E-NORMALIZE-TARGET-RANGE` | error | `target_lufs` outside -40..-6; the repair is the nearest bound |
+| `E-NORMALIZE-NO-AUDIO` | error | the source has no audio stream; drop the member or change the source |
+| `R-NORMALIZE-ABOVE-MASTER` | review | `target_lufs` above `master.target_lufs` |
+| `R-NORMALIZE-LIFT` | review | at render, the gain applied is above +20 dB: check the source and the target |
+| `N-NORMALIZE-UNDEFINED` | note | at render, the window is silent or under 400 ms, so no gain was applied |
+
+**Worked example**: a voice and the music bed under it.
+
+```json
+{"id": "voice", "type": "audio", "start": 0, "end": 4000, "source": "audio/voice.wav", "source_start": 0, "source_end": 4000, "audio_effects": [{"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 24}, {"name": "normalize_loudness", "target_lufs": -23}]}
+{"id": "music", "type": "audio", "start": 0, "end": 4000, "source": "audio/music.wav", "source_start": 0, "source_end": 4000, "audio_effects": [{"name": "normalize_loudness", "target_lufs": -38}]}
+```
+
+`query --at` prints `audio_effects[1] normalize_loudness -23 LUFS` on the voice's row.
