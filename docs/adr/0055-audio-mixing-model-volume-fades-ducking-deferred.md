@@ -5,6 +5,8 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 
 # `volume` is a keyframable 0..1..>1 multiplier, flat on audio and video elements; ducking is deferred, hand-authored as keyframes
 
+> **Amended by [ADR-0177](./0177-ducking-is-a-skill-script-that-writes-ordinary-volume-keyframes-and-the-format-stays-untouched.md)**: the "ducking write tool" this ADR left open is a standalone skill script, `duck.py`, that writes ordinary `volume` keyframes. The format, the binary and the tool counts do not change, and the file still never records that a duck was applied. An MCP write tool is ruled out by the write-tool invariant; a CLI verb stays an open door.
+
 > **Amended by [ADR-0172](0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md)**: clipping past the summed mix is no longer only "the
 > renderer's documented behaviour" when the project sets a ceiling: a master stage can hold the
 > mix to a true-peak ceiling by one measured gain.
