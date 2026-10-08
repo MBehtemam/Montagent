@@ -5,6 +5,10 @@ amends: 0012 (names the replacement for the `opacity`-on-audio schema error), 00
 
 # `volume` is a keyframable 0..1..>1 multiplier, flat on audio and video elements; ducking is deferred, hand-authored as keyframes
 
+> **Amended by [ADR-0172](0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md)**: clipping past the summed mix is no longer only "the
+> renderer's documented behaviour" when the project sets a ceiling: a master stage can hold the
+> mix to a true-peak ceiling by one measured gain.
+
 > **Amended by [ADR-0170](./0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md)**: the rejection of dB below is
 > scoped to `volume`. Every other audio level is written in dB (LUFS for a loudness target, dBTP
 > for a true-peak ceiling), with the unit in its key (`gain_db`); `volume` stays the one linear
