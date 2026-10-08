@@ -206,3 +206,44 @@ fn a_true_peak_over_the_allowance_is_a_review_never_an_error() {
     assert!(finding.fields["overshoot_db"].as_f64().unwrap() > 1.0);
     assert!(finding.citation.is_some());
 }
+
+/// ADR-0174 §3's delivery claim on the shared fixture (ADR-0173 §3): the narration-over-bed
+/// mix, rendered through the stage to AAC and decoded, stays within the +1.0 dB allowance and
+/// lands within ±1.0 LU of its target, so `verify` raises neither review.
+#[test]
+fn the_shared_fixture_through_the_stage_meets_both_allowances() {
+    if !has_ffprobe() {
+        return;
+    }
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(
+            "../../docs/research/audio-effects/fixtures/narration-over-bed/narration-over-bed.flac",
+        )
+        .canonicalize()
+        .expect("the committed fixture");
+    let dir = tempdir(line!());
+    let body = json!({
+        "frame": {"width": 64, "height": 64},
+        "fps": 25,
+        "duration": 20000,
+        "output": "fixture.mp4",
+        "master": {"target_lufs": -16, "ceiling_dbtp": -1},
+        "tracks": [{"name": "sound", "layer": 0, "elements": [
+            {"id": "mix", "type": "audio", "start": 0, "end": 20000,
+             "source": fixture.display().to_string().replace('\\', "/"),
+             "source_start": 0, "source_end": 20000}]}],
+    });
+    let path = write_project(
+        &dir,
+        "fixture.montagent.json",
+        &canonical(&body.to_string()),
+    );
+    rendered(&path);
+    let answer = verify(&path);
+    let block = answer.to_json()["verify"].clone();
+    let peak = block["true_peak_dbtp"].as_f64().expect("a true peak");
+    let lufs = block["integrated_lufs"].as_f64().expect("loudness");
+    assert!(peak <= -1.0 + 1.0, "decoded true peak {peak}");
+    assert!((lufs + 16.0).abs() <= 1.0, "integrated {lufs}");
+    assert_eq!(ours(answer.report()), [], "{block:#}");
+}
