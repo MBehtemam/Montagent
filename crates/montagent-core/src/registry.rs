@@ -3259,6 +3259,40 @@ noise floor with it. Raise the elements' `volume`, or lower the target.",
         census: None,
         sets: &[],
     },
+    // `verify`'s two misses against what `master` declares (ADR-0173 §6, ADR-0174 §3).
+    CheckSpec {
+        code: "R-VERIFY-LOUDNESS",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::verify::LOUDNESS_SOURCE,
+            adr: "ADR-0173",
+        },
+        adr: "ADR-0173",
+        template: "{output}'s integrated loudness is {integrated_lufs} LUFS, {difference_lu} LU \
+from `target_lufs: {target_lufs}`, beyond the {tolerance_lu} LU tolerance. {cause}",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
+    },
+    CheckSpec {
+        code: "R-VERIFY-TRUE-PEAK",
+        classes: &[Review],
+        repair: None,
+        // ADR-0182's route: the project's own measurement on a committed fixture.
+        threshold: External {
+            source: crate::verbs::verify::TRUE_PEAK_SOURCE,
+            adr: "ADR-0174",
+        },
+        adr: "ADR-0174",
+        template: "{output}'s decoded true peak is {true_peak_dbtp} dBTP, {overshoot_db} dB over \
+`ceiling_dbtp: {ceiling_dbtp}`, beyond the {tolerance_db} dB allowance. On clipped or \
+noise-like material driven far over the ceiling this is advisory (up to +1.8 dB is measured); \
+lower `ceiling_dbtp` by about the overshoot and render again.",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
+    },
 ];
 
 impl CheckSpec {
