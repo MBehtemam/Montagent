@@ -1,0 +1,59 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "elements": [
+  {
+   "element": "voice1",
+   "measured_lufs": -17.6,
+   "target_lufs": -23.0,
+   "applied_gain_db": -5.4,
+   "after_lufs": -23.0
+  },
+  {
+   "element": "voice2",
+   "measured_lufs": -28.5,
+   "target_lufs": -23.0,
+   "applied_gain_db": 5.5,
+   "after_lufs": -23.0
+  },
+  {
+   "element": "bed",
+   "measured_lufs": -33.0,
+   "target_lufs": -38.0,
+   "applied_gain_db": -5.0,
+   "after_lufs": -38.0
+  }
+ ],
+ "mix_before_match": {
+  "A_bypass": {
+   "lufs": -18.6,
+   "peak_dbfs": -2.8
+  },
+  "B_normalised": {
+   "lufs": -22.9,
+   "peak_dbfs": -8.2
+  }
+ },
+ "match_gain_db": {
+  "A_bypass": -1.4,
+  "B_normalised": 2.9
+ },
+ "after_match": {
+  "X": {
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -5.3
+  },
+  "Y": {
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.1
+  }
+ },
+ "key_sha256": "291fe469d4534d30a53ab1e500dbdf2e896eb32f54ead4cf4a1ee960ffc83fe5",
+ "edge_cases": {
+  "silent_2s": null,
+  "tone_0.3s": null,
+  "voice_at_1.5x_measured": -18.5,
+  "voice_at_1.0x_measured": -18.2,
+  "looped_window_measured": -16.5,
+  "one_pass_measured": -17.0
+ }
+}
