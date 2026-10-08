@@ -23,6 +23,7 @@ pub mod chroma;
 pub mod coverage;
 pub mod cut;
 pub mod derived;
+pub mod dynamics;
 pub mod ease;
 pub mod extent;
 pub mod fit;

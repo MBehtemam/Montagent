@@ -224,9 +224,11 @@ mod tests {
     }
 
     #[test]
-    fn the_real_vocabularies_are_the_schemas_and_the_audio_one_is_empty() {
+    fn the_real_vocabularies_are_the_schemas() {
         let published = Vocabulary::published();
-        assert!(published.audio.is_empty());
+        for name in ["compressor", "limiter"] {
+            assert!(published.audio.iter().any(|a| a == name), "{name}");
+        }
         assert!(published.visual.iter().any(|name| name == "blur"));
         assert!(published.singular.is_empty());
     }

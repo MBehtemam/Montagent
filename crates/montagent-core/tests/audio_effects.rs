@@ -162,7 +162,7 @@ fn a_visual_member_in_audio_effects_names_the_right_list_and_is_not_also_a_schem
 }
 
 #[test]
-fn the_published_schema_lists_the_union_and_it_has_no_branch() {
+fn the_published_schema_lists_the_union() {
     let schema = montagent_core::schema::generate();
     for kind in ["audio", "video"] {
         let branch = schema["$defs"]["Element"]["oneOf"]
@@ -177,5 +177,5 @@ fn the_published_schema_lists_the_union_and_it_has_no_branch() {
         );
     }
     assert!(schema["$defs"]["AudioEffect"].is_object());
-    assert!(schema["$defs"]["AudioEffect"]["oneOf"].is_null());
+    assert!(schema["$defs"]["AudioEffect"]["oneOf"].is_array());
 }
