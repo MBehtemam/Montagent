@@ -764,9 +764,10 @@ _Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, soun
 The one processing stage on the summed mix of the whole project, written as the optional
 top-level `master`. It is not a track and not a bus: it holds a small closed set, a loudness
 target (`target_lufs`) the renderer reaches with one measured gain, and a true-peak ceiling
-(`ceiling_dbtp`). With no `master`, the mix is left exactly as summed. Effects attach to
+(`ceiling_dbtp`), which promises the delivered AAC, within a stated allowance, not the limiter's own output. With no `master`, the mix is left exactly as summed. Effects attach to
 elements and to the master stage, never to tracks.
-([ADR-0172](docs/adr/0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md))
+([ADR-0172](docs/adr/0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md),
+[ADR-0174](docs/adr/0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md))
 _Avoid_: mix (the summing itself), bus, master track, output (the destination path)
 
 **Gap**:
