@@ -149,3 +149,78 @@ fn the_finding_renders_as_prose_and_validate_runs_the_check() {
     assert!(rendered.contains("t=12000"), "{rendered}");
     assert!(rendered.contains("\"linear\""), "{rendered}");
 }
+
+// ---- A duck's hold (ADR-0177 §5, #838 D6) ----------------------------------------------
+//
+// ADR-0177 argues from the text of ADR-0038 and ADR-0052 that a held level between two
+// ramps, which needs two keyframes of one `v`, always trips `R-EASE-INERT`, whatever the
+// `ease` on the second is. These tests are the confirmation against the engine: `duck.py`
+// writes `volume` in exactly this shape.
+
+/// An audio bed whose `volume` is the given raw keyframe-record JSON.
+fn bed(records: &str) -> String {
+    format!(
+        r##"{{"id":"bed","type":"audio","start":0,"end":6000,"source":"media/bed.wav","source_start":0,"source_end":6000,"volume":[{records}]}}"##
+    )
+}
+
+/// `duck.py`'s curve: a hold at 0.5012, a ramp down, a hold at 0.1778, a ramp back up.
+fn duck_curve(hold_ease: &str) -> String {
+    format!(
+        r##"{{"t":0,"v":0.5012}},{{"t":200,"v":0.5012,"ease":{hold_ease}}},{{"t":400,"v":0.1778,"ease":"ease-in-out"}},{{"t":1600,"v":0.1778,"ease":{hold_ease}}},{{"t":1800,"v":0.5012,"ease":"ease-in-out"}}"##
+    )
+}
+
+#[test]
+fn each_hold_of_a_duck_is_one_finding_naming_its_count_value_and_span() {
+    let report = report_on(&bed(&duck_curve(r#""linear""#)));
+    let findings = inert(&report);
+    assert_eq!(findings.len(), 2, "{:?}", report.findings);
+
+    let holds = [(0, 200, 0.5012), (400, 1600, 0.1778)];
+    for (finding, (from, to, value)) in findings.iter().zip(holds) {
+        assert_eq!(finding.class, Class::Review);
+        assert_eq!(finding.fields["element"], serde_json::json!("bed"));
+        assert_eq!(finding.fields["property"], serde_json::json!("volume"));
+        assert_eq!(finding.fields["records"], serde_json::json!(2));
+        assert_eq!(finding.fields["from"], serde_json::json!(from));
+        assert_eq!(finding.fields["to"], serde_json::json!(to));
+        assert_eq!(finding.fields["value"], serde_json::json!(value));
+    }
+}
+
+#[test]
+fn a_hold_fires_under_every_ease_in_the_vocabulary() {
+    for ease in [
+        r#""linear""#,
+        r#""ease""#,
+        r#""ease-in""#,
+        r#""ease-out""#,
+        r#""ease-in-out""#,
+        r#""step""#,
+        "[0.42,0,0.58,1]",
+    ] {
+        let report = report_on(&bed(&duck_curve(ease)));
+        assert_eq!(
+            inert(&report).len(),
+            2,
+            "ease {ease}: {:?}",
+            report.findings
+        );
+    }
+}
+
+#[test]
+fn a_ramp_of_a_duck_does_not_fire() {
+    let records = r##"{"t":400,"v":0.5012},{"t":600,"v":0.1778,"ease":"ease-in-out"}"##;
+    let report = report_on(&bed(records));
+    assert!(inert(&report).is_empty(), "{:?}", report.findings);
+}
+
+#[test]
+fn a_hold_whose_second_record_has_no_ease_is_not_this_codes() {
+    // The missing `ease` is `E-KEYFRAME-EASE`'s (ADR-0038): there is no ease here to call inert.
+    let records = r##"{"t":0,"v":0.5012},{"t":200,"v":0.5012}"##;
+    let report = report_on(&bed(records));
+    assert!(inert(&report).is_empty(), "{:?}", report.findings);
+}

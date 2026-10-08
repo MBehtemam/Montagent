@@ -154,6 +154,25 @@ jobs:
       - name: Doctests
         run: cargo test --workspace --doc --release --target ${{ matrix.target }}
 
+      # The ducking script (ADR-0177, #838). The two steps run on every leg that already
+      # runs the other skill scripts: the first reads the bed's `volume` back through this
+      # leg's own `montagent` at the instants the words file names (`CI` makes a missing
+      # `montagent` or `ffmpeg` a failure, not a skip), the second re-derives the level
+      # arithmetic the script's defaults rest on.
+      - name: The ducking script writes the keyframes it says it does, and refuses, replaces and checks as documented
+        env:
+          MONTAGENT: target/${{ matrix.target }}/release/montagent
+        run: python3 -m unittest ci/test_duck.py
+
+      - name: The ducking levels' arithmetic still holds
+        run: python3 -I docs/research/audio-effects/ducking/check_duck_levels.py
+
+      # The rendered half of the same capability (ADR-0177 §6, ADR-0173 §4). `cargo test`
+      # above already runs it; it captures a passing test's output, so this prints the
+      # leg's measured deltas, the numbers the three-leg table is made from.
+      - name: The rendered duck's measured deltas, for the record (ADR-0177 §6)
+        run: cargo test -p montagent-core --test duck_render --release --target ${{ matrix.target }} -- --nocapture
+
       # What the Skia prebuilt vendors, read out of the archive this leg just downloaded
       # (#359). It lives in the matrix rather than in `committed checks` for the same reason
       # the Ken Burns check does — it needs something the build produced — but unlike that
