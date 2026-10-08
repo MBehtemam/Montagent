@@ -1,0 +1,10 @@
+{
+ "echo-X": "bypass",
+ "echo-Y": "echo",
+ "reverb-X": "reverb",
+ "reverb-Y": "bypass",
+ "echo-tail-X": "tail-cut",
+ "echo-tail-Y": "tail-kept-1500ms",
+ "reverb-tail-X": "tail-kept-1500ms",
+ "reverb-tail-Y": "tail-cut"
+}
