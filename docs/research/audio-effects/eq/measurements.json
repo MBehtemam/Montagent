@@ -1,0 +1,87 @@
+{
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "document": {
+    "voice": [
+      {
+        "name": "highpass",
+        "frequency_hz": 100,
+        "slope_db_per_oct": 24
+      }
+    ],
+    "bed": [
+      {
+        "name": "bell",
+        "frequency_hz": 1500,
+        "gain_db": -6,
+        "q": 0.8
+      },
+      {
+        "name": "shelf",
+        "side": "high",
+        "frequency_hz": 9000,
+        "gain_db": -4
+      }
+    ]
+  },
+  "disabled_member_byte_identical": true,
+  "tone_checks": [
+    {
+      "member": "highpass 1000 Hz 12 dB/oct",
+      "gain_db_at_hz": {
+        "125": -36.13,
+        "250": -24.12,
+        "500": -12.32,
+        "1000": -3.01,
+        "2000": -0.26,
+        "8000": -0.0
+      }
+    },
+    {
+      "member": "highpass 1000 Hz 24 dB/oct",
+      "gain_db_at_hz": {
+        "125": -63.75,
+        "250": -47.78,
+        "500": -24.13,
+        "1000": -3.01,
+        "2000": -0.02,
+        "8000": -0.0
+      }
+    },
+    {
+      "member": "highpass 1000 Hz 48 dB/oct",
+      "gain_db_at_hz": {
+        "125": -65.21,
+        "250": -59.05,
+        "500": -46.63,
+        "1000": -3.01,
+        "2000": -0.0,
+        "8000": -0.0
+      }
+    },
+    {
+      "member": "lowpass 1000 Hz 24 dB/oct",
+      "gain_db_at_hz": {
+        "125": -0.0,
+        "1000": -3.01,
+        "2000": -24.23,
+        "4000": -47.93
+      }
+    },
+    {
+      "member": "bell 1500 Hz -6 dB q0.8",
+      "gain_db_at_1500": -6.0
+    },
+    {
+      "member": "low shelf 200 Hz +6",
+      "gain_db_at_40": 6.12
+    }
+  ],
+  "mix_lufs_before_match": {
+    "bypass": -18.0,
+    "eq": -18.0
+  },
+  "ab_decoded_lufs": {
+    "X": -20.0,
+    "Y": -20.0
+  }
+}
