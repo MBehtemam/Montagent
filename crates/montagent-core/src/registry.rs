@@ -3228,6 +3228,37 @@ on the elements.",
         census: None,
         sets: &[Document],
     },
+    // The measurement pass's own findings, from `render` and `preview` (ADR-0172).
+    CheckSpec {
+        code: "R-MASTER-LOUDNESS-UNDEFINED",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is BS.1770's own gating, the meter's definition.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}`, and the whole programme's mix \
+has no integrated loudness: every 400 ms block is silent or below the gate. No gain was \
+applied.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        code: "R-MASTER-GAIN-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::render::master::GAIN_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "The mix measured {measured_lufs} LUFS, so reaching `target_lufs: \
+{target_lufs}` applied {applied_gain_db} dB of gain, above {threshold_db} dB, which raises the \
+noise floor with it. Raise the elements' `volume`, or lower the target.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
 ];
 
 impl CheckSpec {

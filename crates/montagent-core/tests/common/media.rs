@@ -290,3 +290,19 @@ pub fn speech_spans(path: &Path, until_ms: f64) -> Vec<Span> {
     spans.retain(|span| span.length_ms() > 1.0);
     spans
 }
+
+/// `(integrated LUFS, true peak dBTP)` of a file's first audio stream, by `ebur128=peak=true`
+/// through Montagent's own pinned parse (ADR-0173 §2) — the instrument `verify` and the master
+/// stage's measurement pass use, so a number means the same thing in a test. `None` where the
+/// loudness is undefined (every block gated out) or the peak is `-inf`.
+pub fn ebur128(path: &Path) -> (Option<f64>, Option<f64>) {
+    let tools = montagent_core::media::tools::resolve().expect("ffmpeg");
+    let out = Command::new(tools.ffmpeg)
+        .args(montagent_core::media::loudness::file_args(path))
+        .output()
+        .expect("run ffmpeg");
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{said}");
+    let summary = montagent_core::media::loudness::parse(&said).unwrap_or_else(|e| panic!("{e}"));
+    (summary.integrated, summary.true_peak)
+}

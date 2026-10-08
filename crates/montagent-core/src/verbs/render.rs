@@ -74,8 +74,10 @@
 //! element, sent to the `volume` filter as timed commands), placed at its `start`
 //! (`adelay`), and summed without normalisation (`amix`) so two narration lines at `1.0`
 //! are each still at `1.0`. Clipping past the sum is the renderer's documented behaviour
-//! rather than a ceiling (ADR-0055). An element that cannot be mixed is listed in the
-//! answer with the reason, on the same rule the picture lists what it did not paint.
+//! rather than a ceiling (ADR-0055), unless the project's `master` sets one: the master stage
+//! ([`master`], ADR-0172, ADR-0174) runs on the sum, before the closing pad. An element that
+//! cannot be mixed is listed in the answer with the reason, on the same rule the picture lists
+//! what it did not paint.
 //!
 //! ## The readings ADR-0077 ratifies (#287)
 //!
@@ -140,6 +142,8 @@ use crate::resolve;
 use crate::verbs::frame::{Declined, Feeds, NotPainted, Painter};
 use crate::verbs::query::at;
 
+pub(crate) mod master;
+pub use master::Applied;
 mod painters;
 pub use painters::Painting;
 #[doc(hidden)]
@@ -356,6 +360,10 @@ pub struct Video {
     /// how far painting could lead the encoder (#653). Disclosed like `threads`, and like it
     /// not choosable; and like it, it changes no byte of the file.
     pub painting: painters::Painting,
+    /// ADR-0172: `measured_lufs` and `applied_gain_db`, whenever `master` sets `target_lufs`.
+    /// The gain is in no file, so this is where it stays visible. Absent otherwise.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub master: Option<Applied>,
 }
 
 /// The padded frame, where there was one.
@@ -559,6 +567,24 @@ fn run(
         .and_then(crate::verbs::frame::rgba_of)
         .unwrap_or(Rgba::BLACK);
 
+    // ADR-0172: pass 1 of the master stage, on the whole programme, before a frame is painted.
+    let (master, measured) = match master::settle(
+        &document,
+        &project_dir,
+        &Established::of(&report),
+        fps,
+        &ffmpeg,
+    ) {
+        Ok(settled) => settled,
+        Err(reason) => {
+            report.fail_internally(reason);
+            return refused(report);
+        }
+    };
+    for finding in measured {
+        report.push(finding);
+    }
+
     // The declared frame, and nothing else: `render` has no surface of its own to choose
     // (ADR-0021). The one call site that passes anything smaller is `preview`.
     let span = Span {
@@ -579,6 +605,7 @@ fn run(
         stamp: Some(stamp),
         deadline: None,
         cancel,
+        master,
     };
     let painted = match encode_span(&span, started, progress) {
         Ok(painted) => painted,
@@ -702,6 +729,9 @@ pub(crate) struct Span<'a> {
     /// ADR-0109: the caller's request to stop, checked before the encoder starts, before
     /// every frame, and after the seal. `None` where nobody can ask.
     pub cancel: Option<&'a Cancel>,
+    /// ADR-0172: the master stage, settled on the whole programme before any span, so a
+    /// partial render and every `preview` rung apply the deliverable's gain.
+    pub master: master::Stage,
 }
 
 impl Span<'_> {
@@ -842,6 +872,7 @@ impl Painted {
             sources: self.sources,
             fonts: self.fonts,
             painting: self.painting,
+            master: span.master.applied(),
         })
     }
 
@@ -878,6 +909,7 @@ pub(crate) fn encode_span(
         span.fps,
         span.from,
         span.to,
+        &span.master.bus(),
     );
 
     // ADR-0093 ruling 6, condition 1. The mix is decided before the encoder is spawned, so
@@ -1345,13 +1377,24 @@ pub fn mix_audio(
         .and_then(Value::as_i64)
         .ok_or("the project states no integer `fps`")?;
     let project_dir = crate::checks::project_dir(&document);
+    let established = Established::of(&report);
+    // ADR-0172: the master stage, measured on the whole programme whatever `[from, to)` is.
+    // Without a `master` nothing is measured, so no `ffmpeg` is asked for.
+    let stage = match crate::checks::master::of(&document) {
+        None => master::Stage::default(),
+        Some(_) => {
+            let ffmpeg = tools::resolve().map_err(|missing| missing.reason())?.ffmpeg;
+            master::settle(&document, &project_dir, &established, fps, &ffmpeg)?.0
+        }
+    };
     let mix = Mix::of(
         &document,
         &project_dir,
-        &Established::of(&report),
+        &established,
         fps,
         from,
         to,
+        &stage.bus(),
     );
     if let Some(reason) = mix.internal {
         return Err(reason);
@@ -1635,7 +1678,9 @@ impl Mix {
 }
 
 impl Mix {
-    /// Read every audible element inside `[from, to)` and write its chain.
+    /// Read every audible element inside `[from, to)` and write its chain. `bus` is the
+    /// master stage's filters on the sum ([`mix_graph`]).
+    #[allow(clippy::too_many_arguments)]
     fn of(
         document: &Loose,
         project_dir: &FilePath,
@@ -1643,6 +1688,7 @@ impl Mix {
         fps: i64,
         from: i64,
         to: i64,
+        bus: &str,
     ) -> Mix {
         let mut inputs: Vec<PathBuf> = Vec::new();
         let mut chains: Vec<String> = Vec::new();
@@ -1731,7 +1777,7 @@ impl Mix {
         Mix {
             audio: Some(encode::Audio {
                 inputs,
-                graph: mix_graph(&chains, to - from),
+                graph: mix_graph(&chains, to - from, bus),
             }),
             mixed,
             declined,
@@ -1748,7 +1794,10 @@ impl Mix {
 /// the `atrim` after it to end the stream; on ffmpeg 9, after an `amix`, that end is
 /// intermittently lost, ffmpeg encodes silence without end, and the render never returns.
 /// `atrim` stays as the exact cut; both are spelled by one `seconds`.
-fn mix_graph(chains: &[String], span: i64) -> String {
+///
+/// `bus` is the master stage's filters ([`master::Stage::bus`]), between the sum and the pad:
+/// empty without a `master`, so the graph is unchanged (ADR-0172).
+fn mix_graph(chains: &[String], span: i64, bus: &str) -> String {
     let mut graph = String::new();
     for (k, filter) in chains.iter().enumerate() {
         graph.push_str(&format!("{filter}[a{k}];\n"));
@@ -1760,6 +1809,7 @@ fn mix_graph(chains: &[String], span: i64) -> String {
         graph.push_str(&format!("amix=inputs={}:normalize=0,", chains.len()));
     }
     let end = seconds(span);
+    graph.push_str(bus);
     graph.push_str(&format!("apad=whole_dur={end},atrim=end={end}[mix]\n"));
     graph
 }
@@ -2254,13 +2304,17 @@ mod tests {
     /// spelled by one `seconds`, so they cannot disagree.
     #[test]
     fn the_mix_pads_to_the_span_and_no_further() {
-        let one = mix_graph(&["[1:a]anull".to_string()], 8000);
+        let one = mix_graph(&["[1:a]anull".to_string()], 8000, "");
         assert_eq!(
             one,
             "[1:a]anull[a0];\n[a0]apad=whole_dur=8.000,atrim=end=8.000[mix]\n"
         );
 
-        let two = mix_graph(&["[1:a]anull".to_string(), "[2:a]anull".to_string()], 480);
+        let two = mix_graph(
+            &["[1:a]anull".to_string(), "[2:a]anull".to_string()],
+            480,
+            "",
+        );
         assert_eq!(
             two,
             "[1:a]anull[a0];\n[2:a]anull[a1];\n[a0][a1]amix=inputs=2:normalize=0,\
