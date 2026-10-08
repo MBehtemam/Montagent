@@ -9,84 +9,96 @@
       "over_db": 3.0,
       "source_tp_dbtp": 0.6,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.3
+      "aac_overshoot_db": 0.3,
+      "limited_pcm_sha256": "b9f322bc70187387"
     },
     {
       "signal": "fs4_sine_45deg",
       "over_db": 6.0,
       "source_tp_dbtp": 0.6,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.2
+      "aac_overshoot_db": 0.2,
+      "limited_pcm_sha256": "c18efc93e406f9be"
     },
     {
       "signal": "fs4_sine_45deg",
       "over_db": 10.0,
       "source_tp_dbtp": 0.6,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.3
+      "aac_overshoot_db": 0.3,
+      "limited_pcm_sha256": "8c5e51f0f6721291"
     },
     {
       "signal": "clipped_sine_bursts",
       "over_db": 3.0,
       "source_tp_dbtp": 1.1,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 1.2
+      "aac_overshoot_db": 1.2,
+      "limited_pcm_sha256": "abf7b56ebe9c7309"
     },
     {
       "signal": "clipped_sine_bursts",
       "over_db": 6.0,
       "source_tp_dbtp": 1.1,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 1.8
+      "aac_overshoot_db": 1.8,
+      "limited_pcm_sha256": "203951c29634046d"
     },
     {
       "signal": "clipped_sine_bursts",
       "over_db": 10.0,
       "source_tp_dbtp": 1.1,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.6
+      "aac_overshoot_db": 0.6,
+      "limited_pcm_sha256": "125956c30b617bd5"
     },
     {
       "signal": "pink_noise_seed7",
       "over_db": 3.0,
       "source_tp_dbtp": -7.5,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": -0.1
+      "aac_overshoot_db": -0.1,
+      "limited_pcm_sha256": "92974a08a1399244"
     },
     {
       "signal": "pink_noise_seed7",
       "over_db": 6.0,
       "source_tp_dbtp": -7.5,
       "pcm_overshoot_db": 0.1,
-      "aac_overshoot_db": 1.0
+      "aac_overshoot_db": 1.0,
+      "limited_pcm_sha256": "2c44fbd1b4ec1942"
     },
     {
       "signal": "pink_noise_seed7",
       "over_db": 10.0,
       "source_tp_dbtp": -7.5,
       "pcm_overshoot_db": 0.2,
-      "aac_overshoot_db": 1.7
+      "aac_overshoot_db": 1.7,
+      "limited_pcm_sha256": "bc2a42c7ab809a1f"
     },
     {
       "signal": "fixture_narration_over_bed",
       "over_db": 3.0,
       "source_tp_dbtp": -2.8,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.0
+      "aac_overshoot_db": 0.0,
+      "limited_pcm_sha256": "470e94f96faf1f32"
     },
     {
       "signal": "fixture_narration_over_bed",
       "over_db": 6.0,
       "source_tp_dbtp": -2.8,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.3
+      "aac_overshoot_db": 0.3,
+      "limited_pcm_sha256": "1936903fc5c138db"
     },
     {
       "signal": "fixture_narration_over_bed",
       "over_db": 10.0,
       "source_tp_dbtp": -2.8,
       "pcm_overshoot_db": 0.0,
-      "aac_overshoot_db": 0.3
+      "aac_overshoot_db": 0.3,
+      "limited_pcm_sha256": "54c36f8da0598c8c"
     }
   ]
 }

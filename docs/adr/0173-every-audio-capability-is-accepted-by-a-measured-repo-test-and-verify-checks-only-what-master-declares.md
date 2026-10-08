@@ -1,5 +1,5 @@
 ---
-status: proposed (becomes accepted once §7's true-peak measurement is committed and runs clean; until then the 0.5 dB allowance is provisional)
+status: accepted
 amends: 0172 (sets `verify`'s tolerances for misses against `target_lufs` and `ceiling_dbtp`, which ADR-0172 left to this ticket), 0117 (`verify` gains no per-capability measurement: it checks only what `master` declares)
 ---
 
@@ -117,7 +117,7 @@ fundamental's shift on a sine, within a tolerance.
 | `master` key | `review` when | source |
 | --- | --- | --- |
 | `target_lufs` | \|integrated − target\| > 1.0 LU, either direction | EBU R 128 (2020) short-form allowance, ATSC A/85 |
-| `ceiling_dbtp` | true peak > ceiling + 0.5 dB, on the decoded AAC | codec inter-sample allowance, **provisional until §7** |
+| `ceiling_dbtp` | true peak > ceiling + 1.0 dB, on the decoded AAC | measured on three legs (§7, [ADR-0174](0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md)) |
 
 - The below-target miss is **not suppressed** when ADR-0172's headroom review already fired.
   Checking that would mean reading the document's other findings, and `verify` stays independent
@@ -141,6 +141,13 @@ A committed script under `docs/research/audio-effects/true-peak-allowance/` does
 The script runs on all three legs, because the deliverable is encoded by the user's build. The
 allowance in §6 becomes the worst case across legs plus a margin, rounded up to 0.1 dB, if that
 differs from 0.5 dB.
+
+**Measured (#815, #824).** The stage as ADR-0172 first worded it overshot the ceiling by up to
++3.8 dB, so the stage changed ([ADR-0174](0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md)).
+On the changed stage the shared fixture's worst decoded-AAC overshoot is +0.5 dB and the
+synthetic worst is +1.8 dB, on all three legs. The `review` threshold is +1.0 dB, and the
+script asserts the fixture at that figure and the synthetic signals at +1.9 dB. The table is in
+[`FINDINGS.md`](../research/audio-effects/true-peak-allowance/FINDINGS.md).
 
 ### 8. The A/B record, the folder layout, and the checklist
 
