@@ -99,6 +99,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Audio on tracks, with per-clip volume: `audio`, `volume`.
 - A crossfade between two audio clips, or between two clips' sound alone: `kind: "audio_crossfade"`, `audio` (`constant_power` unless both sides are the same source, then `constant_gain`). Fading a clip against silence stays a `volume` ramp.
+- Even out or hold a clip's level before `volume`: `audio_effects` with `compressor` (`threshold_db`, `ratio`, `attack_ms`, `release_ms`, `makeup_db`) and `limiter` (`ceiling_db`, `release_ms`); every key is required.
 
 ### Which skill covers it
 

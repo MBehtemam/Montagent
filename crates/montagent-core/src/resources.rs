@@ -79,6 +79,12 @@ macro_rules! format_paths_uri {
     };
 }
 
+macro_rules! format_audio_dynamics_uri {
+    () => {
+        "montagent://format/audio-dynamics.md"
+    };
+}
+
 macro_rules! index_uri {
     () => {
         "montagent://schema/index.json"
@@ -218,6 +224,10 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
     FormatPage {
         uri: format_paths_uri!(),
         text: include_str!("../docs/format/paths.md"),
+    },
+    FormatPage {
+        uri: format_audio_dynamics_uri!(),
+        text: include_str!("../docs/format/audio-dynamics.md"),
     },
 ];
 
