@@ -113,20 +113,21 @@ and needs no rule.
 
 ## 7. Premiere precedent: confirmed vs recalled
 
-This sandbox's proxy blocks helpx.adobe.com (WebFetch returned EGRESS_BLOCKED), so **nothing here was re-opened
-against Adobe's pages**; `PRECEDENT.md`'s labels stand and are not upgraded.
+Re-checked 2026-10-08 in a local Chrome session against Adobe's pages (`helpx.adobe.com`: audio effects library,
+pan or balance a stereo track, pan or balance a track in the timeline, Audio Track Mixer panning). Quotes are Adobe's
+own text. `PRECEDENT.md` carries the same labels.
 
 | claim | status in `PRECEDENT.md` |
 |---|---|
-| Panner/Balance is a clip fixed effect and a track mixer control, keyframable | CONFIRMED (search extract of the page) |
-| Range -100..+100, 0 centre, negative left | CONFIRMED (extract) |
-| Balance rescales L/R levels in place | CONFIRMED (Effects library extract) |
-| **Pan law** | **not documented** anywhere found |
-| Fill Left with Right, Fill Right with Left, Swap Channels (stereo only), Invert, Channel Volume | CONFIRMED (extract) |
-| Fill/Swap/Invert have no parameters | CONFIRMED |
-| Channel Volume is in dB | CONFIRMED |
-| Audio Channels source-to-clip mapping matrix | RECALLED |
-| Which direction "Fill Left with Right" copies | **Adobe's own text contradicts the name; resolve by testing, not by quoting.** This note's `left`/`right` are defined by this repo's own measurement (section 3), not by Adobe's wording |
+| Panner/Balance is a clip fixed effect and a track mixer control, keyframable | CONFIRMED (Adobe text: Panner > Balance or Pan, then the Add/Remove Keyframe icon) |
+| Range -100..+100, 0 centre, negative left | CONFIRMED (Adobe text: "a new percentage between -100 and 100"; "full left at -100") |
+| Balance on a stereo track | CONFIRMED that it is a balance ("how much of each input channel is sent to the output channels"); Adobe does not say whether it moves content, so the measurement in section 2 decides (balance never moves content) |
+| **Pan law** | **not documented** on any Adobe page read |
+| Fill Left with Right, Fill Right with Left, Swap Channels (stereo only), Invert, Channel Volume | CONFIRMED (Adobe text, quoted in `PRECEDENT.md`) |
+| Swap and Invert have no parameters | CONFIRMED for Swap and Invert (Adobe text names none); Fill's parameters not re-read |
+| Channel Volume is in dB | CONFIRMED (Adobe text: "Each channel's level is measured in decibels") |
+| Audio Channels source-to-clip mapping matrix | RECALLED (not on the pages read) |
+| Which direction "Fill Left with Right" copies | **Adobe's text says it copies the left into the right, the opposite of the name** (quoted). Adobe's text settles what Adobe says, not what the effect does; this note's `left`/`right` are defined by this repo's own measurement (section 3), and a listening or measurement test still decides |
 | CapCut | nothing first-party found for either row |
 
 Departures from Premiere to name in the ADR: -1..+1 instead of -100..+100 (ADR-0170, already ruled); a flat
@@ -207,10 +208,12 @@ The ear is not claimed here (one measurement run, no listening).
 4. **Vocabulary and names**: `channels` with `stereo|swap|mono|left|right`; whether `left`/`right` should be fill (recommended,
    Premiere's Fill ops, and what a lav-mic fix needs) or leave the other side silent (that is `pan: -1`/`1`).
    Whether `Invert` and per-channel `Channel Volume` stay out (recommended).
+   *Re-check 2026-10-08:* Adobe's text says Fill Left with Right copies the left into the right, the opposite of its name. The recommendation rests on this repo's measurement (section 3), not on that text, so it stands, and the direction still needs the listening test before the ADR names it.
 5. **Inert-spelling findings** for explicit `pan: 0` / `channels: "stereo"`: review, or none.
 6. **Wave**: the map puts pan and channel ops in "later". Both are one slice each with no new engine concept beyond one
    `pan` filter; they can ship together or `channels` first (it is the lav-mic enabler and the one with a loudness slot decision).
 7. **Keyframed pan** (autopan, a move across the picture): deferred under #842; a five-filter graph is the only working
    path today. Say yes only with a tolerance on the cost cap.
+   *Re-check 2026-10-08:* Adobe confirms that Panner > Balance and Pan are keyframable on the timeline. That is the precedent for a keyframed pan; it does not change the deferral under #842, since the departure rule decides admission.
 8. **Slot confirmation**: before the list for `channels` (measured support, section 6), after `volume` for `pan`.
 9. Whether the ADR may rely on the macOS and Windows legs matching (not measurable here).
