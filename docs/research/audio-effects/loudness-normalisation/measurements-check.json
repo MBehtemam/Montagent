@@ -1,0 +1,80 @@
+{
+ "ffmpeg": "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers",
+ "rows": [
+  {
+   "check": "pink noise normalised to -23.0 LUFS (gain +11.60 dB)",
+   "got": -23.0,
+   "want": -23.0,
+   "tol": 0.05,
+   "ok": true
+  },
+  {
+   "check": "pink noise normalised to -38.0 LUFS (gain -3.40 dB)",
+   "got": -38.0,
+   "want": -38.0,
+   "tol": 0.05,
+   "ok": true
+  },
+  {
+   "check": "pink noise normalised to -14.0 LUFS (gain +20.60 dB)",
+   "got": -14.0,
+   "want": -14.0,
+   "tol": 0.05,
+   "ok": true
+  },
+  {
+   "check": "pink noise normalised to -6.0 LUFS (gain +28.60 dB)",
+   "got": -6.0,
+   "want": -6.0,
+   "tol": 0.05,
+   "ok": true
+  },
+  {
+   "check": "whole file vs placed window differ",
+   "whole": -8.0,
+   "window": -35.6,
+   "ok": true
+  },
+  {
+   "check": "gain from the window lands the trimmed element on -23",
+   "got": -23.0,
+   "want": -23.0,
+   "tol": 0.05,
+   "ok": true
+  },
+  {
+   "check": "silence is undefined",
+   "got": null,
+   "ok": true
+  },
+  {
+   "check": "pink noise of 200 ms",
+   "got": null
+  },
+  {
+   "check": "pink noise of 300 ms",
+   "got": null
+  },
+  {
+   "check": "pink noise of 399 ms",
+   "got": null
+  },
+  {
+   "check": "pink noise of 400 ms",
+   "got": -34.7
+  },
+  {
+   "check": "pink noise of 500 ms",
+   "got": -34.7
+  },
+  {
+   "check": "pink noise of 1000 ms",
+   "got": -34.6
+  },
+  {
+   "check": "a window under 400 ms is undefined",
+   "ok": true
+  }
+ ],
+ "pass": true
+}

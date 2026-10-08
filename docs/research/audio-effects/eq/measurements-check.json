@@ -1,0 +1,362 @@
+{
+ "ffmpeg": "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers",
+ "rows": [
+  {
+   "check": "highpass 12 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "highpass 12 two octaves into stopband (at least)",
+   "got": -24.123,
+   "want": -22.599331233312945,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "highpass 12 passband",
+   "got": -0.016,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highpass 24 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "highpass 24 two octaves into stopband (at least)",
+   "got": -48.207,
+   "want": -46.66486557381032,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "highpass 24 passband",
+   "got": -0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highpass 48 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "highpass 48 two octaves into stopband (at least)",
+   "got": -78.339,
+   "want": -75.0,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "highpass 48 passband",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowpass 12 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "lowpass 12 two octaves into stopband (at least)",
+   "got": -24.476,
+   "want": -22.599331233312945,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "lowpass 12 passband",
+   "got": -0.017,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowpass 24 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "lowpass 24 two octaves into stopband (at least)",
+   "got": -48.922,
+   "want": -46.66486557381032,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "lowpass 24 passband",
+   "got": -0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowpass 48 at fc",
+   "got": -3.01,
+   "want": -3.01,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "lowpass 48 two octaves into stopband (at least)",
+   "got": -97.844,
+   "want": -75.0,
+   "tol": 0.0,
+   "ok": true
+  },
+  {
+   "check": "lowpass 48 passband",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "NEGATIVE CONTROL naive cascade 24",
+   "got": -6.021,
+   "must_differ_from": -3.01
+  },
+  {
+   "check": "NEGATIVE CONTROL naive cascade 48",
+   "got": -12.041,
+   "must_differ_from": -3.01
+  },
+  {
+   "check": "bell +6 dB at centre",
+   "got": 6.0,
+   "want": 6,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "bell +6 dB three octaves away",
+   "got": 0.084,
+   "want": 0.0,
+   "tol": 0.5,
+   "ok": true
+  },
+  {
+   "check": "bell -6 dB at centre",
+   "got": -6.0,
+   "want": -6,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "bell -6 dB three octaves away",
+   "got": -0.084,
+   "want": 0.0,
+   "tol": 0.5,
+   "ok": true
+  },
+  {
+   "check": "bell +12 dB at centre",
+   "got": 12.0,
+   "want": 12,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "bell +12 dB three octaves away",
+   "got": 0.208,
+   "want": 0.0,
+   "tol": 0.5,
+   "ok": true
+  },
+  {
+   "check": "bell -12 dB at centre",
+   "got": -12.0,
+   "want": -12,
+   "tol": 0.15,
+   "ok": true
+  },
+  {
+   "check": "bell -12 dB three octaves away",
+   "got": -0.208,
+   "want": 0.0,
+   "tol": 0.5,
+   "ok": true
+  },
+  {
+   "check": "lowshelf +6 plateau",
+   "got": 5.99,
+   "want": 6,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowshelf +6 far side",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowshelf +6 at corner (half the gain)",
+   "got": 3.0,
+   "want": 3.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowshelf -6 plateau",
+   "got": -5.99,
+   "want": -6,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowshelf -6 far side",
+   "got": -0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "lowshelf -6 at corner (half the gain)",
+   "got": -3.0,
+   "want": -3.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf +6 plateau",
+   "got": 5.983,
+   "want": 6,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf +6 far side",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf +6 at corner (half the gain)",
+   "got": 3.0,
+   "want": 3.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf -6 plateau",
+   "got": -5.983,
+   "want": -6,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf -6 far side",
+   "got": -0.0,
+   "want": 0.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "highshelf -6 at corner (half the gain)",
+   "got": -3.0,
+   "want": -3.0,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highpass=f=20:poles=2:width_type=q:width=2.562915,highpass=f=20:poles=",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowpass=f=20:poles=2:width_type=q:width=2.562915,lowpass=f=20:poles=2:",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowshelf=f=20:g=-24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highshelf=f=20:g=-24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20:width_type=q:width=0.1:g=-24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20:width_type=q:width=10:g=-24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowshelf=f=20:g=24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highshelf=f=20:g=24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20:width_type=q:width=0.1:g=24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20:width_type=q:width=10:g=24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highpass=f=20000:poles=2:width_type=q:width=2.562915,highpass=f=20000:",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowpass=f=20000:poles=2:width_type=q:width=2.562915,lowpass=f=20000:po",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowshelf=f=20000:g=-24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highshelf=f=20000:g=-24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20000:width_type=q:width=0.1:g=-24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20000:width_type=q:width=10:g=-24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: lowshelf=f=20000:g=24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: highshelf=f=20000:g=24:width_type=q:width=0.707107",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20000:width_type=q:width=0.1:g=24",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: equalizer=f=20000:width_type=q:width=10:g=24",
+   "ok": true
+  }
+ ],
+ "pass": true
+}

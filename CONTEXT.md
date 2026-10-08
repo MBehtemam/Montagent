@@ -782,9 +782,15 @@ fade or a duck is never undone by a compressor. Gain and routing (Volume, pan/ba
 operations) are never members: they are flat fields at fixed points. A member may appear twice
 unless its own ADR declares it singular, and `"enabled": false` bypasses it without losing its
 values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`, `_dbtp`); its
-other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction.
+other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction. The first
+wave is `normalize_loudness` (singular, one authored `target_lufs`), the EQ members `highpass`,
+`lowpass`, `shelf` and `bell`, and `compressor` and `limiter`; every parameter is a literal and
+none defaults.
 ([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
-[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
+[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md),
+[ADR-0178](docs/adr/0178-normalize-loudness-is-a-singular-audio-effect-with-one-authored-target-lufs-and-one-fixed-gain.md),
+[ADR-0179](docs/adr/0179-eq-is-four-stackable-audio-effects-built-from-butterworth-biquad-sections.md),
+[ADR-0180](docs/adr/0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md))
 _Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
 
 **Master stage**:

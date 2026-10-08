@@ -1,0 +1,431 @@
+{
+ "ffmpeg": "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers",
+ "rows": [
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-53.0",
+   "got": -53.010299,
+   "want": -53.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-43.0",
+   "got": -43.0103,
+   "want": -43.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-33.0",
+   "got": -33.0102998,
+   "want": -33.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-23.0",
+   "got": -23.0103,
+   "want": -23.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-15.0",
+   "got": -18.7532557,
+   "want": -18.753,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-9.0",
+   "got": -17.2532557,
+   "want": -17.253,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=0 in_rms=-3.0",
+   "got": -15.7532557,
+   "want": -15.753,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-53.0",
+   "got": -47.010299,
+   "want": -47.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-43.0",
+   "got": -37.0103,
+   "want": -37.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-33.0",
+   "got": -27.0102998,
+   "want": -27.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-23.0",
+   "got": -17.0103,
+   "want": -17.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-15.0",
+   "got": -12.7532557,
+   "want": -12.753,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-9.0",
+   "got": -11.2532557,
+   "want": -11.253,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=4 makeup=6 in_rms=-3.0",
+   "got": -9.7532557,
+   "want": -9.753,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-53.0",
+   "got": -53.010299,
+   "want": -53.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-43.0",
+   "got": -43.0103,
+   "want": -43.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-33.0",
+   "got": -33.0102998,
+   "want": -33.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-23.0",
+   "got": -29.1270804,
+   "want": -29.126,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-15.0",
+   "got": -28.1270804,
+   "want": -28.126,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-9.0",
+   "got": -27.3770804,
+   "want": -27.376,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-30 ratio=8 makeup=0 in_rms=-3.0",
+   "got": -26.6270804,
+   "want": -26.626,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-53.0",
+   "got": -53.010299,
+   "want": -53.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-43.0",
+   "got": -43.0103,
+   "want": -43.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-33.0",
+   "got": -33.0102998,
+   "want": -33.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-23.0",
+   "got": -23.0103,
+   "want": -23.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-15.0",
+   "got": -15.0103,
+   "want": -15.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-9.0",
+   "got": -9.0103,
+   "want": -9.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-20 ratio=1 makeup=0 in_rms=-3.0",
+   "got": -3.0103,
+   "want": -3.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-53.0",
+   "got": -50.010299,
+   "want": -50.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-43.0",
+   "got": -40.0103,
+   "want": -40.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-33.0",
+   "got": -30.0102998,
+   "want": -30.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-23.0",
+   "got": -20.0103,
+   "want": -20.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-15.0",
+   "got": -12.0103,
+   "want": -12.01,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-9.0",
+   "got": -7.5056052,
+   "want": -7.505,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "transfer thr=-12 ratio=2 makeup=3 in_rms=-3.0",
+   "got": -4.5056052,
+   "want": -4.505,
+   "tol": 0.3,
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=1 release=10: realised minus formula (dB)",
+   "got": -1.605,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=5 release=50: realised minus formula (dB)",
+   "got": -1.593,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=5 release=120: realised minus formula (dB)",
+   "got": -1.866,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=20 release=250: realised minus formula (dB)",
+   "got": -1.669,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=50 release=120: realised minus formula (dB)",
+   "got": -0.781,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=100 release=100: realised minus formula (dB)",
+   "got": -0.001,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=200 release=1000: realised minus formula (dB)",
+   "got": -1.259,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "timing sweep attack=5 release=1000: realised minus formula (dB)",
+   "got": -2.158,
+   "want": "[-2.5, +0.3]",
+   "ok": true
+  },
+  {
+   "check": "attack_ms=5: time to 63% of the reduction (s)",
+   "got": 0.002
+  },
+  {
+   "check": "attack_ms=50: time to 63% of the reduction (s)",
+   "got": 0.008
+  },
+  {
+   "check": "attack_ms 50 is more than twice as slow as 5",
+   "got": [
+    0.002,
+    0.008
+   ],
+   "ok": true
+  },
+  {
+   "check": "limiter ceiling -3.0 dB sample peak (+6 dB sine)",
+   "got": -3.0,
+   "want": -3.0,
+   "tol": 0.0002,
+   "ok": true
+  },
+  {
+   "check": "limiter passes a tone 6 dB under ceiling -3.0 (gain, dB)",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.01,
+   "ok": true
+  },
+  {
+   "check": "limiter onset shift at ceiling -3.0 (samples)",
+   "got": 0,
+   "want": 0,
+   "tol": 0,
+   "ok": true
+  },
+  {
+   "check": "limiter ceiling -12.0 dB sample peak (+6 dB sine)",
+   "got": -12.0,
+   "want": -12.0,
+   "tol": 0.0002,
+   "ok": true
+  },
+  {
+   "check": "limiter passes a tone 6 dB under ceiling -12.0 (gain, dB)",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.01,
+   "ok": true
+  },
+  {
+   "check": "limiter onset shift at ceiling -12.0 (samples)",
+   "got": 0,
+   "want": 0,
+   "tol": 0,
+   "ok": true
+  },
+  {
+   "check": "limiter ceiling -20.0 dB sample peak (+6 dB sine)",
+   "got": -20.0,
+   "want": -20.0,
+   "tol": 0.0002,
+   "ok": true
+  },
+  {
+   "check": "limiter passes a tone 6 dB under ceiling -20.0 (gain, dB)",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.01,
+   "ok": true
+  },
+  {
+   "check": "limiter onset shift at ceiling -20.0 (samples)",
+   "got": 0,
+   "want": 0,
+   "tol": 0,
+   "ok": true
+  },
+  {
+   "check": "limiter ceiling -24.0 dB sample peak (+6 dB sine)",
+   "got": -24.0000001,
+   "want": -24.0,
+   "tol": 0.0002,
+   "ok": true
+  },
+  {
+   "check": "limiter passes a tone 6 dB under ceiling -24.0 (gain, dB)",
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.01,
+   "ok": true
+  },
+  {
+   "check": "limiter onset shift at ceiling -24.0 (samples)",
+   "got": 0,
+   "want": 0,
+   "tol": 0,
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: acompressor=threshold=0.001000000:ratio=20:attack=0.1:release=1:makeup",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: acompressor=threshold=1.000000000:ratio=1:attack=2000:release=9000:mak",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: acompressor=threshold=0.001000000:ratio=1:attack=0.1:release=9000:make",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: alimiter=limit=0.063095734:attack=5:release=1:asc=0:level=0:latency=1",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: alimiter=limit=0.063095734:attack=5:release=1000:asc=0:level=0:latency",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: alimiter=limit=1.000000000:attack=5:release=1:asc=0:level=0:latency=1",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: alimiter=limit=1.000000000:attack=5:release=1000:asc=0:level=0:latency",
+   "ok": true
+  },
+  {
+   "check": "NEGATIVE CONTROL: a -30 dB limiter ceiling is rejected by alimiter",
+   "ok": true
+  }
+ ],
+ "pass": true
+}
