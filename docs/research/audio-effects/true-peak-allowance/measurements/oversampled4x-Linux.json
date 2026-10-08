@@ -1,0 +1,92 @@
+{
+  "ffmpeg": "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers",
+  "ceiling_dbtp": -1.0,
+  "stage": "oversampled4x",
+  "worst_aac_overshoot_db": 1.8,
+  "rows": [
+    {
+      "signal": "fs4_sine_45deg",
+      "over_db": 3.0,
+      "source_tp_dbtp": 0.6,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.3
+    },
+    {
+      "signal": "fs4_sine_45deg",
+      "over_db": 6.0,
+      "source_tp_dbtp": 0.6,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.2
+    },
+    {
+      "signal": "fs4_sine_45deg",
+      "over_db": 10.0,
+      "source_tp_dbtp": 0.6,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.3
+    },
+    {
+      "signal": "clipped_sine_bursts",
+      "over_db": 3.0,
+      "source_tp_dbtp": 1.1,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 1.2
+    },
+    {
+      "signal": "clipped_sine_bursts",
+      "over_db": 6.0,
+      "source_tp_dbtp": 1.1,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 1.8
+    },
+    {
+      "signal": "clipped_sine_bursts",
+      "over_db": 10.0,
+      "source_tp_dbtp": 1.1,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.6
+    },
+    {
+      "signal": "pink_noise_seed7",
+      "over_db": 3.0,
+      "source_tp_dbtp": -7.5,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": -0.1
+    },
+    {
+      "signal": "pink_noise_seed7",
+      "over_db": 6.0,
+      "source_tp_dbtp": -7.5,
+      "pcm_overshoot_db": 0.1,
+      "aac_overshoot_db": 1.0
+    },
+    {
+      "signal": "pink_noise_seed7",
+      "over_db": 10.0,
+      "source_tp_dbtp": -7.5,
+      "pcm_overshoot_db": 0.2,
+      "aac_overshoot_db": 1.7
+    },
+    {
+      "signal": "fixture_narration_over_bed",
+      "over_db": 3.0,
+      "source_tp_dbtp": -2.8,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.0
+    },
+    {
+      "signal": "fixture_narration_over_bed",
+      "over_db": 6.0,
+      "source_tp_dbtp": -2.8,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.3
+    },
+    {
+      "signal": "fixture_narration_over_bed",
+      "over_db": 10.0,
+      "source_tp_dbtp": -2.8,
+      "pcm_overshoot_db": 0.0,
+      "aac_overshoot_db": 0.3
+    }
+  ]
+}

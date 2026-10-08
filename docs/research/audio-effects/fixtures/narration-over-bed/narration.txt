@@ -1,0 +1,1 @@
+Every video starts as a plain text file. You write what should appear, when it should appear, and how loud it should be. Then the renderer turns those words into pictures and sound. Voices come from a speech engine, music sits underneath, and the mix keeps the narration clear from the first word to the last.
