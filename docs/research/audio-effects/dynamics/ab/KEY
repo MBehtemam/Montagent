@@ -1,0 +1,4 @@
+compressor-X = bypass
+compressor-Y = on
+limiter-X = bypass
+limiter-Y = on

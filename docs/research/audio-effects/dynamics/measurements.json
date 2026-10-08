@@ -1,0 +1,123 @@
+{
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "members": {
+    "compressor": {
+      "name": "compressor",
+      "threshold_db": -28,
+      "ratio": 6,
+      "attack_ms": 5,
+      "release_ms": 120,
+      "makeup_db": 8
+    },
+    "limiter": {
+      "name": "limiter",
+      "ceiling_db": -12,
+      "release_ms": 50
+    }
+  },
+  "compressor_static_transfer": [
+    {
+      "member": "threshold -20 ratio 4 makeup 0",
+      "gain_db_at_peak_in": {
+        "-40": {
+          "got": 0.0,
+          "expected": 0
+        },
+        "-10": {
+          "got": -4.99,
+          "expected": -5.24
+        },
+        "-3": {
+          "got": -10.24,
+          "expected": -10.49
+        }
+      }
+    },
+    {
+      "member": "threshold -20 ratio 4 makeup 6",
+      "gain_db_at_peak_in": {
+        "-40": {
+          "got": 6.0,
+          "expected": 6
+        },
+        "-10": {
+          "got": 1.01,
+          "expected": 0.76
+        },
+        "-3": {
+          "got": -4.24,
+          "expected": -4.49
+        }
+      }
+    },
+    {
+      "member": "threshold -30 ratio 8 makeup 0",
+      "gain_db_at_peak_in": {
+        "-40": {
+          "got": 0.0,
+          "expected": 0
+        },
+        "-10": {
+          "got": -14.57,
+          "expected": -14.87
+        },
+        "-3": {
+          "got": -20.7,
+          "expected": -20.99
+        }
+      }
+    },
+    {
+      "member": "threshold -20 ratio 1 makeup 0",
+      "gain_db_at_peak_in": {
+        "-40": {
+          "got": 0.0,
+          "expected": 0
+        },
+        "-10": {
+          "got": 0.0,
+          "expected": 0.0
+        },
+        "-3": {
+          "got": 0.0,
+          "expected": 0.0
+        }
+      }
+    }
+  ],
+  "limiter_peak": [
+    {
+      "ceiling_db": -3,
+      "output_peak_db_after_0.5s": -2.999997
+    },
+    {
+      "ceiling_db": -12,
+      "output_peak_db_after_0.5s": -11.999988
+    }
+  ],
+  "limiter_onset_shift_samples": 0,
+  "compressor_onset_shift_samples": 0,
+  "disabled_members_byte_identical": true,
+  "ab": {
+    "compressor": {
+      "lufs_before_match": {
+        "bypass": -18.0,
+        "on": -21.4
+      },
+      "peak_db_before_match": {
+        "bypass": -2.78184,
+        "on": -6.128015
+      }
+    },
+    "limiter": {
+      "lufs_before_match": {
+        "bypass": -12.1,
+        "on": -14.7
+      },
+      "peak_db_before_match": {
+        "bypass": 3.130475,
+        "on": -5.150618
+      }
+    }
+  }
+}
