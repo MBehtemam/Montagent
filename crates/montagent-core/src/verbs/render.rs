@@ -2012,9 +2012,14 @@ fn chain(
 /// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
 /// lowers to, or `None` for a `name` the renderer has no lowering for.
 ///
-/// Each capability ADR adds its arm here (EQ is ADR-0179 §2, in [`lower_eq`]).
+/// Each capability ADR adds its arm here (EQ is ADR-0179 §2, in [`lower_eq`]; the compressor
+/// and limiter are ADR-0180 §2).
 fn lower_audio_member(name: &str, member: &Value) -> Option<String> {
-    lower_eq(name, member)
+    match name {
+        "compressor" => lower_compressor(member),
+        "limiter" => lower_limiter(member),
+        _ => lower_eq(name, member),
+    }
 }
 
 /// The Q of each 2-pole section of an even-order Butterworth filter, in cascade order
@@ -2067,6 +2072,41 @@ fn lower_eq(name: &str, member: &Value) -> Option<String> {
         )),
         _ => None,
     }
+}
+
+/// A level in dB as the linear amplitude `ffmpeg` takes, nine places so a ceiling holds to
+/// well under the 0.0002 dB ADR-0180 section 6 measures it at.
+fn linear_db(db: f64) -> String {
+    let text = format!("{:.9}", 10f64.powf(db / 20.0));
+    text.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// ADR-0180 section 2: `acompressor` with RMS detection, `link=average` and a hard knee
+/// (`knee=1`). Threshold and make-up are converted from dB; make-up is at least 1, which is
+/// `acompressor`'s own floor and what a non-negative `makeup_db` already guarantees.
+fn lower_compressor(member: &Value) -> Option<String> {
+    let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    Some(format!(
+        "acompressor=threshold={}:ratio={}:attack={}:release={}:makeup={}:knee=1:detection=rms:\
+         link=average",
+        linear_db(key("threshold_db")?),
+        ratio(key("ratio")?),
+        ratio(key("attack_ms")?),
+        ratio(key("release_ms")?),
+        linear_db(key("makeup_db")?.max(0.0)),
+    ))
+}
+
+/// ADR-0180 section 2: `alimiter` with the fixed 5 ms look-ahead, no automatic level and no
+/// ASC. `latency=1` is the filter's own compensation of that look-ahead (and flush at end of
+/// stream), so the element's onset does not move and its length is kept (#843: 0 samples).
+fn lower_limiter(member: &Value) -> Option<String> {
+    let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    Some(format!(
+        "alimiter=limit={}:attack=5:release={}:asc=0:level=0:latency=1",
+        linear_db(key("ceiling_db")?),
+        ratio(key("release_ms")?),
+    ))
 }
 
 /// The `audio_effects` stage of one element's chain (ADR-0169), leading comma included, or
@@ -2783,6 +2823,82 @@ mod tests {
             return;
         };
         assert_eq!(with, without);
+    }
+
+    /// ADR-0180 section 2, committed as text: the compressor is `acompressor` with RMS
+    /// detection, averaged links and a hard knee, its dB values converted to ffmpeg's linear.
+    #[test]
+    fn the_compressor_lowers_to_an_rms_hard_knee_acompressor_in_linear_units() {
+        let member = json!({"name": "compressor", "threshold_db": -24, "ratio": 3,
+                            "attack_ms": 20, "release_ms": 250, "makeup_db": 4});
+        assert_eq!(
+            lower_audio_member("compressor", &member),
+            Some(
+                "acompressor=threshold=0.063095734:ratio=3:attack=20:release=250:\
+                 makeup=1.584893192:knee=1:detection=rms:link=average"
+                    .to_string()
+            )
+        );
+    }
+
+    /// Make-up is at least 1 (`acompressor`'s own floor), and fractional timings survive.
+    #[test]
+    fn a_compressor_with_no_makeup_writes_a_makeup_of_one() {
+        let member = json!({"name": "compressor", "threshold_db": -60, "ratio": 20,
+                            "attack_ms": 0.1, "release_ms": 9000, "makeup_db": 0});
+        assert_eq!(
+            lower_audio_member("compressor", &member),
+            Some(
+                "acompressor=threshold=0.001:ratio=20:attack=0.1:release=9000:\
+                 makeup=1:knee=1:detection=rms:link=average"
+                    .to_string()
+            )
+        );
+    }
+
+    /// ADR-0180 section 2 and #843: `latency=1` is `alimiter`'s own compensation of its 5 ms
+    /// look-ahead, which is what holds the onset at 0 samples (measured: the 20 ms burst
+    /// starts on the same sample with and without the limiter; without `latency=1` it moves
+    /// 239 samples). Adding an `atrim` for that delay as well would cut real audio.
+    #[test]
+    fn the_limiter_lowers_to_alimiter_with_its_latency_compensated() {
+        let member = json!({"name": "limiter", "ceiling_db": -3, "release_ms": 50});
+        assert_eq!(
+            lower_audio_member("limiter", &member),
+            Some(
+                "alimiter=limit=0.707945784:attack=5:release=50:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
+        let floor = json!({"name": "limiter", "ceiling_db": -24, "release_ms": 1000});
+        assert_eq!(
+            lower_audio_member("limiter", &floor),
+            Some(
+                "alimiter=limit=0.063095734:attack=5:release=1000:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
+    }
+
+    /// A chain of both, with a bypassed limiter between them that emits nothing.
+    #[test]
+    fn a_dynamics_chain_runs_in_list_order_in_float() {
+        let element = json!({"audio_effects": [
+            {"name": "compressor", "threshold_db": -24, "ratio": 3, "attack_ms": 20,
+             "release_ms": 250, "makeup_db": 4},
+            {"name": "limiter", "ceiling_db": -12, "release_ms": 50, "enabled": false},
+            {"name": "limiter", "ceiling_db": -3, "release_ms": 50},
+        ]});
+        assert_eq!(
+            audio_effects_stage(&element, "bed", &lower_audio_member).ok(),
+            Some(
+                ",aformat=sample_fmts=fltp,\
+                acompressor=threshold=0.063095734:ratio=3:attack=20:release=250:\
+                makeup=1.584893192:knee=1:detection=rms:link=average,\
+                alimiter=limit=0.707945784:attack=5:release=50:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
     }
 
     #[cfg(unix)]

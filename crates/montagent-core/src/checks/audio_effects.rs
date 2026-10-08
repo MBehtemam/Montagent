@@ -226,8 +226,15 @@ mod tests {
     #[test]
     fn the_real_vocabularies_are_the_schemas() {
         let published = Vocabulary::published();
-        for eq in ["highpass", "lowpass", "shelf", "bell"] {
-            assert!(published.audio.iter().any(|name| name == eq), "{eq}");
+        for name in [
+            "highpass",
+            "lowpass",
+            "shelf",
+            "bell",
+            "compressor",
+            "limiter",
+        ] {
+            assert!(published.audio.iter().any(|a| a == name), "{name}");
         }
         assert!(published.visual.iter().any(|name| name == "blur"));
         assert!(published.singular.is_empty());

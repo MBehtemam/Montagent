@@ -1,10 +1,10 @@
 //! The `audio_effects` list, F0 of the audio-effects map (ADR-0169; #795, #845): the field on
-//! `audio` and `video`, the union that has no members yet, and the `validate` rule that keeps
+//! `audio` and `video`, the union of EQ and dynamics members, and the `validate` rule that keeps
 //! the two vocabularies in their own lists.
 //!
-//! No member exists in this slice, so everything that needs one (the bypass review, the
-//! singular error, the render stage) is tested against an injected vocabulary beside the code
-//! (`checks::audio_effects`, `verbs::render`). What can be said of the real binary is here.
+//! Rules that need a singular member (the singular error) are tested against an injected
+//! vocabulary beside the code (`checks::audio_effects`, `verbs::render`). What can be said of
+//! the real binary is here.
 
 use montagent_core::report::Report;
 use montagent_core::validate;
@@ -162,7 +162,7 @@ fn a_visual_member_in_audio_effects_names_the_right_list_and_is_not_also_a_schem
 }
 
 #[test]
-fn the_published_schema_lists_the_union_and_its_eq_branches() {
+fn the_published_schema_lists_the_union() {
     let schema = montagent_core::schema::generate();
     for kind in ["audio", "video"] {
         let branch = schema["$defs"]["Element"]["oneOf"]
@@ -182,7 +182,14 @@ fn the_published_schema_lists_the_union_and_its_eq_branches() {
         .iter()
         .map(|b| b["properties"]["name"]["const"].as_str().unwrap())
         .collect();
-    for eq in ["highpass", "lowpass", "shelf", "bell"] {
-        assert!(names.contains(&eq), "{names:?}");
+    for member in [
+        "highpass",
+        "lowpass",
+        "shelf",
+        "bell",
+        "compressor",
+        "limiter",
+    ] {
+        assert!(names.contains(&member), "{names:?}");
     }
 }

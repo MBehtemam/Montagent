@@ -40,6 +40,8 @@ served beside this one and each fitting one read. Read a page before you write w
   stroke in the box, a morph between unlike shapes and its seam, and the `stroke_dash` pattern and offset on a `path`, `rect` or
   `ellipse`, and the trim (`trim_start`, `trim_end`, `trim_offset`) that draws a window of
   the stroke.
+- **`montagent://format/audio-dynamics.md`**: the `compressor` and `limiter` members of
+  `audio_effects`. RMS levels, ranges, and why a faster compressor reads deeper.
 
 ## How you edit a project
 

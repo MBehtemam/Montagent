@@ -256,6 +256,9 @@ fn run_checks(
     // ADR-0179 §3's five EQ findings: a range, the stack cap, an extreme gain, a crossed
     // band pair and a zero-gain stage. Document-only.
     crate::checks::audio_eq::check(document, report);
+    // ADR-0180's six compressor and limiter findings: a range, a limiter over the master's
+    // ceiling, the order, the make-up clip, a ratio of 1 and stacked limiters. Document-only.
+    crate::checks::dynamics::check(document, report);
     // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
     // decided on the frame grid without painting a frame.
     crate::checks::grain::check(document, report);

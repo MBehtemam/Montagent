@@ -3195,6 +3195,82 @@
             "q"
           ],
           "description": "A bell (peaking) band (ADR-0179). `frequency_hz` 20..20000 is the centre, `gain_db`\n-24..24 the height there, `q` 0.1..10 the narrowness."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "threshold_db": {
+              "type": "number",
+              "format": "double",
+              "description": "RMS dBFS above which the signal is reduced. -60..0."
+            },
+            "ratio": {
+              "type": "number",
+              "format": "double",
+              "description": "n:1 above the threshold. 1..20."
+            },
+            "attack_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Envelope attack in ms. 0.1..2000. Not a 63% time."
+            },
+            "release_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Envelope release in ms. 1..9000."
+            },
+            "makeup_db": {
+              "type": "number",
+              "format": "double",
+              "description": "Make-up gain in dB. 0..24."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "compressor"
+            }
+          },
+          "required": [
+            "name",
+            "threshold_db",
+            "ratio",
+            "attack_ms",
+            "release_ms",
+            "makeup_db"
+          ],
+          "description": "Downward compressor (ADR-0180): `acompressor` with RMS detection and a hard knee.\n\nEvery key is required and none defaults. Every level is RMS dBFS, so a full-scale\nsine reads -3.01. The ranges are checked by `validate` (`E-DYNAMICS-RANGE`). A\nkeyframe list on any key is a schema error: these are plain numbers, not animatable\nproperties (#842)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ceiling_db": {
+              "type": "number",
+              "format": "double",
+              "description": "Sample-peak ceiling in dBFS. -24..0 (`alimiter`'s own floor)."
+            },
+            "release_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Release in ms. 1..1000."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "limiter"
+            }
+          },
+          "required": [
+            "name",
+            "ceiling_db",
+            "release_ms"
+          ],
+          "description": "Look-ahead limiter (ADR-0180): `alimiter` with a fixed 5 ms look-ahead.\n\nEvery key is required and none defaults. `ceiling_db` is a sample peak; the delivered\nfile's true-peak ceiling is the master's."
         }
       ],
       "description": "One member of the closed audio-effect vocabulary, discriminated by `name`.\n\nTwo members of the same name are ordinary unless the member's own ADR declares it singular\n(ADR-0169)."

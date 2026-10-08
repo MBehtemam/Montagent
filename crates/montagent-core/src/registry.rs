@@ -3273,6 +3273,87 @@ in the {other} version, {moved}; {stayed}. ({ref_project} is the reference versi
         census: None,
         sets: &[CheckSet::Drift],
     },
+    // ADR-0180 (#846): the compressor and the limiter.
+    CheckSpec {
+        // Advise: the nearest bound is a value the document and the range determine.
+        code: "E-DYNAMICS-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`{member}`).{key}: {value} is outside \
+{min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // Advise: `ceiling_dbtp - 1` is the one value that clears it. Fires only with a
+        // `master.ceiling_dbtp` written.
+        code: "E-LIMITER-ABOVE-MASTER",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`limiter`).ceiling_db: {ceiling_db} is above \
+the master's `ceiling_dbtp` ({ceiling_dbtp}) less 1 dB, so it can never bind: the master's ceiling \
+already governs the delivered file. Lower it to {limit}, or drop the limiter.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // A review: a glue chain can be deliberate, and swapping the two changes the sound.
+        code: "R-DYNAMICS-ORDER",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}]: a `compressor` after the `limiter` at index \
+{limiter} re-exposes the peaks the limiter removed. Put the compressor first, unless this is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // A review: a static estimate for a full-scale sine, wrong either way on real material.
+        code: "R-COMPRESSOR-MAKEUP-CLIP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`compressor`).makeup_db: {makeup_db} exceeds \
+the {headroom} dB a full-scale sine can take before reaching 0 dBFS at threshold {threshold_db} and \
+ratio {ratio}, and no enabled `limiter` follows it and the project has no `master.ceiling_dbtp`. \
+Lower the make-up, or follow the compressor with a `limiter`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-COMPRESSOR-RATIO-1",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}]: a `compressor` at ratio 1 reduces nothing; it \
+is a plain {makeup_db} dB gain.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-LIMITER-STACKED",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`: {count} enabled `limiter` members (audio_effects indexes {indexes}); \
+the lowest ceiling binds and the others add look-ahead and nothing else.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {
