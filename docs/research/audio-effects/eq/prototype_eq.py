@@ -48,11 +48,16 @@ def rms_db(a, path, af):
     return float(re.findall(r"RMS level dB:\s+(-?[\d.]+)", t)[-1])
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--ffmpeg", default="ffmpeg"); ap.add_argument("--seed", type=int, default=817)
+    ap = argparse.ArgumentParser(); ap.add_argument("--ffmpeg", default="ffmpeg"); ap.add_argument("--seed", type=int, default=817); ap.add_argument("--strong", action="store_true"); ap.add_argument("--ab", default="ab")
     a = ap.parse_args(); F = a.ffmpeg
     voice = [{"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 24}]
     bed = [{"name": "bell", "frequency_hz": 1500, "gain_db": -6, "q": 0.8},
            {"name": "shelf", "side": "high", "frequency_hz": 9000, "gain_db": -4}]
+    if a.strong:
+        voice = [{"name": "highpass", "frequency_hz": 400, "slope_db_per_oct": 24},
+                 {"name": "shelf", "side": "high", "frequency_hz": 4000, "gain_db": 6}]
+        bed = [{"name": "bell", "frequency_hz": 1500, "gain_db": -14, "q": 0.7},
+               {"name": "lowpass", "frequency_hz": 5000, "slope_db_per_oct": 24}]
     fails, res = [], {"ffmpeg": subprocess.run([F, "-version"], capture_output=True, text=True).stdout.splitlines()[0],
                       "document": {"voice": voice, "bed": bed}}
     with tempfile.TemporaryDirectory() as w:
@@ -98,14 +103,14 @@ def main():
                    "-map", "[m]", "-c:a", "pcm_f32le", str(p)])
         A, B = w/"A.wav", w/"B.wav"; mixwav(False, A); mixwav(True, B)
         res["mix_lufs_before_match"] = {"bypass": lufs(F, A), "eq": lufs(F, B)}
-        (HERE/"ab").mkdir(exist_ok=True)
+        (HERE/a.ab).mkdir(exist_ok=True)
         order = ["bypass", "eq"]; random.Random(a.seed).shuffle(order)
         for lab, key, src in zip("XY", order, [A if o == "bypass" else B for o in order]):
             g = MATCH - lufs(F, src)
-            ff(F, ["-y", "-i", str(src), "-af", f"volume={g:.5f}dB", "-c:a", "aac", "-b:a", "160k", str(HERE/"ab"/f"{lab}.m4a")])
-        (HERE/"ab"/"KEY").write_text(f"X = {order[0]}\nY = {order[1]}\n")
-        res["ab_decoded_lufs"] = {l: lufs(F, HERE/"ab"/f"{l}.m4a") for l in "XY"}
-    (HERE/"measurements.json").write_text(json.dumps(res, indent=2) + "\n")
+            ff(F, ["-y", "-i", str(src), "-af", f"volume={g:.5f}dB", "-c:a", "aac", "-b:a", "160k", str(HERE/a.ab/f"{lab}.m4a")])
+        (HERE/a.ab/"KEY").write_text(f"X = {order[0]}\nY = {order[1]}\n")
+        res["ab_decoded_lufs"] = {l: lufs(F, HERE/a.ab/f"{l}.m4a") for l in "XY"}
+    (HERE/("measurements-strong.json" if a.strong else "measurements.json")).write_text(json.dumps(res, indent=2) + "\n")
     print(json.dumps(res, indent=2)); 
     if fails: sys.exit("FAILED: " + "; ".join(fails))
 main()
