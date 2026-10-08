@@ -13,6 +13,7 @@ licence attestation.
 | `media/still.png` | 360×360 test pattern. |
 | `media/bed.wav` | 6 s mono two-tone bed. |
 | `media/bed.words.json` | Word timings over the bed, in the pack's `voiceover.words.json` shape. |
+| `media/duck.words.json` | Four word timings over the bed with one pause of 1100 ms (at least `join_ms`), two shorter ones (100 and 300 ms) and a 2100 ms tail: the input to `montagent-footage`'s `duck.py`, which needs a pause the duck comes back up in. |
 | `media/bed.visemes.json` | Azure viseme ids over the bed, in the pack's `character/voice/line-1.json` shape. |
 | `media/beat.wav` | 8 s of drums at 100 BPM whose first downbeat is at 300 ms, each bar's first kick louder: a track with a known beat grid. |
 | `media/clip.mp4` | 30 s, 320×180, 25 fps green screen with a moving subject and a tone. |

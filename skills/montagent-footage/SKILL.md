@@ -136,12 +136,20 @@ Show a second clip in a circle: a video element with a circle `mask`, a ring beh
 
 ### Music under a voice
 
-The music ducks while the voice speaks and comes back up in the pauses. The captions script writes it from the same word timings: give its spec a `duck` entry naming the music element, and it rewrites that element's `volume`. <!-- guard-ok: duck -->
+The music ducks while the voice speaks and comes back up in the pauses. `scripts/duck.py` writes it as ordinary `volume` keyframes on the music element, from the voice's word timings (`--words`, a `[{word, start, end}]` file in the voice's own source time) or from spans you give it (`--spans "500-1500,2600-3900"` or `--spans-file`, for a voice with no aligner). It does not listen for silence and does not guess from the voice element: with neither input it stops.
 
-- **Levels,** with the voice at 1.0: the music at 0.15–0.2 while the voice speaks, and 0.4–0.6 in pauses.
-- **Pauses:** only a pause of 600 ms or more comes back up. Shorter ones stay down, or the music pumps.
-- **Ramps:** 150–250 ms, starting 100 ms before the voice, so the first syllable is already clear.
-- **After the last word:** an end card or a closing hold has nothing left to duck for, so the music comes back up near full, 0.8–1.0, not to the pause level. Left at 0.5 it plays 5 dB quieter than a mix that brings it back up. The spec's `end` sets it, 0.85 if you leave it out.
-- **End:** a fade to 0 over the last 0.8–1.5 s, landing on the piece's last drawn frame. When the voice speaks almost to the end, the fade starts before the music is back up, and the script reports that there is no end level.
-- It writes each held level as two equal keyframes, which `validate` reports as `R-EASE-INERT`; the findings guide covers that.
-- **Look:** `query --at` in the middle of a spoken phrase, in the longest pause and on the last drawn frame, and check the music's `volume` reads under, over and 0. With an end card, also check it reads the end level in the middle of the card.
+```
+python3 scripts/duck.py project.montagent.json --bed music --voice voice --words voice.words.json > out.json
+```
+
+One bed under one voice per call; several beds are several calls, and several voices are one merged span list. A project that has `captions.py` run on it can instead give the captions spec a `duck` entry naming the music element, and `captions.py` calls this script (its old linear keys are deprecated). <!-- guard-ok: duck -->
+
+- **Levels,** in dB with the voice at 0, and the linear `volume` each writes: `--under-db` −15 (0.18) while the voice speaks, `--over-db` −6 (0.5) in pauses, `--end-db` −1.5 (0.84) after the last word. The script prints the dB to linear mapping it wrote.
+- **Pauses:** only a pause of 600 ms or more (`--join-ms`) comes back up. Shorter ones stay down, or the music pumps.
+- **Ramps:** 150–250 ms (`--ramp-ms`, 200), starting 100 ms before the voice (`--lead-ms`, 100), so the first syllable is already clear.
+- **After the last word:** an end card or a closing hold has nothing left to duck for, so the music comes back up near full, not to the pause level. Left at −6 dB it plays 5 dB quieter than a mix that brings it back up.
+- **End:** `--fade-ms 1000` adds a fade to 0 over the last 0.8–1.5 s, landing on the piece's last drawn frame. It is off by default. When the voice speaks almost to the end, the fade starts before the music is back up, and the script reports that there is no end level.
+- **A music element that already has keyframes:** the script refuses and names `--replace`, which makes it own the whole `volume` curve, its own earlier output included; it never merges. A fade-in is not an argument: write one by hand after `--replace`.
+- **Retime checklist.** The keyframes are not tied to the voice, so when the voice element, its trim or its speed, or its words file changes, run the same command with `--check`. It writes nothing, exits 0 if the music's `volume` is what the arguments would write, and otherwise names the first instant that differs. If it exits non-zero, run it again with `--replace`, and then add back any hand-written fade-in. If the words file is gone, regenerate it from the aligner first.
+- The script ends by running `montagent validate` and printing the findings; it exits non-zero only on an error. It writes each held level as two equal keyframes, which `validate` reports as `R-EASE-INERT`, and that review is expected on a duck: [findings.md](../montagent/references/findings.md) covers it. It also prints each `transition` whose window overlaps the keyframes, and changes nothing for it.
+- **Look:** `query --at` in the middle of a spoken phrase, in the longest pause and on the last drawn frame, and check the music's `volume` reads under, over and, with a fade, 0. With an end card, also check it reads the end level in the middle of the card.

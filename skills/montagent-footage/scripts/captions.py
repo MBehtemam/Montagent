@@ -47,13 +47,16 @@ Then every time is moved to the frame the project draws it on. Line breaks come 
                                   pause (ms); "listen": false skips the check
       "pill": {"color": "#101418CC", "pad": [28, 16], "radius": 24},   optional box
                                   behind each page, on track "<track>-bg" one layer below
-      "duck": {"id": "bed", "under": 0.18, "over": 0.5, "end": 0.85, "ramp": 200,
-               "lead": 100, "join": 600, "fade": 1000}      optional: rewrites that audio
-                                  element's `volume`: `under` while the voice speaks, `over`
-                                  in pauses of at least `join` ms, `end` after the last word
-                                  (an end card), ramps of `ramp` ms starting `lead` ms ahead
-                                  of the voice, and a fade to 0 over the last `fade` ms that
-                                  lands on the element's last drawn frame
+      "duck": {"id": "bed", "under_db": -15, "over_db": -6, "end_db": -1.5, "ramp_ms": 200,
+               "lead_ms": 100, "join_ms": 600, "fade_ms": 1000}      optional: rewrites that
+                                  audio element's `volume` (the work is `duck.py`'s: see it):
+                                  `under_db` while the voice speaks, `over_db` in pauses of at
+                                  least `join_ms`, `end_db` after the last word (an end card),
+                                  ramps of `ramp_ms` starting `lead_ms` ahead of the voice, and
+                                  a fade to 0 over the last `fade_ms` that lands on the element's
+                                  last drawn frame (default 1000; 0 for none). Deprecated, and
+                                  accepted for one release: the linear `under`, `over`, `end`
+                                  and ms `ramp`, `lead`, `join`, `fade`
     }
 
 """
@@ -64,6 +67,38 @@ import os
 import re
 import subprocess
 import sys
+
+from duck import DEFAULTS_DB, DEFAULTS_MS, DECIMALS, ducked, linear, on_frame_fn
+
+# The linear and unsuffixed keys a `duck` entry took before ADR-0177, and the dB and ms keys that
+# replace them. Accepted for one release.
+OLD_KEYS = {"under": "under_db", "over": "over_db", "end": "end_db", "ramp": "ramp_ms",
+            "lead": "lead_ms", "join": "join_ms", "fade": "fade_ms"}
+# The one default this script keeps: a fade over the last second, as it always has.
+FADE_MS = 1000
+
+
+def duck_params(duck, report):
+    """The `ducked` arguments for a `duck` entry: dB and ms keys, or the old linear ones, which
+    pass through as written (to four decimals) and are not converted to dB and back."""
+    old = sorted(k for k in OLD_KEYS if k in duck)
+    if old:
+        report("duck: " + ", ".join(f"`{k}`" for k in old) + " are deprecated and will be removed: "
+               "use " + ", ".join(f"`{OLD_KEYS[k]}`" for k in old))
+    params = {}
+    for k, new in OLD_KEYS.items():
+        if new in duck:
+            params[k] = linear(duck[new]) if new in DEFAULTS_DB else duck[new]
+        elif k in duck:
+            params[k] = round(duck[k], DECIMALS) if new in DEFAULTS_DB else duck[k]
+        elif new in DEFAULTS_DB:
+            params[k] = linear(DEFAULTS_DB[new])
+        elif new in DEFAULTS_MS:
+            params[k] = DEFAULTS_MS[new]
+        else:
+            params[k] = FADE_MS
+    params["fade"] = params["fade"] or None
+    return params
 
 
 def main(argv):
@@ -79,13 +114,7 @@ def main(argv):
         spec = json.load(f)
     fps = project["fps"]
 
-    def on_frame(t):
-        """The drawn instant nearest to t: frame n is drawn at floor(n * 1000 / fps)."""
-        return math.floor(round(t * fps / 1000) * 1000 / fps)
-
-    def last_drawn(end):
-        """The last drawn instant before a half-open end."""
-        return math.floor((math.ceil(end * fps / 1000) - 1) * 1000 / fps)
+    on_frame = on_frame_fn(fps)
 
     def report(line):
         print(line, file=sys.stderr)
@@ -251,60 +280,11 @@ def main(argv):
         bed = elements.get(duck["id"])
         if bed is None:
             sys.exit(f"duck: no element with id {duck['id']!r}")
-        bed["volume"] = ducked(bed, words, duck, on_frame, last_drawn, report)
+        bed["volume"] = ducked(bed, words, duck_params(duck, report), fps, report)
 
     json.dump(project, sys.stdout, indent=1, ensure_ascii=False)
     print()
     return 0
-
-
-def ducked(bed, words, duck, on_frame, last_drawn, report):
-    """`under` while the voice speaks, `over` in pauses of at least `join` ms, `end` after the
-    last word, and a fade to 0 that lands on the bed's last drawn frame."""
-    under, over, end = duck.get("under", 0.18), duck.get("over", 0.5), duck.get("end", 0.85)
-    ramp, lead, join = duck.get("ramp", 200), duck.get("lead", 100), duck.get("join", 600)
-    spans = []
-    for w in words:
-        if spans and w["start"] - spans[-1][1] < join:
-            spans[-1][1] = w["end"]
-        else:
-            spans.append([w["start"], w["end"]])
-    start, stop = bed["start"], last_drawn(bed["end"])
-    points = [(start, over)]
-    for n, (s, e) in enumerate(spans):
-        after = end if n + 1 == len(spans) else over
-        points += [(s - lead - ramp, over), (s - lead, under), (e + lead, under), (e + lead + ramp, after)]
-        report(f"duck: voice {s}-{e}")
-    points = [(on_frame(max(start, min(t, stop))), v) for t, v in points]
-    if points[1][0] <= start:
-        points[0] = (start, under)
-
-    def level(t):
-        for (a, va), (b, vb) in zip(points, points[1:]):
-            if a <= t <= b:
-                return va if b == a else va + (vb - va) * (t - a) / (b - a)
-        return points[-1][1]
-
-    fade_from = on_frame(stop - duck.get("fade", 1000))
-    fade_level = level(fade_from)
-    if spans:
-        up = points[-1][0]
-        if up < fade_from:
-            report(f"duck: {end} after the last word, from {up} until the fade at {fade_from}")
-        else:
-            report(f"duck: no end level, the fade at {fade_from} starts before the music is back up")
-    points = [p for p in points if p[0] < fade_from] + [(fade_from, fade_level), (stop, 0.0)]
-    keys = []
-    for t, v in points:
-        v = round(v, 3)
-        if keys and t <= keys[-1]["t"]:
-            keys[-1]["v"] = v
-            continue
-        key = {"t": t, "v": v}
-        if keys:
-            key["ease"] = "linear" if v == keys[-1]["v"] else "ease-in-out"
-        keys.append(key)
-    return keys
 
 
 def silences(source, noise, min_ms):

@@ -767,7 +767,7 @@ _Avoid_: gain, level (as a field name — ambiguous with other senses of
 **Duck**:
 A dip in a music bed's `volume` while a voice speaks, written as ordinary keyframes: down for the
 spoken stretches, back up in pauses long enough to be worth it, and back near full after the last
-word. A script computes it from the voice's timings and the file keeps only the keyframes; it never
+word. A script (`duck.py`) computes it from the voice's timings and the file keeps only the keyframes; it never
 records that a duck was applied, and there is no live relation between the bed and the voice.
 ([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md),
 [ADR-0177](docs/adr/0177-ducking-is-a-skill-script-that-writes-ordinary-volume-keyframes-and-the-format-stays-untouched.md))

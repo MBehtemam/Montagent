@@ -75,6 +75,13 @@ def media():
     words = ["Made", "with", "Montagent", "and", "nothing", "else"]
     timings = [{"word": w, "start": 500 + i * 600, "end": 500 + i * 600 + 500} for i, w in enumerate(words)]
     (out / "bed.words.json").write_text(json.dumps(timings, indent=2) + "\n")
+    # Word timings for the duck script (ADR-0177): a pause of 1100 ms (at least `join_ms`, 600)
+    # between "with" and "Montagent", one of 100 ms inside the first phrase and one of 300 ms inside
+    # the second (both under it), and a tail of 2100 ms after the last word.
+    duck_words = [("Made", 500, 1000), ("with", 1100, 1500), ("Montagent", 2600, 3200),
+                  ("and", 3500, 3900)]
+    (out / "duck.words.json").write_text(json.dumps(
+        [{"word": w, "start": a, "end": b} for w, a, b in duck_words], indent=2) + "\n")
     visemes = [[t, v] for t, v in [(0, 0), (500, 21), (650, 1), (1100, 0), (1250, 3), (1700, 0), (2300, 21), (2500, 1), (3000, 0)]]
     (out / "bed.visemes.json").write_text(
         json.dumps({"voice": "fixture", "duration_ms": 6000, "visemes": visemes}) + "\n"
