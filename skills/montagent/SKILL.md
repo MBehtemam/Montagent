@@ -86,6 +86,8 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Smear an element along one direction, whether or not it moves: `directional_blur`, `angle`, `length`.
 - A texture or glow laid over footage, as a `rect` carrying an effect and a blend, the way a vignette or a light leak is built: `rect`, `effects`, `blend`.
 - A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
+- A vector drawing (SVG), brought in as one image: rasterised once to a PNG at the size it is shown, placed as an `image`, with a recipe that rebuilds it: `image` (`montagent-prerender`).
+- A Lottie animation, brought in as footage: rendered frame by frame, one fresh player per frame, into lossless footage with alpha, placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
 - Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`, `levels`, `threshold`, `intensity`, `angle`, `length`.
 
 **Time**
@@ -104,6 +106,8 @@ This is the capability map. Read it before you design, so the brief does not lea
 | Graphics and text: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, trailer effects | `montagent-motion` |
 | Recorded video: talking heads, green screen, captions, lower-thirds, picture-in-picture, music under a voice | `montagent-footage` |
 | A look the effects list lacks (distortions, mosaic, lens flare, a code-drawn pattern), drawn in code and brought in as footage | `montagent-prerender` |
+| A vector drawing (SVG), brought in as one image: rasterised once to a PNG and placed as an `image` | `montagent-prerender` |
+| A Lottie animation, brought in as footage: rendered frame by frame to lossless footage with alpha and placed as a `video` | `montagent-prerender` |
 | A character that moves or talks: rig, poses, lip sync, blinks | `montagent-character` |
 | Timing, easing, layout, and judging whether it looks right | `montagent-craft`, at every look step |
 
@@ -128,4 +132,5 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - A matte taken from another element. Use the element's own `mask`. ([ADR-0150](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
 - Automatic vertex matching between unlike paths. Pad the lists by hand (`montagent-motion`). ([ADR-0162](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md))
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
+- A native SVG or Lottie source. Pre-render it once with `montagent-prerender`: an SVG as one PNG, a Lottie as footage. ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md))
 - An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))
