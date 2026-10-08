@@ -343,5 +343,7 @@ fn run_disk_checks(
     // `R-CHROMA-ON-ALPHA-SOURCE` (ADR-0088): one `ffprobe` field, off a probe the call
     // above has already cached. Last for the same reason `fit` follows `source` — every
     // probe it needs is a cache hit by the time it runs, so it adds no subprocess.
-    crate::checks::chroma::on_disk(document, session, report)
+    crate::checks::chroma::on_disk(document, session, report)?;
+    // ADR-0176: whether a transition's bridged sources carry sound, off the same cached probes.
+    crate::checks::transition::on_disk(document, session, report)
 }

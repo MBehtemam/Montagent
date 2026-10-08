@@ -15,7 +15,7 @@
 
 use serde_json::Value;
 
-use crate::model::{Direction, Ease, TransitionKind};
+use crate::model::{Direction, Ease, TransitionAudio, TransitionKind};
 use crate::permissive::Loose;
 use crate::stack::Stack;
 use crate::verbs::query::geometry::Rect;
@@ -36,6 +36,9 @@ pub(crate) struct Running {
     pub progress: f64,
     /// `n`, the whole pixels travelled — `None` on a crossfade, which travels nowhere.
     pub pixels: Option<i64>,
+    /// The sound across the window as the document states it (ADR-0176): `None` is the
+    /// absent key, which renders the hard cut.
+    pub audio: Option<TransitionAudio>,
     frame: (i64, i64),
 }
 
@@ -183,7 +186,7 @@ fn running(
         })?,
     };
     let direction = match kind {
-        TransitionKind::Crossfade => None,
+        TransitionKind::Crossfade | TransitionKind::AudioCrossfade => None,
         _ => Some(
             element
                 .get("direction")
@@ -192,7 +195,7 @@ fn running(
         ),
     };
     let ease = match (kind, element.get("ease")) {
-        (TransitionKind::Crossfade, _) | (_, None) => None,
+        (TransitionKind::Crossfade | TransitionKind::AudioCrossfade, _) | (_, None) => None,
         (_, Some(ease)) => {
             Some(serde_json::from_value::<Ease>(ease.clone()).map_err(|_| Unusable::Ease)?)
         }
@@ -245,6 +248,9 @@ fn running(
         end,
         progress,
         pixels,
+        audio: element
+            .get("audio")
+            .and_then(|audio| serde_json::from_value(audio.clone()).ok()),
         frame,
     }))
 }
@@ -270,6 +276,10 @@ fn unit(direction: Direction) -> (i64, i64) {
 impl Running {
     /// This transition's contribution to the element called `id`, if it bridges it.
     fn bridge(&self, id: &str) -> Option<Bridge> {
+        // An `audio_crossfade` paints nothing (ADR-0176).
+        if self.kind == TransitionKind::AudioCrossfade {
+            return None;
+        }
         let incoming = if id == self.to {
             true
         } else if id == self.from {
@@ -307,7 +317,7 @@ impl Running {
                 ..Bridge::default()
             },
             // Unreachable: a crossfade has no direction and returned above.
-            (TransitionKind::Crossfade, _) => Bridge::default(),
+            (TransitionKind::Crossfade | TransitionKind::AudioCrossfade, _) => Bridge::default(),
         })
     }
 
@@ -354,4 +364,155 @@ impl Running {
             },
         }
     }
+}
+
+/// One side of a transition's sound on one element (ADR-0176): the `afade` the mix writes
+/// for it and the gain `query --at` prints, both read from this one value.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct AudioFade {
+    /// The transition element's id.
+    pub transition: String,
+    /// `to` fades in; `from` fades out.
+    pub incoming: bool,
+    /// The transition's own window, on the timeline.
+    pub start: i64,
+    pub end: i64,
+    pub curve: TransitionAudio,
+}
+
+impl AudioFade {
+    /// The `afade` curve name: `qsin` is `sin(π/2·p)` and `tri` is `p`.
+    pub fn afade_curve(&self) -> Option<&'static str> {
+        match self.curve {
+            TransitionAudio::Cut => None,
+            TransitionAudio::ConstantPower => Some("qsin"),
+            TransitionAudio::ConstantGain => Some("tri"),
+        }
+    }
+
+    /// The gain this side applies at `instant` on the timeline, as `afade` defines it.
+    pub fn gain_at(&self, instant: i64) -> f64 {
+        let p = ((instant - self.start) as f64 / (self.end - self.start) as f64).clamp(0.0, 1.0);
+        let p = if self.incoming { p } else { 1.0 - p };
+        match self.curve {
+            TransitionAudio::Cut => 1.0,
+            TransitionAudio::ConstantPower => (std::f64::consts::FRAC_PI_2 * p).sin(),
+            TransitionAudio::ConstantGain => p,
+        }
+    }
+}
+
+/// Every audio fade of every transition in the document, by the id of the element it fades,
+/// each list in window order. A transition with `audio` absent or `cut` contributes none: the
+/// hard cut adds no stage. Built once per render, not once per element.
+pub(crate) fn audio_fades(document: &Loose) -> std::collections::HashMap<String, Vec<AudioFade>> {
+    let mut fades: std::collections::HashMap<String, Vec<AudioFade>> = Default::default();
+    for (_, element) in document.elements_in_tracks() {
+        if element.get("type").and_then(Value::as_str) != Some("transition") {
+            continue;
+        }
+        let Some(curve) = element
+            .get("audio")
+            .and_then(|audio| serde_json::from_value::<TransitionAudio>(audio.clone()).ok())
+            .filter(|curve| *curve != TransitionAudio::Cut)
+        else {
+            continue;
+        };
+        let (Some(from), Some(to), Some(start), Some(end)) = (
+            element.get("from").and_then(Value::as_str),
+            element.get("to").and_then(Value::as_str),
+            element.get("start").and_then(Value::as_i64),
+            element.get("end").and_then(Value::as_i64),
+        ) else {
+            continue;
+        };
+        if from == to || end <= start {
+            continue;
+        }
+        for (id, incoming) in [(from, false), (to, true)] {
+            fades.entry(id.to_string()).or_default().push(AudioFade {
+                transition: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
+                incoming,
+                start,
+                end,
+                curve,
+            });
+        }
+    }
+    for list in fades.values_mut() {
+        list.sort_by_key(|fade| fade.start);
+    }
+    fades
+}
+
+/// What a running transition does to the sound of the element `id` at `instant`, as the
+/// `volume 1.0 × transition t1 constant_power 0.63 → 0.63` line `query --at` prints
+/// (ADR-0176 §6), and its parts. `None` where no running transition names the element.
+///
+/// The gain is [`AudioFade::gain_at`], the function the render's `afade` stage is tested
+/// against, so the number printed is the number applied. A gain is never printed without the
+/// id of the transition the agent edits.
+pub(crate) fn sound_at(running: &[Running], id: &str, volume: f64, instant: i64) -> Option<Value> {
+    let mut parts = Vec::new();
+    let mut gains = Vec::new();
+    let mut factors = Vec::new();
+    for transition in running {
+        let incoming = if transition.to == id {
+            true
+        } else if transition.from == id {
+            false
+        } else {
+            continue;
+        };
+        match transition.audio {
+            None | Some(TransitionAudio::Cut) => {
+                let absent = transition.audio.is_none();
+                parts.push(format!(
+                    "transition {} audio: cut{}",
+                    transition.element,
+                    if absent { " (absent)" } else { "" }
+                ));
+                factors.push(serde_json::json!({
+                    "transition": transition.element,
+                    "audio": "cut",
+                    "absent": absent,
+                }));
+            }
+            Some(curve) => {
+                let gain = AudioFade {
+                    transition: transition.element.clone(),
+                    incoming,
+                    start: transition.start,
+                    end: transition.end,
+                    curve,
+                }
+                .gain_at(instant);
+                parts.push(format!(
+                    "transition {} {} {gain:.2}",
+                    transition.element,
+                    curve.as_str()
+                ));
+                gains.push(gain);
+                factors.push(serde_json::json!({
+                    "transition": transition.element,
+                    "audio": curve.as_str(),
+                    "gain": gain,
+                }));
+            }
+        }
+    }
+    if factors.is_empty() {
+        return None;
+    }
+    let total = gains.iter().fold(volume, |product, gain| product * gain);
+    let text = match gains.is_empty() {
+        true => parts.join(", "),
+        false => format!("volume {volume} × {} → {total:.2}", parts.join(" × ")),
+    };
+    Some(serde_json::json!({
+        "volume": volume,
+        "transitions": factors,
+        "gain": total,
+        "text": text,
+    }))
 }

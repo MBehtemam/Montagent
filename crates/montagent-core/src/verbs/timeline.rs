@@ -400,7 +400,12 @@ fn detail_of(element: &Value) -> String {
         element.get("from").and_then(Value::as_str),
         element.get("to").and_then(Value::as_str),
     ) {
-        return elide(&format!("{from} → {to}"));
+        let pair = elide(&format!("{from} → {to}"));
+        // ADR-0176 §6: the sound across the window, as one token on the row.
+        return match element.get("audio").and_then(Value::as_str) {
+            Some(audio) => format!("{pair} audio={audio}"),
+            None => pair,
+        };
     }
     let paint = element
         .get("fill")

@@ -1398,13 +1398,52 @@ pub struct Transition {
     /// refused on `crossfade` (ADR-0150).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ease: Option<Ease>,
+    /// The sound across the same window (ADR-0176): `from` fades out and `to` fades in over
+    /// `start`..`end`. Optional on the picture kinds, where absent means the hard cut;
+    /// required on `audio_crossfade`, where `cut` is refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio: Option<TransitionAudio>,
 }
 
 impl Transition {
-    /// ADR-0150's two relational rules, which the derive cannot state.
+    /// ADR-0150's two relational rules, and ADR-0176's per-kind rules for `audio`, which
+    /// the derive cannot state.
     fn checked(self) -> Result<Self, String> {
         let kind = self.kind.as_str();
         match self.kind {
+            TransitionKind::AudioCrossfade => {
+                for (field, present) in [
+                    ("direction", self.direction.is_some()),
+                    ("ease", self.ease.is_some()),
+                ] {
+                    if present {
+                        return Err(format!(
+                            "unknown field `{field}` on an `audio_crossfade`: it paints \
+                             nothing, so `direction` and `ease` are fields of the picture \
+                             kinds only (ADR-0176) — expected one of `kind`, `from`, `to`, \
+                             `audio`"
+                        ));
+                    }
+                }
+                match self.audio {
+                    None => {
+                        return Err(
+                            "missing field `audio`: an `audio_crossfade` names its curve, \
+                             one of `constant_power`, `constant_gain` (ADR-0176)"
+                                .to_string(),
+                        );
+                    }
+                    Some(TransitionAudio::Cut) => {
+                        return Err(
+                            "`audio: \"cut\"` on an `audio_crossfade`: a kind with nothing \
+                             to do is a mistake, so write `constant_power` or \
+                             `constant_gain`, or drop the transition (ADR-0176)"
+                                .to_string(),
+                        );
+                    }
+                    Some(_) => {}
+                }
+            }
             TransitionKind::Crossfade => {
                 for (field, present) in [
                     ("direction", self.direction.is_some()),
@@ -1415,7 +1454,7 @@ impl Transition {
                             "unknown field `{field}` on a `crossfade`: a crossfade travels \
                              nowhere and its ramp is linear, so `direction` and `ease` are \
                              fields of `wipe`, `slide` and `push` only (ADR-0150) — expected \
-                             one of `kind`, `from`, `to`"
+                             one of `kind`, `from`, `to`, `audio`"
                         ));
                     }
                 }
@@ -1456,6 +1495,32 @@ pub enum TransitionKind {
     Wipe,
     Slide,
     Push,
+    /// Sound alone: it paints nothing (ADR-0176).
+    #[serde(rename = "audio_crossfade")]
+    AudioCrossfade,
+}
+
+/// What a transition does to the sound across its window (ADR-0176).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionAudio {
+    /// The hard cut, exactly as the mix renders it with the key absent.
+    Cut,
+    /// `afade` curve `qsin`: holds the level for two unrelated signals.
+    ConstantPower,
+    /// `afade` curve `tri`: holds the level for the same signal on both sides.
+    ConstantGain,
+}
+
+impl TransitionAudio {
+    /// The word a document spells this value with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TransitionAudio::Cut => "cut",
+            TransitionAudio::ConstantPower => "constant_power",
+            TransitionAudio::ConstantGain => "constant_gain",
+        }
+    }
 }
 
 impl TransitionKind {
@@ -1466,6 +1531,7 @@ impl TransitionKind {
             TransitionKind::Wipe => "wipe",
             TransitionKind::Slide => "slide",
             TransitionKind::Push => "push",
+            TransitionKind::AudioCrossfade => "audio_crossfade",
         }
     }
 }

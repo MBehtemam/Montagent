@@ -1325,6 +1325,40 @@ pub struct Rasters {
     pub declined: Vec<String>,
 }
 
+/// The audio mix of `[from, to)` as the filter graph the encoder is given and the files its
+/// `[1:a]`, `[2:a]`… inputs name, for a test that swaps the encoder for a meter (ADR-0173 §3:
+/// a capability's number is measured on the PCM of the same graph, before any encoder).
+///
+/// The same `checked` + [`Mix::of`] the render runs; `None` where nothing is audible.
+#[doc(hidden)]
+pub fn mix_audio(
+    path: &FilePath,
+    from: i64,
+    to: i64,
+) -> Result<Option<(Vec<PathBuf>, String)>, String> {
+    let (document, report) =
+        crate::verbs::validate::checked(TOOL, path, None, Sidecar::default_path())
+            .map_err(|report| format!("{:?}", report.exit_code()))?;
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .ok_or("the project states no integer `fps`")?;
+    let project_dir = crate::checks::project_dir(&document);
+    let mix = Mix::of(
+        &document,
+        &project_dir,
+        &Established::of(&report),
+        fps,
+        from,
+        to,
+    );
+    if let Some(reason) = mix.internal {
+        return Err(reason);
+    }
+    Ok(mix.audio.map(|audio| (audio.inputs, audio.graph)))
+}
+
 /// Paint the frames of `[from, to)` of the project at `path` through [`encode_span`]'s own
 /// producing half, with the supplier named, and encode nothing.
 ///
@@ -1636,6 +1670,8 @@ impl Mix {
         // working directory had become a third input to a render that `CONTEXT.md` promises
         // is a function of the project and its files.)
 
+        let fades = crate::transition::audio_fades(document);
+
         for (index, element) in document.elements().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
             if !Use::of(kind).contains(&Use::Mix) {
@@ -1656,6 +1692,10 @@ impl Mix {
                 from,
                 to,
                 inputs.len() + 1,
+                fades
+                    .get(name.as_str())
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
             ) {
                 Ok(Some((path, filter))) => {
                     inputs.push(path);
@@ -1737,6 +1777,7 @@ fn chain(
     from: i64,
     to: i64,
     input: usize,
+    fades: &[crate::transition::AudioFade],
 ) -> Result<Option<(PathBuf, String)>, Declined> {
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
@@ -1947,6 +1988,12 @@ fn chain(
         }
     }
 
+    // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
+    // window's `atrim` so a range that starts mid-fade renders the samples the full render
+    // has there. The stream is at the element's own as-played time here, so the fade's
+    // `st` is the transition's start less the element's.
+    filter.push_str(&fade_stage(fades, start));
+
     // The window inside the range, then the placement on the clock.
     filter.push_str(&format!(
         ",atrim=start={}:end={},asetpts=PTS-STARTPTS,adelay=delays={}:all=1",
@@ -1955,6 +2002,24 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
+}
+
+/// A transition's `afade` stages on one element (ADR-0176), in window order: `out` on the
+/// `from` side and `in` on the `to`, over the transition's window in the element's own
+/// as-played time. A `cut` or absent `audio` has no fade, so contributes no text.
+fn fade_stage(fades: &[crate::transition::AudioFade], element_start: i64) -> String {
+    fades
+        .iter()
+        .filter_map(|fade| {
+            let curve = fade.afade_curve()?;
+            Some(format!(
+                ",afade=t={}:st={}:d={}:curve={curve}",
+                if fade.incoming { "in" } else { "out" },
+                seconds(fade.start - element_start),
+                seconds(fade.end - fade.start),
+            ))
+        })
+        .collect()
 }
 
 /// The most `volume` commands one `asendcmd` carries (ADR-0175).
@@ -2200,6 +2265,42 @@ mod tests {
             two,
             "[1:a]anull[a0];\n[2:a]anull[a1];\n[a0][a1]amix=inputs=2:normalize=0,\
              apad=whole_dur=0.480,atrim=end=0.480[mix]\n"
+        );
+    }
+
+    /// ADR-0176 §3: the stage is one `afade` per bridged side, `qsin` for `constant_power`
+    /// and `tri` for `constant_gain`, in the element's own time, and nothing where there is
+    /// no fade.
+    #[test]
+    fn a_transitions_fades_are_spelled_from_the_window() {
+        use crate::model::TransitionAudio::{ConstantGain, ConstantPower};
+        use crate::transition::AudioFade;
+        let fade = |incoming, start, end, curve| AudioFade {
+            transition: "t".into(),
+            incoming,
+            start,
+            end,
+            curve,
+        };
+        assert_eq!(fade_stage(&[], 1000), "");
+        assert_eq!(
+            fade_stage(&[fade(false, 12000, 12800, ConstantPower)], 10000),
+            ",afade=t=out:st=2.000:d=0.800:curve=qsin"
+        );
+        assert_eq!(
+            fade_stage(&[fade(true, 12000, 12800, ConstantGain)], 12000),
+            ",afade=t=in:st=0.000:d=0.800:curve=tri"
+        );
+        // A chain of transitions: the `in` and then the `out`, in window order.
+        assert_eq!(
+            fade_stage(
+                &[
+                    fade(true, 1000, 1500, ConstantPower),
+                    fade(false, 3000, 3500, ConstantPower)
+                ],
+                1000
+            ),
+            ",afade=t=in:st=0.000:d=0.500:curve=qsin,afade=t=out:st=2.000:d=0.500:curve=qsin"
         );
     }
 

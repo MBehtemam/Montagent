@@ -2307,6 +2307,11 @@ fn resolved_cells(element: &Value) -> String {
             grain["frame"],
         ));
     }
+    // What a running transition does to the element's level (ADR-0176 §6), with the id of the
+    // transition the agent edits.
+    if let Some(sound) = element["sound"]["text"].as_str() {
+        cells.push(sound.to_string());
+    }
     // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
     // so the row says where.
     if let Some(moved) = element["transition"].as_object() {

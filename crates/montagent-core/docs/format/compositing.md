@@ -2,8 +2,8 @@
 
 A page of `montagent://format.md`, which holds the rules every element shares and lists the
 other pages; read it first. This page holds the rules for how elements combine: the paint
-drawn through an element's box, an element's `effects` and the named effects, its motion blur, how the finished element composites
-into what is below it, and the transition elements that bridge two others. Like the rest of the format docs, every rule here is an
+drawn through an element's box, an element's `effects` and the named effects, its motion blur, and how the finished element composites
+into what is below it. The transition elements that bridge two others are on `montagent://format/transitions.md`. Like the rest of the format docs, every rule here is an
 accepted decision in the ADR series, cited inline by number, and the ADR is right where the
 two disagree.
 
@@ -295,20 +295,3 @@ two disagree.
   differs between two instants inside its `[start, end)`, a `units` stagger counting as
   motion; motion wholly outside its life counts as still. Remove the field. `query --at`
   prints the field as written and `moving` or `still` for the frame holding the instant.
-
-## Transitions
-
-- **A transition is its own element bridging `from` and `to` by id** (ADR-0059): two
-  distinct visual elements on separate tracks, its `start`/`end` exactly the time they share.
-- **`kind`** (ADR-0150): `crossfade` ramps their opacity linearly; in a `slide` `to` moves in
-  over a still `from`; in a `push` `to` moves in and pushes `from` out, joined; in a `wipe` a
-  straight edge crosses the frame, `from` keeping the side not yet reached and `to` the side
-  passed.
-- **`direction`** is the way the motion travels: `left` means the content moves leftward;
-  the incoming element enters from the right. Required on `wipe`, `slide` and `push`.
-- **`ease`** takes the keyframe vocabulary; omitted means `linear`. Neither `direction` nor
-  `ease` is allowed on a `crossfade`.
-- **Offsets travel a full frame width or height, outside the element's transform,** in whole
-  pixels: a lower-third slides as far as full-screen video, its own keyed motion, effects
-  and `clip` moving with it. A wipe's hard edge is cut against each element's own `clip`.
-- **In a slide, `to` must paint above `from`**; a transition never changes a layer.

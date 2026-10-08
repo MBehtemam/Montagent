@@ -995,7 +995,7 @@ fn declined(unusable: crate::transition::Unusable) -> Declined {
         // A `kind` the format does not have is `validate`'s schema error, and nothing here
         // invents a resolution for it.
         Unusable::Kind(other) => undrawable(format!(
-            "a transition is a `crossfade`, `wipe`, `slide` or `push`, and this one is a \
+            "a transition is a `crossfade`, `wipe`, `slide`, `push` or `audio_crossfade`, and this one is a \
              `{other}`"
         )),
         Unusable::NoKind => undrawable("it states no `kind`"),
@@ -1498,17 +1498,22 @@ impl<'a> Painter<'a> {
         for (element, outcome) in crate::transition::at(self.document, self.instant, self.frame) {
             match outcome {
                 Ok(Some(running)) => {
-                    self.transitions.push(Transitioning {
-                        element: running.element.clone(),
-                        kind: running.kind.as_str().to_string(),
-                        direction: running.direction.map(|d| d.as_str().to_string()),
-                        from: running.from.clone(),
-                        to: running.to.clone(),
-                        start: running.start,
-                        end: running.end,
-                        progress: running.progress,
-                        pixels: running.pixels,
-                    });
+                    // An `audio_crossfade` paints nothing (ADR-0176), so the picture's
+                    // answer has nothing to say of it; it still runs, for the readers of
+                    // `self.running` that want the sound's side.
+                    if running.kind != crate::model::TransitionKind::AudioCrossfade {
+                        self.transitions.push(Transitioning {
+                            element: running.element.clone(),
+                            kind: running.kind.as_str().to_string(),
+                            direction: running.direction.map(|d| d.as_str().to_string()),
+                            from: running.from.clone(),
+                            to: running.to.clone(),
+                            start: running.start,
+                            end: running.end,
+                            progress: running.progress,
+                            pixels: running.pixels,
+                        });
+                    }
                     self.running.push(running);
                 }
                 // Not running at this instant, which is not a thing the picture is
