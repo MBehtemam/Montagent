@@ -1325,6 +1325,40 @@ pub struct Rasters {
     pub declined: Vec<String>,
 }
 
+/// The audio mix of `[from, to)` as the filter graph the encoder is given and the files its
+/// `[1:a]`, `[2:a]`… inputs name, for a test that swaps the encoder for a meter (ADR-0173 §3:
+/// a capability's number is measured on the PCM of the same graph, before any encoder).
+///
+/// The same `checked` + [`Mix::of`] the render runs; `None` where nothing is audible.
+#[doc(hidden)]
+pub fn mix_audio(
+    path: &FilePath,
+    from: i64,
+    to: i64,
+) -> Result<Option<(Vec<PathBuf>, String)>, String> {
+    let (document, report) =
+        crate::verbs::validate::checked(TOOL, path, None, Sidecar::default_path())
+            .map_err(|report| format!("{:?}", report.exit_code()))?;
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .ok_or("the project states no integer `fps`")?;
+    let project_dir = crate::checks::project_dir(&document);
+    let mix = Mix::of(
+        &document,
+        &project_dir,
+        &Established::of(&report),
+        fps,
+        from,
+        to,
+    );
+    if let Some(reason) = mix.internal {
+        return Err(reason);
+    }
+    Ok(mix.audio.map(|audio| (audio.inputs, audio.graph)))
+}
+
 /// Paint the frames of `[from, to)` of the project at `path` through [`encode_span`]'s own
 /// producing half, with the supplier named, and encode nothing.
 ///
