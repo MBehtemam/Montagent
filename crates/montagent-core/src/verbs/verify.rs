@@ -35,7 +35,11 @@
 //!
 //! Frame size, frame timing from decoded PTS (never `r_frame_rate`/`avg_frame_rate` —
 //! ADR-0011, ADR-0096), frame count and stream duration (one finding when both fail from one
-//! cause), audio stream presence, audio extent against video extent, and per-span energy.
+//! cause), audio stream presence, audio extent against video extent, per-span energy, and the
+//! decoded audio's integrated loudness and true peak (ADR-0172). The last two are reported on
+//! every run and judged only against what `master` declares, each as a `review`: loudness
+//! beyond ±1.0 LU of `target_lufs` (ADR-0173 §6), and true peak more than 1.0 dB over
+//! `ceiling_dbtp` (ADR-0174 §3).
 //!
 //! **Energy is per span, not per element.** The file carries one mixed track, so a silent
 //! voice-over under music is invisible in it. The honest question is where the mix is silent
@@ -149,6 +153,12 @@ pub struct Measured {
     pub audio_ms: Option<f64>,
     /// The spans in which something should be heard, in milliseconds, half-open.
     pub should_be_heard: Vec<(i64, i64)>,
+    /// The decoded audio's integrated loudness in LUFS (ITU-R BS.1770, gated), measured on
+    /// every run with or without `master` (ADR-0172); `null` with no audio stream or where
+    /// every block is gated out.
+    pub integrated_lufs: Option<f64>,
+    /// The decoded audio's true peak in dBTP; `null` with no audio stream or for silence.
+    pub true_peak_dbtp: Option<f64>,
 }
 
 /// Verify the deliverable at the project's declared `output`.
@@ -388,6 +398,32 @@ pub fn verify(path: &Path) -> Answer {
             }
         }
     }
+    // ADR-0172, ADR-0173 §6: integrated loudness and true peak, on every run with an audio
+    // stream, judged only against what `master` declares.
+    let programme = match &file.audio {
+        None => crate::media::loudness::Summary {
+            integrated: None,
+            true_peak: None,
+        },
+        Some(_) => match programme_loudness(&runner, &resolved, &output) {
+            Ok(summary) => summary,
+            Err(reason) => {
+                report.fail_internally(format!(
+                    "the loudness of {} could not be measured: {reason}",
+                    display_local(&output)
+                ));
+                return refused(report);
+            }
+        },
+    };
+    for finding in master_misses(header.master.as_ref(), &programme) {
+        report.push(
+            finding
+                .at_file(document.path().to_string())
+                .field("output", json!(display_local(&output))),
+        );
+    }
+
     // ADR-0112, as this ticket extends it: the measurement has completed. A refusal above
     // returned before it and records nothing.
     report.record(CheckSet::Deliverable);
@@ -404,6 +440,8 @@ pub fn verify(path: &Path) -> Answer {
             video_ms: round3(video_ms),
             audio_ms: file.audio.as_ref().map(|audio| round3(audio.ms)),
             should_be_heard: spans,
+            integrated_lufs: programme.integrated,
+            true_peak_dbtp: programme.true_peak,
         }),
     }
 }
@@ -674,6 +712,108 @@ fn parse_reading(line: &str) -> Option<Reading> {
         end_ms: (t * 1000.0).round() as i64,
         lufs: m,
     })
+}
+
+// ---- The master stage's two promises (ADR-0172, ADR-0173 §6, ADR-0174 §3) -----------------
+
+/// `|integrated − target_lufs|` beyond this is a `review` (ADR-0173 §6).
+pub const LOUDNESS_TOLERANCE_LU: f64 = 1.0;
+
+/// The decoded AAC's true peak above `ceiling_dbtp` by more than this is a `review`
+/// (ADR-0174 §3).
+pub const TRUE_PEAK_TOLERANCE_DB: f64 = 1.0;
+
+pub const LOUDNESS_SOURCE: &str = "EBU R 128 (2020) short-form allowance and ATSC A/85: \
+±1.0 LU around the target";
+
+/// ADR-0182: the project's own measurement, on its committed fixture, by its script.
+pub const TRUE_PEAK_SOURCE: &str = "The project's own measurement (ADR-0174), not a standard: \
+the fixture docs/research/audio-effects/fixtures/narration-over-bed/ overshoots by at most \
++0.5 dB on decoded AAC 160k, re-derived by \
+docs/research/audio-effects/true-peak-allowance/check_true_peak_allowance.py; +1.0 dB adds the \
+margin for encoder drift across builds";
+
+/// The deliverable's loudness and true peak, through the shared pinned meter.
+fn programme_loudness(
+    runner: &dyn Runner,
+    tools: &Tools,
+    file: &Path,
+) -> Result<crate::media::loudness::Summary, String> {
+    let Execution {
+        success, stderr, ..
+    } = runner
+        .run(&tools.ffmpeg, &crate::media::loudness::file_args(file))
+        .map_err(|e| format!("{} could not be run: {e}", tools.ffmpeg.display()))?;
+    if !success {
+        return Err(format!(
+            "{} failed: {}",
+            tools.ffmpeg.display(),
+            last_line(&stderr)
+        ));
+    }
+    crate::media::loudness::parse(&stderr)
+}
+
+/// The two `review`s against what `master` declares, never an error: the deliverable exists,
+/// and a miss can be legitimate (limiter loss, peaks AAC adds between samples).
+fn master_misses(
+    master: Option<&crate::model::Master>,
+    measured: &crate::media::loudness::Summary,
+) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    let Some(master) = master else {
+        return findings;
+    };
+    if let (Some(target), Some(integrated)) = (master.target_lufs.map(|t| t.0), measured.integrated)
+    {
+        let difference = round1(integrated - target);
+        if difference.abs() > LOUDNESS_TOLERANCE_LU {
+            let cause = if difference < 0.0 {
+                "Below the target after the one measured gain usually means the limiter took \
+                 the loudness away: too little headroom between `target_lufs` and \
+                 `ceiling_dbtp` (see R-MASTER-HEADROOM). Lower the target, or reduce the peaks \
+                 on the elements."
+            } else {
+                "Above the target means the mix this file carries is not the one the gain was \
+                 measured on. Render it again."
+            };
+            findings.push(
+                Finding::new("R-VERIFY-LOUDNESS")
+                    .field("integrated_lufs", json!(integrated))
+                    .field("target_lufs", json!(target))
+                    .field("difference_lu", json!(difference))
+                    .field("tolerance_lu", json!(LOUDNESS_TOLERANCE_LU))
+                    .field("cause", json!(cause))
+                    .citation(Citation {
+                        threshold: json!(LOUDNESS_TOLERANCE_LU),
+                        source: LOUDNESS_SOURCE.to_string(),
+                        adr: "ADR-0173".to_string(),
+                    }),
+            );
+        }
+    }
+    if let (Some(ceiling), Some(peak)) = (master.ceiling_dbtp.map(|c| c.0), measured.true_peak) {
+        let overshoot = round1(peak - ceiling);
+        if overshoot > TRUE_PEAK_TOLERANCE_DB {
+            findings.push(
+                Finding::new("R-VERIFY-TRUE-PEAK")
+                    .field("true_peak_dbtp", json!(peak))
+                    .field("ceiling_dbtp", json!(ceiling))
+                    .field("overshoot_db", json!(overshoot))
+                    .field("tolerance_db", json!(TRUE_PEAK_TOLERANCE_DB))
+                    .citation(Citation {
+                        threshold: json!(TRUE_PEAK_TOLERANCE_DB),
+                        source: TRUE_PEAK_SOURCE.to_string(),
+                        adr: "ADR-0174".to_string(),
+                    }),
+            );
+        }
+    }
+    findings
+}
+
+fn round1(v: f64) -> f64 {
+    (v * 10.0).round() / 10.0
 }
 
 // ---- What should be heard -------------------------------------------------------------------

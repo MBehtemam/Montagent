@@ -29,6 +29,7 @@ pub mod audio_effects;
 pub mod effects;
 mod element;
 pub mod keyframe;
+pub mod master;
 pub mod paint;
 pub mod playback;
 pub mod stroke;
@@ -43,6 +44,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use audio_effects::AudioEffect;
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
+pub use master::{CeilingDbtp, Master, TargetLufs};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
@@ -449,6 +451,10 @@ pub struct Project {
     pub looping: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    /// The master stage on the final mix: a loudness target and a true-peak ceiling
+    /// (ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub master: Option<Master>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
     #[serde(

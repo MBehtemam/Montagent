@@ -427,6 +427,27 @@ pub fn preview_cancellable(
         false => Some(ask.clock.at(rung)),
     };
 
+    // ADR-0172: the master stage is settled once, on the whole programme, so every rung and
+    // every range applies the deliverable's gain.
+    let master = match render::master::settle(
+        &document,
+        &project_dir,
+        &crate::media::established::Established::of(&report),
+        fps,
+        &ffmpeg,
+    ) {
+        Ok((master, measured)) => {
+            for finding in measured {
+                report.push(finding);
+            }
+            master
+        }
+        Err(reason) => {
+            report.fail_internally(reason);
+            return refused(report);
+        }
+    };
+
     let mut rung = 0usize;
     let mut tier = match ask.full {
         true => Tier::Native,
@@ -474,6 +495,7 @@ pub fn preview_cancellable(
             stamp: None,
             deadline: budget(rung),
             cancel,
+            master,
         };
 
         let attempt = Instant::now();

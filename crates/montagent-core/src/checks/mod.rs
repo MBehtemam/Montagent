@@ -35,6 +35,7 @@ pub mod highlight;
 pub mod ink;
 pub mod layout;
 pub mod mask;
+pub mod master;
 pub mod motion_blur;
 pub mod overridden;
 pub mod path;

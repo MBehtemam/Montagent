@@ -3315,6 +3315,22 @@ already governs the delivered file. Lower it to {limit}, or drop the limiter.",
         census: None,
         sets: &[Document],
     },
+    // ---- The master stage (ADR-0172, ADR-0174) ---------------------------------------------
+    CheckSpec {
+        // ADR-0172: a target with no limiter. Not an error: `validate` cannot know the gain's
+        // sign before the measurement pass, and a target on a hot mix is pure attenuation.
+        code: "R-MASTER-NO-CEILING",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is which keys are written.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}` and no `ceiling_dbtp`, so a \
+positive gain reaches the mix with no limiter after it and can clip. Add `ceiling_dbtp: -1`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     CheckSpec {
         // A review: a static estimate for a full-scale sine, wrong either way on real material.
         code: "R-COMPRESSOR-MAKEUP-CLIP",
@@ -3326,6 +3342,21 @@ already governs the delivered file. Lower it to {limit}, or drop the limiter.",
 the {headroom} dB a full-scale sine can take before reaching 0 dBFS at threshold {threshold_db} and \
 ratio {ratio}, and no enabled `limiter` follows it and the project has no `master.ceiling_dbtp`. \
 Lower the make-up, or follow the compressor with a `limiter`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-MASTER-TARGET-UNUSUAL",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::TARGET_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `target_lufs` is {target_lufs} LUFS, {direction} than \
+{threshold_lufs} LUFS.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -3343,6 +3374,21 @@ is a plain {makeup_db} dB gain.",
         sets: &[Document],
     },
     CheckSpec {
+        code: "R-MASTER-CEILING-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::CEILING_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `ceiling_dbtp` is {ceiling_dbtp} dBTP, above {threshold_dbtp} \
+dBTP, and the deliverable is lossy AAC, whose decoding adds peaks between samples.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "N-LIMITER-STACKED",
         classes: &[Note],
         repair: None,
@@ -3353,6 +3399,90 @@ the lowest ceiling binds and the others add look-ahead and nothing else.",
         status: Live,
         census: None,
         sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0172: predicts, before anything renders, the shortfall one gain with no
+        // compensation leaves after heavy limiting.
+        code: "R-MASTER-HEADROOM",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::HEADROOM_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master` leaves {headroom_db} dB between `target_lufs` ({target_lufs} LUFS) \
+and `ceiling_dbtp` ({ceiling_dbtp} dBTP), under {threshold_db} dB: heavy limiting is likely, \
+and the delivered loudness may land below the target. Lower the target, or reduce the peaks \
+on the elements.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // The measurement pass's own findings, from `render` and `preview` (ADR-0172).
+    CheckSpec {
+        code: "R-MASTER-LOUDNESS-UNDEFINED",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is BS.1770's own gating, the meter's definition.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}`, and the whole programme's mix \
+has no integrated loudness: every 400 ms block is silent or below the gate. No gain was \
+applied.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        code: "R-MASTER-GAIN-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::render::master::GAIN_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "The mix measured {measured_lufs} LUFS, so reaching `target_lufs: \
+{target_lufs}` applied {applied_gain_db} dB of gain, above {threshold_db} dB, which raises the \
+noise floor with it. Raise the elements' `volume`, or lower the target.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    // `verify`'s two misses against what `master` declares (ADR-0173 §6, ADR-0174 §3).
+    CheckSpec {
+        code: "R-VERIFY-LOUDNESS",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::verify::LOUDNESS_SOURCE,
+            adr: "ADR-0173",
+        },
+        adr: "ADR-0173",
+        template: "{output}'s integrated loudness is {integrated_lufs} LUFS, {difference_lu} LU \
+from `target_lufs: {target_lufs}`, beyond the {tolerance_lu} LU tolerance. {cause}",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
+    },
+    CheckSpec {
+        code: "R-VERIFY-TRUE-PEAK",
+        classes: &[Review],
+        repair: None,
+        // ADR-0182's route: the project's own measurement on a committed fixture.
+        threshold: External {
+            source: crate::verbs::verify::TRUE_PEAK_SOURCE,
+            adr: "ADR-0174",
+        },
+        adr: "ADR-0174",
+        template: "{output}'s decoded true peak is {true_peak_dbtp} dBTP, {overshoot_db} dB over \
+`ceiling_dbtp: {ceiling_dbtp}`, beyond the {tolerance_db} dB allowance. On clipped or \
+noise-like material driven far over the ceiling this is advisory (up to +1.8 dB is measured); \
+lower `ceiling_dbtp` by about the overshoot and render again.",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
     },
 ];
 

@@ -2,8 +2,8 @@
 //! members' schema and the six `validate` findings.
 //!
 //! `E-LIMITER-ABOVE-MASTER` reads the top-level `master.ceiling_dbtp`, which the master stage
-//! (ADR-0172) adds to the schema; until it does, a document carrying a `master` is refused by
-//! the schema, so that finding is exercised on the permissive tree in `checks::dynamics`.
+//! (ADR-0172) adds to the schema, so it is exercised end to end here as well as on the
+//! permissive tree in `checks::dynamics`.
 
 use montagent_core::report::Report;
 use montagent_core::validate;
@@ -253,6 +253,21 @@ fn more_than_one_enabled_limiter_is_one_note_per_element() {
     let mut off = limiter();
     off["enabled"] = json!(false);
     assert!(codes(&validated(json!([limiter(), off])), "N-LIMITER-STACKED").is_empty());
+}
+
+#[test]
+fn a_limiter_above_the_masters_ceiling_less_one_db_fires_end_to_end() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let mut doc: Value = serde_json::from_str(&project(audio(json!([limiter()])))).unwrap();
+    doc["master"] = json!({"ceiling_dbtp": -4});
+    let path = write_project(&dir, "p.montagent.json", &canonical(&doc.to_string()));
+    let report = validate(&path);
+    assert!(
+        codes(&report, "E-SCHEMA").is_empty(),
+        "{:?}",
+        report.findings
+    );
+    assert_eq!(codes(&report, "E-LIMITER"), ["E-LIMITER-ABOVE-MASTER"]);
 }
 
 #[test]
