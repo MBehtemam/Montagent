@@ -554,9 +554,21 @@ or cuts a whole frame's width or height, outside the elements' own transforms, a
 changes their layers. The same rule makes a dependency between two elements one the file
 can show: a transition may move or cut what it bridges, but no element's pixels decide
 where another shows. That is why there is no matte taken from another element.
+A transition may also carry the sound across its window: its optional `audio` is `cut` (what
+absent also means), `constant_power` or `constant_gain`. A fifth kind, `audio_crossfade`,
+paints nothing and bridges `audio` or `video` elements for the sound alone.
 ([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md),
-[ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+[ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md),
+[ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md))
 _Avoid_: dissolve, transition effect, track matte (refused, not a synonym for a wipe)
+
+**Audio crossfade**:
+The sound handed from one element to the next over a transition's own window: the outgoing side
+fades out as the incoming side fades in. `constant_power` keeps the level of two different
+signals, and `constant_gain` keeps the level of the same signal on both sides. It belongs to the
+transition, not to either element, which is what separates it from a fade written as `volume`.
+([ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md))
+_Avoid_: audio dissolve, sound transition
 
 **Direction**:
 A slide, push or wipe's `direction`: **the way the motion travels**, `left`, `right`,

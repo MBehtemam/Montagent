@@ -1,0 +1,48 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "tolerance_db": 0.1,
+ "unrelated": {
+  "constant_power": {
+   "afade_curve": "qsin",
+   "midpoint_db_vs_one_side": -0.0,
+   "expected_db": 0.0
+  },
+  "constant_gain": {
+   "afade_curve": "tri",
+   "midpoint_db_vs_one_side": -3.01,
+   "expected_db": -3.01
+  }
+ },
+ "same_signal": {
+  "constant_power": {
+   "afade_curve": "qsin",
+   "midpoint_db_vs_one_side": 3.01,
+   "expected_db": 3.01
+  },
+  "constant_gain": {
+   "afade_curve": "tri",
+   "midpoint_db_vs_one_side": 0.0,
+   "expected_db": 0.0
+  }
+ },
+ "window_edges": {
+  "constant_power": {
+   "out_before_window": 0.5,
+   "out_first_window_sample": 0.5,
+   "out_last_window_sample": 8.181230441550724e-06,
+   "out_at_window_end": 0.0,
+   "in_before_window": 0.0,
+   "in_first_window_sample": 0.0,
+   "in_at_window_end": 0.5
+  },
+  "constant_gain": {
+   "out_before_window": 0.5,
+   "out_first_window_sample": 0.5,
+   "out_last_window_sample": 5.208333277550992e-06,
+   "out_at_window_end": 0.0,
+   "in_before_window": 0.0,
+   "in_first_window_sample": 0.0,
+   "in_at_window_end": 0.5
+  }
+ }
+}
