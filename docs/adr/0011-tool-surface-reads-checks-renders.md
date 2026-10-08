@@ -4,6 +4,10 @@ status: accepted
 
 # The tool surface reads, checks and renders — the agent brings its own editor
 
+> **Amended by [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)**, for a remote instance only. A tool's `project` is
+> a path inside a named workspace, `render`'s result also carries a download URL, and a plain-HTTP
+> byte door moves files beside MCP. The MCP verbs are unchanged, and stdio is untouched.
+
 > **Amended by [ADR-0092](0092-a-probe-is-matched-on-an-observed-identity-and-guarded-by-its-contents.md).**
 > One CLI-only **non-verb** is added, `montagent cache clear`, on this ADR's own cost model
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim

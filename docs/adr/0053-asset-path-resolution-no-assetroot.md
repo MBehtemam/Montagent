@@ -3,6 +3,10 @@ status: accepted
 amends: 0002 (settles the resolution-base, assetRoot, absolute-path and missing-source questions that ADR left open)
 ---
 
+> **Amended by [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)**, for a remote instance only. An absolute path, or a `..`
+> that leaves the workspace, is refused as a named `validate` finding. Over stdio, absolute
+> paths stay permitted as below.
+
 > **Amended by [ADR-0131](./0131-render-and-frame-use-local-sources-only-and-validate-says-so.md)**,
 > which records that `render` and `frame` use local sources only. Rewriting `source` to URLs
 > is still how a project refers to a remote store, but that project does not render until
