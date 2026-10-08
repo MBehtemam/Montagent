@@ -3280,6 +3280,29 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "target_lufs": {
+              "type": "number",
+              "format": "double",
+              "description": "The element's integrated loudness after the gain, in LUFS. -40..-6."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "normalize_loudness"
+            }
+          },
+          "required": [
+            "name",
+            "target_lufs"
+          ],
+          "description": "Loudness normalisation (ADR-0178): one fixed gain that brings the element's own\nintegrated loudness to `target_lufs`, measured on its placed window at this member's\nposition in the list. Singular. Never `loudnorm`.\n\n`target_lufs` is required and has no default; -40..-6 is checked by `validate`\n(`E-NORMALIZE-TARGET-RANGE`). A keyframe list is a schema error: the target names one\nwhole-window measurement (#842)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
             "ceiling_db": {
               "type": "number",
               "format": "double",

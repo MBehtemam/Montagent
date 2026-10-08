@@ -22,9 +22,9 @@ use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
 
-/// The audio members that ADR-0169 lets appear once among the enabled ones. Empty: no
-/// member exists yet. Loudness normalisation is the expected first entry.
-pub const SINGULAR: &[&str] = &[];
+/// The audio members that ADR-0169 lets appear once among the enabled ones: loudness
+/// normalisation (ADR-0178 §1), whose one gain a second copy could only contradict.
+pub const SINGULAR: &[&str] = &["normalize_loudness"];
 
 /// What counts as an audio member, a visual one, and a singular one.
 pub(crate) struct Vocabulary {
@@ -233,11 +233,12 @@ mod tests {
             "bell",
             "compressor",
             "limiter",
+            "normalize_loudness",
         ] {
             assert!(published.audio.iter().any(|a| a == name), "{name}");
         }
         assert!(published.visual.iter().any(|name| name == "blur"));
-        assert!(published.singular.is_empty());
+        assert_eq!(published.singular, ["normalize_loudness"]);
     }
 
     #[test]
