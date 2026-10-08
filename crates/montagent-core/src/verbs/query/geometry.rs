@@ -124,6 +124,24 @@ pub fn drawn_rect(
     let left = x - fx * scaled_width;
     let top = y - fy * scaled_height;
 
+    // The enclosing nests' composed matrix (#780), through the one resolver the painter
+    // reads. A chain that turns anything is not an axis-aligned rectangle, like a rotated
+    // element; a chain that only moves and scales maps the box to a box.
+    if let Some(matrix) = crate::nest::composed(element, (i128::from(instant), 1)) {
+        let turned = matrix.rotation_degrees();
+        if turned.abs() > 1e-9 {
+            return Some(Err(NotAxisAligned::Rotated(turned)));
+        }
+        let (x0, y0) = matrix.apply((left, top));
+        let (x1, y1) = matrix.apply((left + scaled_width, top + scaled_height));
+        return Some(Ok(Rect {
+            x: x0.min(x1).round() as i64,
+            y: y0.min(y1).round() as i64,
+            width: (x1 - x0).abs().round() as i64,
+            height: (y1 - y0).abs().round() as i64,
+        }));
+    }
+
     Some(Ok(Rect {
         x: left.round() as i64,
         y: top.round() as i64,

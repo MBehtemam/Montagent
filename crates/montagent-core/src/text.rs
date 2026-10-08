@@ -2143,6 +2143,49 @@ fn at_block(at: &Value) -> String {
         )));
     }
 
+    // #780: every nest whose window covers the instant, parent first.
+    if let Some(nests) = at["nests"].as_array().filter(|n| !n.is_empty()) {
+        out.push_str(&format!(
+            "\nNESTS  {} at this instant (parent first; a nest paints nothing)\n",
+            plural(nests.len() as u64, "nest")
+        ));
+        for nest in nests {
+            let chain: Vec<String> = nest["nest"]
+                .as_array()
+                .map(|c| c.iter().map(named).collect())
+                .unwrap_or_default();
+            let inside = if chain.is_empty() {
+                String::new()
+            } else {
+                format!(" in {}", chain.join(" > "))
+            };
+            let mut cells = vec![format!(
+                "pivot ({}, {})",
+                resolved_number(&nest["pivot"][0]),
+                resolved_number(&nest["pivot"][1])
+            )];
+            for value in nest["values"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+                let animated = if value["animated"].as_bool().unwrap_or(false) {
+                    " (animated)"
+                } else {
+                    ""
+                };
+                cells.push(format!(
+                    "{} {}{animated}",
+                    named(&value["property"]),
+                    resolved_number(&value["value"])
+                ));
+            }
+            out.push_str(&row(format!(
+                "{}{inside}  {}..{}  {}",
+                named(&nest["id"]),
+                nest["start"],
+                nest["end"],
+                cells.join(", ")
+            )));
+        }
+    }
+
     // Named rather than dropped, for the cut list's reason: a stack computed over fewer
     // elements than the project has says so next to the answer.
     if let Some(unplaced) = at["unplaced"].as_array().filter(|ids| !ids.is_empty()) {
@@ -2200,6 +2243,20 @@ fn resolved_cells(element: &Value) -> String {
             Some(reason) => format!("{property} unresolved: {reason}"),
             None => format!("{property} {}{animated}", resolved_number(&value["value"])),
         });
+    }
+    // #780: a child of a nest says which, and where the chain puts it.
+    if let Some(chain) = element["nest"].as_array().filter(|c| !c.is_empty()) {
+        let names: Vec<String> = chain.iter().map(named).collect();
+        let composed = &element["composed"];
+        cells.push(format!(
+            "in nest {}: composed x {}, y {}, rotation {}, scale {} × {}",
+            names.join(" > "),
+            resolved_number(&composed["x"]),
+            resolved_number(&composed["y"]),
+            resolved_number(&composed["rotation"]),
+            resolved_number(&composed["scale"][0]),
+            resolved_number(&composed["scale"][1]),
+        ));
     }
     // ADR-0147: every visual member says how it composites, `normal` included.
     if let Some(blend) = element["blend"].as_str() {

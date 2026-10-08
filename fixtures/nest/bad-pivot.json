@@ -1,0 +1,54 @@
+{
+ "frame": {
+  "width": 640,
+  "height": 360
+ },
+ "fps": 10,
+ "background": "#202020",
+ "duration": 1000,
+ "tracks": [
+  {
+   "name": "rig",
+   "layer": 1,
+   "elements": [
+    {
+     "id": "spin",
+     "type": "nest",
+     "start": 0,
+     "end": 1000,
+     "pivot": "center",
+     "rotation": [
+      {
+       "t": 0,
+       "v": 0
+      },
+      {
+       "t": 1000,
+       "v": 90,
+       "ease": "linear"
+      }
+     ],
+     "tracks": [
+      {
+       "name": "parts",
+       "layer": 2,
+       "elements": [
+        {
+         "id": "bar",
+         "type": "rect",
+         "start": 0,
+         "end": 1000,
+         "x": 420,
+         "y": 180,
+         "width": 200,
+         "height": 40,
+         "fill": "#FF8800"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

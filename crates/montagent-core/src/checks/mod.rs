@@ -33,6 +33,7 @@ pub mod ink;
 pub mod layout;
 pub mod mask;
 pub mod motion_blur;
+pub mod nest;
 pub mod overridden;
 pub mod path;
 pub mod projection;

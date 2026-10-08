@@ -112,6 +112,34 @@ pub struct At {
     /// rectangles only (see [`geometry::NotAxisAligned`]). `null` where the computation
     /// ran to completion, including when it legitimately found nothing uncovered.
     pub not_covered_unresolved: Option<String>,
+    /// Every nest whose window covers the instant, parent first, each with its own chain,
+    /// window, resolved values and `pivot` (#780). Absent where the project has none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub nests: Vec<NestRow>,
+}
+
+/// One live nest: a section of its own, since a nest paints nothing and so has no row in
+/// the painted stack.
+#[derive(Debug, Clone, Serialize)]
+pub struct NestRow {
+    pub id: String,
+    /// The enclosing nests, outermost first.
+    pub nest: Vec<String>,
+    pub start: i64,
+    pub end: i64,
+    pub pivot: Option<Value>,
+    pub values: Vec<Resolved>,
+}
+
+/// A child's position after every enclosing nest (#780): `x` and `y` are where the child's
+/// own placement point lands in frame space, `rotation` the sum, `scale` the product along
+/// each axis. The row's own `values` stay what the file declares.
+#[derive(Debug, Clone, Serialize)]
+pub struct ComposedValues {
+    pub x: f64,
+    pub y: f64,
+    pub rotation: f64,
+    pub scale: [f64; 2],
 }
 
 /// One element of the presence set, resolved.
@@ -129,6 +157,12 @@ pub struct Present {
     /// Every animated property the element **declares**, resolved at the instant — in the
     /// order the format declares them, never the order the file happens to write them in.
     pub values: Vec<Resolved>,
+    /// The enclosing nests, outermost first. Absent on an element in none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub nest: Vec<String>,
+    /// The composed `x`, `y`, `rotation` and `scale`, where the element is in a nest.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub composed: Option<ComposedValues>,
     /// How the element composites into what is below it (ADR-0147), in the word the file
     /// uses, `normal` included where the field is omitted: a member that blends and one that
     /// does not must not read alike. `null` on `audio` and `transition`, which draw nothing.
@@ -801,6 +835,11 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             layer,
             layer_unresolved,
             values: values(element, instant),
+            nest: crate::nest::chain(element)
+                .iter()
+                .map(|n| n["id"].as_str().unwrap_or("(nest with no id)").to_string())
+                .collect(),
+            composed: frame.and_then(|frame| composed_values(element, instant, frame)),
             blend,
             motion_blur,
             motion,
@@ -853,7 +892,44 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         unplaced,
         not_covered,
         not_covered_unresolved,
+        nests: live_nests(document, instant),
     }
+}
+
+/// The child's composed values at `instant` through [`crate::nest::composed`], the one
+/// resolver the painter reads.
+fn composed_values(element: &Value, instant: i64, frame: (i64, i64)) -> Option<ComposedValues> {
+    let matrix = crate::nest::composed(element, (i128::from(instant), 1))?;
+    let own_x = geometry::number::<i64>(element, "x", instant, frame.0 as f64 / 2.0);
+    let own_y = geometry::number::<i64>(element, "y", instant, frame.1 as f64 / 2.0);
+    let own_rotation = geometry::number::<f64>(element, "rotation", instant, 0.0);
+    let [sx, sy] = geometry::number::<[f64; 2]>(element, "scale", instant, [1.0, 1.0]);
+    let (x, y) = matrix.apply((own_x, own_y));
+    let (mx, my) = matrix.scale();
+    Some(ComposedValues {
+        x,
+        y,
+        rotation: own_rotation + matrix.rotation_degrees(),
+        scale: [sx * mx, sy * my],
+    })
+}
+
+/// Every nest whose window covers `instant`, parent first.
+fn live_nests(document: &Loose, instant: i64) -> Vec<NestRow> {
+    crate::nest::nests(document.value())
+        .into_iter()
+        .filter_map(|(chain, nest)| {
+            let (start, end) = (nest.get("start")?.as_i64()?, nest.get("end")?.as_i64()?);
+            (start <= instant && instant < end).then(|| NestRow {
+                id: nest["id"].as_str().unwrap_or("(nest with no id)").to_string(),
+                nest: chain,
+                start,
+                end,
+                pivot: nest.get("pivot").cloned(),
+                values: values(nest, instant),
+            })
+        })
+        .collect()
 }
 
 /// `blend` as the file spells it, `normal` where it is omitted, and `None` on a type that

@@ -2037,6 +2037,73 @@ pair of keys, which silences this.",
         sets: &[Document],
     },
     CheckSpec {
+        // Prototype #780: a nest's window bounds its presence, and a child outside it never
+        // paints. The message says the window does not move the child's own time.
+        code: "E-NEST-OUTSIDE-WINDOW",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "`{child}` ({child_start}..{child_end} ms) reaches outside the window of nest \
+`{nest}` ({start}..{end} ms). A nest's window bounds its presence only: children keep \
+timeline milliseconds, so either widen the nest or shorten the child.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // Prototype #780: an empty nest, named once at its outermost.
+        code: "E-NEST-EMPTY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "nest `{nest}` holds no element, directly or through nests inside it.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // Prototype #780: depth over 4. Raising the cap later breaks nothing.
+        code: "E-NEST-TOO-DEEP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "nest `{nest}` sits {depth} nests deep; the cap is {cap}.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // Prototype #780: a nest is not an anchor target and not a transition end.
+        code: "E-NEST-TARGET",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "`{element}` names nest `{nest}` as {role}; a nest has no layer and no box, so \
+name one of its children instead.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // Prototype #780: `clip` stays in frame space, so a clip on a child of a moving nest
+        // does not travel with it.
+        code: "R-CLIP-IN-MOVING-NEST",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0155",
+        template: "`{element}` carries a `clip`, which stays in frame space, and its nest chain \
+is not the identity at {instant} ms: the child moves and the cut does not. A cut that \
+travels with a nest is a mask.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0155 §5: a `motion_blur` that paints nothing a sharp element would not — no
         // value the element's keyframes resolve differs inside its range, a `units` stagger
         // counting as motion. A review, never a refusal; the repair is to remove the field.

@@ -51,6 +51,11 @@ pub fn check(document: &Loose, report: &mut Report) {
         };
 
         match stack.layer_of(placement.id) {
+            // A nest is in the project but has no layer: `E-NEST-TARGET` says so (#780).
+            Err(Unresolved::MissingTarget(target))
+                if crate::nest::nests(document.value())
+                    .iter()
+                    .any(|(_, nest)| nest["id"].as_str() == Some(target.as_ref())) => {}
             Err(Unresolved::MissingTarget(_)) => {
                 report.push(at(Finding::new("E-ANCHOR-MISSING")).repair_value(json!({
                     "value": "name an element that is in the project, or state this \

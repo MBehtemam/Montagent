@@ -125,6 +125,24 @@ impl<'de> Visitor<'de> for ElementVisitor {
         {
             return Err(A::Error::custom(format!("`{id}`: {reason}")));
         }
+        // A nest is a pure matrix (#632): the error says why, instead of the generic
+        // unknown-key reading, which would suggest the field belongs to a newer format.
+        if rest.get("type").and_then(Value::as_str) == Some("nest") {
+            if layer.is_some() {
+                return Err(A::Error::custom(format!(
+                    "`{id}`: a nest has no `layer`; layers stay global, so give the layer to the \
+children inside it"
+                )));
+            }
+            for key in ["opacity", "blend", "effects", "mask", "clip", "motion_blur"] {
+                if rest.contains_key(key) {
+                    return Err(A::Error::custom(format!(
+                        "`{id}`: a nest carries no `{key}`: group compositing is not part of a \
+nest, which is a pure matrix"
+                    )));
+                }
+            }
+        }
         let body: Body = serde_json::from_value(Value::Object(rest))
             .map_err(|e| A::Error::custom(format!("`{id}`: {e}")))?;
 

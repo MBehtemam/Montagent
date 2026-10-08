@@ -247,6 +247,7 @@ fn run_checks(
     // ADR-0155's `R-MOTION-BLUR-STILL`: a `motion_blur` on an element that never moves
     // inside its own range. Document-only, decided without painting a frame.
     crate::checks::motion_blur::check(document, report);
+    crate::checks::nest::check(document, report);
     // ADR-0167 §8 and ADR-0168 §3: a projection's `perspective` missing or alone, the eye
     // bound, strong foreshortening, and an element that never faces the eye. Document-only.
     crate::checks::projection::check(document, report);

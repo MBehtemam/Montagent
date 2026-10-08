@@ -121,6 +121,12 @@ pub(crate) fn still_throughout(element: &Value) -> Option<bool> {
     for declared in animatable::declared(element) {
         cut(declared.records(), 0);
     }
+    // A nest's keyframes move its children (#780): their instants cut the range too.
+    for nest in crate::nest::chain(element) {
+        for declared in animatable::declared(nest) {
+            cut(declared.records(), 0);
+        }
+    }
     let plan = crate::units::Plan::of(element);
     if let Some(plan) = &plan {
         for unit in 0..plan.units.len() {
@@ -165,6 +171,14 @@ pub(crate) fn still(element: &Value, instants: &[(i128, i128)]) -> bool {
             rest.iter().all(|t| declared.read(t.0, t.1) == at_first)
         });
     if !unchanged {
+        return false;
+    }
+    // "Still" means still after composition (#780): the enclosing nests' matrix too.
+    let at_first = crate::nest::composed(element, first);
+    if !rest
+        .iter()
+        .all(|t| crate::nest::composed(element, *t) == at_first)
+    {
         return false;
     }
     let Some(plan) = crate::units::Plan::of(element) else {
