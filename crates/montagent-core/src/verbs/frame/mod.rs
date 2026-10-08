@@ -2131,10 +2131,20 @@ impl<'a> Painter<'a> {
     /// same reading the one geometry function every check asks takes (ADR-0167 §6).
     fn transform(&self, element: &Value) -> Transform {
         let bridge = self.bridge(element);
-        let placed = crate::projection::placed(element, self.t, self.frame);
+        let mut placed = crate::projection::placed(element, self.t, self.frame);
+        // A slide's offset is frame space, so it acts outside the whole nest chain (#780): a
+        // camera that turns never turns a slide. Outside any nest it is added to `x` and `y`.
+        let (dx, dy) = match placed.nest.as_mut() {
+            Some(matrix) => {
+                matrix[4] += bridge.offset.0 as f64;
+                matrix[5] += bridge.offset.1 as f64;
+                (0.0, 0.0)
+            }
+            None => (bridge.offset.0 as f64, bridge.offset.1 as f64),
+        };
         Transform {
-            x: placed.x + bridge.offset.0 as f64,
-            y: placed.y + bridge.offset.1 as f64,
+            x: placed.x + dx,
+            y: placed.y + dy,
             // The declared opacity, times whatever crossfade this element is bridged by.
             // Multiplied rather than replaced: a crossfade is a ramp *on* what the
             // document says, so an element already keyframed to 0.5 fades from 0.5 rather

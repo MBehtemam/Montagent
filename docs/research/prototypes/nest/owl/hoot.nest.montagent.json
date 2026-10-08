@@ -1,0 +1,240 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 30,
+  "background": "#F5F0E6",
+  "duration": 8000,
+  "output": "deliverable.mp4",
+  "tracks": [
+    {
+      "name": "set",
+      "layer": 0,
+      "elements": [
+        {"id":"set","type":"image","start":0,"end":8000,"source":"character/study.png","x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"fit":"literal"}
+      ]
+    },
+    {
+      "name": "card-frame",
+      "layer": 30,
+      "elements": [
+        {"id":"card-frame","type":"rect","start":3400,"end":8000,"x":1400,"y":520,"origin":"center","width":736,"height":432,"fill":"#101418","radius":28,"scale":[{"t":3400,"v":[0.0,0.0]},{"t":3700,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}],"effects":[{"name":"shadow","dx":0,"dy":14,"radius":24,"color":"#101418","opacity":0.25}]}
+      ]
+    },
+    {
+      "name": "card-picture",
+      "layer": 31,
+      "elements": [
+        {"id":"card-session-01","type":"image","start":3400,"end":6200,"source":"stills/session-01.png","x":1400,"y":520,"origin":"center","width":704,"height":396,"fit":"contain","scale":[{"t":3400,"v":[0.0,0.0]},{"t":3700,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}]},
+        {"id":"card-session-02","type":"image","start":6200,"end":8000,"source":"stills/session-02.png","x":1400,"y":520,"origin":"center","width":704,"height":396,"fit":"contain"}
+      ]
+    },
+    {
+      "name": "lockup",
+      "layer": 40,
+      "elements": [
+        {"id":"lockup","type":"image","start":6700,"end":8000,"source":"brand/lockup.png","x":740,"y":160,"origin":"center","width":700,"height":162,"fit":"contain","scale":[{"t":6700,"v":[0.0,0.0]},{"t":7000,"v":[1.0,1.0],"ease":[0.34,1.56,0.64,1]}]}
+      ]
+    },
+    {
+      "name": "voice",
+      "layer": 0,
+      "elements": [
+        {"id":"voice","type":"audio","start":1000,"end":7048,"source":"character/voice/line-1.wav","source_start":0,"source_end":6048}
+      ]
+    },
+    {
+      "name": "owl-rig",
+      "layer": 10,
+      "elements": [
+        {
+          "id":"owl-torso-nest",
+          "type":"nest",
+          "start":0,
+          "end":8000,
+          "pivot":[-350,975],
+          "x":[{"t":0,"v":0},{"t":33,"v":98,"ease":"linear"},{"t":66,"v":192,"ease":"linear"},{"t":100,"v":284,"ease":"linear"},{"t":133,"v":369,"ease":"linear"},{"t":166,"v":452,"ease":"linear"},{"t":200,"v":532,"ease":"linear"},{"t":233,"v":607,"ease":"linear"},{"t":266,"v":678,"ease":"linear"},{"t":300,"v":746,"ease":"linear"},{"t":333,"v":808,"ease":"linear"},{"t":366,"v":866,"ease":"linear"},{"t":400,"v":920,"ease":"linear"},{"t":433,"v":966,"ease":"linear"},{"t":466,"v":1007,"ease":"linear"},{"t":500,"v":1041,"ease":"linear"},{"t":533,"v":1067,"ease":"linear"},{"t":566,"v":1084,"ease":"linear"},{"t":600,"v":1090,"ease":"linear"},{"t":7966,"v":1090,"ease":"linear"}],
+          "y":[{"t":0,"v":0},{"t":33,"v":-36,"ease":"linear"},{"t":66,"v":-61,"ease":"linear"},{"t":100,"v":-73,"ease":"linear"},{"t":133,"v":-73,"ease":"linear"},{"t":166,"v":-61,"ease":"linear"},{"t":200,"v":-36,"ease":"linear"},{"t":233,"v":0,"ease":"linear"},{"t":266,"v":-28,"ease":"linear"},{"t":300,"v":-45,"ease":"linear"},{"t":333,"v":-50,"ease":"linear"},{"t":366,"v":-45,"ease":"linear"},{"t":400,"v":-28,"ease":"linear"},{"t":433,"v":0,"ease":"linear"},{"t":466,"v":-18,"ease":"linear"},{"t":500,"v":-27,"ease":"linear"},{"t":533,"v":-27,"ease":"linear"},{"t":566,"v":-18,"ease":"linear"},{"t":600,"v":0,"ease":"linear"},{"t":7966,"v":0,"ease":"linear"}],
+          "tracks":[
+            {
+              "name": "owl-torso",
+              "layer": 10,
+              "elements": [
+                {"id":"owl-torso","type":"image","start":0,"end":8000,"source":"character/parts/torso.png","x":-350,"y":975,"origin":"center","width":288,"height":845,"fit":"literal"}
+              ]
+            },
+            {
+              "name": "owl-upper_arm_left-nest",
+              "layer": 13,
+              "elements": [
+                {
+                  "id":"owl-upper_arm_left-nest",
+                  "type":"nest",
+                  "start":0,
+                  "end":8000,
+                  "pivot":[-444,623],
+                  "rotation":[{"t":0,"v":-50},{"t":733,"v":-50.0,"ease":"linear"},{"t":766,"v":-8.35,"ease":"linear"},{"t":800,"v":22.08,"ease":"linear"},{"t":833,"v":40.88,"ease":"linear"},{"t":866,"v":50.89,"ease":"linear"},{"t":900,"v":54.25,"ease":"linear"},{"t":933,"v":53.07,"ease":"linear"},{"t":1000,"v":46.43,"ease":"linear"},{"t":1033,"v":45.0,"ease":"linear"},{"t":2233,"v":45.0,"ease":"linear"},{"t":2266,"v":44.62,"ease":"linear"},{"t":2300,"v":41.11,"ease":"linear"},{"t":2333,"v":33.99,"ease":"linear"},{"t":2366,"v":23.23,"ease":"linear"},{"t":2400,"v":9.05,"ease":"linear"},{"t":2433,"v":-6.24,"ease":"linear"},{"t":2466,"v":-21.04,"ease":"linear"},{"t":2500,"v":-33.88,"ease":"linear"},{"t":2533,"v":-42.91,"ease":"linear"},{"t":2566,"v":-48.23,"ease":"linear"},{"t":2600,"v":-50.0,"ease":"linear"},{"t":6700,"v":-50.0,"ease":"linear"},{"t":6733,"v":-7.91,"ease":"linear"},{"t":6766,"v":22.11,"ease":"linear"},{"t":6800,"v":41.84,"ease":"linear"},{"t":6833,"v":51.95,"ease":"linear"},{"t":6866,"v":55.32,"ease":"linear"},{"t":6900,"v":54.15,"ease":"linear"},{"t":6966,"v":47.52,"ease":"linear"},{"t":7000,"v":46.0,"ease":"linear"},{"t":7966,"v":46,"ease":"linear"}],
+                  "tracks":[
+                    {
+                      "name": "owl-upper_arm_left",
+                      "layer": 13,
+                      "elements": [
+                        {"id":"owl-upper_arm_left","type":"image","start":0,"end":8000,"source":"character/parts/upper_arm_left.png","x":-444,"y":623,"origin":"center","width":176,"height":120,"fit":"literal"}
+                      ]
+                    },
+                    {
+                      "name": "owl-forearm_left-nest",
+                      "layer": 11,
+                      "elements": [
+                        {
+                          "id":"owl-forearm_left-nest",
+                          "type":"nest",
+                          "start":0,
+                          "end":8000,
+                          "pivot":[-499,647],
+                          "rotation":[{"t":0,"v":-10},{"t":733,"v":-10.0,"ease":"linear"},{"t":766,"v":7.54,"ease":"linear"},{"t":800,"v":20.35,"ease":"linear"},{"t":833,"v":28.26,"ease":"linear"},{"t":866,"v":32.48,"ease":"linear"},{"t":900,"v":33.89,"ease":"linear"},{"t":933,"v":33.4,"ease":"linear"},{"t":1000,"v":30.6,"ease":"linear"},{"t":1033,"v":30.0,"ease":"linear"},{"t":1066,"v":30.31,"ease":"linear"},{"t":1100,"v":36.36,"ease":"linear"},{"t":1133,"v":46.03,"ease":"linear"},{"t":1166,"v":47.43,"ease":"linear"},{"t":1200,"v":42.73,"ease":"linear"},{"t":1233,"v":34.75,"ease":"linear"},{"t":1266,"v":25.52,"ease":"linear"},{"t":1300,"v":17.27,"ease":"linear"},{"t":1333,"v":12.64,"ease":"linear"},{"t":1366,"v":12.57,"ease":"linear"},{"t":1400,"v":17.27,"ease":"linear"},{"t":1433,"v":25.25,"ease":"linear"},{"t":1466,"v":34.48,"ease":"linear"},{"t":1500,"v":42.73,"ease":"linear"},{"t":1533,"v":47.36,"ease":"linear"},{"t":1566,"v":47.43,"ease":"linear"},{"t":1600,"v":42.73,"ease":"linear"},{"t":1633,"v":34.75,"ease":"linear"},{"t":1666,"v":25.52,"ease":"linear"},{"t":1700,"v":17.27,"ease":"linear"},{"t":1733,"v":12.64,"ease":"linear"},{"t":1766,"v":12.57,"ease":"linear"},{"t":1800,"v":17.27,"ease":"linear"},{"t":1833,"v":25.25,"ease":"linear"},{"t":1866,"v":34.48,"ease":"linear"},{"t":1900,"v":42.73,"ease":"linear"},{"t":1933,"v":47.36,"ease":"linear"},{"t":1966,"v":47.43,"ease":"linear"},{"t":2000,"v":42.73,"ease":"linear"},{"t":2033,"v":34.75,"ease":"linear"},{"t":2066,"v":25.52,"ease":"linear"},{"t":2100,"v":17.27,"ease":"linear"},{"t":2133,"v":12.64,"ease":"linear"},{"t":2166,"v":13.76,"ease":"linear"},{"t":2200,"v":23.64,"ease":"linear"},{"t":2233,"v":29.63,"ease":"linear"},{"t":2266,"v":29.84,"ease":"linear"},{"t":2300,"v":28.36,"ease":"linear"},{"t":2333,"v":25.36,"ease":"linear"},{"t":2366,"v":20.83,"ease":"linear"},{"t":2400,"v":14.86,"ease":"linear"},{"t":2433,"v":8.43,"ease":"linear"},{"t":2466,"v":2.2,"ease":"linear"},{"t":2500,"v":-3.21,"ease":"linear"},{"t":2533,"v":-7.02,"ease":"linear"},{"t":2566,"v":-9.26,"ease":"linear"},{"t":2600,"v":-10.0,"ease":"linear"},{"t":6700,"v":-10.0,"ease":"linear"},{"t":6733,"v":5.78,"ease":"linear"},{"t":6766,"v":17.04,"ease":"linear"},{"t":6800,"v":24.44,"ease":"linear"},{"t":6833,"v":28.23,"ease":"linear"},{"t":6866,"v":29.5,"ease":"linear"},{"t":6900,"v":29.06,"ease":"linear"},{"t":6966,"v":26.57,"ease":"linear"},{"t":7000,"v":26.0,"ease":"linear"},{"t":7966,"v":26,"ease":"linear"}],
+                          "tracks":[
+                            {
+                              "name": "owl-forearm_left",
+                              "layer": 11,
+                              "elements": [
+                                {"id":"owl-forearm_left","type":"image","start":0,"end":8000,"source":"character/parts/forearm_left.png","x":-499,"y":647,"origin":"center","width":281,"height":221,"fit":"literal"}
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "owl-upper_arm_right-nest",
+              "layer": 14,
+              "elements": [
+                {
+                  "id":"owl-upper_arm_right-nest",
+                  "type":"nest",
+                  "start":0,
+                  "end":8000,
+                  "pivot":[-258,623],
+                  "rotation":[{"t":0,"v":50},{"t":3333,"v":50.0,"ease":"linear"},{"t":3366,"v":37.12,"ease":"linear"},{"t":3400,"v":14.61,"ease":"linear"},{"t":3433,"v":-1.31,"ease":"linear"},{"t":3466,"v":-12.01,"ease":"linear"},{"t":3500,"v":-18.41,"ease":"linear"},{"t":3533,"v":-21.05,"ease":"linear"},{"t":3566,"v":-21.15,"ease":"linear"},{"t":3600,"v":-19.64,"ease":"linear"},{"t":3633,"v":-17.57,"ease":"linear"},{"t":3666,"v":-15.78,"ease":"linear"},{"t":3700,"v":-15.0,"ease":"linear"},{"t":6333,"v":-15.0,"ease":"linear"},{"t":6366,"v":-13.44,"ease":"linear"},{"t":6400,"v":-8.34,"ease":"linear"},{"t":6433,"v":0.07,"ease":"linear"},{"t":6466,"v":11.2,"ease":"linear"},{"t":6500,"v":23.8,"ease":"linear"},{"t":6533,"v":34.93,"ease":"linear"},{"t":6566,"v":43.34,"ease":"linear"},{"t":6600,"v":48.44,"ease":"linear"},{"t":6633,"v":50.0,"ease":"linear"},{"t":6700,"v":50.0,"ease":"linear"},{"t":6733,"v":7.91,"ease":"linear"},{"t":6766,"v":-22.11,"ease":"linear"},{"t":6800,"v":-41.84,"ease":"linear"},{"t":6833,"v":-51.95,"ease":"linear"},{"t":6866,"v":-55.32,"ease":"linear"},{"t":6900,"v":-54.15,"ease":"linear"},{"t":6966,"v":-47.52,"ease":"linear"},{"t":7000,"v":-46.0,"ease":"linear"},{"t":7966,"v":-46,"ease":"linear"}],
+                  "tracks":[
+                    {
+                      "name": "owl-upper_arm_right",
+                      "layer": 14,
+                      "elements": [
+                        {"id":"owl-upper_arm_right","type":"image","start":0,"end":8000,"source":"character/parts/upper_arm_right.png","x":-258,"y":623,"origin":"center","width":170,"height":118,"fit":"literal"}
+                      ]
+                    },
+                    {
+                      "name": "owl-forearm_right-nest",
+                      "layer": 12,
+                      "elements": [
+                        {
+                          "id":"owl-forearm_right-nest",
+                          "type":"nest",
+                          "start":0,
+                          "end":8000,
+                          "pivot":[-205,649],
+                          "rotation":[{"t":0,"v":10},{"t":3333,"v":10.0,"ease":"linear"},{"t":3366,"v":9.6,"ease":"linear"},{"t":3400,"v":8.91,"ease":"linear"},{"t":3433,"v":8.42,"ease":"linear"},{"t":3466,"v":8.09,"ease":"linear"},{"t":3500,"v":7.9,"ease":"linear"},{"t":3566,"v":7.81,"ease":"linear"},{"t":3700,"v":8.0,"ease":"linear"},{"t":6366,"v":8.05,"ease":"linear"},{"t":6400,"v":8.2,"ease":"linear"},{"t":6466,"v":8.81,"ease":"linear"},{"t":6533,"v":9.54,"ease":"linear"},{"t":6566,"v":9.8,"ease":"linear"},{"t":6600,"v":9.95,"ease":"linear"},{"t":6700,"v":10.0,"ease":"linear"},{"t":6733,"v":-5.78,"ease":"linear"},{"t":6766,"v":-17.04,"ease":"linear"},{"t":6800,"v":-24.44,"ease":"linear"},{"t":6833,"v":-28.23,"ease":"linear"},{"t":6866,"v":-29.5,"ease":"linear"},{"t":6900,"v":-29.06,"ease":"linear"},{"t":6966,"v":-26.57,"ease":"linear"},{"t":7000,"v":-26.0,"ease":"linear"},{"t":7966,"v":-26,"ease":"linear"}],
+                          "tracks":[
+                            {
+                              "name": "owl-forearm_right",
+                              "layer": 12,
+                              "elements": [
+                                {"id":"owl-forearm_right","type":"image","start":0,"end":8000,"source":"character/parts/forearm_right.png","x":-205,"y":649,"origin":"center","width":286,"height":217,"fit":"literal"}
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "owl-head-nest",
+              "layer": 15,
+              "elements": [
+                {
+                  "id":"owl-head-nest",
+                  "type":"nest",
+                  "start":0,
+                  "end":8000,
+                  "pivot":[-350,571],
+                  "rotation":[{"t":0,"v":0},{"t":1433,"v":0.0,"ease":"linear"},{"t":1466,"v":0.22,"ease":"linear"},{"t":1500,"v":0.94,"ease":"linear"},{"t":1566,"v":3.06,"ease":"linear"},{"t":1600,"v":3.78,"ease":"linear"},{"t":1633,"v":4.0,"ease":"linear"},{"t":1666,"v":3.9,"ease":"linear"},{"t":1700,"v":3.59,"ease":"linear"},{"t":1733,"v":3.07,"ease":"linear"},{"t":1833,"v":0.93,"ease":"linear"},{"t":1866,"v":0.41,"ease":"linear"},{"t":1900,"v":0.1,"ease":"linear"},{"t":1966,"v":0.0,"ease":"linear"},{"t":3566,"v":0.03,"ease":"linear"},{"t":3600,"v":0.33,"ease":"linear"},{"t":3633,"v":0.92,"ease":"linear"},{"t":3700,"v":2.67,"ease":"linear"},{"t":3733,"v":3.4,"ease":"linear"},{"t":3766,"v":3.85,"ease":"linear"},{"t":3800,"v":4.0,"ease":"linear"},{"t":3866,"v":3.9,"ease":"linear"},{"t":3900,"v":3.59,"ease":"linear"},{"t":3933,"v":3.07,"ease":"linear"},{"t":4033,"v":0.93,"ease":"linear"},{"t":4066,"v":0.41,"ease":"linear"},{"t":4100,"v":0.1,"ease":"linear"},{"t":4166,"v":0.0,"ease":"linear"},{"t":4633,"v":-0.03,"ease":"linear"},{"t":4666,"v":-0.31,"ease":"linear"},{"t":4700,"v":-0.92,"ease":"linear"},{"t":4766,"v":-2.65,"ease":"linear"},{"t":4800,"v":-3.4,"ease":"linear"},{"t":4833,"v":-3.85,"ease":"linear"},{"t":4866,"v":-4.0,"ease":"linear"},{"t":4933,"v":-3.9,"ease":"linear"},{"t":4966,"v":-3.6,"ease":"linear"},{"t":5000,"v":-3.07,"ease":"linear"},{"t":5100,"v":-0.93,"ease":"linear"},{"t":5133,"v":-0.41,"ease":"linear"},{"t":5166,"v":-0.1,"ease":"linear"},{"t":5200,"v":0.0,"ease":"linear"},{"t":6000,"v":0.04,"ease":"linear"},{"t":6033,"v":0.33,"ease":"linear"},{"t":6066,"v":0.92,"ease":"linear"},{"t":6133,"v":2.67,"ease":"linear"},{"t":6166,"v":3.4,"ease":"linear"},{"t":6200,"v":3.86,"ease":"linear"},{"t":6233,"v":4.0,"ease":"linear"},{"t":6300,"v":3.9,"ease":"linear"},{"t":6333,"v":3.6,"ease":"linear"},{"t":6366,"v":3.09,"ease":"linear"},{"t":6466,"v":0.95,"ease":"linear"},{"t":6500,"v":0.41,"ease":"linear"},{"t":6533,"v":0.1,"ease":"linear"},{"t":6566,"v":0.0,"ease":"linear"},{"t":7100,"v":0.0,"ease":"linear"},{"t":7133,"v":-0.1,"ease":"linear"},{"t":7166,"v":-0.4,"ease":"linear"},{"t":7200,"v":-0.93,"ease":"linear"},{"t":7300,"v":-3.07,"ease":"linear"},{"t":7333,"v":-3.59,"ease":"linear"},{"t":7366,"v":-3.9,"ease":"linear"},{"t":7400,"v":-4.0,"ease":"linear"},{"t":7466,"v":-3.98,"ease":"linear"},{"t":7500,"v":-3.84,"ease":"linear"},{"t":7533,"v":-3.54,"ease":"linear"},{"t":7566,"v":-3.08,"ease":"linear"},{"t":7666,"v":-1.22,"ease":"linear"},{"t":7700,"v":-0.68,"ease":"linear"},{"t":7733,"v":-0.3,"ease":"linear"},{"t":7766,"v":-0.07,"ease":"linear"},{"t":7866,"v":0,"ease":"linear"},{"t":7966,"v":0,"ease":"linear"}],
+                  "tracks":[
+                    {
+                      "name": "owl-head",
+                      "layer": 15,
+                      "elements": [
+                        {"id":"owl-head","type":"image","start":0,"end":8000,"source":"character/parts/head.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"}
+                      ]
+                    },
+                    {
+                      "name": "owl-mouth",
+                      "layer": 16,
+                      "elements": [
+                        {"id":"owl-mouth-0","type":"image","start":1100,"end":1200,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-1","type":"image","start":1200,"end":1533,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-2","type":"image","start":1533,"end":1600,"source":"character/parts/mouth_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-3","type":"image","start":1600,"end":1700,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-4","type":"image","start":1700,"end":1866,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-5","type":"image","start":1866,"end":1933,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-6","type":"image","start":2366,"end":2466,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-7","type":"image","start":2466,"end":2600,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-8","type":"image","start":2600,"end":2800,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-9","type":"image","start":2800,"end":2866,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-10","type":"image","start":2866,"end":2966,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-11","type":"image","start":2966,"end":3066,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-12","type":"image","start":3066,"end":3133,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-13","type":"image","start":3133,"end":3200,"source":"character/parts/mouth_teeth.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-14","type":"image","start":3200,"end":3300,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-15","type":"image","start":3300,"end":3366,"source":"character/parts/mouth_teeth.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-16","type":"image","start":3366,"end":3700,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-17","type":"image","start":3700,"end":3833,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-18","type":"image","start":3833,"end":3900,"source":"character/parts/mouth_teeth.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-19","type":"image","start":3900,"end":3966,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-20","type":"image","start":3966,"end":4066,"source":"character/parts/mouth_teeth.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-21","type":"image","start":4066,"end":4333,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-22","type":"image","start":4333,"end":4500,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-23","type":"image","start":4566,"end":4666,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-24","type":"image","start":4666,"end":4766,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-25","type":"image","start":4766,"end":4833,"source":"character/parts/mouth_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-26","type":"image","start":4833,"end":4900,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-27","type":"image","start":4900,"end":5166,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-28","type":"image","start":5166,"end":5266,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-29","type":"image","start":5266,"end":5333,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-30","type":"image","start":5333,"end":5600,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-31","type":"image","start":5600,"end":5733,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-32","type":"image","start":5733,"end":6033,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-33","type":"image","start":6033,"end":6100,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-34","type":"image","start":6100,"end":6200,"source":"character/parts/mouth_open.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-35","type":"image","start":6200,"end":6266,"source":"character/parts/mouth_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-36","type":"image","start":6266,"end":6400,"source":"character/parts/mouth_round.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-37","type":"image","start":6400,"end":6466,"source":"character/parts/mouth_teeth.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-mouth-38","type":"image","start":6466,"end":6700,"source":"character/parts/mouth_small.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"}
+                      ]
+                    },
+                    {
+                      "name": "owl-blink",
+                      "layer": 21,
+                      "elements": [
+                        {"id":"owl-blink-0","type":"image","start":700,"end":800,"source":"character/parts/eyes_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-blink-1","type":"image","start":2966,"end":3066,"source":"character/parts/eyes_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-blink-2","type":"image","start":4600,"end":4700,"source":"character/parts/eyes_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-blink-3","type":"image","start":5900,"end":6000,"source":"character/parts/eyes_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"},
+                        {"id":"owl-blink-4","type":"image","start":7533,"end":7633,"source":"character/parts/eyes_closed.png","x":-350,"y":571,"origin":"center","width":370,"height":595,"fit":"literal"}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

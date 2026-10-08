@@ -105,8 +105,17 @@ pub fn quad_at(
     let projection = at(element, t)?;
     let (width, height) = animatable::painted_box(element, t.0, t.1)?;
     let mut transform = placed(element, t, frame);
-    transform.x += offset.0 as f64;
-    transform.y += offset.1 as f64;
+    // Frame space, so outside the whole nest chain where there is one (#780).
+    match transform.nest.as_mut() {
+        Some(matrix) => {
+            matrix[4] += offset.0 as f64;
+            matrix[5] += offset.1 as f64;
+        }
+        None => {
+            transform.x += offset.0 as f64;
+            transform.y += offset.1 as f64;
+        }
+    }
     Some(montagent_render::canvas::quad(
         Extent { width, height },
         &transform,

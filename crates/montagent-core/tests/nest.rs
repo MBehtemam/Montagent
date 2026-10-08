@@ -360,6 +360,39 @@ fn a_projected_child_reports_corners_that_hold_what_the_painter_drew() {
 }
 
 #[test]
+fn a_slides_offset_is_frame_space_and_acts_outside_the_whole_nest_chain() {
+    // The ruling: "a camera rotation never rotates a slide". A nest that doubles and turns
+    // everything must not double or turn the 10 px a slide adds.
+    let card = json!({"id": "card", "type": "rect", "start": 0, "end": 1000, "x": 150, "y": 120,
+        "origin": "center", "width": 60, "height": 40, "fill": "#CC4466",
+        "swivel": 20, "perspective": 300});
+    let doc = project(json!([track(
+        "rig",
+        0,
+        vec![nest(
+            "cam",
+            json!({"rotation": 90, "scale": [2.0, 2.0]}),
+            json!([track("parts", 1, vec![card])]),
+        )]
+    )]));
+    let loose = montagent_core::permissive::Loose::new("p.montagent.json", doc);
+    let element = loose
+        .elements_in_tracks()
+        .map(|(_, e)| e)
+        .next()
+        .expect("the card");
+    let at = |offset: (i64, i64)| {
+        montagent_core::projection::quad_at(element, (500, 1), (W.into(), H.into()), offset)
+            .expect("a projected child")
+            .corners
+    };
+    let (still, slid) = (at((0, 0)), at((10, -4)));
+    for (a, b) in still.iter().zip(slid.iter()) {
+        assert!((b.0 - a.0 - 10.0).abs() < 1e-9 && (b.1 - a.1 + 4.0).abs() < 1e-9, "{a:?} {b:?}");
+    }
+}
+
+#[test]
 fn nests_compose_outermost_first() {
     let doc = project(json!([track(
         "rig",

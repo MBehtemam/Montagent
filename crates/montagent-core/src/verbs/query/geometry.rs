@@ -450,6 +450,35 @@ pub fn ink_box(
     instant: i64,
     frame: (i64, i64),
 ) -> Result<InkBox, String> {
+    let local = ink_box_local(document, element, instant, frame)?;
+    // The enclosing nests (#780): the ink box is derived at true size and unturned, so a
+    // chain that only moves the element carries it; one that scales or turns it refuses,
+    // for the reason a scaled or rotated element does.
+    let Some(matrix) = crate::nest::composed(element, (i128::from(instant), 1)) else {
+        return Ok(local);
+    };
+    let (sx, sy) = matrix.scale();
+    if matrix.rotation_degrees().abs() > 1e-9 || (sx - 1.0).abs() > 1e-9 || (sy - 1.0).abs() > 1e-9
+    {
+        return Err(format!(
+            "its nest chain turns or scales it (rotation {}°, scale {sx} × {sy}); the ink box \
+             is not derived for a transformed text element",
+            matrix.rotation_degrees()
+        ));
+    }
+    Ok(InkBox {
+        x: local.x + matrix.e,
+        y: local.y + matrix.f,
+        ..local
+    })
+}
+
+fn ink_box_local(
+    document: &Loose,
+    element: &Value,
+    instant: i64,
+    frame: (i64, i64),
+) -> Result<InkBox, String> {
     let rotation = number::<f64>(element, "rotation", instant, 0.0);
     if rotation != 0.0 {
         return Err(format!(
