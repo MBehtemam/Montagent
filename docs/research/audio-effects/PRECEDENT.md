@@ -91,8 +91,8 @@ UNCONFIRMED.
 | Exists | Yes. CONFIRMED. | No first-party page names pan or balance. UNCONFIRMED. |
 | Mechanism | Clip fixed effect **Panner > Balance** (stereo) / Pan (mono); track pan/balance knob in the Audio Track Mixer; also a **Balance** effect ([Pan and balance][pr-pan]; [Pan or balance a track][pr-pan-track]; [Track mixer pan][pr-mixer-pan]; [Effects library][pr-lib]). | — |
 | Attaches to | Clip (Panner, Balance effect) and track (mixer knob). | — |
-| Parameters | **−100 to +100**, unitless; negative favours left, 0 centre ([Pan and balance][pr-pan]). Balance on a stereo clip rescales L/R levels in place rather than moving the image ([Effects library][pr-lib]). Pan law not documented. | — |
-| Keyframable | Yes: clip Panner via Effect Controls stopwatch; track pan via automation modes or track keyframes ([Pan and balance][pr-pan]; [Pan or balance a track][pr-pan-track]). | — |
+| Parameters | **−100 to +100**, unitless; negative favours left, 0 centre (CONFIRMED, Adobe's Audio Track Mixer page: "type a new percentage between -100 and 100"; [Pan and balance][pr-pan]). A stereo track's balance "determines how much of each input channel is sent to the output channels" (CONFIRMED, Adobe text); Adobe does not say whether it moves content, so the repo's measurement decides (see [pan-channels README](pan-channels/README.md) §7). Pan law: **not documented** on any Adobe page read (2026-10-08). | — |
+| Keyframable | Yes: Adobe's timeline page says to select Track:Volume, then Panner > Balance or Panner > Pan, and use the Add/Remove Keyframe icon (CONFIRMED, Adobe text, 2026-10-08); track pan via automation modes or track keyframes ([Pan and balance][pr-pan]; [Pan or balance a track][pr-pan-track]). | — |
 
 **Verdict: precedent confirmed in Premiere only.**
 
@@ -106,9 +106,13 @@ UNCONFIRMED.
 | Parameters | Fill/Swap/Invert: **none** (presence is the operation). Channel Volume: per-channel level in **dB** ([Effects library][pr-lib]). Audio Channels: a source-channel × clip-channel mapping matrix (RECALLED form). | — |
 | Keyframable | Fill/Swap/Invert have no parameters; Channel Volume yes (it is a fixed clip effect). Channel mapping: no. | — |
 
-Note: Adobe's own text for Fill Left with Right (as extracted) says it "duplicates the left
-channel information … and places it in the right channel", which is the opposite of the name;
-this inconsistency is in Adobe's page and should be resolved by testing, not by quoting.
+Note: Adobe's own text, read on its Audio effects library page (2026-10-08, CONFIRMED), says Fill Left with
+Right "duplicates the left channel information of the audio clip and places it in the right channel,
+discarding the original clip's right channel information". That is the opposite of the name. Adobe's text
+settles what Adobe says, not what the effect does, so the direction is still resolved by testing (the
+pan-channels README's measurements), not by quoting. Swap Channels ("switches the placement of the left and
+right channel information", stereo clips only), Invert and Channel Volume (per-channel dB) are quoted from the
+same page.
 
 **Verdict: precedent confirmed in Premiere only.**
 
