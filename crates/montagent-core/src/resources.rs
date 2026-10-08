@@ -36,8 +36,9 @@
 //! element shares and is the pages' table of contents, as the index is the schema pieces';
 //! the pages in [`FORMAT_PAGES`] are served but not listed, and their URIs are not frozen.
 //! A rule goes on the page whose subject it is: a `text` element's rule on the text page;
-//! a rule about how elements combine (an effect, `blend`, a mask, a key, a transition, a
-//! paint drawn through the box) on the compositing page; a `path`'s rule, and a stroke's
+//! a rule about how elements combine (an effect, `blend`, a mask, a key, a paint drawn
+//! through the box) on the compositing page; a `transition`'s rule, for the picture or the
+//! sound, on the transitions page; a `path`'s rule, and a stroke's
 //! join, cap and dash pattern on any shape, on the paths page; and everything else (time,
 //! stacking, geometry, values, sources) in `format.md`. When a page nears the budget, it is
 //! split along its own `##` seams into another page listed beside it, never trimmed.
@@ -63,6 +64,12 @@ macro_rules! format_text_uri {
 macro_rules! format_compositing_uri {
     () => {
         "montagent://format/compositing.md"
+    };
+}
+
+macro_rules! format_transitions_uri {
+    () => {
+        "montagent://format/transitions.md"
     };
 }
 
@@ -156,7 +163,7 @@ pub const FORMAT: Resource = Resource {
                   an exact-string edit depends on, half-open time ranges, what a track \
                   does and does not supply, how a layer anchor resolves, why presence is \
                   content, and how sources resolve. It lists the pages that hold the rest \
-                  (text, and compositing and transitions). Read this alongside the schema \
+                  (text, compositing, transitions and paths). Read this alongside the schema \
                   before editing a project by hand.",
     mime_type: "text/markdown",
     body: format_docs,
@@ -203,6 +210,10 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
     FormatPage {
         uri: format_compositing_uri!(),
         text: include_str!("../docs/format/compositing.md"),
+    },
+    FormatPage {
+        uri: format_transitions_uri!(),
+        text: include_str!("../docs/format/transitions.md"),
     },
     FormatPage {
         uri: format_paths_uri!(),
