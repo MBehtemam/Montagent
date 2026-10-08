@@ -1,0 +1,86 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "spec": {
+  "under_db": -15.0,
+  "over_db": -6.0,
+  "end_db": -1.5,
+  "ramp_ms": 200,
+  "lead_ms": 100,
+  "join_ms": 600
+ },
+ "listen": {
+  "noise_db": -35,
+  "min_ms": 150
+ },
+ "bed_boost_db": 12.0,
+ "speech_spans_ms": [
+  [
+   808,
+   5746
+  ],
+  [
+   6128,
+   7856
+  ],
+  [
+   8232,
+   13493
+  ],
+  [
+   13935,
+   15419
+  ],
+  [
+   15846,
+   19425
+  ]
+ ],
+ "spans_after_join": [
+  [
+   808,
+   19425
+  ]
+ ],
+ "keyframes_written": [
+  {
+   "t": 0,
+   "v": 0.5012
+  },
+  {
+   "t": 508,
+   "v": 0.5012,
+   "ease": "linear"
+  },
+  {
+   "t": 708,
+   "v": 0.1778,
+   "ease": "ease-in-out"
+  },
+  {
+   "t": 19525,
+   "v": 0.1778,
+   "ease": "linear"
+  },
+  {
+   "t": 19725,
+   "v": 0.8414,
+   "ease": "ease-in-out"
+  }
+ ],
+ "clips": {
+  "X": {
+   "lufs_before_match": -16.4,
+   "peak_dbfs_before_match": -2.2,
+   "match_gain_db": -3.6,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -5.8
+  },
+  "Y": {
+   "lufs_before_match": -18.1,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -1.9,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.7
+  }
+ }
+}
