@@ -69,7 +69,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 **Compositing**
 
-- Crossfade between clips, and a cut between clips: `transition`, `step`.
+- Crossfade between clips, and a cut between clips: `transition`, `step`. Write `"audio": "constant_power"` on every new transition between clips that sound, so the sound crossfades too; absent keeps the hard audio cut.
 - Wipe, slide and push between clips, travelling in a direction, with an ease: `kind`, `direction`, `ease`.
 - Chroma key: `chroma`.
 - Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
@@ -98,6 +98,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Audio**
 
 - Audio on tracks, with per-clip volume: `audio`, `volume`.
+- A crossfade between two audio clips, or between two clips' sound alone: `kind: "audio_crossfade"`, `audio` (`constant_power` unless both sides are the same source, then `constant_gain`). Fading a clip against silence stays a `volume` ramp.
 
 ### Which skill covers it
 

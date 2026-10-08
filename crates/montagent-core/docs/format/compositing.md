@@ -312,3 +312,16 @@ two disagree.
   pixels: a lower-third slides as far as full-screen video, its own keyed motion, effects
   and `clip` moving with it. A wipe's hard edge is cut against each element's own `clip`.
 - **In a slide, `to` must paint above `from`**; a transition never changes a layer.
+- **`audio` carries the sound across the same window**: `cut`, `constant_power`
+  or `constant_gain`. `from` fades out and `to` fades in over `start`..`end`, so a trim of
+  either element moves the one window. Optional on `crossfade`, `wipe`, `slide` and `push`;
+  absent means `cut`, the hard cut under the picture. Write `constant_power` on every new
+  transition between sounding clips, and `constant_gain` only when both sides are the same
+  source (a cutaway back into one take). An element's `volume` multiplies with the fade, and
+  `R-TRANSITION-VOLUME-STACK` reviews a `volume` that changes inside the window.
+- **`audio_crossfade` is a fifth `kind` for sound alone**: it paints nothing and
+  bridges `audio` or `video` elements (a video's embedded audio fades, its picture is
+  untouched), over the same exact window. `audio` is required on it and is `constant_power`
+  or `constant_gain`; `cut` is refused, and `direction` and `ease` are not fields of it.
+  `ease` is picture-only: it never bends the sound. A J-cut or L-cut, whose window is not the
+  overlap, stays hand-written `volume` keyframes.
