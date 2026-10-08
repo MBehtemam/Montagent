@@ -427,6 +427,26 @@ pub fn preview_cancellable(
         false => Some(ask.clock.at(rung)),
     };
 
+    // ADR-0178: each normalised element's gain, settled once on its whole placed window, so
+    // every rung and every range applies the deliverable's.
+    let normalized = match render::normalize::settle(
+        &document,
+        &project_dir,
+        &crate::media::established::Established::of(&report),
+        &ffmpeg,
+    ) {
+        Ok((normalized, measured)) => {
+            for finding in measured {
+                report.push(finding);
+            }
+            normalized
+        }
+        Err(reason) => {
+            report.fail_internally(reason);
+            return refused(report);
+        }
+    };
+
     // ADR-0172: the master stage is settled once, on the whole programme, so every rung and
     // every range applies the deliverable's gain.
     let master = match render::master::settle(
@@ -435,6 +455,7 @@ pub fn preview_cancellable(
         &crate::media::established::Established::of(&report),
         fps,
         &ffmpeg,
+        &normalized,
     ) {
         Ok((master, measured)) => {
             for finding in measured {
@@ -496,6 +517,7 @@ pub fn preview_cancellable(
             deadline: budget(rung),
             cancel,
             master,
+            normalized: &normalized,
         };
 
         let attempt = Instant::now();
