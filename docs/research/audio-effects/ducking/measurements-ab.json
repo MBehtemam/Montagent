@@ -1,0 +1,381 @@
+{
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "seed": 837,
+  "defaults": {
+    "under_db": -15.0,
+    "over_db": -6.0,
+    "end_db": -1.5,
+    "ramp_ms": 200,
+    "lead_ms": 100,
+    "join_ms": 600
+  },
+  "silencedetect": "-40dB d=0.15",
+  "spans_ms": [
+    [
+      803,
+      5768
+    ],
+    [
+      6127,
+      7887
+    ],
+    [
+      8231,
+      13499
+    ],
+    [
+      13935,
+      15422
+    ],
+    [
+      15846,
+      19428
+    ]
+  ],
+  "match_lufs": -20.0,
+  "pairs": {
+    "pair1": {
+      "bed_gain_db": 0.0,
+      "clips": {
+        "unducked": {
+          "config": null,
+          "mix_lufs": -18.0,
+          "mix_peak_dbfs": -2.8,
+          "gain_db": -2.0,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -4.8
+        },
+        "ducked": {
+          "config": {
+            "under_db": -15.0,
+            "over_db": -6.0,
+            "end_db": -1.5,
+            "ramp_ms": 200,
+            "lead_ms": 100,
+            "join_ms": 600
+          },
+          "merged_spans_ms": [
+            [
+              803,
+              19428
+            ]
+          ],
+          "keyframes": [
+            {
+              "t": 0,
+              "v": 0.5012
+            },
+            {
+              "t": 503,
+              "v": 0.5012,
+              "ease": "linear"
+            },
+            {
+              "t": 703,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 19528,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 19728,
+              "v": 0.8414,
+              "ease": "ease-in-out"
+            }
+          ],
+          "mix_lufs": -18.1,
+          "mix_peak_dbfs": -2.9,
+          "gain_db": -1.9,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -4.8
+        }
+      },
+      "bed_only_probes_defaults": {
+        "speech": {
+          "window_ms": [
+            753,
+            19478
+          ],
+          "expected_db": -15.0,
+          "measured_db": -15.001
+        },
+        "pause": {
+          "window_ms": [
+            50,
+            453
+          ],
+          "expected_db": -6.0,
+          "measured_db": -6.0
+        }
+      }
+    },
+    "pair2": {
+      "bed_gain_db": 8.9,
+      "clips": {
+        "unducked": {
+          "config": null,
+          "mix_lufs": -17.2,
+          "mix_peak_dbfs": -2.4,
+          "gain_db": -2.8,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -5.2
+        },
+        "ducked": {
+          "config": {
+            "under_db": -15.0,
+            "over_db": -6.0,
+            "end_db": -1.5,
+            "ramp_ms": 200,
+            "lead_ms": 100,
+            "join_ms": 600
+          },
+          "merged_spans_ms": [
+            [
+              803,
+              19428
+            ]
+          ],
+          "keyframes": [
+            {
+              "t": 0,
+              "v": 0.5012
+            },
+            {
+              "t": 503,
+              "v": 0.5012,
+              "ease": "linear"
+            },
+            {
+              "t": 703,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 19528,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 19728,
+              "v": 0.8414,
+              "ease": "ease-in-out"
+            }
+          ],
+          "mix_lufs": -18.1,
+          "mix_peak_dbfs": -2.9,
+          "gain_db": -1.9,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -4.8
+        }
+      },
+      "bed_only_probes_defaults": {
+        "speech": {
+          "window_ms": [
+            753,
+            19478
+          ],
+          "expected_db": -15.0,
+          "measured_db": -15.001
+        },
+        "pause": {
+          "window_ms": [
+            50,
+            453
+          ],
+          "expected_db": -6.0,
+          "measured_db": -6.0
+        }
+      }
+    },
+    "pair3": {
+      "bed_gain_db": 8.9,
+      "clips": {
+        "join600": {
+          "config": {
+            "under_db": -15.0,
+            "over_db": -6.0,
+            "end_db": -1.5,
+            "ramp_ms": 200,
+            "lead_ms": 100,
+            "join_ms": 600
+          },
+          "merged_spans_ms": [
+            [
+              803,
+              19428
+            ]
+          ],
+          "keyframes": [
+            {
+              "t": 0,
+              "v": 0.5012
+            },
+            {
+              "t": 503,
+              "v": 0.5012,
+              "ease": "linear"
+            },
+            {
+              "t": 703,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 19528,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 19728,
+              "v": 0.8414,
+              "ease": "ease-in-out"
+            }
+          ],
+          "mix_lufs": -18.1,
+          "mix_peak_dbfs": -2.9,
+          "gain_db": -1.9,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -4.8
+        },
+        "join300": {
+          "config": {
+            "under_db": -15.0,
+            "over_db": -6.0,
+            "end_db": -1.5,
+            "ramp_ms": 200,
+            "lead_ms": 100,
+            "join_ms": 300
+          },
+          "merged_spans_ms": [
+            [
+              803,
+              5768
+            ],
+            [
+              6127,
+              7887
+            ],
+            [
+              8231,
+              13499
+            ],
+            [
+              13935,
+              15422
+            ],
+            [
+              15846,
+              19428
+            ]
+          ],
+          "keyframes": [
+            {
+              "t": 0,
+              "v": 0.5012
+            },
+            {
+              "t": 503,
+              "v": 0.5012,
+              "ease": "linear"
+            },
+            {
+              "t": 703,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 5868,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 6068,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 7987,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 8187,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 13599,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 13799,
+              "v": 0.5012,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 13835,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 15522,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 15722,
+              "v": 0.5012,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 15746,
+              "v": 0.1778,
+              "ease": "ease-in-out"
+            },
+            {
+              "t": 19528,
+              "v": 0.1778,
+              "ease": "linear"
+            },
+            {
+              "t": 19728,
+              "v": 0.8414,
+              "ease": "ease-in-out"
+            }
+          ],
+          "mix_lufs": -18.1,
+          "mix_peak_dbfs": -2.9,
+          "gain_db": -1.9,
+          "matched_lufs": -20.0,
+          "matched_peak_dbfs": -4.8
+        }
+      },
+      "bed_only_probes_defaults": {
+        "speech": {
+          "window_ms": [
+            753,
+            19478
+          ],
+          "expected_db": -15.0,
+          "measured_db": -15.001
+        },
+        "pause": {
+          "window_ms": [
+            50,
+            453
+          ],
+          "expected_db": -6.0,
+          "measured_db": -6.0
+        }
+      }
+    }
+  },
+  "voice_lufs": -18.1,
+  "bed_lufs": -33.0,
+  "raised_bed_gain_db": 8.9,
+  "key_sha256": "6ef3cc6b7f15c502b9445b52cb85a8917a8f0152a79d5c4cf22cd21b3e16e48b"
+}
