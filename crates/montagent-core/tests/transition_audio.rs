@@ -742,3 +742,218 @@ fn a_silent_bridged_side_is_reviewed_on_any_kind() {
     );
     assert!(audio_codes(&checked(&audible)).is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// The reading tools (S4)
+// ---------------------------------------------------------------------------
+
+use montagent_core::Wire;
+use montagent_core::verbs::query::{self, Ask as QueryAsk};
+use montagent_core::wire;
+
+/// Two audio elements with no media on disk: `query --at` reads the document alone.
+fn unplayed(transition: Option<Value>) -> String {
+    let bridge = match transition {
+        Some(transition) => {
+            format!(r##",{{"name":"bridge","layer":2,"elements":[{transition}]}}"##)
+        }
+        None => String::new(),
+    };
+    canonical(&format!(
+        r##"{{"frame":{{"width":200,"height":200}},"fps":25,"duration":3000,
+            "tracks":[
+              {{"name":"first","layer":0,"elements":[
+                {{"id":"a","type":"audio","start":0,"end":2000,"source":"a.wav",
+                  "source_start":0,"source_end":2000,"volume":0.5}}]}},
+              {{"name":"second","layer":1,"elements":[
+                {{"id":"b","type":"audio","start":1000,"end":3000,"source":"b.wav",
+                  "source_start":0,"source_end":2000}}]}}{bridge}]}}"##
+    ))
+}
+
+fn queried_at(body: &str, at: i64) -> (Value, String) {
+    let dir = common::tempdir(line!());
+    let path = write_project(&dir, "p.montagent.json", body);
+    let ask = QueryAsk {
+        at: Some(at),
+        ..QueryAsk::default()
+    };
+    let answer = query::query(&path, &ask);
+    (
+        answer.to_json(),
+        wire::render_query(&answer, Wire::Text { verbose: false }),
+    )
+}
+
+fn sound<'v>(view: &'v Value, id: &str) -> &'v Value {
+    view["query"]["stack"]
+        .as_array()
+        .expect("a stack")
+        .iter()
+        .find(|row| row["id"] == id)
+        .map(|row| &row["sound"])
+        .unwrap_or_else(|| panic!("no `{id}` in {view}"))
+}
+
+#[test]
+fn query_at_prints_each_sides_gain_with_its_factors_and_the_transitions_id() {
+    // Mid-window, the two curves' gains on the `afade` definitions: `qsin` is sin(π/2·p) and
+    // `tri` is p, so at p = 0.5 they are 0.71 and 0.50 on both sides.
+    for (curve, gain, text) in [
+        (
+            "constant_power",
+            std::f64::consts::FRAC_PI_4.sin() * 0.5,
+            "0.35",
+        ),
+        ("constant_gain", 0.5 * 0.5, "0.25"),
+    ] {
+        let (view, prose) = queried_at(
+            &unplayed(Some(transition("audio_crossfade", json!({"audio": curve})))),
+            1500,
+        );
+        let a = sound(&view, "a");
+        assert!(
+            (a["gain"].as_f64().unwrap() - gain).abs() < 1e-9,
+            "{curve}: {a}"
+        );
+        assert_eq!(a["transitions"][0]["transition"], "t");
+        assert!(
+            a["text"]
+                .as_str()
+                .unwrap()
+                .starts_with(&format!("volume 0.5 × transition t {curve} "))
+                && a["text"].as_str().unwrap().ends_with(&format!("→ {text}")),
+            "{curve}: {a}"
+        );
+        // `b` has no `volume`, so the gain is the curve alone.
+        let b = sound(&view, "b");
+        let alone = if curve == "constant_power" {
+            std::f64::consts::FRAC_1_SQRT_2
+        } else {
+            0.5
+        };
+        assert!(
+            (b["gain"].as_f64().unwrap() - alone).abs() < 1e-3,
+            "{curve}: {b}"
+        );
+        assert!(prose.contains(&format!("transition t {curve}")), "{prose}");
+    }
+}
+
+#[test]
+fn query_at_with_audio_absent_says_the_transition_cuts_by_absence() {
+    let (view, prose) = queried_at(&unplayed(Some(transition("crossfade", json!({})))), 1500);
+    assert_eq!(
+        sound(&view, "a")["text"],
+        "transition t audio: cut (absent)"
+    );
+    assert!(
+        prose.contains("transition t audio: cut (absent)"),
+        "{prose}"
+    );
+    let (view, _) = queried_at(
+        &unplayed(Some(transition("crossfade", json!({"audio": "cut"})))),
+        1500,
+    );
+    assert_eq!(sound(&view, "b")["text"], "transition t audio: cut");
+    // Outside the window, or with no transition at all, there is nothing to print.
+    let (view, _) = queried_at(
+        &unplayed(Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_power"}),
+        ))),
+        500,
+    );
+    assert!(sound(&view, "a").is_null());
+    let (view, _) = queried_at(&unplayed(None), 1500);
+    assert!(sound(&view, "a").is_null());
+}
+
+#[test]
+fn the_printed_gain_is_the_afade_curve_at_the_instant() {
+    use montagent_core::model::TransitionAudio;
+    // The same numbers the render's `afade` stage is tested against: out at p is the curve
+    // at 1 - p, in at p is the curve at p.
+    for (p, power_in, power_out) in [
+        (0.25, 0.3827, 0.9239),
+        (
+            0.5,
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+        ),
+    ] {
+        let instant = 1000 + (p * 1000.0) as i64;
+        let (view, _) = queried_at(
+            &unplayed(Some(transition(
+                "audio_crossfade",
+                json!({"audio": "constant_power"}),
+            ))),
+            instant,
+        );
+        let b = sound(&view, "b")["gain"].as_f64().unwrap();
+        let a = sound(&view, "a")["gain"].as_f64().unwrap() / 0.5;
+        assert!(
+            (b - power_in).abs() < 1e-3 && (a - power_out).abs() < 1e-3,
+            "{p}: {a} {b}"
+        );
+    }
+    assert_eq!(TransitionAudio::ConstantGain.as_str(), "constant_gain");
+}
+
+#[test]
+fn timeline_prints_the_audio_value_as_one_token_on_the_transition_row() {
+    let dir = common::tempdir(line!());
+    let path = write_project(
+        &dir,
+        "p.montagent.json",
+        &unplayed(Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_gain"}),
+        ))),
+    );
+    let answer = montagent_core::verbs::timeline::timeline(&path);
+    let text = wire::render_timeline(&answer, Wire::Text { verbose: false });
+    assert!(text.contains("a → b audio=constant_gain"), "{text}");
+}
+
+#[test]
+fn shift_and_compare_carry_an_audio_crossfade_unchanged() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let made = heard(
+        &dir,
+        "src",
+        Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_power"}),
+        )),
+        "",
+    );
+    let mut value: Value = serde_json::from_str(&std::fs::read_to_string(&made).unwrap()).unwrap();
+    value.as_object_mut().unwrap().remove("duration");
+    let body = canonical(&value.to_string());
+    let reference = write_project(&dir, "ref.montagent.json", &body);
+    let path = write_project(&dir, "p.montagent.json", &body);
+    let shifted = montagent_core::verbs::shift::shift(
+        &path,
+        &montagent_core::verbs::shift::Ask {
+            at: 0,
+            delta: 500,
+            scope: None,
+            release: Vec::new(),
+        },
+    );
+    assert_eq!(shifted.report().exit_code(), ExitCode::Ok);
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let t = &written["tracks"][2]["elements"][0];
+    assert_eq!(
+        (t["start"].as_i64(), t["end"].as_i64()),
+        (Some(1500), Some(2500))
+    );
+    assert_eq!(t["kind"], "audio_crossfade");
+    assert_eq!(t["audio"], "constant_power");
+    let compared = montagent_core::verbs::compare::compare(&reference, &path);
+    assert_eq!(compared.exit_code(), ExitCode::Ok);
+}

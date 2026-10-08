@@ -188,6 +188,11 @@ pub struct Present {
     /// view reads as declared. Without it, an element mid-slide would read as sitting where
     /// its `x` and `y` say, which is not where the frame shows it.
     pub transition: Option<Moved>,
+    /// What a running transition does to a sounding element's level (ADR-0176 §6): its
+    /// resolved `volume`, each transition's factor with its id, and the product. Absent
+    /// unless a transition bridges an `audio` or `video` element at this instant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound: Option<Value>,
     /// A staggered `text` element's summary (ADR-0151 §5): `by`, the unit count, and the
     /// stagger window. Absent on every element with no `units` block.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -641,6 +646,13 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         _ => Vec::new(),
     };
 
+    // The transitions' sound is not a picture matter, so a project that states no legal
+    // `frame` still reads it (ADR-0176 §6).
+    let sound_running = match detail {
+        Detail::Full => crate::transition::running_at(document, instant, frame.unwrap_or((0, 0))),
+        Detail::Presence => Vec::new(),
+    };
+
     for (index, (track, element)) in document.elements_in_tracks().enumerate() {
         let named = Named::of(element, track);
         let name = named.called(index);
@@ -792,6 +804,15 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             Some("path" | "rect" | "ellipse") => TrimReport::of(element, instant),
             _ => None,
         };
+        let sound = match (detail, kind, &named.id) {
+            (Detail::Full, Some("audio" | "video"), Some(id)) => crate::transition::sound_at(
+                &sound_running,
+                id,
+                crate::animatable::number_at(element, "volume", instant, 1.0),
+                instant,
+            ),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -814,6 +835,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             crop_unresolved,
             ink_box,
             ink_box_unresolved,
+            sound,
             transition: match (bridge.moves_or_cuts(), frame) {
                 (true, Some(frame)) => Some(Moved {
                     offset: [bridge.offset.0, bridge.offset.1],

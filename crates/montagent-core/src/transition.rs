@@ -36,6 +36,9 @@ pub(crate) struct Running {
     pub progress: f64,
     /// `n`, the whole pixels travelled — `None` on a crossfade, which travels nowhere.
     pub pixels: Option<i64>,
+    /// The sound across the window as the document states it (ADR-0176): `None` is the
+    /// absent key, which renders the hard cut.
+    pub audio: Option<TransitionAudio>,
     frame: (i64, i64),
 }
 
@@ -245,6 +248,9 @@ fn running(
         end,
         progress,
         pixels,
+        audio: element
+            .get("audio")
+            .and_then(|audio| serde_json::from_value(audio.clone()).ok()),
         frame,
     }))
 }
@@ -385,7 +391,6 @@ impl AudioFade {
     }
 
     /// The gain this side applies at `instant` on the timeline, as `afade` defines it.
-    #[allow(dead_code)] // read by `query --at` (S4)
     pub fn gain_at(&self, instant: i64) -> f64 {
         let p = ((instant - self.start) as f64 / (self.end - self.start) as f64).clamp(0.0, 1.0);
         let p = if self.incoming { p } else { 1.0 - p };
@@ -428,4 +433,76 @@ pub(crate) fn audio_fades(document: &Loose, id: &str) -> Vec<AudioFade> {
         .collect();
     fades.sort_by_key(|fade| fade.start);
     fades
+}
+
+/// What a running transition does to the sound of the element `id` at `instant`, as the
+/// `volume 1.0 × transition t1 constant_power 0.63 → 0.63` line `query --at` prints
+/// (ADR-0176 §6), and its parts. `None` where no running transition names the element.
+///
+/// The gain is [`AudioFade::gain_at`], the function the render's `afade` stage is tested
+/// against, so the number printed is the number applied. A gain is never printed without the
+/// id of the transition the agent edits.
+pub(crate) fn sound_at(running: &[Running], id: &str, volume: f64, instant: i64) -> Option<Value> {
+    let mut parts = Vec::new();
+    let mut gains = Vec::new();
+    let mut factors = Vec::new();
+    for transition in running {
+        let incoming = if transition.to == id {
+            true
+        } else if transition.from == id {
+            false
+        } else {
+            continue;
+        };
+        match transition.audio {
+            None | Some(TransitionAudio::Cut) => {
+                let absent = transition.audio.is_none();
+                parts.push(format!(
+                    "transition {} audio: cut{}",
+                    transition.element,
+                    if absent { " (absent)" } else { "" }
+                ));
+                factors.push(serde_json::json!({
+                    "transition": transition.element,
+                    "audio": "cut",
+                    "absent": absent,
+                }));
+            }
+            Some(curve) => {
+                let gain = AudioFade {
+                    transition: transition.element.clone(),
+                    incoming,
+                    start: transition.start,
+                    end: transition.end,
+                    curve,
+                }
+                .gain_at(instant);
+                parts.push(format!(
+                    "transition {} {} {gain:.2}",
+                    transition.element,
+                    curve.as_str()
+                ));
+                gains.push(gain);
+                factors.push(serde_json::json!({
+                    "transition": transition.element,
+                    "audio": curve.as_str(),
+                    "gain": gain,
+                }));
+            }
+        }
+    }
+    if factors.is_empty() {
+        return None;
+    }
+    let total = gains.iter().fold(volume, |product, gain| product * gain);
+    let text = match gains.is_empty() {
+        true => parts.join(", "),
+        false => format!("volume {volume} × {} → {total:.2}", parts.join(" × ")),
+    };
+    Some(serde_json::json!({
+        "volume": volume,
+        "transitions": factors,
+        "gain": total,
+        "text": text,
+    }))
 }
