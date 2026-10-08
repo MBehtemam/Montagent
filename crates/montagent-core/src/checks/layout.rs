@@ -49,7 +49,9 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
     let mut findings = Vec::new();
     let written = document.source();
 
-    for (track, element) in document.elements_in_tracks() {
+    // The written tree, nests and their children included (#780): the flat view carries a
+    // `_nest` annotation no file ever wrote.
+    for (track, element) in crate::nest::all_elements(document.value()) {
         let Some(object) = element.as_object() else {
             continue;
         };

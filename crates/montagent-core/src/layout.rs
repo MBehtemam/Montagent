@@ -243,6 +243,13 @@ fn canonical_element(element: &Value, reach: Reach) -> Value {
         let effects: Vec<Value> = effects.iter().map(canonical_effect).collect();
         out.insert("effects".into(), Value::Array(effects));
     }
+    // A nest's tracks are tracks: the same canonical form all the way down (#780).
+    if crate::nest::is_nest(element)
+        && let Some(Value::Array(tracks)) = out.get("tracks")
+    {
+        let tracks: Vec<Value> = tracks.iter().map(|track| walk_track(track, reach)).collect();
+        out.insert("tracks".into(), Value::Array(tracks));
+    }
     Value::Object(out)
 }
 

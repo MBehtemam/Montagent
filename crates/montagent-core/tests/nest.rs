@@ -319,6 +319,47 @@ fn a_turning_nest_leaves_rectangles_unanswered_rather_than_wrong() {
 }
 
 #[test]
+fn a_projected_child_reports_corners_that_hold_what_the_painter_drew() {
+    // ADR-0167's quad is one of the geometry functions every check reads; under a nest it
+    // must be composed too, or `ink` and the layer bound would answer for the wrong place.
+    let card = json!({"id": "card", "type": "rect", "start": 0, "end": 1000, "x": 150, "y": 120,
+        "origin": "center", "width": 60, "height": 40, "fill": "#CC4466",
+        "swivel": 30, "perspective": 200});
+    let doc = project(json!([track(
+        "rig",
+        0,
+        vec![nest(
+            "push",
+            json!({"x": keyed_int(0, 80), "rotation": keyed(0.0, 40.0),
+                   "scale": [{"t": 0, "v": [1.0, 1.0]}, {"t": 1000, "v": [1.5, 1.5], "ease": "linear"}]}),
+            json!([track("parts", 1, vec![card])]),
+        )]
+    )]));
+    let path = written(line!(), &doc);
+    let (_, picture) = painted(&path, 500);
+    let (left, top, right, bottom) = ink(&picture).expect("drawn");
+    let view = query_at(&path, 500);
+    let corners = view["stack"][0]["projection"]["corners"]
+        .as_array()
+        .expect("corners");
+    let xs: Vec<f64> = corners.iter().map(|c| c[0].as_f64().unwrap()).collect();
+    let ys: Vec<f64> = corners.iter().map(|c| c[1].as_f64().unwrap()).collect();
+    let (min_x, max_x) = (xs.iter().cloned().fold(f64::MAX, f64::min), xs.iter().cloned().fold(f64::MIN, f64::max));
+    let (min_y, max_y) = (ys.iter().cloned().fold(f64::MAX, f64::min), ys.iter().cloned().fold(f64::MIN, f64::max));
+    for (found, wanted, what) in [
+        (f64::from(left), min_x, "left"),
+        (f64::from(top), min_y, "top"),
+        (f64::from(right), max_x, "right"),
+        (f64::from(bottom), max_y, "bottom"),
+    ] {
+        assert!(
+            (found - wanted).abs() <= 1.0,
+            "{what}: painted {found}, corners say {wanted}: {corners:?}"
+        );
+    }
+}
+
+#[test]
 fn nests_compose_outermost_first() {
     let doc = project(json!([track(
         "rig",
@@ -661,11 +702,16 @@ mod painters {
         let ground = json!({"id": "ground", "type": "rect", "start": 0, "end": 600, "x": 80, "y": 80,
             "origin": "center", "width": 400, "height": 10, "fill": "#446644",
             "motion_blur": {"shutter": 360, "samples": 6}});
+        // ADR-0167's projection, on a child: it composes with the nest's matrix.
+        let card = json!({"id": "card", "type": "rect", "start": 0, "end": 600, "x": 110, "y": 25,
+            "origin": "center", "width": 30, "height": 20, "fill": "#CC4466",
+            "swivel": keyed(-40.0, 40.0), "perspective": 90,
+            "effects": [{"name": "blur", "radius": 1.5}]});
         let rig = nest(
             "rig",
             json!({"end": 600, "pivot": [60, 45], "x": keyed_int(0, 14), "rotation": keyed(0.0, 8.0),
                    "scale": [{"t": 0, "v": [1.0, 1.0]}, {"t": 600, "v": [1.2, 0.9], "ease": "ease-in"}]}),
-            json!([track("rig-body", 1, vec![body]), track("rig-arm", 3, vec![arm])]),
+            json!([track("rig-body", 1, vec![body]), track("rig-arm", 3, vec![arm]), track("rig-card", 4, vec![card])]),
         );
         let camera = nest(
             "camera",

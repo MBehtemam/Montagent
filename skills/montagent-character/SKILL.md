@@ -48,6 +48,34 @@ The baked result looks like this: each part is centred on its pivot, with keyfra
 }
 ```
 
+### Or bake it as nests (`--nest`)
+
+<!-- prototype #780 · arm B of the nest score: this section exists only on `prototype/nest` -->
+
+Montagent has a **nest**: a container with no clock of its own, holding `tracks` like the project root, that turns, scales and moves everything inside it about a `pivot`. `python3 scripts/bake_rig.py --nest <project> <rig> <spec>` writes the same rig as one nest per joint instead of copying each parent's transform onto every child. Same spec, same report; run it again after every change to the spec.
+
+- **A joint is a nest.** Its `pivot` is the joint, in whole frame pixels, where it sits at rest. Its `rotation` keyframes are that joint's own angle from the spec, relative to its parent: no composing, no copies. The torso's nest also carries the character's `x`/`y` offsets from where it was first placed and a `scale` ratio.
+- **Children are written at rest, inside the nest.** A part's image sits at its own joint's rest position, `x`/`y` static, with no `rotation`. The head's nest holds the head, every mouth and the blink: they turn with the head because they are in it, and carry no keyframes.
+- **A nest paints nothing and has no layer, box, opacity or effects.** Layers stay global: each part keeps the layer the spec gives it, whatever nest it is in. `start`/`end` on a nest only bound when it is there; every child keeps absolute timeline ms, and a child that starts before or ends after its nest is `E-NEST-OUTSIDE-WINDOW`.
+- **Depth is at most 4.** A torso, an upper arm and a forearm is three.
+- **`clip` stays in frame space.** A `clip` on a child of a moving nest does not follow it, and `validate` says `R-CLIP-IN-MOVING-NEST`. A cut that has to travel is a mask.
+- **`query --at` shows both.** A child's row names its nests and its composed `x`, `y`, `rotation` and `scale`; a `NESTS` block below lists each live nest with its resolved values.
+- **Expected findings differ from the flat bake.** There is no `R-EASE-INERT` on held poses, because a held pose is a joint's own flat keyframes, and `N-TRACK-GAP` still shows on the mouth and blink tracks.
+
+```json
+{"id":"puppet-torso-nest","type":"nest","start":0,"end":2000,"pivot":[320,330],"tracks":[
+  {"name":"puppet-torso","layer":10,"elements":[{"id":"puppet-torso","type":"image","start":0,"end":2000,"source":"rig/parts/torso.png","x":320,"y":330,"origin":"center","fit":"literal","width":80,"height":280}]},
+  {"name":"puppet-head-nest","layer":12,"elements":[
+    {"id":"puppet-head-nest","type":"nest","start":0,"end":2000,"pivot":[320,190],"rotation":[{"t":0,"v":0},{"t":500,"v":6.0,"ease":"linear"},{"t":1000,"v":0.0,"ease":"linear"}],"tracks":[
+      {"name":"puppet-head","layer":12,"elements":[{"id":"puppet-head","type":"image","start":0,"end":2000,"source":"rig/parts/head.png","x":320,"y":190,"origin":"center","fit":"literal","width":90,"height":160}]},
+      {"name":"puppet-mouth","layer":13,"elements":[{"id":"puppet-mouth-0","type":"image","start":400,"end":700,"source":"rig/parts/mouth_open.png","x":320,"y":190,"origin":"center","fit":"literal","width":24,"height":60}]}
+    ]}
+  ]}
+]}
+```
+
+The elements above are one line each. A nest is written expanded, with its keys one per line and its tracks below them, so an exact-string edit against a child still matches one line.
+
 ## Recipes
 
 Every recipe gives starting ranges, not answers. Each ends in a **look step**: load `montagent-craft`, then look where the step says before you move on.

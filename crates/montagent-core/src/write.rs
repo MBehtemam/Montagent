@@ -125,7 +125,12 @@ fn elements(value: &Value, indent: usize) -> String {
     let mut out = String::from("[\n");
     for (i, element) in elements.iter().enumerate() {
         out.push_str(&inner);
-        out.push_str(&inline(element, Spacing::Tight));
+        match nest_tracks(element) {
+            // A nest holds elements of its own, so it cannot be one line: its keys are
+            // written tight one per line and its tracks as any tracks are (#780).
+            Some(tracks_value) => out.push_str(&nest(element, tracks_value, indent + 2)),
+            None => out.push_str(&inline(element, Spacing::Tight)),
+        }
         if i + 1 < elements.len() {
             out.push(',');
         }
@@ -133,6 +138,41 @@ fn elements(value: &Value, indent: usize) -> String {
     }
     out.push_str(&pad);
     out.push(']');
+    out
+}
+
+/// A nest's `tracks`, where `element` is a nest that holds any.
+fn nest_tracks(element: &Value) -> Option<&Value> {
+    (element.get("type").and_then(Value::as_str) == Some("nest"))
+        .then(|| element.get("tracks"))
+        .flatten()
+        .filter(|tracks| tracks.is_array())
+}
+
+/// One nest: its own keys tight, one per line, and its tracks last, as written everywhere.
+fn nest(element: &Value, tracks_value: &Value, indent: usize) -> String {
+    let Value::Object(map) = element else {
+        return inline(element, Spacing::Tight);
+    };
+    let pad = " ".repeat(indent);
+    let inner = " ".repeat(indent + 2);
+    let mut out = String::from("{\n");
+    for (i, (key, value)) in map.iter().enumerate() {
+        out.push_str(&inner);
+        out.push_str(&quoted(key));
+        out.push_str(":");
+        if key == "tracks" {
+            out.push_str(&tracks(tracks_value, indent + 2));
+        } else {
+            out.push_str(&inline(value, Spacing::Tight));
+        }
+        if i + 1 < map.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+    out.push_str(&pad);
+    out.push('}');
     out
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bake a cut-out character rig's poses, lip sync and blinks into flat Montagent elements.
 
-    python3 bake_rig.py <project> <rig> <spec>
+    python3 bake_rig.py [--nest] <project> <rig> <spec>
 
 Requires Python >= 3.9
 Standard library only.
@@ -15,6 +15,12 @@ element cannot change its image, so each mouth shape is its own element, shown f
 own span with the head's transform. Prints <project> with one track per part added, and
 a report on stderr. Running it again replaces the tracks it wrote (those named
 "<prefix>-...").
+
+With --nest (prototype #780) nothing is flattened: each joint becomes a `nest` carrying
+that joint's own angle (relative to its parent, as written in the spec) as `rotation`
+keyframes, pivoting on the joint; its children sit inside it, written where they rest. The
+root's nest carries the placement (`x`, `y` offsets and a `scale` ratio). Mouths and blinks
+are static elements inside the head's nest. No transform is copied from a parent.
 
 <rig> is the rig's JSON: `drawing`, `draw_order` (back to front), and `parts`, each with
 `file` (relative to the rig), `width`, `height`, `pivot` (where the part's canvas centre
@@ -81,6 +87,8 @@ TOLERANCE = {"x": 0.25, "y": 0.25, "rotation": 0.05, "scale": 0.0005}
 
 
 def main(argv):
+    nest_mode = "--nest" in argv
+    argv = [a for a in argv if a != "--nest"]
     if "--help" in argv or "-h" in argv or len(argv) != 3:
         print(__doc__)
         return 0 if "--help" in argv or "-h" in argv else 2
@@ -247,15 +255,110 @@ def main(argv):
             sys.exit(f"part {name!r} is missing from draw_order")
     tracks = []
     written_lists = {}
-    for name in rig["draw_order"]:
-        if name in overlays:
-            continue
-        written_lists[name] = lists(name)
-        tracks.append({"name": f"{prefix}-{name}", "layer": layer_of[name], "elements": [
-            element(f"{prefix}-{name}", name, frames[0], end, written_lists[name])]})
+
+    # ---- --nest: the same rig as containers instead of copied transforms ---------------
+
+    def rest_at():
+        """{part: (x, y)} where each part's pivot sits on the frame at rest, as integers."""
+        x0, y0 = place[0]["x"], place[0]["y"]
+        out = {}
+
+        def walk(name):
+            if name in out:
+                return out[name]
+            part = parts[name]
+            if part["parent"] is None:
+                out[name] = (x0, y0)
+            else:
+                px, py = walk(part["parent"])
+                pp = parts[part["parent"]]["pivot"]
+                out[name] = (px + base * (part["pivot"][0] - pp[0]),
+                             py + base * (part["pivot"][1] - pp[1]))
+            return out[name]
+
+        for name in parts:
+            walk(name)
+        return {n: (round(x), round(y)) for n, (x, y) in out.items()}
+
+    def nest_element(eid, name, ks):
+        """A nest pivoting on the joint `name`: its own angle (and, on the root, the
+        placement) as keyframes."""
+        pivot = list(rest[name])
+        el = {"id": eid, "type": "nest", "start": frames[0], "end": end, "pivot": pivot}
+        if parts[name]["parent"] is None:
+            # The placement moves the root's pivot off where the children were written.
+            x0, y0 = place[0]["x"], place[0]["y"]
+            xs = simplify([(t, pose_at_cache[t][name][0] - x0) for t in frames], TOLERANCE["x"])
+            ys = simplify([(t, pose_at_cache[t][name][1] - y0) for t in frames], TOLERANCE["y"])
+            ss = simplify([(t, pose_at_cache[t][name][3] / base) for t in frames], TOLERANCE["scale"])
+            for prop, got in (("x", xs), ("y", ys)):
+                value = written(got, None)
+                if value != 0:
+                    el[prop] = value
+            sc = written(ss, 4)
+            if isinstance(sc, list):
+                el["scale"] = [{**k, "v": [k["v"], k["v"]]} for k in sc]
+            elif sc != 1:
+                el["scale"] = [sc, sc]
+        rot = written(ks, 2)
+        if rot != 0:
+            el["rotation"] = rot
+        return el
+
+    if nest_mode:
+        rest = rest_at()
+        pose_at_cache = dict(zip(frames, samples))
+        static = lambda name: {"x": [(0, rest[name][0])], "y": [(0, rest[name][1])],
+                               "rotation": [(0, 0.0)], "scale": [(0, 1.0)]}
+        joint_angles = {}
+        for j in joints:
+            joint_angles[j] = simplify([(t, angle(j, t)) for t in frames], TOLERANCE["rotation"])
+
+        def overlay_elements(label, spans):
+            els = []
+            for i, (s_, e_, name) in enumerate(spans):
+                if parts[name]["pivot"] != parts[parts[name]["parent"]]["pivot"]:
+                    sys.exit(f"overlay {name!r} must share its parent's pivot")
+                els.append(element(f"{prefix}-{label}-{i}", name, s_, e_, static(parts[name]["parent"])))
+            return els
+
+        overlay_tracks = {}  # parent part -> [track]
+
+        def add_overlay(label, spans):
+            els = overlay_elements(label, spans)
+            if els:
+                parent = parts[spans[0][2]]["parent"]
+                layer = min(layer_of[n] for _, _, n in spans)
+                overlay_tracks.setdefault(parent, []).append(
+                    {"name": f"{prefix}-{label}", "layer": layer, "elements": els})
+            return els
+
+        def build(name):
+            """The nest for joint `name`, with its image and its children inside."""
+            inner = [{"name": f"{prefix}-{name}", "layer": layer_of[name], "elements": [
+                element(f"{prefix}-{name}", name, frames[0], end, static(name))]}]
+            for child in rig["draw_order"]:
+                if parts[child]["parent"] == name and child not in overlays:
+                    inner.append({"name": f"{prefix}-{child}-nest", "layer": layer_of[child],
+                                  "elements": [build(child)]})
+            inner += overlay_tracks.get(name, [])
+            return {**nest_element(f"{prefix}-{name}-nest", name, joint_angles[name]),
+                    "tracks": inner}
+
+        overlay_builder = add_overlay
+    else:
+        overlay_builder = None
+        for name in rig["draw_order"]:
+            if name in overlays:
+                continue
+            written_lists[name] = lists(name)
+            tracks.append({"name": f"{prefix}-{name}", "layer": layer_of[name], "elements": [
+                element(f"{prefix}-{name}", name, frames[0], end, written_lists[name])]})
 
     def overlay_track(label, spans):
         """One track of swapped-in parts, each with its parent's keys over its span."""
+        if overlay_builder:
+            return overlay_builder(label, spans)
         els = []
         for i, (s, e, name) in enumerate(spans):
             parent = parts[name]["parent"]
@@ -337,11 +440,16 @@ def main(argv):
             spans.append((a, min(b, end), blinks["part"]))
         overlay_track("blink", spans)
 
+    if nest_mode:
+        tracks.append({"name": f"{prefix}-rig", "layer": spec["layer"], "elements": [build(root)]})
+
     # ---- check and report -----------------------------------------------------------
 
     # Read back what was written, at every drawn frame: does each child still meet its parent?
     drawn = {tr["elements"][0]["id"][len(prefix) + 1:]: tr["elements"][0] for tr in tracks
              if tr["elements"][0]["id"][len(prefix) + 1:] in written_lists}
+    if nest_mode:
+        written_lists = {}
     worst = (-1.0, None, None)
     for t in frames:
         got = {name: tuple(read_back(drawn[name], p, t) for p in ("x", "y", "rotation", "scale"))
@@ -356,9 +464,23 @@ def main(argv):
             gap = math.hypot(px + pk * base * dx - got[name][0], py + pk * base * dy - got[name][1])
             if gap > worst[0]:
                 worst = (gap, name, t)
-    count = sum(len(v) if isinstance(v, list) else 0
-                for tr in tracks for el in tr["elements"] for v in el.values())
-    report(f"{sum(len(tr['elements']) for tr in tracks)} elements on {len(tracks)} tracks, "
+    def tally(trs):
+        """(elements, nests, tracks, keyframes), through every nest."""
+        n_el = n_nest = n_tr = n_key = 0
+        for tr in trs:
+            n_tr += 1
+            for el in tr["elements"]:
+                n_el += 1
+                n_key += sum(len(v) for v in el.values()
+                             if isinstance(v, list) and v and isinstance(v[0], dict) and "t" in v[0])
+                if el["type"] == "nest":
+                    n_nest += 1
+                    a, b, c, d = tally(el["tracks"])
+                    n_el, n_nest, n_tr, n_key = n_el + a, n_nest + b, n_tr + c, n_key + d
+        return n_el, n_nest, n_tr, n_key
+
+    n_el, n_nest, n_tr, count = tally(tracks)
+    report(f"{n_el} elements ({n_nest} nests) on {n_tr} tracks, "
            f"{count} keyframes over {len(frames)} drawn frames")
     if worst[1]:
         report(f"largest joint gap: {worst[0]:.2f} px, {worst[1]} at {worst[2]}")

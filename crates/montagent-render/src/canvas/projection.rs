@@ -215,10 +215,19 @@ pub fn quad(
             local
         });
         let (sx, sy) = (px * transform.scale.0, py * transform.scale.1);
-        (
+        let placed = (
             transform.x + sx * cos - sy * sin,
             transform.y + sx * sin + sy * cos,
-        )
+        );
+        // The enclosing nests' matrix (#780) acts after the element's own placement, the
+        // same order the painter concatenates them in.
+        match transform.nest {
+            Some([a, b, c, d, e, f]) => (
+                a * placed.0 + c * placed.1 + e,
+                b * placed.0 + d * placed.1 + f,
+            ),
+            None => placed,
+        }
     });
     Quad {
         facing,
