@@ -1,5 +1,5 @@
 ---
-status: proposed (becomes accepted once two things are committed: the owner's blind listen to a crossfade A/B, and the three-leg table for the check in §7; until then the 0.1 dB tolerance is provisional)
+status: proposed (becomes accepted once the three-leg table for the check in §7 is committed; until then the 0.1 dB tolerance is provisional. The owner's blind listen is committed and recorded in §7)
 amends: 0059 (a transition may now carry sound as well as picture, and `audio_crossfade` is a kind that paints nothing; its "a transition inherently reads two elements' pixels" rationale is widened, not retired), 0150 (a fifth kind, and the `from`/`to` reference rule is kind-dependent for it), 0169 (the per-element graph gains one stage, after `pan` and before `adelay`)
 ---
 
@@ -181,11 +181,12 @@ window or the curve.
   why the status is `proposed`.
 - [ ] **The meter.** The script reads PCM in Python. The repo test ports the same metric to
   ffmpeg's `astats` and pins the parse (ADR-0173 §2).
-- [ ] **A/B.** Owner's blind listen to a loudness-matched hard-cut against `constant_power`
-  crossfade on the shared fixture, with `KEY` and `VERDICT.md` committed (ADR-0173 §8). Not yet
-  done. Premiere's audio crossfades are the precedent, so ADR-0145 needs no prototype for entry;
-  the listen is ADR-0173's acceptance step, and it also checks the guidance on which curve to
-  reach for.
+- [x] **A/B.** The owner's blind listen is committed in
+  [`VERDICT.md`](../research/audio-effects/audio-crossfade/VERDICT.md), with the clips and `KEY`, as ADR-0173 §8
+  asks (2026-10-08, ffmpeg 6.1.1). Music into music: the crossfade was heard as smooth and today's mix as a
+  sudden rise. The same speech on both sides, `constant_gain` against `constant_power`: "almost the same".
+  The 3 dB bump is real (§7's script) and small to this ear in one 2 s window. The guidance on which curve
+  to reach for stands, and is a second-order choice next to switching the crossfade on.
 
 ## Consequences
 
