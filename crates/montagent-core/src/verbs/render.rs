@@ -1670,6 +1670,8 @@ impl Mix {
         // working directory had become a third input to a render that `CONTEXT.md` promises
         // is a function of the project and its files.)
 
+        let fades = crate::transition::audio_fades(document);
+
         for (index, element) in document.elements().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
             if !Use::of(kind).contains(&Use::Mix) {
@@ -1690,10 +1692,9 @@ impl Mix {
                 from,
                 to,
                 inputs.len() + 1,
-                &element
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .map(|id| crate::transition::audio_fades(document, id))
+                fades
+                    .get(name.as_str())
+                    .map(Vec::as_slice)
                     .unwrap_or_default(),
             ) {
                 Ok(Some((path, filter))) => {

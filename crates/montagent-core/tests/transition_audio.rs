@@ -529,15 +529,15 @@ fn the_unset_review_stays_quiet_when_a_side_is_silent_or_the_kind_is_not_a_pictu
         return;
     }
     let dir = common::tempdir(line!());
-    // A constant `volume: 0` on a side: no sound to hard-cut, so no UNSET — but the silence
-    // is itself reviewed.
+    // A constant `volume: 0` on a side: no sound to hard-cut, so no UNSET, and with no `audio`
+    // fade there is no one-sided fade to review either.
     let path = pictures(
         &dir,
         "muted",
         transition("crossfade", json!({})),
         r#","volume":0"#,
     );
-    assert_eq!(audio_codes(&checked(&path)), ["R-TRANSITION-AUDIO-SILENT"]);
+    assert!(audio_codes(&checked(&path)).is_empty());
     // A side with no audio stream is not an error on a picture kind, and UNSET needs both.
     let dir = common::tempdir(line!());
     let path = sounding(

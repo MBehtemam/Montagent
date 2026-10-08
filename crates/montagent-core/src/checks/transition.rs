@@ -320,12 +320,27 @@ fn constant_zero_volume(element: &Value) -> bool {
     }
 }
 
+/// Does this element contribute no sound: a constant `volume: 0`, or a speed-ramped `video`
+/// (which carries that `volume: 0`, `E-REMAP-AUDIBLE`)?
+fn is_silent(element: &Value) -> bool {
+    constant_zero_volume(element) || crate::remap::is_remapped(element)
+}
+
 /// `R-TRANSITION-VOLUME-STACK` and `R-TRANSITION-AUDIO-SILENT` (ADR-0176 §5): the two
 /// reviews the document alone can state.
 fn sound_reviews(element: &Value, by_id: &std::collections::HashMap<&str, &Value>) -> Vec<Finding> {
     let Some(sides) = sounding_sides(element, by_id) else {
         return Vec::new();
     };
+    // Both reviews are about the transition's own sound fade meeting the sides' levels: with
+    // `audio` absent or `cut` the transition adds no gain, so there is nothing to stack with
+    // and no fade for a silent side to make one-sided.
+    if !matches!(
+        element.get("audio").and_then(Value::as_str),
+        Some("constant_power" | "constant_gain")
+    ) {
+        return Vec::new();
+    }
     let subject = subject_of(element.get("id").and_then(Value::as_str));
     let mut findings = Vec::new();
     for (side, target, bridged) in sides {
@@ -428,6 +443,10 @@ pub fn on_disk(
         };
         let subject = subject_of(element.get("id").and_then(Value::as_str));
         let kind = element.get("kind").and_then(Value::as_str).unwrap_or("");
+        // A picture kind that states `audio` has nothing to learn from the sources.
+        if kind != "audio_crossfade" && element.get("audio").is_some() {
+            continue;
+        }
 
         // Whether each side's source is known to carry an audio stream: `None` where nothing
         // was established, which the source check reports as its own finding.
@@ -459,7 +478,7 @@ pub fn on_disk(
             }
         } else if element.get("audio").is_none()
             && carries == [Some(true), Some(true)]
-            && !sides.iter().any(|(_, _, side)| constant_zero_volume(side))
+            && !sides.iter().any(|(_, _, side)| is_silent(side))
         {
             findings.push(
                 Finding::new("R-TRANSITION-AUDIO-UNSET")

@@ -402,36 +402,46 @@ impl AudioFade {
     }
 }
 
-/// Every audio fade of every transition in the document that names `id`, in window order.
-/// A transition with `audio` absent or `cut` contributes none: the hard cut adds no stage.
-pub(crate) fn audio_fades(document: &Loose, id: &str) -> Vec<AudioFade> {
-    let mut fades: Vec<AudioFade> = document
-        .elements_in_tracks()
-        .map(|(_, element)| element)
-        .filter(|element| element.get("type").and_then(Value::as_str) == Some("transition"))
-        .filter_map(|element| {
-            let curve = serde_json::from_value::<TransitionAudio>(element.get("audio")?.clone())
-                .ok()
-                .filter(|curve| *curve != TransitionAudio::Cut)?;
-            let incoming = match (
-                element.get("from").and_then(Value::as_str),
-                element.get("to").and_then(Value::as_str),
-            ) {
-                (Some(from), Some(to)) if from != to && to == id => true,
-                (Some(from), Some(to)) if from != to && from == id => false,
-                _ => return None,
-            };
-            Some(AudioFade {
+/// Every audio fade of every transition in the document, by the id of the element it fades,
+/// each list in window order. A transition with `audio` absent or `cut` contributes none: the
+/// hard cut adds no stage. Built once per render, not once per element.
+pub(crate) fn audio_fades(document: &Loose) -> std::collections::HashMap<String, Vec<AudioFade>> {
+    let mut fades: std::collections::HashMap<String, Vec<AudioFade>> = Default::default();
+    for (_, element) in document.elements_in_tracks() {
+        if element.get("type").and_then(Value::as_str) != Some("transition") {
+            continue;
+        }
+        let Some(curve) = element
+            .get("audio")
+            .and_then(|audio| serde_json::from_value::<TransitionAudio>(audio.clone()).ok())
+            .filter(|curve| *curve != TransitionAudio::Cut)
+        else {
+            continue;
+        };
+        let (Some(from), Some(to), Some(start), Some(end)) = (
+            element.get("from").and_then(Value::as_str),
+            element.get("to").and_then(Value::as_str),
+            element.get("start").and_then(Value::as_i64),
+            element.get("end").and_then(Value::as_i64),
+        ) else {
+            continue;
+        };
+        if from == to || end <= start {
+            continue;
+        }
+        for (id, incoming) in [(from, false), (to, true)] {
+            fades.entry(id.to_string()).or_default().push(AudioFade {
                 transition: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
                 incoming,
-                start: element.get("start").and_then(Value::as_i64)?,
-                end: element.get("end").and_then(Value::as_i64)?,
+                start,
+                end,
                 curve,
-            })
-        })
-        .filter(|fade| fade.end > fade.start)
-        .collect();
-    fades.sort_by_key(|fade| fade.start);
+            });
+        }
+    }
+    for list in fades.values_mut() {
+        list.sort_by_key(|fade| fade.start);
+    }
     fades
 }
 
