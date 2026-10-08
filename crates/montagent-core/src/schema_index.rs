@@ -42,7 +42,7 @@ struct Union {
     segment: &'static str,
 }
 
-const UNIONS: [Union; 2] = [
+const UNIONS: [Union; 3] = [
     Union {
         def: "Element",
         tag: "type",
@@ -54,6 +54,14 @@ const UNIONS: [Union; 2] = [
         tag: "name",
         section: "effects",
         segment: "effect",
+    },
+    // ADR-0169. It has no branch until a capability ADR adds a member, so its section is
+    // empty; naming it here is what stops the first member being served as a whole `$def`.
+    Union {
+        def: "AudioEffect",
+        tag: "name",
+        section: "audio_effects",
+        segment: "audio_effect",
     },
 ];
 
