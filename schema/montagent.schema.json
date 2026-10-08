@@ -26,6 +26,10 @@
     "output": {
       "type": "string"
     },
+    "master": {
+      "description": "The master stage on the final mix: a loudness target and a true-peak ceiling\n(ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.",
+      "$ref": "#/$defs/Master"
+    },
     "fonts": {
       "type": "object",
       "additionalProperties": {
@@ -76,6 +80,35 @@
     "Colour": {
       "type": "string",
       "description": "`#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else."
+    },
+    "Master": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target_lufs": {
+          "description": "The integrated loudness (ITU-R BS.1770, gated) the deliverable's mix is brought to, in\nLUFS, from −40 to −5. The renderer measures the whole programme's mix and applies one\nfixed gain of `target_lufs − measured`; `render` reports both numbers. Not animatable.",
+          "$ref": "#/$defs/TargetLufs"
+        },
+        "ceiling_dbtp": {
+          "description": "The true-peak ceiling of the limiter that closes the mix, in dBTP, from −12 to 0. It\npromises the delivered file: the decoded AAC stays at or under the ceiling plus 1.0 dB\n(ADR-0174), not the limiter's own output. Clipped or noise-like material driven far\nover it can exceed that by up to +1.8 dB; lower the ceiling by the reported overshoot.\nNot animatable.",
+          "$ref": "#/$defs/CeilingDbtp"
+        }
+      },
+      "description": "The project's master stage. Field order is canonical key order (ADR-0041)."
+    },
+    "TargetLufs": {
+      "type": "number",
+      "format": "double",
+      "minimum": -40.0,
+      "maximum": -5.0,
+      "description": "An integrated loudness in LUFS (ITU-R BS.1770, gated), from −40 to −5 (ADR-0172)."
+    },
+    "CeilingDbtp": {
+      "type": "number",
+      "format": "double",
+      "minimum": -12.0,
+      "maximum": 0.0,
+      "description": "A true-peak ceiling in dBTP, from −12 to 0. It promises the decoded AAC within +1.0 dB (ADR-0172, ADR-0174)."
     },
     "FontFile": {
       "type": "object",

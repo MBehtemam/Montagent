@@ -265,6 +265,9 @@ fn run_checks(
     // ADR-0146 §6: a box with no positive size at any frame of its range is never painted.
     // Decided here and in the painter through one function at the same frame instants.
     crate::checks::extent::check(document, report);
+    // ADR-0172's four `master` reviews: a target with no ceiling, an unusual target, a
+    // ceiling above lossy-delivery guidance, and too little headroom. Document-only.
+    crate::checks::master::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected
     // outright — the agent that pretty-printed the fixture from 154 lines to 1595 was not
     // running a formatter and had no reason to invoke one, while `validate` runs on files

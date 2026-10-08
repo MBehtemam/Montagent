@@ -3163,6 +3163,71 @@ in the {other} version, {moved}; {stayed}. ({ref_project} is the reference versi
         census: None,
         sets: &[CheckSet::Drift],
     },
+    // ---- The master stage (ADR-0172, ADR-0174) ---------------------------------------------
+    CheckSpec {
+        // ADR-0172: a target with no limiter. Not an error: `validate` cannot know the gain's
+        // sign before the measurement pass, and a target on a hot mix is pure attenuation.
+        code: "R-MASTER-NO-CEILING",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is which keys are written.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}` and no `ceiling_dbtp`, so a \
+positive gain reaches the mix with no limiter after it and can clip. Add `ceiling_dbtp: -1`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-MASTER-TARGET-UNUSUAL",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::TARGET_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `target_lufs` is {target_lufs} LUFS, {direction} than \
+{threshold_lufs} LUFS.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-MASTER-CEILING-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::CEILING_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `ceiling_dbtp` is {ceiling_dbtp} dBTP, above {threshold_dbtp} \
+dBTP, and the deliverable is lossy AAC, whose decoding adds peaks between samples.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0172: predicts, before anything renders, the shortfall one gain with no
+        // compensation leaves after heavy limiting.
+        code: "R-MASTER-HEADROOM",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::HEADROOM_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master` leaves {headroom_db} dB between `target_lufs` ({target_lufs} LUFS) \
+and `ceiling_dbtp` ({ceiling_dbtp} dBTP), under {threshold_db} dB: heavy limiting is likely, \
+and the delivered loudness may land below the target. Lower the target, or reduce the peaks \
+on the elements.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {
