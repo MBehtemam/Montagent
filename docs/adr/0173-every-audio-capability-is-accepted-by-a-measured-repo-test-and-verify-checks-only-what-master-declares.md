@@ -5,6 +5,9 @@ amends: 0172 (sets `verify`'s tolerances for misses against `target_lufs` and `c
 
 # Every audio capability is accepted by a measured repo test, and `verify` checks only what `master` declares
 
+> **Amended by [ADR-0174](./0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md)**: §6's `ceiling_dbtp` tolerance becomes +1.0 dB on the decoded AAC, and §7's
+> measurement is discharged.
+
 [What measured check must every audio capability's ADR name, and what runs it?](https://github.com/MBehtemam/Montagent/issues/802)
 on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)). The map's standing
 rule says every capability ADR names a measured acceptance check next to the owner's ear. This
