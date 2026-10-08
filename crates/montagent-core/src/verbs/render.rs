@@ -2901,6 +2901,7 @@ mod tests {
                     .args(["-af", af, "-f", "f64le", "-"])
                     .output()
                     .unwrap();
+                assert!(out.status.success(), "{af}: ffmpeg failed");
                 let s: Vec<f64> = out
                     .stdout
                     .chunks_exact(8)
