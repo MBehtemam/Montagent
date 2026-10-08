@@ -1,5 +1,5 @@
 ---
-status: proposed (becomes accepted once two things are committed: the owner's blind listen to a duck, and the three-leg table for the rendered-audio check in §6; until then the ±0.5 dB tolerance is provisional)
+status: proposed (becomes accepted once the three-leg table for the rendered-audio check in §6 is committed; until then the ±0.5 dB tolerance is provisional. The owner's blind listen is committed and recorded in §6)
 amends: 0055 (discharges its deferral: the door it left open for "a write tool that computes and writes the keyframes" is a skill script, not an MCP verb, and the format gains nothing)
 ---
 
@@ -139,9 +139,12 @@ The capability is in two parts, so its check is too:
   (stdlib only; exits non-zero when a number stops holding): the dB defaults are within 0.15 dB of
   today's, each is inside the guidance's range, and four-decimal rounding costs at most 0.01 dB above
   −27 dB (scanned worst case 0.0099 dB).
-- [ ] **A/B.** The owner's blind listen to a duck against the bed unducked on the shared fixture, with
-  `KEY` and `VERDICT.md` committed (ADR-0173 §8). Not yet done. Premiere's auto-ducking is the
-  precedent, so ADR-0145 needs no prototype for entry; the listen is ADR-0173's acceptance step.
+- [x] **A/B.** The owner's blind listen is committed in
+  [`VERDICT.md`](../research/audio-effects/ducking/VERDICT.md), with the clips and `KEY`, as ADR-0173 §8 asks
+  (2026-10-08, ffmpeg 6.1.1). The bed unducked against the bed ducked by the defaults, on the shared fixture
+  with the bed raised 12 dB: the owner heard the music as louder in the unducked clip and "mostly like a
+  background" in the ducked one. Not exercised: the return in a long pause (this narration has none over
+  600 ms), pumping, and the narration's clarity were not remarked on.
 
 ## Consequences
 
