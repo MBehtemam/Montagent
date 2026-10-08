@@ -37,6 +37,7 @@ pub mod layout;
 pub mod mask;
 pub mod master;
 pub mod motion_blur;
+pub mod normalize;
 pub mod overridden;
 pub mod path;
 pub mod projection;

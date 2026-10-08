@@ -98,6 +98,7 @@ pub(crate) fn settle(
     established: &Established,
     fps: i64,
     ffmpeg: &FilePath,
+    normalized: &super::normalize::Gains,
 ) -> Result<(Stage, Vec<Finding>), String> {
     let Some(master) = crate::checks::master::of(document) else {
         return Ok((Stage::default(), Vec::new()));
@@ -114,7 +115,16 @@ pub(crate) fn settle(
 
     let measured = match crate::exact::extent(document) {
         Some(end) => {
-            let mix = super::Mix::of(document, project_dir, established, fps, 0, end, "");
+            let mix = super::Mix::of(
+                document,
+                project_dir,
+                established,
+                fps,
+                0,
+                end,
+                "",
+                normalized,
+            );
             match mix.audio {
                 Some(audio) => {
                     crate::media::loudness::of_graph(ffmpeg, &audio.inputs, &audio.graph)?
@@ -153,7 +163,9 @@ pub(crate) fn settle(
     Ok((stage, findings))
 }
 
-fn round2(v: f64) -> f64 {
+/// Two decimals, the precision a gain is written into the graph at (shared with ADR-0178's
+/// per-element gain).
+pub(crate) fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 

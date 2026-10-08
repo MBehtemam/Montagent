@@ -259,6 +259,9 @@ fn run_checks(
     // ADR-0180's six compressor and limiter findings: a range, a limiter over the master's
     // ceiling, the order, the make-up clip, a ratio of 1 and stacked limiters. Document-only.
     crate::checks::dynamics::check(document, report);
+    // ADR-0178's two document-only loudness-normalisation findings: a target out of range,
+    // and a target above the master's. Its third, a source with no sound, is on the disk.
+    crate::checks::normalize::check(document, report);
     // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
     // decided on the frame grid without painting a frame.
     crate::checks::grain::check(document, report);
@@ -357,5 +360,7 @@ fn run_disk_checks(
     // probe it needs is a cache hit by the time it runs, so it adds no subprocess.
     crate::checks::chroma::on_disk(document, session, report)?;
     // ADR-0176: whether a transition's bridged sources carry sound, off the same cached probes.
-    crate::checks::transition::on_disk(document, session, report)
+    crate::checks::transition::on_disk(document, session, report)?;
+    // ADR-0178: a normalised element whose source carries no sound, off the same probes.
+    crate::checks::normalize::on_disk(document, session, report)
 }

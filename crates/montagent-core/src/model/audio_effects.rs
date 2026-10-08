@@ -8,7 +8,8 @@
 //!
 //! ADR-0169 fixed the shape and added no member; each capability ADR adds variants. EQ's four
 //! (ADR-0179) are `highpass`, `lowpass`, `shelf` and `bell`; dynamics' two (ADR-0180) are
-//! `compressor` and `limiter`. The generator publishes a `oneOf` of tagged branches by itself.
+//! `compressor` and `limiter`; loudness normalisation's one (ADR-0178) is the singular
+//! `normalize_loudness`. The generator publishes a `oneOf` of tagged branches by itself.
 //!
 //! **Ranges are `validate`'s, not the type's.** Every EQ number is a plain `f64`, so a value
 //! outside its range, or a slope outside 12|24|48, parses and is reported as `E-EQ-RANGE`
@@ -87,6 +88,19 @@ pub enum AudioEffect {
         release_ms: f64,
         /// Make-up gain in dB. 0..24.
         makeup_db: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled: Option<bool>,
+    },
+    /// Loudness normalisation (ADR-0178): one fixed gain that brings the element's own
+    /// integrated loudness to `target_lufs`, measured on its placed window at this member's
+    /// position in the list. Singular. Never `loudnorm`.
+    ///
+    /// `target_lufs` is required and has no default; -40..-6 is checked by `validate`
+    /// (`E-NORMALIZE-TARGET-RANGE`). A keyframe list is a schema error: the target names one
+    /// whole-window measurement (#842).
+    NormalizeLoudness {
+        /// The element's integrated loudness after the gain, in LUFS. -40..-6.
+        target_lufs: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enabled: Option<bool>,
     },

@@ -144,6 +144,8 @@ use crate::verbs::query::at;
 
 pub(crate) mod master;
 pub use master::Applied;
+pub(crate) mod normalize;
+pub use normalize::Normalized;
 mod painters;
 pub use painters::Painting;
 #[doc(hidden)]
@@ -364,6 +366,10 @@ pub struct Video {
     /// The gain is in no file, so this is where it stays visible. Absent otherwise.
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub master: Option<Applied>,
+    /// ADR-0178: each enabled `normalize_loudness` member's measured loudness and applied
+    /// gain, in document order. Absent where no element carries one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub normalized: Vec<Normalized>,
 }
 
 /// The padded frame, where there was one.
@@ -567,6 +573,20 @@ fn run(
         .and_then(crate::verbs::frame::rgba_of)
         .unwrap_or(Rgba::BLACK);
 
+    // ADR-0178: each normalised element's own measurement, on its whole placed window, before
+    // the master's, which measures the mix those gains make.
+    let (normalized, measured) =
+        match normalize::settle(&document, &project_dir, &Established::of(&report), &ffmpeg) {
+            Ok(settled) => settled,
+            Err(reason) => {
+                report.fail_internally(reason);
+                return refused(report);
+            }
+        };
+    for finding in measured {
+        report.push(finding);
+    }
+
     // ADR-0172: pass 1 of the master stage, on the whole programme, before a frame is painted.
     let (master, measured) = match master::settle(
         &document,
@@ -574,6 +594,7 @@ fn run(
         &Established::of(&report),
         fps,
         &ffmpeg,
+        &normalized,
     ) {
         Ok(settled) => settled,
         Err(reason) => {
@@ -606,6 +627,7 @@ fn run(
         deadline: None,
         cancel,
         master,
+        normalized: &normalized,
     };
     let painted = match encode_span(&span, started, progress) {
         Ok(painted) => painted,
@@ -732,6 +754,9 @@ pub(crate) struct Span<'a> {
     /// ADR-0172: the master stage, settled on the whole programme before any span, so a
     /// partial render and every `preview` rung apply the deliverable's gain.
     pub master: master::Stage,
+    /// ADR-0178: every `normalize_loudness` gain, measured on each element's whole placed
+    /// window before any span, so a partial render and every `preview` rung apply them.
+    pub normalized: &'a normalize::Gains,
 }
 
 impl Span<'_> {
@@ -873,6 +898,7 @@ impl Painted {
             fonts: self.fonts,
             painting: self.painting,
             master: span.master.applied(),
+            normalized: span.normalized.applied(),
         })
     }
 
@@ -910,6 +936,7 @@ pub(crate) fn encode_span(
         span.from,
         span.to,
         &span.master.bus(),
+        span.normalized,
     );
 
     // ADR-0093 ruling 6, condition 1. The mix is decided before the encoder is spawned, so
@@ -1378,14 +1405,30 @@ pub fn mix_audio(
         .ok_or("the project states no integer `fps`")?;
     let project_dir = crate::checks::project_dir(&document);
     let established = Established::of(&report);
-    // ADR-0172: the master stage, measured on the whole programme whatever `[from, to)` is.
-    // Without a `master` nothing is measured, so no `ffmpeg` is asked for.
-    let stage = match crate::checks::master::of(&document) {
-        None => master::Stage::default(),
-        Some(_) => {
-            let ffmpeg = tools::resolve().map_err(|missing| missing.reason())?.ffmpeg;
-            master::settle(&document, &project_dir, &established, fps, &ffmpeg)?.0
-        }
+    // ADR-0178 then ADR-0172: each normalised element's window, then the master stage, both
+    // measured whole whatever `[from, to)` is. With neither, nothing is measured, so no
+    // `ffmpeg` is asked for.
+    let measures = crate::checks::master::of(&document).is_some() || normalize::wanted(&document);
+    let (normalized, stage) = if measures {
+        let ffmpeg = tools::resolve().map_err(|missing| missing.reason())?.ffmpeg;
+        let normalized = normalize::settle(&document, &project_dir, &established, &ffmpeg)?.0;
+        let stage = match crate::checks::master::of(&document) {
+            None => master::Stage::default(),
+            Some(_) => {
+                master::settle(
+                    &document,
+                    &project_dir,
+                    &established,
+                    fps,
+                    &ffmpeg,
+                    &normalized,
+                )?
+                .0
+            }
+        };
+        (normalized, stage)
+    } else {
+        (normalize::Gains::default(), master::Stage::default())
     };
     let mix = Mix::of(
         &document,
@@ -1395,6 +1438,7 @@ pub fn mix_audio(
         from,
         to,
         &stage.bus(),
+        &normalized,
     );
     if let Some(reason) = mix.internal {
         return Err(reason);
@@ -1689,6 +1733,7 @@ impl Mix {
         from: i64,
         to: i64,
         bus: &str,
+        gains: &normalize::Gains,
     ) -> Mix {
         let mut inputs: Vec<PathBuf> = Vec::new();
         let mut chains: Vec<String> = Vec::new();
@@ -1723,11 +1768,7 @@ impl Mix {
             if !Use::of(kind).contains(&Use::Mix) {
                 continue;
             }
-            let name = element
-                .get("id")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .unwrap_or_else(|| format!("(element {index} with no id)"));
+            let name = element_name(element, index);
             match chain(
                 element,
                 &name,
@@ -1742,6 +1783,7 @@ impl Mix {
                     .get(name.as_str())
                     .map(Vec::as_slice)
                     .unwrap_or_default(),
+                gains.of(&name),
             ) {
                 Ok(Some((path, filter))) => {
                     inputs.push(path);
@@ -1786,6 +1828,16 @@ impl Mix {
     }
 }
 
+/// How the mix names an element: its `id`, or its position where it has none. One spelling,
+/// so the measurement pass and the mix key one element's gains alike (ADR-0178).
+fn element_name(element: &Value, index: usize) -> String {
+    element
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("(element {index} with no id)"))
+}
+
 /// The mix graph: every chain labelled, summed, padded with silence, and cut to exactly
 /// the `span` milliseconds the frames cover — the graph's own length is the audio stream's
 /// length, since the encoder applies no `-t` (it would drop the last video frame).
@@ -1828,6 +1880,7 @@ fn chain(
     to: i64,
     input: usize,
     fades: &[crate::transition::AudioFade],
+    gains: Option<&normalize::ElementGains>,
 ) -> Result<Option<(PathBuf, String)>, Declined> {
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
@@ -1853,6 +1906,133 @@ fn chain(
         return Ok(None);
     }
 
+    let (path, mut filter) = placed(
+        element,
+        name,
+        kind,
+        project_dir,
+        established,
+        input,
+        start,
+        end,
+    )?;
+
+    // The element's signal-shaping list (ADR-0169): after `aloop` and its truncation, so a
+    // looped bed is one continuous stream, and before `volume`, so a ducking dip is not
+    // pushed back up by anything in the list. Nothing at all where no member is enabled.
+    filter.push_str(&audio_effects_stage_with(
+        element,
+        name,
+        &lower_audio_member,
+        gains,
+        None,
+    )?);
+
+    // `volume` (ADR-0055): a scalar as it is, a keyframe list as the value resolved on
+    // every sampled frame of the element, applied as timed commands to the same filter.
+    let label = format!("v{input}");
+    match element.get("volume") {
+        None | Some(Value::Null) => {}
+        Some(written) => {
+            // Read as [`Volume`], not as a bare `f64`: ADR-0055's *"negative is a schema
+            // error"* is one bound, stated once, on the type — and reading the raw value
+            // through it is what makes that true of the keyframed spelling too, which a
+            // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
+            // waveform at full level. The check engine has already refused the render for
+            // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
+            let volume: Animatable<Volume> =
+                serde_json::from_value(written.clone()).map_err(|e| {
+                    Declined::internal(
+                        name,
+                        &format!("a `volume` that does not fit the schema: {e}"),
+                    )
+                })?;
+            let volume = match volume {
+                Animatable::Static(Volume(v)) => Animatable::Static(v),
+                Animatable::Keyed(records) => Animatable::Keyed(
+                    records
+                        .into_iter()
+                        .map(|record| Keyframe {
+                            t: record.t,
+                            // Dropped, not carried: ADR-0086's declaration is
+                            // renderer-ignored by construction, and this is the renderer.
+                            t_from: None,
+                            v: record.v.0,
+                            ease: record.ease,
+                        })
+                        .collect(),
+                ),
+            };
+            match volume {
+                Animatable::Static(v) => {
+                    if v != 1.0 {
+                        filter.push_str(&format!(",volume={}", ratio(v)));
+                    }
+                }
+                keyed => {
+                    let at = |t: i64| {
+                        resolve::at(&keyed, t).map_err(|_| {
+                            Declined::internal(name, "`volume` keyframes that do not resolve")
+                        })
+                    };
+                    let initial = at(start)?;
+                    let mut changes = Vec::new();
+                    let mut last = initial;
+                    let Some(first) = exact::frame_at_or_after(start, fps) else {
+                        return Err(Declined::Internal(format!(
+                            "the mix was asked for {fps} fps, which is not a rate (ADR-0093)"
+                        )));
+                    };
+                    let mut n = first.frame;
+                    loop {
+                        let instant = instant_of(n, fps);
+                        if instant >= end {
+                            break;
+                        }
+                        let v = at(instant)?;
+                        if (v - last).abs() > 1e-6 {
+                            changes.push((instant - start, v));
+                            last = v;
+                        }
+                        n += 1;
+                    }
+                    filter.push_str(&keyed_volume(&label, initial, &changes));
+                }
+            }
+        }
+    }
+
+    // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
+    // window's `atrim` so a range that starts mid-fade renders the samples the full render
+    // has there. The stream is at the element's own as-played time here, so the fade's
+    // `st` is the transition's start less the element's.
+    filter.push_str(&fade_stage(fades, start));
+
+    // The window inside the range, then the placement on the clock.
+    filter.push_str(&format!(
+        ",atrim=start={}:end={},asetpts=PTS-STARTPTS,adelay=delays={}:all=1",
+        seconds(window_start),
+        seconds(window_end),
+        from.max(start) - from
+    ));
+    Ok(Some((path, filter)))
+}
+
+/// One element's whole placed window, from `[input:a]` through the as-played stream cut to
+/// `end - start` (after `atrim`, `atempo` and `aloop`), and the file it reads: the part of
+/// [`chain`] the loudness measurement shares (ADR-0178 §3), so the window measured is the
+/// window mixed.
+#[allow(clippy::too_many_arguments)]
+fn placed(
+    element: &Value,
+    name: &str,
+    kind: Option<&str>,
+    project_dir: &FilePath,
+    established: &Established,
+    input: usize,
+    start: i64,
+    end: i64,
+) -> Result<(PathBuf, String), Declined> {
     let Some(source) = element.get("source").and_then(Value::as_str) else {
         return Err(Declined::internal(name, "no `source`"));
     };
@@ -1963,100 +2143,7 @@ fn chain(
         ",atrim=end={},asetpts=PTS-STARTPTS",
         seconds(end - start)
     ));
-
-    // The element's signal-shaping list (ADR-0169): after `aloop` and its truncation, so a
-    // looped bed is one continuous stream, and before `volume`, so a ducking dip is not
-    // pushed back up by anything in the list. Nothing at all where no member is enabled.
-    filter.push_str(&audio_effects_stage(element, name, &lower_audio_member)?);
-
-    // `volume` (ADR-0055): a scalar as it is, a keyframe list as the value resolved on
-    // every sampled frame of the element, applied as timed commands to the same filter.
-    let label = format!("v{input}");
-    match element.get("volume") {
-        None | Some(Value::Null) => {}
-        Some(written) => {
-            // Read as [`Volume`], not as a bare `f64`: ADR-0055's *"negative is a schema
-            // error"* is one bound, stated once, on the type — and reading the raw value
-            // through it is what makes that true of the keyframed spelling too, which a
-            // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
-            // waveform at full level. The check engine has already refused the render for
-            // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
-            let volume: Animatable<Volume> =
-                serde_json::from_value(written.clone()).map_err(|e| {
-                    Declined::internal(
-                        name,
-                        &format!("a `volume` that does not fit the schema: {e}"),
-                    )
-                })?;
-            let volume = match volume {
-                Animatable::Static(Volume(v)) => Animatable::Static(v),
-                Animatable::Keyed(records) => Animatable::Keyed(
-                    records
-                        .into_iter()
-                        .map(|record| Keyframe {
-                            t: record.t,
-                            // Dropped, not carried: ADR-0086's declaration is
-                            // renderer-ignored by construction, and this is the renderer.
-                            t_from: None,
-                            v: record.v.0,
-                            ease: record.ease,
-                        })
-                        .collect(),
-                ),
-            };
-            match volume {
-                Animatable::Static(v) => {
-                    if v != 1.0 {
-                        filter.push_str(&format!(",volume={}", ratio(v)));
-                    }
-                }
-                keyed => {
-                    let at = |t: i64| {
-                        resolve::at(&keyed, t).map_err(|_| {
-                            Declined::internal(name, "`volume` keyframes that do not resolve")
-                        })
-                    };
-                    let initial = at(start)?;
-                    let mut changes = Vec::new();
-                    let mut last = initial;
-                    let Some(first) = exact::frame_at_or_after(start, fps) else {
-                        return Err(Declined::Internal(format!(
-                            "the mix was asked for {fps} fps, which is not a rate (ADR-0093)"
-                        )));
-                    };
-                    let mut n = first.frame;
-                    loop {
-                        let instant = instant_of(n, fps);
-                        if instant >= end {
-                            break;
-                        }
-                        let v = at(instant)?;
-                        if (v - last).abs() > 1e-6 {
-                            changes.push((instant - start, v));
-                            last = v;
-                        }
-                        n += 1;
-                    }
-                    filter.push_str(&keyed_volume(&label, initial, &changes));
-                }
-            }
-        }
-    }
-
-    // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
-    // window's `atrim` so a range that starts mid-fade renders the samples the full render
-    // has there. The stream is at the element's own as-played time here, so the fade's
-    // `st` is the transition's start less the element's.
-    filter.push_str(&fade_stage(fades, start));
-
-    // The window inside the range, then the placement on the clock.
-    filter.push_str(&format!(
-        ",atrim=start={}:end={},asetpts=PTS-STARTPTS,adelay=delays={}:all=1",
-        seconds(window_start),
-        seconds(window_end),
-        from.max(start) - from
-    ));
-    Ok(Some((path, filter)))
+    Ok((path, filter))
 }
 
 /// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
@@ -2167,10 +2254,26 @@ fn lower_limiter(member: &Value) -> Option<String> {
 /// `aformat=sample_fmts=fltp` goes ahead of the first enabled member only (ADR-0179 §2, where
 /// a 48 dB/oct stopband quantised to zero in `s16`). `lower` is injected so the stage is
 /// testable before any member exists.
+#[cfg(test)]
 fn audio_effects_stage(
     element: &Value,
     name: &str,
     lower: &dyn Fn(&str, &Value) -> Option<String>,
+) -> Result<String, Declined> {
+    audio_effects_stage_with(element, name, lower, None, None)
+}
+
+/// [`audio_effects_stage`] with the element's settled `normalize_loudness` gains (ADR-0178),
+/// and, for the measurement pass, cut short ahead of the member at `upto`.
+///
+/// A settled member lowers to `volume=<gain>dB`; one whose loudness was undefined writes
+/// nothing, not even the float format ahead of it.
+fn audio_effects_stage_with(
+    element: &Value,
+    name: &str,
+    lower: &dyn Fn(&str, &Value) -> Option<String>,
+    gains: Option<&normalize::ElementGains>,
+    upto: Option<usize>,
 ) -> Result<String, Declined> {
     let mut stage = String::new();
     let members = element
@@ -2178,12 +2281,32 @@ fn audio_effects_stage(
         .and_then(Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default();
-    for member in members {
+    for (index, member) in members.iter().enumerate() {
+        if upto == Some(index) {
+            break;
+        }
         if member.get("enabled") == Some(&Value::Bool(false)) {
             continue;
         }
         let member_name = member.get("name").and_then(Value::as_str).unwrap_or("");
-        let Some(lowered) = lower(member_name, member) else {
+        let lowered = if normalize::is_member(member_name) {
+            match normalize::lowered(gains, index) {
+                Ok(Some(lowered)) => Some(lowered),
+                Ok(None) => continue,
+                Err(()) => {
+                    return Err(Declined::internal(
+                        name,
+                        &format!(
+                            "a `normalize_loudness` member at audio_effects[{index}] the \
+                             measurement pass did not settle (ADR-0178)"
+                        ),
+                    ));
+                }
+            }
+        } else {
+            lower(member_name, member)
+        };
+        let Some(lowered) = lowered else {
             return Err(Declined::internal(
                 name,
                 &format!(

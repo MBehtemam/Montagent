@@ -3400,6 +3400,82 @@ the lowest ceiling binds and the others add look-ahead and nothing else.",
         census: None,
         sets: &[Document],
     },
+    // ---- Loudness normalisation (ADR-0178, #844) -------------------------------------------
+    CheckSpec {
+        // Advise: the nearest bound is a value the document and the range determine.
+        code: "E-NORMALIZE-TARGET-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}] (`normalize_loudness`).target_lufs: \
+{target_lufs} is outside {min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // Refuse (ADR-0120): the fix forks — drop the member, or point the element at a
+        // source with sound — and the document does not say which was meant. The census says
+        // which normalised elements carry sound.
+        code: "E-NORMALIZE-NO-AUDIO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}]: `normalize_loudness` has nothing to \
+measure, because the source {source} carries no audio stream.",
+        status: Live,
+        census: Some(Named),
+        sets: &[Disk],
+    },
+    CheckSpec {
+        // A review: the master's one gain moves the element afterwards, so a target above the
+        // master's is a level the deliverable never has; it can still be meant.
+        code: "R-NORMALIZE-ABOVE-MASTER",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}] (`normalize_loudness`).target_lufs: \
+{target_lufs} LUFS is above `master.target_lufs` ({master_lufs} LUFS), so the master's gain \
+pulls the whole mix, this element with it, back down. Write the element's target at or below \
+the master's.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // The measurement pass's own findings, from `render` and `preview` (ADR-0178 §4).
+    CheckSpec {
+        code: "R-NORMALIZE-LIFT",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::render::master::GAIN_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0178",
+        template: "`{element}` measured {measured_lufs} LUFS on its placed window, so reaching \
+`target_lufs: {target_lufs}` applied {applied_gain_db} dB of gain, above {threshold_db} dB, \
+which lifts its noise floor with it. Check the source and the target.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        code: "N-NORMALIZE-UNDEFINED",
+        classes: &[Note],
+        repair: None,
+        // The deciding fact is BS.1770's own gating, the meter's definition.
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}]: the placed window has no integrated \
+loudness (silent, or shorter than one 400 ms block), so `normalize_loudness` applied no gain \
+and the element renders unchanged.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
     CheckSpec {
         // ADR-0172: predicts, before anything renders, the shortfall one gain with no
         // compensation leaves after heavy limiting.
