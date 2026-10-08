@@ -63,11 +63,24 @@ pub fn check(document: &Loose, report: &mut Report) {
         .filter_map(|(_, element)| element.get("id").and_then(Value::as_str))
         .collect();
 
+    // ADR-0176: an `audio_crossfade` crossfades sound, so it names an `audio` or a `video`
+    // (whose embedded audio is crossfaded); the picture kinds keep refusing an `audio`.
+    let sounding: Vec<&str> = document
+        .elements_in_tracks()
+        .filter(|(_, element)| {
+            matches!(
+                element.get("type").and_then(Value::as_str),
+                Some("audio" | "video")
+            )
+        })
+        .filter_map(|(_, element)| element.get("id").and_then(Value::as_str))
+        .collect();
+
     for (track, element) in document.elements_in_tracks() {
         if element.get("type").and_then(Value::as_str) != Some("transition") {
             continue;
         }
-        let findings = match references(element, &visual) {
+        let findings = match references(element, &visual, &sounding) {
             Some(findings) => findings,
             None => candidate(element, &stack)
                 .into_iter()
@@ -87,7 +100,15 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 /// `E-TRANSITION-REF-MISSING` and `E-TRANSITION-REF-SELF`: `Some` where the two references
 /// do not name two distinct visual elements, carrying what to say about it.
-fn references(element: &Value, visual: &[&str]) -> Option<Vec<Finding>> {
+fn references(element: &Value, visual: &[&str], sounding: &[&str]) -> Option<Vec<Finding>> {
+    let audio_only = element.get("kind").and_then(Value::as_str) == Some("audio_crossfade");
+    let (accepted, accepts) = match audio_only {
+        true => (sounding, "an audio or video element"),
+        false => (
+            visual,
+            "a visual element (image, video, text, rect, ellipse or path)",
+        ),
+    };
     let subject = subject_of(element.get("id").and_then(Value::as_str));
     let from = element.get("from").and_then(Value::as_str);
     let to = element.get("to").and_then(Value::as_str);
@@ -96,7 +117,7 @@ fn references(element: &Value, visual: &[&str]) -> Option<Vec<Finding>> {
         .into_iter()
         .filter_map(|(side, target)| {
             let target = target?;
-            (!visual.contains(&target)).then(|| {
+            (!accepted.contains(&target)).then(|| {
                 Finding::new("E-TRANSITION-REF-MISSING")
                     .at_element(subject.clone())
                     .field("element", json!(subject))
@@ -104,8 +125,7 @@ fn references(element: &Value, visual: &[&str]) -> Option<Vec<Finding>> {
                     .field("target", json!(target))
                     .repair_value(json!({
                         "value": format!(
-                            "set `{side}` to the id of a visual element in the project \
-                             (image, video, text, rect, ellipse or path)"
+                            "set `{side}` to the id of {accepts} in the project"
                         )
                     }))
             })

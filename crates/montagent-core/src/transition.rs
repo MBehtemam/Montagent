@@ -15,7 +15,7 @@
 
 use serde_json::Value;
 
-use crate::model::{Direction, Ease, TransitionKind};
+use crate::model::{Direction, Ease, TransitionAudio, TransitionKind};
 use crate::permissive::Loose;
 use crate::stack::Stack;
 use crate::verbs::query::geometry::Rect;
@@ -358,4 +358,74 @@ impl Running {
             },
         }
     }
+}
+
+/// One side of a transition's sound on one element (ADR-0176): the `afade` the mix writes
+/// for it and the gain `query --at` prints, both read from this one value.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct AudioFade {
+    /// The transition element's id.
+    pub transition: String,
+    /// `to` fades in; `from` fades out.
+    pub incoming: bool,
+    /// The transition's own window, on the timeline.
+    pub start: i64,
+    pub end: i64,
+    pub curve: TransitionAudio,
+}
+
+impl AudioFade {
+    /// The `afade` curve name: `qsin` is `sin(π/2·p)` and `tri` is `p`.
+    pub fn afade_curve(&self) -> Option<&'static str> {
+        match self.curve {
+            TransitionAudio::Cut => None,
+            TransitionAudio::ConstantPower => Some("qsin"),
+            TransitionAudio::ConstantGain => Some("tri"),
+        }
+    }
+
+    /// The gain this side applies at `instant` on the timeline, as `afade` defines it.
+    #[allow(dead_code)] // read by `query --at` (S4)
+    pub fn gain_at(&self, instant: i64) -> f64 {
+        let p = ((instant - self.start) as f64 / (self.end - self.start) as f64).clamp(0.0, 1.0);
+        let p = if self.incoming { p } else { 1.0 - p };
+        match self.curve {
+            TransitionAudio::Cut => 1.0,
+            TransitionAudio::ConstantPower => (std::f64::consts::FRAC_PI_2 * p).sin(),
+            TransitionAudio::ConstantGain => p,
+        }
+    }
+}
+
+/// Every audio fade of every transition in the document that names `id`, in window order.
+/// A transition with `audio` absent or `cut` contributes none: the hard cut adds no stage.
+pub(crate) fn audio_fades(document: &Loose, id: &str) -> Vec<AudioFade> {
+    let mut fades: Vec<AudioFade> = document
+        .elements_in_tracks()
+        .map(|(_, element)| element)
+        .filter(|element| element.get("type").and_then(Value::as_str) == Some("transition"))
+        .filter_map(|element| {
+            let curve = serde_json::from_value::<TransitionAudio>(element.get("audio")?.clone())
+                .ok()
+                .filter(|curve| *curve != TransitionAudio::Cut)?;
+            let incoming = match (
+                element.get("from").and_then(Value::as_str),
+                element.get("to").and_then(Value::as_str),
+            ) {
+                (Some(from), Some(to)) if from != to && to == id => true,
+                (Some(from), Some(to)) if from != to && from == id => false,
+                _ => return None,
+            };
+            Some(AudioFade {
+                transition: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
+                incoming,
+                start: element.get("start").and_then(Value::as_i64)?,
+                end: element.get("end").and_then(Value::as_i64)?,
+                curve,
+            })
+        })
+        .filter(|fade| fade.end > fade.start)
+        .collect();
+    fades.sort_by_key(|fade| fade.start);
+    fades
 }
