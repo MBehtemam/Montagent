@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PROTOTYPE, throwaway: the noise gate as an `audio_effects` member (ADR-0181 draft).
+"""PROTOTYPE, throwaway: the noise gate as an `audio_effects` member (ADR-0182 draft).
 Usage: python3 -I prototype_gate.py [--ffmpeg PATH] [--seed N]   (stdlib + ffmpeg only)
 
   {"name":"noise_gate","threshold_db":-38,"ratio":10,"attack_ms":5,"release_ms":150,"range_db":30}
