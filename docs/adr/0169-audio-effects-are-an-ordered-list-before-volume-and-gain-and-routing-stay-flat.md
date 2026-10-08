@@ -5,6 +5,10 @@ amends: 0040 (names the audio vocabulary its "Audio effects" boundary marker lef
 
 # Audio effects are an ordered list before `volume`; gain and routing stay flat
 
+> **Amended by [ADR-0176](./0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md)**: the per-element graph gains one stage, the transition's gain, after
+> `[pan/balance]` and before `adelay`, and only where a transition sets `audio`. The reason is this ADR's own: a
+> dip must not be undone by anything the element's sound design can do after it.
+
 [Where does an audio effect sit on an element: an ordered list, flat fields, or both?](https://github.com/MBehtemam/Montagent/issues/799)
 on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)) asked for the shape
 every audio capability ADR fills in. This ADR decides only that shape. It adds no members.

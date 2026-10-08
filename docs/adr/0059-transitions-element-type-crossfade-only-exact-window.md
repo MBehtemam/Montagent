@@ -5,6 +5,11 @@ amends: 0040 (confirms the "own shape — likely id-targeting" prediction; the e
 
 # Transitions: their own element type, crossfade only in v1, exact-window, non-overlap rule untouched
 
+> **Amended by [ADR-0176](./0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md)**: a transition may now carry sound as well as picture. Visual kinds gain an
+> optional `audio` field (`cut`, `constant_power` or `constant_gain`) on the window this ADR already pins, and a
+> fifth kind, `audio_crossfade`, bridges `audio` or `video` elements and paints nothing. The rationale below
+> that a transition "inherently reads two elements' pixels" is widened, not retired.
+
 > **Amended by [ADR-0150](./0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md)**: the deferral is discharged. `wipe`, `slide` and `push` join
 > `crossfade`, with a required `direction` (the way the motion travels) and an optional
 > `ease`, and `validate` now checks the `from`/`to` references.
