@@ -1,0 +1,594 @@
+{
+ "note": "sealed: opening this reveals which letter is which candidate. Open after judging.",
+ "ffmpeg": "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+ "other_builds": [
+  "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers"
+ ],
+ "letters": {
+  "taps-2200": "r2-A",
+  "ir-2200": "r2-B",
+  "ir-3000": "r2-C"
+ },
+ "ab_clips": {
+  "r2-A-X": {
+   "what": "bypass",
+   "lufs_before_match": -18.0,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -2.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.8
+  },
+  "r2-A-Y": {
+   "what": "taps-2200",
+   "lufs_before_match": -17.0,
+   "peak_dbfs_before_match": -1.3,
+   "match_gain_db": -3.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.3
+  },
+  "r2-B-X": {
+   "what": "ir-2200",
+   "lufs_before_match": -17.1,
+   "peak_dbfs_before_match": -2.0,
+   "match_gain_db": -2.9,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -4.9
+  },
+  "r2-B-Y": {
+   "what": "bypass",
+   "lufs_before_match": -18.0,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -2.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.8
+  },
+  "r2-C-X": {
+   "what": "ir-3000",
+   "lufs_before_match": -16.7,
+   "peak_dbfs_before_match": -1.9,
+   "match_gain_db": -3.3,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -5.2
+  },
+  "r2-C-Y": {
+   "what": "bypass",
+   "lufs_before_match": -18.0,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -2.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.8
+  }
+ },
+ "candidates": {
+  "r2-A": {
+   "name": "taps-2200",
+   "params": {
+    "construction": "taps",
+    "decay_ms": 2200.0,
+    "mix": 0.55,
+    "predelay_ms": 20.0,
+    "lowpass_hz": 5000,
+    "comb_ms_l": [
+     29.7,
+     37.1,
+     41.1,
+     43.7,
+     53.9,
+     61.3
+    ],
+    "comb_ms_r": [
+     30.9,
+     36.3,
+     42.3,
+     46.1,
+     52.7,
+     59.1
+    ],
+    "comb_gain": 0.35,
+    "er_ms_l": [
+     7,
+     14,
+     23,
+     34,
+     47,
+     62
+    ],
+    "er_ms_r": [
+     9,
+     17,
+     26,
+     38,
+     52,
+     68
+    ],
+    "er_gain": [
+     0.55,
+     0.5,
+     0.42,
+     0.36,
+     0.3,
+     0.25
+    ],
+    "diff1_l": [
+     [
+      2.3,
+      5.1,
+      8.9,
+      13.7
+     ],
+     [
+      0.45,
+      0.35,
+      0.28,
+      0.2
+     ]
+    ],
+    "diff2_l": [
+     [
+      4.1,
+      9.7,
+      16.3,
+      23.9
+     ],
+     [
+      0.4,
+      0.3,
+      0.22,
+      0.15
+     ]
+    ],
+    "diff1_r": [
+     [
+      2.9,
+      5.9,
+      9.7,
+      14.9
+     ],
+     [
+      0.45,
+      0.35,
+      0.28,
+      0.2
+     ]
+    ],
+    "diff2_r": [
+     [
+      4.7,
+      10.9,
+      17.9,
+      25.3
+     ],
+     [
+      0.4,
+      0.3,
+      0.22,
+      0.15
+     ]
+    ]
+   },
+   "wet_gain_K": 0.4447,
+   "onset": {
+    "first_sample_above_1e-5": 24000,
+    "error_samples": 0,
+    "length_error": 0,
+    "max_abs_before_onset": 0.0
+   },
+   "objective": {
+    "wet_first_sample_after_impulse": 1296,
+    "wet_first_sample_after_impulse_ms": 27.0,
+    "decay_full_band": {
+     "EDT_s": 2.063,
+     "T20_s": 2.187,
+     "T30_s": 2.191,
+     "time_to_minus60dB_s": 2.068
+    },
+    "T30_by_band_s": {
+     "100-500Hz": 2.32,
+     "500-2000Hz": 2.226,
+     "2000-8000Hz": 2.194
+    },
+    "early_80ms_energy_share": 0.5246
+   },
+   "narration_band_ratio_db": {
+    "100-500Hz": -5.05,
+    "500-2000Hz": -4.57,
+    "2000-8000Hz": -8.13,
+    "8000-16000Hz": -15.07,
+    "all": -5.19
+   },
+   "smoke": {
+    "length_samples": 960000,
+    "finite": true,
+    "peak_abs": 0.863160252571106,
+    "lufs": -17.0,
+    "lufs_bypass": -18.0,
+    "lufs_delta": 1.0,
+    "diff_vs_bypass_rms_db": -5.41,
+    "last_10ms_rms_dbfs": -87.44116262811676
+   },
+   "mix0_max_abs_diff_vs_bypass": 0.0,
+   "drift": {
+    "rerun_identical": true,
+    "scalar_vs_simd_identical": true,
+    "scalar_vs_simd_max_abs_diff": 0.0,
+    "builds": {
+     "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": true,
+      "max_abs_diff": 0.0,
+      "diff_rms_db_re_signal": -219.5,
+      "first_differing_sample": null
+     },
+     "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": true,
+      "max_abs_diff": 0.0,
+      "diff_rms_db_re_signal": -219.5,
+      "first_differing_sample": null
+     }
+    }
+   }
+  },
+  "r2-B": {
+   "name": "ir-2200",
+   "params": {
+    "construction": "ir",
+    "predelay_ms": 20.0,
+    "split_hz": 1500,
+    "hf_lowpass_hz": 7500,
+    "hf_ratio": 0.4,
+    "hf_level": 1.8,
+    "lf_highpass_hz": 120,
+    "er_lowpass_hz": 4500,
+    "seeds_lo": [
+     21,
+     22
+    ],
+    "seeds_hi": [
+     31,
+     32
+    ],
+    "er_ms_l": [
+     7,
+     14,
+     23,
+     34,
+     47,
+     62
+    ],
+    "er_ms_r": [
+     9,
+     17,
+     26,
+     38,
+     52,
+     68
+    ],
+    "er_gain": [
+     2.2,
+     1.9,
+     1.6,
+     1.3,
+     1.1,
+     0.9
+    ],
+    "decay_ms": 2200.0,
+    "mix": 0.55
+   },
+   "wet_gain_K": 0.0498,
+   "onset": {
+    "first_sample_above_1e-5": 24000,
+    "error_samples": 0,
+    "length_error": 0,
+    "max_abs_before_onset": 1.0244548542814869e-09
+   },
+   "objective": {
+    "wet_first_sample_after_impulse": 961,
+    "wet_first_sample_after_impulse_ms": 20.02,
+    "decay_full_band": {
+     "EDT_s": 1.623,
+     "T20_s": 2.119,
+     "T30_s": 2.129,
+     "time_to_minus60dB_s": 2.008
+    },
+    "T30_by_band_s": {
+     "100-500Hz": 3.194,
+     "500-2000Hz": 2.189,
+     "2000-8000Hz": 1.47
+    },
+    "early_80ms_energy_share": 0.5436
+   },
+   "narration_band_ratio_db": {
+    "100-500Hz": -3.7,
+    "500-2000Hz": -6.2,
+    "2000-8000Hz": -14.99,
+    "8000-16000Hz": -21.62,
+    "all": -5.2
+   },
+   "smoke": {
+    "length_samples": 960000,
+    "finite": true,
+    "peak_abs": 0.7960838079452515,
+    "lufs": -17.1,
+    "lufs_bypass": -18.0,
+    "lufs_delta": 0.9,
+    "diff_vs_bypass_rms_db": -5.42,
+    "last_10ms_rms_dbfs": -87.44116262811676
+   },
+   "mix0_max_abs_diff_vs_bypass": 0.0,
+   "drift": {
+    "rerun_identical": true,
+    "scalar_vs_simd_identical": false,
+    "scalar_vs_simd_max_abs_diff": 1.1920928955078125e-07,
+    "builds": {
+     "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": false,
+      "max_abs_diff": 0.10791015881113708,
+      "diff_rms_db_re_signal": -39.4,
+      "first_differing_sample": 927744
+     },
+     "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": true,
+      "max_abs_diff": 0.0,
+      "diff_rms_db_re_signal": -219.5,
+      "first_differing_sample": null
+     }
+    }
+   }
+  },
+  "r2-C": {
+   "name": "ir-3000",
+   "params": {
+    "construction": "ir",
+    "predelay_ms": 30.0,
+    "split_hz": 1500,
+    "hf_lowpass_hz": 7500,
+    "hf_ratio": 0.4,
+    "hf_level": 1.8,
+    "lf_highpass_hz": 120,
+    "er_lowpass_hz": 4500,
+    "seeds_lo": [
+     21,
+     22
+    ],
+    "seeds_hi": [
+     31,
+     32
+    ],
+    "er_ms_l": [
+     7,
+     14,
+     23,
+     34,
+     47,
+     62
+    ],
+    "er_ms_r": [
+     9,
+     17,
+     26,
+     38,
+     52,
+     68
+    ],
+    "er_gain": [
+     2.2,
+     1.9,
+     1.6,
+     1.3,
+     1.1,
+     0.9
+    ],
+    "decay_ms": 3000.0,
+    "mix": 0.7
+   },
+   "wet_gain_K": 0.0428,
+   "onset": {
+    "first_sample_above_1e-5": 24000,
+    "error_samples": 0,
+    "length_error": 0,
+    "max_abs_before_onset": 1.3038515822572094e-09
+   },
+   "objective": {
+    "wet_first_sample_after_impulse": 1441,
+    "wet_first_sample_after_impulse_ms": 30.02,
+    "decay_full_band": {
+     "EDT_s": 2.288,
+     "T20_s": 2.846,
+     "T30_s": 2.931,
+     "time_to_minus60dB_s": 2.749
+    },
+    "T30_by_band_s": {
+     "100-500Hz": 3.713,
+     "500-2000Hz": 3.021,
+     "2000-8000Hz": 1.998
+    },
+    "early_80ms_energy_share": 0.442
+   },
+   "narration_band_ratio_db": {
+    "100-500Hz": -1.51,
+    "500-2000Hz": -4.28,
+    "2000-8000Hz": -12.96,
+    "8000-16000Hz": -19.59,
+    "all": -3.09
+   },
+   "smoke": {
+    "length_samples": 960000,
+    "finite": true,
+    "peak_abs": 0.8057412505149841,
+    "lufs": -16.7,
+    "lufs_bypass": -18.0,
+    "lufs_delta": 1.3,
+    "diff_vs_bypass_rms_db": -3.31,
+    "last_10ms_rms_dbfs": -87.44116262811676
+   },
+   "mix0_max_abs_diff_vs_bypass": 0.0,
+   "drift": {
+    "rerun_identical": true,
+    "scalar_vs_simd_identical": false,
+    "scalar_vs_simd_max_abs_diff": 1.1920928955078125e-07,
+    "builds": {
+     "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": false,
+      "max_abs_diff": 0.10791015648283064,
+      "diff_rms_db_re_signal": -40.0,
+      "first_differing_sample": 927744
+     },
+     "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers": {
+      "length_samples": 960000,
+      "identical": true,
+      "max_abs_diff": 0.0,
+      "diff_rms_db_re_signal": -220.1,
+      "first_differing_sample": null
+     }
+    }
+   }
+  }
+ },
+ "yardstick_round1_reverb_1200ms_mix0.3": {
+  "narration_band_ratio_db": {
+   "100-500Hz": -6.55,
+   "500-2000Hz": -7.2,
+   "2000-8000Hz": -10.0,
+   "8000-16000Hz": -10.11,
+   "all": -7.14
+  },
+  "decay": {
+   "EDT_s": 1.171,
+   "T20_s": 1.203,
+   "T30_s": 1.197,
+   "time_to_minus60dB_s": 1.133,
+   "T30_by_band_s": {
+    "100-500Hz": 44.104,
+    "500-2000Hz": 1.43,
+    "2000-8000Hz": 1.238
+   }
+  }
+ },
+ "claims": [
+  {
+   "ok": true,
+   "claim": "onset: r2-A: dry onset +0 samples, length +0"
+  },
+  {
+   "ok": true,
+   "claim": "onset: r2-A: no wet energy before the literal pre-delay (first wet sample > 1e-5 at +27.0 ms, pre-delay 20.0 ms)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: length exactly 20 s"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: no NaN/Inf"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: no clipping before the match gain (peak 0.863)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: above the -70 LUFS gate (-17.0)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: not a no-op (-5.4 dB re bypass)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-A: loudness within 3 LU of bypass (+1.00)"
+  },
+  {
+   "ok": true,
+   "claim": "bypass: r2-A: mix 0 is byte-identical to the bypass (max diff 0.0e+00)"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: r2-A: byte-identical rerun"
+  },
+  {
+   "ok": true,
+   "claim": "onset: r2-B: dry onset +0 samples, length +0"
+  },
+  {
+   "ok": true,
+   "claim": "onset: r2-B: no wet energy before the literal pre-delay (first wet sample > 1e-5 at +20.02 ms, pre-delay 20.0 ms)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: length exactly 20 s"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: no NaN/Inf"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: no clipping before the match gain (peak 0.796)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: above the -70 LUFS gate (-17.1)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: not a no-op (-5.4 dB re bypass)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-B: loudness within 3 LU of bypass (+0.90)"
+  },
+  {
+   "ok": true,
+   "claim": "bypass: r2-B: mix 0 is byte-identical to the bypass (max diff 0.0e+00)"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: r2-B: byte-identical rerun"
+  },
+  {
+   "ok": true,
+   "claim": "onset: r2-C: dry onset +0 samples, length +0"
+  },
+  {
+   "ok": true,
+   "claim": "onset: r2-C: no wet energy before the literal pre-delay (first wet sample > 1e-5 at +30.02 ms, pre-delay 30.0 ms)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: length exactly 20 s"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: no NaN/Inf"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: no clipping before the match gain (peak 0.806)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: above the -70 LUFS gate (-16.7)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: not a no-op (-3.3 dB re bypass)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: r2-C: loudness within 3 LU of bypass (+1.30)"
+  },
+  {
+   "ok": true,
+   "claim": "bypass: r2-C: mix 0 is byte-identical to the bypass (max diff 0.0e+00)"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: r2-C: byte-identical rerun"
+  }
+ ]
+}
