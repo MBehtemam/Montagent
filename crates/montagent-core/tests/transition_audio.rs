@@ -228,6 +228,33 @@ fn seen(dir: &Path, name: &str, transition: Option<Value>) -> PathBuf {
     sounding(dir, name, transition, "", true)
 }
 
+/// A 3 s picture with no audio stream at all.
+fn mute(dir: &Path, name: &str) -> String {
+    let path = dir.join(name);
+    let made = std::process::Command::new(
+        montagent_core::media::tools::resolve()
+            .expect("an ffmpeg")
+            .ffmpeg,
+    )
+    .args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+    ])
+    .arg("color=c=blue:s=64x64:r=25:d=3")
+    .args(["-c:v", "libx264", "-pix_fmt", "yuv420p"])
+    .arg(&path)
+    .status()
+    .expect("ffmpeg runs")
+    .success();
+    assert!(made);
+    path.display().to_string().replace('\\', "/")
+}
+
 fn sounding(
     dir: &Path,
     name: &str,
@@ -423,4 +450,295 @@ fn an_audio_crossfade_paints_nothing_and_frame_raises_nothing_for_it() {
     let text = answer.to_string();
     assert!(!text.contains("E-NOT-PAINTED"), "{text}");
     assert!(!text.contains("audio_crossfade"), "{text}");
+}
+
+// ---------------------------------------------------------------------------
+// `validate`: one error, three reviews (S3)
+// ---------------------------------------------------------------------------
+
+/// The ADR-0176 codes in a report, in the order found.
+fn audio_codes(report: &Report) -> Vec<&str> {
+    report
+        .findings
+        .iter()
+        .map(|f| f.code.as_str())
+        .filter(|code| code.contains("TRANSITION") && !code.ends_with("-RANGE"))
+        .collect()
+}
+
+/// The report as the text form prints it: where a finding's prose is read.
+fn prose(report: &Report) -> String {
+    montagent_core::text::render(&report.to_json(), montagent_core::text::Options::verbose())
+        .unwrap()
+}
+
+#[track_caller]
+fn checked(path: &Path) -> Report {
+    validate(path)
+}
+
+/// `a` and `b` as `video` elements, `a` carrying `extra_a`, bridged by `transition`.
+fn pictures(dir: &Path, name: &str, transition: Value, extra_a: &str) -> PathBuf {
+    sounding(dir, name, Some(transition), extra_a, true)
+}
+
+#[test]
+fn a_dissolve_between_two_sounding_clips_gains_exactly_one_unset_review() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let path = pictures(&dir, "unset", transition("crossfade", json!({})), "");
+    let report = checked(&path);
+    assert_eq!(audio_codes(&report), ["R-TRANSITION-AUDIO-UNSET"]);
+    let text = prose(&report);
+    assert!(
+        text.contains("constant_power") && text.contains("cut"),
+        "the text gives both literals: {text}"
+    );
+    // Clearing it is one string replace, either way.
+    for value in ["constant_power", "cut"] {
+        let body = std::fs::read_to_string(&path).unwrap().replace(
+            r#""kind": "crossfade""#,
+            &format!(r#""kind": "crossfade", "audio": "{value}""#),
+        );
+        let body = body.replace(
+            r#""kind":"crossfade""#,
+            &format!(r#""kind":"crossfade","audio":"{value}""#),
+        );
+        std::fs::write(&path, body).unwrap();
+        assert!(
+            audio_codes(&checked(&path)).is_empty(),
+            "{value}: {:?}",
+            audio_codes(&checked(&path))
+        );
+        std::fs::write(
+            &path,
+            std::fs::read_to_string(&path)
+                .unwrap()
+                .replace(&format!(r#","audio":"{value}""#), "")
+                .replace(&format!(r#", "audio": "{value}""#), ""),
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn the_unset_review_stays_quiet_when_a_side_is_silent_or_the_kind_is_not_a_picture() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    // A constant `volume: 0` on a side: no sound to hard-cut, so no UNSET — but the silence
+    // is itself reviewed.
+    let path = pictures(
+        &dir,
+        "muted",
+        transition("crossfade", json!({})),
+        r#","volume":0"#,
+    );
+    assert_eq!(audio_codes(&checked(&path)), ["R-TRANSITION-AUDIO-SILENT"]);
+    // A side with no audio stream is not an error on a picture kind, and UNSET needs both.
+    let dir = common::tempdir(line!());
+    let path = sounding(
+        &dir,
+        "mute-b",
+        Some(transition("crossfade", json!({}))),
+        "",
+        true,
+    );
+    let body = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace("b.mp4", "m.mp4");
+    mute(&dir, "m.mp4");
+    std::fs::write(&path, body).unwrap();
+    let report = checked(&path);
+    assert!(
+        audio_codes(&report).is_empty(),
+        "{:?}",
+        audio_codes(&report)
+    );
+}
+
+#[test]
+fn an_audio_crossfade_side_without_an_audio_stream_is_a_refuse_class_error() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let path = pictures(
+        &dir,
+        "nostream",
+        transition("audio_crossfade", json!({"audio": "constant_power"})),
+        "",
+    );
+    let body = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace("b.mp4", "m.mp4");
+    mute(&dir, "m.mp4");
+    std::fs::write(&path, body).unwrap();
+    let report = checked(&path);
+    assert_eq!(audio_codes(&report), ["E-TRANSITION-AUDIO-NO-STREAM"]);
+    let finding = &report.findings[0];
+    assert_eq!(finding.fields["side"], json!("to"));
+    assert_eq!(finding.fields["target"], json!("b"));
+    assert!(
+        finding.fields["source"]
+            .as_str()
+            .unwrap()
+            .ends_with("m.mp4"),
+        "{:?}",
+        finding.fields
+    );
+    // With sound on both sides it is clean.
+    let clean = pictures(
+        &dir,
+        "clean",
+        transition("audio_crossfade", json!({"audio": "constant_gain"})),
+        "",
+    );
+    assert!(audio_codes(&checked(&clean)).is_empty());
+}
+
+#[test]
+fn an_audio_crossfade_names_audio_or_video_and_a_picture_kind_still_refuses_an_audio() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    // An audio_crossfade over two `audio` elements validates clean.
+    let path = heard(
+        &dir,
+        "sound",
+        Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_power"}),
+        )),
+        "",
+    );
+    assert!(audio_codes(&checked(&path)).is_empty());
+    // Naming something that makes no sound: refused, and the text names what the kind accepts.
+    let body = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace(r#""from":"a""#, r#""from":"nobody""#);
+    let body = body.replace(r#""from": "a""#, r#""from": "nobody""#);
+    std::fs::write(&path, body).unwrap();
+    let report = checked(&path);
+    let missing: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "E-TRANSITION-REF-MISSING")
+        .collect();
+    assert_eq!(missing.len(), 1, "{:?}", audio_codes(&report));
+    assert!(
+        prose(&report).contains("audio or video"),
+        "{}",
+        prose(&report)
+    );
+    // A picture kind over `audio` elements keeps refusing them, naming its own kinds.
+    let path = heard(
+        &dir,
+        "picture",
+        Some(transition("crossfade", json!({}))),
+        "",
+    );
+    let report = checked(&path);
+    let missing: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == "E-TRANSITION-REF-MISSING")
+        .collect();
+    assert_eq!(missing.len(), 2);
+    assert!(
+        prose(&report).contains("visual element"),
+        "{}",
+        prose(&report)
+    );
+    // One fact, one code: a reference error silences the new reviews.
+    assert!(
+        !audio_codes(&report).iter().any(|c| c.starts_with("R-")),
+        "{:?}",
+        audio_codes(&report)
+    );
+}
+
+#[test]
+fn a_volume_that_changes_inside_the_window_is_reviewed_and_a_flat_one_is_not() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let crossfade = || transition("audio_crossfade", json!({"audio": "constant_power"}));
+    for (extra, expected) in [
+        // A keyframe strictly inside (1000, 2000).
+        (r#","volume":[{"t":0,"v":1.0},{"t":1500,"v":0.5}]"#, true),
+        // A segment straddling the whole window with differing levels.
+        (r#","volume":[{"t":500,"v":1.0},{"t":2500,"v":0.5}]"#, true),
+        // Changes before the window only.
+        (r#","volume":[{"t":0,"v":1.0},{"t":900,"v":0.5}]"#, false),
+        // A flat level across the window, written as keyframes or as a scalar.
+        (r#","volume":[{"t":500,"v":0.5},{"t":2500,"v":0.5}]"#, false),
+        (r#","volume":0.5"#, false),
+    ] {
+        let dir = common::tempdir(line!());
+        let path = heard(&dir, "stack", Some(crossfade()), extra);
+        let report = checked(&path);
+        let codes = audio_codes(&report);
+        match expected {
+            true => assert_eq!(codes, ["R-TRANSITION-VOLUME-STACK"], "{extra}"),
+            false => assert!(codes.is_empty(), "{extra}: {codes:?}"),
+        }
+    }
+    // The text names the transition, the element and the keyframe times.
+    let dir = common::tempdir(line!());
+    let path = heard(
+        &dir,
+        "named",
+        Some(crossfade()),
+        r#","volume":[{"t":0,"v":1.0},{"t":1500,"v":0.5}]"#,
+    );
+    let report = checked(&path);
+    let text = prose(&report);
+    assert!(
+        text.contains('t') && text.contains("`a`") && text.contains("1500"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_silent_bridged_side_is_reviewed_on_any_kind() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    let audio = heard(
+        &dir,
+        "silent-audio",
+        Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_power"}),
+        )),
+        r#","volume":0"#,
+    );
+    assert_eq!(audio_codes(&checked(&audio)), ["R-TRANSITION-AUDIO-SILENT"]);
+    let picture = pictures(
+        &dir,
+        "silent-picture",
+        transition("crossfade", json!({"audio": "constant_power"})),
+        r#","volume":0"#,
+    );
+    assert_eq!(
+        audio_codes(&checked(&picture)),
+        ["R-TRANSITION-AUDIO-SILENT"]
+    );
+    // A side at any other constant level is not silent.
+    let audible = heard(
+        &dir,
+        "audible",
+        Some(transition(
+            "audio_crossfade",
+            json!({"audio": "constant_power"}),
+        )),
+        r#","volume":0.25"#,
+    );
+    assert!(audio_codes(&checked(&audible)).is_empty());
 }

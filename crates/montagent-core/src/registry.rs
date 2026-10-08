@@ -1009,8 +1009,10 @@ between them.",
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0150",
-        template: "{element}: the transition's `{side}` names `{target}`, which is not a \
-visual element in this project.",
+        // ADR-0176: kind-dependent. The picture kinds accept a visual element and refuse an
+        // `audio`; an `audio_crossfade` accepts an `audio` or a `video`. `{accepts}` says which.
+        template: "{element}: the transition's `{side}` names `{target}`, which is not \
+{accepts} in this project.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1041,6 +1043,68 @@ transition hands over between two elements.",
         template: "{element}: the slide's `to`, `{to}` (layer {to_layer}), paints beneath \
 its `from`, `{from}` (layer {from_layer}). Only `to` moves in a slide, over a still `from`, \
 so `to` must paint above `from`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0176 §5. Refuse (ADR-0120): the fix forks — point the side at an element that
+        // sounds, or drop the transition — and the document does not say which was meant. An
+        // `audio_crossfade` exists to carry sound, so a side with none makes it a fade in
+        // disguise, which `volume` keyframes already express.
+        code: "E-TRANSITION-AUDIO-NO-STREAM",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0176",
+        template: "{element}: the audio crossfade's `{side}` names `{target}`, whose source \
+{source} carries no audio stream, so there is no sound to crossfade on that side.",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    CheckSpec {
+        // ADR-0176 §4. The only way a new agent writing a dissolve learns that `audio`
+        // exists: absence is a hard cut, which sounds wrong between two sounding clips. Not
+        // an amendment of ADR-0030 — `fmt` still leaves the key alone.
+        code: "R-TRANSITION-AUDIO-UNSET",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0176",
+        template: "{element}: this {kind} bridges `{from}` and `{to}`, which both carry \
+sound, and states no `audio`, so the sound hard-cuts under the picture. Write \
+`\"audio\": \"constant_power\"` to crossfade it, or `\"audio\": \"cut\"` to keep the cut \
+on purpose; either silences this.",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    CheckSpec {
+        // ADR-0176 §5. A review, not an error: the same file can mean an accidental double
+        // fade or a deliberate duck under narration that spans the cut.
+        code: "R-TRANSITION-VOLUME-STACK",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0176",
+        template: "{element}: the `volume` of `{target}` changes level inside the \
+transition's window ({keyframes}), and the transition's own `audio` fade multiplies with it.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0176 §5. `volume: 0` is an authored literal and `E-REMAP-AUDIBLE` explains why
+        // a speed ramp carries it, so this is a review and never an error: the crossfade is
+        // a one-sided fade.
+        code: "R-TRANSITION-AUDIO-SILENT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0176",
+        template: "{element}: the transition's `{side}`, `{target}`, is silent ({reason}), so \
+the transition's sound is a fade on the other side alone.",
         status: Live,
         census: None,
         sets: &[Document],
