@@ -55,6 +55,7 @@ pub mod layout;
 pub mod media;
 pub mod model;
 pub mod motion_blur;
+pub mod nest;
 pub mod parse;
 pub mod permissive;
 pub mod projection;

@@ -110,43 +110,55 @@ impl Gap {
 /// that owns the schema, and an overlap that cannot be computed is never reported as an
 /// overlap that is not there.
 pub fn sequences(document: &Loose) -> Vec<Sequence> {
-    document
-        .value()
-        .get("tracks")
+    let mut out = Vec::new();
+    collect(document.value().get("tracks"), &mut out);
+    out
+}
+
+/// One level of tracks, and then the tracks of every nest in them (#780). A nest is an
+/// element of its parent track and counts by its window; its own tracks are tracks.
+fn collect(tracks: Option<&Value>, out: &mut Vec<Sequence>) {
+    for track in tracks
         .and_then(Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default()
-        .iter()
-        .map(|track| {
-            let mut spans: Vec<Span> = track
-                .get("elements")
-                .and_then(Value::as_array)
-                .map(Vec::as_slice)
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|element| {
-                    let start = element.get("start")?.as_i64()?;
-                    let end = element.get("end")?.as_i64()?;
-                    (end > start).then_some(Span {
-                        element: crate::checks::subject_of(
-                            element.get("id").and_then(Value::as_str),
-                        ),
-                        start,
-                        end,
-                    })
+    {
+        let mut spans: Vec<Span> = track
+            .get("elements")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|element| {
+                let start = element.get("start")?.as_i64()?;
+                let end = element.get("end")?.as_i64()?;
+                (end > start).then_some(Span {
+                    element: crate::checks::subject_of(element.get("id").and_then(Value::as_str)),
+                    start,
+                    end,
                 })
-                .collect();
-            // Ties broken by `end` and then by the name, so a report is byte-identical
-            // across runs — nothing downstream may depend on which check spoke first, and
-            // that has to include which instance of one check did.
-            spans.sort_by(|a, b| (a.start, a.end, &a.element).cmp(&(b.start, b.end, &b.element)));
-            Sequence {
-                track: track
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
-                spans,
+            })
+            .collect();
+        // Ties broken by `end` and then by the name, so a report is byte-identical
+        // across runs — nothing downstream may depend on which check spoke first, and
+        // that has to include which instance of one check did.
+        spans.sort_by(|a, b| (a.start, a.end, &a.element).cmp(&(b.start, b.end, &b.element)));
+        out.push(Sequence {
+            track: track
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            spans,
+        });
+        for element in track
+            .get("elements")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+        {
+            if crate::nest::is_nest(element) {
+                collect(element.get("tracks"), out);
             }
-        })
-        .collect()
+        }
+    }
 }

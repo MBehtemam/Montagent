@@ -20,6 +20,7 @@ fn transform(x: f64, y: f64, origin: (f64, f64), projection: Option<Projection>)
         opacity: 1.0,
         blend: Blend::Normal,
         projection,
+        nest: None,
     }
 }
 

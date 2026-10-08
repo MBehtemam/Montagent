@@ -141,6 +141,11 @@ pub struct Transform {
     /// projection about `origin`, innermost, before `scale`, `rotation` and `x`/`y`. `None`
     /// on an element with neither field, which paints exactly as before (ADR-0168 §1).
     pub projection: Option<Projection>,
+    /// The composed matrix of every enclosing nest (#780), `[a, b, c, d, e, f]` with
+    /// `x' = a·x + c·y + e`, `y' = b·x + d·y + f`. Applied after `clip` (which stays in
+    /// frame space) and before everything else, so a child's own transform sits inside it.
+    /// `None` outside any nest: such an element paints exactly as before.
+    pub nest: Option<[f64; 6]>,
 }
 
 /// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
@@ -1791,6 +1796,11 @@ impl Canvas {
             paint.set_blend_mode(transform.blend.mode());
             canvas.save_layer(&SaveLayerRec::default().paint(&paint));
         }
+        if let Some([a, b, c, d, e, f]) = transform.nest {
+            canvas.concat(&skia_safe::Matrix::new_all(
+                a as f32, c as f32, e as f32, b as f32, d as f32, f as f32, 0.0, 0.0, 1.0,
+            ));
+        }
         canvas.translate((transform.x as f32, transform.y as f32));
         if transform.rotation != 0.0 {
             canvas.rotate(transform.rotation as f32, None);
@@ -2589,6 +2599,7 @@ mod tests {
                 blend: Blend::Normal,
                 projection: None,
                 origin: (0.0, 0.0),
+                nest: None,
             },
             None,
             effects,
@@ -2758,6 +2769,7 @@ mod tests {
                 opacity: 1.0,
                 blend: Blend::Normal,
                 projection: None,
+                nest: None,
             },
             None,
             &[],
@@ -3088,6 +3100,7 @@ mod tests {
                 blend: Blend::Normal,
                 projection: None,
                 origin: (0.0, 0.0),
+                nest: None,
             },
             None,
             &[],
@@ -3137,6 +3150,7 @@ mod tests {
             opacity: 1.0,
             blend: Blend::Normal,
             projection: None,
+            nest: None,
         }
     }
 

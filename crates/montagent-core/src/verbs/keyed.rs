@@ -393,6 +393,7 @@ fn sample(
             blend: montagent_render::canvas::Blend::Normal,
             projection: None,
             origin: (0.0, 0.0),
+            nest: None,
         },
         None,
         effects,

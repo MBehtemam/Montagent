@@ -198,7 +198,7 @@ impl<'a> Stack<'a> {
     pub fn of(document: &'a Loose) -> Stack<'a> {
         let mut stack = Stack::default();
         for track in document
-            .value()
+            .flat_value()
             .get("tracks")
             .and_then(Value::as_array)
             .into_iter()

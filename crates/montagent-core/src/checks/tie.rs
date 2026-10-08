@@ -116,7 +116,7 @@ pub fn check(document: &Loose, report: &mut Report) {
     // of the document's content and not of its array order.
     let mut by_layer: BTreeMap<i64, Vec<Tied<'_>>> = BTreeMap::new();
     for (track_index, track) in document
-        .value()
+        .flat_value()
         .get("tracks")
         .and_then(Value::as_array)
         .into_iter()

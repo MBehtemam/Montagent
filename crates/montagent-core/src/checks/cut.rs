@@ -163,7 +163,8 @@ pub fn check(document: &Loose, report: &mut Report) {
     let looping = root.get("loop") == Some(&Value::Bool(true));
     let duration = root.get("duration").and_then(Value::as_i64);
 
-    for track in root
+    for track in document
+        .flat_value()
         .get("tracks")
         .and_then(Value::as_array)
         .into_iter()

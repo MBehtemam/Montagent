@@ -178,7 +178,8 @@ fn sightings(document: &Loose) -> Vec<Sighting> {
             .filter_map(|(key, value)| project.retired_colour(key, value)),
     );
 
-    for track in root
+    for track in document
+        .flat_value()
         .get("tracks")
         .and_then(Value::as_array)
         .into_iter()

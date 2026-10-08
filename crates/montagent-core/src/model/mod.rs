@@ -512,6 +512,7 @@ pub enum Body {
     Path(PathElement),
     Audio(Audio),
     Transition(Transition),
+    Nest(Nest),
 }
 
 impl Body {
@@ -527,6 +528,7 @@ impl Body {
             Body::Path(_) => "path",
             Body::Audio(_) => "audio",
             Body::Transition(_) => "transition",
+            Body::Nest(_) => "nest",
         }
     }
 }
@@ -629,6 +631,25 @@ pub struct Image {
     pub motion_blur: Option<MotionBlur>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+}
+
+/// **Nest** (prototype, #780): a container for space only. It has no clock — children keep
+/// timeline ms — and no layer, box, opacity, blend, effects, mask or clip. It composes one
+/// matrix, `translate(x, y) · about(pivot)(rotate · scale)`, before each child's own
+/// transform. `pivot` is required, static, integer pixels in the immediate parent's space.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Nest {
+    pub pivot: [i64; 2],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    pub tracks: Vec<Track>,
 }
 
 /// An image that also has a clock.

@@ -97,7 +97,7 @@ struct Sides {
 fn groups(document: &Loose) -> BTreeMap<String, Sides> {
     let mut out: BTreeMap<String, Sides> = BTreeMap::new();
     for track in document
-        .value()
+        .flat_value()
         .get("tracks")
         .and_then(Value::as_array)
         .into_iter()

@@ -41,6 +41,9 @@ pub struct Loose {
     path: String,
     value: Value,
     source: Option<String>,
+    /// The document with its nests expanded (#780), where it holds any. Every walk of "the
+    /// elements" reads this instead of `value`, so a nest's leaves are elements everywhere.
+    flat: Option<Value>,
 }
 
 /// The document is not a Montagent project.
@@ -74,10 +77,12 @@ impl Loose {
     /// JSON is broken" cannot be confused. Typing them into `serde` at this layer would
     /// turn each into a parse failure and collapse the distinction.
     pub fn new(path: impl Into<String>, value: Value) -> Self {
+        let flat = crate::nest::flatten(&value);
         Loose {
             path: path.into(),
             value,
             source: None,
+            flat,
         }
     }
 
@@ -127,6 +132,11 @@ impl Loose {
         }
     }
 
+    /// The document with its nests expanded; the written one where there is none.
+    pub fn flat_value(&self) -> &Value {
+        self.flat.as_ref().unwrap_or(&self.value)
+    }
+
     /// The document as it was written, key order and field presence intact.
     pub fn value(&self) -> &Value {
         &self.value
@@ -158,7 +168,7 @@ impl Loose {
     /// happened to want the name — which is how the two would come to disagree about what
     /// "every element" means on a document with a malformed track.
     pub fn elements_in_tracks(&self) -> impl Iterator<Item = (Option<&str>, &Value)> {
-        self.value["tracks"]
+        self.flat_value()["tracks"]
             .as_array()
             .map(Vec::as_slice)
             .unwrap_or_default()

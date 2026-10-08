@@ -235,7 +235,8 @@ fn overview_of(document: &Loose) -> Overview {
 
     let mut tracks = Vec::new();
     let mut rows = Vec::new();
-    for track in root
+    for track in document
+        .flat_value()
         .get("tracks")
         .and_then(Value::as_array)
         .into_iter()

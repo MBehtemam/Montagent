@@ -72,6 +72,7 @@ pub(crate) fn placed(element: &Value, t: (i128, i128), frame: (i64, i64)) -> Tra
         opacity: geometry::number_at::<f64>(element, "opacity", t, 1.0),
         blend: montagent_render::canvas::Blend::Normal,
         projection: at(element, t),
+        nest: crate::nest::composed(element, t).map(|m| m.as_array()),
     }
 }
 
