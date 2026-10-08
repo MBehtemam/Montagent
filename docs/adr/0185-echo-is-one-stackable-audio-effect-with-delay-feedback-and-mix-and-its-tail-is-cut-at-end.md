@@ -6,7 +6,7 @@ status: proposed (DRAFT; becomes accepted once the render-test table in section 
 
 [Capability ADR and hand-off spec: echo](https://github.com/MBehtemam/Montagent/issues/795) on the audio map
 ([#795](https://github.com/MBehtemam/Montagent/issues/795)), modelled on
-[ADR-0182](0182-the-noise-gate-is-one-stackable-audio-effect-with-a-range-no-hold-and-an-rms-threshold.md),
+[ADR-0183](0183-the-noise-gate-is-one-stackable-audio-effect-with-a-range-no-hold-and-an-rms-threshold.md),
 [ADR-0180](0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md)
 and [ADR-0179](0179-eq-is-four-stackable-audio-effects-built-from-butterworth-biquad-sections.md). No ticket
 ruled echo's shape; this draft proposes one. **Reverb is explicitly out of this ADR**: the same prototype built
@@ -45,7 +45,7 @@ described in section 2.
 - **Stackable (non-singular), ADR-0169.** A short slap and a long repeat on one voice is ordinary practice, and
   two copies are two independent tap lines. Unlike EQ there is **no stack cap**: an `aecho` is one cheap
   tap line with no recursion and no per-sample state beyond its buffer, so the cap's reason (a graph that grows
-  without a sound reason) does not apply. There is no `N-ECHO-STACKED` note either (ADR-0182 has one for the
+  without a sound reason) does not apply. There is no `N-ECHO-STACKED` note either (ADR-0183 has one for the
   gate): two echoes are not a likely mistake and the note would have no repair.
 - **Ranges.** `delay_ms` 1..2000 is the README's proposal and Premiere's Delay ceiling (recalled, PRECEDENT
   section 10); `aecho` itself allows 90 000. 1 ms is 48 samples at the mix rate and reads as a comb filter
@@ -210,7 +210,7 @@ condition is recorded so the finding can be added without a design if a listener
 
 ### 6. Not animatable
 
-`aecho` accepts no runtime commands (README; the harness of FFMPEG-FILTERS section 4.2 is the one ADR-0182
+`aecho` accepts no runtime commands (README; the harness of FFMPEG-FILTERS section 4.2 is the one ADR-0183
 section 5 used). Under #842 a filter that drops or ignores commands is never admitted as keyframable, so
 **every key is a static literal and a keyframe list on one is a schema error.** This is a named departure from
 Premiere, whose Delay parameters are keyframable.

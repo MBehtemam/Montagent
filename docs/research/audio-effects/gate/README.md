@@ -1,4 +1,4 @@
-# Noise gate as an audio effect: evidence for ADR-0182 (draft)
+# Noise gate as an audio effect: evidence for ADR-0183 (draft)
 
 Ticket: the noise-gate capability on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)),
 modelled on the compressor and limiter ([ADR-0180](../../../adr/0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md)).

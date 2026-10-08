@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evidence for the noise-gate ADR (0182): agate's static curve, timing, onset, commands and drift.
+"""Evidence for the noise-gate ADR (0183): agate's static curve, timing, onset, commands and drift.
 
 Everything is measured on PCM (double precision, BEFORE any AAC encode; ADR-0173 section 3) from
 lavfi signals built from literal parameters. Exits non-zero when a number stops holding.

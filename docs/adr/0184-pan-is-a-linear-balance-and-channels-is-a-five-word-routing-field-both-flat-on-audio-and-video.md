@@ -6,7 +6,7 @@ status: proposed (DRAFT; becomes accepted once the render-test table in section 
 
 [Capability ADR and hand-off spec: pan/balance and channel operations](https://github.com/MBehtemam/Montagent/issues/795)
 on the audio map (#795), modelled on
-[ADR-0182](0182-the-noise-gate-is-one-stackable-audio-effect-with-a-range-no-hold-and-an-rms-threshold.md)
+[ADR-0183](0183-the-noise-gate-is-one-stackable-audio-effect-with-a-range-no-hold-and-an-rms-threshold.md)
 and [ADR-0180](0180-the-compressor-and-the-limiter-are-two-audio-effects-with-no-defaults-and-an-rms-threshold.md).
 The map named these two under "level and space" and left both for the later wave; ADR-0169 reserved their
 shape ("flat fields") and ADR-0170 fixed the pan range. This ADR fixes the law, the vocabulary, the slots,
