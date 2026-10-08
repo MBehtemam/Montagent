@@ -250,6 +250,9 @@ fn run_checks(
     // ADR-0167 §8 and ADR-0168 §3: a projection's `perspective` missing or alone, the eye
     // bound, strong foreshortening, and an element that never faces the eye. Document-only.
     crate::checks::projection::check(document, report);
+    // ADR-0169's three `audio_effects` rules: a member in the other vocabulary's list, a
+    // second enabled copy of a singular member, and a member left bypassed. Document-only.
+    crate::checks::audio_effects::check(document, report);
     // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
     // decided on the frame grid without painting a frame.
     crate::checks::grain::check(document, report);

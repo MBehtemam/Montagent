@@ -1376,6 +1376,50 @@ projected element needs the eye's distance in px to be drawn in perspective. Add
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0169: the two effect vocabularies never share a member (ADR-0040). Refuse: the
+        // member is in the wrong list, but its position in the right one is the order it is
+        // applied in, and only the author knows that.
+        code: "E-AUDIO-EFFECT-WRONG-LIST",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.{list}[{index}]: `{member}` is not a member of `{list}`; it \
+belongs in `{right}`. Move it there, at the position in that list where it should be applied.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0169: a second enabled copy of a member whose own ADR declares it singular.
+        // Refuse: which copy's parameters win is the author's call.
+        code: "E-AUDIO-EFFECT-SINGULAR",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.audio_effects[{index}]: a second enabled `{member}`; the one at \
+index {first} is the same effect, and only one may be enabled. Keep one, or set `\"enabled\": \
+false` on the other.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0169: a bypassed member in a finished project is a leftover. A review: bypassing
+        // is the routine way to listen against the source.
+        code: "R-AUDIO-EFFECT-DISABLED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.audio_effects[{index}]: `{member}` is set to `\"enabled\": \
+false`, so it does not render. Delete it, or remove the `enabled` key if it should apply.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`. Advise: with neither angle
         // written the element is not projected, so dropping it changes nothing drawn. An
         // angle written as `0` counts as written (ADR-0168 §1).

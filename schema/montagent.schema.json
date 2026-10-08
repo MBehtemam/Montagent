@@ -370,6 +370,13 @@
               "items": {
                 "$ref": "#/$defs/Effect"
               }
+            },
+            "audio_effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AudioEffect"
+              },
+              "description": "The embedded track's signal-shaping list, run after `speed` and `overrun` and before\n`volume` (ADR-0169). A separate vocabulary from `effects`."
             }
           },
           "required": [
@@ -1011,6 +1018,13 @@
             },
             "volume": {
               "$ref": "#/$defs/AnimatableVolume"
+            },
+            "audio_effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/AudioEffect"
+              },
+              "description": "An ordered list of signal-shaping members, run after `speed` and `overrun` and before\n`volume` (ADR-0169). Written after `volume` in the file, as every list appends."
             }
           },
           "required": [
@@ -3062,6 +3076,10 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
+    },
+    "AudioEffect": {
+      "not": {},
+      "description": "One member of the closed audio-effect vocabulary, discriminated by `name`.\n\nTwo members of the same name are ordinary unless the member's own ADR declares it singular\n(ADR-0169)."
     },
     "Paint": {
       "anyOf": [
