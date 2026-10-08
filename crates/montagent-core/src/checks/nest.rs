@@ -117,7 +117,10 @@ pub fn check(document: &Loose, report: &mut Report) {
 
     // R-CLIP-IN-MOVING-NEST: a clipped leaf whose chain is not the identity at some instant.
     for (track, element) in document.elements_in_tracks() {
-        if element.get("clip").is_none() || nest::chain(element).is_empty() {
+        let Some(clip) = element.get("clip") else {
+            continue;
+        };
+        if nest::chain(element).is_empty() || clip_spans_the_frame(clip, root) {
             continue;
         }
         let Some((start, end)) = interval(element) else { continue };
@@ -155,4 +158,25 @@ fn moving_instant(element: &Value, start: i64, end: i64) -> Option<i64> {
     instants
         .into_iter()
         .find(|t| nest::composed(element, (i128::from(*t), 1)).is_some_and(|m| !m.is_identity()))
+}
+
+/// A `clip` that contains the whole frame cuts nothing, so it has nothing to leave behind
+/// when its child moves. (The phone mock-up writes `[0, 0, 1920, 1080]` on every screen.)
+fn clip_spans_the_frame(clip: &Value, root: &Value) -> bool {
+    let (Some(clip), Some(frame)) = (clip.as_array(), root.get("frame")) else {
+        return false;
+    };
+    let number = |value: Option<&Value>| value.and_then(Value::as_i64);
+    let (Some(x), Some(y), Some(w), Some(h)) = (
+        number(clip.first()),
+        number(clip.get(1)),
+        number(clip.get(2)),
+        number(clip.get(3)),
+    ) else {
+        return false;
+    };
+    let (Some(fw), Some(fh)) = (number(frame.get("width")), number(frame.get("height"))) else {
+        return false;
+    };
+    x <= 0 && y <= 0 && x + w >= fw && y + h >= fh
 }

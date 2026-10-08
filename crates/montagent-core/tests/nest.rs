@@ -574,3 +574,137 @@ fn shift_treats_a_nests_keys_as_keyframes_and_its_children_as_elements() {
         .collect();
     assert_eq!(times, vec![0, 500, 700, 1200]);
 }
+
+// ---------------------------------------------------------------------------------------
+// The phone mock-up's push-in (#597's hypothetical group), re-spelled as a nest.
+// ---------------------------------------------------------------------------------------
+
+#[test]
+fn the_phone_push_in_as_a_nest_matches_the_scale_copied_onto_every_child() {
+    // `x: 0, y: 0, pivot: [960, 540]`, against the baker's way: the group's `scale` keyframes
+    // written onto each child. Not byte-identical in general — the nest composes in `f32`
+    // and the flat spelling scales the child directly — but never more than one level on a
+    // handful of pixels, as the exact-scale pair in #612 was held to.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/nest/pip");
+    let nested = dir.join("pip-nest.montagent.json");
+    let flat = dir.join("pip-flat.montagent.json");
+    let mut largest = 0u8;
+    for instant in [0, 1250, 3000, 5900] {
+        let (_, a) = painted(&nested, instant);
+        let (_, b) = painted(&flat, instant);
+        assert_eq!(a.dimensions(), b.dimensions());
+        for (p, q) in a.pixels().zip(b.pixels()) {
+            for channel in 0..4 {
+                largest = largest.max(p.0[channel].abs_diff(q.0[channel]));
+            }
+        }
+    }
+    assert!(largest <= 1, "the push-in differs by {largest}/255");
+}
+
+// ---------------------------------------------------------------------------------------
+// Byte-identical across painters — the gating test every composing feature is held to.
+// ---------------------------------------------------------------------------------------
+
+mod painters {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use super::*;
+    use montagent_core::verbs::render::{
+        Ask, Forced, Progress, force_painting, render, tap_frames,
+    };
+    use montagent_render::canvas::bound_filter_layers;
+
+    use crate::common::has_ffprobe;
+
+    fn within<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(f());
+        });
+        rx.recv_timeout(Duration::from_secs(120))
+            .expect("the render finished inside the timeout")
+    }
+
+    /// One hash per frame the encoder was handed, and the MP4's bytes.
+    fn rendered(path: &Path, forced: Forced, bounded: bool) -> (Vec<u64>, Vec<u8>) {
+        let path = path.to_path_buf();
+        within(move || {
+            bound_filter_layers(bounded);
+            let _forced = force_painting(forced);
+            let tap = tap_frames();
+            let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
+            assert_eq!(
+                answer.report().exit_code(),
+                ExitCode::Ok,
+                "{}",
+                answer.to_json()
+            );
+            let mp4 = std::fs::read(&answer.video().expect("a file").path).expect("the file");
+            (tap.hashes(), mp4)
+        })
+    }
+
+    /// A camera: one nest around the whole scene, panning, zooming and turning a little,
+    /// with `motion_blur` on its children, `effects` that reach outside their boxes, and a
+    /// rig inside it (two levels) whose arm is blurred as well.
+    pub fn camera_project(line: u32) -> std::path::PathBuf {
+        let arm = json!({"id": "arm", "type": "rect", "start": 0, "end": 600, "x": 60, "y": 30,
+            "origin": "center-left", "width": 36, "height": 8, "fill": "#E0A030",
+            "rotation": [{"t": 0, "v": -30.0}, {"t": 600, "v": 60.0, "ease": "ease-in-out"}],
+            "motion_blur": {"shutter": 180, "samples": 4}});
+        let body = json!({"id": "body", "type": "rect", "start": 0, "end": 600, "x": 60, "y": 45,
+            "origin": "center", "width": 30, "height": 40, "fill": "#33CCFF",
+            "effects": [{"name": "blur", "radius": 2},
+                        {"name": "shadow", "dx": 4, "dy": 4, "radius": 5, "color": "#000000", "opacity": 0.6}]});
+        let ground = json!({"id": "ground", "type": "rect", "start": 0, "end": 600, "x": 80, "y": 80,
+            "origin": "center", "width": 400, "height": 10, "fill": "#446644",
+            "motion_blur": {"shutter": 360, "samples": 6}});
+        let rig = nest(
+            "rig",
+            json!({"end": 600, "pivot": [60, 45], "x": keyed_int(0, 14), "rotation": keyed(0.0, 8.0),
+                   "scale": [{"t": 0, "v": [1.0, 1.0]}, {"t": 600, "v": [1.2, 0.9], "ease": "ease-in"}]}),
+            json!([track("rig-body", 1, vec![body]), track("rig-arm", 3, vec![arm])]),
+        );
+        let camera = nest(
+            "camera",
+            json!({"end": 600, "pivot": [80, 45], "x": keyed_int(0, -40), "y": keyed_int(0, 6),
+                   "rotation": keyed(0.0, -5.0),
+                   "scale": [{"t": 0, "v": [1.0, 1.0]}, {"t": 600, "v": [1.3, 1.3], "ease": "ease-out"}]}),
+            json!([track("ground", 0, vec![ground]), track("scene", 2, vec![rig])]),
+        );
+        let doc = json!({"frame": {"width": 160, "height": 90}, "fps": 30, "background": "#101418",
+                         "duration": 600, "output": "out/camera.mp4",
+                         "tracks": [track("cam", 0, vec![camera])]});
+        let dir = tempdir(line);
+        write_project(&dir, "camera.montagent.json", &canonical(&doc.to_string()))
+    }
+
+    #[test]
+    fn a_nested_scene_paints_the_same_frames_on_any_number_of_painters_with_the_hint_on_or_off() {
+        if !has_ffprobe() {
+            return;
+        }
+        let path = camera_project(line!());
+        let (one, mp4) = rendered(&path, Forced::OnePainter, true);
+        assert_eq!(one.len(), 18);
+        assert_ne!(one[2], one[9], "the scene moves");
+        for (painters, chunk) in [(3, 2), (2, 5), (4, 1), (10, 1)] {
+            let (frames, other) = rendered(
+                &path,
+                Forced::Chunks {
+                    painters,
+                    chunk,
+                    window_bytes: None,
+                },
+                true,
+            );
+            assert_eq!(frames, one, "K={painters}, C={chunk}");
+            assert!(other == mp4, "K={painters}, C={chunk}: the MP4s differ");
+        }
+        // The bounded filter layers must equal the unbounded ones under a nest's matrix.
+        let (unbounded, _) = rendered(&path, Forced::OnePainter, false);
+        assert_eq!(unbounded, one, "the layer bound is a hint a nest must not break");
+    }
+}

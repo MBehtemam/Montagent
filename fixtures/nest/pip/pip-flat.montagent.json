@@ -1,0 +1,26 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 25,
+  "background": "#20242B",
+  "duration": 6000,
+  "output": "pip.mp4",
+  "tracks": [
+    {
+      "name": "phone-body",
+      "layer": 1,
+      "elements": [
+        {"id":"phone-body","type":"rect","start":0,"end":6000,"x":960,"y":540,"origin":"center","width":542,"height":1168,"fill":"#0E0F12","radius":56,"scale":[{"t":0,"v":[0.6,0.6]},{"t":5960,"v":[0.898,0.898],"ease":"linear"}]}
+      ]
+    },
+    {
+      "name": "screen",
+      "layer": 2,
+      "elements": [
+        {"id":"screen-home","type":"image","start":0,"end":1200,"source":"screens/home.png","x":960,"y":540,"origin":"center","width":498,"height":1080,"fit":"contain","clip":[0,0,1920,1080],"scale":[{"t":0,"v":[0.6,0.6]},{"t":5960,"v":[0.898,0.898],"ease":"linear"}]},
+        {"id":"screen-tap","type":"image","start":1200,"end":1360,"source":"screens/tap.png","x":960,"y":540,"origin":"center","width":498,"height":1080,"fit":"contain","clip":[0,0,1920,1080],"scale":[{"t":0,"v":[0.6,0.6]},{"t":5960,"v":[0.898,0.898],"ease":"linear"}]},
+        {"id":"screen-loading","type":"image","start":1360,"end":3360,"source":"screens/loading.png","x":960,"y":540,"origin":"center","width":498,"height":1080,"fit":"contain","clip":[0,0,1920,1080],"scale":[{"t":0,"v":[0.6,0.6]},{"t":5960,"v":[0.898,0.898],"ease":"linear"}]},
+        {"id":"screen-done","type":"image","start":3360,"end":6000,"source":"screens/done.png","x":960,"y":540,"origin":"center","width":498,"height":1080,"fit":"contain","clip":[0,0,1920,1080],"scale":[{"t":0,"v":[0.6,0.6]},{"t":5960,"v":[0.898,0.898],"ease":"linear"}]}
+      ]
+    }
+  ]
+}

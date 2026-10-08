@@ -1,0 +1,16 @@
+{
+  "frame": {"width": 160, "height": 90},
+  "fps": 30,
+  "background": "#101418",
+  "duration": 600,
+  "output": "out/camera.mp4",
+  "tracks": [
+    {
+      "name": "cam",
+      "layer": 0,
+      "elements": [
+        {"id":"camera","type":"nest","start":0,"end":600,"pivot":[80,45],"x":[{"t":0,"v":0},{"t":1000,"v":-40,"ease":"linear"}],"y":[{"t":0,"v":0},{"t":1000,"v":6,"ease":"linear"}],"scale":[{"t":0,"v":[1.0,1.0]},{"t":600,"v":[1.3,1.3],"ease":"ease-out"}],"rotation":[{"t":0,"v":0.0},{"t":1000,"v":-5.0,"ease":"linear"}],"tracks":[{"name":"ground","layer":0,"elements":[{"id":"ground","type":"rect","start":0,"end":600,"x":80,"y":80,"origin":"center","width":400,"height":10,"fill":"#446644","motion_blur":{"shutter":360,"samples":6}}]},{"name":"scene","layer":2,"elements":[{"id":"rig","type":"nest","start":0,"end":600,"pivot":[60,45],"tracks":[{"name":"rig-body","layer":1,"elements":[{"id":"body","type":"rect","start":0,"end":600,"x":60,"y":45,"origin":"center","width":30,"height":40,"fill":"#33CCFF","effects":[{"name":"blur","radius":2},{"name":"shadow","dx":4,"dy":4,"radius":5,"color":"#000000","opacity":0.6}]}]},{"name":"rig-arm","layer":3,"elements":[{"id":"arm","type":"rect","start":0,"end":600,"x":60,"y":30,"origin":"center-left","width":36,"height":8,"fill":"#E0A030","rotation":[{"t":0,"v":-30.0},{"t":600,"v":60.0,"ease":"ease-in-out"}],"motion_blur":{"shutter":180,"samples":4}}]}],"x":[{"t":0,"v":0},{"t":1000,"v":14,"ease":"linear"}],"rotation":[{"t":0,"v":0.0},{"t":1000,"v":8.0,"ease":"linear"}],"scale":[{"t":0,"v":[1.0,1.0]},{"t":600,"v":[1.2,0.9],"ease":"ease-in"}]}]}]}
+      ]
+    }
+  ]
+}
