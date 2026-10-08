@@ -114,11 +114,21 @@ _Avoid_: anchor, alignment, pivot
 
 **Transform**:
 Where a visual element sits and how it is drawn — `x`, `y`, `origin`, `scale`,
-`rotation`, `opacity` — as flat fields on the element in absolute integer pixels. There is
+`rotation`, `opacity`, and the Projection's `swivel`, `tilt` and `perspective` — as flat
+fields on the element in absolute integer pixels. There is
 exactly one per element and it is never nested, never inherited and never composed: no
 element's transform is relative to another's. An element's size is declared, never
 defaulted from the source file.
 _Avoid_: matrix, layout, placement (as a field), position (as a field name)
+
+**Projection**:
+An element drawn as a flat plane turned in front of an eye: `swivel` turns it about its
+vertical axis, `tilt` about its horizontal axis, and `perspective` is the eye's distance
+from the plane. It turns about `origin`, before `scale`, `rotation` and `x`/`y`, and it
+carries the element's effects and mask with it. An element may be projected, never placed:
+nothing has a depth, nothing is sorted, and an element facing away draws nothing
+([ADR-0167](docs/adr/0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)).
+_Avoid_: 3D, tilt (for the whole capability: `tilt` is one of its angles), camera, depth
 
 **Keyframe**:
 One `{"t","t_from","v","ease"}` record in a list that makes an animatable property change
@@ -316,6 +326,51 @@ unchanging shape.
 _Avoid_: polyline, polygon, line (as types), anchor point (for a vertex), control point (for
 a handle as written; it is an offset), viewBox
 
+**Text on a path**:
+A text element whose one line is bent along its own curve, written in the text's box: the
+curve is written on the text, never borrowed from another element, and is never drawn. The
+curve bends the line as laid out flat, so a letter's place along the line becomes its distance
+along the curve, and each letter or joined piece is moved and turned whole, never bent.
+([ADR-0161](docs/adr/0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md))
+_Avoid_: curved text, warped text (the glyphs are not bent), guide path (there is no separate
+element), arc text (an arc is one curve among many)
+
+**Reach factor**:
+How far a path's stroke can reach from its outline, in half stroke widths: `k`, the larger
+of the `stroke_miter_limit` (for a `"miter"` join) and √2 (for a `"square"` cap where a cap
+draws), else 1. The **inset** `m = ceil(k × w / 2)` is the margin every vertex and handle
+keeps from the declared box's edges, so the box contains the ink on every frame. It is a
+worst-case bound, never a measured overlap.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: padding, margin (for the inset), stroke extent
+
+**Dash pattern**:
+A stroke's `stroke_dash`, the lengths it alternates (dash, gap, dash, gap), drawn as written
+along the outline from a fixed start point, with `stroke_dash_offset` how far into the
+pattern that start falls. The **seam** is where a closed outline's pattern meets itself at the
+start point. **Marching ants** are an offset keyed linearly through whole periods.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: dash array (for the field), phase (for the offset), line style
+
+**Trim**:
+The part of a stroke's outline that draws: the **window** from `trim_start` to `trim_end`,
+fractions of the outline's length measured along the dash outline, rotated around a closed
+outline by `trim_offset` in turns. A window is **empty** (start ≥ end: no stroke at all),
+**full** (0 to 1: drawn as with no trim), or crosses the start point as one stroke. A
+**draw-on** keys `trim_end` from 0 to 1; a **ring loader** keys `trim_offset` linearly through
+whole turns. The fill is never trimmed, and the dashes stay put.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
+_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset)
+
+**Trim window**:
+The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
+of the outline's length, measured from the shape's dash start point and turned around a closed
+outline by `trim_offset` in turns. A window is **empty** when its start is not before its end,
+and draws nothing; it is **full** from 0 to 1, and draws the closed outline with no ends. It
+shapes the stroke only, never the fill. A **draw-on** is a window whose end grows.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
+_Avoid_: trim path (for the window), reveal, progress, percent (the unit is a fraction)
+
 **Fill**:
 The paint inside a shape's outline. Optional when a `stroke` is
 present, giving an outlined shape; a shape with neither is a schema error naming both,
@@ -350,11 +405,25 @@ enlarges the declared rect, and that is what separates it from an effect: a blur
 paint on the outline and a drop shadow is not addressable by run. On a shape it falls
 **inside** the declared rect, so a stroked `card-05` still occupies exactly 984×169. On a
 **path** it is centred on the outline, and the box still contains it because every vertex
-and handle must sit at least half the stroke width inside the box. On
+and handle must sit inside the box by the stroke's furthest **reach**: half the stroke
+width, times the miter limit for a `miter` **join** or √2 for a `square` **cap**. A join is
+how the stroke turns a corner and a cap how it ends; only a path chooses them, and a cap
+exists only where the stroke ends, at an open path's ends or a dash's. On
 text it falls **outside the glyph contour** — inside would thin the stems — and grows into
 the box rather than past it, because a text element's `width`/`height` is a container
 claim and not drawn geometry. It is in element space, so it scales with `scale`.
-_Avoid_: outline, border, bord
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: outline, border, bord; line join, line cap, end cap (say join and cap)
+
+**Dash pattern**:
+A stroke broken into dashes and gaps along its outline: `stroke_dash`, an even list of
+integer pixel lengths starting with a dash, and `stroke_dash_offset`, how far into the
+pattern the outline's start falls. The pattern runs from a fixed start in a fixed direction,
+and where it fails to divide a closed outline it leaves a **seam** at that start; the lengths
+drawn are always the ones written, never stretched to fit. Any shape takes one; text does
+not. A zero-length dash is a dot, so it needs a cap that draws one.
+([ADR-0158](docs/adr/0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md))
+_Avoid_: dasharray, dash array, line style, dotted (as a field or kind)
 
 **Effect**:
 A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
@@ -442,12 +511,12 @@ _Avoid_: greenscreen (the technique, not the member), chromakey, despill (that i
 `spill`, one parameter of this member)
 
 **Mask**:
-An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`) that
+An `effects` vocabulary member: a closed shape (`circle`, `rect`, `ellipse`, `path`) that
 keeps an element's rendered pixels where the shape is and erases the rest.
 Shape-only: a mask sourced from an image is deferred, since it introduces a second
 asset reference and unresolved fitting/colour-space questions, and a mask sourced
 from text is refused — footage through letters is a paint, not a mask.
-**Its parameters are one rect, shared by all three shapes**:
+**Its parameters are one rect, shared by every shape**:
 `x`, `y`, `width`, `height` name the rect the shape is inscribed in, and `shape`
 selects which figure is drawn in it — never which fields exist, because a
 per-shape field set would be the two-level lookup ADR-0049 refused. The four are
@@ -467,12 +536,17 @@ from `0`. A bare `mask` key outside `effects` is a retired spelling. **`invert`*
 shape instead of the inside. **`feather`** softens the mask's edge, centred on it,
 read as a `blur` radius is, so an inverted feathered mask is the exact complement
 of the plain one. Masks in one list intersect, so a mask and a smaller inverted one
-keep a ring.
+keep a ring. **A `path` mask** draws any closed outline: its `points` are written
+inline, in the vertex vocabulary of a `path` element, measured from the mask's rect,
+which bounds them and never scales them. It always closes, keeps the outline's
+interior by the same winding rule a `path` fills with, and never names another
+element's outline.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0068](docs/adr/0068-the-bare-mask-key-retires-masks-are-effects-members.md),
 [ADR-0084](docs/adr/0084-the-mask-rect-is-one-shape-independent-parameter-set.md),
 [ADR-0146](docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md),
-[ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md))
+[ADR-0152](docs/adr/0152-a-mask-gains-invert-and-feather-and-takes-no-text-shape-or-image-source.md),
+[ADR-0163](docs/adr/0163-a-mask-takes-a-closed-path-inline-measured-from-its-own-rect.md))
 _Avoid_: clip (that name is the transform model's static frame-space aperture,
 [ADR-0012](docs/adr/0012-flat-transform-keyframes-carried-by-their-element.md) — a
 different concept that happens to sound alike; a mask is carried by the transform,
@@ -496,9 +570,21 @@ or cuts a whole frame's width or height, outside the elements' own transforms, a
 changes their layers. The same rule makes a dependency between two elements one the file
 can show: a transition may move or cut what it bridges, but no element's pixels decide
 where another shows. That is why there is no matte taken from another element.
+A transition may also carry the sound across its window: its optional `audio` is `cut` (what
+absent also means), `constant_power` or `constant_gain`. A fifth kind, `audio_crossfade`,
+paints nothing and bridges `audio` or `video` elements for the sound alone.
 ([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md),
-[ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+[ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md),
+[ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md))
 _Avoid_: dissolve, transition effect, track matte (refused, not a synonym for a wipe)
+
+**Audio crossfade**:
+The sound handed from one element to the next over a transition's own window: the outgoing side
+fades out as the incoming side fades in. `constant_power` keeps the level of two different
+signals, and `constant_gain` keeps the level of the same signal on both sides. It belongs to the
+transition, not to either element, which is what separates it from a fade written as `volume`.
+([ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md))
+_Avoid_: audio dissolve, sound transition
 
 **Direction**:
 A slide, push or wipe's `direction`: **the way the motion travels**, `left`, `right`,
@@ -671,10 +757,36 @@ carries, so a fade is two records rather than a dedicated field. There is no
 `mute` — a `video` element's embedded audio is the same audio a `volume` of
 `0` already silences. Automatic ducking (one element's level reacting to
 another's presence) is out of scope; the same outcome is hand-authored as
-ordinary keyframes.
-([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md))
+ordinary keyframes. Volume is the format's one linear level: every other
+audio level is in decibels, with the unit in its key.
+([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md),
+[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
 _Avoid_: gain, level (as a field name — ambiguous with other senses of
 "level" in this glossary), mute
+
+**Audio effect**:
+A member of `audio_effects: [...]` on an `audio` or `video` element. It belongs to a closed,
+named vocabulary that is separate from the visual **Effect** list, and it shapes the element's
+sound: EQ, dynamics, loudness, restoration or a creative effect. The list is ordered because
+processing order changes the sound, and it applies after any loop and before **Volume**, so a
+fade or a duck is never undone by a compressor. Gain and routing (Volume, pan/balance, channel
+operations) are never members: they are flat fields at fixed points. A member may appear twice
+unless its own ADR declares it singular, and `"enabled": false` bypasses it without losing its
+values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`, `_dbtp`); its
+other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction.
+([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
+[ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
+_Avoid_: filter (collides with Colour filter and ffmpeg's graph nodes), fx, sound, insert
+
+**Master stage**:
+The one processing stage on the summed mix of the whole project, written as the optional
+top-level `master`. It is not a track and not a bus: it holds a small closed set, a loudness
+target (`target_lufs`) the renderer reaches with one measured gain, and a true-peak ceiling
+(`ceiling_dbtp`), which promises the delivered AAC, within a stated allowance, not the limiter's own output. With no `master`, the mix is left exactly as summed. Effects attach to
+elements and to the master stage, never to tracks.
+([ADR-0172](docs/adr/0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md),
+[ADR-0174](docs/adr/0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md))
+_Avoid_: mix (the summing itself), bus, master track, output (the destination path)
 
 **Gap**:
 A stretch of a track with no element in it. Gaps are legal and ordinary — the
@@ -1576,6 +1688,16 @@ corners; a second spelling of one drawing breaks exact-string replace. A `path` 
 an SVG `d` string is still refused: a mini-language inside a JSON string is unreadable by
 reading and unmatchable by exact-string replace.
 ([ADR-0154](docs/adr/0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md))
+
+**Morph**:
+One **path** animating into an unlike shape, written as **matching vertex lists**: every
+keyframe value has the same vertex count and the same handles, and the agent makes them match
+by hand. A **coincident vertex**, the same `at` twice, adds a segment of zero length that draws
+nothing, so padding never changes a drawing. Nothing resamples an outline for you, and
+`closed` never changes, so a fill that opens is two elements. The **seam** is where an open
+path's coincident ends meet: two caps, not a join.
+([ADR-0162](docs/adr/0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md))
+_Avoid_: tween (for the shape), shape interpolation, auto-match
 
 **Repeat, repeater, clone**:
 Elsewhere one layer draws as N offset copies. Montagent draws exactly one thing per element,

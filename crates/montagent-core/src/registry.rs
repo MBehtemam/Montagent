@@ -446,9 +446,13 @@ instead, each a sheet that fits: {sub_ranges}.",
         // Names the axis it measured against, because ADR-0011 returns four durations and
         // forces the caller to pick: a finding that said "the source is 65216 ms" without
         // saying *which* 65216 would invite the reader to check it against the other one.
-        template: "{element}: `{source}` holds {probed_duration} ms ({axis}), and the declared \
-source range {source_start}..{source_end} ({declared_source_span} ms) reaches {over_by} ms past \
-it.",
+        // Two arms (ADR-0157 §2): a declared source range reaching past the file, or a
+        // `source_time` curve resolving outside `[0, duration)` at a painted frame instant —
+        // named at the first, with the side it crossed.
+        template: "{element}: `{source}` holds {probed_duration} ms ({axis}){?source_end}, and \
+the declared source range {source_start}..{source_end} ({declared_source_span} ms) reaches \
+{over_by} ms past it{/source_end}{?instant}, and its `source_time` resolves to {source_time} ms \
+at the painted instant {instant} ms, {side}{/instant}.",
         status: Live,
         census: None,
         sets: &[Disk],
@@ -1048,8 +1052,9 @@ so `to` must paint above `from`.",
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-an {shape} path needs at least {least} vertices, and this value has {count}.",
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
+{?kind}on a `{kind}`, {/kind}an {shape} path needs at least {least} vertices, and this value has \
+{count}.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1062,39 +1067,307 @@ an {shape} path needs at least {least} vertices, and this value has {count}.",
         repair: Some(Advise),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex} carries an `{handle}` that shapes no segment of an open path. Drop it.",
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
+{?kind}on a `{kind}`, {/kind}vertex {vertex} carries an `{handle}` that shapes no segment of an \
+open path. Drop it.",
         status: Live,
         census: None,
         sets: &[Document],
     },
     CheckSpec {
         // ADR-0154 §6. Refuse: whether the first value or this one is the intended shape is a
-        // question about intent, and a morph between unlike paths is a later question.
+        // question about intent. ADR-0162 §5: a morph between unlike shapes is written as
+        // matching vertex lists, so the message names how to pad one, and names no skill.
         code: "E-PATH-KEYFRAME-SHAPE",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
-        template: "`{element}`.points: keyframe record {record} (`t` {t}) differs from the \
-first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
-vertex count, and each vertex the same handles.",
+        template: "`{element}`.{property}: {?kind}on a `{kind}`, {/kind}keyframe record {record} \
+(`t` {t}) differs from the first record at vertex {vertex}: {detail}. Every value of one keyframe list has the same \
+vertex count, and each vertex the same handles. To morph between unlike shapes, give the \
+shorter list coincident vertices (the same `at` twice) and write `[0, 0]` for a handle one \
+side lacks.",
         status: Live,
         census: None,
         sets: &[Document],
     },
     CheckSpec {
-        // ADR-0154 §4. Refuse: moving the point, growing the box and thinning the stroke each
-        // fix it, and which was meant is the author's.
+        // ADR-0154 §4, with ADR-0158 §4's reach. Refuse: moving the point, growing the box,
+        // thinning the stroke and lowering the reach each fix it, and which was meant is the
+        // author's.
         code: "E-PATH-OUTSIDE-BOX",
         classes: &[Error],
         repair: Some(Refuse),
         threshold: Internal,
         adr: "ADR-0154",
+        // ADR-0158 §7's own example names `k` and where it came from, and says the bound is
+        // worst-case, so an agent does not hunt for an overlap that is not there.
+        template: "`{element}`.{property}{?record} in keyframe record {record} (`t` {t}){/record}: \
+{?kind}on a `{kind}`, {/kind}vertex {vertex}'s `{handle}` sits at {position} in box pixels, \
+outside the {?k}inset box [{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside \
+the declared box: inset {inset} = ceil({k} × {width} / 2), from {source}. This bound is \
+worst-case, not a measured overlap.{/k}{?rect}mask's box [0, {right}] × [0, {bottom}], \
+{rect}, with no inset: a mask has no stroke (ADR-0163).{/rect}{?derivation}inset box \
+[{inset}, {right}] × [{inset}, {bottom}] that keeps a plain glyph sitting on the curve inside \
+the declared box: inset {derivation}. The inset is a frame convention, not a containment \
+guarantee: a wide letter on a tight bend, or one a stagger lifts off the curve, can still pass \
+the box, and `measure` reports the bent line's ink (ADR-0161).{/derivation}",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0161 §3. Refuse: dropping the break and moving the second line to a text of
+        // its own each fix it, and which was meant is the author's.
+        code: "E-TEXT-PATH-BREAK",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.runs[{run}]: its text holds a line break (`\\n`), and a text \
+carrying `path` sets one line only. Remove the break, or put the second line in a text element \
+of its own with its own `path`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0161 §8. Advise: the field places nothing without a `path`, so dropping it
+        // changes nothing drawn — the fix is fully determined.
+        code: "E-TEXT-PATH-OFFSET-ORPHAN",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0161",
+        template: "`{element}`.path_offset: this text carries no `path`, so `path_offset` places \
+nothing. Drop it, or give the text a `path` to slide along.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0162 §4: an open path whose first and last `at` coincide draws its seam as two
+        // caps meeting, and a `butt` or `square` cap leaves a notch or a spur where the seam
+        // is a corner. Decided from the file's integers alone; a review, since a `round` cap
+        // and a smooth seam each fix it, and which was meant is the author's.
+        code: "R-PATH-SEAM-CAP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0162",
         template: "`{element}`.points{?record} in keyframe record {record} (`t` {t}){/record}: \
-vertex {vertex}'s `{handle}` sits at {position} in box pixels, outside the inset box \
-[{inset}, {right}] × [{inset}, {bottom}] that keeps the stroke inside the declared box (inset \
-{inset}).",
+the path's ends meet at a corner under a `{cap}` cap, which draws a {mark} at the seam. Write \
+`\"stroke_cap\": \"round\"`, or make the seam smooth.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §6. Advise: the field shapes nothing that draws, so dropping it changes
+        // nothing drawn — the fix is fully determined.
+        code: "E-STROKE-NO-STROKE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {?zero}its `stroke_width` is absent or 0 on every \
+value, so the stroke never draws{/zero}{!zero}it has no `stroke`{/zero}, and `{field}` shapes \
+nothing. Drop it, or give the element a `stroke` and a `stroke_width` above 0.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §2. Refuse: whether the join or the limit is the intended one is the
+        // author's, and the limit sets the box's inset.
+        code: "E-STROKE-MITER-LIMIT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.{field}: {?missing}`\"miter\"` needs a `stroke_miter_limit`, an \
+integer from 1 to 10, because the box's inset is computed from it{/missing}{!missing}a limit \
+applies only to `\"miter\"`, and this path's `stroke_join` is `\"{join}\"`. Drop the limit, or \
+set `\"miter\"`{/missing}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §3, ADR-0160 §6. Refuse: dropping the cap, opening the path, dashing it
+        // and trimming it are all fixes, and which was meant is the author's. It names
+        // `closed`, `stroke_dash` and the trim, because an edit to any can make a cap draw or
+        // stop drawing.
+        code: "E-STROKE-CAP-UNDRAWN",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_cap: a `\"{cap}\"` cap draws nowhere, because the path is \
+`closed` and has no `stroke_dash`, `trim_start` or `trim_end`, and a cap draws only at an open \
+path's two ends, at each dash's ends and at a trim's ends. Drop `stroke_cap`, set `closed` to \
+false, or add a `stroke_dash` or a trim.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5. Refuse: whether the doubled list or a shorter one was meant is the
+        // author's.
+        code: "E-DASH-SHAPE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash: {?odd}it has {count} entries, an odd number; the \
+format does not repeat an odd list as SVG does, so write the doubled list out{/odd}{!odd}its \
+entries add up to 0, so there is no pattern to repeat{/odd}. A pattern alternates dash, gap, \
+dash, gap, starting with a dash.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5. Refuse: a round cap, a square cap and a longer dash each draw
+        // something different, and which was meant is the author's.
+        code: "E-DASH-ZERO-BUTT",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash[{index}]: a zero-length dash draws nothing under a \
+butt cap. {?shape}A `{kind}`'s dash ends are always butt; draw dots with a `path` with \
+`\"stroke_cap\": \"round\"`{/shape}{!shape}Set `stroke_cap` to `\"round\"` for a dot, or \
+`\"square\"` for a square{/shape}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0158 §5, which makes it an error and names no code for it. Advise: the offset
+        // moves nothing, so dropping it changes nothing drawn.
+        code: "E-DASH-OFFSET-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0158",
+        template: "`{element}`.stroke_dash_offset: there is no `stroke_dash` for it to move. \
+Drop it, or add a `stroke_dash`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0160 §5. Refuse: a lower start, a higher end and dropping the trim each draw
+        // something different, and which was meant is the author's. It names `trim_start`
+        // where that is written, else `trim_end`, and quotes both values as written, saying
+        // which is a default, so the replace target is in front of the agent.
+        code: "E-TRIM-EMPTY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.{field}: the trim window is empty on every frame, so this \
+element draws no stroke: `trim_start` is {start} and `trim_end` is {end}, and a stroke draws \
+only the part of its outline from `trim_start` to `trim_end`. Lower `trim_start` below \
+`trim_end`, or drop the trim.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0160 §4, which names the code and asks the message to say which of its two
+        // reasons holds; one finding says both where both do. Advise: an offset on an open
+        // path is never drawn, and one with no window rotates the whole outline onto itself,
+        // so dropping it changes nothing drawn.
+        code: "E-TRIM-OFFSET",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0160",
+        template: "`{element}`.trim_offset: {?open}the path is open, and an offset rotates the \
+window only around a closed outline: an open line has no round to wrap onto{/open}{?both}. \
+Also, {/both}{?bare}there is no `trim_start` or `trim_end`, so the window is the whole outline \
+and rotating it draws nothing different{/bare}. Drop `trim_offset`{?open}, or set `closed` to \
+true{/open}{?bare}, or give the window an end with `trim_start` or `trim_end`{/bare}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Projection (#787, ADR-0167, ADR-0168). ----------------------------------------
+    CheckSpec {
+        // ADR-0167 §8. Refuse: how far the eye sits is the author's choice, and no value
+        // follows from the document. The published schema states the rule as well.
+        code: "E-PROJECTION-PERSPECTIVE-MISSING",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: `{angles}` is written with no `perspective`, and a \
+projected element needs the eye's distance in px to be drawn in perspective. Add a \
+`perspective`, or drop `{angles}`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`. Advise: with neither angle
+        // written the element is not projected, so dropping it changes nothing drawn. An
+        // angle written as `0` counts as written (ADR-0168 §1).
+        code: "E-PROJECTION-PERSPECTIVE-ALONE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: there is no `swivel` or `tilt` for it to project, \
+so it changes nothing. Drop it, or add the angle you meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §5, §8. Advise: the bound names the one value that clears it, so the fix
+        // is one edit (ADR-0167's four tests).
+        code: "E-PROJECTION-EYE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "`{element}`.perspective: at {instant} ms ({why}) `perspective` is \
+{perspective}, and the farthest corner of the box, widened by its effects' reach, is {r} px from \
+`origin`, so part of the element would reach the eye. `perspective` must exceed that at every \
+key and eased extreme: {passing} is the smallest whole value that passes there.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0168 §3: the near edge's magnification d / (d − r) past 2. A review, because
+        // strong foreshortening may be meant; the trigger is stated as the magnification.
+        code: "R-PROJECTION-SOFT",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0168",
+        template: "{element}: at {instant} ms the near edge is magnified {magnification}× by \
+the projection, so it draws soft. A `perspective` of {perspective} or more brings it back to 2×; \
+leave it where the strong foreshortening is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0167 §8, the counterpart of `R-MASK-ERASES-ALL`: a projected element that faces
+        // away or is edge-on at every instant of its presence draws nothing.
+        code: "R-PROJECTION-AWAY",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0167",
+        template: "{element} faces away or is edge-on at every instant of {start}..{end} ms, so \
+it draws nothing. A projected element draws only while its front faces the eye: \
+`cos(swivel) × cos(tilt)` above 0.",
         status: Live,
         census: None,
         sets: &[Document],
@@ -1716,6 +1989,54 @@ because stop i blends with stop i.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0157 §2: `source_start`, `source_end`, `speed` or `overrun` beside a
+        // `source_time`, one finding per field. Advise: the curve is the only author of the
+        // source, so the field says nothing the curve does not, and removing it changes no
+        // frame — the fix is determined by the format's own semantics.
+        code: "E-REMAP-FIELD",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}` carries `source_time`, which alone names the moment of its file \
+on screen, and `{field}` beside it is one more place an edit could leave stale.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0157 §4: a remapped `video` whose `volume` is not the literal `0` — any other
+        // number, any keyframe list, or none (the default is `1`). Advise: the format admits
+        // one value here, so the fix is determined; the sound the author wanted belongs on a
+        // separate `audio` element, which the repair says.
+        code: "E-REMAP-AUDIBLE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}` carries `source_time` and its `volume` is {volume}: a remapped \
+video is silent, because a varying rate has no exact spelling in the mix.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0157 §5: a keyed `source_time` whose element holds a painted frame instant
+        // before its first key or after its last, each end reported on its own. A literal
+        // never fires it.
+        code: "R-REMAP-HELD-END",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0157",
+        template: "`{element}`'s `source_time` holds its value for {held_ms} ms {end} \
+({from}..{to} ms), so the picture freezes there. A deliberate freeze is written as a flat \
+pair of keys, which silences this.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0155 §5: a `motion_blur` that paints nothing a sharp element would not — no
         // value the element's keyframes resolve differs inside its range, a `units` stagger
         // counting as motion. A review, never a refusal; the repair is to remove the field.
@@ -1933,6 +2254,25 @@ probe reports as already carrying an alpha channel.",
         adr: "ADR-0088",
         template: "{element}: `effects[{index}]` is a `chroma` with `tolerance: 0`, the \
 identity value, so it keys nothing.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0156 §5: two `grain` members with the same `seed`, `size` and `mono`, visible
+        // at the same instant, whose elements' starts fall on the same frame. Their draws
+        // are the same on every frame, which shows as one locked texture. Decided from the
+        // file without painting a frame. A review: copying a grain on purpose is legal.
+        code: "R-GRAIN-SEED-SHARED",
+        classes: &[Review],
+        repair: None,
+        // The deciding facts are the written seed, size and mono, the two `start`s and the
+        // project's own frame grid.
+        threshold: Internal,
+        adr: "ADR-0156",
+        template: "{element}: `effects[{index}]` and {other}'s `effects[{other_index}]` are \
+`grain` with seed {seed}, size {size} and mono {mono}, and both elements start on frame \
+{frame}, so they draw the same pattern on every frame they share. Change one `seed`.",
         status: Live,
         census: None,
         sets: &[Document],

@@ -77,11 +77,28 @@ pub enum NotAxisAligned {
 ///
 /// `None` where `width`/`height` cannot be read, or resolve at or below zero at `instant` —
 /// not this module's fact to report; `validate`'s schema check already does.
+///
+/// **A projected element answers with its quadrilateral's bounds** (ADR-0167 §6): the box
+/// widened by its effects' reach, projected about `origin` and carried through `scale`,
+/// `rotation` and `x`/`y` by [`crate::projection::quad`], rounded out to whole pixels. It is
+/// a rectangle whatever its `rotation`, so it never refuses. At an instant it faces away or
+/// is edge-on it paints nothing, as under `opacity: 0`, and like a faded box it is still
+/// somewhere: these bounds.
 pub fn drawn_rect(
     element: &Value,
     instant: i64,
     frame: (i64, i64),
 ) -> Option<Result<Rect, NotAxisAligned>> {
+    if crate::projection::projects(element) {
+        let [left, top, right, bottom] = crate::projection::quad(element, instant, frame)?.bounds();
+        let (left, top) = (left.floor() as i64, top.floor() as i64);
+        return Some(Ok(Rect {
+            x: left,
+            y: top,
+            width: right.ceil() as i64 - left,
+            height: bottom.ceil() as i64 - top,
+        }));
+    }
     // A shape's box may be keyed (ADR-0146), so it is resolved like every other animatable
     // property rather than read as one integer; at or below zero it occupies nothing.
     let (width, height) = crate::animatable::painted_box(element, i128::from(instant), 1)?;
@@ -427,6 +444,28 @@ pub fn ink_box(
         return Err(format!(
             "its resolved `scale` is {scale:?}; the ink box is not derived at a scaled size"
         ));
+    }
+    // A text on a path draws its bent line in its declared box (ADR-0161 §7): the ink box is
+    // that line's ink, moved to where the box sits.
+    if crate::text_path::carries_path(element) {
+        let ink = crate::text_path::ink_at(document, element, instant)?
+            .ok_or_else(|| "no letter is drawn on its curve at this instant".to_string())?;
+        let origin = match element.get("origin") {
+            None | Some(Value::Null) => Origin::Center,
+            Some(value) => serde_json::from_value(value.clone())
+                .map_err(|_| format!("`origin` is not one of the nine keywords: {value}"))?,
+        };
+        let (fx, fy) = origin_fraction(origin);
+        let side = |key| element.get(key).and_then(Value::as_f64).unwrap_or(0.0);
+        let left = number::<i64>(element, "x", instant, frame.0 as f64 / 2.0) - fx * side("width");
+        let top = number::<i64>(element, "y", instant, frame.1 as f64 / 2.0) - fy * side("height");
+        let [l, t, r, b] = ink;
+        return Ok(InkBox {
+            x: left + l,
+            y: top + t,
+            width: r - l,
+            height: b - t,
+        });
     }
     let spec = Measurable::of(element)?;
 

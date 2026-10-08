@@ -35,6 +35,9 @@ status: accepted
 >   with a stated order
 > - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — a `video` carrying
 >   `source_time` has no source range: `source_start` and `source_end` are refused on it
+> - [ADR-0170](0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md) — the
+>   integer rule covers timeline instants only; an audio effect's internal durations (attack,
+>   release, delay) are ms and may be fractional
 
 
 Every element carries `start` and `end` as **integer milliseconds** on the

@@ -94,10 +94,22 @@ fn canonical_key_order_is_the_schemas_property_order() {
 
     // ADR-0014 adds three fields to a shape — `stroke`, `stroke_width` and `radius` — in
     // the order that ADR's own headings introduce them, after ADR-0041's measured six.
+    // ADR-0158's dash fields follow `stroke_width`, as its stroke fields do on a `path`, and
+    // ADR-0160's trim fields follow them, in its §2 order.
     assert_eq!(
-        &rect[12..15],
-        &["stroke", "stroke_width", "radius"],
-        "the three fields ADR-0014 adds, in its own order (#212)"
+        &rect[12..20],
+        &[
+            "stroke",
+            "stroke_width",
+            "stroke_dash",
+            "stroke_dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
+            "radius"
+        ],
+        "the three fields ADR-0014 adds, in its own order (#212), ADR-0158's two and \
+         ADR-0160's three"
     );
 
     // `ellipse` is `rect`'s order **minus `radius`**, and the difference is exactly one
@@ -130,7 +142,7 @@ fn mask_member() -> serde_json::Value {
 fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
     // ADR-0041 hands a new field's position to the ADR that introduces it, and ADR-0084
     // takes it explicitly rather than leaving it to be read off a struct: `name, shape, x,
-    // y, width, height, radius`, and ADR-0152 appends `invert` then `feather`. The rect fields follow `shape` in the order ADR-0012 fixed
+    // y, width, height, radius`, ADR-0163 puts `points` after `radius`, and ADR-0152 appends `invert` then `feather`. The rect fields follow `shape` in the order ADR-0012 fixed
     // for every other rect in the format, and `radius` trails them exactly as it trails the
     // drawn `shape` element's own fields under ADR-0014.
     //
@@ -147,7 +159,7 @@ fn the_mask_members_key_order_is_the_one_adr_0084_takes() {
     assert_eq!(
         declared,
         [
-            "shape", "x", "y", "width", "height", "radius", "invert", "feather", "name"
+            "shape", "x", "y", "width", "height", "radius", "points", "invert", "feather", "name"
         ]
     );
 }

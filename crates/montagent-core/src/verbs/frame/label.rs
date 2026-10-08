@@ -272,6 +272,7 @@ pub(super) fn draw(
             rotation: 0.0,
             opacity: 1.0,
             blend: montagent_render::canvas::Blend::Normal,
+            projection: None,
         },
         Some(strip),
         &[],
@@ -295,12 +296,15 @@ fn invert(sheet: &mut Canvas, strip: Region) {
             rotation: 0.0,
             opacity: 1.0,
             blend: montagent_render::canvas::Blend::Normal,
+            projection: None,
         },
         &Fill {
             fill: Some(MARKED_GROUND.into()),
             stroke: None,
             stroke_width: 0.0,
         },
+        None,
+        None,
         None,
         &[],
     );

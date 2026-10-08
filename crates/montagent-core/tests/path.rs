@@ -174,9 +174,16 @@ fn points_is_on_the_one_list_as_a_whole_list_value_and_the_box_is_not() {
             "stroke.center",
             "stroke.radius",
             "stroke_width",
+            "stroke_dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "points",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );

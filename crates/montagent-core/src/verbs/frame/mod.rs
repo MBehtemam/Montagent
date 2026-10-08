@@ -112,8 +112,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use montagent_render::canvas::{
-    Accumulation, Canvas, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect, MaskShape,
-    PathEl, Raster, Region, Rgba, Scale, Shape, Transform,
+    Accumulation, Canvas, Dash, Effect, Encoded, Encoding, Extent, Fill, Glyph, Ink, MaskRect,
+    MaskShape, PathEl, Raster, Region, Rgba, Scale, Shape, StrokeStyle, Transform, Trim,
 };
 use montagent_render::decode::Pace;
 
@@ -123,7 +123,7 @@ use crate::media::Source;
 use crate::media::established::{self, Use};
 use crate::media::session::Session;
 use crate::media::tools::{self, Missing};
-use crate::model::{self, Colour, Origin};
+use crate::model::{self, Colour};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
@@ -372,10 +372,56 @@ fn undrawable(detail: impl Into<String>) -> Finding {
     Finding::new("E-NOT-PAINTED-UNDRAWABLE").field("detail", json!(detail.into()))
 }
 
+/// A shape's dash pattern at `numerator / denominator` ms (ADR-0158 §5): the static list,
+/// and `stroke_dash_offset` through the one resolving function, wrapped by the canvas.
+/// `None` with no `stroke_dash`, or one `validate`'s `E-DASH-SHAPE` refuses.
+fn dash_at(element: &Value, numerator: i128, denominator: i128) -> Option<Dash> {
+    let pattern = crate::stroke::drawable_dash(element)?;
+    let offset =
+        animatable::number_read(element, "stroke_dash_offset", numerator, denominator, 0.0);
+    Dash::new(&pattern, offset)
+}
+
+/// A shape's trim window at `numerator / denominator` ms (ADR-0160), through the one
+/// resolving function. `None` with no trim field and for a full window, both of which the
+/// canvas draws exactly as an untrimmed stroke.
+fn trim_at(element: &Value, numerator: i128, denominator: i128) -> Option<Trim> {
+    match crate::stroke::window_at(element, numerator, denominator)? {
+        crate::stroke::Window::Full => None,
+        crate::stroke::Window::Empty => Some(Trim::Empty),
+        crate::stroke::Window::Part { from, to } => Some(Trim::Part { from, to }),
+    }
+}
+
+/// A path's stroke join, cap, dash and trim as written (ADR-0158, ADR-0160), through the one
+/// reading the reach is computed from. A `"miter"` with no limit — `validate`'s
+/// `E-STROKE-MITER-LIMIT`, which `render` refuses — is read as limit 1, as the reach reads it.
+fn stroke_style(element: &Value, numerator: i128, denominator: i128) -> StrokeStyle {
+    use montagent_render::canvas::{Cap, Join};
+    StrokeStyle {
+        dash: dash_at(element, numerator, denominator),
+        trim: trim_at(element, numerator, denominator),
+        join: match crate::stroke::join(element) {
+            crate::stroke::Join::Round => Join::Round,
+            crate::stroke::Join::Bevel => Join::Bevel,
+            crate::stroke::Join::Miter(limit) => Join::Miter {
+                limit: limit.unwrap_or(1) as f32,
+            },
+        },
+        cap: match crate::stroke::cap(element) {
+            crate::stroke::Cap::Butt => Cap::Butt,
+            crate::stroke::Cap::Round => Cap::Round,
+            crate::stroke::Cap::Square => Cap::Square,
+        },
+    }
+}
+
 /// A path's outline in element space (ADR-0154 §1): every segment a cubic from one vertex's
 /// `at` through `at + out`, then the next vertex's `at + in`, to that `at`; on a closed path a
 /// last segment back to the first vertex, then a close. A missing handle is a zero offset.
-fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
+///
+/// `query --at` measures this very outline for a dashed path's length (ADR-0158 §7).
+pub(crate) fn outline_of(vertices: &[crate::resolve::VertexAt], closed: bool) -> Vec<PathEl> {
     let Some(first) = vertices.first() else {
         return Vec::new();
     };
@@ -1399,8 +1445,9 @@ impl<'a> Painter<'a> {
             return Vec::new();
         };
         let mut effects = Vec::with_capacity(declared.len());
+        let frame = crate::grain::local_frame(element, self.instant, self.fps);
         for (i, value) in declared.iter().enumerate() {
-            match effect_of(element, i, self.t) {
+            match effect_of(element, i, self.t, frame) {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -1608,6 +1655,8 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
+            dash_at(element, self.t.0, self.t.1).as_ref(),
+            trim_at(element, self.t.0, self.t.1),
             self.clip(element),
             &effects,
         );
@@ -1672,6 +1721,7 @@ impl<'a> Painter<'a> {
             extent,
             &self.transform(element),
             &paint,
+            stroke_style(element, self.t.0, self.t.1),
             self.clip(element),
             &effects,
         );
@@ -1840,6 +1890,13 @@ impl<'a> Painter<'a> {
                 fps: self.fps,
                 speed: speed_of(element),
             },
+            // ADR-0157: the curve at the next timeline frame, read through the one
+            // resolution function, so a supplier can tell a 1× stretch a feed may serve.
+            remap: crate::remap::is_remapped(element).then(|| supply::Remap {
+                next: self.frame_number.and_then(|n| {
+                    crate::remap::source_ms(element, crate::exact::instant_of(n + 1, self.fps)).ok()
+                }),
+            }),
         };
         let decoded = self
             .supplier
@@ -2001,41 +2058,37 @@ impl<'a> Painter<'a> {
             ),
         );
         let paints = paints_of(element, &runs, self.t, self.instant, declared);
-        let unit_of_glyph = unit_draws(element, &placement, self.t);
-        let glyphs: Vec<Glyph> = placement
-            .glyphs
-            .iter()
-            .enumerate()
-            .map(|(i, glyph)| Glyph {
-                unit: unit_of_glyph.get(i).copied().flatten(),
-                x: glyph.x,
-                y: glyph.y,
-                outline: glyph.outline,
-                // A glyph whose run index has no paint is unreachable — `paints_of` maps
-                // the same array `montagent_text::place` indexed into — and is painted in
-                // the default ink rather than skipped, so a future divergence shows up as
-                // a black letter rather than as a hole.
-                paint: paints.get(glyph.run).cloned().unwrap_or(Fill {
-                    fill: Some(DEFAULT_INK.into()),
-                    stroke: None,
-                    stroke_width: 0.0,
-                }),
-            })
-            .collect();
-        let outlines: Vec<Vec<PathEl>> = placement
-            .outlines
-            .iter()
-            .map(|outline| outline.iter().copied().map(path_element).collect())
-            .collect();
+        // A text on a path draws every glyph through its body's place on the curve, and a
+        // glyph whose body is off the curve not at all (ADR-0161). Its declared box is the
+        // frame its curve is written in, so it pivots about that box, as a `path` does.
+        let (glyphs, extent) = match crate::text_path::bend(element, &placement, self.t) {
+            Some(bent) => (
+                glyphs_of(&placement, &bent.glyphs, &paints, true),
+                Extent {
+                    width: element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
+                    height: element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
+                },
+            ),
+            None => (
+                glyphs_of(
+                    &placement,
+                    &unit_draws(element, &placement, self.t),
+                    &paints,
+                    false,
+                ),
+                Extent {
+                    width: placement.width,
+                    height: placement.height,
+                },
+            ),
+        };
+        let outlines = outlines_of(&placement);
 
         let effects = self.effects_of(name, element);
         canvas.text(
             &glyphs,
             &outlines,
-            Extent {
-                width: placement.width,
-                height: placement.height,
-            },
+            extent,
             &self.transform(element),
             self.clip(element),
             &effects,
@@ -2073,36 +2126,27 @@ impl<'a> Painter<'a> {
     /// have acted about it, so adding it there is the same as moving the finished element:
     /// it acts outside the element's own transform, and `scale` and `rotation` keep working
     /// underneath, untouched.
+    ///
+    /// The placement itself, the projection included, is [`crate::projection::placed`]: the
+    /// same reading the one geometry function every check asks takes (ADR-0167 §6).
     fn transform(&self, element: &Value) -> Transform {
-        let (frame_width, frame_height) = self.frame;
         let bridge = self.bridge(element);
-        let origin = match element.get("origin") {
-            None | Some(Value::Null) => Origin::Center,
-            Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
-        };
+        let placed = crate::projection::placed(element, self.t, self.frame);
         Transform {
-            x: geometry::number_at::<i64>(element, "x", self.t, frame_width as f64 / 2.0)
-                + bridge.offset.0 as f64,
-            y: geometry::number_at::<i64>(element, "y", self.t, frame_height as f64 / 2.0)
-                + bridge.offset.1 as f64,
-            origin: geometry::origin_fraction(origin),
-            scale: {
-                let [sx, sy] =
-                    geometry::number_at::<[f64; 2]>(element, "scale", self.t, [1.0, 1.0]);
-                (sx, sy)
-            },
-            rotation: geometry::number_at::<f64>(element, "rotation", self.t, 0.0),
+            x: placed.x + bridge.offset.0 as f64,
+            y: placed.y + bridge.offset.1 as f64,
             // The declared opacity, times whatever crossfade this element is bridged by.
             // Multiplied rather than replaced: a crossfade is a ramp *on* what the
             // document says, so an element already keyframed to 0.5 fades from 0.5 rather
             // than jumping to 1 to start.
-            opacity: geometry::number_at::<f64>(element, "opacity", self.t, 1.0) * bridge.fade,
+            opacity: placed.opacity * bridge.fade,
             // A sample is painted in `normal`: the average blends once (ADR-0155 §4).
             blend: if self.sampling {
                 montagent_render::canvas::Blend::Normal
             } else {
                 blend_of(element)
             },
+            ..placed
         }
     }
 
@@ -2179,6 +2223,10 @@ struct Playhead {
 /// states none. An unreadable `speed` never reaches a supplier: the caption's offset does not
 /// resolve without one, and the painter declines before asking.
 fn speed_of(element: &Value) -> (i128, i128) {
+    // A remapped element has no `speed` (`E-REMAP-FIELD`), and its feeds run at 1×.
+    if crate::remap::is_remapped(element) {
+        return (1, 1);
+    }
     element
         .get("speed")
         .and_then(Value::as_number)
@@ -2313,7 +2361,7 @@ fn paints_of(
 /// A body moves on the timing of its first unit in reading order — a joined piece's first
 /// letter, a merged glyph's first cluster — and turns and scales about the pivot `origin`
 /// picks in its box.
-fn unit_draws(
+pub(crate) fn unit_draws(
     element: &Value,
     placement: &montagent_text::Placement,
     t: (i128, i128),
@@ -2344,6 +2392,54 @@ fn unit_draws(
         .iter()
         .map(|body| body.and_then(|body| draws.get(body).copied().flatten()))
         .collect()
+}
+
+/// The glyphs a text's placement paints, each through its unit matrix where it has one and
+/// in its run's paint. Where `only_placed` is set — a text on a path (ADR-0161) — a glyph
+/// with no matrix is not drawn at all; otherwise it is drawn where it was laid out.
+pub(crate) fn glyphs_of(
+    placement: &montagent_text::Placement,
+    units: &[Option<montagent_render::canvas::UnitDraw>],
+    paints: &[Fill],
+    only_placed: bool,
+) -> Vec<Glyph> {
+    placement
+        .glyphs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !only_placed || units.get(*i).copied().flatten().is_some())
+        .map(|(i, glyph)| Glyph {
+            unit: units.get(i).copied().flatten(),
+            x: glyph.x,
+            y: glyph.y,
+            outline: glyph.outline,
+            // A glyph whose run index has no paint is unreachable — `paints_of` maps the
+            // same array `montagent_text::place` indexed into — and is painted in the default
+            // ink rather than skipped, so a future divergence shows up as a black letter
+            // rather than as a hole.
+            paint: paints.get(glyph.run).cloned().unwrap_or(Fill {
+                fill: Some(DEFAULT_INK.into()),
+                stroke: None,
+                stroke_width: 0.0,
+            }),
+        })
+        .collect()
+}
+
+/// A placement's distinct outlines, in the rasterizer's spelling.
+pub(crate) fn outlines_of(placement: &montagent_text::Placement) -> Vec<Vec<PathEl>> {
+    placement
+        .outlines
+        .iter()
+        .map(|outline| outline.iter().copied().map(path_element).collect())
+        .collect()
+}
+
+/// A text element's per-run paints at `t`, measured against `declared` (ADR-0149 §2).
+pub(crate) fn text_paints(element: &Value, t: (i128, i128), declared: [f32; 4]) -> Vec<Fill> {
+    let runs = crate::verbs::measure::runs_of(element);
+    let instant = (t.0 / t.1.max(1)) as i64;
+    paints_of(element, &runs, t, instant, declared)
 }
 
 fn highlight_at(run: &Value, instant: i64) -> Option<crate::model::Highlight> {
@@ -2411,7 +2507,7 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 ///
 /// **The model's enum is the one authority on what an effect is.** The member is
 /// deserialized through [`crate::model::Effect`], whose `deny_unknown_fields` and
-/// lowercase `name` tag are the closed vocabulary ADR-0040 and ADR-0049 fixed — so the
+/// `name` tag are the closed vocabulary ADR-0040, ADR-0049 and ADR-0156 fixed — so the
 /// renderer cannot paint a `grayscale`, or a `mask` with geometry parameters, that the
 /// format says does not exist. A second, looser reading here would be a second answer to
 /// *"what effects are there"*.
@@ -2422,7 +2518,16 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// whose rect resolves to no positive size hides the element before this is asked
 /// ([`animatable::hiding_mask`]); an inverted one keeps everything, so its rect reaches the
 /// rasterizer no smaller than empty.
-pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Option<Effect> {
+///
+/// `frame` is the element's local frame (`crate::grain::local_frame`), which only `grain`'s
+/// draw reads: it re-rolls per output frame, so every motion-blur sample of one frame shares
+/// it while `t` moves (ADR-0156 §3, ADR-0155 §3).
+pub(crate) fn effect_of(
+    element: &Value,
+    index: usize,
+    t: (i128, i128),
+    frame: i64,
+) -> Option<Effect> {
     let declared: model::Effect =
         serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
     let parameters: Vec<animatable::Declared<'_>> = animatable::declared(element)
@@ -2462,6 +2567,26 @@ pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Optio
                 model::MaskShape::Circle => MaskShape::Circle,
                 model::MaskShape::Rect => MaskShape::Rect,
                 model::MaskShape::Ellipse => MaskShape::Ellipse,
+                // ADR-0163: the outline resolved and clamped into its box by the one
+                // resolving function, then offset by the rect's resolved `x` and `y`, so a
+                // keyed `x` moves the whole mask. The bare form's rect sits at `(0, 0)`.
+                model::MaskShape::Path => {
+                    let Ok(animatable::Resolved::Points(vertices)) = read("points")? else {
+                        return None;
+                    };
+                    let (dx, dy) = match x {
+                        Some(_) => (number("x")?, number("y")?),
+                        None => (0.0, 0.0),
+                    };
+                    let placed: Vec<crate::resolve::VertexAt> = vertices
+                        .into_iter()
+                        .map(|vertex| crate::resolve::VertexAt {
+                            at: [vertex.at[0] + dx, vertex.at[1] + dy],
+                            ..vertex
+                        })
+                        .collect();
+                    MaskShape::Path(outline_of(&placed, true))
+                }
             },
             // ADR-0084's all-or-none rect. The model refuses a partial tuple on the way
             // in, so the only two shapes that reach here are all four and none — and
@@ -2509,6 +2634,30 @@ pub(crate) fn effect_of(element: &Value, index: usize, t: (i128, i128)) -> Optio
             tolerance: number("tolerance")?,
             softness: number("softness")?,
             spill: number("spill")?,
+        },
+        model::Effect::Grain {
+            seed, size, mono, ..
+        } => Effect::Grain {
+            seed: seed.0,
+            amount: number("amount")?,
+            size: u32::from(size.0),
+            mono,
+            frame,
+        },
+        // ADR-0156 §4: a keyed `levels` resolves to a continuous value, and is rounded half
+        // away from zero (`f64::round`, the rule `shift` uses) into the integer the
+        // quantiser takes, then held in its range.
+        model::Effect::Posterize { .. } => Effect::Posterize {
+            levels: number("levels")?.round().clamp(2.0, 256.0),
+        },
+        model::Effect::Glow { .. } => Effect::Glow {
+            threshold: number("threshold")?,
+            radius: number("radius")?,
+            intensity: number("intensity")?,
+        },
+        model::Effect::DirectionalBlur { .. } => Effect::DirectionalBlur {
+            angle: number("angle")?,
+            length: number("length")?,
         },
     })
 }

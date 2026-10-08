@@ -32,8 +32,8 @@ fn values(kind: Kind) -> (Value, Value) {
         Kind::Pair => (json!([1.0, 1.0]), json!([1.2, 1.2])),
         Kind::Colour | Kind::Paint => (json!("#FF0000"), json!("#0000FF")),
         Kind::Points => (
-            json!([{"at": [10, 390]}, {"at": [200, 10]}, {"at": [390, 390]}]),
-            json!([{"at": [10, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
+            json!([{"at": [50, 390]}, {"at": [200, 50]}, {"at": [390, 390]}]),
+            json!([{"at": [50, 390]}, {"at": [200, 200]}, {"at": [390, 390]}]),
         ),
         Kind::Stops => (
             json!([{"offset": 0, "color": "#FF0000"}, {"offset": 1, "color": "#0000FF"}]),
@@ -62,9 +62,48 @@ fn subject(property: &str, records: Value) -> Value {
         json!({"id": "subject", "type": "audio", "start": 1000, "end": 3000,
                "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1500,
                "overrun": "loop"})
+    } else if has("video") {
+        // A remapped video (ADR-0157): silent, as `E-REMAP-AUDIBLE` requires, on the
+        // fixture's own reference footage.
+        json!({"id": "subject", "type": "video", "start": 1000, "end": 3000,
+               "source": "reference/kenburns/05.mp4", "source_time": 0, "x": 540, "y": 960,
+               "width": 400, "height": 400, "fit": "literal", "volume": 0})
     } else {
         panic!("`{property}` is animatable on no type this test knows how to write");
     };
+    // A dash offset moves a pattern, and with none it is `E-DASH-OFFSET-ALONE` (ADR-0158).
+    if property == "stroke_dash_offset" {
+        element["stroke_dash"] = json!([10, 6]);
+    }
+    // A text's curve is its own nested `path.points`, and `path_offset` places a line only on
+    // a text carrying one (ADR-0161). Its box fits the points inside the inset `m` = 40.
+    if element["type"] == "text" && (property == "path_offset" || property.starts_with("path.")) {
+        element["height"] = json!(450);
+        element["path"] = json!({"closed": false, "points": values(Kind::Points).0});
+        if property == "path.points" {
+            element["path"]["points"] = records;
+            return element;
+        }
+    }
+    // A trim offset rotates a window, and with none it is `E-TRIM-OFFSET` (ADR-0160).
+    if property == "trim_offset" {
+        element["trim_end"] = json!(0.5);
+    }
+    // A projection's angle needs a `perspective`, and a `perspective` needs an angle and must
+    // stand further from `origin` than the box's corners (ADR-0167): 1000 and 3000 here.
+    if matches!(property, "swivel" | "tilt") {
+        element["perspective"] = json!(2000);
+    }
+    if property == "perspective" {
+        element["swivel"] = json!(10);
+        let mut records = records;
+        for record in records.as_array_mut().into_iter().flatten() {
+            let v = record["v"].as_f64().unwrap_or(0.5);
+            record["v"] = json!(v * 4000.0);
+        }
+        element[property] = records;
+        return element;
+    }
     // A gradient's parameter is a nested path, `fill.angle` (ADR-0149 §6): the paint holds a
     // gradient whose other parameters are literals.
     match property.split_once('.') {
@@ -140,6 +179,10 @@ fn effect(name: &str) -> Value {
             json!({"name": "chroma", "color": "#00FF00", "tolerance": 0.2, "softness": 0.1,
                    "spill": 0.1})
         }
+        "grain" => json!({"name": "grain", "seed": 7, "amount": 0.2, "size": 2, "mono": true}),
+        "posterize" => json!({"name": "posterize", "levels": 8}),
+        "glow" => json!({"name": "glow", "threshold": 0.5, "radius": 10, "intensity": 1}),
+        "directional_blur" => json!({"name": "directional_blur", "angle": 30, "length": 12}),
         other => panic!("no static `{other}` for this test to key a parameter of"),
     }
 }
@@ -178,6 +221,10 @@ fn keyed_subject(key: &str, member: Option<&str>, records: Value) -> Value {
     };
     let mut element = subject("x", json!(540));
     let mut keyed = effect(member);
+    // `points` is a field of a `path` mask only (ADR-0163 §3).
+    if (member, key) == ("mask", "points") {
+        keyed["shape"] = json!("path");
+    }
     keyed[key] = records;
     element["effects"] = json!([effect(member), keyed]);
     element
@@ -246,6 +293,8 @@ fn every_animatable_property_is_carried_by_every_tool() {
         // A gradient's parameter is printed inside its paint, resolved: the midpoint is
         // neither end.
         let (printed_as, parameter) = match member {
+            // A text's curve is printed under its own nested name (ADR-0161).
+            None if property.starts_with("path.") => (property.as_str(), ""),
             None => property.split_once('.').unwrap_or((property, "")),
             Some(_) => (property.as_str(), ""),
         };

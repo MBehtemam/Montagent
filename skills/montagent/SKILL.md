@@ -43,12 +43,16 @@ This is the capability map. Read it before you design, so the brief does not lea
 **Elements and placement**
 
 - Images, video, text, rectangles and ellipses, placed and sized on a frame, layered on tracks: `image`, `video`, `text`, `rect`, `ellipse`, `x`, `y`, `width`, `height`, `origin`, `layer`.
-- Lines, polygons and curves drawn through vertices with handles, filled or stroked, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`.
+- Lines, polygons and curves drawn through vertices with handles, filled or stroked with a chosen corner join and end cap, dashed or dotted, the vertex list keyable: `path`, `closed`, `points`, `at`, `in`, `out`, `stroke_join`, `stroke_miter_limit`, `stroke_cap`, `stroke_dash`, `stroke_dash_offset`.
+- Dashed outlines on rectangles, ellipses and paths, with the dashes marching along them: `stroke_dash`, `stroke_dash_offset`.
+- A shape morphing into an unlike one, with matching vertex lists written by hand: `path`, `points`.
+- Draw a stroke on along its outline, or orbit an arc around a ring, on paths, rectangles and ellipses: `trim_start`, `trim_end`, `trim_offset`.
 
 **Motion**
 
 - Keyframe position, scale, rotation and opacity, with named easings or a cubic bezier (overshoot included): `scale`, `rotation`, `opacity`, `ease`.
-- Keyframe a shape's size, corner radius, fill and stroke, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `color`.
+- Turn any visual element in perspective about its own axes, as in a card flip, a door swing or a tilted screen: `swivel`, `tilt`, `perspective`.
+- Keyframe a shape's size, corner radius, fill, stroke and dash offset, and a text element's colour and stroke: `width`, `height`, `radius`, `fill`, `stroke`, `stroke_width`, `stroke_dash_offset`, `color`.
 - Motion blur on a moving element: `motion_blur`.
 
 **Paint**
@@ -61,6 +65,7 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Text in fonts you vendor, as runs with their own size and colour: `fonts`, `size`, `color`.
 - Letter spacing on a whole text element, keyable: `letter_spacing`.
 - A text element's letters, words or lines animating one after another, with one singled out: `units`, `unit`.
+- One line of text bent along its own curve (straight, arc, wave or circle) and sliding along it: `path` (the `path` element's points) and `path_offset` on `text`, with `align`.
 
 **Compositing**
 
@@ -70,16 +75,25 @@ This is the capability map. Read it before you design, so the brief does not lea
 - Blend an element into what is beneath it, as screen, add, multiply or overlay: `blend`.
 - Keep everything outside a mask shape instead of inside it: `mask`, `invert`.
 - Soften a mask's edge, and animate the softness: `mask`, `feather`.
+- Mask an element through any closed outline drawn point by point, and animate the outline: `mask`, `shape`, `points`.
 
 **Effects**
 
 - Blur, shadow, mask, tint, saturation, brightness and contrast: `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`.
+- Film grain that re-rolls every frame from a literal seed, on an element or as a grey `rect` texture blended `overlay`: `grain`, `seed`, `size`, `mono`.
+- Posterize an element's colours into a few flat steps: `posterize`, `levels`.
+- A bloom from an element's bright parts: `glow`, `threshold`, `radius`, `intensity`.
+- Smear an element along one direction, whether or not it moves: `directional_blur`, `angle`, `length`.
+- A texture or glow laid over footage, as a `rect` carrying an effect and a blend, the way a vignette or a light leak is built: `rect`, `effects`, `blend`.
 - A look outside this vocabulary, drawn in your own code, pre-rendered to lossless footage with alpha and placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
-- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`.
+- A vector drawing (SVG), brought in as one image: rasterised once to a PNG at the size it is shown, placed as an `image`, with a recipe that rebuilds it: `image` (`montagent-prerender`).
+- A Lottie animation, brought in as footage: rendered frame by frame, one fresh player per frame, into lossless footage with alpha, placed as a `video`, with a recipe that rebuilds it: `video` (`montagent-prerender`).
+- Keyframe any effect's numbers and colours, and reveal an element through a keyed mask: `effects`, `radius`, `dx`, `dy`, `color`, `opacity`, `x`, `y`, `width`, `height`, `amount`, `tolerance`, `softness`, `spill`, `levels`, `threshold`, `intensity`, `angle`, `length`.
 
 **Time**
 
 - Per-clip speed, and a check on clips that run across a loop's join: `speed`, `loop`.
+- Speed ramps, reverse and freeze frames on a video, as a curve of source times: `source_time`.
 
 **Audio**
 
@@ -92,6 +106,8 @@ This is the capability map. Read it before you design, so the brief does not lea
 | Graphics and text: launch spots, product and social ads, intros and outros, kinetic and typed text, logo reveals and loops, trailer effects | `montagent-motion` |
 | Recorded video: talking heads, green screen, captions, lower-thirds, picture-in-picture, music under a voice | `montagent-footage` |
 | A look the effects list lacks (distortions, mosaic, lens flare, a code-drawn pattern), drawn in code and brought in as footage | `montagent-prerender` |
+| A vector drawing (SVG), brought in as one image: rasterised once to a PNG and placed as an `image` | `montagent-prerender` |
+| A Lottie animation, brought in as footage: rendered frame by frame to lossless footage with alpha and placed as a `video` | `montagent-prerender` |
 | A character that moves or talks: rig, poses, lip sync, blinks | `montagent-character` |
 | Timing, easing, layout, and judging whether it looks right | `montagent-craft`, at every look step |
 
@@ -103,10 +119,6 @@ A piece can mix these: load each skill whose row it touches.
 
 Each item names the issue whose close retires it. Tell the user when the brief depends on one.
 
-- Morphs between paths with different vertices. Keep them out of the design. <!-- workaround: #714 · replaced by: morphs between unlike paths -->
-- Generative effects. Keep them out of the design. <!-- workaround: #724 · replaced by: generative effects -->
-- 3D tilt and perspective. Keep them out of the design. <!-- workaround: #705 · replaced by: 3D tilt and perspective -->
-- Speed ramps. Keep them out of the design. <!-- workaround: #745 · replaced by: speed ramps -->
 - Parenting, groups and cameras. Bake the hierarchy to per-element keyframes (`montagent-character`). <!-- workaround: #499 · replaced by: parenting or a group transform -->
 - Changing an element's image over time. Use one element per image, each shown for its own span (`montagent-character`). <!-- workaround: #518 · replaced by: an image that changes over time -->
 - Reading a track's tempo or beats. Find the beat grid with the script in `montagent-craft`. <!-- workaround: #547 · replaced by: tempo and downbeat from probe -->
@@ -118,5 +130,7 @@ Montagent refuses these on purpose, so do not wait for them. Each line gives wha
 - Spring easing. Use a cubic bezier with overshoot, or keyframes baked out. ([ADR-0146](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md))
 - A repeat or copy construct. Write each copy out as its own element. ([ADR-0148](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md))
 - A matte taken from another element. Use the element's own `mask`. ([ADR-0150](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+- Automatic vertex matching between unlike paths. Pad the lists by hand (`montagent-motion`). ([ADR-0162](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md))
 - Keyframe expressions, or links between values. Write literal keyframes. ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md))
+- A native SVG or Lottie source. Pre-render it once with `montagent-prerender`: an SVG as one PNG, a Lottie as footage. ([ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md))
 - An open shader or script file. Pre-render the look with `montagent-prerender` and bring it in as footage ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)). ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md))

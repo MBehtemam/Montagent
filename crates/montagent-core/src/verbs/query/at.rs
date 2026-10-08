@@ -142,9 +142,15 @@ pub struct Present {
     /// states no `fps` to place a frame by.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub motion: Option<&'static str>,
+    /// Every `grain` member's resolved values (ADR-0156 §5): its position in `effects`, the
+    /// static `seed`, `size` and `mono`, `amount` at the instant, and the local frame its
+    /// draw is keyed on at the frame holding the instant. Absent on an element with none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grain: Option<Vec<Value>>,
     /// **Offset into source** — where in the source file this instant plays, for `audio`
     /// and `video`. `source_start` plus how far `speed` has advanced playback, or the
-    /// `overrun` position past the as-played duration (ADR-0020). `null` on every other
+    /// `overrun` position past the as-played duration (ADR-0020); on a `video` carrying
+    /// `source_time`, the curve's millisecond at the instant (ADR-0157). `null` on every other
     /// type, for the same reason `layer` is `null` on an element with no anchor: nothing
     /// declared it.
     pub source_offset: Option<i64>,
@@ -159,6 +165,11 @@ pub struct Present {
     /// off the same arithmetic as `source_offset`, so the two cannot disagree.
     #[serde(skip)]
     pub(crate) source_origin: Option<(i64, i64)>,
+    /// A remapped `video`'s readings (ADR-0157 §5), derived and never accepted as input:
+    /// `source_time` rounded as the painter rounds it, and the `rate` the viewer sees. Absent
+    /// on every element that does not carry `source_time`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub derived: Option<Derived>,
     /// **The crop rectangle** — which part of the *source file's own pixels* survive onto
     /// the screen, in source pixel space, for a raster element carrying `cover`/`contain`
     /// and a `clip` (ADR-0013, ADR-0015). `null` where the element carries no raster
@@ -192,6 +203,250 @@ pub struct Present {
     /// other type, and where `points` does not resolve.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<Vec<VertexAt>>,
+    /// Every `path` mask's resolved outline with absolute control points, by its position
+    /// in `effects` (ADR-0163 §6), as `path` is for a `path` element. Absent where the
+    /// element carries no path mask.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub masks: Option<Vec<MaskPath>>,
+    /// A shape's stroke (ADR-0158 §7): on a `path`, the inset `m` its control points must
+    /// keep from the box's edges and the reach factor `k` with where it came from; on a
+    /// dashed `path`, `rect` or `ellipse`, the resolved dash offset and the informative
+    /// outline length. Absent on every other type, and on an undashed `rect` or `ellipse`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<StrokeReach>,
+    /// A text carrying `path` (ADR-0161 §8): `path_offset` at the instant, the curve's
+    /// informative length, and the letters the curve hides there. Absent on every other
+    /// element.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_path: Option<crate::text_path::Reading>,
+    /// A trimmed shape's window (ADR-0160 §7). Absent on an element that carries no trim
+    /// field, so an untrimmed element's answer is unchanged byte for byte.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimReport>,
+    /// A projected element's reading (ADR-0167 §7). Absent on an element that writes neither
+    /// `swivel` nor `tilt`, so its answer is unchanged byte for byte.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projection: Option<ProjectionReport>,
+}
+
+/// What `query --at` reports of a projected element (ADR-0167 §7): the three numbers at the
+/// instant, which way it faces, and the four frame-space corners of its box widened by its
+/// effects' reach, from [`crate::projection::quad_at`], the function every check reads.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectionReport {
+    pub swivel: f64,
+    pub tilt: f64,
+    /// `null` where the file writes no `perspective` (`E-PROJECTION-PERSPECTIVE-MISSING`).
+    pub perspective: Option<f64>,
+    /// `front`, `away` or `edge`.
+    pub facing: &'static str,
+    /// Top-left, top-right, bottom-right, bottom-left, in frame pixels to three decimals,
+    /// printed whatever the facing. `null` where the box has no positive size.
+    pub corners: Option<[[f64; 2]; 4]>,
+    /// Whether it paints at the instant.
+    #[serde(skip)]
+    pub(crate) drawn: bool,
+    #[serde(skip)]
+    bounds: Option<[f64; 4]>,
+}
+
+impl ProjectionReport {
+    fn of(element: &Value, instant: i64, frame: (i64, i64), offset: (i64, i64)) -> Self {
+        let t = (i128::from(instant), 1);
+        let projection = crate::projection::at(element, t).expect("a projected element");
+        let quad = crate::projection::quad_at(element, t, frame, offset);
+        let millis = |value: f64| (value * 1000.0).round() / 1000.0 + 0.0;
+        ProjectionReport {
+            swivel: projection.swivel,
+            tilt: projection.tilt,
+            perspective: element.get("perspective").map(|_| projection.perspective),
+            facing: projection.facing().as_str(),
+            corners: quad.map(|quad| quad.corners.map(|(x, y)| [millis(x), millis(y)])),
+            drawn: quad.is_some_and(|quad| quad.drawn),
+            bounds: quad.filter(|quad| quad.drawn).map(|quad| quad.bounds()),
+        }
+    }
+
+    /// The ink box: the corners' bounds while it paints, and why it is empty otherwise.
+    fn ink_box(&self) -> (Option<InkBox>, Option<String>) {
+        if let Some([left, top, right, bottom]) = self.bounds {
+            return (
+                Some(InkBox {
+                    x: left,
+                    y: top,
+                    width: right - left,
+                    height: bottom - top,
+                }),
+                None,
+            );
+        }
+        let why = match (self.corners, self.facing) {
+            (None, _) => "it has no box at this instant",
+            (_, "away") => "it faces away at this instant and paints nothing",
+            (_, "edge") => "it is edge-on at this instant and paints nothing",
+            _ => "its `perspective` does not exceed the eye bound, so it paints nothing",
+        };
+        (None, Some(why.to_string()))
+    }
+}
+
+/// What `query --at` reports of a trimmed stroke (ADR-0160 §7).
+#[derive(Debug, Clone, Serialize)]
+pub struct TrimReport {
+    /// `trim_start` at the instant, **raw**: through the one resolving function but before
+    /// its overshoot clamp, so it matches what the file says. `0` where it is not written.
+    pub trim_start: f64,
+    /// `trim_end`, raw as `trim_start` is. `1` where it is not written.
+    pub trim_end: f64,
+    /// `trim_offset` at the instant, raw: not wrapped into a turn. `0` where it is not
+    /// written.
+    pub trim_offset: f64,
+    /// The window the painter draws, after the clamp and the wrap: `[a, b]` in fractions of
+    /// the outline from its start point (`a > b` crosses it), `empty`, or `full`, the whole
+    /// closed outline with no ends. A whole open path is `[0, 1]`.
+    pub drawn: String,
+}
+
+impl TrimReport {
+    /// `None` where the element carries no trim field.
+    fn of(element: &Value, instant: i64) -> Option<TrimReport> {
+        let window = crate::stroke::window_at(element, i128::from(instant), 1)?;
+        let raw = |field, default| {
+            crate::animatable::unclamped_number_at(element, field, instant).unwrap_or(default)
+        };
+        let fraction = |value: f64| {
+            let rounded = (value * 1e6).round() / 1e6;
+            format!("{}", rounded + 0.0)
+        };
+        let open = element.get("closed").and_then(Value::as_bool) == Some(false);
+        let drawn = match window {
+            crate::stroke::Window::Empty => "empty".to_string(),
+            crate::stroke::Window::Full if open => "[0, 1]".to_string(),
+            crate::stroke::Window::Full => "full".to_string(),
+            crate::stroke::Window::Part { from, to } => {
+                format!("[{}, {}]", fraction(from), fraction(to))
+            }
+        };
+        Some(TrimReport {
+            trim_start: raw("trim_start", 0.0),
+            trim_end: raw("trim_end", 1.0),
+            trim_offset: raw("trim_offset", 0.0),
+            drawn,
+        })
+    }
+}
+
+/// What `query --at` reports of a shape's stroke (ADR-0158 §7).
+#[derive(Debug, Clone, Serialize)]
+pub struct StrokeReach {
+    /// `m = ceil(k × w / 2)`, in box pixels: the margin ADR-0154's containment check keeps.
+    /// A path's alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inset: Option<i64>,
+    /// `k`: `1`, the miter limit, or `√2`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reach_factor: Option<String>,
+    /// Where `k` came from: the miter limit, the square cap, or neither.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reach_source: Option<String>,
+    /// `stroke_dash_offset` at the instant, **raw**: through the one resolving function, and
+    /// not wrapped into the pattern's period as the painter wraps it, so it matches what the
+    /// file says. `0` where a dashed shape writes none. Absent with no `stroke_dash`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dash_offset: Option<f64>,
+    /// The length of the outline the pattern runs along, by the painter's own outline and
+    /// Skia's path measure, to 0.01 px. Informative, not a contract: it is a measure of a
+    /// curve, not a number in the file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline_length: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline_length_note: Option<&'static str>,
+}
+
+impl StrokeReach {
+    /// `None` on a `rect` or `ellipse` with no dash pattern, which has nothing to report.
+    fn of(element: &Value, kind: &str, instant: i64) -> Option<StrokeReach> {
+        let reach = (kind == "path").then(|| crate::stroke::reach(element));
+        let dashed = crate::stroke::dash(element).is_some();
+        if reach.is_none() && !dashed {
+            return None;
+        }
+        let outline_length = dashed
+            .then(|| outline_length(element, kind, instant))
+            .flatten()
+            .map(|length| (length * 100.0).round() / 100.0);
+        Some(StrokeReach {
+            inset: reach.map(|reach| reach.inset),
+            reach_factor: reach.map(|reach| reach.source.factor()),
+            reach_source: reach.map(|reach| reach.source.describe()),
+            dash_offset: dashed
+                .then(|| crate::animatable::number_at(element, "stroke_dash_offset", instant, 0.0)),
+            outline_length,
+            outline_length_note: outline_length
+                .map(|_| "informative, not a contract: the painter's own path measure, at 1:1"),
+        })
+    }
+}
+
+/// The length of the outline a shape's dash pattern runs along at `instant`, from the very
+/// outline the painter strokes and Skia's own path measure (ADR-0158 §7), so `query`
+/// computes no second length. `None` where the element has no outline at the instant.
+fn outline_length(element: &Value, kind: &str, instant: i64) -> Option<f64> {
+    use montagent_render::canvas::{Extent, Shape};
+    let at = i128::from(instant);
+    if kind == "path" {
+        let Ok(crate::animatable::Resolved::Points(vertices)) =
+            crate::animatable::at(element, "points", instant)?
+        else {
+            return None;
+        };
+        let closed = element.get("closed").and_then(Value::as_bool) == Some(true);
+        let outline = crate::verbs::frame::outline_of(&vertices, closed);
+        return Some(montagent_render::canvas::path_outline_length(&outline));
+    }
+    let (width, height) = crate::animatable::painted_box(element, at, 1)?;
+    let shape = match kind {
+        "ellipse" => Shape::Ellipse,
+        _ => Shape::Rect {
+            radius: crate::animatable::number_at(element, "radius", instant, 0.0),
+        },
+    };
+    let stroke_width = crate::animatable::number_at(element, "stroke_width", instant, 0.0);
+    montagent_render::canvas::shape_outline_length(shape, Extent { width, height }, stroke_width)
+}
+
+/// What `query --at` derives for a remapped `video` (ADR-0157 §5).
+#[derive(Debug, Clone, Serialize)]
+pub struct Derived {
+    /// The source millisecond shown at the instant: `source_time` resolved and rounded
+    /// half-up, the number the painter decodes at ([`crate::remap::source_ms`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_time: Option<i64>,
+    /// The change in that millisecond to the next frame instant, over the frame interval,
+    /// signed, with `×`: `-0.500×` plays backwards at half rate, `0.000×` is frozen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate: Option<String>,
+    /// Why one of the two is missing, where one is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unresolved: Option<String>,
+}
+
+impl Derived {
+    fn of(document: &Loose, element: &Value, instant: i64) -> Derived {
+        let source_time = crate::remap::source_ms(element, instant);
+        let fps = document
+            .value()
+            .get("fps")
+            .and_then(Value::as_i64)
+            .filter(|fps| *fps > 0)
+            .ok_or_else(|| "the project states no `fps` to find the next frame by".to_string());
+        let rate = fps.and_then(|fps| crate::remap::rate(element, instant, fps));
+        Derived {
+            unresolved: source_time.as_ref().err().or(rate.as_ref().err()).cloned(),
+            source_time: source_time.ok(),
+            rate: rate.ok(),
+        }
+    }
 }
 
 /// A `path`'s resolved vertices, each handle made absolute by adding its own vertex.
@@ -201,18 +456,59 @@ fn absolute_vertices(element: &Value, instant: i64) -> Option<Vec<VertexAt>> {
     else {
         return None;
     };
-    let absolute =
+    Some(absolute(vertices))
+}
+
+/// Each handle made absolute by adding its own vertex.
+fn absolute(vertices: Vec<VertexAt>) -> Vec<VertexAt> {
+    let plus =
         |at: [f64; 2], offset: Option<[f64; 2]>| offset.map(|[dx, dy]| [at[0] + dx, at[1] + dy]);
-    Some(
-        vertices
-            .into_iter()
-            .map(|vertex| VertexAt {
-                arriving: absolute(vertex.at, vertex.arriving),
-                out: absolute(vertex.at, vertex.out),
-                at: vertex.at,
+    vertices
+        .into_iter()
+        .map(|vertex| VertexAt {
+            arriving: plus(vertex.at, vertex.arriving),
+            out: plus(vertex.at, vertex.out),
+            at: vertex.at,
+        })
+        .collect()
+}
+
+/// One `path` mask's resolved outline (ADR-0163 §6).
+#[derive(Debug, Clone, Serialize)]
+pub struct MaskPath {
+    /// The mask's zero-based position in `effects`.
+    pub index: usize,
+    /// Its resolved vertices with absolute control points, in box pixels from the mask's
+    /// box: its written rect's top-left corner, or the element's own where it is omitted.
+    pub path: Vec<VertexAt>,
+}
+
+/// Every `path` mask the element carries, resolved at `instant` through the one resolving
+/// function, which clamps an overshoot into the mask's box. `None` where it carries none.
+fn mask_paths(element: &Value, instant: i64) -> Option<Vec<MaskPath>> {
+    let masks: Vec<MaskPath> = element
+        .get("effects")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .filter(|(_, effect)| {
+            effect.get("name").and_then(Value::as_str) == Some("mask")
+                && effect.get("shape").and_then(Value::as_str) == Some("path")
+        })
+        .filter_map(|(index, _)| {
+            let Ok(crate::animatable::Resolved::Points(vertices)) =
+                crate::animatable::effect_parameter(element, index, "points")?.at(instant)
+            else {
+                return None;
+            };
+            Some(MaskPath {
+                index,
+                path: absolute(vertices),
             })
-            .collect(),
-    )
+        })
+        .collect();
+    (!masks.is_empty()).then_some(masks)
 }
 
 /// What a running `wipe`, `slide` or `push` does to one element's geometry (ADR-0150).
@@ -383,7 +679,23 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         // whole computation to refuse — is not this instant's concern. One call into
         // `drawn_rect`, its result reused for both the refusal check and the rectangle
         // itself, rather than computing the same footprint twice.
-        if detail == Detail::Full
+        // A projected element that paints is a quadrilateral, which this answers no better
+        // than a rotated box (ADR-0167 §6); one facing away paints nothing.
+        let projection = match (detail, frame) {
+            (Detail::Full, Some(frame)) if crate::projection::projects(element) => {
+                Some(ProjectionReport::of(element, instant, frame, bridge.offset))
+            }
+            _ => None,
+        };
+        if let Some(report) = &projection
+            && report.drawn
+            && geometry_number_opacity(element, instant) != 0.0
+        {
+            not_covered_unresolved.get_or_insert_with(|| {
+                format!("`{name}` is projected; `NOT COVERED` is answered in rectangles only")
+            });
+        } else if detail == Detail::Full
+            && projection.is_none()
             && covers_the_frame(kind)
             && geometry_number_opacity(element, instant) != 0.0
             && let Some(frame) = frame
@@ -445,9 +757,16 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             ),
             _ => (None, None),
         };
+        // ADR-0167 §7: a projected element's ink box is its quadrilateral's bounds, empty
+        // while it paints nothing.
+        let (ink_box, ink_box_unresolved) = match &projection {
+            Some(report) => report.ink_box(),
+            None => (ink_box, ink_box_unresolved),
+        };
 
         let blend = blend_word(element, kind);
         let (motion_blur, motion) = motion_of(document, element, kind, instant);
+        let grain = grain_of(document, element, instant);
         let (stagger, units) = match kind {
             Some("text") if detail != Detail::Presence => {
                 match crate::units::report(document, element, instant) {
@@ -459,6 +778,18 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         };
         let path = match kind {
             Some("path") => absolute_vertices(element, instant),
+            _ => None,
+        };
+        let stroke = match kind {
+            Some(kind @ ("path" | "rect" | "ellipse")) => StrokeReach::of(element, kind, instant),
+            _ => None,
+        };
+        let text_path = match detail {
+            Detail::Full => crate::text_path::Reading::at(document, element, instant),
+            Detail::Presence => None,
+        };
+        let trim = match kind {
+            Some("path" | "rect" | "ellipse") => TrimReport::of(element, instant),
             _ => None,
         };
         present.push(Present {
@@ -473,9 +804,12 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             blend,
             motion_blur,
             motion,
+            grain,
             source_offset,
             source_offset_unresolved,
             source_origin,
+            derived: (detail == Detail::Full && crate::remap::is_remapped(element))
+                .then(|| Derived::of(document, element, instant)),
             crop,
             crop_unresolved,
             ink_box,
@@ -490,6 +824,11 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
                 _ => None,
             },
             path,
+            masks: mask_paths(element, instant),
+            stroke,
+            text_path,
+            trim,
+            projection,
         });
     }
 
@@ -562,6 +901,37 @@ fn motion_of(
     (Some(written.clone()), motion)
 }
 
+/// Every `grain` member's resolved values, as the painter reads them at `instant`: through
+/// the one resolving function, with the local frame the painter keys the draw on.
+fn grain_of(document: &Loose, element: &Value, instant: i64) -> Option<Vec<Value>> {
+    let fps = document
+        .value()
+        .get("fps")
+        .and_then(Value::as_i64)
+        .filter(|fps| *fps > 0)
+        .unwrap_or(1);
+    let frame = crate::grain::local_frame(element, instant, fps);
+    let count = element.get("effects").and_then(Value::as_array)?.len();
+    let grains: Vec<Value> = (0..count)
+        .filter_map(|index| {
+            match crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame)? {
+                montagent_render::canvas::Effect::Grain {
+                    seed,
+                    amount,
+                    size,
+                    mono,
+                    frame,
+                } => Some(
+                    serde_json::json!({"effect": index, "seed": seed, "amount": amount,
+                                             "size": size, "mono": mono, "frame": frame}),
+                ),
+                _ => None,
+            }
+        })
+        .collect();
+    (!grains.is_empty()).then_some(grains)
+}
+
 /// The one sentence every geometry field carries in a presence-only view.
 const NOT_DERIVED: &str = "not derived: this view was built for painting, and a painter reads none of the \
                            geometry";
@@ -607,6 +977,14 @@ pub(crate) fn source_offset(
         return (None, None, None);
     }
     let unresolved = |reason: &str| (None, Some(reason.to_string()), None);
+    // ADR-0157: a remapped video's offset is its curve at the instant, through the one
+    // resolution function. It has no pass to measure from: every frame is decided alone.
+    if crate::remap::is_remapped(element) {
+        return match crate::remap::source_ms(element, instant) {
+            Ok(ms) => (Some(ms), None, None),
+            Err(reason) => unresolved(&reason),
+        };
+    }
     let (Some(source_start), Some(source_end)) = (
         element.get("source_start").and_then(Value::as_i64),
         element.get("source_end").and_then(Value::as_i64),
@@ -696,6 +1074,16 @@ fn crop_for(
             ),
         );
     };
+    if crate::projection::projects(element) {
+        return (
+            None,
+            Some(
+                "it is projected (ADR-0167), and the crop rectangle is not derived through a \
+                 projection"
+                    .to_string(),
+            ),
+        );
+    }
     let (Some(width), Some(height)) = (
         element.get("width").and_then(Value::as_i64),
         element.get("height").and_then(Value::as_i64),
@@ -793,12 +1181,34 @@ fn values(element: &Value, instant: i64) -> Vec<Resolved> {
         })
         // A gradient's parameters are on the list as nested paths (`fill.angle`), and are
         // printed inside the paint they belong to, resolved and fixed together (ADR-0149 §6).
-        .filter(|declared| declared.effect.is_some() || !declared.path.contains('.'))
+        // A text's curve, `path.points`, belongs to no paint and is printed as itself
+        // (ADR-0161).
+        .filter(|declared| {
+            declared.effect.is_some()
+                || declared.path.split_once('.').is_none_or(|(parent, _)| {
+                    crate::animatable::property(parent).map(|property| property.kind)
+                        != Some(crate::animatable::Kind::Paint)
+                })
+        })
         .map(|declared| {
             let property = declared.path.as_str();
             let animated = declared.records().is_some()
                 || (declared.property.kind == crate::animatable::Kind::Paint
                     && crate::animatable::nested_keyed(declared.owner, property));
+            // ADR-0160 §7: a trim fraction is printed raw, before the overshoot clamp the
+            // painter applies, so it matches what the file says.
+            if declared.effect.is_none()
+                && matches!(property, "trim_start" | "trim_end")
+                && let Some(raw) =
+                    crate::animatable::unclamped_number_at(element, property, instant)
+            {
+                return Resolved {
+                    property: property.to_string(),
+                    animated,
+                    value: Some(Value::from(raw)),
+                    unresolved: None,
+                };
+            }
             match declared.at(instant) {
                 Ok(value) => match serde_json::to_value(value) {
                     Ok(value) => Resolved {

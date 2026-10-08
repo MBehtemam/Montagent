@@ -5,7 +5,7 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
-> **Amended by seven later ADRs.** Read them before relying on anything below.
+> **Amended by nine later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0015](0015-fit-is-a-derivation-claim-and-gravity-retires.md) — `gravity` is
 >   decided here, as that ADR deferred it
@@ -23,6 +23,11 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 > - [ADR-0154](0154-a-point-list-enters-as-one-path-element-in-integer-pixels-from-the-declared-box.md) — its
 >   rejection of `line`, `polygon` and `path` is lifted: a point list enters as one `path`
 >   element in integer pixels from the declared box; the `d`-string refusal stands
+> - [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md) — the
+>   derived-height checks do not apply to a text on a path; its box frames the curve, inset by
+>   the largest run size plus the largest stroke width
+> - [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md) — `rect` and
+>   `ellipse` take a dash pattern; their join and cap stay as drawn
 
 > **`gravity` is decided by [ADR-0015](./0015-fit-is-a-derivation-claim-and-gravity-retires.md)**,
 > which this ADR deferred to #48. It is **retired** — a schema error on every element type, not

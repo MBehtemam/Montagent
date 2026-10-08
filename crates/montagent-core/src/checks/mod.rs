@@ -27,6 +27,7 @@ pub mod extent;
 pub mod fit;
 pub mod fonts;
 pub mod gradient;
+pub mod grain;
 pub mod highlight;
 pub mod ink;
 pub mod layout;
@@ -34,14 +35,18 @@ pub mod mask;
 pub mod motion_blur;
 pub mod overridden;
 pub mod path;
+pub mod projection;
 pub mod quantization;
 pub mod range;
+pub mod remap;
 pub mod retired;
 pub mod runs;
 pub mod schema;
 pub mod source;
 pub mod spacing;
 pub mod speed;
+pub mod stroke;
+pub mod text_path;
 pub mod tie;
 pub mod track;
 pub mod transition;
@@ -197,8 +202,19 @@ pub(crate) fn keyframe_records<'a>(
 /// and `volume` are dropped because none of them moves a rectangle. `opacity` in particular
 /// is deliberate — it changes what a collision *looks like* and not whether there is one
 /// (ADR-0060), and an element faded to nothing is still somewhere (ADR-0044). A test holds
-/// this list inside the animatable one.
-pub const MOVES_THE_BOX: [&str; 6] = ["x", "y", "width", "height", "scale", "rotation"];
+/// this list inside the animatable one. The projection's three fields move a projected
+/// element's quadrilateral as `rotation` moves its box (ADR-0167 §6).
+pub const MOVES_THE_BOX: [&str; 9] = [
+    "x",
+    "y",
+    "width",
+    "height",
+    "scale",
+    "rotation",
+    "swivel",
+    "tilt",
+    "perspective",
+];
 
 /// **ADR-0060's sample set**: every keyframe boundary inside `window`, its own two ends,
 /// and the midpoint of every consecutive pair — over every element in `elements`.

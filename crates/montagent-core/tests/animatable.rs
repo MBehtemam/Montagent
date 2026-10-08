@@ -374,9 +374,16 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.center",
             "stroke.radius",
             "stroke_width",
+            "stroke_dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "radius",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -398,8 +405,15 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.center",
             "stroke.radius",
             "stroke_width",
+            "stroke_dash_offset",
+            "trim_start",
+            "trim_end",
+            "trim_offset",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -420,8 +434,13 @@ fn the_list_is_what_the_schema_types_as_animatable() {
             "stroke.radius",
             "stroke_width",
             "letter_spacing",
+            "path.points",
+            "path_offset",
             "scale",
             "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
             "opacity"
         ]
     );
@@ -432,7 +451,16 @@ fn the_list_is_what_the_schema_types_as_animatable() {
     assert_eq!(spacing.minimum, None);
     assert_eq!(
         names_of("image"),
-        ["x", "y", "scale", "rotation", "opacity"]
+        [
+            "x",
+            "y",
+            "scale",
+            "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
+            "opacity"
+        ]
     );
     assert_eq!(names_of("audio"), ["volume"]);
     assert!(names_of("transition").is_empty());
@@ -440,8 +468,8 @@ fn the_list_is_what_the_schema_types_as_animatable() {
 
 #[test]
 fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
-    // ADR-0146 §3, slice 2: every member's numeric and colour parameters; `mask.shape` and
-    // `invert` stay static.
+    // ADR-0146 §3, slice 2: every member's numeric and colour parameters; `mask.shape`,
+    // `invert` and `grain`'s `seed`, `size` and `mono` stay static.
     let members: Vec<(&str, Vec<&str>)> = animatable::effect_members()
         .map(|(member, parameters)| (member, parameters.iter().map(|p| p.name.as_str()).collect()))
         .collect();
@@ -452,13 +480,19 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("shadow", vec!["dx", "dy", "radius", "color", "opacity"]),
             (
                 "mask",
-                vec!["x", "y", "width", "height", "radius", "feather"]
+                // ADR-0163 §4: a path mask's `points` animates as a `path`'s does.
+                vec!["x", "y", "width", "height", "radius", "points", "feather"]
             ),
             ("tint", vec!["color", "amount"]),
             ("saturation", vec!["amount"]),
             ("brightness", vec!["amount"]),
             ("contrast", vec!["amount"]),
             ("chroma", vec!["color", "tolerance", "softness", "spill"]),
+            // ADR-0156 §4: `seed`, `size` and `mono` are static.
+            ("grain", vec!["amount"]),
+            ("posterize", vec!["levels"]),
+            ("glow", vec!["threshold", "radius", "intensity"]),
+            ("directional_blur", vec!["angle", "length"]),
         ]
     );
     let (_, chroma) = animatable::effect_members()

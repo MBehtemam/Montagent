@@ -5,6 +5,21 @@ amends: 0014 (`line`, `polygon` and `path` are no longer rejected; one `path` el
 
 # A point list enters as one `path` element, in integer pixels from the declared box
 
+> **Amended by [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md).** The round-join, butt-cap pin is lifted: a path
+> chooses `stroke_join` and `stroke_cap`, the inset of §4 widens to `ceil(k × w / 2)` by the
+> stroke's reach factor, and `E-PATH-OUTSIDE-BOX` names that factor.
+
+> **Amended by [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md).** The point vocabulary is also written
+> inline on `text`, as the curve a line of text follows. `E-PATH-TOO-FEW-POINTS`,
+> `E-PATH-DANGLING-HANDLE`, `E-PATH-KEYFRAME-SHAPE` and `E-PATH-OUTSIDE-BOX` fire on a text's
+> `path` too, the last with the text's own inset.
+
+> **Amended by [ADR-0162](0162-a-morph-between-unlike-shapes-is-written-as-matching-vertex-lists-and-no-rule-resamples-them.md).** §3's morphing question is settled with no
+> second mechanism: a morph between unlike shapes is written as matching vertex lists, padded
+> by hand with coincident vertices. `E-PATH-KEYFRAME-SHAPE` names that fix, and a new review,
+> `R-PATH-SEAM-CAP`, fires on an open path whose coincident ends meet at a corner under a cap
+> that is not `round`.
+
 [#701](https://github.com/MBehtemam/Montagent/issues/701), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0014](0014-stroke-is-paint-the-text-box-is-required.md) rejected `line`, `polygon` and

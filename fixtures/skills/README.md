@@ -19,10 +19,12 @@ licence attestation.
 | `type_on.montagent.json`, `type_on.spec.json` | A project with only a font, and a spec that types a name onto it with a cursor: the input to `montagent-motion`'s `type_on.py`. |
 | `beat_grid.spec.json` | A spec that lays `media/beat.wav` into `type_on.montagent.json` with no tempo given, so `montagent-craft`'s `beat_grid.py` has to find it. |
 | `media/pulse.mov`, `prerender.spec.json` | 12 frames of `montagent-prerender`'s sample piece (160×120, 25 fps, PNG in MOV with alpha), and a placing spec for it: the input to that skill's `prerender.py place`. |
+| `media/mark.png` | `montagent-prerender`'s sample SVG (`references/sample_art.svg`: shapes, a gradient and Inter Bold text) rasterised at 480×270 by `resvg` 0.48.1 through that skill's `prerender.py build`: the PNG its SVG route places as an `image`. |
+| `media/lottie.mov` | `montagent-prerender`'s sample Lottie (`references/sample_lottie.json`: shapes, embedded-glyph Inter Bold text and a keyed fade, with transparent areas) as 50 frames at 320×180 and 25 fps, PNG in MOV with alpha, built by that skill's `prerender.py build` through its sample ThorVG player (`thorvg-python` 1.1.3), one fresh player per frame: the footage its Lottie route places as a `video`. |
 | `rig/rig.json`, `rig/parts/` | A three-level rig (torso → head → mouth and eyes; torso → arm) in the pack's `character/rig.json` shape: parts padded so each pivot is the canvas centre, parents, and a viseme → mouth table. |
 | `rig.montagent.json`, `rig.spec.json` | A project with only a voice on the bed, and a spec that hops the fixture rig in, raises its arm, tilts its head, syncs its mouth to `media/bed.visemes.json` and blinks it: the input to `montagent-character`'s `bake_rig.py`. |
 
-Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg.
+Everything except the font is synthetic, and `make_fixtures.py` regenerates it with ffmpeg (`resvg` for `media/mark.png`, `thorvg-python` for `media/lottie.mov`).
 
 ## A skill script's header
 

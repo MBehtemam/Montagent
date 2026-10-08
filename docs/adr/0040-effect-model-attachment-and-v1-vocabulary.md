@@ -5,11 +5,20 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 
 # The effect model: attachment, order, v1 vocabulary, and what's deliberately absent
 
+> **Amended by [ADR-0169](./0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md)**: the "Audio effects" boundary marker is discharged.
+> Audio effects are `audio_effects: [...]`, a separate ordered list on `audio` and `video`
+> elements, in the same `{name, ...params}` shape; no member is shared with `effects`.
+
+> **Amended by [ADR-0167](./0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)**: the "3D / perspective distortion" refusal is
+> withdrawn for a per-element projection. `swivel`, `tilt` and `perspective` join the
+> transform, not `effects`; an element may be projected, never placed. A camera, depth
+> sorting and skew stay refused.
+
 > **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: "v1 effects are static" is retired. Every numeric and colour
 > effect parameter is animatable, written in place as a keyframe list; `mask.shape` and
 > every other enum stay static.
 
-> **Amended by eight later ADRs.** Read them before relying on anything below.
+> **Amended by eleven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0068](0068-the-bare-mask-key-retires-masks-are-effects-members.md) — **retires this
 >   ADR's "no migration needed" Consequences bullet**, which contradicts its own schema
@@ -45,6 +54,9 @@ amends: 0007 (strikes "text background box" from #22's candidate list, already s
 > - [ADR-0155](0155-motion-blur-is-a-per-element-field-that-accumulates-the-element-over-a-centred-shutter.md) — motion
 >   blur is refused as an `effects` member; each sample takes its effects, mask and `opacity`,
 >   the samples are averaged, then the blend
+> - [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) — the
+>   vocabulary gains `grain`, `glow`, `posterize` and `directional_blur`; later members join
+>   one at a time by their own ADR
 
 [#22](https://github.com/MBehtemam/Montagent/issues/22) asked five questions. #19 had
 already fixed the vocabulary as closed, named and published in the schema — never a

@@ -165,6 +165,10 @@ fn run_checks(
     // arithmetic, never `f64` (ADR-0045).
     crate::checks::track::check(document, report);
     crate::checks::speed::check(document, report);
+    // ADR-0157: a `video` carrying `source_time` — the fields its curve refuses, its
+    // silence, and a curve holding past its keys on painted frames. Document-only; the
+    // remap arm of `E-SOURCE-OVERRUN` is in the disk checks.
+    crate::checks::remap::check(document, report);
     // ADR-0107's `E-EMPTY-RANGE` (#410): an element whose range does not advance holds no
     // instant of the half-open clock, and every check above steps over it for that reason.
     // `render` refused it and this list said nothing, so this is the check that owns it.
@@ -231,12 +235,24 @@ fn run_checks(
     // ADR-0154 §6: a path's vertex count, dangling handles, keyframe shape and containment,
     // decided from every literal value of `points`. Document-only.
     crate::checks::path::check(document, report);
+    // ADR-0161 §8: the same four point errors on a text's own `path`, a line break on a
+    // text carrying one, and a `path_offset` with no `path`. Document-only.
+    crate::checks::text_path::check(document, report);
+    // ADR-0158 §6–§7: a stroke join, miter limit or cap with nothing to shape, a miter and
+    // its limit apart, and a cap where none draws. Document-only.
+    crate::checks::stroke::check(document, report);
     // ADR-0147's `R-BLEND-BACKGROUND-ONLY`: a blended element with nothing beneath it,
     // decided from boxes at the instants `render` paints. Document-only.
     crate::checks::blend::check(document, report);
     // ADR-0155's `R-MOTION-BLUR-STILL`: a `motion_blur` on an element that never moves
     // inside its own range. Document-only, decided without painting a frame.
     crate::checks::motion_blur::check(document, report);
+    // ADR-0167 §8 and ADR-0168 §3: a projection's `perspective` missing or alone, the eye
+    // bound, strong foreshortening, and an element that never faces the eye. Document-only.
+    crate::checks::projection::check(document, report);
+    // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
+    // decided on the frame grid without painting a frame.
+    crate::checks::grain::check(document, report);
     // ADR-0088's three document-only `chroma` findings (#342): a colour operation ahead of
     // the key in the same ordered list, a key on pixels the format itself authored, and a
     // `tolerance` sitting on its identity value. Its fourth finding needs the probe and is

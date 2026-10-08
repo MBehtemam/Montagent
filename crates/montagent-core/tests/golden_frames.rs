@@ -647,3 +647,132 @@ fn a_fine_cut_out_shrunk_reads_through_the_mipmaps() {
     let project = sampled(&dir, "sampling-shrunk", 160, &source, 0.3);
     against_sampling_golden("sampling-shrunk", &rendered(&project, 500, /* full */ true));
 }
+
+#[test]
+fn flat_text_renders_as_it_did_before_text_could_bend_along_a_path() {
+    // ADR-0161 changed the text painter: a text carrying `path` draws through its curve, and
+    // every other text must draw exactly as before. This golden was written by `main` before
+    // that change (#765), over what the painter's flat route carries: Arabic joined pieces, a
+    // mixed-direction line, letter spacing, a run's stroke, and a fading letter stagger
+    // caught mid-flight under a shadow.
+    let dir = tempdir(line!());
+    let fixtures = fixture_dir().join("..");
+    let font = |relative: &str| {
+        common::with_forward_slashes(&fixtures.join(relative).display().to_string())
+    };
+    let (latin, naskh) = (
+        font("benchmark/spy-trailer/fonts/Oswald-SemiBold.ttf"),
+        font("letter-spacing/fonts/NotoNaskhArabic-Regular.ttf"),
+    );
+    let project = write_project(
+        &dir,
+        "flat-text.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":640,"height":360}},"fps":25,"background":"#101418",
+                "fonts":{{"title":[{{"file":"{latin}"}},{{"file":"{naskh}"}}]}},
+                "tracks":[{{"name":"text","layer":0,"elements":[
+                  {{"id":"arabic","type":"text","start":0,"end":1000,"x":320,"y":60,
+                    "origin":"center","width":600,"height":80,"font":"title","size":44,
+                    "color":"#9FE3FF","align":"center",
+                    "runs":[{{"text":"بسم الله الرحمن الرحيم"}}],"caption":false}},
+                  {{"id":"mixed","type":"text","start":0,"end":1000,"x":320,"y":140,
+                    "origin":"center","width":600,"height":70,"font":"title","size":36,
+                    "color":"#F5F0E6","align":"end","letter_spacing":60,
+                    "runs":[{{"text":"عام 2026 سعيد "}},
+                            {{"text":"NEW","stroke":"#FF5A36","stroke_width":3}}],
+                    "caption":false}},
+                  {{"id":"stagger","type":"text","start":0,"end":1000,"x":320,"y":260,
+                    "origin":"center","width":600,"height":110,"font":"title","size":72,
+                    "color":"#F2E6C9","align":"center","runs":[{{"text":"DROP IN fi"}}],
+                    "units":{{"by":"letter","every":60,"origin":"bottom-center",
+                      "y":[{{"t":0,"v":-60}},{{"t":500,"v":0,"ease":"ease-out"}}],
+                      "rotation":[{{"t":0,"v":-30.0}},{{"t":500,"v":0.0,"ease":"ease-out"}}],
+                      "opacity":[{{"t":0,"v":0.0}},{{"t":400,"v":1.0,"ease":"linear"}}]}},
+                    "effects":[{{"name":"shadow","dx":3,"dy":4,"radius":5,"color":"#000000",
+                                 "opacity":0.7}}],
+                    "caption":false}}
+                ]}}]}}"##
+        )),
+    );
+    against_golden("flat-text", &rendered(&project, 280, /* full */ true));
+}
+
+#[test]
+fn untrimmed_strokes_on_every_shape_render_the_same_way_they_did_before_trim() {
+    // #761: with no trim field written, every element draws as it did before trim entered
+    // (ADR-0160). This golden was written by the painter before the trim slice touched it:
+    // a `rect`, a rounded `rect` and an `ellipse`, plain and dashed, an open path under each
+    // cap and a closed path under each join, one of them dashed.
+    let dir = tempdir(line!());
+    let shape = |id: &str, kind: &str, x: i64, y: i64, extra: &str| {
+        format!(
+            r##"{{"id":"{id}","type":"{kind}","start":0,"end":1000,"x":{x},"y":{y},"origin":"top-left",
+                "width":100,"height":70,"stroke":"#F2F2F2","stroke_width":6{extra}}}"##
+        )
+    };
+    let line = |id: &str, x: i64, cap: &str| {
+        format!(
+            r##"{{"id":"{id}","type":"path","start":0,"end":1000,"x":{x},"y":180,"origin":"top-left",
+                "width":100,"height":80,"closed":false,"stroke":"#FF9F2E","stroke_width":10,
+                "stroke_cap":"{cap}","points":[{{"at":[15,65],"out":[30,-60]}},{{"at":[85,15]}}]}}"##
+        )
+    };
+    let closed = |id: &str, x: i64, join: &str, extra: &str| {
+        format!(
+            r##"{{"id":"{id}","type":"path","start":0,"end":1000,"x":{x},"y":280,"origin":"top-left",
+                "width":100,"height":80,"closed":true,"fill":"#245C8C","stroke":"#3BA0FF",
+                "stroke_width":6,"stroke_join":"{join}"{extra},
+                "points":[{{"at":[20,20]}},{{"at":[80,20]}},{{"at":[50,60],"in":[20,0]}}]}}"##
+        )
+    };
+    let elements = [
+        shape("rect", "rect", 10, 10, ""),
+        shape("rounded", "rect", 130, 10, r#","radius":24"#),
+        shape("ellipse", "ellipse", 250, 10, ""),
+        shape(
+            "rect-dashed",
+            "rect",
+            10,
+            95,
+            r#","stroke_dash":[14,6],"stroke_dash_offset":5"#,
+        ),
+        shape(
+            "rounded-dashed",
+            "rect",
+            130,
+            95,
+            r#","radius":24,"stroke_dash":[10,5,2,5]"#,
+        ),
+        shape(
+            "ellipse-dashed",
+            "ellipse",
+            250,
+            95,
+            r#","stroke_dash":[20,8]"#,
+        ),
+        line("butt", 10, "butt"),
+        line("round", 130, "round"),
+        line("square", 250, "square"),
+        closed("bevel", 10, "bevel", ""),
+        closed("miter", 130, "miter", r#","stroke_miter_limit":4"#),
+        closed(
+            "dashed",
+            250,
+            "round",
+            r#","stroke_cap":"round","stroke_dash":[0,12]"#,
+        ),
+    ];
+    let project = write_project(
+        &dir,
+        "stroke-shapes.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":360,"height":380}},"fps":25,"background":"#101418",
+                "tracks":[{{"name":"shapes","layer":0,"elements":[{}]}}]}}"##,
+            elements.join(",")
+        )),
+    );
+    against_golden(
+        "stroke-shapes-untrimmed",
+        &rendered(&project, 500, /* full */ true),
+    );
+}

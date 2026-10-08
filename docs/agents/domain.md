@@ -71,6 +71,9 @@ must be able to see it has been superseded without having read the one that
 superseded it — `docs/adr/0006-validate-reports-facts-and-render-enforces.md` is
 the worked example.
 
+**An audio capability's ADR conforms to [ADR-0173](../adr/0173-every-audio-capability-is-accepted-by-a-measured-repo-test-and-verify-checks-only-what-master-declares.md)**: it names a measured repo test
+and fills in that ADR's checklist (§8).
+
 **Commit the evidence an ADR rests on — checked before `status: accepted` is
 written, not after.** This binds an ADR only when its prose actually cites a
 prototype, a fixture, a script, or a jury artifact as support for a claim — an

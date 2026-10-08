@@ -10,6 +10,11 @@ status: accepted
 > enters only by the entry test. The transform-only keyframe rule below stays in force until
 > its own ADR decides it.
 
+> **Amended by [ADR-0166](0166-capcut-and-premiere-nest-with-a-transform-and-adr-0001-refuses-the-clock-not-the-shared-space.md)**: "CapCut and Premiere are flat-timeline tools" under
+> "Nesting stays rejected" is wrong by mechanism. A nested sequence and a compound clip carry
+> their own transform. ADR-0001's refusal of a local clock stands; it never argued against a
+> shared space.
+
 Montagent is a **general-purpose, agent-first video editor**. It will be open
 source and run by people other than its author. Its primitives are shaped by what
 a video editor must be able to express — never by what any one project happens to

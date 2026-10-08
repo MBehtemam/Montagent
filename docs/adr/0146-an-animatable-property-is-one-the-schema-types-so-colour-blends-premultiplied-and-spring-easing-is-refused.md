@@ -5,7 +5,7 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 
 # An animatable property is one the schema types so; colour blends premultiplied in sRGB; spring easing is refused
 
-> **Amended by three later ADRs.** Read them before relying on anything below.
+> **Amended by seven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0149](0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md) — the
 >   stop-list binding is discharged; gradient parameters join the one derived list as nested
@@ -15,6 +15,16 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 >   settled as a `units` block with run overrides
 > - [ADR-0157](0157-a-speed-ramp-is-a-time-remap-curve-of-source-times-on-a-video-element.md) — `source_time`
 >   on `video` joins the one derived list; `speed` stays static
+> - [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) — `seed`,
+>   `size` and `mono` on the four new effects are never animatable
+> - [ADR-0158](0158-a-path-chooses-its-stroke-join-and-cap-and-every-shape-takes-a-dash-pattern.md) — `stroke_dash_offset`
+>   joins the one derived list; `stroke_dash` stays static
+> - [ADR-0160](0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md) — `trim_start`,
+>   `trim_end` and `trim_offset` join the one derived list; a trim fraction overshot past
+>   [0, 1] clamps in the resolving function
+> - [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md) — `path_offset`
+>   and a text's `path.points` join the one derived list; `path_offset` overshot past [0, 1]
+>   clamps in the resolving function
 
 [#669](https://github.com/MBehtemam/Montagent/issues/669), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).

@@ -30,6 +30,7 @@ mod element;
 pub mod keyframe;
 pub mod paint;
 pub mod playback;
+pub mod stroke;
 pub mod text;
 
 use std::collections::BTreeMap;
@@ -41,7 +42,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
-pub use playback::{AudioOverrun, Speed, Volume};
+pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
+pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
 /// `[sx, sy]`, never a bare number.
@@ -134,6 +136,57 @@ impl JsonSchema for Length {
             "minimum": 0,
         }))
         .expect("an object literal is a schema")
+    }
+}
+
+/// `perspective` (ADR-0167 §1): the eye's distance from the element's plane, in px, in a
+/// static value and in every keyframe record. Greater than `0`; there is no default, and the
+/// field is required wherever `swivel` or `tilt` is written.
+///
+/// The type states the bound in the published schema, as [`Length`] states its own.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct Perspective(pub f64);
+
+impl<'de> Deserialize<'de> for Perspective {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let px = f64::deserialize(deserializer)?;
+        if !(px > 0.0 && px.is_finite()) {
+            return Err(D::Error::custom(format!(
+                "a perspective is {px}: `perspective` is the eye's distance in px, a number \
+                 greater than 0, in a static value and in every keyframe record (ADR-0167)"
+            )));
+        }
+        Ok(Perspective(px))
+    }
+}
+
+impl JsonSchema for Perspective {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Perspective".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "exclusiveMinimum": 0.0,
+            "description": "The eye's distance from the element's plane, in px: greater than \
+                            `0`, in a static value and in every keyframe record (ADR-0167).",
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for Perspective {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        <f64 as crate::resolve::Interpolate>::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
     }
 }
 
@@ -553,6 +606,21 @@ pub struct Image {
     /// and a writer that wraps it silently renders one third of the motion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -570,12 +638,24 @@ pub struct Image {
 /// so this ticket does, following the two orders that *are* measured: `image`'s visual
 /// sequence, with `audio`'s `source_start, source_end` in `audio`'s own relative position
 /// directly after `source`, then the fields a video shares with audio.
+///
+/// `source_time` (ADR-0157) sits after the range it replaces: a video names its source either
+/// by `source_start` and `source_end` or by `source_time`, and one of the two is required.
+/// Writing both is `validate`'s `E-REMAP-FIELD`, not a schema error, so the finding can name
+/// each field the curve makes redundant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct Video {
     pub source: String,
-    pub source_start: i64,
-    pub source_end: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_start: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_end: Option<i64>,
+    /// Which moment of the file is on screen, in integer source milliseconds: a literal is a
+    /// freeze frame, a keyframe list a time-remap curve (ADR-0157). The element is silent,
+    /// and `source_start`, `source_end`, `speed` and `overrun` are refused beside it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_time: Option<Animatable<SourceTime>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<Animatable<i64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -591,6 +671,21 @@ pub struct Video {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -610,11 +705,48 @@ pub struct Video {
     pub effects: Option<Vec<Effect>>,
 }
 
+impl Video {
+    /// ADR-0157's one relational rule the derive cannot state: a video names its source by a
+    /// range or by `source_time`.
+    fn checked(self) -> Result<Self, String> {
+        if self.source_time.is_none() {
+            for (field, present) in [
+                ("source_start", self.source_start.is_some()),
+                ("source_end", self.source_end.is_some()),
+            ] {
+                if !present {
+                    return Err(format!(
+                        "missing field `{field}`: a video names its source by `source_start` \
+                         and `source_end`, or by a `source_time` (ADR-0157)"
+                    ));
+                }
+            }
+        }
+        Ok(self)
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Transition`.
+impl Serialize for Video {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Video::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Video {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Video::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
+}
+
 /// `x, y, origin, width, height, font, size, line_height, color, align, runs` — ADR-0041's
-/// measured order — then the paint ADR-0014 adds, the transform properties, `effects`, and
-/// last `caption`, which draws nothing and so follows everything that does (ADR-0136).
+/// measured order — then the paint ADR-0014 adds, the spacing and the stagger, the curve the
+/// line may bend along (ADR-0161), the transform properties, `effects`, and last `caption`,
+/// which draws nothing and so follows everything that does (ADR-0136).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, remote = "Self")]
 pub struct TextElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<Animatable<i64>>,
@@ -667,10 +799,35 @@ pub struct TextElement {
     /// ligatures off as a non-zero `letter_spacing` does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub units: Option<Units>,
+    /// The curve the one line bends along, in a `path` element's point vocabulary, measured
+    /// from this text's declared box (ADR-0161 §2). A guide: it is never painted. A text
+    /// carrying it sets one line only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<TextPath>,
+    /// Where on `path` the point `align` names sits, as a fraction of the curve's length from
+    /// its start (ADR-0161 §5, ADR-0164 §1). Default `0`. Animating it slides the line along
+    /// the curve. Only on a text carrying `path`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_offset: Option<Animatable<PathOffset>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -687,6 +844,104 @@ pub struct TextElement {
     /// (ADR-0136).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caption: Option<bool>,
+}
+
+impl TextElement {
+    /// ADR-0164 §1's range, which [`PathOffset`] states in the schema and a bare number here
+    /// cannot enforce: `path_offset` runs from −1 to 2, in a static value and in every
+    /// keyframe record.
+    fn checked(self) -> Result<Self, String> {
+        let stated: Vec<f64> = match &self.path_offset {
+            None => Vec::new(),
+            Some(Animatable::Static(PathOffset(value))) => vec![*value],
+            Some(Animatable::Keyed(records)) => records.iter().map(|record| record.v.0).collect(),
+        };
+        let (min, max) = PathOffset::RANGE;
+        if let Some(value) = stated
+            .into_iter()
+            .find(|value| !(min..=max).contains(value))
+        {
+            return Err(format!(
+                "`path_offset` is {value}: it is a fraction of the curve's length, from `-1` to \
+                 `2` (one curve length past each end), in a static value and in every keyframe \
+                 record (ADR-0164)"
+            ));
+        }
+        Ok(self)
+    }
+}
+
+/// A text's `path_offset`: a fraction of its curve's length, from −1 to 2 inclusive — one
+/// curve length past each end, so one element can slide a line on and off an open curve
+/// (ADR-0164 §1).
+///
+/// The type states the bound in the published schema, so the one derived list of animatable
+/// properties reads it as the range a resolved value clamps to and a `shift` split may not
+/// leave (ADR-0146 §5, §7). [`TextElement::checked`] enforces it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct PathOffset(pub f64);
+
+impl PathOffset {
+    /// `[minimum, maximum]`.
+    pub const RANGE: (f64, f64) = (-1.0, 2.0);
+}
+
+impl JsonSchema for PathOffset {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "PathOffset".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::try_from(serde_json::json!({
+            "type": "number",
+            "format": "double",
+            "description": "A fraction of the curve's length, from `-1` to `2` inclusive, in a \
+                            static value and in every keyframe record (ADR-0164).",
+            "minimum": PathOffset::RANGE.0,
+            "maximum": PathOffset::RANGE.1,
+        }))
+        .expect("an object literal is a schema")
+    }
+}
+
+impl crate::resolve::Interpolate for PathOffset {
+    type Out = f64;
+
+    fn between(a: &Self, b: &Self, p: f64) -> f64 {
+        f64::between(&a.0, &b.0, p)
+    }
+
+    fn held(value: &Self) -> f64 {
+        value.0
+    }
+}
+
+// The two halves of `remote = "Self"`, as on `Transition`.
+impl Serialize for TextElement {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        TextElement::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for TextElement {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        TextElement::deserialize(deserializer)?
+            .checked()
+            .map_err(D::Error::custom)
+    }
+}
+
+/// A text's own curve (ADR-0161 §2): `closed`, required and static, and `points`, a `path`
+/// element's vertex list in integer pixels from the text's declared box's top-left, keyed as
+/// one whole list of unchanging shape. No other key: it is a guide, and draws nothing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextPath {
+    /// Whether a last segment runs from the last vertex back to the first. Static.
+    #[serde(deserialize_with = "static_closed")]
+    pub closed: bool,
+    pub points: Animatable<Points>,
 }
 
 /// A rounded or square rectangle.
@@ -731,6 +986,30 @@ pub struct Rect {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// The dash pattern, run along the inset outline the stroke is drawn on, from its
+    /// top-left corner clockwise — where a `radius` arc meets the top edge (ADR-0158 §5).
+    /// Static. Every dash end is butt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the inset outline's length, from where
+    /// the dashes start and clockwise, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends are butt (ADR-0160 §5,
+    /// §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around the closed outline, in turns: any number, wrapped
+    /// by the painter, and the file keeps what is written. Needs `trim_start` or `trim_end`
+    /// (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     /// A single integer, defaulting to 0 — one corner radius, not four.
     ///
     /// The fixture is measurably square and the README's *"rounded cream panel"* was wrong,
@@ -743,6 +1022,21 @@ pub struct Rect {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -792,10 +1086,48 @@ pub struct Ellipse {
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// The dash pattern, run along the inset outline the stroke is drawn on, from 3 o'clock
+    /// clockwise (ADR-0158 §5). Static. Every dash end is butt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the inset outline's length, from 3
+    /// o'clock and clockwise, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends are butt (ADR-0160 §5,
+    /// §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around the closed outline, in turns: any number, wrapped
+    /// by the painter, and the file keeps what is written. Needs `trim_start` or `trim_end`
+    /// (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -812,11 +1144,13 @@ pub struct Ellipse {
 /// A `rect`'s field set less `radius`, plus `closed` and `points`. Its box is placed exactly
 /// as a `rect`'s is, and it **bounds** the drawing without scaling it: resizing the box does
 /// not move a point, so `width`, `height` and `closed` are static, and a keyframe list on any
-/// of them is a schema error. Its stroke is centred on the outline, with a round join and a
-/// butt cap, and `validate` checks that the box contains it (`E-PATH-OUTSIDE-BOX`).
+/// of them is a schema error. Its stroke is centred on the outline, with the join and cap
+/// ADR-0158 lets it choose (round and butt by default), and `validate` checks that the box
+/// contains it (`E-PATH-OUTSIDE-BOX`).
 ///
 /// The order follows ADR-0154's own example — `x, y, origin, width, height, closed`, the
-/// paint, then `points` — and the transform tail every visual type shares.
+/// paint, then `points` — and the transform tail every visual type shares. ADR-0158's
+/// stroke fields follow `stroke_width`, in its §1 order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, remote = "Self")]
 pub struct PathElement {
@@ -842,16 +1176,66 @@ pub struct PathElement {
     /// against the declared box, as on every shape (ADR-0149).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<Paint>,
-    /// Centred on the outline, with a round join and a butt cap (ADR-0154 §4).
+    /// Centred on the outline, with `stroke_join` and `stroke_cap` (ADR-0154 §4, ADR-0158).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke: Option<Paint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<Animatable<Length>>,
+    /// How two segments meet: `"round"` (the default), `"bevel"` or `"miter"`. Static.
+    /// A miter widens the box's inset by its `stroke_miter_limit` (ADR-0158 §2, §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_join: Option<StrokeJoin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_miter_limit: Option<MiterLimit>,
+    /// How an open path's two ends are drawn: `"butt"` (the default), `"round"` or
+    /// `"square"`. Static. A closed path has ends only at its dashes' and its trim's, so it
+    /// is refused there without either; a square cap widens the box's inset by √2 (ADR-0158
+    /// §3, §4, ADR-0160 §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_cap: Option<StrokeCap>,
+    /// The dash pattern, run from `points[0]` in `points` order, through the closing segment
+    /// on a closed path (ADR-0158 §5). Static. Each dash's ends take `stroke_cap`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash: Option<DashPattern>,
+    /// How far into the pattern the outline's start falls: a larger offset moves the dashes
+    /// back toward the start. Any integer; the painter wraps it (ADR-0158 §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_dash_offset: Option<Animatable<i64>>,
+    /// Where the stroke's window starts: a fraction of the outline's length, from
+    /// `points[0]` in `points` order, `0` (the default) to `1`. Keyable; an overshoot clamps
+    /// (ADR-0160 §2, §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_start: Option<Animatable<TrimFraction>>,
+    /// Where the stroke's window ends, measured as `trim_start` is: `1` (the default) is the
+    /// outline's end. Start ≥ end draws no stroke. The window's ends take `stroke_cap`
+    /// (ADR-0160 §5, §6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_end: Option<Animatable<TrimFraction>>,
+    /// Rotates the window forward around a closed path, in turns: any number, wrapped by the
+    /// painter, and the file keeps what is written. Needs `trim_start` or `trim_end`, and
+    /// `"closed": true` (ADR-0160 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim_offset: Option<Animatable<f64>>,
     pub points: Animatable<Points>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<Animatable<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

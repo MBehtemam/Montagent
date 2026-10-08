@@ -25,9 +25,16 @@ This page holds the rules every element shares. The rest are on pages of their o
 served beside this one and each fitting one read. Read a page before you write what it covers:
 
 - **`montagent://format/text.md`**: a `text` element. Runs and line breaks, direction and
-  `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring.
+  `align`, captions, `letter_spacing` and ligatures, `line_height`, fonts and their vendoring,
+  and a line bent along its own curve (`path`, `path_offset`).
 - **`montagent://format/compositing.md`**: how elements combine. Paint and gradients, effect
-  order, `blend` and shadows, masks, `chroma`, `motion_blur`, and transitions.
+  order, `blend` and shadows, masks, `chroma`, `grain` and textures, the named effects
+  (`posterize`, `glow`, `directional_blur`), `motion_blur`, and transitions.
+- **`montagent://format/paths.md`**: a `path` element and stroke shapes. Vertices and
+  handles, `closed` and `fill`, `stroke_join` and `stroke_cap`, the inset that keeps the
+  stroke in the box, a morph between unlike shapes and its seam, and the `stroke_dash` pattern and offset on a `path`, `rect` or
+  `ellipse`, and the trim (`trim_start`, `trim_end`, `trim_offset`) that draws a window of
+  the stroke.
 
 ## How you edit a project
 
@@ -91,13 +98,16 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   a trimmed move is spelled.
 - **An animatable property is one the schema types as a literal or a keyframe list**
   (ADR-0146); a list on any other field is a schema error. Today: `x`, `y`, `scale`,
-  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`; `width`,
+  `rotation`, `opacity` on every visual element; `volume` on `video` and `audio`;
+  `source_time` on `video`; `width`,
   `height`, `fill`, `stroke`, `stroke_width` on a `rect` or `ellipse`, and a `rect`'s
   `radius`; a `path`'s `fill`, `stroke`, `stroke_width` and `points`; a `text` element's
   `color`, `stroke`, `stroke_width` and `letter_spacing`; every numeric and colour
-  parameter inside `effects`, named `effects[1].radius (blur)` (see the compositing page).
+  parameter inside `effects`, named `effects[1].radius (blur)`, and a path mask's `points`
+  (see the compositing page).
   A gradient's `angle`, `center`, `radius` and `stops` are keyable inside the paint, named by
-  path (`fill.angle`). The box of an `image`, `video`, `text` or `path`, a path's `closed`,
+  path (`fill.angle`). The box of an `image`, `video`, `text` or `path`, a path mask's
+  `width` and `height`, a path's `closed`,
   `clip`, enums, and run and highlight paint stay static. A run's paint
   still beats the element's keyed value; where every
   run overrides it, `validate` says so (`R-TEXT-PAINT-OVERRIDDEN`).
@@ -114,6 +124,28 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
 - **`shift` splits every keyframe list it cuts into literals** (ADR-0146): an integer to the
   nearest (ties away from zero), a colour to bytes. A split the field cannot hold — a size
   an overshoot carried below zero — is refused (`E-SHIFT-SPLIT-UNWRITABLE`), never clamped.
+- **A `video` may carry `source_time` in place of a source range** (ADR-0157): which moment
+  of its file is on screen, in integer source milliseconds. A literal (`"source_time": 4200`)
+  is a freeze frame for the whole element. A keyframe list is a curve whose slope is the
+  rate: steep plays fast, shallow slow, flat freezes, and falling plays in reverse (there is
+  no `reverse` field). An eased segment never plays at a constant rate; a steady rate is two
+  keys joined by `linear`. `source_time` on `audio` is a schema error.
+- **The curve is the only author of the source** (ADR-0157). `source_start`, `source_end`,
+  `speed` and `overrun` beside it are each `E-REMAP-FIELD`: remove them. `loop` has no
+  spelling on a remapped element. ADR-0020's agreement rule becomes: at every painted frame
+  instant in `[start, end)` the resolved source time lies in `[0, file duration)`, or
+  `E-SOURCE-OVERRUN` names the first instant that does not, its source time, and the side
+  crossed.
+- **Which frame a remapped video shows** (ADR-0157): at each frame instant, `source_time`
+  resolves under each key's `ease`, holding the nearest key's value before the first key and
+  after the last; it rounds half-up to a millisecond; the last source frame starting at or
+  before that millisecond shows (ADR-0096). The render, `validate` and `query --at` share
+  this one function; `query --at` prints the rounded `source_time` and the `rate`
+  (`-0.500×`, `0.000×`) under `derived`. A painted frame instant outside the keys freezes
+  (`R-REMAP-HELD-END`); write a deliberate freeze as a flat pair of keys. Under
+  `motion_blur` every sample shows the frame instant's source frame.
+- **A remapped video is silent** (ADR-0157): its `volume` is the literal `0`, or
+  `E-REMAP-AUDIBLE`. Its sound cannot follow the curve; put it on a separate `audio` element.
 - **Slack is invariant** (ADR-0032). The distance from one boundary to the next is content, not
   padding a tool may absorb. `shift` refuses an edit that would change an existing slack's
   size rather than quietly taking up the difference.
@@ -151,8 +183,9 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   `bottom-right`. The middle elides to `center` alone — `center-center` is an error naming
   it, because two spellings of one value break the write-read round trip.
 - **There is exactly one transform per element, and it is flat** (ADR-0012). `x`, `y`, `origin`,
-  `scale`, `rotation`, `opacity`, as fields on the element. No transform is nested,
-  inherited or composed, and no element's transform is relative to another's.
+  `scale`, `rotation`, `opacity`, and the projection's three fields below, as fields on the
+  element. No transform is nested, inherited or composed, and no element's transform is
+  relative to another's.
 - **`scale` is always `[sx, sy]`** (ADR-0012), never a bare number.
 - **`clip` is a static frame-space rectangle** and never animates (ADR-0025): it is simultaneously the
   aperture the source is drawn through and the fixed denominator a `fit` claim is checked
@@ -170,45 +203,43 @@ the scaffold writes `background`, `duration` and `output` exactly when you asked
   quietly does nothing.
 - **`stroke` never enlarges the declared rect** (ADR-0014). On a `rect` or `ellipse` it falls inside
   it; on text it falls outside the glyph contour and grows into the box rather than past it;
-  on a `path` it is centred on the outline, and `validate` checks the box contains it (below).
+  on a `path` it is centred on the outline, and `validate` checks the box contains it (the paths page).
 
-### Paths (ADR-0154)
+### Projection: `swivel`, `tilt` and `perspective` (ADR-0167, ADR-0168)
 
-- **A `path` draws a list of vertices in integer pixels from its declared box's top-left
-  corner.** It takes a `rect`'s fields except `radius`, plus a required `closed` (a boolean)
-  and a required `points` list. The transform places the box exactly as a `rect`'s; the box
-  **bounds** the drawing and never stretches it, so `width`, `height` and `closed` are
-  static. Resize a path by editing its points, or animate `scale`.
-- **A vertex is `{"at": [x, y], "in": [dx, dy], "out": [dx, dy]}`**, every value an
-  integer, and no other key. `in` and `out` are optional **handles**: offsets from their
-  own vertex. A missing handle is a zero offset, so a vertex with neither is a corner, and a
-  written `[0, 0]` draws the same.
-- **Each segment is a cubic Bezier** from one vertex's `at` through `at + out`, then the next
-  vertex's `at + in`, to that `at`. A closed path adds the segment from the last vertex back
-  to the first, using the last `out` and the first `in`. There is no `line` or `polygon`
-  type: **a line is a two-vertex open path** with no handles, and a polygon is a closed path
-  of corners. An open path needs two vertices and a closed one three
-  (`E-PATH-TOO-FEW-POINTS`); an `in` on an open path's first vertex or an `out` on its last
-  shapes nothing (`E-PATH-DANGLING-HANDLE`).
-- **From SVG:** a `C c1 c2 p` segment from the vertex `prev` sets `prev.out = c1 − prev.at`,
-  then adds a vertex `at = p` with `in = c2 − p`; an `L p` segment adds a vertex at `p` with
-  no handles. A `d` string is not a value.
-- **`fill` needs `"closed": true`**; on an open path it is a schema error. Fill uses the
-  nonzero winding rule, so a self-intersecting outline fills its overlap. A gradient `fill`
-  or `stroke` is measured against the declared box, as on every shape.
-- **The stroke is centred on the outline**, open or closed, with a round join and a butt
-  cap. **The box contains it:** with the inset `m = ceil(stroke_width / 2)` (0 with no
-  `stroke`, the largest keyed value where `stroke_width` is keyed), every `at`, `at + in`
-  and `at + out` lies in `[m, width − m] × [m, height − m]`, in every literal value of
-  `points`. Outside is `E-PATH-OUTSIDE-BOX`, naming the vertex, the record, the absolute
-  position and `m`. Nothing is clipped to the box.
-- **Keyed `points` is a whole list per keyframe**, interpolated number by number. Every
-  value has the same vertex count and each vertex the same handles
-  (`E-PATH-KEYFRAME-SHAPE`). An overshooting ease clamps each absolute vertex and handle
-  into the inset box at that instant. `shift` cuts a keyed `points` only where every
-  resolved number is an integer, and refuses elsewhere.
-- **`query --at` prints a path's `path`**: its resolved vertices with absolute control
-  points in box pixels. `NOT COVERED` counts the declared box, as for an `ellipse`.
+Any visual element may be projected: drawn as a flat plane turned in front of an eye. Nothing
+gains a depth, a sort order or an occlusion.
+
+- **`swivel`** turns it about its vertical axis through `origin`, in degrees: positive sends the
+  right edge away (CSS `rotateY`, Premiere's Swivel). **`tilt`** turns it about its horizontal
+  axis: positive sends the top edge away (CSS `rotateX`, Premiere's Tilt). Both animate and
+  are never normalised. **`perspective`** is the eye's distance in px, straight in front of the
+  origin point (CSS's meaning): greater than 0, no default, required with either angle and an
+  error without one. Smaller is stronger foreshortening; `scale` stays the only size control.
+- **The order.** The element is drawn flat with its `effects` and mask, in list order; that
+  picture is projected about `origin`; then `scale`, `rotation` and `x`/`y` act on it. The
+  angles compose as CSS's `perspective(d) rotateX(tilt) rotateY(swivel)`: swivel first. So a
+  shadow tilts with its card (one that stays on the ground is a second element), and text and
+  paths are projected as their flat pixels. `clip` stays frame space; `opacity` and `blend`
+  wrap the projected picture.
+- **A written angle always projects**, even at `0`: writing `swivel: 0` changes an element's
+  bytes slightly (a resample), and a keyed angle passing 0 never switches path. Only an
+  element with neither field is unchanged.
+- **Facing away draws nothing**, and neither does exactly edge-on (90°). A card flip is two
+  elements: the front swivels 0 → 180, the back −180 → 0. A mirrored back is a second element
+  with `scale: [-1, 1]`. An ease that overshoots past 90° blinks the element out for those
+  frames. `R-PROJECTION-AWAY` says when an element never faces the eye.
+- **The eye bound.** `perspective` must exceed r, the distance from the origin point to the
+  farthest corner of the box widened by every effect's reach (a blur's spread, a shadow's
+  offset), at every key and eased extreme; `E-PROJECTION-EYE` names the value that passes. A
+  1920 × 1080 element with no reach needs more than about 1102 about `center` and 1994 about
+  `center-left`. As `perspective` nears r the near edge is magnified about d / (d − r) and
+  draws soft: `R-PROJECTION-SOFT` fires past 2×, and a larger value reduces it.
+- **What the tools read.** The checks (`R-OFF-CANVAS`, the layer tie, `blend`) read the
+  projected quadrilateral's bounds; `query --at` prints `facing`, the four `corners` and the
+  bounds as `ink_box`, empty while it paints nothing. On `text` they project the declared
+  box, which holds the block of lines the picture projects.
+- **A nest takes no projection** (ADR-0167 §10); only an element is projected.
 
 ## Values
 

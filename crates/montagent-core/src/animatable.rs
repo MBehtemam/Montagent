@@ -43,8 +43,11 @@
 //! - a resolved `radius` clamps to half the shorter side of the box at the same instant — a
 //!   `mask`'s to half the shorter side of its own rect;
 //! - a resolved `stroke_width` below zero clamps to `0`;
+//! - a resolved `trim_start` or `trim_end` clamps to `[0, 1]` (ADR-0160 §5). `query --at`
+//!   prints both raw, through [`unclamped_number_at`], so they match what the file says;
 //! - a path's resolved `points` clamps every absolute vertex and handle into the inset box
-//!   (ADR-0154 §3);
+//!   (ADR-0154 §3), and a path mask's into its box with no inset: its written rect, or the
+//!   element's resolved rect where the rect is omitted (ADR-0163 §4);
 //! - a paint field holding a gradient (ADR-0149) resolves every parameter at the instant
 //!   (`angle`, `center`, `radius` and `stops` may each be keyed), then applies §4's fix — each
 //!   offset clamped to 0..1 and raised to the largest before it — so what is printed is what
@@ -159,12 +162,27 @@ fn derive(schema: &Value) -> Table {
     }
 }
 
+/// The schema reference of a text's own curve (ADR-0161 §2).
+const TEXT_PATH_REF: &str = "#/$defs/TextPath";
+
 /// The properties of one object branch whose type is an `Animatable{T}`, in schema order. A
 /// paint is followed by its gradient's parameters as nested paths — `fill.angle`,
-/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6).
+/// `fill.stops`, `fill.center`, `fill.radius` (ADR-0149 §6) — and a text's curve is read as
+/// its own nested `path.points` (ADR-0161 §8).
 fn animatable_properties(defs: &Value, branch: &Value) -> Vec<Property> {
     let mut properties = Vec::new();
     for (name, property) in branch["properties"].as_object().into_iter().flatten() {
+        // A text's own curve carries its one animatable list nested, as `path.points`
+        // (ADR-0161 §8); its `closed` is static.
+        if property["$ref"].as_str() == Some(TEXT_PATH_REF) {
+            for nested in animatable_properties(defs, &defs["TextPath"]) {
+                properties.push(Property {
+                    name: format!("{name}.{}", nested.name),
+                    ..nested
+                });
+            }
+            continue;
+        }
         let Some(def) = property["$ref"]
             .as_str()
             .and_then(|reference| reference.strip_prefix("#/$defs/"))
@@ -553,6 +571,21 @@ pub fn number_read(
         .unwrap_or(default)
 }
 
+/// A number property at `instant` **before** ADR-0146 §5's clamp: what an overshooting ease
+/// carries it to, for `query --at`'s raw trim values (ADR-0160 §7). `None` where the element
+/// does not declare it, or it does not read as a number.
+pub fn unclamped_number_at(element: &Value, property: &str, instant: i64) -> Option<f64> {
+    let written = get(element, property)?;
+    raw(
+        written,
+        property_kind(element, property),
+        i128::from(instant),
+        1,
+    )
+    .ok()?
+    .number()
+}
+
 /// [`at`], read as a colour, where the element declares a readable one.
 pub fn colour_at(element: &Value, property: &str, instant: i64) -> Option<Colour> {
     at(element, property, instant)?.ok()?.colour()
@@ -640,18 +673,34 @@ fn clamp(
     };
     Resolved::Number(match property {
         "stroke_width" => number.max(0.0),
+        "trim_start" | "trim_end" => number.clamp(0.0, 1.0),
         "radius" => number.clamp(0.0, half_shorter(sides(element, numerator, denominator))),
+        // ADR-0164 §1: an overshooting ease holds the line one curve length past an end.
+        "path_offset" => number.clamp(
+            crate::model::PathOffset::RANGE.0,
+            crate::model::PathOffset::RANGE.1,
+        ),
         _ => number,
     })
 }
 
-/// ADR-0154 §3's overshoot rule: every absolute vertex and handle position clamped into the
-/// inset box at that instant, each handle then written back as an offset from its clamped
-/// vertex. Where a path's box does not read, the vertices are left as they resolved.
+/// ADR-0154 §3's overshoot rule on a `path` element: its vertices [`clamped`] into the
+/// inset box at that instant. Where a path's box does not read, the vertices are left as
+/// they resolved.
 fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
-    let Some(((left, top), (right, bottom))) = inset_box(element) else {
-        return vertices;
-    };
+    match inset_box(element) {
+        Some(bounds) => clamped(vertices, bounds),
+        None => vertices,
+    }
+}
+
+/// Every absolute vertex and handle position clamped into `((left, top), (right, bottom))`,
+/// each handle then written back as an offset from its clamped vertex: the overshoot rule
+/// of every host of a vertex list (ADR-0154 §3, ADR-0163 §4).
+fn clamped(
+    vertices: Vec<VertexAt>,
+    ((left, top), (right, bottom)): ((f64, f64), (f64, f64)),
+) -> Vec<VertexAt> {
     let clamp = |[x, y]: [f64; 2]| [x.clamp(left, right), y.clamp(top, bottom)];
     vertices
         .into_iter()
@@ -672,14 +721,15 @@ fn inside(element: &Value, vertices: Vec<VertexAt>) -> Vec<VertexAt> {
         .collect()
 }
 
-/// A path's **inset**: `ceil(stroke_width / 2)`, or `0` with no stroke, from the largest
-/// value a keyed `stroke_width` states (ADR-0154 §4).
+/// A path's **inset**: `ceil(k × stroke_width / 2)`, widened by the stroke's reach factor
+/// `k` (ADR-0158 §4), or `0` with no stroke, from the largest value a keyed `stroke_width`
+/// states (ADR-0154 §4). See [`crate::stroke::reach`]. On a `text`, its curve's inset `m`:
+/// the largest run size plus the largest `stroke_width` (ADR-0161 §7, [`crate::text_path`]).
 pub fn path_inset(element: &Value) -> i64 {
-    if element.get("stroke").is_none() {
-        return 0;
+    if element.get("type").and_then(Value::as_str) == Some("text") {
+        return crate::text_path::Inset::of(element).m;
     }
-    let width = greatest_length(element, "stroke_width").unwrap_or(0).max(0);
-    (width + 1) / 2
+    crate::stroke::reach(element).inset
 }
 
 /// A path's **inset box**, `[m, width − m] × [m, height − m]`, as `((left, top), (right,
@@ -708,10 +758,21 @@ fn clamp_parameter(
     numerator: i128,
     denominator: i128,
 ) -> Resolved {
+    let key = declared.key();
+    // ADR-0163 §4: a path mask's outline clamps into its box at the instant, inset 0 — the
+    // written rect, or the element's resolved rect where the rect is omitted.
+    if let (Resolved::Points(vertices), "mask", "points") = (&value, member, key) {
+        let Some((width, height)) = mask_sides(declared.element, index, numerator, denominator)
+            .or_else(|| sides(declared.element, numerator, denominator))
+        else {
+            return value;
+        };
+        let corner = (width.max(0.0), height.max(0.0));
+        return Resolved::Points(clamped(vertices.clone(), ((0.0, 0.0), corner)));
+    }
     let Resolved::Number(number) = value else {
         return value;
     };
-    let key = declared.key();
     if member == "mask" {
         match key {
             "width" | "height" => return Resolved::Number(number),
@@ -886,5 +947,17 @@ pub fn greatest_length(element: &Value, property: &str) -> Option<i64> {
     match serde_json::from_value::<Animatable<i64>>(written.clone()).ok()? {
         Animatable::Static(value) => Some(value),
         Animatable::Keyed(records) => records.iter().map(|record| record.v).max(),
+    }
+}
+
+/// The smallest value a length property ever states — its static value, or the least of its
+/// keyframe values. What a path mask's outline is checked against where its rect is the
+/// element's own and the element's size is keyed (ADR-0163 §6): inside the smallest box, it
+/// lies inside the element at every instant.
+pub fn least_length(element: &Value, property: &str) -> Option<i64> {
+    let written = element.get(property)?;
+    match serde_json::from_value::<Animatable<i64>>(written.clone()).ok()? {
+        Animatable::Static(value) => Some(value),
+        Animatable::Keyed(records) => records.iter().map(|record| record.v).min(),
     }
 }

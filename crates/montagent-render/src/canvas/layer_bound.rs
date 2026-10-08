@@ -24,8 +24,15 @@
 //! blur is a decal convolution whose window reaches less than `ceil(3σ)`. That holds only
 //! under preconditions, and [`Plan::new`] gives no hint at all where one fails:
 //!
-//! - every effect is a `blur`, a `shadow` or a `mask` — colour-filter layers are outside the
-//!   derivation, and an element with one keeps today's unbounded layers throughout;
+//! - every effect is a `blur`, a `shadow`, a `mask`, or one of ADR-0156's `grain`, `glow`,
+//!   `posterize` and `directional_blur` — ADR-0049's colour filters and `chroma` are outside
+//!   the derivation, and an element with one keeps today's unbounded layers throughout. A
+//!   `glow` is hinted as a blur is, its σ meeting the cap below. A `grain`'s own layer is
+//!   unhinted, as a `mask`'s is, and passes the bound on. `posterize` keeps the bound (it
+//!   maps transparent black to transparent black) and a `directional_blur` reaches its crop;
+//!   both their own layers stay unhinted and pass the bound on, because a hint on them moved
+//!   a level on a few pixels under a rotation or a flip
+//!   ([#722](https://github.com/MBehtemam/Montagent/issues/722));
 //! - no perspective;
 //! - layer-space σ ≤ [`MAX_LAYER_SIGMA`] on both axes, above which Skia downsamples the
 //!   layer and the resampling depends on its size. A feathered `mask`'s σ counts, and so
@@ -99,25 +106,54 @@ pub(super) fn hints(
     };
     // Innermost first: effect `i`'s output is what effect `i + 1`'s layer holds.
     for ((effect, filter), hint) in effects.iter().zip(filters).zip(&mut hints) {
-        // A `mask` only erases, so what it holds bounds what it passes on. A blur or shadow
+        // A `mask` only erases, and a `grain` and a `posterize` keep transparent black
+        // transparent, so what each holds bounds what it passes on (ADR-0156 §4). Any member
         // Skia declined to build is a plain layer, which changes nothing.
-        if let (Effect::Blur { .. } | Effect::Shadow { .. }, Some(filter)) = (effect, filter) {
-            let output = filter.compute_fast_bounds(content);
-            *hint = plan.pinned(output);
-            #[cfg(test)]
-            HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
-            content = output;
+        let Some(filter) = filter else {
+            continue;
+        };
+        match effect {
+            // A `glow`'s reach is its blur's, so its layer takes the hint as a blur's does.
+            Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Glow { .. } => {
+                let output = filter.compute_fast_bounds(content);
+                *hint = plan.pinned(output);
+                #[cfg(test)]
+                HINTED.with(|hinted| hinted.set(hinted.get() + usize::from(hint.is_some())));
+                content = output;
+            }
+            // Its own layer stays unhinted and passes the bound on (#722): a hint on it
+            // moved a level on a few pixels under a flip. Its filter is already cropped to
+            // its reach, so Skia's bounds of it are that crop.
+            Effect::DirectionalBlur { .. } => content = filter.compute_fast_bounds(content),
+            // Unhinted for the same reason under a rotation, and its output is its input's.
+            _ => {}
         }
     }
     hints
+}
+
+/// Skia's bounds of what `draw` paints, in element space: the element recorded once more
+/// under the canvas's matrix, so every matrix-dependent choice the drawing makes is the same
+/// one. Only commands are recorded; nothing is rasterized. `None` for a drawing with nothing
+/// in it, or a matrix with no inverse.
+pub(super) fn drawn(canvas: &SkCanvas, draw: &dyn Fn(&SkCanvas)) -> Option<Rect> {
+    let to_element = canvas.local_to_device_as_3x3().invert()?;
+    let mut recorder = PictureRecorder::new();
+    let everywhere = Rect::new(-1.0e7, -1.0e7, 1.0e7, 1.0e7);
+    let recording = recorder.begin_recording(everywhere, true);
+    recording.set_matrix(&canvas.local_to_device());
+    draw(recording);
+    let device = recorder.finish_recording_as_picture(None)?.cull_rect();
+    if device.is_empty() {
+        return None;
+    }
+    Some(to_element.map_rect(device).0)
 }
 
 /// Everything about the element's matrix that the hint is built from, or the reason there is
 /// no hint.
 struct Plan<'a> {
     canvas: &'a SkCanvas,
-    /// Device back to element space, for Skia's recorded bounds.
-    to_element: Matrix,
     /// The pinned corner, in element space, and whether each is the low edge there.
     pin: (f32, f32),
     low: (bool, bool),
@@ -130,16 +166,25 @@ impl<'a> Plan<'a> {
         }
         let blurs = || {
             effects.iter().filter_map(|effect| match *effect {
-                Effect::Blur { radius } => Some((radius, 0.0, 0.0)),
+                Effect::Blur { radius } | Effect::Glow { radius, .. } => Some((radius, 0.0, 0.0)),
                 Effect::Shadow { dx, dy, radius, .. } => Some((radius, dx, dy)),
                 _ => None,
             })
         };
+        // ADR-0156's members are inside the derivation (#722 measured all three, hint on and
+        // off): `glow` is a blur, `posterize` keeps the bound, and `directional_blur` reaches
+        // its cropped reach. ADR-0049's four colour filters and `chroma` stay outside it.
         if blurs().next().is_none()
             || !effects.iter().all(|effect| {
                 matches!(
                     effect,
-                    Effect::Blur { .. } | Effect::Shadow { .. } | Effect::Mask { .. }
+                    Effect::Blur { .. }
+                        | Effect::Shadow { .. }
+                        | Effect::Mask { .. }
+                        | Effect::Grain { .. }
+                        | Effect::Glow { .. }
+                        | Effect::Posterize { .. }
+                        | Effect::DirectionalBlur { .. }
                 )
             })
         {
@@ -183,6 +228,14 @@ impl<'a> Plan<'a> {
             outset.0 += (3.0 * sigma.0).ceil() + (dx as f32 * scale.0).abs() + 2.0;
             outset.1 += (3.0 * sigma.1).ceil() + (dy as f32 * scale.1).abs() + 2.0;
         }
+        // A directional blur reaches its crop: its declared reach, rounded up, and a pixel.
+        for effect in effects {
+            if let Effect::DirectionalBlur { angle, length } = *effect {
+                let (x, y) = super::named::directional_reach(angle, length);
+                outset.0 += (x * scale.0).ceil() + 2.0;
+                outset.1 += (y * scale.1).ceil() + 2.0;
+            }
+        }
         if !(outset.0 <= MAX_OUTSET && outset.1 <= MAX_OUTSET) {
             return None;
         }
@@ -215,7 +268,6 @@ impl<'a> Plan<'a> {
         }
         Some(Plan {
             canvas,
-            to_element,
             pin,
             low: (layer.scale_x() > 0.0, layer.scale_y() > 0.0),
         })
@@ -226,16 +278,7 @@ impl<'a> Plan<'a> {
     /// one. Only commands are recorded; nothing is rasterized. `None` for a drawing with
     /// nothing in it.
     fn recorded(&self, draw: &dyn Fn(&SkCanvas)) -> Option<Rect> {
-        let mut recorder = PictureRecorder::new();
-        let everywhere = Rect::new(-1.0e7, -1.0e7, 1.0e7, 1.0e7);
-        let recording = recorder.begin_recording(everywhere, true);
-        recording.set_matrix(&self.canvas.local_to_device());
-        draw(recording);
-        let device = recorder.finish_recording_as_picture(None)?.cull_rect();
-        if device.is_empty() {
-            return None;
-        }
-        Some(self.to_element.map_rect(device).0)
+        drawn(self.canvas, draw)
     }
 
     /// `output` with its layer-space left and top moved out to the pin. `None` if that leaves
@@ -342,6 +385,22 @@ mod tests {
             )[1]
             .is_some()
         );
+    }
+
+    #[test]
+    fn a_grain_keeps_the_bound_and_passes_it_on_unhinted_itself() {
+        let grain = Effect::Grain {
+            seed: 7,
+            amount: 0.3,
+            size: 2,
+            mono: true,
+            frame: 0,
+        };
+        let hints = hints_for(&[grain, Effect::Blur { radius: 10.0 }], (1.0, 1.0));
+        let [None, Some(blur)] = hints[..] else {
+            panic!("the grain's layer plain, the blur's hinted: {hints:?}");
+        };
+        assert_eq!((blur.right, blur.bottom), (115.0, 55.0));
     }
 
     #[test]

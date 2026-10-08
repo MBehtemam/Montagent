@@ -1290,6 +1290,42 @@ fn element_block(measure: &Value) -> String {
             pixels(&measure["ink_bottom"])
         ),
     );
+    // ADR-0161 §8: on a text on a path the numbers above are the flat line's; this is the
+    // bent line, at the element's first frame.
+    if let Some(bent) = measure.get("path").filter(|bent| bent.is_object()) {
+        field(
+            "on its path",
+            match bent["unresolved"].as_str() {
+                Some(reason) => format!("unresolved: {reason}"),
+                None => format!(
+                    "ink {}  (box pixels, at the first frame — ADR-0161)",
+                    match bent["ink"].as_array() {
+                        Some(ink) => format!(
+                            "x {} .. {}, y {} .. {} px",
+                            pixels(&ink[0]),
+                            pixels(&ink[2]),
+                            pixels(&ink[1]),
+                            pixels(&ink[3])
+                        ),
+                        None => "none".to_string(),
+                    }
+                ),
+            },
+        );
+        if bent["unresolved"].is_null() {
+            field(
+                "hidden",
+                match &bent["hidden"] {
+                    Value::Array(letters) => letters
+                        .iter()
+                        .map(Value::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or("?").to_string(),
+                },
+            );
+        }
+    }
 
     out.push_str("\n  LINES\n");
     for line in lines {
@@ -2169,6 +2205,83 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(blend) = element["blend"].as_str() {
         cells.push(format!("blend {blend}"));
     }
+    // ADR-0167 §7: a projected element's facing and its four corners, TL TR BR BL. The
+    // three numbers are among the values above where written.
+    if let Some(projection) = element.get("projection").filter(|p| p.is_object()) {
+        let corners = match projection["corners"].as_array() {
+            Some(corners) => corners
+                .iter()
+                .map(|corner| format!("({}, {})", corner[0], corner[1]))
+                .collect::<Vec<_>>()
+                .join(" "),
+            None => "none".to_string(),
+        };
+        cells.push(format!(
+            "facing {}, corners {corners}",
+            projection["facing"].as_str().unwrap_or("?")
+        ));
+    }
+    // ADR-0161 §8: a text on a path's offset, its curve's informative length, and the
+    // letters the curve hides.
+    if let Some(bent) = element.get("text_path").filter(|bent| bent.is_object()) {
+        // A written `path_offset` is already among the values above; the default is not.
+        let written = element["values"]
+            .as_array()
+            .is_some_and(|values| values.iter().any(|v| v["property"] == "path_offset"));
+        let number = |value: &Value| match value.as_f64() {
+            Some(value) if value.fract() == 0.0 => format!("{value:.0}"),
+            Some(value) => format!("{value}"),
+            None => "?".to_string(),
+        };
+        if !written {
+            cells.push(format!(
+                "path_offset {} (default)",
+                number(&bent["path_offset"])
+            ));
+        }
+        cells.push(match bent["unresolved"].as_str() {
+            Some(reason) => format!("path unresolved: {reason}"),
+            None => format!(
+                "curve {} px (informative), hidden: {}",
+                number(&bent["length"]),
+                match &bent["hidden"] {
+                    Value::Array(letters) => letters
+                        .iter()
+                        .map(Value::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    other => other.as_str().unwrap_or("?").to_string(),
+                }
+            ),
+        });
+    }
+    // ADR-0158 §7: a path's inset and the reach factor it came from, and a dashed shape's
+    // raw offset with its informative outline length.
+    if let Some(stroke) = element.get("stroke").filter(|stroke| stroke.is_object()) {
+        if stroke.get("inset").is_some() {
+            cells.push(format!(
+                "inset {} (k {}: {})",
+                stroke["inset"],
+                stroke["reach_factor"].as_str().unwrap_or("?"),
+                stroke["reach_source"].as_str().unwrap_or("?"),
+            ));
+        }
+        let number = |value: f64| match value.fract() == 0.0 {
+            true => format!("{value:.0}"),
+            false => format!("{value}"),
+        };
+        if let Some(offset) = stroke["dash_offset"].as_f64() {
+            let mut cell = format!("dash_offset {}", number(offset));
+            if let Some(length) = stroke["outline_length"].as_f64() {
+                cell.push_str(&format!(" (outline {} px, informative)", number(length)));
+            }
+            cells.push(cell);
+        }
+    }
+    // ADR-0160 §7: a trimmed shape's window as drawn. The raw fields are among the values.
+    if let Some(drawn) = element["trim"]["drawn"].as_str() {
+        cells.push(format!("drawn: {drawn}"));
+    }
     // ADR-0155: the field as written, shutter/samples, then the frame's moving or still.
     if let Some(blur) = element.get("motion_blur").filter(|blur| blur.is_object()) {
         let mut cell = format!("motion_blur {}/{}", blur["shutter"], blur["samples"]);
@@ -2177,6 +2290,22 @@ fn resolved_cells(element: &Value) -> String {
             cell.push_str(motion);
         }
         cells.push(cell);
+    }
+    // ADR-0156: each grain's resolved values and the local frame it draws from.
+    for grain in element["grain"].as_array().into_iter().flatten() {
+        cells.push(format!(
+            "grain effects[{}] seed {} size {}{} amount {} frame {}",
+            grain["effect"],
+            grain["seed"],
+            grain["size"],
+            if grain["mono"] == true {
+                " mono"
+            } else {
+                " colour"
+            },
+            grain["amount"],
+            grain["frame"],
+        ));
     }
     // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
     // so the row says where.

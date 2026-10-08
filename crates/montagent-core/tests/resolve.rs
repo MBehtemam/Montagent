@@ -9,6 +9,10 @@
 //! Everything is asserted through the core verb API — seam 1 — against a project file, which
 //! is the only seam an agent can ever observe.
 
+// One `json!` literal writes every animatable property the schema publishes, which is deeper
+// than the macro's default recursion allows.
+#![recursion_limit = "256"]
+
 use montagent_core::Wire;
 use montagent_core::report::ExitCode;
 use montagent_core::verbs::query::{self, Ask};
@@ -503,8 +507,8 @@ fn the_published_schema_states_the_positional_rule_too() {
         }
     }
     assert_eq!(
-        seen, 26,
-        "thirteen keyframe instantiations, first and non-first"
+        seen, 42,
+        "twenty-one keyframe instantiations, first and non-first"
     );
 }
 
@@ -581,8 +585,8 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
     collect_animatable(&schema, None, &mut animatable);
     // A gradient's own parameters are printed inside their paint, never as properties of
     // their own (ADR-0149 §6; `gradient_animate.rs` reads them there). `radius` stays: a
-    // `rect` has one of its own.
-    animatable.retain(|name| !matches!(name.as_str(), "angle" | "center" | "stops"));
+    // `rect` has one of its own, and so does `angle`: `directional_blur` has one (ADR-0156).
+    animatable.retain(|name| !matches!(name.as_str(), "center" | "stops"));
     animatable.sort();
     animatable.dedup();
     assert!(
@@ -590,9 +594,9 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         "the schema publishes animated properties"
     );
 
-    // Three elements carry the whole set between them: a rect takes the transform and its
-    // size and paint, `volume` is audio's (ADR-0055), and `color` and
-    // `letter_spacing` are text's (ADR-0146, ADR-0151).
+    // The elements carry the whole set between them: a rect takes the transform and its
+    // size and paint, `volume` is audio's (ADR-0055), `source_time` a video's (ADR-0157),
+    // and `color` and `letter_spacing` are text's (ADR-0146, ADR-0151).
     let path = project(
         line!(),
         json!({
@@ -602,14 +606,21 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 {"name": "visual", "layer": 0, "elements": [
                     {"id": "shape", "type": "rect", "start": 0, "end": 1000,
                      "x": 1, "y": 2, "width": 10, "height": 10, "fill": "#000000",
-                     "stroke": "#FFFFFF", "stroke_width": 1, "radius": 2,
-                     "scale": [1.0, 1.0], "rotation": 0.0, "opacity": 1.0,
+                     "stroke": "#FFFFFF", "stroke_width": 1, "stroke_dash": [2, 1],
+                     "stroke_dash_offset": 1, "trim_start": 0.1, "trim_end": 0.9,
+                     "trim_offset": 0.25, "radius": 2,
+                     "scale": [1.0, 1.0], "rotation": 0.0, "swivel": 10, "tilt": 0,
+                     "perspective": 2000, "opacity": 1.0,
                      "effects": [{"name": "mask", "shape": "circle", "feather": 4},
                                  {"name": "shadow", "dx": 1, "dy": 1, "radius": 2,
                                   "color": "#000000", "opacity": 0.5},
                                  {"name": "tint", "color": "#FF0000", "amount": 0.2},
                                  {"name": "chroma", "color": "#00FF00", "tolerance": 0.1,
-                                  "softness": 0.1, "spill": 0.1}]},
+                                  "softness": 0.1, "spill": 0.1},
+                                 {"name": "posterize", "levels": 8},
+                                 {"name": "glow", "threshold": 0.5, "radius": 4,
+                                  "intensity": 1},
+                                 {"name": "directional_blur", "angle": 30, "length": 6}]},
                     {"id": "outline", "type": "path", "start": 0, "end": 1000,
                      "x": 300, "y": 2, "width": 10, "height": 10, "closed": false,
                      "stroke": "#FFFFFF", "stroke_width": 1,
@@ -617,7 +628,13 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                     {"id": "words", "type": "text", "start": 0, "end": 1000,
                      "width": 100, "height": 50, "font": "brand", "size": 20,
                      "color": "#FFFFFF", "letter_spacing": 0,
-                     "runs": [{"text": "hi"}]}]},
+                     "runs": [{"text": "hi"}],
+                     "path": {"closed": false, "points": [{"at": [20, 30]}, {"at": [80, 30]}]},
+                     "path_offset": 0.5},
+                    {"id": "footage", "type": "video", "start": 0, "end": 1000,
+                     "source": "reference/kenburns/05.mp4", "source_time": 0,
+                     "x": 600, "y": 2, "width": 10, "height": 10, "fit": "literal",
+                     "volume": 0}]},
                 {"name": "sound", "layer": 1, "elements": [
                     {"id": "noise", "type": "audio", "start": 0, "end": 1000,
                      "source": "audio/05-cobweb.mp3", "source_start": 0, "source_end": 1000,
@@ -626,7 +643,7 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
         }),
     );
     let answer = at(&path, 500);
-    let mut resolved: Vec<String> = ["shape", "outline", "noise", "words"]
+    let mut resolved: Vec<String> = ["shape", "outline", "noise", "words", "footage"]
         .iter()
         .flat_map(|id| {
             element(&answer, id)["values"]
@@ -635,8 +652,11 @@ fn every_animatable_property_the_schema_publishes_is_one_the_view_resolves() {
                 .iter()
                 // An effect parameter is named by its place in `effects` (ADR-0146 §4):
                 // `effects[0].feather (mask)` is the schema's `feather`.
+                // A text's curve is the schema's `points`, nested as `path.points`
+                // (ADR-0161).
                 .map(|value| {
                     let property = value["property"].as_str().unwrap_or("?");
+                    let property = property.strip_prefix("path.").unwrap_or(property);
                     property
                         .split_once("].")
                         .map_or(property, |(_, rest)| {

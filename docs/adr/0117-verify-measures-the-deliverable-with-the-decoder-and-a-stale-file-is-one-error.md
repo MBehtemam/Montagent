@@ -5,6 +5,12 @@ amends: 0011 (a tenth MCP verb and a thirteenth CLI command, `verify`; the count
 
 # `verify` measures the deliverable with the decoder, and a stale file is one error
 
+> **Amended by [ADR-0172](0172-the-master-stage-is-a-top-level-loudness-target-and-true-peak-ceiling-reached-by-one-measured-gain.md)**: `verify` gains loudness and true-peak measurements
+> against a project's master stage.
+
+> **Amended by [ADR-0173](0173-every-audio-capability-is-accepted-by-a-measured-repo-test-and-verify-checks-only-what-master-declares.md)**: `verify` gains no per-capability audio
+> measurement. Beyond its own checks, it judges only what `master` declares, at ADR-0173's tolerances.
+
 > **Amended by [ADR-0121](0121-a-partial-render-s-world-effects-stop-at-its-range-and-its-report-says-so.md)**: a partial render adds one line to
 > `not_checked_also`, naming its range and stating that a clean partial render says nothing
 > about whether the full render will pass.

@@ -58,6 +58,9 @@
 //!   measured through — so the fixture's plateau is a reading of this code's own tolerance
 //!   axis and not of a neighbouring one.
 //!
+//! ADR-0156's named effects `posterize`, `glow` and `directional_blur` joined it with
+//! [#724](https://github.com/MBehtemam/Montagent/issues/724); their formulas are in `named`.
+//!
 //! What is **not** here, and is the core's business rather than an omission: `crossfade`
 //! and a run's `highlight` window. Both are *resolutions*, not paint rules — a crossfade is an
 //! opacity the two bridged elements already carry and a highlight is which of a run's two
@@ -72,13 +75,18 @@ use skia_safe::{
 };
 
 mod gradient;
+mod grain;
 mod layer_bound;
+mod named;
+mod projection;
 
 pub use gradient::{Gradient, GradientKind, Ink};
+pub use grain::grain_draw;
 #[doc(hidden)]
 pub use layer_bound::enabled as filter_layers_bounded;
 #[doc(hidden)]
 pub use layer_bound::set_enabled as bound_filter_layers;
+pub use projection::{Facing, Projection, Quad, eye_bound, quad, reach_box};
 
 /// `#RRGGBBAA`, already parsed. The format's own colour spelling is the core's to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +136,11 @@ pub struct Transform {
     /// transform property, and static, but carried here beside `opacity` because the two
     /// are applied together by the one layer the element is composited through.
     pub blend: Blend,
+    /// The projection (ADR-0167), on an element that writes `swivel` or `tilt`: it is drawn
+    /// flat into a layer with its effects and mask, and the layer is drawn through the
+    /// projection about `origin`, innermost, before `scale`, `rotation` and `x`/`y`. `None`
+    /// on an element with neither field, which paints exactly as before (ADR-0168 §1).
+    pub projection: Option<Projection>,
 }
 
 /// ADR-0147's five modes, each one Skia mode. The arithmetic runs on the stored sRGB
@@ -213,6 +226,183 @@ pub struct Fill {
     pub stroke_width: f64,
 }
 
+/// How a `path`'s stroke turns its corners and ends its open ends (ADR-0158 §2–§3).
+///
+/// The join and cap are a path's alone: a `rect` or `ellipse` stroke keeps the join the
+/// painter has always drawn it with, and a glyph's its round join. The default is
+/// ADR-0154's pin, a round join and a butt cap, and no dash, so a path that writes none of
+/// them paints the bytes it always has.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StrokeStyle {
+    pub join: Join,
+    pub cap: Cap,
+    /// The dash pattern (ADR-0158 §5), run from `points[0]` in points order.
+    pub dash: Option<Dash>,
+    /// The part of the outline the stroke draws (ADR-0160), measured from `points[0]` in
+    /// points order. `None` draws it whole, as a full window does.
+    pub trim: Option<Trim>,
+}
+
+/// A trimmed stroke's window (ADR-0160 §4–§6), resolved by the core: what is left once a
+/// full window has been told apart, which draws exactly as no trim and so is `None` where a
+/// trim is asked for.
+///
+/// - **Empty** draws no stroke at all, under any cap: Skia would draw a dot for a
+///   zero-length segment under a round cap, and a draw-on must not pop one on its first
+///   frame.
+/// - **A part** runs from `from` to `to`, fractions of the outline's length from its start
+///   point in its direction, measured by the same path measure the dashes are laid along.
+///   `from > to` crosses the start point, and is drawn as **one contour** through it, so the
+///   outline's own join turns there and no cap is drawn.
+///
+/// **Dashes stay put.** The pattern is laid along the whole outline first, exactly as an
+/// untrimmed stroke lays it — the dash that is "on" across a closed outline's start point
+/// stays one dash through it — and the window then keeps the part of each dash it covers.
+/// A dash's phase never depends on the trim, and a trim end inside a dash takes the cap.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Trim {
+    Empty,
+    Part { from: f64, to: f64 },
+}
+
+/// A dash pattern on a stroke (ADR-0158 §5): lengths alternating dash, gap, dash, gap,
+/// starting with a dash, in element pixels along the outline, and the phase — how far into
+/// the pattern the outline's start falls.
+///
+/// The pattern is drawn as written: never doubled, never stretched to fit the outline. The
+/// outline it runs along is built with ADR-0158 §5's start point and direction
+/// ([`Canvas::shape`]), never with Skia's default start index for a rect or an oval, so a
+/// Skia update cannot move where a pattern starts.
+///
+/// **At the start point** Skia joins the pattern across a closed outline's start when the
+/// pattern is "on" there: the dash left over at the end of the outline and the first dash
+/// draw as one, turning a corner with the stroke's join. When the pattern is "off" there, the
+/// leftover is a short gap. Where a dash boundary lands exactly on a vertex, the two ends are
+/// drawn with caps and no join between them, as in SVG.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dash {
+    intervals: Vec<f32>,
+    phase: f32,
+}
+
+impl Dash {
+    /// The pattern `lengths` with `offset` wrapped into `[0, total)`, as SVG and Skia read a
+    /// dash phase: a larger offset moves the dashes back, toward the outline's start. `None`
+    /// for a pattern Skia cannot dash — an odd count or a zero total, which `validate`
+    /// refuses.
+    pub fn new(lengths: &[i64], offset: f64) -> Option<Dash> {
+        let total: i64 = lengths.iter().sum();
+        if lengths.len() % 2 == 1 || lengths.is_empty() || total <= 0 {
+            return None;
+        }
+        Some(Dash {
+            intervals: lengths.iter().map(|length| *length as f32).collect(),
+            phase: offset.rem_euclid(total as f64) as f32,
+        })
+    }
+
+    fn effect(&self) -> Option<skia_safe::PathEffect> {
+        skia_safe::PathEffect::dash(&self.intervals, self.phase)
+    }
+
+    /// Every dash along one contour of `length`, as `(start, end)` distances, exactly where
+    /// Skia's dash path effect lays them: its phase arithmetic in `f32` and its walk in
+    /// `f64` (`SkDashPath::CalcDashParameters` and `InternalFilter`). On a closed contour
+    /// that starts inside a dash, the first dash is skipped and laid after the last one; where
+    /// the last one runs on to the end of the contour, the two are **one dash** through the
+    /// start point, `(start, length + first)`.
+    fn along(&self, length: f32, closed: bool) -> Vec<(f64, f64)> {
+        let count = self.intervals.len();
+        let total: f32 = self.intervals.iter().sum();
+        let mut phase = self.phase;
+        if phase >= total {
+            phase %= total;
+        }
+        let (mut index, mut first) = (0, self.intervals[0]);
+        for (i, &gap) in self.intervals.iter().enumerate() {
+            if phase > gap || (phase == gap && gap != 0.0) {
+                phase -= gap;
+            } else {
+                (index, first) = (i, gap - phase);
+                break;
+            }
+        }
+        let initial = index;
+        let mut dashes = Vec::new();
+        let mut skip = closed;
+        let mut added = false;
+        let mut distance = 0.0_f64;
+        let mut dlen = f64::from(first);
+        while distance < f64::from(length) {
+            added = false;
+            if index % 2 == 0 && !skip {
+                added = true;
+                let end = distance + dlen;
+                dashes.push((distance, end.min(f64::from(length))));
+            }
+            distance += dlen;
+            skip = false;
+            index = (index + 1) % count;
+            dlen = f64::from(self.intervals[index]);
+        }
+        if closed && initial % 2 == 0 && first >= 0.0 {
+            let first = f64::from(first);
+            match (added, dashes.last_mut()) {
+                (true, Some(last)) => last.1 = f64::from(length) + first,
+                _ => dashes.push((0.0, first)),
+            }
+        }
+        dashes
+    }
+}
+
+/// A stroke's join. A miter corner whose tip would reach past `limit` half-widths from its
+/// vertex is drawn beveled — Skia's and SVG's meaning, so under keyed points a corner that
+/// sharpens past the limit snaps from a tip to a bevel on one frame.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Join {
+    #[default]
+    Round,
+    Bevel,
+    Miter {
+        limit: f32,
+    },
+}
+
+/// A stroke's cap, drawn at an open path's two ends.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Cap {
+    #[default]
+    Butt,
+    Round,
+    Square,
+}
+
+impl StrokeStyle {
+    /// Set the join, miter limit and cap on a stroke paint. The dash is the caller's: an
+    /// untrimmed stroke takes it as Skia's path effect, and a trimmed one is dashed and cut
+    /// by [`trimmed`].
+    fn apply(&self, paint: &mut SkPaint) {
+        match self.join {
+            Join::Round => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Round);
+            }
+            Join::Bevel => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Bevel);
+            }
+            Join::Miter { limit } => {
+                paint.set_stroke_join(skia_safe::PaintJoin::Miter);
+                paint.set_stroke_miter(limit);
+            }
+        }
+        paint.set_stroke_cap(match self.cap {
+            Cap::Butt => skia_safe::PaintCap::Butt,
+            Cap::Round => skia_safe::PaintCap::Round,
+            Cap::Square => skia_safe::PaintCap::Square,
+        });
+    }
+}
+
 /// One segment of a glyph's outline, at the glyph's own origin, y-down.
 ///
 /// **The rasterizer's own spelling of the same shape `montagent-text` hands back**, and the
@@ -273,7 +463,7 @@ pub struct UnitDraw {
 /// set, precisely so a second shadow has somewhere to go — and **the order is semantically
 /// real**: `[blur, shadow]` casts a shadow from an already-blurred silhouette, `[shadow,
 /// blur]` blurs a picture that already has a hard-edged shadow in it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
     /// Gaussian blur, one parameter (ADR-0040).
     Blur { radius: f64 },
@@ -322,6 +512,29 @@ pub enum Effect {
         softness: f64,
         spill: f64,
     },
+    /// Film grain (ADR-0156 §4): each `size`×`size` cell of element space, anchored at the
+    /// box origin, offsets the non-premultiplied colour by a draw in `[−amount, +amount]`.
+    /// The draw is [`grain_draw`] of `seed`, the cell and `frame`, the element's local frame;
+    /// with `mono` one draw serves R, G and B. Alpha is never changed.
+    Grain {
+        seed: u32,
+        amount: f64,
+        size: u32,
+        mono: bool,
+        frame: i64,
+    },
+    /// Quantise each colour channel to `levels` steps (ADR-0156 §4). `levels` is already the
+    /// whole number from 2 to 256 the core rounded it to.
+    Posterize { levels: f64 },
+    /// A threshold bloom added over the element (ADR-0156 §4); `radius` reads as `blur`'s.
+    Glow {
+        threshold: f64,
+        radius: f64,
+        intensity: f64,
+    },
+    /// A centred smear along `angle` degrees (clockwise, element space), `length` element
+    /// pixels long in all (ADR-0156 §4).
+    DirectionalBlur { angle: f64, length: f64 },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -330,7 +543,7 @@ pub enum Effect {
 /// rect can carry travels beside this on [`Effect::Mask`] rather than inside it, because
 /// ADR-0084 gives all three shapes one field set and lets `shape` say only which figure is
 /// drawn in it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MaskShape {
     /// The largest circle inscribed in the mask rect — diameter `min(width, height)`,
     /// centred on that rect.
@@ -339,6 +552,11 @@ pub enum MaskShape {
     Rect,
     /// The ellipse inscribed in the mask rect.
     Ellipse,
+    /// A closed outline (ADR-0163), already resolved, clamped into its box and offset by
+    /// the mask rect's `x` and `y`: in element space, as the other three are drawn. Filled
+    /// by the nonzero rule, the rule a `path` element fills with, so the rect plays no part
+    /// in drawing it — it bounded the points, and never scales them.
+    Path(Vec<PathEl>),
 }
 
 /// The rect a mask shape is inscribed in — **element-local, in unscaled element units**,
@@ -403,7 +621,7 @@ impl MaskShape {
     ///
     /// With `invert` the eraser is the shape itself: the mask keeps the outside and
     /// erases the inside, through the same `Clear` draw (ADR-0152 §1).
-    fn eraser(self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
+    fn eraser(&self, extent: Extent, rect: Option<MaskRect>, radius: f64, invert: bool) -> Path {
         let mut path = self.figure(extent, rect, radius);
         if !invert {
             path.set_fill_type(PathFillType::InverseWinding);
@@ -412,7 +630,7 @@ impl MaskShape {
     }
 
     /// The shape itself, cut in `rect` (the element's own where `None`), in element space.
-    fn figure(self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
+    fn figure(&self, extent: Extent, rect: Option<MaskRect>, radius: f64) -> Path {
         let rect = rect.unwrap_or_else(|| MaskRect::of(extent));
         let mut path = PathBuilder::new();
         match self {
@@ -443,6 +661,9 @@ impl MaskShape {
             MaskShape::Ellipse => {
                 path.add_oval(rect.rect(), None, None);
             }
+            // `path_of` is the `path` element's own outline builder; its default fill
+            // type is the nonzero winding rule.
+            MaskShape::Path(outline) => return path_of(outline),
         }
         path.detach()
     }
@@ -473,7 +694,7 @@ impl MaskShape {
     ///   the blurred shape is already 0. `DstIn` reaches only as far as the layer, so
     ///   without it what lies beyond the layer would be kept.
     fn erase(
-        self,
+        &self,
         canvas: &skia_safe::Canvas,
         extent: Extent,
         rect: Option<MaskRect>,
@@ -640,9 +861,10 @@ impl Effect {
     /// This effect as an image filter over whatever was painted before it, or `None` for
     /// [`Effect::Mask`] — which is a geometric restriction rather than a filter, and is
     /// applied by [`Canvas::in_element_space`] as a `DstIn` draw over its own layer.
-    fn filter(self) -> Option<ImageFilter> {
-        match self {
-            Effect::Mask { .. } => None,
+    fn filter(&self) -> Option<ImageFilter> {
+        match *self {
+            // A `grain` is drawn over its own layer by [`Canvas::through`], as a mask is.
+            Effect::Mask { .. } | Effect::Grain { .. } => None,
             Effect::Blur { radius } => {
                 image_filters::blur((sigma(radius), sigma(radius)), None, None, None)
             }
@@ -687,6 +909,16 @@ impl Effect {
                 None,
                 None,
             ),
+            // ADR-0156's three, each a runtime effect of Montagent's own ([`named`]). An
+            // identity value is no filter at all, so it paints a plain layer: the same bytes
+            // as no member even under a rotation, where a filter layer resamples.
+            Effect::Posterize { levels } => named::posterize(levels),
+            Effect::Glow {
+                threshold,
+                radius,
+                intensity,
+            } => named::glow(threshold, sigma(radius), intensity),
+            Effect::DirectionalBlur { angle, length } => named::directional_blur(angle, length),
             // The one member with a threshold in it, so the one that is a runtime effect
             // rather than a matrix ([`KEYER`]).
             Effect::Chroma {
@@ -734,8 +966,8 @@ impl Effect {
     /// so the alpha row is identity in every one of them and a transparent pixel stays
     /// transparent however hard it is tinted. The translation column is in unit rather
     /// than byte range, which is why `brightness` writes `amount` and not `amount × 255`.
-    fn matrix(self) -> [f32; 20] {
-        match self {
+    fn matrix(&self) -> [f32; 20] {
+        match *self {
             Effect::Saturation { amount } => {
                 // The identity is `amount: 1`, so `0` is the grayscale case ADR-0049
                 // folded the `grayscale` member into and `>1` oversaturates.
@@ -816,7 +1048,11 @@ impl Effect {
             Effect::Blur { .. }
             | Effect::Shadow { .. }
             | Effect::Mask { .. }
-            | Effect::Chroma { .. } => [
+            | Effect::Chroma { .. }
+            | Effect::Grain { .. }
+            | Effect::Posterize { .. }
+            | Effect::Glow { .. }
+            | Effect::DirectionalBlur { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //
@@ -1226,13 +1462,25 @@ impl Canvas {
         );
     }
 
-    /// Draw one `rect` or `ellipse` (ADR-0014).
+    /// Draw one `rect` or `ellipse` (ADR-0014), its stroke dashed by `dash` (ADR-0158 §5).
+    ///
+    /// An undashed stroke is Skia's own rect, rounded rect or oval on the inset box. A dashed
+    /// one is drawn on [`inset_outline`]'s explicit outline instead, which starts and runs as
+    /// ADR-0158 §5's table says. Its dash ends are butt, and a rect's corners inside a dash
+    /// keep the miter join every rect stroke has.
+    ///
+    /// A trimmed stroke (ADR-0160) is cut from that same explicit outline, so the window is
+    /// measured from where the dashes start; its ends are butt. `trim` is `None` with no
+    /// trim and for a full window, both of which draw exactly as before trim existed.
+    #[allow(clippy::too_many_arguments)]
     pub fn shape(
         &mut self,
         shape: Shape,
         extent: Extent,
         transform: &Transform,
         paint: &Fill,
+        dash: Option<&Dash>,
+        trim: Option<Trim>,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1283,6 +1531,26 @@ impl Canvas {
                 // document declares, so nothing is drawn and the core says so.
                 return;
             }
+            match trim {
+                Some(Trim::Empty) => return,
+                Some(Trim::Part { from, to }) => {
+                    let Some(outline) = inset_outline(shape, extent, paint.stroke_width) else {
+                        return;
+                    };
+                    let cut = trimmed(canvas, &outline, (from, to), dash);
+                    canvas.draw_path(&cut, &stroke);
+                    return;
+                }
+                None => {}
+            }
+            if let Some(effect) = dash.and_then(Dash::effect) {
+                let Some(outline) = inset_outline(shape, extent, paint.stroke_width) else {
+                    return;
+                };
+                stroke.set_path_effect(effect);
+                canvas.draw_path(&outline, &stroke);
+                return;
+            }
             match shape {
                 Shape::Rect { radius } if radius > 0.0 => {
                     // The inset path's corners are the declared radius less the inset, so
@@ -1304,16 +1572,18 @@ impl Canvas {
     /// `(0, 0, width, height)`.
     ///
     /// The fill uses the nonzero winding rule, so a self-intersecting outline fills its
-    /// overlap. The stroke is **centred** on the outline, unlike a `rect`'s, with a round
-    /// join and a butt cap: those reach no further than half the stroke's width from the
-    /// outline, which is what lets `validate` prove from the points alone that the box
-    /// contains the ink. Nothing is clipped to the box.
+    /// overlap. The stroke is **centred** on the outline, unlike a `rect`'s, with `style`'s
+    /// join and cap: those reach no further than the reach factor times half the stroke's
+    /// width from the outline (ADR-0158 §4), which is what lets `validate` prove from the
+    /// points alone that the box contains the ink. Nothing is clipped to the box.
+    #[allow(clippy::too_many_arguments)]
     pub fn path(
         &mut self,
         outline: &[PathEl],
         extent: Extent,
         transform: &Transform,
         paint: &Fill,
+        style: StrokeStyle,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
@@ -1336,9 +1606,21 @@ impl Canvas {
             let mut stroke = ink.paint((0.0, 0.0));
             stroke.set_style(PaintStyle::Stroke);
             stroke.set_stroke_width(paint.stroke_width as f32);
-            stroke.set_stroke_join(skia_safe::PaintJoin::Round);
-            stroke.set_stroke_cap(skia_safe::PaintCap::Butt);
-            canvas.draw_path(&path, &stroke);
+            style.apply(&mut stroke);
+            match style.trim {
+                // The fill is never trimmed (ADR-0160 §3); an empty window draws no stroke.
+                Some(Trim::Empty) => {}
+                Some(Trim::Part { from, to }) => {
+                    let cut = trimmed(canvas, &path, (from, to), style.dash.as_ref());
+                    canvas.draw_path(&cut, &stroke);
+                }
+                None => {
+                    if let Some(effect) = style.dash.as_ref().and_then(Dash::effect) {
+                        stroke.set_path_effect(effect);
+                    }
+                    canvas.draw_path(&path, &stroke);
+                }
+            }
         });
     }
 
@@ -1472,6 +1754,14 @@ impl Canvas {
         if extent.width <= 0.0 || extent.height <= 0.0 || transform.opacity <= 0.0 {
             return;
         }
+        // A projected element facing away, edge-on, or reaching the eye paints nothing at
+        // this instant (ADR-0167 §4, §5): the same answer `query --at` and the checks read.
+        if let Some(projection) = transform.projection
+            && !projection::quad(extent, transform, projection, effects).drawn
+        {
+            return;
+        }
+        let base = self.base;
         let canvas = self.surface.canvas();
         canvas.save();
         if let Some(clip) = clip {
@@ -1506,11 +1796,18 @@ impl Canvas {
             canvas.rotate(transform.rotation as f32, None);
         }
         canvas.scale((transform.scale.0 as f32, transform.scale.1 as f32));
-        canvas.translate((
-            (-transform.origin.0 * extent.width) as f32,
-            (-transform.origin.1 * extent.height) as f32,
-        ));
-        Canvas::through(canvas, extent, effects, draw);
+        match transform.projection {
+            None => {
+                canvas.translate((
+                    (-transform.origin.0 * extent.width) as f32,
+                    (-transform.origin.1 * extent.height) as f32,
+                ));
+                Canvas::through(canvas, extent, effects, draw);
+            }
+            Some(projection) => {
+                projected(canvas, extent, transform, projection, base, effects, &draw);
+            }
+        }
         if layered {
             canvas.restore();
         }
@@ -1550,8 +1847,25 @@ impl Canvas {
         effects: &[Effect],
         draw: impl Fn(&skia_safe::Canvas),
     ) {
-        let filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        // No effect, bounds hint, grain plan or directional crop ever runs under a
+        // perspective matrix: a projected element runs this on its flat layer (ADR-0167 §3).
+        // A hard assert, on in release, because each of those reads the matrix.
+        assert!(
+            !canvas.local_to_device_as_3x3().has_perspective(),
+            "an effect chain under a perspective matrix (ADR-0167 §3)"
+        );
+        // A `grain` at `amount: 0` is no member at all, rather than a layer that changes
+        // nothing: the identity paints the bytes of the list without it (ADR-0156).
+        let effects: Vec<Effect> = effects
+            .iter()
+            .filter(|effect| !matches!(effect, Effect::Grain { amount, .. } if *amount <= 0.0))
+            .cloned()
+            .collect();
+        let effects = effects.as_slice();
+        let mut filters: Vec<Option<ImageFilter>> = effects.iter().map(|e| e.filter()).collect();
+        Canvas::crop_directional(canvas, effects, &mut filters, &draw);
         let bounds = layer_bound::hints(canvas, effects, &filters, &draw);
+        let grains = grain::plan(canvas, effects, &filters, &draw);
         for (filter, bound) in filters.into_iter().zip(&bounds).rev() {
             match filter {
                 Some(filter) => {
@@ -1573,7 +1887,10 @@ impl Canvas {
             };
         }
         draw(canvas);
-        for effect in effects {
+        for (effect, grain) in effects.iter().zip(&grains) {
+            if let Some(grain) = grain {
+                grain.apply(canvas);
+            }
             if let Effect::Mask {
                 shape,
                 rect,
@@ -1585,6 +1902,48 @@ impl Canvas {
                 shape.erase(canvas, extent, *rect, *radius, *invert, *feather);
             }
             canvas.restore();
+        }
+    }
+
+    /// Crop every `directional_blur` to its reach (ADR-0156 §4), **always**, whether or not
+    /// the bounds hint is on.
+    ///
+    /// Skia cannot bound a runtime-shader filter, so uncropped it is evaluated over the whole
+    /// layer. The crop is the element-space bounds of what the filter is given, walked down
+    /// the chain from what `draw` paints, grown by [`named::directional_reach`]. It changes a
+    /// few edge pixels by a level against no crop (#722), which is harmless only because it
+    /// is never off: hint on and hint off paint the same cropped filter.
+    fn crop_directional(
+        canvas: &skia_safe::Canvas,
+        effects: &[Effect],
+        filters: &mut [Option<ImageFilter>],
+        draw: &dyn Fn(&skia_safe::Canvas),
+    ) {
+        let directional = |effect: &Effect| matches!(effect, Effect::DirectionalBlur { .. });
+        if !effects
+            .iter()
+            .zip(filters.iter())
+            .any(|(effect, filter)| directional(effect) && filter.is_some())
+        {
+            return;
+        }
+        // Nothing drawn crops to nothing, so the shader still never runs over the layer.
+        let mut content = layer_bound::drawn(canvas, draw).unwrap_or_else(Rect::new_empty);
+        for (effect, filter) in effects.iter().zip(filters.iter_mut()) {
+            let Some(built) = filter.take() else {
+                continue;
+            };
+            match *effect {
+                Effect::DirectionalBlur { angle, length } => {
+                    let (cropped, bound) = named::crop_directional(built, content, angle, length);
+                    *filter = cropped;
+                    content = bound;
+                }
+                _ => {
+                    content = built.compute_fast_bounds(content);
+                    *filter = Some(built);
+                }
+            }
         }
     }
 
@@ -1654,6 +2013,100 @@ impl Canvas {
             scale,
         })
     }
+}
+
+/// Transparent layer pixels kept around a projected element's flat layer, so its edge is
+/// sampled against transparency rather than against the image's clamped border.
+const FLAT_PAD: f64 = 2.0;
+
+/// Draw one element through its projection (ADR-0167 §3, as the accepted prototype #786
+/// measured it). `canvas` already holds translate · rotate · scale, and the element faces
+/// front with every corner in front of the eye ([`projection::quad`]).
+///
+/// 1. **Flat.** The element is drawn on a raster surface of its own, with its effects and
+///    mask in list order, through the normal [`Canvas::through`]. The surface covers the
+///    reach-widened box ([`reach_box`]) plus [`FLAT_PAD`], rounded out to whole pixels, and
+///    holds `|scale|` layer pixels per element unit (times the canvas's base scale), under a
+///    matrix that is a translation and a positive scale only. What the element paints
+///    outside the reach box, such as text overflowing its block, is cut.
+/// 2. **Projected.** That surface is drawn once through PROJECT · origin offset ·
+///    1/|scale|, sampled by [`sampling_for`] (ADR-0132) and antialiased at its edge. This is
+///    the only draw under a perspective matrix; `opacity`, `blend` and `clip` wrap it as they
+///    wrap every element.
+fn projected(
+    canvas: &skia_safe::Canvas,
+    extent: Extent,
+    transform: &Transform,
+    projection: Projection,
+    base: (f32, f32),
+    effects: &[Effect],
+    draw: &dyn Fn(&skia_safe::Canvas),
+) {
+    let (kx, ky) = (
+        transform.scale.0.abs() * f64::from(base.0),
+        transform.scale.1.abs() * f64::from(base.1),
+    );
+    if !(kx > 0.0 && ky > 0.0 && kx.is_finite() && ky.is_finite()) {
+        return;
+    }
+    let (l, t, r, b) = reach_box(extent, effects);
+    // Whole layer pixels on every side, so the reach box's top-left lands at a whole-pixel
+    // translation of the flat surface.
+    let left = (-l * kx).ceil() + FLAT_PAD;
+    let top = (-t * ky).ceil() + FLAT_PAD;
+    let width = left + (r * kx).ceil() + FLAT_PAD;
+    let height = top + (b * ky).ceil() + FLAT_PAD;
+    if !(width.is_finite() && height.is_finite()) || width > f64::from(i32::MAX) {
+        return;
+    }
+    let info = ImageInfo::new(
+        ISize::new(width as i32, height as i32),
+        ColorType::RGBA8888,
+        AlphaType::Premul,
+        None,
+    );
+    let Some(mut flat) = surfaces::raster(&info, None, None) else {
+        return;
+    };
+    {
+        let layer = flat.canvas();
+        layer.clear(Color::TRANSPARENT);
+        layer.translate((left as f32, top as f32));
+        layer.scale((kx as f32, ky as f32));
+        layer.clip_rect(
+            Rect::from_ltrb(l as f32, t as f32, r as f32, b as f32),
+            None,
+            Some(true),
+        );
+        Canvas::through(layer, extent, effects, draw);
+    }
+    let image = flat.image_snapshot();
+
+    let m = projection.matrix();
+    let project = Matrix::new_all(
+        m[0][0] as f32,
+        m[0][1] as f32,
+        m[0][2] as f32,
+        m[1][0] as f32,
+        m[1][1] as f32,
+        m[1][2] as f32,
+        m[2][0] as f32,
+        m[2][1] as f32,
+        m[2][2] as f32,
+    );
+    canvas.save();
+    canvas.concat(&project);
+    canvas.translate((
+        (-transform.origin.0 * extent.width) as f32,
+        (-transform.origin.1 * extent.height) as f32,
+    ));
+    canvas.scale(((1.0 / kx) as f32, (1.0 / ky) as f32));
+    canvas.translate((-left as f32, -top as f32));
+    let to_device = canvas.local_to_device_as_3x3();
+    let mut paint = SkPaint::default();
+    paint.set_anti_alias(true);
+    canvas.draw_image_with_sampling_options(&image, (0, 0), sampling_for(&to_device), Some(&paint));
+    canvas.restore();
 }
 
 /// Which of [`Canvas::text`]'s two passes is being painted.
@@ -1743,6 +2196,263 @@ fn unit_bounds(paths: &[Path], glyphs: &[&Glyph]) -> Option<Rect> {
     all.map(|r| <Rect as skia_safe::RoundOut<Rect>>::round_out(&r))
 }
 
+/// The inset outline a `rect`'s or `ellipse`'s stroke is drawn on, built with ADR-0158 §5's
+/// start point and direction rather than Skia's default start index, so a dash pattern runs
+/// from where the format says it does. `None` where a stroke wider than the box leaves no
+/// inset outline to draw.
+///
+/// All three run clockwise on screen (y down):
+///
+/// - a rect with no `radius`: from the inset outline's top-left corner, along the top edge
+///   first;
+/// - a rect with a `radius`: from where the top-left arc meets the top edge. The inset radius
+///   is the declared one less the inset, clamped to half the inset box's shorter side, as
+///   Skia clamps a rounded rect's;
+/// - an ellipse: from 3 o'clock, toward 6 o'clock first.
+///
+/// Each quarter arc is a conic of weight √2/2, Skia's own exact quarter circle.
+fn inset_outline(shape: Shape, extent: Extent, stroke_width: f64) -> Option<Path> {
+    let inset = stroke_width as f32 / 2.0;
+    let (l, t) = (inset, inset);
+    let (r, b) = (extent.width as f32 - inset, extent.height as f32 - inset);
+    if r <= l || b <= t {
+        return None;
+    }
+    let weight = std::f32::consts::FRAC_1_SQRT_2;
+    let mut path = PathBuilder::new();
+    match shape {
+        Shape::Rect { radius } if radius > 0.0 => {
+            let k = (radius as f32 - inset)
+                .max(0.0)
+                .min((r - l) / 2.0)
+                .min((b - t) / 2.0);
+            path.move_to((l + k, t));
+            path.line_to((r - k, t));
+            path.conic_to((r, t), (r, t + k), weight);
+            path.line_to((r, b - k));
+            path.conic_to((r, b), (r - k, b), weight);
+            path.line_to((l + k, b));
+            path.conic_to((l, b), (l, b - k), weight);
+            path.line_to((l, t + k));
+            path.conic_to((l, t), (l + k, t), weight);
+        }
+        Shape::Rect { .. } => {
+            path.move_to((l, t));
+            path.line_to((r, t));
+            path.line_to((r, b));
+            path.line_to((l, b));
+        }
+        Shape::Ellipse => {
+            let (cx, cy) = ((l + r) / 2.0, (t + b) / 2.0);
+            path.move_to((r, cy));
+            path.conic_to((r, b), (cx, b), weight);
+            path.conic_to((l, b), (l, cy), weight);
+            path.conic_to((l, t), (cx, t), weight);
+            path.conic_to((r, t), (r, cy), weight);
+        }
+    }
+    path.close();
+    Some(path.detach())
+}
+
+/// The part of `outline` a trimmed stroke draws (ADR-0160): the window `(from, to)`, in
+/// fractions of the outline's length, cut from it with Skia's own path measure, after
+/// `dash` has been laid along the whole outline.
+///
+/// The measure takes the resolution scale Skia's stroker and dasher take from the canvas
+/// matrix, so a dash kept whole by the window is cut at the very distances the untrimmed
+/// dash is. Each piece starts with a move; a piece that crosses a closed outline's start
+/// point continues through it with no move, so the stroker joins it there with the paint's
+/// own join and draws no cap.
+fn trimmed(
+    canvas: &skia_safe::Canvas,
+    outline: &Path,
+    window: (f64, f64),
+    dash: Option<&Dash>,
+) -> Path {
+    let mut builder = PathBuilder::new();
+    let Some(contour) = skia_safe::ContourMeasureIter::new(
+        outline,
+        false,
+        res_scale(&canvas.local_to_device_as_3x3()),
+    )
+    .next() else {
+        return builder.detach();
+    };
+    let length = contour.length();
+    let whole = f64::from(length);
+    for (lo, hi) in window_pieces(whole, contour.is_closed(), window, dash) {
+        // Distances as Skia's dasher hands them to the measure: `f64` narrowed to `f32`.
+        let mut segment = |lo: f64, hi: f64, moved: bool| {
+            // `false` for a zero-length piece, which still appends a dot's zero-length line
+            // for the stroker to cap, as it does for the dasher.
+            let _ = contour.get_segment(lo as f32, hi as f32, &mut builder, moved);
+        };
+        if hi <= whole {
+            segment(lo, hi, true);
+        } else if lo >= whole {
+            segment(lo - whole, hi - whole, true);
+        } else {
+            segment(lo, whole, true);
+            segment(0.0, hi - whole, false);
+        }
+    }
+    builder.detach()
+}
+
+/// The pieces a window keeps of one contour of `length`, as distances `(lo, hi)` with
+/// `0 ≤ lo < length` and `hi ≤ lo + length`; a piece whose `hi` passes `length` runs on
+/// through the start point.
+///
+/// Undashed, that is the window itself. Dashed, it is every dash ([`Dash::along`])
+/// intersected with the window around the closed outline: each pair is compared at the
+/// window's own place and one turn either side, so a dash and a window that each cross the
+/// start point meet once, and a window that covers both ends of a dash keeps both. A
+/// zero-length dash — a dot — is kept where it lies inside the window, ends included.
+fn window_pieces(
+    length: f64,
+    closed: bool,
+    (from, to): (f64, f64),
+    dash: Option<&Dash>,
+) -> Vec<(f64, f64)> {
+    let start = from * length;
+    let end = if from > to {
+        (to + 1.0) * length
+    } else {
+        to * length
+    };
+    let Some(dash) = dash else {
+        return vec![(start, end)];
+    };
+    let turns: &[f64] = if closed { &[-1.0, 0.0, 1.0] } else { &[0.0] };
+    let mut pieces = Vec::new();
+    for (on, off) in dash.along(length as f32, closed) {
+        for turn in turns {
+            let lo = on.max(start + turn * length);
+            let hi = off.min(end + turn * length);
+            if lo < hi || (on == off && lo == hi) {
+                pieces.push((lo, hi));
+            }
+        }
+    }
+    pieces
+}
+
+/// The resolution scale Skia's stroker and dasher measure a path at under `matrix`
+/// (`SkDraw::ComputeResScaleForStroking`): the larger of the matrix's two column lengths,
+/// or 1 where that is not a positive finite number.
+fn res_scale(matrix: &Matrix) -> f32 {
+    let sx = (matrix.scale_x() * matrix.scale_x() + matrix.skew_y() * matrix.skew_y()).sqrt();
+    let sy = (matrix.skew_x() * matrix.skew_x() + matrix.scale_y() * matrix.scale_y()).sqrt();
+    let scale = sx.max(sy);
+    if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    }
+}
+
+/// The length of the outline a `rect`'s or `ellipse`'s dash pattern runs along, by Skia's
+/// own path measure over the very outline [`Canvas::shape`] dashes — informative, for
+/// `query --at` (ADR-0158 §7), and never a second computation that could disagree with the
+/// drawing. `None` where there is no inset outline.
+pub fn shape_outline_length(shape: Shape, extent: Extent, stroke_width: f64) -> Option<f64> {
+    inset_outline(shape, extent, stroke_width).map(|path| measured(&path))
+}
+
+/// The length of a `path`'s outline, by the same path measure [`Canvas::path`]'s dash runs
+/// along.
+pub fn path_outline_length(outline: &[PathEl]) -> f64 {
+    measured(&path_of(outline))
+}
+
+/// How much finer than 1:1 a text's curve is measured: [`Curve`].
+const CURVE_RESOLUTION: f32 = 64.0;
+
+/// A text's curve (ADR-0161), measured once: its length, and the point and tangent at any
+/// distance along it, by the same path measure a `path`'s dash runs along (ADR-0158), over
+/// the very outline a `path` element strokes. A text's curve is one figure, so only its
+/// first contour is read.
+///
+/// Measured at [`CURVE_RESOLUTION`] times the dash's resolution: at 1:1 Skia's measure puts a
+/// point up to a tenth of a pixel from its distance along a curve (worst on a straight
+/// segment, whose cubic has its handles on its ends), which a letter would show as uneven
+/// spacing; at 64 it is under a hundredth.
+pub struct Curve {
+    measure: Option<skia_safe::ContourMeasure>,
+    /// The curve's length in box pixels. `0` where the outline has no length.
+    pub length: f64,
+}
+
+impl Curve {
+    pub fn of(outline: &[PathEl]) -> Curve {
+        let measure =
+            skia_safe::ContourMeasureIter::new(&path_of(outline), false, CURVE_RESOLUTION).next();
+        let length = measure
+            .as_ref()
+            .map_or(0.0, |measure| f64::from(measure.length()));
+        Curve { measure, length }
+    }
+
+    /// The point at distance `d` along the curve and the tangent's angle there, in radians
+    /// in y-down screen space. `None` where the curve has no length.
+    pub fn at(&self, d: f64) -> Option<(f64, f64, f64)> {
+        let (point, tangent) = self.measure.as_ref()?.pos_tan(d as f32)?;
+        Some((
+            f64::from(point.x),
+            f64::from(point.y),
+            f64::from(tangent.y).atan2(f64::from(tangent.x)),
+        ))
+    }
+}
+
+/// The tight box of `glyphs`' ink in the text block's own coordinates, through each glyph's
+/// unit matrix and outset by its stroke, as `[left, top, right, bottom]`: what
+/// [`Canvas::text`] would draw, before the element's transform. `None` where no glyph has
+/// ink.
+pub fn glyph_ink(glyphs: &[Glyph], outlines: &[Vec<PathEl>]) -> Option<[f64; 4]> {
+    let mut all: Option<Rect> = None;
+    for glyph in glyphs {
+        let Some(outline) = outlines.get(glyph.outline) else {
+            continue;
+        };
+        let mut matrix = glyph
+            .unit
+            .as_ref()
+            .map_or_else(skia_safe::Matrix::default, unit_matrix);
+        matrix.pre_translate((glyph.x as f32, glyph.y as f32));
+        let bounds = path_of(outline)
+            .with_transform(&matrix)
+            .compute_tight_bounds();
+        if bounds.is_empty() {
+            continue;
+        }
+        let reach = if glyph.paint.stroke.is_some() {
+            glyph.paint.stroke_width as f32
+        } else {
+            0.0
+        };
+        let bounds = bounds.with_outset((reach, reach));
+        all = Some(match all {
+            None => bounds,
+            Some(r) => Rect::join2(r, bounds),
+        });
+    }
+    all.map(|r| [r.left, r.top, r.right, r.bottom].map(f64::from))
+}
+
+/// Every contour's length, summed, by the measure Skia's dash lays a pattern along at 1:1.
+///
+/// Skia measures a curve by chords within a tolerance, so a curve's figure falls a little
+/// short of its exact length (about 0.16% on a 98-px circle). Under an element `scale` the
+/// dash is laid along a finer measure of the same outline, which is one more reason the
+/// figure is informative.
+fn measured(path: &Path) -> f64 {
+    skia_safe::ContourMeasureIter::new(path, false, None)
+        .map(|contour| f64::from(contour.length()))
+        .sum()
+}
+
 /// One outline as a Skia path, at the glyph's own origin.
 fn path_of(outline: &[PathEl]) -> Path {
     let mut path = PathBuilder::new();
@@ -1783,8 +2493,8 @@ fn path_of(outline: &[PathEl]) -> Path {
 /// - **Minification** — the smaller singular value under 1, either axis: bilinear over
 ///   linear mipmaps. Skia's cubics ignore mipmaps and alias here worse than bilinear did
 ///   (#500 measured 29 dB against 38 at ×0.3), which is why one filter cannot serve both
-///   directions. A perspective matrix, which this crate never builds, lands here too: it
-///   is the branch that cannot alias.
+///   directions. A perspective matrix, which only a projected element's flat layer is drawn
+///   through (ADR-0167 §3), lands here too: it is the branch that cannot alias.
 /// - **Magnification** — everything else: Catmull-Rom, which #500 measured at the PIL
 ///   bicubic reference (40.2 dB against 40.0 at ×2.3) where bilinear stair-steps a hard
 ///   edge (32.3).
@@ -1877,6 +2587,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2046,6 +2757,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
             },
             None,
             &[],
@@ -2374,6 +3086,7 @@ mod tests {
                 rotation: 0.0,
                 opacity: 1.0,
                 blend: Blend::Normal,
+                projection: None,
                 origin: (0.0, 0.0),
             },
             None,
@@ -2423,6 +3136,7 @@ mod tests {
             rotation,
             opacity: 1.0,
             blend: Blend::Normal,
+            projection: None,
         }
     }
 
@@ -2464,6 +3178,8 @@ mod tests {
                 stroke: Some(Rgba([0xFF, 0x3B, 0x30, 0xFF]).into()),
                 stroke_width: 9.0,
             },
+            None,
+            None,
             None,
             effects,
         );
@@ -2616,15 +3332,53 @@ mod tests {
 
     #[test]
     fn a_colour_filter_anywhere_in_the_list_leaves_every_layer_unbounded() {
-        let tint = Effect::Tint {
+        let tint = || Effect::Tint {
             colour: Rgba([0x30, 0x60, 0xFF, 0xFF]),
             amount: 0.5,
         };
         let place = at(320.4, 180.2, (1.0, 1.0), 0.0);
-        assert_eq!(same_bytes(&frame, &place, &[blur(14.0), tint]), 0);
+        assert_eq!(same_bytes(&frame, &place, &[blur(14.0), tint()]), 0);
         assert_eq!(
-            same_bytes(&frame, &place, &[tint, shadow(0.0, 0.0, 20.0)]),
+            same_bytes(&frame, &place, &[tint(), shadow(0.0, 0.0, 20.0)]),
             0
         );
+    }
+
+    #[test]
+    fn posterize_and_a_directional_blur_pass_the_bound_on_and_a_glow_takes_it() {
+        // ADR-0156 §4: `posterize` keeps the bound. #722: its own layer and a directional
+        // blur's stay unhinted, and every blur, shadow or glow layer around them keeps its
+        // hint. Flat, rotated and flipped.
+        let posterize = || Effect::Posterize { levels: 4.0 };
+        let smear = || Effect::DirectionalBlur {
+            angle: 30.0,
+            length: 24.0,
+        };
+        let glow = || Effect::Glow {
+            threshold: 0.4,
+            radius: 12.0,
+            intensity: 1.5,
+        };
+        let chains: [(&[Effect], usize); 6] = [
+            (&[blur(14.0), posterize()], 1),
+            (&[posterize(), blur(14.0)], 1),
+            (&[glow()], 1),
+            (&[blur(6.0), smear(), shadow(7.5, -3.25, 20.0)], 2),
+            (&[smear(), glow(), posterize(), blur(4.0)], 2),
+            (&[posterize(), smear()], 0),
+        ];
+        for place in [
+            at(320.37, 180.5, (1.0, 1.0), 0.0),
+            at(300.4, 170.7, (1.3, 0.8), 27.0),
+            at(300.4, 170.7, (-1.2, 1.0), 0.0),
+        ] {
+            for (effects, layers) in chains {
+                assert_eq!(
+                    same_bytes(&frame, &place, effects),
+                    layers,
+                    "{effects:?} at {place:?}"
+                );
+            }
+        }
     }
 }
