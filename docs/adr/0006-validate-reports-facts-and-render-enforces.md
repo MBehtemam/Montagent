@@ -2,6 +2,10 @@
 status: accepted
 ---
 
+> **Amended by [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)**, for a remote instance only. `validate` also reports each
+> arrived file's sha256 and the total bytes still to upload, and it **starts URL downloads**, the
+> one side effect `validate` has. Over stdio it reports facts and does nothing, as below.
+
 > **Amended by [ADR-0134](0134-a-highlight-window-that-holds-no-painted-frame-is-a-review.md)**, which adds `R-HIGHLIGHT-UNPAINTED`: a `review`, one finding per
 > document, for a run's `highlight` window that holds no painted frame. It is the *"rounds out of
 > existence"* fact one level down from an element, under its own code rather than

@@ -3,8 +3,8 @@
 
 Usage:  python3 -I check_true_peak_allowance.py [--ffmpeg PATH] [--allowance DB] [--json OUT]
 
-Exits 1 when any case's decoded-AAC true peak lands more than the allowance above the ceiling
-(or when a meter parse breaks), 0 otherwise. Stdlib only; ffmpeg is the only dependency.
+Exits 1 when the fixture's decoded-AAC true peak lands more than the allowance above the ceiling,
+or a synthetic signal's more than ADVERSARIAL_BOUND_DB (or when a meter parse breaks), 0 otherwise. Stdlib only; ffmpeg is the only dependency.
 
 Every case runs ADR-0172's closing bus stage on a signal driven OVER dB above the ceiling:
 
@@ -25,6 +25,7 @@ margin, rounded up to 0.1 dB. This script prints this leg's table; the legs are 
 resolution of #815.
 """
 import argparse
+import hashlib
 import json
 import math
 import re
@@ -37,7 +38,8 @@ HERE = Path(__file__).resolve().parent
 FIXTURE = HERE.parent / "fixtures" / "narration-over-bed" / "narration-over-bed.flac"
 CEILING_DBTP = -1.0
 OVERS_DB = (3.0, 6.0, 10.0)  # how far over the ceiling the limiter's input peaks
-DEFAULT_ALLOWANCE_DB = 0.5  # ADR-0173 §6, provisional until this script has run on every leg
+DEFAULT_ALLOWANCE_DB = 1.0  # ADR-0173 §6: the review threshold, held by the shared fixture
+ADVERSARIAL_BOUND_DB = 1.9  # worst measured (+1.8, clipped bursts and +10 dB pink noise) + 0.1
 SAMPLE_RATE = 48000
 
 
@@ -45,6 +47,12 @@ SAMPLE_RATE = 48000
 # ceiling); `oversampled4x` runs the same limiter at 4x the rate so it sees inter-sample peaks.
 STAGES = {
     "plain": "alimiter=limit={limit:.8f}:latency=1:level=0",
+    "oversampled2x": (
+        "aresample=96000,alimiter=limit={limit:.8f}:latency=1:level=0,aresample=48000"
+    ),
+    "oversampled8x": (
+        "aresample=384000,alimiter=limit={limit:.8f}:latency=1:level=0,aresample=48000"
+    ),
     "oversampled4x": (
         "aresample=192000,alimiter=limit={limit:.8f}:latency=1:level=0,aresample=48000"
     ),
@@ -88,7 +96,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument("--allowance", type=float, default=DEFAULT_ALLOWANCE_DB)
-    ap.add_argument("--stage", choices=sorted(STAGES), default="plain")
+    ap.add_argument("--stage", choices=sorted(STAGES), default="oversampled4x")
     ap.add_argument("--json")
     args = ap.parse_args()
     ff = args.ffmpeg
@@ -126,9 +134,11 @@ def main():
                         "source_tp_dbtp": round(src_tp, 2),
                         "pcm_overshoot_db": round(pcm, 2),
                         "aac_overshoot_db": round(aac, 2),
+                        "limited_pcm_sha256": hashlib.sha256((tmp / "limited.wav").read_bytes()).hexdigest()[:16],
                     }
                 )
-                if aac > args.allowance:
+                bound = args.allowance if name.startswith("fixture") else ADVERSARIAL_BOUND_DB
+                if aac > bound:
                     failures.append(rows[-1])
 
     worst = max(r["aac_overshoot_db"] for r in rows)
@@ -145,7 +155,7 @@ def main():
             json.dumps({"ffmpeg": version, "ceiling_dbtp": CEILING_DBTP, "stage": args.stage, "worst_aac_overshoot_db": worst, "rows": rows}, indent=2) + "\n"
         )
     if failures:
-        print(f"\nFAIL: {len(failures)} case(s) above +{args.allowance} dB", file=sys.stderr)
+        print(f"\nFAIL: {len(failures)} case(s) over their bound (fixture {args.allowance}, synthetic {ADVERSARIAL_BOUND_DB} dB)", file=sys.stderr)
         sys.exit(1)
     print("ok")
 

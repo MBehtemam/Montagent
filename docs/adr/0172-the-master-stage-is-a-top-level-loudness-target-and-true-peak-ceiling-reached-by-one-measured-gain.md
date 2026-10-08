@@ -9,6 +9,9 @@ amends: 0055 (clipping past the summed mix is no longer only "the renderer's doc
 > `target_lufs` is a `review` beyond ±1.0 LU, and a miss against `ceiling_dbtp` beyond +0.5 dB on the
 > decoded AAC (provisional until ADR-0173 §7's measurement).
 
+> **Amended by [ADR-0174](0174-the-master-limiter-runs-at-four-times-the-rate-and-ceiling-dbtp-promises-the-delivered-file-within-one-db.md)**: the closing limiter runs at 4× the sample rate with `level=0`, and
+> `ceiling_dbtp` promises the delivered file within +1.0 dB. The stage written below is superseded.
+
 [What is the master stage, where does it live, and what does it hold?](https://github.com/MBehtemam/Montagent/issues/801)
 on the audio map ([#795](https://github.com/MBehtemam/Montagent/issues/795)) asked for the one
 processing stage the map allows on the final mix. Effects attach to elements and to this stage,
