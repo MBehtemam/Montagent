@@ -1,0 +1,30 @@
+# The ADR amendment guard (#744). `docs/adr/check_amendment_banners.py` checks that every
+# amendment is discoverable from the ADR it amends: the "Amended by" banner, the README row
+# and the README's opening counts, all derived from the ADR files themselves.
+#
+# It lives in its own workflow, not in `ci.yml`, because it needs nothing but `python3` and
+# should run on every PR that touches an ADR whether or not the full suite is enabled. Without
+# it, each new amending ADR could leave `main` red with nothing to flag it (ADR-0172 and
+# ADR-0173 did).
+name: ADR banners
+
+on:
+  pull_request:
+    paths:
+      - "docs/adr/**"
+  push:
+    branches: [main]
+    paths:
+      - "docs/adr/**"
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: ADR amendment banners
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every amendment is named in the amended ADR's banner and in the README index
+        run: python3 docs/adr/check_amendment_banners.py
