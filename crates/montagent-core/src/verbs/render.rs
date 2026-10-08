@@ -101,7 +101,7 @@
 //!   had to supply, and two narration lines at `1.0` are each still at `1.0` (ADR-0055).
 //! - **A keyframed `volume` is the value `resolve` computes on every sampled frame**, sent
 //!   as timed commands rather than re-expressed in `ffmpeg`'s expression language
-//!   (ADR-0055). ADR-0172 amends it: each command is heard on the sample its instant
+//!   (ADR-0055). ADR-0175 amends it: each command is heard on the sample its instant
 //!   names, not on the next decoder frame (`keyed_volume`).
 //!
 //! ## Where a `video` element's pixels come from (ADR-0141)
@@ -1957,7 +1957,7 @@ fn chain(
     Ok(Some((path, filter)))
 }
 
-/// The most `volume` commands one `asendcmd` carries (ADR-0172).
+/// The most `volume` commands one `asendcmd` carries (ADR-0175).
 ///
 /// `asendcmd` scans every command it holds on every frame it passes, so one instance costs
 /// frames × commands. A fade across a six-minute element at 30 fps sends a command on every
@@ -1968,7 +1968,7 @@ const COMMANDS_PER_PIECE: usize = 256;
 
 /// A keyframed `volume`'s filters: the `volume` filter at `initial`, and each `(ms, value)`
 /// change sent to it as a timed command — heard on the sample its millisecond names
-/// (ADR-0172, amending ADR-0077's reading 9).
+/// (ADR-0175, amending ADR-0077's reading 9).
 ///
 /// `asendcmd` fires a command on the first frame that *starts* at or after its time, so on
 /// the decoder's frames (1024 samples for AAC) a change is heard up to one frame late. Every
@@ -2160,7 +2160,7 @@ mod tests {
         assert_eq!(atempo_chain(3.0), vec!["2", "1.5"]);
     }
 
-    /// ADR-0172: commands go on 1 ms frames, at most [`COMMANDS_PER_PIECE`] to an
+    /// ADR-0175: commands go on 1 ms frames, at most [`COMMANDS_PER_PIECE`] to an
     /// `asendcmd`, and a keyframe list whose value never moves is the `volume` filter alone.
     #[test]
     fn keyed_volume_cuts_its_commands_into_pieces_on_one_millisecond_frames() {

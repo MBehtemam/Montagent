@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ADR-0172's measurement, reproduced from scratch against this machine's `ffmpeg`.
+"""ADR-0175's measurement, reproduced from scratch against this machine's `ffmpeg`.
 
 Run from anywhere:  python3 docs/adr/keyed_volume_pieces_check.py
 Exits non-zero, naming every defect, the moment one of its claims stops holding.
@@ -7,7 +7,7 @@ Takes about three minutes, most of it the one graph the ADR rejects.
 
 Why this exists
 ---------------
-ADR-0172 chose how a keyframed `volume`'s timed commands reach the sample they name. It
+ADR-0175 chose how a keyframed `volume`'s timed commands reach the sample they name. It
 rests on four claims about `ffmpeg`, each checked here on the case that costs most: a
 6-minute AAC tone whose level falls 1 -> 0 linearly, so `render` sends a command on every frame
 but the first of its 10,800 at 30 fps: 10,799 (`render::instant_of`'s floored instants).

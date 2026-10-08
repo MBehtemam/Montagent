@@ -1032,7 +1032,7 @@ fn a_keyframed_volume_changes_on_the_sample_its_instant_names() {
         return;
     }
     // Frame 8 of 30 fps is 266 ms, sample 12768: 544 samples short of the next 1024
-    // boundary, which is where the step was heard before ADR-0172 (`FFMPEG-FILTERS.md`
+    // boundary, which is where the step was heard before ADR-0175 (`FFMPEG-FILTERS.md`
     // §4.3, the research for #797).
     let changed = step_heard_at(
         line!(),

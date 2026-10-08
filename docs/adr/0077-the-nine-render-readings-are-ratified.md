@@ -16,7 +16,7 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 > around reading 1's floored frame instant. The frame instant still decides presence and a
 > video's source frame.
 
-> **Amended by [ADR-0172](0172-a-keyframed-volume-is-heard-on-the-sample-its-instant-names.md)**:
+> **Amended by [ADR-0175](0175-a-keyframed-volume-is-heard-on-the-sample-its-instant-names.md)**:
 > reading 9's commands are heard on the sample their instant names, on 1 ms frames and in
 > pieces of at most 256 commands. Its claim that a per-frame step is "below what the filter
 > could have resolved anyway" no longer holds; that interval was the decoder's frame, and it
