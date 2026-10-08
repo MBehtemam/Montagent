@@ -29,7 +29,7 @@ Throwaway. This branch (`prototype/nest`) builds the container [Which shape does
 
 ## What was proved
 
-`cargo test -p montagent-core --test nest` (20 tests):
+`cargo test -p montagent-core --test nest` (20 tests; `schema/montagent.schema.json` regenerated, 541 tests in 37 other suites pass; `cross_verb`'s `a_source_render_cannot_read_is_never_a_clean_pass_to_validate` fails here and was not checked against `main`: the machine's ffmpeg is a 7.0.2 static shim):
 
 - the matrix (rotation about a pivot, scale, offset, identity at rest);
 - **a nest at rest is a no-op**: identical PNG bytes at four instants, for an identity nest, and for a nest in a nest whose keys hold the identity;
@@ -63,7 +63,7 @@ Open questions go back to the map; this build settles none of them.
 4. **The projection's geometry ignored the chain** until `quad` was taught it; the layer bound, `corners` and the ink checks all read `quad`. A projected nest stays in the fog, but a projected *child* needed this.
 5. **`pivot` is whole pixels, so a rig's joints round.** The baker uses the same rounded point for the joint and the image, so the joint is exact, but each part's rest position is off the continuous layout by up to 0.5 px. A rig at a non-integer scale has no exact pivot.
 6. **A keyword or missing `pivot` is `E-SCHEMA` with serde's text** ("invalid type: string, expected an array of length 2"). It does not say a keyword is refused. The message wants writing.
-7. **`shift --scope <track>`** names a top-level track; nested tracks have their own names. Scoping to a child's track stretches the child past its nest's window, and the file `shift` writes then fails `E-NEST-OUTSIDE-WINDOW`. `shift`'s stagger-window refusal and coincident preamble walk the top level only.
+7. **`shift --scope <track>`** knows top-level tracks only: a nested track's name is refused as "not a track", so a nest's children cannot be scoped on their own. Scoping to the nest's track moves the nest and leaves its children, and `shift`'s own post-write `validate` refuses it (`E-NEST-OUTSIDE-WINDOW`), so nothing is written. Whether a nest's scope should carry its children is open. `shift`'s stagger-window refusal and coincident preamble walk the top level only.
 8. **`timeline` and `compare` read the flat view.** A nest's own keys (its rotation) do not appear in `compare`; `timeline` has no row for a nest.
 9. **Duplicate ids** between a nest and a leaf are not reported (`validate` has no uniqueness check on any element, and the nest sits outside the stack).
 10. **Text under a turning or scaling chain** has no ink box (refused, as a rotated or scaled text is); only a translation carries it. The resolution's "local box labelled local" slot is not built.
