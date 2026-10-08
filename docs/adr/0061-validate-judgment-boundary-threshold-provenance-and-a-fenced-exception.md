@@ -17,6 +17,12 @@ amends: 0006 (states explicitly, as a named test plus a fenced exception, the
 > members in prose: `crate::registry`'s `ThresholdProvenance` is the live answer, and the
 > test below already holds every `External` check to the fence rather than a named one.
 
+> **Amended by [ADR-0182](0182-adr-0061s-fence-admits-the-projects-own-measurement-as-a-source-on-four-conditions.md).**
+> **A number the project measured on its own committed fixture is admitted too**, on four
+> conditions beyond the three below (committed fixture, a script that re-derives it, the
+> finding says it is the project's own measurement, the check's ADR records the fixture's
+> limits). A published number still needs a published source.
+
 [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) says `validate`
 answers one question — is this file internally legal, and does it agree with the
 media on disk — and never *"does this file say what you meant it to say."* Two
