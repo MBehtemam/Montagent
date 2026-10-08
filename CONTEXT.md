@@ -756,13 +756,22 @@ and animatable with the same `{t,v,ease}` records every animatable property
 carries, so a fade is two records rather than a dedicated field. There is no
 `mute` — a `video` element's embedded audio is the same audio a `volume` of
 `0` already silences. Automatic ducking (one element's level reacting to
-another's presence) is out of scope; the same outcome is hand-authored as
-ordinary keyframes. Volume is the format's one linear level: every other
+another's presence) is out of scope; the same outcome is written as
+ordinary keyframes, by hand or by a **duck**. Volume is the format's one linear level: every other
 audio level is in decibels, with the unit in its key.
 ([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md),
 [ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md))
 _Avoid_: gain, level (as a field name — ambiguous with other senses of
 "level" in this glossary), mute
+
+**Duck**:
+A dip in a music bed's `volume` while a voice speaks, written as ordinary keyframes: down for the
+spoken stretches, back up in pauses long enough to be worth it, and back near full after the last
+word. A script computes it from the voice's timings and the file keeps only the keyframes; it never
+records that a duck was applied, and there is no live relation between the bed and the voice.
+([ADR-0055](docs/adr/0055-audio-mixing-model-volume-fades-ducking-deferred.md),
+[ADR-0177](docs/adr/0177-ducking-is-a-skill-script-that-writes-ordinary-volume-keyframes-and-the-format-stays-untouched.md))
+_Avoid_: auto-duck, sidechain, ducking field
 
 **Audio effect**:
 A member of `audio_effects: [...]` on an `audio` or `video` element. It belongs to a closed,

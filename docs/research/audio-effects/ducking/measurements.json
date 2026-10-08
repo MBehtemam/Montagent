@@ -1,0 +1,59 @@
+{
+ "decimals": 4,
+ "levels": {
+  "under_db": {
+   "default_db": -15.0,
+   "written_linear": 0.1778,
+   "today_linear": 0.18,
+   "today_in_db": -14.895,
+   "shift_db": 0.105,
+   "guidance_linear": [
+    0.15,
+    0.2
+   ],
+   "guidance_in_db": [
+    -16.48,
+    -13.98
+   ],
+   "rounding_error_db": 0.00136
+  },
+  "over_db": {
+   "default_db": -6.0,
+   "written_linear": 0.5012,
+   "today_linear": 0.5,
+   "today_in_db": -6.021,
+   "shift_db": 0.021,
+   "guidance_linear": [
+    0.4,
+    0.6
+   ],
+   "guidance_in_db": [
+    -7.96,
+    -4.44
+   ],
+   "rounding_error_db": 0.00022
+  },
+  "end_db": {
+   "default_db": -1.5,
+   "written_linear": 0.8414,
+   "today_linear": 0.85,
+   "today_in_db": -1.412,
+   "shift_db": 0.088,
+   "guidance_linear": [
+    0.8,
+    1.0
+   ],
+   "guidance_in_db": [
+    -1.94,
+    0.0
+   ],
+   "rounding_error_db": 5e-05
+  }
+ },
+ "rounding_floor": {
+  "max_error_db": 0.01,
+  "levels_above_linear": 0.0434,
+  "levels_above_db": -27.24,
+  "worst_error_db_scanned": 0.00991
+ }
+}
