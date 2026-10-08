@@ -5,6 +5,10 @@ amends: 0059 (discharges its deferral: `wipe`, `slide` and `push` join `crossfad
 
 # Wipe, slide and push enter as transition kinds, and a matte from another element is refused
 
+> **Amended by [ADR-0176](./0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md)**: adds a fifth kind, `audio_crossfade`, and makes the `from`/`to` reference rule
+> depend on it: it accepts an `audio` or `video` element, and the visual kinds still refuse an audio-only one.
+> `direction` and `ease` are unknown keys for the new kind. A visual `ease` does not bend the audio.
+
 [#678](https://github.com/MBehtemam/Montagent/issues/678), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0059](0059-transitions-element-type-crossfade-only-exact-window.md) made a transition

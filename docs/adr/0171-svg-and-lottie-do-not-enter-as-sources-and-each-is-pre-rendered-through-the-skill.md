@@ -108,7 +108,9 @@ map had no can't-do item for either, so none retires.
   invariant holds. It is out of this decision: the demand is unmeasured, and a skill that refuses
   gradients, filters and text would leave the PNG route needed for the rest. **It reopens when three
   or more agent projects are found to carry `path` points copied by hand from an SVG.** Three is a
-  chosen threshold, not a measured one; the owner may move it.
+  chosen threshold, not a measured one, and nothing counts these cases today (no scan or
+  telemetry), so the trigger depends on someone noticing them. A real count, when one exists, may
+  replace it; the owner may move it.
 - **A native source for either format.** **Reopens only if a reference-class tool gains native
   import of it, or a separate decision lifts the `textlayout` ban.** Those are the two facts the
   refusals rest on. A player fixing its seek or text gaps does not reopen it.
