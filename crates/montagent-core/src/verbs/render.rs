@@ -2012,9 +2012,61 @@ fn chain(
 /// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
 /// lowers to, or `None` for a `name` the renderer has no lowering for.
 ///
-/// Each capability ADR adds its arm here (EQ is ADR-0179 §2). None exists yet.
-fn lower_audio_member(_name: &str, _member: &Value) -> Option<String> {
-    None
+/// Each capability ADR adds its arm here (EQ is ADR-0179 §2, in [`lower_eq`]).
+fn lower_audio_member(name: &str, member: &Value) -> Option<String> {
+    lower_eq(name, member)
+}
+
+/// The Q of each 2-pole section of an even-order Butterworth filter, in cascade order
+/// (ADR-0179 §2): `1 / (2 sin((2k - 1) pi / 2n))`, so the cascade reads -3.01 dB at the cutoff
+/// where identical sections would read -6.02 (24 dB/oct) and -12.04 (48 dB/oct).
+fn butterworth_qs(slope_db_per_oct: f64) -> Option<&'static [&'static str]> {
+    match slope_db_per_oct as i64 {
+        12 => Some(&["0.707107"]),
+        24 => Some(&["1.306563", "0.541196"]),
+        48 => Some(&["2.562915", "0.899976", "0.601345", "0.509796"]),
+        _ => None,
+    }
+}
+
+/// A shelf's Q is fixed so its corner is where it has half its gain (ADR-0179 §2).
+const SHELF_Q: &str = "0.707107";
+
+/// The four EQ members as ffmpeg biquads (ADR-0179 §2): zero latency, no state beyond the
+/// filter. Numbers are spelled as Rust prints an `f64`, so `100` stays `100`.
+fn lower_eq(name: &str, member: &Value) -> Option<String> {
+    let num = |key: &str| member.get(key).and_then(Value::as_f64);
+    match name {
+        "highpass" | "lowpass" => {
+            let frequency = num("frequency_hz")?;
+            let qs = butterworth_qs(num("slope_db_per_oct")?)?;
+            Some(
+                qs.iter()
+                    .map(|q| format!("{name}=f={frequency}:poles=2:width_type=q:width={q}"))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            )
+        }
+        "shelf" => {
+            let filter = match member.get("side").and_then(Value::as_str)? {
+                "low" => "lowshelf",
+                "high" => "highshelf",
+                _ => return None,
+            };
+            Some(format!(
+                "{filter}=f={}:g={}:width_type=q:width={SHELF_Q}",
+                num("frequency_hz")?,
+                num("gain_db")?
+            ))
+        }
+        "bell" => Some(format!(
+            "equalizer=f={}:width_type=q:width={}:g={}",
+            num("frequency_hz")?,
+            num("q")?,
+            num("gain_db")?
+        )),
+        _ => None,
+    }
 }
 
 /// The `audio_effects` stage of one element's chain (ADR-0169), leading comma included, or
@@ -2446,11 +2498,291 @@ mod tests {
         );
     }
 
-    /// No member exists yet, so the real lowering lowers nothing and a document that passed
-    /// the schema reaches the stage with an empty or absent list only.
+    fn eq(member: Value) -> Option<String> {
+        lower_audio_member(member["name"].as_str().unwrap(), &member)
+    }
+
+    /// ADR-0179 §2, committed graph strings: a pass filter is a Butterworth cascade.
     #[test]
-    fn no_member_is_lowered_yet() {
-        assert_eq!(lower_audio_member("anything", &json!({})), None);
+    fn a_pass_filter_lowers_to_a_butterworth_section_cascade() {
+        let hp = |slope: i64| {
+            eq(json!({"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": slope}))
+        };
+        assert_eq!(
+            hp(12).as_deref(),
+            Some("highpass=f=100:poles=2:width_type=q:width=0.707107")
+        );
+        assert_eq!(
+            hp(24).as_deref(),
+            Some(
+                "highpass=f=100:poles=2:width_type=q:width=1.306563,\
+                 highpass=f=100:poles=2:width_type=q:width=0.541196"
+            )
+        );
+        assert_eq!(
+            hp(48).as_deref(),
+            Some(
+                "highpass=f=100:poles=2:width_type=q:width=2.562915,\
+                 highpass=f=100:poles=2:width_type=q:width=0.899976,\
+                 highpass=f=100:poles=2:width_type=q:width=0.601345,\
+                 highpass=f=100:poles=2:width_type=q:width=0.509796"
+            )
+        );
+        assert_eq!(
+            eq(json!({"name": "lowpass", "frequency_hz": 8000.5, "slope_db_per_oct": 12}))
+                .as_deref(),
+            Some("lowpass=f=8000.5:poles=2:width_type=q:width=0.707107")
+        );
+    }
+
+    #[test]
+    fn a_shelf_lowers_to_lowshelf_or_highshelf_at_the_fixed_q() {
+        assert_eq!(
+            eq(json!({"name": "shelf", "side": "low", "frequency_hz": 200, "gain_db": -6}))
+                .as_deref(),
+            Some("lowshelf=f=200:g=-6:width_type=q:width=0.707107")
+        );
+        assert_eq!(
+            eq(json!({"name": "shelf", "side": "high", "frequency_hz": 4000, "gain_db": 3}))
+                .as_deref(),
+            Some("highshelf=f=4000:g=3:width_type=q:width=0.707107")
+        );
+    }
+
+    #[test]
+    fn a_bell_lowers_to_equalizer() {
+        assert_eq!(
+            eq(json!({"name": "bell", "frequency_hz": 1500, "gain_db": -6, "q": 1.4})).as_deref(),
+            Some("equalizer=f=1500:width_type=q:width=1.4:g=-6")
+        );
+    }
+
+    /// The whole stage for the ADR's worked example: float once, then the members in order.
+    #[test]
+    fn the_eq_stage_runs_in_float_in_list_order() {
+        let element = json!({"audio_effects": [
+            {"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 24},
+            {"name": "bell", "frequency_hz": 1500, "gain_db": -6, "q": 1.4},
+            {"name": "lowpass", "frequency_hz": 9000, "slope_db_per_oct": 12, "enabled": false}
+        ]});
+        assert_eq!(
+            audio_effects_stage(&element, "bed", &lower_audio_member).ok(),
+            Some(
+                ",aformat=sample_fmts=fltp,\
+                 highpass=f=100:poles=2:width_type=q:width=1.306563,\
+                 highpass=f=100:poles=2:width_type=q:width=0.541196,\
+                 equalizer=f=1500:width_type=q:width=1.4:g=-6"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_unknown_name_or_slope_has_no_lowering() {
+        assert_eq!(eq(json!({"name": "mystery"})), None);
+        assert_eq!(
+            eq(json!({"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 18})),
+            None
+        );
+    }
+
+    // ---- ADR-0179 §6, measured on lavfi tones -----------------------------------------
+    //
+    // The committed graph strings above are run through the real ffmpeg on 1 s sines, PCM
+    // before any encoder, and the RMS after the first 0.5 s is read against the bare tone.
+    // `resolve_found` is used, not `resolve`: this measures the filters, which every ffmpeg
+    // from 4.x holds the same, and must not skip on a machine the render gate (7.1) refuses.
+    // Tolerances are the ADR's provisional ones until the three-leg table exists (ADR-0173
+    // §4); the deltas print on every run (`-- --nocapture`).
+
+    /// The RMS in dB of a 1 s sine at `hz` through `members`, after the first 0.5 s, or
+    /// `None` where no ffmpeg is on the machine.
+    fn tone_db(hz: f64, members: Vec<Value>) -> Option<f64> {
+        let (tools, _) = crate::media::tools::resolve_found().ok()?;
+        let stage = audio_effects_stage(
+            &json!({ "audio_effects": members }),
+            "t",
+            &lower_audio_member,
+        )
+        .ok()?;
+        // `aformat=dbl` before and after so the only float stage is the list's own.
+        let graph = format!("aformat=sample_fmts=dbl{stage},aformat=sample_fmts=dbl");
+        let out = std::process::Command::new(tools.ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"])
+            .arg(format!("sine=f={hz}:r=48000:d=1"))
+            .args(["-af", &graph, "-f", "f64le", "-"])
+            .output()
+            .ok()?;
+        assert!(
+            out.status.success(),
+            "{graph}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let samples: Vec<f64> = out
+            .stdout
+            .chunks_exact(8)
+            .map(|b| f64::from_le_bytes(b.try_into().unwrap()))
+            .skip(24000)
+            .collect();
+        let mean_square = samples.iter().map(|x| x * x).sum::<f64>() / samples.len() as f64;
+        Some(10.0 * mean_square.log10())
+    }
+
+    fn relative_db(hz: f64, members: Vec<Value>) -> Option<f64> {
+        Some(tone_db(hz, members)? - tone_db(hz, vec![])?)
+    }
+
+    fn pass(name: &str, slope: i64) -> Vec<Value> {
+        vec![json!({"name": name, "frequency_hz": 1000, "slope_db_per_oct": slope})]
+    }
+
+    #[test]
+    fn a_pass_filter_reads_minus_3_01_db_at_its_cutoff_at_every_slope() {
+        for name in ["highpass", "lowpass"] {
+            for slope in [12, 24, 48] {
+                let Some(at_fc) = relative_db(1000.0, pass(name, slope)) else {
+                    return;
+                };
+                let (passband, stopband) = if name == "highpass" {
+                    (4000.0, 250.0)
+                } else {
+                    (250.0, 4000.0)
+                };
+                let pb = relative_db(passband, pass(name, slope)).unwrap();
+                let sb = relative_db(stopband, pass(name, slope)).unwrap();
+                eprintln!("EQ-DELTAS {name} {slope}: fc {at_fc:.3} passband {pb:.3} stop {sb:.3}");
+                assert!(
+                    (at_fc + 3.01).abs() <= 0.15,
+                    "{name} {slope} at fc: {at_fc}"
+                );
+                assert!(pb.abs() <= 0.3, "{name} {slope} passband: {pb}");
+                // Two octaves in: the ideal Butterworth figure less 1.5 dB, never asked past -75.
+                let wanted = match slope {
+                    12 => -22.6,
+                    24 => -46.7,
+                    _ => -75.0,
+                };
+                assert!(sb <= wanted, "{name} {slope} stopband: {sb} > {wanted}");
+            }
+        }
+    }
+
+    /// The negative control: the naive cascade of identical sections misses -3.01 by more
+    /// than 0.5 dB at 24 and 48 dB/oct, so the test above is able to fail.
+    #[test]
+    fn identical_sections_read_far_from_minus_3_01_db() {
+        for sections in [2, 4] {
+            let naive =
+                vec!["highpass=f=1000:poles=2:width_type=q:width=0.707107"; sections].join(",");
+            let Ok((tools, _)) = crate::media::tools::resolve_found() else {
+                return;
+            };
+            let run = |af: &str| -> f64 {
+                let out = std::process::Command::new(&tools.ffmpeg)
+                    .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"])
+                    .arg("sine=f=1000:r=48000:d=1")
+                    .args(["-af", af, "-f", "f64le", "-"])
+                    .output()
+                    .unwrap();
+                let s: Vec<f64> = out
+                    .stdout
+                    .chunks_exact(8)
+                    .map(|b| f64::from_le_bytes(b.try_into().unwrap()))
+                    .skip(24000)
+                    .collect();
+                10.0 * (s.iter().map(|x| x * x).sum::<f64>() / s.len() as f64).log10()
+            };
+            let bare = run("aformat=sample_fmts=dbl");
+            let got = run(&format!(
+                "aformat=sample_fmts=dbl,{naive},aformat=sample_fmts=dbl"
+            )) - bare;
+            assert!((got + 3.01).abs() > 0.5, "{sections} sections read {got}");
+        }
+    }
+
+    #[test]
+    fn a_bell_reads_its_gain_at_the_centre_and_nothing_three_octaves_away() {
+        for gain in [-12, -6, 6, 12] {
+            let bell = vec![json!({"name": "bell", "frequency_hz": 1000, "gain_db": gain, "q": 1})];
+            let Some(centre) = relative_db(1000.0, bell.clone()) else {
+                return;
+            };
+            let away = relative_db(125.0, bell).unwrap();
+            eprintln!("EQ-DELTAS bell {gain}: centre {centre:.3} away {away:.3}");
+            assert!((centre - gain as f64).abs() <= 0.15, "{gain}: {centre}");
+            assert!(away.abs() <= 0.5, "{gain} away: {away}");
+        }
+    }
+
+    #[test]
+    fn a_shelf_reads_its_gain_on_the_plateau_half_of_it_at_the_corner_and_nothing_beyond() {
+        // (side, plateau Hz, far side Hz)
+        for (side, plateau, far) in [("low", 40.0, 5000.0), ("high", 15000.0, 200.0)] {
+            for gain in [-6, 6] {
+                let shelf = |hz: f64| {
+                    relative_db(
+                        hz,
+                        vec![json!({"name": "shelf", "side": side, "frequency_hz": 1000,
+                                     "gain_db": gain})],
+                    )
+                };
+                let Some(top) = shelf(plateau) else { return };
+                let corner = shelf(1000.0).unwrap();
+                let beyond = shelf(far).unwrap();
+                eprintln!(
+                    "EQ-DELTAS shelf {side} {gain}: plateau {top:.3} corner {corner:.3} far {beyond:.3}"
+                );
+                assert!((top - gain as f64).abs() <= 0.3, "{side} {gain}: {top}");
+                assert!(
+                    (corner - gain as f64 / 2.0).abs() <= 0.3,
+                    "{side} {gain}: {corner}"
+                );
+                assert!(beyond.abs() <= 0.3, "{side} {gain} far: {beyond}");
+            }
+        }
+    }
+
+    /// Every bound of every range renders without an ffmpeg error, so a document that passes
+    /// `validate` never fails at render.
+    #[test]
+    fn every_range_edge_renders() {
+        let mut members = vec![];
+        for f in [20, 20000] {
+            for slope in [12, 24, 48] {
+                for name in ["highpass", "lowpass"] {
+                    members
+                        .push(json!({"name": name, "frequency_hz": f, "slope_db_per_oct": slope}));
+                }
+            }
+            for g in [-24, 24] {
+                for side in ["low", "high"] {
+                    members.push(
+                        json!({"name": "shelf", "side": side, "frequency_hz": f, "gain_db": g}),
+                    );
+                }
+                for q in [0.1, 10.0] {
+                    members.push(json!({"name": "bell", "frequency_hz": f, "gain_db": g, "q": q}));
+                }
+            }
+        }
+        for member in members {
+            // `tone_db` asserts ffmpeg exited cleanly.
+            if tone_db(1000.0, vec![member]).is_none() {
+                return;
+            }
+        }
+    }
+
+    /// Bypass: `enabled: false` is the member's absence, and a stack's order is list order.
+    #[test]
+    fn a_bypassed_member_reads_as_absent() {
+        let mut off = json!({"name": "bell", "frequency_hz": 1000, "gain_db": 12, "q": 1});
+        off["enabled"] = json!(false);
+        let (Some(with), Some(without)) = (tone_db(1000.0, vec![off]), tone_db(1000.0, vec![]))
+        else {
+            return;
+        };
+        assert_eq!(with, without);
     }
 
     #[cfg(unix)]
