@@ -1,0 +1,6 @@
+{
+ "pair1-X": "today",
+ "pair1-Y": "constant_power",
+ "pair2-X": "constant_power",
+ "pair2-Y": "constant_gain"
+}

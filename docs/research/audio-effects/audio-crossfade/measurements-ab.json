@@ -1,0 +1,43 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "window_s": [
+  9.0,
+  11.0
+ ],
+ "cut_s": [
+  5.0,
+  15.0
+ ],
+ "pair1": {
+  "X": {
+   "lufs_before_match": -32.1,
+   "peak_dbfs_before_match": -20.7,
+   "match_gain_db": 12.1,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -8.6
+  },
+  "Y": {
+   "lufs_before_match": -32.9,
+   "peak_dbfs_before_match": -23.3,
+   "match_gain_db": 12.9,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -10.4
+  }
+ },
+ "pair2": {
+  "X": {
+   "lufs_before_match": -16.7,
+   "peak_dbfs_before_match": -2.2,
+   "match_gain_db": -3.3,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -5.5
+  },
+  "Y": {
+   "lufs_before_match": -17.4,
+   "peak_dbfs_before_match": -3.0,
+   "match_gain_db": -2.6,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -5.5
+  }
+ }
+}
