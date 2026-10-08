@@ -1914,6 +1914,11 @@ fn chain(
         seconds(end - start)
     ));
 
+    // The element's signal-shaping list (ADR-0169): after `aloop` and its truncation, so a
+    // looped bed is one continuous stream, and before `volume`, so a ducking dip is not
+    // pushed back up by anything in the list. Nothing at all where no member is enabled.
+    filter.push_str(&audio_effects_stage(element, name, &lower_audio_member)?);
+
     // `volume` (ADR-0055): a scalar as it is, a keyframe list as the value resolved on
     // every sampled frame of the element, applied as timed commands to the same filter.
     let label = format!("v{input}");
@@ -2002,6 +2007,56 @@ fn chain(
         from.max(start) - from
     ));
     Ok(Some((path, filter)))
+}
+
+/// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
+/// lowers to, or `None` for a `name` the renderer has no lowering for.
+///
+/// Each capability ADR adds its arm here (EQ is ADR-0179 §2). None exists yet.
+fn lower_audio_member(_name: &str, _member: &Value) -> Option<String> {
+    None
+}
+
+/// The `audio_effects` stage of one element's chain (ADR-0169), leading comma included, or
+/// the empty string where no member is enabled, which is what keeps a document with no
+/// members on today's graph byte for byte.
+///
+/// A member with `"enabled": false` is skipped and never lowered. The list runs in float:
+/// `aformat=sample_fmts=fltp` goes ahead of the first enabled member only (ADR-0179 §2, where
+/// a 48 dB/oct stopband quantised to zero in `s16`). `lower` is injected so the stage is
+/// testable before any member exists.
+fn audio_effects_stage(
+    element: &Value,
+    name: &str,
+    lower: &dyn Fn(&str, &Value) -> Option<String>,
+) -> Result<String, Declined> {
+    let mut stage = String::new();
+    let members = element
+        .get("audio_effects")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    for member in members {
+        if member.get("enabled") == Some(&Value::Bool(false)) {
+            continue;
+        }
+        let member_name = member.get("name").and_then(Value::as_str).unwrap_or("");
+        let Some(lowered) = lower(member_name, member) else {
+            return Err(Declined::internal(
+                name,
+                &format!(
+                    "an `audio_effects` member `{member_name}` the schema admitted and the \
+                     renderer has no lowering for (ADR-0169)"
+                ),
+            ));
+        };
+        if stage.is_empty() {
+            stage.push_str(",aformat=sample_fmts=fltp");
+        }
+        stage.push(',');
+        stage.push_str(&lowered);
+    }
+    Ok(stage)
 }
 
 /// A transition's `afade` stages on one element (ADR-0176), in window order: `out` on the
@@ -2330,6 +2385,72 @@ mod tests {
             &dir.join("nowhere/a/../video.mp4"),
             &dir.join("nowhere/video.mp4")
         ));
+    }
+
+    /// A stand-in lowering for members the renderer does not have yet: `gate` is one stage,
+    /// `pair` is two.
+    fn stand_in(name: &str, _member: &Value) -> Option<String> {
+        match name {
+            "gate" => Some("agate".to_string()),
+            "pair" => Some("alow,ahigh".to_string()),
+            _ => None,
+        }
+    }
+
+    fn stage(element: Value) -> Result<String, String> {
+        audio_effects_stage(&element, "bed", &stand_in).map_err(|d| match d {
+            Declined::Internal(reason) => reason,
+            _ => "not internal".to_string(),
+        })
+    }
+
+    /// ADR-0169 cut-over: a document with no members keeps today's graph byte for byte, so
+    /// the stage must add no text at all, whether the list is absent, empty or bypassed.
+    #[test]
+    fn a_document_with_no_enabled_member_adds_nothing_to_the_chain() {
+        assert_eq!(stage(json!({})), Ok(String::new()));
+        assert_eq!(stage(json!({"audio_effects": []})), Ok(String::new()));
+        assert_eq!(
+            stage(json!({"audio_effects": [
+                {"name": "gate", "enabled": false}, {"name": "pair", "enabled": false}
+            ]})),
+            Ok(String::new())
+        );
+    }
+
+    /// ADR-0179 §2: the list runs in float, so `aformat=sample_fmts=fltp` goes ahead of the
+    /// first enabled member only, and members follow in list order.
+    #[test]
+    fn the_float_format_goes_once_ahead_of_the_first_enabled_member() {
+        assert_eq!(
+            stage(json!({"audio_effects": [{"name": "gate"}]})),
+            Ok(",aformat=sample_fmts=fltp,agate".to_string())
+        );
+        assert_eq!(
+            stage(json!({"audio_effects": [
+                {"name": "gate", "enabled": false}, {"name": "pair"}, {"name": "gate"}
+            ]})),
+            Ok(",aformat=sample_fmts=fltp,alow,ahigh,agate".to_string())
+        );
+    }
+
+    /// A member the schema admits but the renderer cannot lower is the two halves
+    /// disagreeing; a bypassed one is never lowered, so it cannot be.
+    #[test]
+    fn a_member_with_no_lowering_is_an_internal_error_unless_it_is_bypassed() {
+        let reason = stage(json!({"audio_effects": [{"name": "mystery"}]})).unwrap_err();
+        assert!(reason.contains("mystery"), "{reason}");
+        assert_eq!(
+            stage(json!({"audio_effects": [{"name": "mystery", "enabled": false}]})),
+            Ok(String::new())
+        );
+    }
+
+    /// No member exists yet, so the real lowering lowers nothing and a document that passed
+    /// the schema reaches the stage with an empty or absent list only.
+    #[test]
+    fn no_member_is_lowered_yet() {
+        assert_eq!(lower_audio_member("anything", &json!({})), None);
     }
 
     #[cfg(unix)]
