@@ -41,7 +41,7 @@ use crate::finding::Finding;
 use crate::media::sidecar::Sidecar;
 use crate::model::paint::StopsBlend;
 use crate::model::{
-    Body, Colour, Ease, EaseName, Element, Keyframe, Points, Project, Scale, Stops, Vertex,
+    Body, Colour, Ease, EaseName, Element, Keyframe, Points, Project, Scale, Stops, Track, Vertex,
 };
 use crate::report::{ExitCode, Report};
 use crate::resolve::{self, Blend, Interpolate, VertexAt};
@@ -210,27 +210,13 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
     let mut straddlers: Vec<Straddle> = Vec::new();
     let mut unwritable: Vec<(String, String, Unwritable)> = Vec::new();
 
-    for track in &mut project.tracks {
-        let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
-        for element in &mut track.elements {
-            match transform_element(element, ask.at, ask.delta, in_scope) {
-                Outcome::Straddle => {
-                    straddlers.push(Straddle {
-                        id: element.id.clone(),
-                        track: track.name.clone(),
-                        start: element.start,
-                        end: element.end,
-                    });
-                }
-                Outcome::Unwritable(refusal) => {
-                    unwritable.push((element.id.clone(), track.name.clone(), refusal));
-                }
-                Outcome::Untouched | Outcome::Moved => {}
-            }
-            new_instants.insert((element.id.clone(), Side::Start), element.start);
-            new_instants.insert((element.id.clone(), Side::End), element.end);
-        }
-    }
+    shift_tracks(
+        &mut project.tracks,
+        ask,
+        &mut straddlers,
+        &mut unwritable,
+        &mut new_instants,
+    );
 
     if !straddlers.is_empty() {
         for straddle in &straddlers {
@@ -358,6 +344,43 @@ struct Unwritable {
 
 /// ADR-0005's table, amended by ADR-0012 for keyframes: what one element does under a
 /// shift at `at` by `delta`, given whether it is in `scope`.
+/// One level of tracks, then (#780) the tracks of every nest in them: a nest is an element
+/// of its parent track, shifted whole or split like any element (its `x`/`y`/`rotation`/
+/// `scale` lists are keyframes), and its children are shifted by the same rule on their own
+/// times — they keep timeline milliseconds, so nothing is relative to the nest.
+fn shift_tracks(
+    tracks: &mut [Track],
+    ask: &Ask,
+    straddlers: &mut Vec<Straddle>,
+    unwritable: &mut Vec<(String, String, Unwritable)>,
+    new_instants: &mut HashMap<(String, Side), i64>,
+) {
+    for track in tracks {
+        let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
+        for element in &mut track.elements {
+            match transform_element(element, ask.at, ask.delta, in_scope) {
+                Outcome::Straddle => {
+                    straddlers.push(Straddle {
+                        id: element.id.clone(),
+                        track: track.name.clone(),
+                        start: element.start,
+                        end: element.end,
+                    });
+                }
+                Outcome::Unwritable(refusal) => {
+                    unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                }
+                Outcome::Untouched | Outcome::Moved => {}
+            }
+            new_instants.insert((element.id.clone(), Side::Start), element.start);
+            new_instants.insert((element.id.clone(), Side::End), element.end);
+            if let Body::Nest(nest) = &mut element.body {
+                shift_tracks(&mut nest.tracks, ask, straddlers, unwritable, new_instants);
+            }
+        }
+    }
+}
+
 fn transform_element(element: &mut Element, at: i64, delta: i64, in_scope: bool) -> Outcome {
     if !in_scope || element.end <= at {
         return Outcome::Untouched;
