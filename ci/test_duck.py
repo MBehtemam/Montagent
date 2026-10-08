@@ -292,6 +292,20 @@ class Duck(unittest.TestCase):
         self.assertRegex(done.stderr, r"duck: keyframes 0–4200 overlap transition dissolve \(2000–2500\)")
         self.assertEqual(self.keys_of(done.stdout), plain)
 
+    def test_captions_with_no_duck_entry_leaves_the_bed_alone(self):
+        """Bypass identity (ADR-0177 §6): no `duck` entry, no change to the bed."""
+        spec = json.loads((self.dir / "captions.spec.json").read_text())
+        spec.pop("duck")
+        (self.dir / "nd.spec.json").write_text(json.dumps(spec))
+        captions = ROOT / "skills/montagent-footage/scripts/captions.py"
+        done = subprocess.run([sys.executable, str(captions), "captions.montagent.json", "media/bed.words.json",
+                               "nd.spec.json"], capture_output=True, text=True, cwd=self.dir, env=self.env)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("duck", done.stderr)
+        before = json.loads(self.project.read_text())["tracks"]
+        after = json.loads(done.stdout)["tracks"]
+        self.assertEqual([t for t in after if t["name"] in ("voice", "music")], before)
+
     def test_no_note_without_a_transition(self):
         self.assertNotIn("overlap transition", self.run_duck().stderr)
 

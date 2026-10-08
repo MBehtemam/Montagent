@@ -151,8 +151,8 @@ def to_timeline_spans(voice, spans, report=report):
     src0, src1 = voice["source_start"], voice["source_end"]
     speed = voice.get("speed", 1)
     out = []
-    for a, b in spans:
-        if not src0 <= a < src1:
+    for a, b in sorted(spans):
+        if not src0 <= a < src1 or b <= a:
             report(f"dropped span {a:g}-{b:g}: outside the voice's source range")
             continue
         out.append({"start": voice["start"] + (a - src0) / speed,
@@ -239,9 +239,10 @@ def check(current, keys):
               f"would write {len(keys)} keys starting {keys[0]}", file=sys.stderr)
         return 1
     for a, b in zip(current, keys):
-        if a.get("t") != b["t"] or format(a.get("v"), ".4f") != format(b["v"], ".4f"):
-            print(f"duck: --check: differs at t={b['t']}: the project has {a.get('t')}={a.get('v')}, "
-                  f"these arguments write {b['t']}={b['v']}", file=sys.stderr)
+        if (a.get("t") != b["t"] or a.get("ease") != b.get("ease")
+                or not isinstance(a.get("v"), (int, float)) or format(a["v"], ".4f") != format(b["v"], ".4f")):
+            print(f"duck: --check: differs at t={b['t']}: the project has {a.get('t')}={a.get('v')} "
+                  f"({a.get('ease')}), these arguments write {b['t']}={b['v']} ({b.get('ease')})", file=sys.stderr)
             return 1
     if len(current) != len(keys):
         longer, side = (current, "the project has") if len(current) > len(keys) else (keys, "these arguments write")

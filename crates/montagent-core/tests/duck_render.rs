@@ -106,7 +106,7 @@ fn a_bed_under_a_known_duck_curve_is_delivered_at_the_level_the_curve_names() {
     // (label, window in seconds, the level the curve names there)
     let windows: [(&str, (f64, f64), f64); 3] = [
         ("inside speech", (1.4, 2.6), db(UNDER)),
-        ("inside a pause", (3.6, 4.5), db(OVER)),
+        ("inside a pause", (3.6, 4.4), db(OVER)),
         ("after the last word", (5.3, 5.9), db(END)),
     ];
     let mut deltas = Vec::new();
@@ -129,7 +129,7 @@ fn the_unducked_bed_reads_flat_so_the_ratio_is_the_curves() {
     }
     let bare = render_bed(line!(), None);
     let early = rms_db(&bare, 1.4, 2.6);
-    let late = rms_db(&bare, 3.6, 4.5);
+    let late = rms_db(&bare, 3.6, 4.4);
     assert!(
         (early - late).abs() <= 0.05,
         "a steady tone: {early:.3} then {late:.3} dB"
