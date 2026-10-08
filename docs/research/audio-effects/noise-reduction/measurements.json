@@ -1,0 +1,317 @@
+{
+  "ffmpeg": "ffmpeg version 7.1.5 Copyright (c) 2000-2026 the FFmpeg developers",
+  "reference_db": -50.0,
+  "reduction_range_db": [
+    5.0,
+    20.0
+  ],
+  "mapping": "s = 10^(-2 + (reduction_db - 5)/32), written with 6 significant digits",
+  "gates": [
+    {
+      "name": "reference drop r=5.0",
+      "ok": true,
+      "detail": "drop 5.31 dB, target 5.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=8.0",
+      "ok": true,
+      "detail": "drop 8.16 dB, target 8.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=10.0",
+      "ok": true,
+      "detail": "drop 10.26 dB, target 10.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=12.0",
+      "ok": true,
+      "detail": "drop 12.41 dB, target 12.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=15.0",
+      "ok": true,
+      "detail": "drop 15.54 dB, target 15.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=18.0",
+      "ok": true,
+      "detail": "drop 18.34 dB, target 18.0, tolerance 1.0"
+    },
+    {
+      "name": "reference drop r=20.0",
+      "ok": true,
+      "detail": "drop 19.94 dB, target 20.0, tolerance 1.0"
+    },
+    {
+      "name": "tone level r=5.0",
+      "ok": true,
+      "detail": "change -0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=8.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=10.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=12.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=15.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=18.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "tone level r=20.0",
+      "ok": true,
+      "detail": "change -0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=5.0",
+      "ok": true,
+      "detail": "speech change 0.005 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=8.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=10.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=12.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=15.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=18.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "fixture speech r=20.0",
+      "ok": true,
+      "detail": "speech change 0.004 dB, tolerance 0.5 (provisional)"
+    },
+    {
+      "name": "latency compensated onset",
+      "ok": true,
+      "detail": "raw 24001, compensated 24001, expected equal"
+    },
+    {
+      "name": "same bytes across three runs",
+      "ok": true,
+      "detail": "digests ['4bcfc752038bf40a', '4bcfc752038bf40a', '4bcfc752038bf40a']"
+    }
+  ],
+  "reference_in_dbfs": -50.0,
+  "reference": [
+    {
+      "reduction_db": 5.0,
+      "s": 0.01,
+      "drop_db": 5.31
+    },
+    {
+      "reduction_db": 8.0,
+      "s": 0.0124094,
+      "drop_db": 8.16
+    },
+    {
+      "reduction_db": 10.0,
+      "s": 0.0143301,
+      "drop_db": 10.26
+    },
+    {
+      "reduction_db": 12.0,
+      "s": 0.0165482,
+      "drop_db": 12.41
+    },
+    {
+      "reduction_db": 15.0,
+      "s": 0.0205353,
+      "drop_db": 15.54
+    },
+    {
+      "reduction_db": 18.0,
+      "s": 0.025483,
+      "drop_db": 18.34
+    },
+    {
+      "reduction_db": 20.0,
+      "s": 0.0294273,
+      "drop_db": 19.94
+    }
+  ],
+  "level_law": [
+    {
+      "noise_dbfs": -40.0,
+      "drops": {
+        "10.0": 0.0,
+        "20.0": 0.0
+      }
+    },
+    {
+      "noise_dbfs": -45.0,
+      "drops": {
+        "10.0": 0.0,
+        "20.0": 0.02
+      }
+    },
+    {
+      "noise_dbfs": -55.0,
+      "drops": {
+        "10.0": 26.44,
+        "20.0": 26.84
+      }
+    },
+    {
+      "noise_dbfs": -60.0,
+      "drops": {
+        "10.0": 27.07,
+        "20.0": 27.1
+      }
+    }
+  ],
+  "tone_preservation": [
+    {
+      "reduction_db": 5.0,
+      "change_db": -0.004
+    },
+    {
+      "reduction_db": 8.0,
+      "change_db": -0.005
+    },
+    {
+      "reduction_db": 10.0,
+      "change_db": -0.005
+    },
+    {
+      "reduction_db": 12.0,
+      "change_db": -0.005
+    },
+    {
+      "reduction_db": 15.0,
+      "change_db": -0.005
+    },
+    {
+      "reduction_db": 18.0,
+      "change_db": -0.005
+    },
+    {
+      "reduction_db": 20.0,
+      "change_db": -0.005
+    }
+  ],
+  "fixture": {
+    "path": "../fixtures/recorded-voice/recorded-voice.flac",
+    "quiet_window_s": [
+      0.02,
+      0.1
+    ],
+    "pause_windows_s": [
+      [
+        11.7,
+        12.5
+      ],
+      [
+        15.7,
+        16.5
+      ]
+    ],
+    "rows": [
+      {
+        "reduction_db": 5.0,
+        "quiet_drop_db": 13.16,
+        "speech_change_db": 0.005,
+        "pause_drop_db": [
+          0.25,
+          0.16
+        ]
+      },
+      {
+        "reduction_db": 8.0,
+        "quiet_drop_db": 13.25,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.27,
+          0.18
+        ]
+      },
+      {
+        "reduction_db": 10.0,
+        "quiet_drop_db": 13.3,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.28,
+          0.19
+        ]
+      },
+      {
+        "reduction_db": 12.0,
+        "quiet_drop_db": 13.35,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.29,
+          0.2
+        ]
+      },
+      {
+        "reduction_db": 15.0,
+        "quiet_drop_db": 13.4,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.32,
+          0.22
+        ]
+      },
+      {
+        "reduction_db": 18.0,
+        "quiet_drop_db": 13.45,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.35,
+          0.25
+        ]
+      },
+      {
+        "reduction_db": 20.0,
+        "quiet_drop_db": 13.47,
+        "speech_change_db": 0.004,
+        "pause_drop_db": [
+          0.37,
+          0.27
+        ]
+      }
+    ]
+  },
+  "latency": {
+    "onset_raw": 24001,
+    "onset_processed": 24385,
+    "onset_compensated": 24001,
+    "latency_samples_at_default_p_r": 384
+  },
+  "determinism_sha256_16": [
+    "4bcfc752038bf40a",
+    "4bcfc752038bf40a",
+    "4bcfc752038bf40a"
+  ]
+}
