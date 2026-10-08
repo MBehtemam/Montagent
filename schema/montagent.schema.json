@@ -3078,8 +3078,141 @@
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
     },
     "AudioEffect": {
-      "not": {},
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frequency_hz": {
+              "type": "number",
+              "format": "double"
+            },
+            "slope_db_per_oct": {
+              "type": "number",
+              "format": "double"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "highpass"
+            }
+          },
+          "required": [
+            "name",
+            "frequency_hz",
+            "slope_db_per_oct"
+          ],
+          "description": "A high-pass filter (ADR-0179). Every key is required; there is no default.\n\n`frequency_hz` 20..20000 is the cutoff, where the response reads -3.01 dB at every\nslope. `slope_db_per_oct` is 12, 24 or 48: one, two or four Butterworth sections."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frequency_hz": {
+              "type": "number",
+              "format": "double"
+            },
+            "slope_db_per_oct": {
+              "type": "number",
+              "format": "double"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "lowpass"
+            }
+          },
+          "required": [
+            "name",
+            "frequency_hz",
+            "slope_db_per_oct"
+          ],
+          "description": "A low-pass filter (ADR-0179); the same keys and ranges as `highpass`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "side": {
+              "$ref": "#/$defs/ShelfSide"
+            },
+            "frequency_hz": {
+              "type": "number",
+              "format": "double"
+            },
+            "gain_db": {
+              "type": "number",
+              "format": "double"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "shelf"
+            }
+          },
+          "required": [
+            "name",
+            "side",
+            "frequency_hz",
+            "gain_db"
+          ],
+          "description": "A shelf (ADR-0179). `frequency_hz` 20..20000 is the corner, where the shelf has half\nits gain; `gain_db` is -24..24. The shelf's Q is fixed at 0.707107."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frequency_hz": {
+              "type": "number",
+              "format": "double"
+            },
+            "gain_db": {
+              "type": "number",
+              "format": "double"
+            },
+            "q": {
+              "type": "number",
+              "format": "double"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "bell"
+            }
+          },
+          "required": [
+            "name",
+            "frequency_hz",
+            "gain_db",
+            "q"
+          ],
+          "description": "A bell (peaking) band (ADR-0179). `frequency_hz` 20..20000 is the centre, `gain_db`\n-24..24 the height there, `q` 0.1..10 the narrowness."
+        }
+      ],
       "description": "One member of the closed audio-effect vocabulary, discriminated by `name`.\n\nTwo members of the same name are ordinary unless the member's own ADR declares it singular\n(ADR-0169)."
+    },
+    "ShelfSide": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "low",
+          "description": "Everything below the corner (`lowshelf`)."
+        },
+        {
+          "type": "string",
+          "const": "high",
+          "description": "Everything above the corner (`highshelf`)."
+        }
+      ],
+      "description": "Which end of the spectrum a `shelf` lifts or cuts."
     },
     "Paint": {
       "anyOf": [
