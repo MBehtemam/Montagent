@@ -1420,6 +1420,72 @@ false`, so it does not render. Delete it, or remove the `enabled` key if it shou
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0179 §3. Advise: the value is the nearest bound, or the nearest slope.
+        code: "E-EQ-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}`.{key} is {value}; it must be \
+{allowed}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. Refuse: the fix forks (merge bands, or delete one), so no repair.
+        code: "E-EQ-STACK-CAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`: {count} enabled EQ members; at most {cap} may be enabled on one \
+element. Merge bands, delete one, or set `\"enabled\": false` on some.",
+        status: Live,
+        census: Some(Counted),
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. A large gain can be what the author meant, so a review.
+        code: "R-EQ-GAIN-EXTREME",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}` is set to {gain_db} dB, past \
+{threshold_db} dB either way. Keep it if the exaggeration is the point.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. Nothing is left in the passband; deliberate only as a sound effect.
+        code: "R-EQ-BAND-CROSSED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`: the `highpass` at audio_effects[{highpass}] ({highpass_hz} Hz) \
+is at or above the `lowpass` at audio_effects[{lowpass}] ({lowpass_hz} Hz), so almost nothing \
+passes both.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. A zero-gain stage changes nothing.
+        code: "N-EQ-NO-OP",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}` has `gain_db` 0, so it changes \
+nothing.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`. Advise: with neither angle
         // written the element is not projected, so dropping it changes nothing drawn. An
         // angle written as `0` counts as written (ADR-0168 §1).

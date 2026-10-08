@@ -100,10 +100,10 @@ fn the_list_is_refused_on_a_type_that_has_no_sound() {
 }
 
 #[test]
-fn the_union_has_no_members_so_any_name_is_a_schema_error() {
+fn a_name_outside_the_union_is_a_schema_error() {
     for element in [
-        audio(json!({"audio_effects": [{"name": "bell"}]})),
-        video(json!({"audio_effects": [{"name": "bell"}]})),
+        audio(json!({"audio_effects": [{"name": "nonsense"}]})),
+        video(json!({"audio_effects": [{"name": "nonsense"}]})),
     ] {
         let report = validated(&project(element.clone()));
         assert_eq!(
@@ -162,7 +162,7 @@ fn a_visual_member_in_audio_effects_names_the_right_list_and_is_not_also_a_schem
 }
 
 #[test]
-fn the_published_schema_lists_the_union_and_it_has_no_branch() {
+fn the_published_schema_lists_the_union_and_its_eq_branches() {
     let schema = montagent_core::schema::generate();
     for kind in ["audio", "video"] {
         let branch = schema["$defs"]["Element"]["oneOf"]
@@ -176,6 +176,13 @@ fn the_published_schema_lists_the_union_and_it_has_no_branch() {
             "#/$defs/AudioEffect"
         );
     }
-    assert!(schema["$defs"]["AudioEffect"].is_object());
-    assert!(schema["$defs"]["AudioEffect"]["oneOf"].is_null());
+    let names: Vec<&str> = schema["$defs"]["AudioEffect"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["properties"]["name"]["const"].as_str().unwrap())
+        .collect();
+    for eq in ["highpass", "lowpass", "shelf", "bell"] {
+        assert!(names.contains(&eq), "{names:?}");
+    }
 }

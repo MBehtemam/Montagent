@@ -15,6 +15,7 @@
 
 pub mod anchor;
 pub mod audio_effects;
+pub mod audio_eq;
 pub mod blend;
 pub mod box_slack;
 pub mod canvas;

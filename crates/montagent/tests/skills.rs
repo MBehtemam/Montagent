@@ -179,7 +179,11 @@ fn check_completeness(map: &str) -> Vec<String> {
     .unwrap();
     let spans: BTreeSet<String> = code_spans(map).into_iter().collect();
     let mut problems = Vec::new();
-    for (section, kind) in [("elements", "element type"), ("effects", "effect")] {
+    for (section, kind) in [
+        ("elements", "element type"),
+        ("effects", "effect"),
+        ("audio_effects", "audio effect"),
+    ] {
         for name in index[section]
             .as_object()
             .expect("the index section")

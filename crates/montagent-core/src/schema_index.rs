@@ -55,8 +55,8 @@ const UNIONS: [Union; 3] = [
         section: "effects",
         segment: "effect",
     },
-    // ADR-0169. It has no branch until a capability ADR adds a member, so its section is
-    // empty; naming it here is what stops the first member being served as a whole `$def`.
+    // ADR-0169. Each capability ADR adds members (EQ is ADR-0179); naming the union here is
+    // what serves them as a section and not as a whole `$def`.
     Union {
         def: "AudioEffect",
         tag: "name",
