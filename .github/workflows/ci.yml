@@ -167,6 +167,12 @@ jobs:
       - name: The ducking levels' arithmetic still holds
         run: python3 -I docs/research/audio-effects/ducking/check_duck_levels.py
 
+      # The rendered half of the same capability (ADR-0177 §6, ADR-0173 §4). `cargo test`
+      # above already runs it; it captures a passing test's output, so this prints the
+      # leg's measured deltas, the numbers the three-leg table is made from.
+      - name: The rendered duck's measured deltas, for the record (ADR-0177 §6)
+        run: cargo test -p montagent-core --test duck_render --release --target ${{ matrix.target }} -- --nocapture
+
       # What the Skia prebuilt vendors, read out of the archive this leg just downloaded
       # (#359). It lives in the matrix rather than in `committed checks` for the same reason
       # the Ken Burns check does — it needs something the build produced — but unlike that

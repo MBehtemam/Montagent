@@ -100,6 +100,44 @@ pub fn peak_db(path: &Path, from: f64, to: f64) -> f64 {
         .unwrap_or(f64::NEG_INFINITY)
 }
 
+/// The RMS level of `[from, to)` seconds of the file's audio, in dBFS, as ffmpeg's `astats`
+/// prints it for the whole window (ADR-0173 §2).
+///
+/// The parse is pinned: the number is the first `RMS level dB:` after the `Overall` header, and
+/// a change in `astats`'s output panics here rather than reading some other line. `-inf` for
+/// digital silence.
+pub fn rms_db(path: &Path, from: f64, to: f64) -> f64 {
+    let tools = montagent_core::media::tools::resolve().expect("ffmpeg");
+    let out = Command::new(tools.ffmpeg)
+        .args([
+            "-v",
+            "info",
+            "-ss",
+            &from.to_string(),
+            "-t",
+            &(to - from).to_string(),
+            "-i",
+        ])
+        .arg(path)
+        .args(["-vn", "-af", "astats=metadata=0", "-f", "null", "-"])
+        .output()
+        .expect("run ffmpeg");
+    let said = String::from_utf8_lossy(&out.stderr);
+    let overall = said
+        .lines()
+        .skip_while(|l| !l.trim_end().ends_with("Overall"))
+        .find(|l| l.contains("RMS level dB:"))
+        .unwrap_or_else(|| panic!("no `Overall` `RMS level dB:` line in astats's output:\n{said}"));
+    let value = overall.split("RMS level dB:").nth(1).unwrap().trim();
+    value.parse().unwrap_or_else(|_| {
+        if value == "-inf" {
+            f64::NEG_INFINITY
+        } else {
+            panic!("astats RMS {value:?}")
+        }
+    })
+}
+
 /// The file's audio as 48 kHz mono `f32` samples, from sample 0 of the stream — what a
 /// claim about *which sample* something happens at is read against.
 pub fn samples(path: &Path) -> Vec<f32> {

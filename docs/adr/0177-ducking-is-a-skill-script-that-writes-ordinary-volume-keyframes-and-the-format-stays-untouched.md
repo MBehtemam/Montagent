@@ -108,8 +108,9 @@ speech"), and the script prints the linear value it wrote.
   requires an `ease` on the second; and [ADR-0052](0052-review-check-for-inert-ease-on-held-keyframes.md)
   fires on any two consecutive keyframes with an identical literal `v`, whatever the `ease` is.
   So a hold always trips the review. The script writes holds as it does today, and the skill
-  documents the review as expected on a duck. This is argued from those ADRs' text; the build confirms
-  it against the engine. Whether ADR-0052 should spare a hold a tool writes is a separate decision and
+  documents the review as expected on a duck. This was argued from those ADRs' text and is now confirmed against the
+  engine by [`tests/ease.rs`](../../crates/montagent-core/tests/ease.rs) (each hold of a duck's
+  curve is one finding, under every `ease` in the vocabulary). Whether ADR-0052 should spare a hold a tool writes is a separate decision and
   is left to the map's fog.
 
 ### 6. The measured check (conforms to ADR-0173)
