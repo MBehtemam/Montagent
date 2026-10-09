@@ -64,6 +64,10 @@ fn narration(dir: &Path, name: &str) -> String {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(
+    not(unix),
+    ignore = "needs POSIX permissions to make a present file unreadable"
+)]
 fn an_audible_element_that_cannot_be_mixed_leaves_no_file_at_the_output_path() {
     if !has_ffprobe() {
         eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
@@ -76,11 +80,6 @@ fn an_audible_element_that_cannot_be_mixed_leaves_no_file_at_the_output_path() {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(dir.join(&source), std::fs::Permissions::from_mode(0o000))
             .expect("chmod");
-    }
-    #[cfg(not(unix))]
-    {
-        eprintln!("skipped: needs POSIX permissions to make a present file unreadable");
-        return;
     }
 
     let path = project(
@@ -267,14 +266,13 @@ fn a_video_with_no_audio_stream_is_a_note_and_does_not_withhold_the_file() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(
+    not(unix),
+    ignore = "needs POSIX permissions to make a present file unreadable"
+)]
 fn a_partial_render_publishes_past_a_world_effect_outside_its_range_and_says_so() {
     if !has_ffprobe() {
         eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
-        return;
-    }
-    #[cfg(not(unix))]
-    {
-        eprintln!("skipped: needs POSIX permissions to make a present file unreadable");
         return;
     }
     let dir = tempdir(line!());

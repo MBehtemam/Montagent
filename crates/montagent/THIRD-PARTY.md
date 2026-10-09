@@ -2352,7 +2352,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### Unicode-3.0
 
-`icu_collections 2.3.0`, `icu_locale_core 2.3.0`, `icu_locale_fallback 2.3.0`, `icu_locale_fallback_data 2.3.0`, `icu_normalizer 2.3.0`, `icu_normalizer_data 2.3.0`, `icu_properties 2.3.0`, `icu_properties_data 2.3.0`, `icu_provider 2.3.1`, `icu_segmenter 2.3.0`, `icu_segmenter_data 2.3.0`, `litemap 0.8.3`, `potential_utf 0.1.6`, `tinystr 0.8.4`, `writeable 0.6.4`, `yoke 0.8.3`, `yoke-derive 0.8.3`, `zerofrom 0.1.8`, `zerofrom-derive 0.1.8`, `zerotrie 0.2.5`, `zerovec 0.11.8`, `zerovec-derive 0.11.6`
+`icu_collections 2.3.0`, `icu_locale_core 2.3.0`, `icu_locale_fallback 2.3.0`, `icu_locale_fallback_data 2.3.0`, `icu_normalizer 2.3.0`, `icu_normalizer_data 2.3.0`, `icu_properties 2.3.0`, `icu_properties_data 2.3.0`, `icu_provider 2.3.1`, `icu_segmenter 2.3.0`, `icu_segmenter_data 2.3.0`, `litemap 0.8.3`, `potential_utf 0.1.6`, `tinystr 0.8.4`, `writeable 0.6.4`, `yoke 0.8.3`, `yoke-derive 0.8.4`, `zerofrom 0.1.8`, `zerofrom-derive 0.1.8`, `zerotrie 0.2.5`, `zerovec 0.11.8`, `zerovec-derive 0.11.6`
 
 ```
 UNICODE LICENSE V3

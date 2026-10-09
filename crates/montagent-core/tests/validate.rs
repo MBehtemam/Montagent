@@ -298,8 +298,11 @@ fn sourced_project(dir: &std::path::Path, base: &str) -> std::path::PathBuf {
     )
 }
 
+/// The two files a test serves, in a directory of the calling test's own: two tests
+/// sharing one would each clear it out from under the other.
+#[track_caller]
 fn served_media() -> std::path::PathBuf {
-    let served = common::tempdir(line!());
+    let served = common::tempdir(std::panic::Location::caller().line());
     std::fs::copy(
         common::fixture_dir().join("audio/05-cobweb.mp3"),
         served.join("vo.mp3"),
@@ -410,7 +413,12 @@ fn a_file_url_is_local_and_draws_no_remote_finding() {
     let served = served_media();
     let path = sourced_project(
         &common::tempdir(line!()),
-        &format!("file://{}", served.display()),
+        // Forward slashes, so a Windows path is a valid JSON string and still the local
+        // path it spells.
+        &format!(
+            "file://{}",
+            common::with_forward_slashes(&served.display().to_string())
+        ),
     );
     let report = validate(&path);
     assert!(
