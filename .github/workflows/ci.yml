@@ -106,9 +106,19 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install ffmpeg
 
+      # Chocolatey puts a ShimGen *shim* named ffmpeg.exe on PATH, which runs the real
+      # binary as a child of its own. Killing the shim, which is what a cancelled or failed
+      # render does to its encoder, leaves the real ffmpeg running and holding the temp file
+      # open, so it can never be removed. The real bin directory goes first on PATH, so the
+      # suite runs the ffmpeg it means to.
       - name: Install ffmpeg (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg -y --no-progress
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          $real = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $real) { throw "no ffmpeg.exe under $env:ChocolateyInstall\lib\ffmpeg\tools" }
+          $real.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: ffmpeg is on PATH
         run: ffmpeg -version
