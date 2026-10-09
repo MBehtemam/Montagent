@@ -56,8 +56,16 @@ const SPAN_MS: i64 = 5833;
 fn element(end: i64, tolerance: f64) -> String {
     format!(
         r##"{{"id":"trex","type":"video","start":0,"end":{end},"source":"{source}","source_start":0,"source_end":{SPAN_MS},"x":0,"y":0,"origin":"top-left","width":1920,"height":1080,"effects":[{{"name":"chroma","color":"#00CD00","tolerance":{tolerance},"softness":0.0,"spill":0.0}}]}}"##,
-        source = clip().display(),
+        source = json_escaped(&clip()),
     )
+}
+
+/// A path as it goes between the quotes of a JSON string.
+///
+/// On Windows the canonical path is `\\?\C:\...`, and its backslashes written raw into
+/// the project are invalid escapes, so the file would not parse at all.
+fn json_escaped(path: &std::path::Path) -> String {
+    path.display().to_string().replace('\\', "\\\\")
 }
 
 /// The coverage series `measure` reports for that element.
@@ -286,10 +294,7 @@ fn keying_a_source_that_already_carries_alpha_is_reported_and_keying_one_that_do
     let dir = tempdir(line!());
     let keyed = already_keyed(&dir);
 
-    for (source, expected) in [
-        (keyed.display().to_string(), 1),
-        (clip().display().to_string(), 0),
-    ] {
+    for (source, expected) in [(json_escaped(&keyed), 1), (json_escaped(&clip()), 0)] {
         let element = format!(
             r##"{{"id":"a","type":"video","start":0,"end":1000,"source":"{source}","source_start":0,"source_end":1000,"x":0,"y":0,"origin":"top-left","width":320,"height":240,"fit":"literal","effects":[{{"name":"chroma","color":"#00CD00","tolerance":0.1,"softness":0.0,"spill":0.0}}]}}"##
         );
