@@ -111,6 +111,8 @@ jobs:
       # verified by checksum (`ci/install_ffmpeg_windows.ps1`), rather than Chocolatey's
       # package: that is gyan.dev's x64 build on every machine, so the arm64 leg encoded and
       # decoded under emulation and missed `preview_budget` on time that was not Skia's.
+      # If the native arm64 build does not run, the script prints why, raises a warning, and
+      # installs the pinned x64 build to run under emulation instead.
       #
       # The real bin directory goes first on PATH, and no shim is involved. Chocolatey's was a
       # ShimGen shim that ran the real binary as a child of its own; killing the shim, which
