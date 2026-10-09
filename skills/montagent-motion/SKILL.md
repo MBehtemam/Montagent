@@ -84,7 +84,7 @@ Lines that arrive a word or a letter at a time are set with the bundled script, 
 
 - **Words landing on beats:** `"by": "word"`, `"enter": "pop"`, and one time per word in `times`. A `highlights` entry recolours one word on its beat.
 - **Typing:** `"by": "letter"`, 60–150 ms between letters (irregular reads more human: vary ±30 ms), and a `cursor` that blinks at 500–600 ms per cycle while idle, stays solid while typing, and steps ahead of each letter.
-- **Tracked titles:** `tracking` adds pixels after each letter. <!-- workaround: #510 · replaced by: a letter-spacing key on text --> <!-- guard-ok: times highlights cursor tracking -->
+- **Tracked titles:** do not split the title into letters. Write one `text` element with `letter_spacing`, in thousandths of an em (`size × letter_spacing / 1000` px after each letter; negative tightens). Key it to drift a title apart: `"letter_spacing": [{"t": 0, "v": 0}, {"t": 800, "v": 120, "ease": [0.65, 0, 0.35, 1]}]`. Any non-zero value switches the optional ligatures off, and a joining script such as Arabic takes no spacing. <!-- guard-ok: times highlights cursor -->
 
 It writes one element per unit and marks each one `caption: false`, so the caption checks skip them.
 
@@ -115,7 +115,7 @@ A wipe uncovers something by sliding an edge across it. Put an **occluder** abov
 - **Occluder:** 20–40 px larger than the thing on every side, and the same fill as the ground behind it. The start keyframe sits where the wipe begins, so the thing stays covered until then.
 - **Edge bar:** 8–24 px wide, 5–10 % taller than the occluder, moving on the same curve and time. It leaves over 100–200 ms once the sweep is done.
 - **Direction:** wipe in the reading direction; to wipe off, grow the occluder back from the near edge.
-- **Busy ground:** an occluder only works over a flat colour. Over a photo, a gradient or footage, reveal with a pop or a push instead. <!-- workaround: #463 · replaced by: an animated mask -->
+- **Busy ground:** an occluder only works over a flat colour. Over a photo, a gradient or footage, key the element's own `mask` instead: `{"name": "mask", "shape": "rect", "x": 0, "y": 0, "width": [{"t": 400, "v": 0}, {"t": 900, "v": 400, "ease": [0.65, 0, 0.35, 1]}], "height": 400}` uncovers a 400 × 400 element from its left edge, with no occluder. The rect is element-local, from the element's top-left; a mask of zero `width` hides the element, so the reveal starts covered. Add `feather` for a soft edge.
 - **Look:** `frame` at the middle of the sweep and check the edge bar covers the occluder's edge exactly; then `frame` just after the sweep and check nothing of the occluder is left.
 
 ### Hand over with a push, slide or wipe
