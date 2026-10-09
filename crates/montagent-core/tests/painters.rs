@@ -2,8 +2,10 @@
 //! and the same file as one painter (#653, #627 §8).
 //!
 //! The primary oracle is a hash of every frame at the encoder's input
-//! (`render::tap_frames`). The integration oracle is the MP4 itself, byte for byte: libx264's
-//! thread count is pinned (ADR-0143), and x264 is deterministic for one thread count. The
+//! (`render::tap_frames`). The integration oracle is the MP4 itself, byte for byte. Its
+//! renders encode on **one** libx264 thread ([`ONE_THREAD`], through ADR-0143 §5's test
+//! settings), so the encoder runs no thread whose timing could reach the bytes: on the x64
+//! Windows runner, five threads wrote MP4s a few bytes apart from equal input frames. The
 //! report must be equal too, all but the wall clock and the `painting` block that says how
 //! the frames were painted.
 //!
@@ -20,10 +22,11 @@ use montagent_core::media::tools;
 use montagent_core::report::ExitCode;
 use montagent_core::verbs::preview;
 use montagent_core::verbs::render::{
-    Ask, Cancel, Forced, Progress, fail_frames, force_painting, render, render_cancellable,
-    tap_frames,
+    Ask, Cancel, Forced, Progress, fail_frames, force_encoder, force_painting, render,
+    render_cancellable, tap_frames,
 };
 use montagent_render::canvas::bound_filter_layers;
+use montagent_render::encode::Settings;
 use serde_json::{Value, json};
 
 mod common;
@@ -31,6 +34,18 @@ use common::{canonical, has_ffprobe, tempdir, write_project};
 
 /// How long one small render may take before it counts as hung.
 const HUNG: Duration = Duration::from_secs(60);
+
+/// The production encode on one libx264 thread, for the renders whose MP4s are compared.
+///
+/// Five threads (ADR-0143) are deterministic on Linux and macOS, but on the x64 Windows
+/// runner they intermittently wrote MP4s a few bytes apart — `bytes` was the only field of
+/// the answer that differed — while every frame at the encoder's input was equal. One thread
+/// leaves the encoder nothing to schedule, so equal input frames are equal bytes, which is
+/// what this oracle needs. Everything else is [`Settings::PRODUCTION`].
+const ONE_THREAD: Settings = Settings {
+    threads: std::num::NonZeroU32::MIN,
+    ..Settings::PRODUCTION
+};
 
 fn chunks(painters: usize, chunk: u64) -> Forced {
     Forced::Chunks {
@@ -83,6 +98,7 @@ fn rendered_with(path: &Path, forced: Forced, faults: &[(i64, Duration)]) -> Ren
     within(move || {
         let _forced = force_painting(forced);
         let _faults = fail_frames(&faults);
+        let _encoder = force_encoder(ONE_THREAD);
         let tap = tap_frames();
         let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
         let mp4 = answer
@@ -115,6 +131,12 @@ fn assert_same(one: &Rendered, other: &Rendered, what: &str) {
         .collect();
     assert!(differ.is_empty(), "{what}: frames {differ:?} differ");
     assert_eq!(one.comparable(), other.comparable(), "{what}: the answer");
+    for rendered in [one, other] {
+        assert_eq!(
+            rendered.answer["render"]["threads"], 1,
+            "{what}: encoded on the test's one thread"
+        );
+    }
     assert!(
         one.mp4 == other.mp4,
         "{what}: the MP4s differ while every frame at the encoder's input is equal"
@@ -369,6 +391,7 @@ fn rendered_unbounded(path: &Path, forced: Forced) -> Rendered {
     within(move || {
         bound_filter_layers(false);
         let _forced = force_painting(forced);
+        let _encoder = force_encoder(ONE_THREAD);
         let tap = tap_frames();
         let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
         let mp4 = answer
