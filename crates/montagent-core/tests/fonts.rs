@@ -949,12 +949,12 @@ fn the_sidecar_records_the_chain_beside_the_probes_and_not_instead_of_them() {
         written["entries"]["/clips/take3.mov"]["size"], 12,
         "the probe half survives a font-half write: {written}"
     );
-    let chains = &written["fonts"][common::with_forward_slashes(
-        &std::fs::canonicalize(&project)
-            .unwrap()
-            .display()
-            .to_string(),
-    )]["keys"]["brand"];
+    // The key is the project's canonical path in the platform's own spelling, which on
+    // Windows is `\\?\C:\...`: the lookup spells it the same way rather than normalised.
+    let chains = &written["fonts"][std::fs::canonicalize(&project)
+        .unwrap()
+        .display()
+        .to_string()]["keys"]["brand"];
     assert_eq!(chains[0]["file"], "fonts/OpenRunde-Bold.otf", "{written}");
     assert!(chains[0]["size"].as_u64().unwrap() > 0, "{written}");
 }

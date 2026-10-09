@@ -14,6 +14,13 @@ amends: 0021-preview-budget-and-graceful-degradation.md
 > [ADR-0046](0046-proxy-preview-target-is-720p-long-edge-capped.md), also uncited here for the
 > same reason.
 
+> **Amended by [ADR-0186](0186-a-proxy-tier-reads-a-shrunk-image-through-one-mip-level-and-the-deliverable-keeps-adr-0132s-rule.md).**
+> The **2.68 s (4K) / 3.78 s (8K)** below were measured by #87's prototype harness with
+> bilinear sampling and **no mipmaps**, a reader no shipped path uses. They have not been
+> re-measured under the proxy's shipped sampling (bilinear within one mip level). On the
+> committed fixture that reader costs no more than no mipmaps, but read the two figures as
+> the prototype's.
+
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) adopted proxy-resolution
 preview as the mechanism for hitting the render/preview budget above 1080p, but
 deliberately left the target resolution, degradation ladder, and floor unstated pending

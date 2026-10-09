@@ -710,7 +710,9 @@ fn parse_reading(line: &str) -> Option<Reading> {
         .ok()?;
     Some(Reading {
         end_ms: (t * 1000.0).round() as i64,
-        lufs: m,
+        // A block of exact digital silence prints `M:   nan`, and `NaN < GATE_LUFS` is false:
+        // read as it is, the quietest block there is would count as heard.
+        lufs: if m.is_nan() { f64::NEG_INFINITY } else { m },
     })
 }
 
@@ -1185,6 +1187,18 @@ mod tests {
         let placeholder =
             "[Parsed_ebur128_0 @ 0x1] t: 1.4999   TARGET:-23 LUFS    M:-160.7 S:-120.7";
         assert_eq!(parse_reading(placeholder).unwrap().lufs, -160.7);
+    }
+
+    /// A block of exact digital silence is `M:   nan` in the meter's log — what an AAC mix
+    /// decodes to on some builds (aarch64 Linux, x86_64 macOS) where others leave a residue
+    /// near −160. It is the quietest reading there is, never one above the gate.
+    #[test]
+    fn a_nan_reading_is_digital_silence_and_below_the_gate() {
+        let line = "[Parsed_ebur128_0 @ 0x7fa43c001b80] t: 2.099979   TARGET:-23 LUFS    \
+                    M:   nan S:-120.7     I: -22.2 LUFS       LRA:   0.0 LU";
+        let reading = parse_reading(line).expect("a reading");
+        assert_eq!(reading.end_ms, 2100);
+        assert!(reading.lufs < GATE_LUFS, "{}", reading.lufs);
     }
 
     #[test]

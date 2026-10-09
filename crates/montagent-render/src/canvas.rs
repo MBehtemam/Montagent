@@ -1281,6 +1281,27 @@ pub struct Canvas {
     /// [`Canvas::layer`] takes the same, so a sample painted on it lands where it would on
     /// this canvas.
     base: (f32, f32),
+    /// Whether this canvas is a disclosed proxy or true pixels, which decides how a raster
+    /// shrunk onto it is read ([`sampling_for`], ADR-0186). Set by the constructor and
+    /// never by the scale: [`Canvas::scaled`] is a proxy, [`Canvas::new`] is not.
+    fidelity: Fidelity,
+}
+
+/// What a canvas's pixels are for, which is the one thing besides the draw's own matrix
+/// that decides how a raster is sampled onto it (ADR-0132 as scoped by ADR-0186).
+///
+/// ADR-0132's sampling rule is the **deliverable's**: `render`, `frame` and
+/// `preview --full` paint true pixels, the caller asked for that quality, and they get
+/// trilinear minification and Catmull-Rom magnification. A proxy tier is already disclosed
+/// as not true pixels (ADR-0065) and runs against an enforced wall clock (ADR-0021), so it
+/// may read a shrunk raster through one mip level instead of blending two — the trilinear
+/// read is what #552 measured taking the fixture's scrub preview from about 5.6 s to 9 s.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fidelity {
+    /// True pixels: the deliverable's sampling, ADR-0132's rule unchanged.
+    True,
+    /// A `preview` proxy tier (720p or 540p): minification reads the nearest mip level.
+    Proxy,
 }
 
 impl Canvas {
@@ -1303,6 +1324,7 @@ impl Canvas {
             width,
             height,
             base: (1.0, 1.0),
+            fidelity: Fidelity::True,
         })
     }
 
@@ -1321,11 +1343,16 @@ impl Canvas {
     /// `frame` and `render` never call this: ADR-0021 keeps `frame` at true pixels so the
     /// agent has one tool it can trust for pixel-accurate checks, and forbids the
     /// deliverable being quietly downsampled.
+    ///
+    /// **It is a proxy, and samples like one** ([`Fidelity::Proxy`], ADR-0186): a raster
+    /// shrunk onto it reads the nearest mip level rather than blending two, because the
+    /// scrub budget is enforced here and true-pixel quality is not promised.
     pub fn scaled(width: i64, height: i64, scale: (f64, f64)) -> Option<Canvas> {
         if !(scale.0.is_finite() && scale.1.is_finite()) || scale.0 <= 0.0 || scale.1 <= 0.0 {
             return None;
         }
         let mut canvas = Canvas::new(width, height)?;
+        canvas.fidelity = Fidelity::Proxy;
         canvas.base = (scale.0 as f32, scale.1 as f32);
         canvas.surface.canvas().scale(canvas.base);
         Some(canvas)
@@ -1341,6 +1368,7 @@ impl Canvas {
     pub fn layer(&self) -> Option<Canvas> {
         let mut layer = Canvas::new(i64::from(self.width), i64::from(self.height))?;
         layer.base = self.base;
+        layer.fidelity = self.fidelity;
         layer.surface.canvas().clear(Color::TRANSPARENT);
         layer.surface.canvas().scale(layer.base);
         Some(layer)
@@ -1639,6 +1667,7 @@ impl Canvas {
         clip: Option<Region>,
         effects: &[Effect],
     ) {
+        let fidelity = self.fidelity;
         self.in_element_space(extent, transform, clip, effects, |canvas| {
             let destination = Rect::from_xywh(0.0, 0.0, extent.width as f32, extent.height as f32);
             let to_device = canvas.local_to_device_as_3x3()
@@ -1649,7 +1678,7 @@ impl Canvas {
                 &source.image,
                 None,
                 destination,
-                sampling_for(&to_device),
+                sampling_for(&to_device, fidelity),
                 &paint,
             );
         });
@@ -1761,7 +1790,10 @@ impl Canvas {
         {
             return;
         }
-        let base = self.base;
+        let device = Device {
+            base: self.base,
+            fidelity: self.fidelity,
+        };
         let canvas = self.surface.canvas();
         canvas.save();
         if let Some(clip) = clip {
@@ -1805,7 +1837,9 @@ impl Canvas {
                 Canvas::through(canvas, extent, effects, draw);
             }
             Some(projection) => {
-                projected(canvas, extent, transform, projection, base, effects, &draw);
+                projected(
+                    canvas, extent, transform, projection, device, effects, &draw,
+                );
             }
         }
         if layered {
@@ -1992,7 +2026,7 @@ impl Canvas {
             &snapshot,
             Some((&region.rect(), skia_safe::canvas::SrcRectConstraint::Strict)),
             destination,
-            sampling_for(&to_device),
+            sampling_for(&to_device, self.fidelity),
             &paint,
         );
 
@@ -2013,6 +2047,14 @@ impl Canvas {
             scale,
         })
     }
+}
+
+/// What [`projected`] needs of the canvas it lands on: the base scale its flat layer is
+/// sized by, and the fidelity its one draw is sampled at.
+#[derive(Clone, Copy)]
+struct Device {
+    base: (f32, f32),
+    fidelity: Fidelity,
 }
 
 /// Transparent layer pixels kept around a projected element's flat layer, so its edge is
@@ -2038,13 +2080,13 @@ fn projected(
     extent: Extent,
     transform: &Transform,
     projection: Projection,
-    base: (f32, f32),
+    device: Device,
     effects: &[Effect],
     draw: &dyn Fn(&skia_safe::Canvas),
 ) {
     let (kx, ky) = (
-        transform.scale.0.abs() * f64::from(base.0),
-        transform.scale.1.abs() * f64::from(base.1),
+        transform.scale.0.abs() * f64::from(device.base.0),
+        transform.scale.1.abs() * f64::from(device.base.1),
     );
     if !(kx > 0.0 && ky > 0.0 && kx.is_finite() && ky.is_finite()) {
         return;
@@ -2105,7 +2147,12 @@ fn projected(
     let to_device = canvas.local_to_device_as_3x3();
     let mut paint = SkPaint::default();
     paint.set_anti_alias(true);
-    canvas.draw_image_with_sampling_options(&image, (0, 0), sampling_for(&to_device), Some(&paint));
+    canvas.draw_image_with_sampling_options(
+        &image,
+        (0, 0),
+        sampling_for(&to_device, device.fidelity),
+        Some(&paint),
+    );
     canvas.restore();
 }
 
@@ -2498,7 +2545,13 @@ fn path_of(outline: &[PathEl]) -> Path {
 /// - **Magnification** — everything else: Catmull-Rom, which #500 measured at the PIL
 ///   bicubic reference (40.2 dB against 40.0 at ×2.3) where bilinear stair-steps a hard
 ///   edge (32.3).
-fn sampling_for(to_device: &Matrix) -> SamplingOptions {
+///
+/// **On a proxy canvas the minification branch reads one mip level, not two** (ADR-0186):
+/// bilinear within the nearest level, which keeps most of what mipmaps buy against
+/// aliasing and drops the second level's read and blend, the cost #552 measured taking the
+/// fixture's scrub preview past its budget. Identity and magnification are the same on
+/// both, and so is everything a true-pixel canvas paints.
+fn sampling_for(to_device: &Matrix, fidelity: Fidelity) -> SamplingOptions {
     /// How far from exact a matrix may be and still be the identity. f32 composition of
     /// translate · scale(1) · translate leaves error near 1e-7; a scale wrong by 1e-6
     /// moves the far edge of a 4K source by under a hundredth of a pixel.
@@ -2520,7 +2573,11 @@ fn sampling_for(to_device: &Matrix) -> SamplingOptions {
     }
     // `min_scale` is -1 for a perspective matrix, which therefore minifies.
     if to_device.min_scale() < 1.0 {
-        return SamplingOptions::new(skia_safe::FilterMode::Linear, skia_safe::MipmapMode::Linear);
+        let levels = match fidelity {
+            Fidelity::True => skia_safe::MipmapMode::Linear,
+            Fidelity::Proxy => skia_safe::MipmapMode::Nearest,
+        };
+        return SamplingOptions::new(skia_safe::FilterMode::Linear, levels);
     }
     SamplingOptions::from(CubicResampler::catmull_rom())
 }
@@ -2941,6 +2998,25 @@ mod tests {
         SamplingOptions::from(CubicResampler::catmull_rom())
     }
 
+    /// How far a proxy's shrunk read may sit from true pixels' on `rings` at ×0.3, as a
+    /// mean delta over all four channels (ADR-0186). Measured when committed on skia-safe
+    /// 0.153.2: 3.58 through one mip level, 11.64 with no mipmaps. The ceiling leaves room
+    /// for a `skia-safe` bump and none for losing the mipmaps.
+    const PROXY_MEAN_DELTA: f64 = 4.5;
+
+    /// Bilinear within the nearest mip level: a proxy's minifier (ADR-0186).
+    fn one_level() -> SamplingOptions {
+        SamplingOptions::new(
+            skia_safe::FilterMode::Linear,
+            skia_safe::MipmapMode::Nearest,
+        )
+    }
+
+    /// ADR-0132's rule as the deliverable reads it.
+    fn true_pixels(to_device: &Matrix) -> SamplingOptions {
+        sampling_for(to_device, Fidelity::True)
+    }
+
     /// A source of `native` pixels drawn into a `declared` box under `transform`, as the
     /// one matrix [`Canvas::raster`] hands the rule.
     fn drawn(native: (f32, f32), declared: (f32, f32), transform: Matrix) -> Matrix {
@@ -2957,7 +3033,7 @@ mod tests {
     fn an_identity_draw_at_a_whole_pixel_offset_is_nearest() {
         for (x, y) in [(0.0, 0.0), (37.0, -12.0), (1919.0, 1079.0)] {
             assert_eq!(
-                sampling_for(&Matrix::translate((x, y))),
+                true_pixels(&Matrix::translate((x, y))),
                 nearest(),
                 "at ({x}, {y})"
             );
@@ -2974,22 +3050,22 @@ mod tests {
             0.0,
             1.0,
         );
-        assert_eq!(sampling_for(&drifted), nearest());
+        assert_eq!(true_pixels(&drifted), nearest());
     }
 
     #[test]
     fn a_fractional_offset_at_scale_one_is_not_the_identity() {
         // Nearest here would move every pixel by half of one; it is a resample, and at
         // scale 1 it is the magnification branch.
-        assert_eq!(sampling_for(&Matrix::translate((10.5, 0.0))), cubic());
-        assert_eq!(sampling_for(&Matrix::translate((0.0, 3.25))), cubic());
+        assert_eq!(true_pixels(&Matrix::translate((10.5, 0.0))), cubic());
+        assert_eq!(true_pixels(&Matrix::translate((0.0, 3.25))), cubic());
     }
 
     #[test]
     fn scale_one_over_a_declared_rect_that_is_not_the_native_size_is_a_resample() {
         // The case that makes the rule a fact about the matrix and not about `scale`.
         assert_eq!(
-            sampling_for(&drawn(
+            true_pixels(&drawn(
                 (100.0, 100.0),
                 (120.0, 120.0),
                 Matrix::new_identity()
@@ -2997,12 +3073,12 @@ mod tests {
             cubic()
         );
         assert_eq!(
-            sampling_for(&drawn((100.0, 100.0), (80.0, 80.0), Matrix::new_identity())),
+            true_pixels(&drawn((100.0, 100.0), (80.0, 80.0), Matrix::new_identity())),
             mipmapped()
         );
         // And the native size declared is the identity again.
         assert_eq!(
-            sampling_for(&drawn(
+            true_pixels(&drawn(
                 (100.0, 100.0),
                 (100.0, 100.0),
                 Matrix::translate((4.0, 4.0))
@@ -3021,7 +3097,7 @@ mod tests {
             (2.3, cubic()),
         ] {
             assert_eq!(
-                sampling_for(&Matrix::scale((scale, scale))),
+                true_pixels(&Matrix::scale((scale, scale))),
                 expected,
                 "at ×{scale}"
             );
@@ -3035,23 +3111,214 @@ mod tests {
             m.pre_rotate(degrees, None).pre_scale((scale, scale), None);
             m
         };
-        assert_eq!(sampling_for(&turned(30.0, 1.0)), cubic());
-        assert_eq!(sampling_for(&turned(5.0, 2.0)), cubic());
-        assert_eq!(sampling_for(&turned(30.0, 0.58)), mipmapped());
+        assert_eq!(true_pixels(&turned(30.0, 1.0)), cubic());
+        assert_eq!(true_pixels(&turned(5.0, 2.0)), cubic());
+        assert_eq!(true_pixels(&turned(30.0, 0.58)), mipmapped());
     }
 
     #[test]
     fn one_axis_under_one_is_minification_whatever_the_other_does() {
         // The smaller singular value, not the mean: a source stretched 2× wide and
         // squeezed to half height aliases along its height.
-        assert_eq!(sampling_for(&Matrix::scale((2.0, 0.5))), mipmapped());
-        assert_eq!(sampling_for(&Matrix::scale((0.9, 3.0))), mipmapped());
+        assert_eq!(true_pixels(&Matrix::scale((2.0, 0.5))), mipmapped());
+        assert_eq!(true_pixels(&Matrix::scale((0.9, 3.0))), mipmapped());
     }
 
     #[test]
     fn a_perspective_matrix_takes_the_branch_that_cannot_alias() {
         let m = Matrix::new_all(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.001, 0.0, 1.0);
-        assert_eq!(sampling_for(&m), mipmapped());
+        assert_eq!(true_pixels(&m), mipmapped());
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0186: the rule is the deliverable's, and a proxy trades one branch of it
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn a_proxy_reads_a_shrunk_raster_through_one_mip_level_and_nothing_else_moves() {
+        let mut turned = Matrix::new_identity();
+        turned.pre_rotate(30.0, None).pre_scale((0.58, 0.58), None);
+        let minified = [
+            Matrix::scale((0.3, 0.3)),
+            // The fixture's 1536×2720 stills on the 720p proxy of its 1080×1920 frame.
+            Matrix::scale((0.47, 0.47)),
+            Matrix::scale((0.999, 0.999)),
+            Matrix::scale((2.0, 0.5)),
+            turned,
+            Matrix::new_all(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.001, 0.0, 1.0),
+        ];
+        for m in minified {
+            assert_eq!(true_pixels(&m), mipmapped(), "true pixels at {m:?}");
+            assert_eq!(
+                sampling_for(&m, Fidelity::Proxy),
+                one_level(),
+                "a proxy at {m:?}"
+            );
+        }
+        let unchanged = [
+            Matrix::translate((37.0, -12.0)),
+            Matrix::translate((10.5, 0.0)),
+            Matrix::scale((1.001, 1.001)),
+            Matrix::scale((2.3, 2.3)),
+        ];
+        for m in unchanged {
+            assert_eq!(
+                sampling_for(&m, Fidelity::Proxy),
+                true_pixels(&m),
+                "at {m:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_a_scaled_canvas_and_its_layers_are_proxies() {
+        // The fidelity is the constructor's, never read off the scale: a true-pixel canvas
+        // is true pixels whatever its elements' `scale`, and a proxy's motion-blur layer
+        // samples like the proxy it is composited onto.
+        let true_pixels = Canvas::new(64, 36).expect("a surface");
+        assert_eq!(true_pixels.fidelity, Fidelity::True);
+        assert_eq!(
+            true_pixels.layer().expect("a layer").fidelity,
+            Fidelity::True
+        );
+        let proxy = Canvas::scaled(64, 36, (0.5, 0.5)).expect("a surface");
+        assert_eq!(proxy.fidelity, Fidelity::Proxy);
+        assert_eq!(proxy.layer().expect("a layer").fidelity, Fidelity::Proxy);
+    }
+
+    /// `sampling-shrunk`'s source (ADR-0132's golden): rings and hatching a few source
+    /// pixels wide, on transparency, supersampled 4×4 so the source itself is not aliased.
+    fn rings(size: u32) -> Raster {
+        const SUB: u32 = 4;
+        let c = f64::from(size) / 2.0;
+        let mut rgba = Vec::with_capacity((size * size * 4) as usize);
+        for py in 0..size {
+            for px in 0..size {
+                let (mut sum, mut covered) = ([0u32; 3], 0u32);
+                for sy in 0..SUB {
+                    for sx in 0..SUB {
+                        let x = f64::from(px) + (f64::from(sx) + 0.5) / f64::from(SUB);
+                        let y = f64::from(py) + (f64::from(sy) + 0.5) / f64::from(SUB);
+                        let r = ((x - c).powi(2) + (y - c).powi(2)).sqrt();
+                        if r > c * 0.95 {
+                            continue;
+                        }
+                        let ring = (r % 12.0) < 3.0;
+                        let hatch = ((x + y) % 10.0) < 2.0 && x < c;
+                        let rgb: [u8; 3] = if ring || hatch {
+                            [0x1E, 0x34, 0x4C]
+                        } else {
+                            [0xFB, 0xF3, 0xE3]
+                        };
+                        covered += 1;
+                        for k in 0..3 {
+                            sum[k] += u32::from(rgb[k]);
+                        }
+                    }
+                }
+                // Straight alpha, as `Raster::from_rgba` takes it.
+                for k in sum {
+                    rgba.push(k.checked_div(covered).unwrap_or(0) as u8);
+                }
+                rgba.push((covered * 255 / (SUB * SUB)) as u8);
+            }
+        }
+        Raster::from_rgba(&rgba, size, size).expect("a source")
+    }
+
+    /// The mean absolute channel difference between two same-sized RGBA buffers.
+    fn mean_delta(a: &[u8], b: &[u8]) -> f64 {
+        assert_eq!(a.len(), b.len());
+        let sum: u64 = a
+            .iter()
+            .zip(b)
+            .map(|(x, y)| u64::from(x.abs_diff(*y)))
+            .sum();
+        sum as f64 / a.len() as f64
+    }
+
+    #[test]
+    fn a_raster_shrunk_onto_a_proxy_reads_one_mip_level_and_stays_near_true_pixels() {
+        // The same 400 px source landing at ×0.3 on a 120 px device two ways: through an
+        // element `scale` on a true-pixel canvas, and through a proxy's base scale. The
+        // device matrix is the same, so only the canvas's fidelity can tell them apart.
+        const SIZE: u32 = 400;
+        const OUT: i64 = 120;
+        let source = rings(SIZE);
+        let extent = Extent {
+            width: f64::from(SIZE),
+            height: f64::from(SIZE),
+        };
+        let paint = |mut canvas: Canvas, at: Transform| {
+            canvas.background(Rgba([0xF2, 0xA6, 0x5A, 0xFF]));
+            canvas.raster(&source, extent, &at, None, &[]);
+            canvas.rgba().expect("the surface reads back")
+        };
+        let half = f64::from(SIZE) / 2.0;
+        let true_pixels = paint(
+            Canvas::new(OUT, OUT).expect("a surface"),
+            at(OUT as f64 / 2.0, OUT as f64 / 2.0, (0.3, 0.3), 0.0),
+        );
+        let proxy = paint(
+            Canvas::scaled(OUT, OUT, (0.3, 0.3)).expect("a surface"),
+            at(half, half, (1.0, 1.0), 0.0),
+        );
+
+        // The reference reads: the same draw straight onto a surface, under each sampler.
+        let direct = |sampling: SamplingOptions| {
+            let info = ImageInfo::new(
+                ISize::new(OUT as i32, OUT as i32),
+                ColorType::RGBA8888,
+                AlphaType::Premul,
+                None,
+            );
+            let mut surface = surfaces::raster(&info, None, None).expect("a surface");
+            let canvas = surface.canvas();
+            canvas.clear(Rgba([0xF2, 0xA6, 0x5A, 0xFF]).colour());
+            canvas.draw_image_rect_with_sampling_options(
+                &source.image,
+                None,
+                Rect::from_wh(OUT as f32, OUT as f32),
+                sampling,
+                &SkPaint::default(),
+            );
+            let mut out = Canvas {
+                surface,
+                width: OUT as i32,
+                height: OUT as i32,
+                base: (1.0, 1.0),
+                fidelity: Fidelity::True,
+            };
+            out.rgba().expect("the surface reads back")
+        };
+        let bilinear = direct(SamplingOptions::new(
+            skia_safe::FilterMode::Linear,
+            skia_safe::MipmapMode::None,
+        ));
+
+        // Each canvas reads with its own sampler, and the proxy's is the cheaper one.
+        assert!(mean_delta(&true_pixels, &direct(mipmapped())) < 0.05);
+        assert!(mean_delta(&proxy, &direct(one_level())) < 0.05);
+        assert_ne!(
+            proxy, true_pixels,
+            "the proxy read the same mip levels as true pixels"
+        );
+
+        // And the trade is bounded: one mip level stays far nearer the deliverable's read
+        // than no mipmaps at all, the sampling ADR-0132 retired.
+        let proxy_delta = mean_delta(&proxy, &true_pixels);
+        let bilinear_delta = mean_delta(&bilinear, &true_pixels);
+        eprintln!("one mip level: {proxy_delta:.3}; no mipmaps: {bilinear_delta:.3}");
+        assert!(
+            proxy_delta <= PROXY_MEAN_DELTA,
+            "a proxy's shrunk raster is {proxy_delta:.3} from true pixels, over \
+             {PROXY_MEAN_DELTA} (ADR-0186)"
+        );
+        assert!(
+            proxy_delta * 2.0 < bilinear_delta,
+            "one mip level ({proxy_delta:.3}) is no longer clearly better than none \
+             ({bilinear_delta:.3})"
+        );
     }
 
     #[test]

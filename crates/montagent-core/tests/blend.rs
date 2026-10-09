@@ -144,14 +144,23 @@ fn each_mode_paints_adr_0147s_table_for_an_opaque_source_over_an_opaque_backdrop
     // per channel on 0..255, rounded to the nearest byte. The backdrop's channels sit either
     // side of one half, so `overlay` takes both of its branches: red and blue multiply, green
     // screens.
-    let expected: [(&str, [u8; 3]); 5] = [
-        ("normal", [192, 64, 32]),
-        ("multiply", [48, 48, 12]),
-        ("screen", [208, 208, 116]),
-        ("overlay", [96, 161, 24]),
-        ("add", [255, 255, 128]),
+    //
+    // The third field is the per-channel tolerance, and only `overlay` has one. Skia's
+    // 8-bit raster pipeline ends each blend with `div255`, which is the correctly rounded
+    // `(v+127)/255` on NEON (aarch64) but the approximation `(v+255)/256` everywhere else,
+    // documented upstream as "never wrong by more than 1" (`SkRasterPipeline_opts.h`, m153).
+    // Overlay's green is `div255(255*255 - 2*(255-64)*(255-192)) = div255(40959)`: 161 on
+    // aarch64 and 160 on x86_64, either side of the exact 160.62. Every other byte in the
+    // table lands on the same value under both divides, so they stay exact; a change there
+    // is not this rounding.
+    let expected: [(&str, [u8; 3], u8); 5] = [
+        ("normal", [192, 64, 32], 0),
+        ("multiply", [48, 48, 12], 0),
+        ("screen", [208, 208, 116], 0),
+        ("overlay", [96, 161, 24], 1),
+        ("add", [255, 255, 128], 0),
     ];
-    for (mode, rgb) in expected {
+    for (mode, rgb, tolerance) in expected {
         let picture = painted(
             &project(&[
                 rect("backdrop", "#40C060", json!({})),
@@ -159,7 +168,13 @@ fn each_mode_paints_adr_0147s_table_for_an_opaque_source_over_an_opaque_backdrop
             ]),
             0,
         );
-        assert_eq!(pixel(&picture, 32, 24), rgb, "{mode}");
+        let got = pixel(&picture, 32, 24);
+        assert!(
+            got.iter()
+                .zip(rgb)
+                .all(|(&got, want)| got.abs_diff(want) <= tolerance),
+            "{mode}: painted {got:?}, ADR-0147's table says {rgb:?} (tolerance {tolerance})"
+        );
     }
 }
 

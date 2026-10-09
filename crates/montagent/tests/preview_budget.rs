@@ -15,8 +15,11 @@
 //!
 //! **What a failure here means.** Not "the machine is slow": the budget sits against
 //! measurements of 2.68 s (4K) and 3.78 s (8K) at this target, and the fixture is 1080×1920
-//! — comfortably inside. A miss is either a real regression in the paint path or a claim in
-//! ADR-0065 that no longer holds, and both are worth stopping for. Note also that the verb
+//! — comfortably inside. Those two were measured with bilinear sampling and no mipmaps; the
+//! proxy now reads a shrunk image through one mip level, which ADR-0186 adopted after #552's
+//! trilinear read took this test past the budget on every CI leg. A miss is either a real
+//! regression in the paint path or a claim in ADR-0065 that no longer holds, and both are
+//! worth stopping for. Note also that the verb
 //! itself would have degraded to 540p before it returned; this test asserts the tier it
 //! actually came back at, so a pass that was bought by degrading is not read as a pass.
 //!

@@ -500,11 +500,7 @@ pub fn preview_cancellable(
             ffmpeg: &ffmpeg,
             background,
             declared: (width, height),
-            surface: Surface {
-                width: frame.width,
-                height: frame.height,
-                scale: frame.scale(width, height),
-            },
+            surface: Surface::rung(frame, width, height),
             fps,
             from,
             to,
