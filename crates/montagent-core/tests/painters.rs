@@ -115,6 +115,12 @@ fn assert_same(one: &Rendered, other: &Rendered, what: &str) {
         .collect();
     assert!(differ.is_empty(), "{what}: frames {differ:?} differ");
     assert_eq!(one.comparable(), other.comparable(), "{what}: the answer");
+    // The Windows diagnostic: keeps a differing pair where CI asked for it, else nothing.
+    common::keep_differing_mp4s(
+        &format!("painters-{what}"),
+        one.mp4.as_deref(),
+        other.mp4.as_deref(),
+    );
     assert!(
         one.mp4 == other.mp4,
         "{what}: the MP4s differ while every frame at the encoder's input is equal"

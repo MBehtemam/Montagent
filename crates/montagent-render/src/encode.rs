@@ -106,6 +106,57 @@ impl Settings {
     }
 }
 
+/// Extra `ffmpeg` arguments for one diagnostic test, in three fixed places of the encode's
+/// command line. **Test-only and inert by default**: nothing in the product sets it, no
+/// project field, flag, environment variable or MCP parameter reaches it, and an encode
+/// started on a thread that never called [`force_extra_args`] gets exactly the ADR-0143
+/// command line.
+///
+/// It exists to tell *where* the x64 Windows runner's intermittent MP4 byte difference
+/// comes from (equal frames in, different bytes out): each diagnostic variant pins one
+/// more part of `ffmpeg` (filter threads, the auto-inserted `rgb24` to `yuv420p`
+/// conversion, x264's own threading and asm, the frame-rate sync), and the variant that
+/// stops the difference names the part.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ExtraArgs {
+    /// After `-y`, before any input: global options (`-filter_threads`, `-cpuflags`).
+    pub global: &'static [&'static str],
+    /// Among the raw video input's options, immediately before `-i pipe:0`.
+    pub input: &'static [&'static str],
+    /// After the encoder settings, `-pix_fmt` and `-r`, before the audio map and the
+    /// output file: output options (`-x264-params`, `-sws_flags`, `-fps_mode`).
+    pub output: &'static [&'static str],
+    /// Leave out the output `-r`, which `ffmpeg` refuses beside `-fps_mode passthrough`.
+    pub omit_output_rate: bool,
+}
+
+thread_local! {
+    static EXTRA: std::cell::Cell<Option<ExtraArgs>> = const { std::cell::Cell::new(None) };
+}
+
+/// Add `extra` to every encode started on this thread until the guard drops.
+///
+/// `#[doc(hidden)]`, for the Windows determinism diagnostic only (see [`ExtraArgs`]).
+#[doc(hidden)]
+pub fn force_extra_args(extra: ExtraArgs) -> ForcedExtraArgs {
+    let before = EXTRA.with(|cell| cell.replace(Some(extra)));
+    ForcedExtraArgs { before }
+}
+
+/// Restores the thread's previous [`ExtraArgs`] (normally none) on drop.
+#[doc(hidden)]
+#[must_use = "the extra arguments last as long as the guard"]
+pub struct ForcedExtraArgs {
+    before: Option<ExtraArgs>,
+}
+
+impl Drop for ForcedExtraArgs {
+    fn drop(&mut self) {
+        EXTRA.with(|cell| cell.set(self.before));
+    }
+}
+
 /// What one encode is asked to produce.
 #[derive(Debug, Clone)]
 pub struct Spec {
@@ -263,8 +314,11 @@ impl Encoder {
             None => None,
         };
 
+        // Empty unless a diagnostic test asked for more on this thread ([`ExtraArgs`]).
+        let extra = EXTRA.with(std::cell::Cell::get).unwrap_or_default();
         let mut command = Command::new(ffmpeg);
         command.args(["-hide_banner", "-loglevel", "error", "-y"]);
+        command.args(extra.global);
         command.args([
             "-f",
             "rawvideo",
@@ -274,9 +328,9 @@ impl Encoder {
             &format!("{}x{}", spec.width, spec.height),
             "-r",
             &spec.fps.to_string(),
-            "-i",
-            "pipe:0",
         ]);
+        command.args(extra.input);
+        command.args(["-i", "pipe:0"]);
         if let Some(audio) = &spec.audio {
             for input in &audio.inputs {
                 command.arg("-i").arg(input);
@@ -295,7 +349,11 @@ impl Encoder {
             ]);
         }
         command.args(spec.settings.args());
-        command.args(["-pix_fmt", "yuv420p", "-r", &spec.fps.to_string()]);
+        command.args(["-pix_fmt", "yuv420p"]);
+        if !extra.omit_output_rate {
+            command.args(["-r", &spec.fps.to_string()]);
+        }
+        command.args(extra.output);
         if spec.audio.is_some() {
             command.args(["-map", "[mix]", "-c:a", "aac", "-b:a", "160k"]);
         } else {

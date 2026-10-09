@@ -520,6 +520,12 @@ fn keyed_spacing_paints_the_same_frames_on_k_painters() {
             window_bytes: None,
         });
         assert_eq!(one, many, "K={painters}, C={chunk}: frames differ");
+        // The Windows diagnostic: keeps a differing pair where CI asked for it, else nothing.
+        common::keep_differing_mp4s(
+            &format!("letter-spacing-K{painters}-C{chunk}"),
+            one_mp4.as_deref(),
+            many_mp4.as_deref(),
+        );
         assert!(
             one_mp4 == many_mp4,
             "K={painters}, C={chunk}: the MP4s differ"

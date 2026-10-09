@@ -58,6 +58,40 @@ pub fn has_ffprobe() -> bool {
     }
 }
 
+/// Where two MP4s that should be byte-equal and are not get kept for a later diff, if the
+/// environment names a directory in `MONTAGENT_KEEP_FAILED_MP4_DIR`.
+///
+/// A diagnostic for the x64 Windows runner's intermittent MP4 byte difference (equal frames
+/// at the encoder's input, different bytes out): CI uploads the directory, so the pair can
+/// be read with `ffprobe -show_packets` and `-f framemd5` afterwards. Unset — everywhere but
+/// that CI step — or empty, it does nothing. Equal or missing files are not written.
+pub fn keep_differing_mp4s(what: &str, one: Option<&[u8]>, other: Option<&[u8]>) {
+    let Some(dir) = std::env::var_os("MONTAGENT_KEEP_FAILED_MP4_DIR").filter(|d| !d.is_empty())
+    else {
+        return;
+    };
+    let (Some(one), Some(other)) = (one, other) else {
+        return;
+    };
+    if one == other {
+        return;
+    }
+    let dir = PathBuf::from(dir);
+    let _ = std::fs::create_dir_all(&dir);
+    let name: String = what
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let stem = format!("{name}-pid{}", std::process::id());
+    for (side, bytes) in [("a", one), ("b", other)] {
+        let path = dir.join(format!("{stem}-{side}.mp4"));
+        match std::fs::write(&path, bytes) {
+            Ok(()) => eprintln!("kept {} ({} bytes)", path.display(), bytes.len()),
+            Err(e) => eprintln!("could not keep {}: {e}", path.display()),
+        }
+    }
+}
+
 /// A path rendered with `/` separators, so a tail can be compared to one.
 ///
 /// The project format writes `audio/05-cobweb.mp3`. A *resolved* path is the

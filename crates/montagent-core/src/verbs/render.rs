@@ -934,6 +934,34 @@ impl Painted {
     }
 }
 
+thread_local! {
+    static ENCODER: std::cell::Cell<Option<encode::Settings>> = const { std::cell::Cell::new(None) };
+}
+
+/// Encode this thread's spans with `settings` in place of [`encode::Settings::PRODUCTION`],
+/// until the guard drops.
+///
+/// `#[doc(hidden)]`, for the tests: ADR-0143 §5's *"tests that need another thread count
+/// build their own `encode::Settings`"*. No project field, flag or MCP parameter reaches it,
+/// and the answer discloses whatever was used, as it does for production.
+#[doc(hidden)]
+#[must_use = "the settings last as long as the guard"]
+pub struct ForcedEncoder {
+    before: Option<encode::Settings>,
+}
+
+#[doc(hidden)]
+pub fn force_encoder(settings: encode::Settings) -> ForcedEncoder {
+    let before = ENCODER.with(|cell| cell.replace(Some(settings)));
+    ForcedEncoder { before }
+}
+
+impl Drop for ForcedEncoder {
+    fn drop(&mut self) {
+        ENCODER.with(|cell| cell.set(self.before));
+    }
+}
+
 /// Paint every frame of `span` through [`Painter`] and push it to the encoder.
 ///
 /// **One painter, one pass, one order, for every verb that paints a span.** ADR-0021's
@@ -990,7 +1018,10 @@ pub(crate) fn encode_span(
             audio: mix.audio,
             stamp: span.stamp.clone(),
             // ADR-0143: one set, never a field of the project or an option of the caller.
-            settings: encode::Settings::PRODUCTION,
+            // Only a test's `force_encoder` on this thread replaces it (§5).
+            settings: ENCODER
+                .with(std::cell::Cell::get)
+                .unwrap_or(encode::Settings::PRODUCTION),
         },
     ) {
         Ok(encoder) => encoder,
