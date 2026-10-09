@@ -62,6 +62,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # All six *shipped* targets, which is one more than the suite tests.
+          # ADR-0188 took `x86_64-apple-darwin` out of the suite but `release.yml`
+          # still builds its archive, and that build needs this prebuilt as much as
+          # any other. A cold build of one crate, daily, with no tests, is cheap
+          # enough to keep.
           - target: aarch64-apple-darwin
             os: macos-15
           - target: x86_64-apple-darwin

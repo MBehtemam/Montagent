@@ -130,8 +130,8 @@ sha2 = "=0.10.9"
 # against a cold build's log (#36).
 prebuilt-key = "jpegd-jpege-pdf"
 
-# The six desktop tier-1 targets ADR-0064 commits to. The suite runs on all of
-# them; the canary resolves the prebuilt on all of them.
+# The six desktop targets ADR-0064 ships. `release.yml` builds an archive for
+# each, and the canary resolves the prebuilt on all of them.
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
@@ -140,3 +140,8 @@ targets = [
     "aarch64-pc-windows-msvc",
     "x86_64-pc-windows-msvc",
 ]
+
+# Shipped but not tested (ADR-0188): `ci.yml` builds these in its `build-only`
+# job — Clippy and the release binary, no tests — instead of running the suite
+# on them. Every other target above is a tier-1 test target.
+build-only-targets = ["x86_64-apple-darwin"]

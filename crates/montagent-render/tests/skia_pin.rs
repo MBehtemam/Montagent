@@ -377,19 +377,33 @@ fn the_single_pin_guard_looks_inside_target_specific_tables() {
     );
 }
 
-/// ADR-0064 commits to all six desktop tier-1 targets, and #189 requires the
-/// suite to run on every one of them. The list is recorded beside the pin
-/// because the canary and the suite must agree about what "all six" means.
-#[test]
-fn the_target_matrix_is_adr_0064s_six() {
-    let manifest = workspace_manifest();
-    let declared: BTreeSet<String> = manifest["workspace"]["metadata"]["skia"]["targets"]
+/// `[workspace.metadata.skia] <key>`, as a set of target triples.
+fn metadata_targets(key: &str) -> BTreeSet<String> {
+    workspace_manifest()["workspace"]["metadata"]["skia"][key]
         .as_array()
-        .expect("workspace.metadata.skia.targets is recorded")
+        .unwrap_or_else(|| panic!("workspace.metadata.skia.{key} is recorded"))
         .iter()
         .map(|v| v.as_str().expect("a target is a string").to_string())
-        .collect();
+        .collect()
+}
 
+/// ADR-0064's six shipped targets: every target a release builds an archive for
+/// and the canary resolves the prebuilt on.
+fn shipped_targets() -> BTreeSet<String> {
+    metadata_targets("targets")
+}
+
+/// ADR-0188's build-only targets: shipped, built by `ci.yml`, never tested.
+fn build_only_targets() -> BTreeSet<String> {
+    metadata_targets("build-only-targets")
+}
+
+/// ADR-0064 ships all six desktop tier-1 targets, and the list is recorded beside
+/// the pin because the release, the canary and `ci.yml` must agree about what
+/// "all six" means. ADR-0188 stopped *testing* one of them, not shipping it, so
+/// this list is still the six.
+#[test]
+fn the_target_matrix_is_adr_0064s_six() {
     let expected: BTreeSet<String> = ["apple-darwin", "unknown-linux-gnu", "pc-windows-msvc"]
         .iter()
         .flat_map(|sys| {
@@ -400,12 +414,89 @@ fn the_target_matrix_is_adr_0064s_six() {
         .collect();
 
     assert_eq!(
-        declared, expected,
+        shipped_targets(),
+        expected,
         "ADR-0064's matrix is {{aarch64, x86_64}} x {{apple-darwin, unknown-linux-gnu, pc-windows-msvc}}"
     );
 }
 
-/// Every `- target: <triple>` / `os: <label>` pair a workflow declares, in
+/// ADR-0188 takes exactly one target out of the suite: Intel macOS. The suite runs
+/// on the other five. Stated as literal sets so that moving a second target to
+/// build-only, or dropping one from the suite outright, fails here and has to be
+/// its own decision.
+#[test]
+fn the_tested_targets_are_adr_0188s_five() {
+    let build_only = build_only_targets();
+    assert_eq!(
+        build_only,
+        BTreeSet::from(["x86_64-apple-darwin".to_string()]),
+        "ADR-0188 takes exactly `x86_64-apple-darwin` out of the suite; another target \
+         leaving it is another ADR"
+    );
+    assert!(
+        build_only.is_subset(&shipped_targets()),
+        "a build-only target is still a shipped target (ADR-0188)"
+    );
+
+    let tested: BTreeSet<String> = shipped_targets().difference(&build_only).cloned().collect();
+    let expected: BTreeSet<String> = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-pc-windows-msvc",
+        "x86_64-pc-windows-msvc",
+    ]
+    .iter()
+    .map(|t| t.to_string())
+    .collect();
+    assert_eq!(
+        tested, expected,
+        "ADR-0188's tier-1 test targets are these five"
+    );
+}
+
+/// The jobs under a workflow's `jobs:`, each as `(id, its own lines)`. Parsed by
+/// shape rather than as YAML, like [`matrix_entries`]: a job starts at a key
+/// indented exactly two spaces and runs to the next one.
+fn jobs(text: &str) -> Vec<(String, String)> {
+    let mut found: Vec<(String, String)> = Vec::new();
+    let mut in_jobs = false;
+    for line in text.lines() {
+        if !line.starts_with(' ') && !line.trim().is_empty() && !line.starts_with('#') {
+            in_jobs = line.trim_end() == "jobs:";
+            continue;
+        }
+        if !in_jobs {
+            continue;
+        }
+        let is_job_key = line.starts_with("  ")
+            && !line[2..].starts_with([' ', '#'])
+            && line.trim_end().ends_with(':');
+        if is_job_key {
+            let id = line.trim().trim_end_matches(':').to_string();
+            found.push((id, String::new()));
+        } else if let Some((_, body)) = found.last_mut() {
+            body.push_str(line);
+            body.push('\n');
+        }
+    }
+    found
+}
+
+/// One workflow's jobs, read from disk.
+fn workflow_jobs(workflow: &str) -> Vec<(String, String)> {
+    let path = repo_root().join(".github/workflows").join(workflow);
+    let text = fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("{workflow} must exist for #189 to be done: {e}"));
+    let found = jobs(&text);
+    assert!(
+        !found.is_empty(),
+        "{workflow}: the job sweep found nothing, which means it is broken"
+    );
+    found
+}
+
+/// Every `- target: <triple>` / `os: <label>` pair a job declares, in
 /// order. Parsed by shape rather than as YAML so the test needs no dependency
 /// for something this regular.
 fn matrix_entries(text: &str) -> Vec<(String, String)> {
@@ -424,99 +515,230 @@ fn matrix_entries(text: &str) -> Vec<(String, String)> {
     entries
 }
 
-/// Both workflows cover every target, on the same runner. A target that is in
-/// the pin but in neither matrix is a target nobody is checking; a target the
-/// two workflows run on *different* runners is a suite and a canary that are no
-/// longer answering about the same machine.
+/// The job's own `name:`, the one indented four spaces — not a step's or an
+/// action input's, which sit deeper.
+fn job_name(body: &str) -> Option<String> {
+    body.lines().find_map(|line| {
+        line.strip_prefix("    name:")
+            .map(|rest| rest.trim().to_string())
+    })
+}
+
+/// The job sweep sees every job, including one whose key follows a comment, and
+/// stops at the next top-level key.
+#[test]
+fn the_job_sweep_splits_a_workflow_into_its_jobs() {
+    let text = "\
+name: x
+jobs:
+  first:
+    name: ${{ matrix.target }}
+    strategy:
+      matrix:
+        include:
+          - target: a
+            os: one
+    steps:
+      - name: a step ${{ matrix.target }}
+  # a comment
+  second-job:
+    name: other
+env:
+  K: v
+";
+    let found = jobs(text);
+    let ids: Vec<&str> = found.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(ids, ["first", "second-job"]);
+    assert_eq!(
+        matrix_entries(&found[0].1),
+        [("a".to_string(), "one".to_string())]
+    );
+    assert_eq!(
+        job_name(&found[0].1).as_deref(),
+        Some("${{ matrix.target }}")
+    );
+    assert!(!found[1].1.contains("K: v"), "the sweep ran past `jobs:`");
+}
+
+/// Each workflow covers exactly the targets it is meant to, and every workflow
+/// runs a given target on the same runner.
+///
+/// - `ci.yml`'s `suite` runs on the five test targets and **only** those
+///   (ADR-0188); its `build-only` job builds the build-only targets and **only**
+///   those. No other `ci.yml` job carries a target matrix.
+/// - `skia-canary.yml` resolves the prebuilt on all six shipped targets.
+/// - `release.yml` builds all six: shipping is not testing (ADR-0188).
+///
+/// A target that is in the pin but in no matrix is a target nobody is checking; a
+/// target two workflows run on *different* runners is a suite, a canary and a
+/// release that are no longer answering about the same machine.
 ///
 /// What this cannot check is whether a runner label still exists — GitHub
 /// retires images, and a retired label fails to schedule rather than failing a
-/// test. Keeping the two files in lockstep at least means a retirement is one
-/// decision rather than two, and cannot be half-applied.
+/// test. Keeping the files in lockstep at least means a retirement is one
+/// decision rather than three, and cannot be half-applied.
 #[test]
 fn both_workflows_cover_every_target_on_the_same_runner() {
-    let root = repo_root();
-    let manifest = workspace_manifest();
-    let targets: BTreeSet<String> = manifest["workspace"]["metadata"]["skia"]["targets"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_str().unwrap().to_string())
-        .collect();
+    let shipped = shipped_targets();
+    let build_only = build_only_targets();
+    let tested: BTreeSet<String> = shipped.difference(&build_only).cloned().collect();
 
-    let mut seen: Vec<(&str, Vec<(String, String)>)> = Vec::new();
-    for workflow in ["ci.yml", "skia-canary.yml"] {
-        let path = root.join(".github/workflows").join(workflow);
-        let text = fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("{workflow} must exist for #189 to be done: {e}"));
-        let entries = matrix_entries(&text);
+    // (workflow, job, the targets that job must cover, exactly, and why)
+    let expected: [(&str, &str, &BTreeSet<String>, &str); 4] = [
+        (
+            "ci.yml",
+            "suite",
+            &tested,
+            "the suite runs on ADR-0188's five test targets, no more and no fewer",
+        ),
+        (
+            "ci.yml",
+            "build-only",
+            &build_only,
+            "the build-only job builds exactly ADR-0188's build-only targets",
+        ),
+        (
+            "skia-canary.yml",
+            "prebuilt",
+            &shipped,
+            "the canary resolves the prebuilt on all six shipped targets (#36)",
+        ),
+        (
+            "release.yml",
+            "build",
+            &shipped,
+            "a release ships all six of ADR-0064's targets",
+        ),
+    ];
+
+    for workflow in ["ci.yml", "skia-canary.yml", "release.yml"] {
+        let with_matrix: BTreeSet<String> = workflow_jobs(workflow)
+            .iter()
+            .filter(|(_, body)| !matrix_entries(body).is_empty())
+            .map(|(id, _)| id.clone())
+            .collect();
+        let meant: BTreeSet<String> = expected
+            .iter()
+            .filter(|(w, ..)| *w == workflow)
+            .map(|(_, job, ..)| job.to_string())
+            .collect();
+        assert_eq!(
+            with_matrix, meant,
+            "{workflow}: the jobs with a target matrix are not the ones this test holds \
+             to a target set"
+        );
+    }
+
+    let mut runner_of: HashMap<String, (String, String)> = HashMap::new();
+    for (workflow, job, targets, why) in expected {
+        let jobs = workflow_jobs(workflow);
+        let body = &jobs
+            .iter()
+            .find(|(id, _)| id == job)
+            .unwrap_or_else(|| panic!("{workflow} has no `{job}` job"))
+            .1;
+        let entries = matrix_entries(body);
 
         let covered: BTreeSet<String> = entries.iter().map(|(t, _)| t.clone()).collect();
         assert_eq!(
-            covered, targets,
-            "{workflow}'s matrix is not ADR-0064's six targets; the suite and the canary \
-             both run on all six (#36)"
+            entries.len(),
+            covered.len(),
+            "{workflow} `{job}` lists a target twice"
         );
+        assert_eq!(&covered, targets, "{workflow} `{job}`: {why}");
+
         for (target, os) in &entries {
             assert!(
                 !os.is_empty() && !os.contains("${{"),
-                "{workflow}: {target} has no literal runner label"
+                "{workflow} `{job}`: {target} has no literal runner label"
             );
+            let here = format!("{workflow} `{job}`");
+            match runner_of.get(target) {
+                Some((there, other)) => assert_eq!(
+                    os, other,
+                    "{here} runs {target} on {os} but {there} runs it on {other}; the suite, \
+                     the canary and the release must answer about the same machine"
+                ),
+                None => {
+                    runner_of.insert(target.clone(), (here, os.clone()));
+                }
+            }
         }
-        seen.push((workflow, entries));
-    }
-
-    let (first_name, first) = &seen[0];
-    let (second_name, second) = &seen[1];
-    for (target, os) in first {
-        let other = second
-            .iter()
-            .find(|(t, _)| t == target)
-            .map(|(_, os)| os.as_str())
-            .unwrap_or("<missing>");
-        assert_eq!(
-            os, other,
-            "{first_name} runs {target} on {os} but {second_name} runs it on {other}; \
-             the suite and the canary must answer about the same machine"
-        );
     }
 }
 
-/// The two workflows do not report check runs under the same name.
+/// Every per-target check run `ci.yml` and the canary report has a name of its
+/// own.
 ///
 /// GitHub matches a required status check **by name**, so while both workflows
 /// named their matrix jobs `${{ matrix.target }}`, a branch-protection rule
 /// could not tell "the suite passed on `aarch64-apple-darwin`" from "the
 /// prebuilt resolved on `aarch64-apple-darwin`" — six names, two producers each,
 /// and the canary's success able to stand in for the suite's. Only `ci.yml`'s
-/// legs are required, so the canary's are prefixed.
+/// suite legs are required, so the canary's are prefixed. ADR-0188's build-only
+/// leg is the same hazard a third way: "`x86_64-apple-darwin` built" must never
+/// be able to satisfy a requirement meant for "`x86_64-apple-darwin` passed the
+/// suite".
+///
+/// So each job's name is expanded per target and every resulting name must have
+/// exactly one producer. The suite keeps the bare `<target>` names, because those
+/// are what branch protection requires, and no other job may report a bare
+/// triple, even one the suite has stopped running.
 ///
 /// This is a property of the *names*, which is why a test can hold it: the
 /// collision was invisible in both files read separately and obvious the moment
 /// the check runs on one commit were listed together.
 #[test]
-fn the_two_workflows_report_under_distinct_check_names() {
-    let root = repo_root();
-    let job_name = |workflow: &str| -> String {
-        let text = fs::read_to_string(root.join(".github/workflows").join(workflow))
-            .unwrap_or_else(|e| panic!("{workflow}: {e}"));
-        text.lines()
-            .find_map(|line| {
-                let line = line.trim();
-                line.strip_prefix("name:")
-                    .filter(|rest| rest.contains("matrix.target"))
-                    .map(|rest| rest.trim().to_string())
-            })
-            .unwrap_or_else(|| panic!("{workflow} has no per-target job name"))
-    };
-
-    let suite = job_name("ci.yml");
-    let canary = job_name("skia-canary.yml");
-    assert_ne!(
-        suite, canary,
-        "both workflows would report their per-target check runs as {suite:?}, and a \
-         branch-protection rule matches a required check by name: the canary's result \
-         could satisfy a requirement meant for the suite."
+fn every_per_target_check_name_is_unique() {
+    let shipped = shipped_targets();
+    let mut producer_of: HashMap<String, String> = HashMap::new();
+    let mut jobs_seen = 0;
+    for workflow in ["ci.yml", "skia-canary.yml"] {
+        for (job, body) in workflow_jobs(workflow) {
+            let entries = matrix_entries(&body);
+            if entries.is_empty() {
+                continue;
+            }
+            jobs_seen += 1;
+            let template =
+                job_name(&body).unwrap_or_else(|| panic!("{workflow} `{job}` has no job name"));
+            assert!(
+                template.contains("${{ matrix.target }}"),
+                "{workflow} `{job}`'s name {template:?} does not name its target, so its \
+                 legs would share one check name"
+            );
+            if workflow == "ci.yml" && job == "suite" {
+                assert_eq!(
+                    template, "${{ matrix.target }}",
+                    "the suite's check names are branch protection's required checks; \
+                     renaming them is a change to that contract"
+                );
+            }
+            for (target, _) in entries {
+                let name = template.replace("${{ matrix.target }}", &target);
+                let here = format!("{workflow} `{job}`");
+                // A bare triple is the suite's name even for a target the suite no
+                // longer runs: branch protection that still requires
+                // `x86_64-apple-darwin` must not be satisfied by a build-only leg.
+                assert!(
+                    (workflow == "ci.yml" && job == "suite") || !shipped.contains(&name),
+                    "{here} reports a check run named {name:?}, a bare target triple, which \
+                     is the suite's name; a required check by that name would be satisfied \
+                     by a job that is not the suite"
+                );
+                if let Some(there) = producer_of.insert(name.clone(), here.clone()) {
+                    panic!(
+                        "{here} and {there} both report a check run named {name:?}, and a \
+                         branch-protection rule matches a required check by name: one's \
+                         result could satisfy a requirement meant for the other."
+                    );
+                }
+            }
+        }
+    }
+    assert_eq!(
+        jobs_seen, 3,
+        "expected three per-target jobs (the suite, the build-only job, the canary)"
     );
 }
 
