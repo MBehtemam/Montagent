@@ -13,6 +13,10 @@
 > a pre-release tag (`-` in it) is a draft that never reaches crates.io, and `cargo publish`
 > runs after the release.
 
+> **Amended by [ADR-0188](./0188-intel-macos-is-shipped-and-built-in-ci-but-is-no-longer-a-tier-1-test-target.md)**: Intel macOS (`x86_64-apple-darwin`)
+> is no longer a tier-1 **test** target. The suite runs on the other five; Intel macOS gets a
+> build-only CI leg (Clippy and the release build, no tests). Releases still ship all six.
+
 ## Status
 
 Accepted

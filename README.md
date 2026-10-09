@@ -29,7 +29,9 @@ cargo install montagent
 or download a prebuilt binary for your platform from the
 [Releases page](https://github.com/MBehtemam/Montagent/releases) and put it on your
 `PATH`. Six desktop targets are built: macOS, Linux and Windows, each for `x86_64` and
-`aarch64`.
+`aarch64`. CI runs the test suite on five of them. Intel macOS (`x86_64-apple-darwin`) is
+still built and released, and CI checks that it builds, but its tests are not run
+(ADR-0188).
 
 You'll also need `ffmpeg` on `PATH`: **7.1 or newer, built with `libx264`** (ADR-0115).
 Ubuntu 24.04's apt ships 6.1, which is below that; use a static build or a newer

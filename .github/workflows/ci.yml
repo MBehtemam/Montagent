@@ -1,4 +1,6 @@
-# The suite, on all six desktop tier-1 targets (ADR-0064, #189).
+# The suite, on the five tier-1 test targets (ADR-0064, #189, ADR-0188), and a
+# build-only leg for the sixth shipped target, Intel macOS, whose builds are
+# checked and whose tests are not run (ADR-0188).
 #
 # This is the per-PR job. It is deliberately *not* the Skia prebuilt canary:
 # this one caches, and a cached job structurally cannot see the failure #36 is
@@ -26,23 +28,24 @@ env:
 jobs:
   suite:
     # This name is the branch-protection contract: `<target>`, one per leg of
-    # ADR-0064's six, plus `committed checks`. `check_names_do_not_collide` in
-    # `skia_pin.rs` keeps it distinct from the canary's.
+    # the five tier-1 test targets (ADR-0188), plus `build only <target>` for the
+    # build-only leg below and `committed checks`.
+    # `every_per_target_check_name_is_unique` in `skia_pin.rs` keeps all of them
+    # distinct from each other and from the canary's.
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # ADR-0064 commits to {aarch64, x86_64} x {apple-darwin,
-          # unknown-linux-gnu, pc-windows-msvc}. Every entry is a *native*
-          # runner: a cross-compiled job would resolve the prebuilt for the
-          # target but could not run the oracle, and the oracle is the half of
-          # this suite that looks at pixels.
+          # ADR-0064 ships {aarch64, x86_64} x {apple-darwin,
+          # unknown-linux-gnu, pc-windows-msvc}; ADR-0188 tests five of them.
+          # `x86_64-apple-darwin` is not here: it is the `build-only` job below.
+          # Every entry is a *native* runner: a cross-compiled job would resolve
+          # the prebuilt for the target but could not run the oracle, and the
+          # oracle is the half of this suite that looks at pixels.
           - target: aarch64-apple-darwin
             os: macos-15
-          - target: x86_64-apple-darwin
-            os: macos-15-intel
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
           - target: x86_64-unknown-linux-gnu
@@ -205,7 +208,8 @@ jobs:
       # the Ken Burns check does — it needs something the build produced — but unlike that
       # one it runs on *every* leg, because the answer is a fact about the target: the six
       # archives differ in their font-manager ports, and a future one could differ in what
-      # it vendors. `committed checks` runs the other half, which needs no Skia at all.
+      # it vendors. The `build-only` leg runs it too, for the sixth. `committed checks`
+      # runs the other half, which needs no Skia at all.
       - name: THIRD-PARTY.md still describes what the prebuilt vendors (#359)
         run: python3 ci/assert_third_party_attribution.py --prebuilt-only
 
@@ -216,8 +220,8 @@ jobs:
       # rather than in `committed
       # checks` because it needs a built `montagent` and that job deliberately
       # has no Skia in it; it is pinned to one leg because the answer is a fact
-      # about the published video, not about the target, and running it six
-      # times would be six copies of one measurement.
+      # about the published video, not about the target, and running it five
+      # times would be five copies of one measurement.
       #
       # `--binary` rather than letting the script `cargo run`: this leg has just
       # built the workspace for `--target`, and a bare `cargo run` would ignore
@@ -236,7 +240,7 @@ jobs:
       # that. This is the check that would have caught it, and it now runs on every
       # push instead of on the day of the first tag. Pinned to one leg: the answer is
       # a fact about the manifests and the dependency graph, not about the target,
-      # and six copies of it would be six copies of one measurement — same reasoning
+      # and five copies of it would be five copies of one measurement — same reasoning
       # as the Ken Burns check above.
       #
       # `--dry-run` only: nothing here ever uploads. `--allow-dirty` is not passed —
@@ -245,6 +249,59 @@ jobs:
       - name: cargo publish --workspace still dry-runs clean (#361, #366)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: cargo publish --workspace --dry-run --locked
+
+  build-only:
+    # ADR-0188: Intel macOS is shipped (`release.yml` still builds and signs its
+    # archive) but is no longer a tier-1 *test* target. This leg checks that the
+    # code still builds for it — Clippy over every target, the release binary
+    # exactly as `release.yml` builds it, and the prebuilt's attribution — and
+    # nothing more. **Builds are checked, tests are not run**: no `cargo test`, no
+    # oracle, no ffmpeg, no budgets. A green check here says the binary links, not
+    # that it works.
+    #
+    # The name is part of the branch-protection contract: `build only <target>`,
+    # distinct from the suite's bare `<target>` and from the canary's
+    # `canary <target>`, so a required check cannot be satisfied by the wrong
+    # producer (`every_per_target_check_name_is_unique` in `skia_pin.rs`).
+    #
+    # Native, on the same runner `release.yml` and the canary use for this target,
+    # so the three answer about the same machine (`skia_pin.rs` holds them to it).
+    name: build only ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+          targets: ${{ matrix.target }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Type-checks the tests and benches as well as the library code, so a
+      # `cfg`-gated break in test code on this target is still caught. It compiles
+      # them; it does not run them.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --target ${{ matrix.target }} -- -D warnings
+
+      # The same command `release.yml`'s build job runs for this target, so a tag
+      # cannot be the first place the shipped binary fails to link.
+      - name: Build montagent (no tests are run)
+        run: cargo build --release --locked --target ${{ matrix.target }} -p montagent
+
+      - name: THIRD-PARTY.md still describes what the prebuilt vendors (#359)
+        run: python3 ci/assert_third_party_attribution.py --prebuilt-only
 
   checks:
     # Formatting and the committed re-executable checks `docs/agents/domain.md`

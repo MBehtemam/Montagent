@@ -273,7 +273,7 @@ fn the_container_is_the_wrong_axis_and_reading_it_would_move_the_answer() {
 ///
 /// Spec #168 calls this the only test of #216, so "skips under `cargo test`" would be a
 /// real hole — `.github/workflows/ci.yml` runs `cargo test --workspace --all-targets
-/// --release` on all six tier-1 targets, which is where this one fires.
+/// --release` on the five tier-1 test targets (ADR-0188), which is where this one fires.
 #[test]
 fn the_whole_fixture_is_compared_against_the_published_video() {
     if !has_ffprobe() {

@@ -1,5 +1,5 @@
-# Cuts a GitHub Release for a `v*` tag: one `montagent` binary per desktop tier-1 target
-# (ADR-0064), the two macOS ones signed and notarized before anything is published
+# Cuts a GitHub Release for a `v*` tag: one `montagent` binary per shipped desktop target
+# (ADR-0064's six), the two macOS ones signed and notarized before anything is published
 # (ADR-0139), a `SHA256SUMS` file over all of them, and — when a crates.io token is
 # configured — `cargo publish` of the four workspace crates in dependency order.
 #
@@ -7,7 +7,9 @@
 # and never reaches crates.io, so the whole pipeline can be exercised without a public
 # release or an irreversible publish.
 #
-# Native runners only, same six legs as `ci.yml`'s matrix and for the same reason: a
+# Native runners only, the same six targets and runners as `ci.yml` covers — five suite
+# legs and one build-only leg for `x86_64-apple-darwin` (ADR-0188), which is still
+# shipped here although its tests no longer run — and for the same reason: a
 # cross-compiled job resolves `skia-safe`'s prebuilt for the target but cannot run
 # anything on it, and this workflow's whole job is producing a binary someone else runs.
 #
@@ -40,7 +42,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ADR-0064's six. Kept in lockstep with `ci.yml`'s matrix by hand — both read
+          # ADR-0064's six, all still shipped (ADR-0188 stopped *testing* Intel macOS,
+          # not building it). Kept in lockstep with `ci.yml`'s two matrices and the
+          # canary's by hand — `skia_pin.rs` checks all of them against
           # `[workspace.metadata.skia] targets` in the root `Cargo.toml`, but a workflow
           # matrix cannot be generated from that file without a separate job to read it
           # first, which is more moving parts than six lines justify.
