@@ -5,6 +5,11 @@ amends: 0009 (the `ffmpeg` the user supplies has a floor, ffmpeg 7.1 or newer bu
 
 # ffmpeg 7.1 with libx264 is the floor, and a tool qualification finds out
 
+> **Amended by [ADR-0187](0187-windows-ci-pins-a-checksummed-ffmpeg-and-macos-alone-floats.md).**
+> §7's "Windows (`choco`) keep[s] installing the newest release" no longer holds. Both Windows
+> legs install a pinned, checksum-verified BtbN build of the newest release series. macOS
+> (`brew`) alone still floats and catches the next ffmpeg that removes an option.
+
 [#479](https://github.com/MBehtemam/Montagent/issues/479), which ships what
 [#477](https://github.com/MBehtemam/Montagent/issues/477) ruled after
 [#471](https://github.com/MBehtemam/Montagent/issues/471) found ffmpeg 9 breaking two of
