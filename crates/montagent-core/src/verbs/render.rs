@@ -710,13 +710,18 @@ impl Span<'_> {
     }
 }
 
-/// The device a span lands on: its pixel dimensions, and the scale from the project's
-/// coordinates to them.
+/// The device a span lands on: its pixel dimensions, the scale from the project's
+/// coordinates to them, and whether it is a proxy.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Surface {
     pub width: i64,
     pub height: i64,
     pub scale: (f64, f64),
+    /// Whether this is a disclosed proxy tier — `preview`'s 720p or 540p rung, with the cap
+    /// engaged — rather than true pixels. Stated by the caller, never read off `scale`: a
+    /// proxy samples a shrunk raster through one mip level instead of two (ADR-0186), and
+    /// that trade is the proxy's to make, not any surface's that happens to be smaller.
+    pub proxied: bool,
 }
 
 impl Surface {
@@ -726,14 +731,28 @@ impl Surface {
             width,
             height,
             scale: (1.0, 1.0),
+            proxied: false,
+        }
+    }
+
+    /// `preview`'s surface for one rung of the ladder on a `width` x `height` project: the
+    /// tier's frame, and a proxy exactly where the tier's cap engaged. A rung whose cap
+    /// never engaged — `--full`, or a project already inside it — is true pixels and
+    /// samples like `render` (ADR-0186).
+    pub fn rung(frame: montagent_render::proxy::Frame, width: i64, height: i64) -> Surface {
+        Surface {
+            width: frame.width,
+            height: frame.height,
+            scale: frame.scale(width, height),
+            proxied: frame.proxied,
         }
     }
 
     fn canvas(self) -> Option<Canvas> {
-        if self.scale == (1.0, 1.0) {
-            Canvas::new(self.width, self.height)
-        } else {
+        if self.proxied {
             Canvas::scaled(self.width, self.height, self.scale)
+        } else {
+            Canvas::new(self.width, self.height)
         }
     }
 }
@@ -2133,6 +2152,23 @@ fn atempo_chain(speed: f64) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_surface_is_a_proxy_only_where_preview_s_cap_engaged() {
+        // ADR-0186: the proxy's cheaper minifier follows the rung, never the scale.
+        use montagent_render::proxy::Tier;
+        let (w, h) = (1080, 1920);
+        assert!(!Surface::declared(w, h).proxied, "render is true pixels");
+        assert!(Surface::rung(Tier::Target.frame(w, h), w, h).proxied);
+        assert!(Surface::rung(Tier::Degraded.frame(w, h), w, h).proxied);
+        assert!(
+            !Surface::rung(Tier::Native.frame(w, h), w, h).proxied,
+            "--full"
+        );
+        // A project already inside the 720p cap: no proxy engaged, so true pixels.
+        let inside = Surface::rung(Tier::Target.frame(1280, 720), 1280, 720);
+        assert_eq!((inside.proxied, inside.scale), (false, (1.0, 1.0)));
+    }
 
     #[test]
     fn a_range_is_both_flags_or_neither_and_half_open() {
