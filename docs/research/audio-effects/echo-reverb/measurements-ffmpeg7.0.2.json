@@ -1,0 +1,273 @@
+{
+ "ffmpeg": "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+ "ffmpeg2": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "onset_latency": {
+  "echo": {
+   "pre_onset_max_abs": 0.0,
+   "first_nonzero": 24000,
+   "onset_error_samples": 0,
+   "peak_at": 24000,
+   "length_samples": 192000,
+   "length_error": 0
+  },
+  "echo mix=1": {
+   "pre_onset_max_abs": 0.0,
+   "first_nonzero": 24000,
+   "onset_error_samples": 0,
+   "peak_at": 24000,
+   "length_samples": 192000,
+   "length_error": 0
+  },
+  "reverb": {
+   "pre_onset_max_abs": 8.381903504606214e-10,
+   "first_nonzero": 24000,
+   "onset_error_samples": 0,
+   "peak_at": 24000,
+   "length_samples": 192000,
+   "length_error": 0
+  },
+  "reverb mix=1": {
+   "pre_onset_max_abs": 2.7939677238464355e-09,
+   "first_nonzero": 24000,
+   "onset_error_samples": 0,
+   "peak_at": 25096,
+   "length_samples": 192000,
+   "length_error": 0
+  },
+  "bypass": {
+   "pre_onset_max_abs": 0.0,
+   "first_nonzero": 24000,
+   "onset_error_samples": 0,
+   "peak_at": 24000,
+   "length_samples": 192000,
+   "length_error": 0
+  }
+ },
+ "tail": {
+  "echo": {
+   "cut_length_error": 0,
+   "kept_length_error": 0,
+   "rms_dbfs_past_end": -30.004242803466287,
+   "peak_past_end": 0.15000000596046448,
+   "energy_share_lost_by_cut": 0.24981684981684982,
+   "last_sample_abs_cut": 0.008638185448944569,
+   "cut_vs_kept_prefix_max_abs_diff": 0.0
+  },
+  "reverb": {
+   "cut_length_error": 0,
+   "kept_length_error": 0,
+   "rms_dbfs_past_end": -34.89413682522619,
+   "peak_past_end": 0.1599566489458084,
+   "energy_share_lost_by_cut": 0.22333760784855333,
+   "last_sample_abs_cut": 0.124597929418087,
+   "cut_vs_kept_prefix_max_abs_diff": 4.470348358154297e-08
+  }
+ },
+ "smoke": {
+  "echo": {
+   "length_samples": 960000,
+   "finite": true,
+   "peak_abs": 0.739560604095459,
+   "lufs": -16.8,
+   "lufs_bypass": -18.0,
+   "lufs_delta": 1.1999999999999993,
+   "true_peak_ish_dbfs": -2.6,
+   "peak_dbfs_bypass": -2.8,
+   "diff_rms_dbfs": -26.558058973215783,
+   "diff_vs_bypass_rms_db": -4.988977549766762,
+   "last_10ms_rms_dbfs": -87.44116299739684
+  },
+  "reverb": {
+   "length_samples": 960000,
+   "finite": true,
+   "peak_abs": 0.6245787143707275,
+   "lufs": -20.6,
+   "lufs_bypass": -18.0,
+   "lufs_delta": -2.6000000000000014,
+   "true_peak_ish_dbfs": -4.1,
+   "peak_dbfs_bypass": -2.8,
+   "diff_rms_dbfs": -28.93144891290494,
+   "diff_vs_bypass_rms_db": -7.36236748945592,
+   "last_10ms_rms_dbfs": -87.44116299739684
+  },
+  "reverb mix=0 max abs diff vs bypass": 0.0
+ },
+ "drift": {
+  "echo": {
+   "rerun_identical": true,
+   "scalar_vs_simd_identical": true,
+   "scalar_vs_simd_max_abs_diff": 0.0,
+   "second_build_identical": true,
+   "second_build_length": 960000,
+   "second_build_max_abs_diff": 0.0,
+   "second_build_first_differing_sample": null,
+   "element_end_sample": 932400,
+   "second_build_max_abs_diff_before_element_end_minus_8192": 0.0,
+   "second_build_diff_rms_db_re_signal": -219.65156172169267
+  },
+  "reverb": {
+   "rerun_identical": true,
+   "scalar_vs_simd_identical": false,
+   "scalar_vs_simd_max_abs_diff": 5.960464477539063e-08,
+   "second_build_identical": false,
+   "second_build_length": 960000,
+   "second_build_max_abs_diff": 0.1302032470703125,
+   "second_build_first_differing_sample": 925696,
+   "element_end_sample": 932400,
+   "second_build_max_abs_diff_before_element_end_minus_8192": 0.0,
+   "second_build_diff_rms_db_re_signal": -31.04560084173481
+  },
+  "ir": {
+   "rerun_identical": true,
+   "scalar_vs_simd_identical": true,
+   "second_build_identical": true,
+   "second_build_max_abs_diff": 0.0
+  }
+ },
+ "claims": [
+  {
+   "ok": true,
+   "claim": "`aecho` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "`afir` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "`anoisesrc` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "`aeval` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "`amix` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "`asplit` is compiled in (ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers)"
+  },
+  {
+   "ok": true,
+   "claim": "onset: echo: first sample above 1e-5 at +0, length +0 (cut at end); max before onset 0.0e+00"
+  },
+  {
+   "ok": true,
+   "claim": "onset: echo mix=1: first sample above 1e-5 at +0, length +0 (cut at end); max before onset 0.0e+00"
+  },
+  {
+   "ok": true,
+   "claim": "onset: reverb: first sample above 1e-5 at +0, length +0 (cut at end); max before onset 8.4e-10"
+  },
+  {
+   "ok": true,
+   "claim": "onset: reverb mix=1: first sample above 1e-5 at +0, length +0 (cut at end); max before onset 2.8e-09"
+  },
+  {
+   "ok": true,
+   "claim": "onset: bypass: first sample above 1e-5 at +0, length +0 (cut at end); max before onset 0.0e+00"
+  },
+  {
+   "ok": true,
+   "claim": "tail: echo: cut render is exactly `end` long"
+  },
+  {
+   "ok": true,
+   "claim": "tail: echo: kept render is exactly end + tail_ms long"
+  },
+  {
+   "ok": true,
+   "claim": "tail: echo: energy past end with the tail kept (RMS -30.0 dBFS > -60)"
+  },
+  {
+   "ok": true,
+   "claim": "tail: echo: the cut render is the kept render's prefix (max diff 0.0e+00 < 1e-6)"
+  },
+  {
+   "ok": true,
+   "claim": "tail: reverb: cut render is exactly `end` long"
+  },
+  {
+   "ok": true,
+   "claim": "tail: reverb: kept render is exactly end + tail_ms long"
+  },
+  {
+   "ok": true,
+   "claim": "tail: reverb: energy past end with the tail kept (RMS -34.9 dBFS > -60)"
+  },
+  {
+   "ok": true,
+   "claim": "tail: reverb: the cut render is the kept render's prefix (max diff 4.5e-08 < 1e-6)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: length is exactly 20 s"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: no NaN/Inf"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: no clipping (peak 0.740 < 1.0)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: above the -70 LUFS gate (-16.8)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: not a no-op (difference -5.0 dB re bypass RMS > -30)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: echo: loudness within 3 LU of bypass (+1.20)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: length is exactly 20 s"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: no NaN/Inf"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: no clipping (peak 0.625 < 1.0)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: above the -70 LUFS gate (-20.6)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: not a no-op (difference -7.4 dB re bypass RMS > -30)"
+  },
+  {
+   "ok": true,
+   "claim": "smoke: reverb: loudness within 3 LU of bypass (-2.60)"
+  },
+  {
+   "ok": true,
+   "claim": "bypass: echo mix=0 is byte-identical to the bypass render"
+  },
+  {
+   "ok": true,
+   "claim": "bypass: reverb mix=0 is byte-identical to the bypass render (max abs diff 0.00e+00)"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: echo: byte-identical rerun on one build"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: reverb: byte-identical rerun on one build"
+  },
+  {
+   "ok": true,
+   "claim": "determinism: the seeded generated IR is byte-identical on rerun"
+  }
+ ]
+}

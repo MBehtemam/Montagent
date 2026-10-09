@@ -1,0 +1,874 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "rows": [
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-70",
+   "ok": true,
+   "got": -39.99906,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-60",
+   "ok": true,
+   "got": -29.99907,
+   "want": -30,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-50",
+   "ok": true,
+   "got": -19.99907,
+   "want": -20,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-45",
+   "ok": true,
+   "got": -14.99907,
+   "want": -15,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-40",
+   "ok": true,
+   "got": -9.99907,
+   "want": -10,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-36",
+   "ok": true,
+   "got": -5.99907,
+   "want": -6,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-33",
+   "ok": true,
+   "got": -2.99907,
+   "want": -3,
+   "tol": 0.3
+  },
+  {
+   "check": "transition thr=-30 R=2 G=80 in_rms=-31",
+   "info": true,
+   "reduction_db": -0.999,
+   "formula_db": -1
+  },
+  {
+   "check": "transition thr=-30 R=2 G=80 in_rms=-29",
+   "info": true,
+   "reduction_db": 0.0,
+   "formula_db": 0.0
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-25",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=2 range=80 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-70",
+   "ok": true,
+   "got": -79.99999,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-60",
+   "ok": true,
+   "got": -80.0,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-50",
+   "ok": true,
+   "got": -59.99715,
+   "want": -60,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-45",
+   "ok": true,
+   "got": -44.99716,
+   "want": -45,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-40",
+   "ok": true,
+   "got": -29.99715,
+   "want": -30,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-36",
+   "ok": true,
+   "got": -17.99715,
+   "want": -18,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-33",
+   "ok": true,
+   "got": -8.99715,
+   "want": -9,
+   "tol": 0.3
+  },
+  {
+   "check": "transition thr=-30 R=4 G=80 in_rms=-31",
+   "info": true,
+   "reduction_db": -2.997,
+   "formula_db": -3
+  },
+  {
+   "check": "transition thr=-30 R=4 G=80 in_rms=-29",
+   "info": true,
+   "reduction_db": 0.0,
+   "formula_db": 0.0
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-25",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=4 range=80 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-70",
+   "ok": true,
+   "got": -79.99999,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-60",
+   "ok": true,
+   "got": -80.0,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-50",
+   "ok": true,
+   "got": -80.0,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-45",
+   "ok": true,
+   "got": -80.0,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-40",
+   "ok": true,
+   "got": -80.0,
+   "want": -80,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-36",
+   "ok": true,
+   "got": -53.99087,
+   "want": -54,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-33",
+   "ok": true,
+   "got": -26.99087,
+   "want": -27,
+   "tol": 0.3
+  },
+  {
+   "check": "transition thr=-30 R=10 G=80 in_rms=-31",
+   "info": true,
+   "reduction_db": -8.991,
+   "formula_db": -9
+  },
+  {
+   "check": "transition thr=-30 R=10 G=80 in_rms=-29",
+   "info": true,
+   "reduction_db": 0.0,
+   "formula_db": 0.0
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-25",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=10 range=80 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-70",
+   "ok": true,
+   "got": -11.99999,
+   "want": -12,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-60",
+   "ok": true,
+   "got": -12.0,
+   "want": -12,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-50",
+   "ok": true,
+   "got": -12.0,
+   "want": -12,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-45",
+   "ok": true,
+   "got": -9.99813,
+   "want": -10,
+   "tol": 0.3
+  },
+  {
+   "check": "transition thr=-40 R=3 G=12 in_rms=-40",
+   "info": true,
+   "reduction_db": -0.008,
+   "formula_db": 0.0
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-36",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-33",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-31",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-29",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-25",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-40 R=3 range=12 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-70",
+   "ok": true,
+   "got": -39.99999,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-60",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-50",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-45",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-40",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-36",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-33",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-31",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-29",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-25",
+   "ok": true,
+   "got": -40.0,
+   "want": -40,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-20 R=100 range=40 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-70",
+   "ok": true,
+   "got": 1e-05,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-60",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-50",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-45",
+   "ok": true,
+   "got": -0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-40",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-36",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-33",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 0.3
+  },
+  {
+   "check": "transition thr=-30 R=1 G=80 in_rms=-31",
+   "info": true,
+   "reduction_db": 0.0,
+   "formula_db": 0
+  },
+  {
+   "check": "transition thr=-30 R=1 G=80 in_rms=-29",
+   "info": true,
+   "reduction_db": 0.0,
+   "formula_db": 0.0
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-25",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-15",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "transfer thr=-30 R=1 range=80 in_rms=-3",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "open gate is the identity (max |out-in| after 0.5 s)",
+   "ok": true,
+   "got": 0.0,
+   "want": 0,
+   "tol": 1e-09
+  },
+  {
+   "check": "length is exact",
+   "ok": true,
+   "got": 96000,
+   "want": 96000
+  },
+  {
+   "check": "threshold bias at attack=0.1 release=1 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.323,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=1 release=10 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.144,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=5 release=50 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.125,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=20 release=250 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.226,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=5 release=5 (dB, attack <= release)",
+   "ok": true,
+   "got": 0.027,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=50 release=50 (dB, attack <= release)",
+   "ok": true,
+   "got": 0.002,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=100 release=100 (dB, attack <= release)",
+   "ok": true,
+   "got": 0.001,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=1000 release=1000 (dB, attack <= release)",
+   "ok": true,
+   "got": 0.0,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=5 release=1000 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.878,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "threshold bias at attack=50 release=9000 (dB, attack <= release)",
+   "ok": true,
+   "got": 2.868,
+   "want": [
+    -0.3,
+    3.1
+   ]
+  },
+  {
+   "check": "exact at attack = release = 100",
+   "ok": true,
+   "got": 0.001,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "exact at attack = release = 5",
+   "ok": true,
+   "got": 0.027,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "exact at attack = release = 1000",
+   "ok": true,
+   "got": 0.0,
+   "want": 0.0,
+   "tol": 0.3
+  },
+  {
+   "check": "threshold bias at attack=20 > release=10 (dB; negative = gate looser than written)",
+   "info": true,
+   "bias_db": -1.06
+  },
+  {
+   "check": "threshold bias at attack=100 > release=10 (dB; negative = gate looser than written)",
+   "info": true,
+   "bias_db": -4.31
+  },
+  {
+   "check": "threshold bias at attack=500 > release=100 (dB; negative = gate looser than written)",
+   "info": true,
+   "bias_db": -2.77
+  },
+  {
+   "check": "threshold bias at attack=2000 > release=1 (dB; negative = gate looser than written)",
+   "info": true,
+   "bias_db": -19.43
+  },
+  {
+   "check": "threshold bias at 5/50 on a 200 Hz sine (dB)",
+   "info": true,
+   "bias_db": 2.12
+  },
+  {
+   "check": "threshold bias at 5/50 on a 5000 Hz sine (dB)",
+   "info": true,
+   "bias_db": 2.12
+  },
+  {
+   "check": "1 kHz at 5/50 vs 100/100 differ: the bias is real, not noise",
+   "ok": true,
+   "got": 2.1237,
+   "want": 2.12,
+   "tol": 0.3
+  },
+  {
+   "check": "pink-noise floor -50 dB rms, attack=5 release=150: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 29.8
+  },
+  {
+   "check": "pink-noise floor -44 dB rms, attack=5 release=150: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 3.4
+  },
+  {
+   "check": "pink-noise floor -40 dB rms, attack=5 release=150: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 0.0
+  },
+  {
+   "check": "pink-noise floor -50 dB rms, attack=50 release=50: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 30.0
+  },
+  {
+   "check": "pink-noise floor -44 dB rms, attack=50 release=50: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 27.8
+  },
+  {
+   "check": "pink-noise floor -40 dB rms, attack=50 release=50: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 8.0
+  },
+  {
+   "check": "pink-noise floor -50 dB rms, attack=1 release=20: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 26.45
+  },
+  {
+   "check": "pink-noise floor -44 dB rms, attack=1 release=20: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 4.2
+  },
+  {
+   "check": "pink-noise floor -40 dB rms, attack=1 release=20: reduction (dB; 30 = fully closed)",
+   "info": true,
+   "reduction_db": 0.08
+  },
+  {
+   "check": "attack_ms=2: ms from burst start to within 1 dB of open",
+   "info": true,
+   "ms": 0.0
+  },
+  {
+   "check": "attack_ms=10: ms from burst start to within 1 dB of open",
+   "info": true,
+   "ms": 1.0
+  },
+  {
+   "check": "attack_ms=50: ms from burst start to within 1 dB of open",
+   "info": true,
+   "ms": 4.0
+  },
+  {
+   "check": "attack_ms=200: ms from burst start to within 1 dB of open",
+   "info": true,
+   "ms": 14.0
+  },
+  {
+   "check": "release_ms=10: ms from burst end to 20 dB of reduction",
+   "info": true,
+   "ms": 6.0
+  },
+  {
+   "check": "release_ms=100: ms from burst end to 20 dB of reduction",
+   "info": true,
+   "ms": 63.0
+  },
+  {
+   "check": "release_ms=500: ms from burst end to 20 dB of reduction",
+   "info": true,
+   "ms": 322.0
+  },
+  {
+   "check": "attack ordering: a longer attack opens slower",
+   "ok": true,
+   "got": {
+    "2": 0.0,
+    "10": 0.001,
+    "50": 0.004,
+    "200": 0.014
+   }
+  },
+  {
+   "check": "release ordering: a longer release closes slower",
+   "ok": true,
+   "got": {
+    "10": 0.006,
+    "100": 0.063,
+    "500": 0.322
+   }
+  },
+  {
+   "check": "onset: first sample > 0.01, attack=0.1",
+   "info": true,
+   "bypass": 24001,
+   "gated": 24001,
+   "shift": 0
+  },
+  {
+   "check": "onset shift at attack 0.1 ms (samples)",
+   "ok": true,
+   "got": 0,
+   "want": 0,
+   "tol": 0
+  },
+  {
+   "check": "onset: first sample > 0.01, attack=5",
+   "info": true,
+   "bypass": 24001,
+   "gated": 24003,
+   "shift": 2
+  },
+  {
+   "check": "onset: first sample > 0.01, attack=50",
+   "info": true,
+   "bypass": 24001,
+   "gated": 24006,
+   "shift": 5
+  },
+  {
+   "check": "no latency: impulse peak does not move (samples)",
+   "ok": true,
+   "got": 0,
+   "want": 0,
+   "tol": 0
+  },
+  {
+   "check": "length exact on impulse",
+   "ok": true,
+   "got": 48000,
+   "want": 48000
+  },
+  {
+   "check": "command effect on gain after t=1 s (dB)",
+   "info": true,
+   "threshold": 0.0,
+   "range": 0.0,
+   "ratio": 0.0,
+   "attack": 0.0,
+   "release": 0.0,
+   "static_threshold_reference": -60.0
+  },
+  {
+   "check": "control: asendcmd moves volume@v by -6.02 dB",
+   "ok": true,
+   "got": -6.0206,
+   "want": -6.0206,
+   "tol": 0.01
+  },
+  {
+   "check": "agate ignores a threshold command (ADR-0842: static parameters only)",
+   "ok": true,
+   "got": 0.0,
+   "static_reference": -60.0,
+   "note": "a command is accepted and does nothing; if this ever fails agate started honouring commands and the ADR can be revisited"
+  },
+  {
+   "check": "agate ignores range, ratio, attack and release commands too",
+   "ok": true,
+   "got": {
+    "threshold": 0.0,
+    "range": 0.0,
+    "ratio": 0.0,
+    "attack": 0.0,
+    "release": 0.0
+   }
+  },
+  {
+   "check": "range edge accepted: agate=threshold=0.000100000:ratio=50.500000000:attack=0.1:release=1:range=0.0001",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: agate=threshold=1.000000000:ratio=1.000000000:attack=2000:release=9000:range=1.0",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: agate=threshold=0.000100000:ratio=1.000000000:attack=0.1:release=9000:range=0.00",
+   "ok": true
+  },
+  {
+   "check": "range edge accepted: agate=threshold=1.000000000:ratio=50.500000000:attack=2000:release=1:range=0.000",
+   "ok": true
+  },
+  {
+   "check": "NEGATIVE CONTROL rejected: ratio 18001 -> ffmpeg 9000.5",
+   "ok": true
+  },
+  {
+   "check": "NEGATIVE CONTROL rejected: attack 0.001 ms",
+   "ok": true
+  },
+  {
+   "check": "NEGATIVE CONTROL rejected: release 9001 ms",
+   "ok": true
+  },
+  {
+   "check": "byte-identical across runs and -cpuflags 0",
+   "ok": true,
+   "got": [
+    "2b21e6322248",
+    "2b21e6322248",
+    "2b21e6322248"
+   ]
+  }
+ ],
+ "pass": true
+}

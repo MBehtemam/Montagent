@@ -193,6 +193,13 @@ pub struct Present {
     /// unless a transition bridges an `audio` or `video` element at this instant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sound: Option<Value>,
+    /// The element's `audio_effects` list, member by member (ADR-0179): `index`, `name`, the
+    /// member's own values, `enabled` (false only where it says `"enabled": false`) and the
+    /// `text` the row prints. The members' values are literals, so there is nothing to resolve
+    /// at the instant; this is the list as the render will run it. Absent on an element with
+    /// none, and on anything but an `audio` or a `video`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_effects: Option<Vec<Value>>,
     /// A staggered `text` element's summary (ADR-0151 §5): `by`, the unit count, and the
     /// stagger window. Absent on every element with no `units` block.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -813,6 +820,10 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             ),
             _ => None,
         };
+        let audio_effects = match (detail, kind) {
+            (Detail::Full, Some("audio" | "video")) => describe_audio_effects(element),
+            _ => None,
+        };
         present.push(Present {
             stagger,
             units,
@@ -836,6 +847,7 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
             ink_box,
             ink_box_unresolved,
             sound,
+            audio_effects,
             transition: match (bridge.moves_or_cuts(), frame) {
                 (true, Some(frame)) => Some(Moved {
                     offset: [bridge.offset.0, bridge.offset.1],
@@ -1177,6 +1189,62 @@ fn crop_for(
                     .to_string(),
             ),
         ),
+    }
+}
+
+/// The `audio_effects` list as the answer prints it (ADR-0179), or `None` where there is no
+/// member to print. Generic over members: each key prints by its unit suffix, so a member a
+/// later ADR adds is described without an arm here.
+fn describe_audio_effects(element: &Value) -> Option<Vec<Value>> {
+    let list = element.get("audio_effects")?.as_array()?;
+    if list.is_empty() {
+        return None;
+    }
+    Some(
+        list.iter()
+            .enumerate()
+            .map(|(index, member)| {
+                let name = member.get("name").and_then(Value::as_str).unwrap_or("");
+                let enabled = member.get("enabled") != Some(&Value::Bool(false));
+                let mut text = format!("audio_effects[{index}] {name}");
+                for (key, value) in member.as_object().into_iter().flatten() {
+                    if matches!(key.as_str(), "name" | "enabled") {
+                        continue;
+                    }
+                    text.push(' ');
+                    text.push_str(&audio_parameter(key, value));
+                }
+                if !enabled {
+                    text.push_str(" (bypassed)");
+                }
+                let mut out = member.as_object().cloned().unwrap_or_default();
+                out.insert("index".into(), Value::from(index));
+                out.insert("enabled".into(), Value::Bool(enabled));
+                out.insert("text".into(), Value::String(text));
+                Value::Object(out)
+            })
+            .collect(),
+    )
+}
+
+/// One member parameter as the row prints it: a string bare, a number by its key's unit.
+fn audio_parameter(key: &str, value: &Value) -> String {
+    let shown = match value {
+        Value::String(text) => return text.clone(),
+        other => other.to_string(),
+    };
+    if key == "slope_db_per_oct" {
+        format!("{shown} dB/oct")
+    } else if key.ends_with("_hz") {
+        format!("{shown} Hz")
+    } else if key.ends_with("_db") {
+        format!("{shown} dB")
+    } else if key.ends_with("_ms") {
+        format!("{shown} ms")
+    } else if key.ends_with("_lufs") {
+        format!("{shown} LUFS")
+    } else {
+        format!("{key} {shown}")
     }
 }
 

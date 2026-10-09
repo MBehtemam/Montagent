@@ -157,6 +157,7 @@ fn header(scaffold: &Scaffold) -> Result<Value, String> {
         // writing it at its default would be a declaration rather than a scaffold.
         looping: None,
         output: scaffold.output.clone(),
+        master: None,
         fonts: None,
         font_vendor: None,
         tracks: Vec::new(),

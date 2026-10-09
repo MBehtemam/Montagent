@@ -42,7 +42,7 @@ struct Union {
     segment: &'static str,
 }
 
-const UNIONS: [Union; 2] = [
+const UNIONS: [Union; 3] = [
     Union {
         def: "Element",
         tag: "type",
@@ -54,6 +54,14 @@ const UNIONS: [Union; 2] = [
         tag: "name",
         section: "effects",
         segment: "effect",
+    },
+    // ADR-0169. Each capability ADR adds members (EQ is ADR-0179); naming the union here is
+    // what serves them as a section and not as a whole `$def`.
+    Union {
+        def: "AudioEffect",
+        tag: "name",
+        section: "audio_effects",
+        segment: "audio_effect",
     },
 ];
 

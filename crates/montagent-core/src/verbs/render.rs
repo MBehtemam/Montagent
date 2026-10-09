@@ -74,8 +74,10 @@
 //! element, sent to the `volume` filter as timed commands), placed at its `start`
 //! (`adelay`), and summed without normalisation (`amix`) so two narration lines at `1.0`
 //! are each still at `1.0`. Clipping past the sum is the renderer's documented behaviour
-//! rather than a ceiling (ADR-0055). An element that cannot be mixed is listed in the
-//! answer with the reason, on the same rule the picture lists what it did not paint.
+//! rather than a ceiling (ADR-0055), unless the project's `master` sets one: the master stage
+//! ([`master`], ADR-0172, ADR-0174) runs on the sum, before the closing pad. An element that
+//! cannot be mixed is listed in the answer with the reason, on the same rule the picture lists
+//! what it did not paint.
 //!
 //! ## The readings ADR-0077 ratifies (#287)
 //!
@@ -140,6 +142,10 @@ use crate::resolve;
 use crate::verbs::frame::{Declined, Feeds, NotPainted, Painter};
 use crate::verbs::query::at;
 
+pub(crate) mod master;
+pub use master::Applied;
+pub(crate) mod normalize;
+pub use normalize::Normalized;
 mod painters;
 pub use painters::Painting;
 #[doc(hidden)]
@@ -356,6 +362,14 @@ pub struct Video {
     /// how far painting could lead the encoder (#653). Disclosed like `threads`, and like it
     /// not choosable; and like it, it changes no byte of the file.
     pub painting: painters::Painting,
+    /// ADR-0172: `measured_lufs` and `applied_gain_db`, whenever `master` sets `target_lufs`.
+    /// The gain is in no file, so this is where it stays visible. Absent otherwise.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub master: Option<Applied>,
+    /// ADR-0178: each enabled `normalize_loudness` member's measured loudness and applied
+    /// gain, in document order. Absent where no element carries one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub normalized: Vec<Normalized>,
 }
 
 /// The padded frame, where there was one.
@@ -559,6 +573,39 @@ fn run(
         .and_then(crate::verbs::frame::rgba_of)
         .unwrap_or(Rgba::BLACK);
 
+    // ADR-0178: each normalised element's own measurement, on its whole placed window, before
+    // the master's, which measures the mix those gains make.
+    let (normalized, measured) =
+        match normalize::settle(&document, &project_dir, &Established::of(&report), &ffmpeg) {
+            Ok(settled) => settled,
+            Err(reason) => {
+                report.fail_internally(reason);
+                return refused(report);
+            }
+        };
+    for finding in measured {
+        report.push(finding);
+    }
+
+    // ADR-0172: pass 1 of the master stage, on the whole programme, before a frame is painted.
+    let (master, measured) = match master::settle(
+        &document,
+        &project_dir,
+        &Established::of(&report),
+        fps,
+        &ffmpeg,
+        &normalized,
+    ) {
+        Ok(settled) => settled,
+        Err(reason) => {
+            report.fail_internally(reason);
+            return refused(report);
+        }
+    };
+    for finding in measured {
+        report.push(finding);
+    }
+
     // The declared frame, and nothing else: `render` has no surface of its own to choose
     // (ADR-0021). The one call site that passes anything smaller is `preview`.
     let span = Span {
@@ -579,6 +626,8 @@ fn run(
         stamp: Some(stamp),
         deadline: None,
         cancel,
+        master,
+        normalized: &normalized,
     };
     let painted = match encode_span(&span, started, progress) {
         Ok(painted) => painted,
@@ -702,6 +751,12 @@ pub(crate) struct Span<'a> {
     /// ADR-0109: the caller's request to stop, checked before the encoder starts, before
     /// every frame, and after the seal. `None` where nobody can ask.
     pub cancel: Option<&'a Cancel>,
+    /// ADR-0172: the master stage, settled on the whole programme before any span, so a
+    /// partial render and every `preview` rung apply the deliverable's gain.
+    pub master: master::Stage,
+    /// ADR-0178: every `normalize_loudness` gain, measured on each element's whole placed
+    /// window before any span, so a partial render and every `preview` rung apply them.
+    pub normalized: &'a normalize::Gains,
 }
 
 impl Span<'_> {
@@ -710,13 +765,18 @@ impl Span<'_> {
     }
 }
 
-/// The device a span lands on: its pixel dimensions, and the scale from the project's
-/// coordinates to them.
+/// The device a span lands on: its pixel dimensions, the scale from the project's
+/// coordinates to them, and whether it is a proxy.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Surface {
     pub width: i64,
     pub height: i64,
     pub scale: (f64, f64),
+    /// Whether this is a disclosed proxy tier — `preview`'s 720p or 540p rung, with the cap
+    /// engaged — rather than true pixels. Stated by the caller, never read off `scale`: a
+    /// proxy samples a shrunk raster through one mip level instead of two (ADR-0186), and
+    /// that trade is the proxy's to make, not any surface's that happens to be smaller.
+    pub proxied: bool,
 }
 
 impl Surface {
@@ -726,14 +786,28 @@ impl Surface {
             width,
             height,
             scale: (1.0, 1.0),
+            proxied: false,
+        }
+    }
+
+    /// `preview`'s surface for one rung of the ladder on a `width` x `height` project: the
+    /// tier's frame, and a proxy exactly where the tier's cap engaged. A rung whose cap
+    /// never engaged — `--full`, or a project already inside it — is true pixels and
+    /// samples like `render` (ADR-0186).
+    pub fn rung(frame: montagent_render::proxy::Frame, width: i64, height: i64) -> Surface {
+        Surface {
+            width: frame.width,
+            height: frame.height,
+            scale: frame.scale(width, height),
+            proxied: frame.proxied,
         }
     }
 
     fn canvas(self) -> Option<Canvas> {
-        if self.scale == (1.0, 1.0) {
-            Canvas::new(self.width, self.height)
-        } else {
+        if self.proxied {
             Canvas::scaled(self.width, self.height, self.scale)
+        } else {
+            Canvas::new(self.width, self.height)
         }
     }
 }
@@ -842,6 +916,8 @@ impl Painted {
             sources: self.sources,
             fonts: self.fonts,
             painting: self.painting,
+            master: span.master.applied(),
+            normalized: span.normalized.applied(),
         })
     }
 
@@ -878,6 +954,8 @@ pub(crate) fn encode_span(
         span.fps,
         span.from,
         span.to,
+        &span.master.bus(),
+        span.normalized,
     );
 
     // ADR-0093 ruling 6, condition 1. The mix is decided before the encoder is spawned, so
@@ -1345,13 +1423,41 @@ pub fn mix_audio(
         .and_then(Value::as_i64)
         .ok_or("the project states no integer `fps`")?;
     let project_dir = crate::checks::project_dir(&document);
+    let established = Established::of(&report);
+    // ADR-0178 then ADR-0172: each normalised element's window, then the master stage, both
+    // measured whole whatever `[from, to)` is. With neither, nothing is measured, so no
+    // `ffmpeg` is asked for.
+    let measures = crate::checks::master::of(&document).is_some() || normalize::wanted(&document);
+    let (normalized, stage) = if measures {
+        let ffmpeg = tools::resolve().map_err(|missing| missing.reason())?.ffmpeg;
+        let normalized = normalize::settle(&document, &project_dir, &established, &ffmpeg)?.0;
+        let stage = match crate::checks::master::of(&document) {
+            None => master::Stage::default(),
+            Some(_) => {
+                master::settle(
+                    &document,
+                    &project_dir,
+                    &established,
+                    fps,
+                    &ffmpeg,
+                    &normalized,
+                )?
+                .0
+            }
+        };
+        (normalized, stage)
+    } else {
+        (normalize::Gains::default(), master::Stage::default())
+    };
     let mix = Mix::of(
         &document,
         &project_dir,
-        &Established::of(&report),
+        &established,
         fps,
         from,
         to,
+        &stage.bus(),
+        &normalized,
     );
     if let Some(reason) = mix.internal {
         return Err(reason);
@@ -1635,7 +1741,9 @@ impl Mix {
 }
 
 impl Mix {
-    /// Read every audible element inside `[from, to)` and write its chain.
+    /// Read every audible element inside `[from, to)` and write its chain. `bus` is the
+    /// master stage's filters on the sum ([`mix_graph`]).
+    #[allow(clippy::too_many_arguments)]
     fn of(
         document: &Loose,
         project_dir: &FilePath,
@@ -1643,6 +1751,8 @@ impl Mix {
         fps: i64,
         from: i64,
         to: i64,
+        bus: &str,
+        gains: &normalize::Gains,
     ) -> Mix {
         let mut inputs: Vec<PathBuf> = Vec::new();
         let mut chains: Vec<String> = Vec::new();
@@ -1677,11 +1787,7 @@ impl Mix {
             if !Use::of(kind).contains(&Use::Mix) {
                 continue;
             }
-            let name = element
-                .get("id")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .unwrap_or_else(|| format!("(element {index} with no id)"));
+            let name = element_name(element, index);
             match chain(
                 element,
                 &name,
@@ -1696,6 +1802,7 @@ impl Mix {
                     .get(name.as_str())
                     .map(Vec::as_slice)
                     .unwrap_or_default(),
+                gains.of(&name),
             ) {
                 Ok(Some((path, filter))) => {
                     inputs.push(path);
@@ -1731,13 +1838,23 @@ impl Mix {
         Mix {
             audio: Some(encode::Audio {
                 inputs,
-                graph: mix_graph(&chains, to - from),
+                graph: mix_graph(&chains, to - from, bus),
             }),
             mixed,
             declined,
             internal,
         }
     }
+}
+
+/// How the mix names an element: its `id`, or its position where it has none. One spelling,
+/// so the measurement pass and the mix key one element's gains alike (ADR-0178).
+fn element_name(element: &Value, index: usize) -> String {
+    element
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("(element {index} with no id)"))
 }
 
 /// The mix graph: every chain labelled, summed, padded with silence, and cut to exactly
@@ -1748,7 +1865,10 @@ impl Mix {
 /// the `atrim` after it to end the stream; on ffmpeg 9, after an `amix`, that end is
 /// intermittently lost, ffmpeg encodes silence without end, and the render never returns.
 /// `atrim` stays as the exact cut; both are spelled by one `seconds`.
-fn mix_graph(chains: &[String], span: i64) -> String {
+///
+/// `bus` is the master stage's filters ([`master::Stage::bus`]), between the sum and the pad:
+/// empty without a `master`, so the graph is unchanged (ADR-0172).
+fn mix_graph(chains: &[String], span: i64, bus: &str) -> String {
     let mut graph = String::new();
     for (k, filter) in chains.iter().enumerate() {
         graph.push_str(&format!("{filter}[a{k}];\n"));
@@ -1760,6 +1880,7 @@ fn mix_graph(chains: &[String], span: i64) -> String {
         graph.push_str(&format!("amix=inputs={}:normalize=0,", chains.len()));
     }
     let end = seconds(span);
+    graph.push_str(bus);
     graph.push_str(&format!("apad=whole_dur={end},atrim=end={end}[mix]\n"));
     graph
 }
@@ -1778,6 +1899,7 @@ fn chain(
     to: i64,
     input: usize,
     fades: &[crate::transition::AudioFade],
+    gains: Option<&normalize::ElementGains>,
 ) -> Result<Option<(PathBuf, String)>, Declined> {
     let (Some(start), Some(end)) = (
         element.get("start").and_then(Value::as_i64),
@@ -1803,6 +1925,133 @@ fn chain(
         return Ok(None);
     }
 
+    let (path, mut filter) = placed(
+        element,
+        name,
+        kind,
+        project_dir,
+        established,
+        input,
+        start,
+        end,
+    )?;
+
+    // The element's signal-shaping list (ADR-0169): after `aloop` and its truncation, so a
+    // looped bed is one continuous stream, and before `volume`, so a ducking dip is not
+    // pushed back up by anything in the list. Nothing at all where no member is enabled.
+    filter.push_str(&audio_effects_stage_with(
+        element,
+        name,
+        &lower_audio_member,
+        gains,
+        None,
+    )?);
+
+    // `volume` (ADR-0055): a scalar as it is, a keyframe list as the value resolved on
+    // every sampled frame of the element, applied as timed commands to the same filter.
+    let label = format!("v{input}");
+    match element.get("volume") {
+        None | Some(Value::Null) => {}
+        Some(written) => {
+            // Read as [`Volume`], not as a bare `f64`: ADR-0055's *"negative is a schema
+            // error"* is one bound, stated once, on the type — and reading the raw value
+            // through it is what makes that true of the keyframed spelling too, which a
+            // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
+            // waveform at full level. The check engine has already refused the render for
+            // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
+            let volume: Animatable<Volume> =
+                serde_json::from_value(written.clone()).map_err(|e| {
+                    Declined::internal(
+                        name,
+                        &format!("a `volume` that does not fit the schema: {e}"),
+                    )
+                })?;
+            let volume = match volume {
+                Animatable::Static(Volume(v)) => Animatable::Static(v),
+                Animatable::Keyed(records) => Animatable::Keyed(
+                    records
+                        .into_iter()
+                        .map(|record| Keyframe {
+                            t: record.t,
+                            // Dropped, not carried: ADR-0086's declaration is
+                            // renderer-ignored by construction, and this is the renderer.
+                            t_from: None,
+                            v: record.v.0,
+                            ease: record.ease,
+                        })
+                        .collect(),
+                ),
+            };
+            match volume {
+                Animatable::Static(v) => {
+                    if v != 1.0 {
+                        filter.push_str(&format!(",volume={}", ratio(v)));
+                    }
+                }
+                keyed => {
+                    let at = |t: i64| {
+                        resolve::at(&keyed, t).map_err(|_| {
+                            Declined::internal(name, "`volume` keyframes that do not resolve")
+                        })
+                    };
+                    let initial = at(start)?;
+                    let mut changes = Vec::new();
+                    let mut last = initial;
+                    let Some(first) = exact::frame_at_or_after(start, fps) else {
+                        return Err(Declined::Internal(format!(
+                            "the mix was asked for {fps} fps, which is not a rate (ADR-0093)"
+                        )));
+                    };
+                    let mut n = first.frame;
+                    loop {
+                        let instant = instant_of(n, fps);
+                        if instant >= end {
+                            break;
+                        }
+                        let v = at(instant)?;
+                        if (v - last).abs() > 1e-6 {
+                            changes.push((instant - start, v));
+                            last = v;
+                        }
+                        n += 1;
+                    }
+                    filter.push_str(&keyed_volume(&label, initial, &changes));
+                }
+            }
+        }
+    }
+
+    // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
+    // window's `atrim` so a range that starts mid-fade renders the samples the full render
+    // has there. The stream is at the element's own as-played time here, so the fade's
+    // `st` is the transition's start less the element's.
+    filter.push_str(&fade_stage(fades, start));
+
+    // The window inside the range, then the placement on the clock.
+    filter.push_str(&format!(
+        ",atrim=start={}:end={},asetpts=PTS-STARTPTS,adelay=delays={}:all=1",
+        seconds(window_start),
+        seconds(window_end),
+        from.max(start) - from
+    ));
+    Ok(Some((path, filter)))
+}
+
+/// One element's whole placed window, from `[input:a]` through the as-played stream cut to
+/// `end - start` (after `atrim`, `atempo` and `aloop`), and the file it reads: the part of
+/// [`chain`] the loudness measurement shares (ADR-0178 §3), so the window measured is the
+/// window mixed.
+#[allow(clippy::too_many_arguments)]
+fn placed(
+    element: &Value,
+    name: &str,
+    kind: Option<&str>,
+    project_dir: &FilePath,
+    established: &Established,
+    input: usize,
+    start: i64,
+    end: i64,
+) -> Result<(PathBuf, String), Declined> {
     let Some(source) = element.get("source").and_then(Value::as_str) else {
         return Err(Declined::internal(name, "no `source`"));
     };
@@ -1913,95 +2162,185 @@ fn chain(
         ",atrim=end={},asetpts=PTS-STARTPTS",
         seconds(end - start)
     ));
+    Ok((path, filter))
+}
 
-    // `volume` (ADR-0055): a scalar as it is, a keyframe list as the value resolved on
-    // every sampled frame of the element, applied as timed commands to the same filter.
-    let label = format!("v{input}");
-    match element.get("volume") {
-        None | Some(Value::Null) => {}
-        Some(written) => {
-            // Read as [`Volume`], not as a bare `f64`: ADR-0055's *"negative is a schema
-            // error"* is one bound, stated once, on the type — and reading the raw value
-            // through it is what makes that true of the keyframed spelling too, which a
-            // guard on the scalar arm alone would leave to reach `ffmpeg` and invert the
-            // waveform at full level. The check engine has already refused the render for
-            // it; this is the same belt-and-braces the `overrun: "hold"` arm above is.
-            let volume: Animatable<Volume> =
-                serde_json::from_value(written.clone()).map_err(|e| {
-                    Declined::internal(
-                        name,
-                        &format!("a `volume` that does not fit the schema: {e}"),
-                    )
-                })?;
-            let volume = match volume {
-                Animatable::Static(Volume(v)) => Animatable::Static(v),
-                Animatable::Keyed(records) => Animatable::Keyed(
-                    records
-                        .into_iter()
-                        .map(|record| Keyframe {
-                            t: record.t,
-                            // Dropped, not carried: ADR-0086's declaration is
-                            // renderer-ignored by construction, and this is the renderer.
-                            t_from: None,
-                            v: record.v.0,
-                            ease: record.ease,
-                        })
-                        .collect(),
-                ),
+/// How one `audio_effects` member is spelled in a filter graph: the comma-joined stages it
+/// lowers to, or `None` for a `name` the renderer has no lowering for.
+///
+/// Each capability ADR adds its arm here (EQ is ADR-0179 §2, in [`lower_eq`]; the compressor
+/// and limiter are ADR-0180 §2).
+fn lower_audio_member(name: &str, member: &Value) -> Option<String> {
+    match name {
+        "compressor" => lower_compressor(member),
+        "limiter" => lower_limiter(member),
+        _ => lower_eq(name, member),
+    }
+}
+
+/// The Q of each 2-pole section of an even-order Butterworth filter, in cascade order
+/// (ADR-0179 §2): `1 / (2 sin((2k - 1) pi / 2n))`, so the cascade reads -3.01 dB at the cutoff
+/// where identical sections would read -6.02 (24 dB/oct) and -12.04 (48 dB/oct).
+fn butterworth_qs(slope_db_per_oct: f64) -> Option<&'static [&'static str]> {
+    match slope_db_per_oct as i64 {
+        12 => Some(&["0.707107"]),
+        24 => Some(&["1.306563", "0.541196"]),
+        48 => Some(&["2.562915", "0.899976", "0.601345", "0.509796"]),
+        _ => None,
+    }
+}
+
+/// A shelf's Q is fixed so its corner is where it has half its gain (ADR-0179 §2).
+const SHELF_Q: &str = "0.707107";
+
+/// The four EQ members as ffmpeg biquads (ADR-0179 §2): zero latency, no state beyond the
+/// filter. Numbers are spelled as Rust prints an `f64`, so `100` stays `100`.
+fn lower_eq(name: &str, member: &Value) -> Option<String> {
+    let num = |key: &str| member.get(key).and_then(Value::as_f64);
+    match name {
+        "highpass" | "lowpass" => {
+            let frequency = num("frequency_hz")?;
+            let qs = butterworth_qs(num("slope_db_per_oct")?)?;
+            Some(
+                qs.iter()
+                    .map(|q| format!("{name}=f={frequency}:poles=2:width_type=q:width={q}"))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            )
+        }
+        "shelf" => {
+            let filter = match member.get("side").and_then(Value::as_str)? {
+                "low" => "lowshelf",
+                "high" => "highshelf",
+                _ => return None,
             };
-            match volume {
-                Animatable::Static(v) => {
-                    if v != 1.0 {
-                        filter.push_str(&format!(",volume={}", ratio(v)));
-                    }
-                }
-                keyed => {
-                    let at = |t: i64| {
-                        resolve::at(&keyed, t).map_err(|_| {
-                            Declined::internal(name, "`volume` keyframes that do not resolve")
-                        })
-                    };
-                    let initial = at(start)?;
-                    let mut changes = Vec::new();
-                    let mut last = initial;
-                    let Some(first) = exact::frame_at_or_after(start, fps) else {
-                        return Err(Declined::Internal(format!(
-                            "the mix was asked for {fps} fps, which is not a rate (ADR-0093)"
-                        )));
-                    };
-                    let mut n = first.frame;
-                    loop {
-                        let instant = instant_of(n, fps);
-                        if instant >= end {
-                            break;
-                        }
-                        let v = at(instant)?;
-                        if (v - last).abs() > 1e-6 {
-                            changes.push((instant - start, v));
-                            last = v;
-                        }
-                        n += 1;
-                    }
-                    filter.push_str(&keyed_volume(&label, initial, &changes));
+            Some(format!(
+                "{filter}=f={}:g={}:width_type=q:width={SHELF_Q}",
+                num("frequency_hz")?,
+                num("gain_db")?
+            ))
+        }
+        "bell" => Some(format!(
+            "equalizer=f={}:width_type=q:width={}:g={}",
+            num("frequency_hz")?,
+            num("q")?,
+            num("gain_db")?
+        )),
+        _ => None,
+    }
+}
+
+/// A level in dB as the linear amplitude `ffmpeg` takes, nine places so a ceiling holds to
+/// well under the 0.0002 dB ADR-0180 section 6 measures it at.
+fn linear_db(db: f64) -> String {
+    let text = format!("{:.9}", 10f64.powf(db / 20.0));
+    text.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// ADR-0180 section 2: `acompressor` with RMS detection, `link=average` and a hard knee
+/// (`knee=1`). Threshold and make-up are converted from dB; make-up is at least 1, which is
+/// `acompressor`'s own floor and what a non-negative `makeup_db` already guarantees.
+fn lower_compressor(member: &Value) -> Option<String> {
+    let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    Some(format!(
+        "acompressor=threshold={}:ratio={}:attack={}:release={}:makeup={}:knee=1:detection=rms:\
+         link=average",
+        linear_db(key("threshold_db")?),
+        ratio(key("ratio")?),
+        ratio(key("attack_ms")?),
+        ratio(key("release_ms")?),
+        linear_db(key("makeup_db")?.max(0.0)),
+    ))
+}
+
+/// ADR-0180 section 2: `alimiter` with the fixed 5 ms look-ahead, no automatic level and no
+/// ASC. `latency=1` is the filter's own compensation of that look-ahead (and flush at end of
+/// stream), so the element's onset does not move and its length is kept (#843: 0 samples).
+fn lower_limiter(member: &Value) -> Option<String> {
+    let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    Some(format!(
+        "alimiter=limit={}:attack=5:release={}:asc=0:level=0:latency=1",
+        linear_db(key("ceiling_db")?),
+        ratio(key("release_ms")?),
+    ))
+}
+
+/// The `audio_effects` stage of one element's chain (ADR-0169), leading comma included, or
+/// the empty string where no member is enabled, which is what keeps a document with no
+/// members on today's graph byte for byte.
+///
+/// A member with `"enabled": false` is skipped and never lowered. The list runs in float:
+/// `aformat=sample_fmts=fltp` goes ahead of the first enabled member only (ADR-0179 §2, where
+/// a 48 dB/oct stopband quantised to zero in `s16`). `lower` is injected so the stage is
+/// testable before any member exists.
+#[cfg(test)]
+fn audio_effects_stage(
+    element: &Value,
+    name: &str,
+    lower: &dyn Fn(&str, &Value) -> Option<String>,
+) -> Result<String, Declined> {
+    audio_effects_stage_with(element, name, lower, None, None)
+}
+
+/// [`audio_effects_stage`] with the element's settled `normalize_loudness` gains (ADR-0178),
+/// and, for the measurement pass, cut short ahead of the member at `upto`.
+///
+/// A settled member lowers to `volume=<gain>dB`; one whose loudness was undefined writes
+/// nothing, not even the float format ahead of it.
+fn audio_effects_stage_with(
+    element: &Value,
+    name: &str,
+    lower: &dyn Fn(&str, &Value) -> Option<String>,
+    gains: Option<&normalize::ElementGains>,
+    upto: Option<usize>,
+) -> Result<String, Declined> {
+    let mut stage = String::new();
+    let members = element
+        .get("audio_effects")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    for (index, member) in members.iter().enumerate() {
+        if upto == Some(index) {
+            break;
+        }
+        if member.get("enabled") == Some(&Value::Bool(false)) {
+            continue;
+        }
+        let member_name = member.get("name").and_then(Value::as_str).unwrap_or("");
+        let lowered = if normalize::is_member(member_name) {
+            match normalize::lowered(gains, index) {
+                Ok(Some(lowered)) => Some(lowered),
+                Ok(None) => continue,
+                Err(()) => {
+                    return Err(Declined::internal(
+                        name,
+                        &format!(
+                            "a `normalize_loudness` member at audio_effects[{index}] the \
+                             measurement pass did not settle (ADR-0178)"
+                        ),
+                    ));
                 }
             }
+        } else {
+            lower(member_name, member)
+        };
+        let Some(lowered) = lowered else {
+            return Err(Declined::internal(
+                name,
+                &format!(
+                    "an `audio_effects` member `{member_name}` the schema admitted and the \
+                     renderer has no lowering for (ADR-0169)"
+                ),
+            ));
+        };
+        if stage.is_empty() {
+            stage.push_str(",aformat=sample_fmts=fltp");
         }
+        stage.push(',');
+        stage.push_str(&lowered);
     }
-
-    // A transition's sound (ADR-0176): after `volume` so the two multiply, and before the
-    // window's `atrim` so a range that starts mid-fade renders the samples the full render
-    // has there. The stream is at the element's own as-played time here, so the fade's
-    // `st` is the transition's start less the element's.
-    filter.push_str(&fade_stage(fades, start));
-
-    // The window inside the range, then the placement on the clock.
-    filter.push_str(&format!(
-        ",atrim=start={}:end={},asetpts=PTS-STARTPTS,adelay=delays={}:all=1",
-        seconds(window_start),
-        seconds(window_end),
-        from.max(start) - from
-    ));
-    Ok(Some((path, filter)))
+    Ok(stage)
 }
 
 /// A transition's `afade` stages on one element (ADR-0176), in window order: `out` on the
@@ -2135,6 +2474,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_surface_is_a_proxy_only_where_preview_s_cap_engaged() {
+        // ADR-0186: the proxy's cheaper minifier follows the rung, never the scale.
+        use montagent_render::proxy::Tier;
+        let (w, h) = (1080, 1920);
+        assert!(!Surface::declared(w, h).proxied, "render is true pixels");
+        assert!(Surface::rung(Tier::Target.frame(w, h), w, h).proxied);
+        assert!(Surface::rung(Tier::Degraded.frame(w, h), w, h).proxied);
+        assert!(
+            !Surface::rung(Tier::Native.frame(w, h), w, h).proxied,
+            "--full"
+        );
+        // A project already inside the 720p cap: no proxy engaged, so true pixels.
+        let inside = Surface::rung(Tier::Target.frame(1280, 720), 1280, 720);
+        assert_eq!((inside.proxied, inside.scale), (false, (1.0, 1.0)));
+    }
+
+    #[test]
     fn a_range_is_both_flags_or_neither_and_half_open() {
         assert_eq!(request(&Ask::default()), Ok(None));
         assert_eq!(
@@ -2254,13 +2610,17 @@ mod tests {
     /// spelled by one `seconds`, so they cannot disagree.
     #[test]
     fn the_mix_pads_to_the_span_and_no_further() {
-        let one = mix_graph(&["[1:a]anull".to_string()], 8000);
+        let one = mix_graph(&["[1:a]anull".to_string()], 8000, "");
         assert_eq!(
             one,
             "[1:a]anull[a0];\n[a0]apad=whole_dur=8.000,atrim=end=8.000[mix]\n"
         );
 
-        let two = mix_graph(&["[1:a]anull".to_string(), "[2:a]anull".to_string()], 480);
+        let two = mix_graph(
+            &["[1:a]anull".to_string(), "[2:a]anull".to_string()],
+            480,
+            "",
+        );
         assert_eq!(
             two,
             "[1:a]anull[a0];\n[2:a]anull[a1];\n[a0][a1]amix=inputs=2:normalize=0,\
@@ -2330,6 +2690,429 @@ mod tests {
             &dir.join("nowhere/a/../video.mp4"),
             &dir.join("nowhere/video.mp4")
         ));
+    }
+
+    /// A stand-in lowering for members the renderer does not have yet: `gate` is one stage,
+    /// `pair` is two.
+    fn stand_in(name: &str, _member: &Value) -> Option<String> {
+        match name {
+            "gate" => Some("agate".to_string()),
+            "pair" => Some("alow,ahigh".to_string()),
+            _ => None,
+        }
+    }
+
+    fn stage(element: Value) -> Result<String, String> {
+        audio_effects_stage(&element, "bed", &stand_in).map_err(|d| match d {
+            Declined::Internal(reason) => reason,
+            _ => "not internal".to_string(),
+        })
+    }
+
+    /// ADR-0169 cut-over: a document with no members keeps today's graph byte for byte, so
+    /// the stage must add no text at all, whether the list is absent, empty or bypassed.
+    #[test]
+    fn a_document_with_no_enabled_member_adds_nothing_to_the_chain() {
+        assert_eq!(stage(json!({})), Ok(String::new()));
+        assert_eq!(stage(json!({"audio_effects": []})), Ok(String::new()));
+        assert_eq!(
+            stage(json!({"audio_effects": [
+                {"name": "gate", "enabled": false}, {"name": "pair", "enabled": false}
+            ]})),
+            Ok(String::new())
+        );
+    }
+
+    /// ADR-0179 §2: the list runs in float, so `aformat=sample_fmts=fltp` goes ahead of the
+    /// first enabled member only, and members follow in list order.
+    #[test]
+    fn the_float_format_goes_once_ahead_of_the_first_enabled_member() {
+        assert_eq!(
+            stage(json!({"audio_effects": [{"name": "gate"}]})),
+            Ok(",aformat=sample_fmts=fltp,agate".to_string())
+        );
+        assert_eq!(
+            stage(json!({"audio_effects": [
+                {"name": "gate", "enabled": false}, {"name": "pair"}, {"name": "gate"}
+            ]})),
+            Ok(",aformat=sample_fmts=fltp,alow,ahigh,agate".to_string())
+        );
+    }
+
+    /// A member the schema admits but the renderer cannot lower is the two halves
+    /// disagreeing; a bypassed one is never lowered, so it cannot be.
+    #[test]
+    fn a_member_with_no_lowering_is_an_internal_error_unless_it_is_bypassed() {
+        let reason = stage(json!({"audio_effects": [{"name": "mystery"}]})).unwrap_err();
+        assert!(reason.contains("mystery"), "{reason}");
+        assert_eq!(
+            stage(json!({"audio_effects": [{"name": "mystery", "enabled": false}]})),
+            Ok(String::new())
+        );
+    }
+
+    fn eq(member: Value) -> Option<String> {
+        lower_audio_member(member["name"].as_str().unwrap(), &member)
+    }
+
+    /// ADR-0179 §2, committed graph strings: a pass filter is a Butterworth cascade.
+    #[test]
+    fn a_pass_filter_lowers_to_a_butterworth_section_cascade() {
+        let hp = |slope: i64| {
+            eq(json!({"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": slope}))
+        };
+        assert_eq!(
+            hp(12).as_deref(),
+            Some("highpass=f=100:poles=2:width_type=q:width=0.707107")
+        );
+        assert_eq!(
+            hp(24).as_deref(),
+            Some(
+                "highpass=f=100:poles=2:width_type=q:width=1.306563,\
+                 highpass=f=100:poles=2:width_type=q:width=0.541196"
+            )
+        );
+        assert_eq!(
+            hp(48).as_deref(),
+            Some(
+                "highpass=f=100:poles=2:width_type=q:width=2.562915,\
+                 highpass=f=100:poles=2:width_type=q:width=0.899976,\
+                 highpass=f=100:poles=2:width_type=q:width=0.601345,\
+                 highpass=f=100:poles=2:width_type=q:width=0.509796"
+            )
+        );
+        assert_eq!(
+            eq(json!({"name": "lowpass", "frequency_hz": 8000.5, "slope_db_per_oct": 12}))
+                .as_deref(),
+            Some("lowpass=f=8000.5:poles=2:width_type=q:width=0.707107")
+        );
+    }
+
+    #[test]
+    fn a_shelf_lowers_to_lowshelf_or_highshelf_at_the_fixed_q() {
+        assert_eq!(
+            eq(json!({"name": "shelf", "side": "low", "frequency_hz": 200, "gain_db": -6}))
+                .as_deref(),
+            Some("lowshelf=f=200:g=-6:width_type=q:width=0.707107")
+        );
+        assert_eq!(
+            eq(json!({"name": "shelf", "side": "high", "frequency_hz": 4000, "gain_db": 3}))
+                .as_deref(),
+            Some("highshelf=f=4000:g=3:width_type=q:width=0.707107")
+        );
+    }
+
+    #[test]
+    fn a_bell_lowers_to_equalizer() {
+        assert_eq!(
+            eq(json!({"name": "bell", "frequency_hz": 1500, "gain_db": -6, "q": 1.4})).as_deref(),
+            Some("equalizer=f=1500:width_type=q:width=1.4:g=-6")
+        );
+    }
+
+    /// The whole stage for the ADR's worked example: float once, then the members in order.
+    #[test]
+    fn the_eq_stage_runs_in_float_in_list_order() {
+        let element = json!({"audio_effects": [
+            {"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 24},
+            {"name": "bell", "frequency_hz": 1500, "gain_db": -6, "q": 1.4},
+            {"name": "lowpass", "frequency_hz": 9000, "slope_db_per_oct": 12, "enabled": false}
+        ]});
+        assert_eq!(
+            audio_effects_stage(&element, "bed", &lower_audio_member).ok(),
+            Some(
+                ",aformat=sample_fmts=fltp,\
+                 highpass=f=100:poles=2:width_type=q:width=1.306563,\
+                 highpass=f=100:poles=2:width_type=q:width=0.541196,\
+                 equalizer=f=1500:width_type=q:width=1.4:g=-6"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_unknown_name_or_slope_has_no_lowering() {
+        assert_eq!(eq(json!({"name": "mystery"})), None);
+        assert_eq!(
+            eq(json!({"name": "highpass", "frequency_hz": 100, "slope_db_per_oct": 18})),
+            None
+        );
+    }
+
+    // ---- ADR-0179 §6, measured on lavfi tones -----------------------------------------
+    //
+    // The committed graph strings above are run through the real ffmpeg on 1 s sines, PCM
+    // before any encoder, and the RMS after the first 0.5 s is read against the bare tone.
+    // `resolve_found` is used, not `resolve`: this measures the filters, which every ffmpeg
+    // from 4.x holds the same, and must not skip on a machine the render gate (7.1) refuses.
+    // Tolerances are the ADR's provisional ones until the three-leg table exists (ADR-0173
+    // §4); the deltas print on every run (`-- --nocapture`).
+
+    /// The RMS in dB of a 1 s sine at `hz` through `members`, after the first 0.5 s, or
+    /// `None` where no ffmpeg is on the machine.
+    fn tone_db(hz: f64, members: Vec<Value>) -> Option<f64> {
+        let (tools, _) = crate::media::tools::resolve_found().ok()?;
+        let stage = audio_effects_stage(
+            &json!({ "audio_effects": members }),
+            "t",
+            &lower_audio_member,
+        )
+        .ok()?;
+        // `aformat=dbl` before and after so the only float stage is the list's own.
+        let graph = format!("aformat=sample_fmts=dbl{stage},aformat=sample_fmts=dbl");
+        let out = std::process::Command::new(tools.ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"])
+            .arg(format!("sine=f={hz}:r=48000:d=1"))
+            .args(["-af", &graph, "-f", "f64le", "-"])
+            .output()
+            .ok()?;
+        assert!(
+            out.status.success(),
+            "{graph}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let samples: Vec<f64> = out
+            .stdout
+            .chunks_exact(8)
+            .map(|b| f64::from_le_bytes(b.try_into().unwrap()))
+            .skip(24000)
+            .collect();
+        let mean_square = samples.iter().map(|x| x * x).sum::<f64>() / samples.len() as f64;
+        Some(10.0 * mean_square.log10())
+    }
+
+    fn relative_db(hz: f64, members: Vec<Value>) -> Option<f64> {
+        Some(tone_db(hz, members)? - tone_db(hz, vec![])?)
+    }
+
+    fn pass(name: &str, slope: i64) -> Vec<Value> {
+        vec![json!({"name": name, "frequency_hz": 1000, "slope_db_per_oct": slope})]
+    }
+
+    #[test]
+    fn a_pass_filter_reads_minus_3_01_db_at_its_cutoff_at_every_slope() {
+        for name in ["highpass", "lowpass"] {
+            for slope in [12, 24, 48] {
+                let Some(at_fc) = relative_db(1000.0, pass(name, slope)) else {
+                    return;
+                };
+                let (passband, stopband) = if name == "highpass" {
+                    (4000.0, 250.0)
+                } else {
+                    (250.0, 4000.0)
+                };
+                let pb = relative_db(passband, pass(name, slope)).unwrap();
+                let sb = relative_db(stopband, pass(name, slope)).unwrap();
+                eprintln!("EQ-DELTAS {name} {slope}: fc {at_fc:.3} passband {pb:.3} stop {sb:.3}");
+                assert!(
+                    (at_fc + 3.01).abs() <= 0.15,
+                    "{name} {slope} at fc: {at_fc}"
+                );
+                assert!(pb.abs() <= 0.3, "{name} {slope} passband: {pb}");
+                // Two octaves in: the ideal Butterworth figure less 1.5 dB, never asked past -75.
+                let wanted = match slope {
+                    12 => -22.6,
+                    24 => -46.7,
+                    _ => -75.0,
+                };
+                assert!(sb <= wanted, "{name} {slope} stopband: {sb} > {wanted}");
+            }
+        }
+    }
+
+    /// The negative control: the naive cascade of identical sections misses -3.01 by more
+    /// than 0.5 dB at 24 and 48 dB/oct, so the test above is able to fail.
+    #[test]
+    fn identical_sections_read_far_from_minus_3_01_db() {
+        for sections in [2, 4] {
+            let naive =
+                vec!["highpass=f=1000:poles=2:width_type=q:width=0.707107"; sections].join(",");
+            let Ok((tools, _)) = crate::media::tools::resolve_found() else {
+                return;
+            };
+            let run = |af: &str| -> f64 {
+                let out = std::process::Command::new(&tools.ffmpeg)
+                    .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"])
+                    .arg("sine=f=1000:r=48000:d=1")
+                    .args(["-af", af, "-f", "f64le", "-"])
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "{af}: ffmpeg failed");
+                let s: Vec<f64> = out
+                    .stdout
+                    .chunks_exact(8)
+                    .map(|b| f64::from_le_bytes(b.try_into().unwrap()))
+                    .skip(24000)
+                    .collect();
+                10.0 * (s.iter().map(|x| x * x).sum::<f64>() / s.len() as f64).log10()
+            };
+            let bare = run("aformat=sample_fmts=dbl");
+            let got = run(&format!(
+                "aformat=sample_fmts=dbl,{naive},aformat=sample_fmts=dbl"
+            )) - bare;
+            assert!((got + 3.01).abs() > 0.5, "{sections} sections read {got}");
+        }
+    }
+
+    #[test]
+    fn a_bell_reads_its_gain_at_the_centre_and_nothing_three_octaves_away() {
+        for gain in [-12, -6, 6, 12] {
+            let bell = vec![json!({"name": "bell", "frequency_hz": 1000, "gain_db": gain, "q": 1})];
+            let Some(centre) = relative_db(1000.0, bell.clone()) else {
+                return;
+            };
+            let away = relative_db(125.0, bell).unwrap();
+            eprintln!("EQ-DELTAS bell {gain}: centre {centre:.3} away {away:.3}");
+            assert!((centre - gain as f64).abs() <= 0.15, "{gain}: {centre}");
+            assert!(away.abs() <= 0.5, "{gain} away: {away}");
+        }
+    }
+
+    #[test]
+    fn a_shelf_reads_its_gain_on_the_plateau_half_of_it_at_the_corner_and_nothing_beyond() {
+        // (side, plateau Hz, far side Hz)
+        for (side, plateau, far) in [("low", 40.0, 5000.0), ("high", 15000.0, 200.0)] {
+            for gain in [-6, 6] {
+                let shelf = |hz: f64| {
+                    relative_db(
+                        hz,
+                        vec![json!({"name": "shelf", "side": side, "frequency_hz": 1000,
+                                     "gain_db": gain})],
+                    )
+                };
+                let Some(top) = shelf(plateau) else { return };
+                let corner = shelf(1000.0).unwrap();
+                let beyond = shelf(far).unwrap();
+                eprintln!(
+                    "EQ-DELTAS shelf {side} {gain}: plateau {top:.3} corner {corner:.3} far {beyond:.3}"
+                );
+                assert!((top - gain as f64).abs() <= 0.3, "{side} {gain}: {top}");
+                assert!(
+                    (corner - gain as f64 / 2.0).abs() <= 0.3,
+                    "{side} {gain}: {corner}"
+                );
+                assert!(beyond.abs() <= 0.3, "{side} {gain} far: {beyond}");
+            }
+        }
+    }
+
+    /// Every bound of every range renders without an ffmpeg error, so a document that passes
+    /// `validate` never fails at render.
+    #[test]
+    fn every_range_edge_renders() {
+        let mut members = vec![];
+        for f in [20, 20000] {
+            for slope in [12, 24, 48] {
+                for name in ["highpass", "lowpass"] {
+                    members
+                        .push(json!({"name": name, "frequency_hz": f, "slope_db_per_oct": slope}));
+                }
+            }
+            for g in [-24, 24] {
+                for side in ["low", "high"] {
+                    members.push(
+                        json!({"name": "shelf", "side": side, "frequency_hz": f, "gain_db": g}),
+                    );
+                }
+                for q in [0.1, 10.0] {
+                    members.push(json!({"name": "bell", "frequency_hz": f, "gain_db": g, "q": q}));
+                }
+            }
+        }
+        for member in members {
+            // `tone_db` asserts ffmpeg exited cleanly.
+            if tone_db(1000.0, vec![member]).is_none() {
+                return;
+            }
+        }
+    }
+
+    /// Bypass: `enabled: false` is the member's absence, and a stack's order is list order.
+    #[test]
+    fn a_bypassed_member_reads_as_absent() {
+        let mut off = json!({"name": "bell", "frequency_hz": 1000, "gain_db": 12, "q": 1});
+        off["enabled"] = json!(false);
+        let (Some(with), Some(without)) = (tone_db(1000.0, vec![off]), tone_db(1000.0, vec![]))
+        else {
+            return;
+        };
+        assert_eq!(with, without);
+    }
+
+    /// ADR-0180 section 2, committed as text: the compressor is `acompressor` with RMS
+    /// detection, averaged links and a hard knee, its dB values converted to ffmpeg's linear.
+    #[test]
+    fn the_compressor_lowers_to_an_rms_hard_knee_acompressor_in_linear_units() {
+        let member = json!({"name": "compressor", "threshold_db": -24, "ratio": 3,
+                            "attack_ms": 20, "release_ms": 250, "makeup_db": 4});
+        assert_eq!(
+            lower_audio_member("compressor", &member),
+            Some(
+                "acompressor=threshold=0.063095734:ratio=3:attack=20:release=250:\
+                 makeup=1.584893192:knee=1:detection=rms:link=average"
+                    .to_string()
+            )
+        );
+    }
+
+    /// Make-up is at least 1 (`acompressor`'s own floor), and fractional timings survive.
+    #[test]
+    fn a_compressor_with_no_makeup_writes_a_makeup_of_one() {
+        let member = json!({"name": "compressor", "threshold_db": -60, "ratio": 20,
+                            "attack_ms": 0.1, "release_ms": 9000, "makeup_db": 0});
+        assert_eq!(
+            lower_audio_member("compressor", &member),
+            Some(
+                "acompressor=threshold=0.001:ratio=20:attack=0.1:release=9000:\
+                 makeup=1:knee=1:detection=rms:link=average"
+                    .to_string()
+            )
+        );
+    }
+
+    /// ADR-0180 section 2 and #843: `latency=1` is `alimiter`'s own compensation of its 5 ms
+    /// look-ahead, which is what holds the onset at 0 samples (measured: the 20 ms burst
+    /// starts on the same sample with and without the limiter; without `latency=1` it moves
+    /// 239 samples). Adding an `atrim` for that delay as well would cut real audio.
+    #[test]
+    fn the_limiter_lowers_to_alimiter_with_its_latency_compensated() {
+        let member = json!({"name": "limiter", "ceiling_db": -3, "release_ms": 50});
+        assert_eq!(
+            lower_audio_member("limiter", &member),
+            Some(
+                "alimiter=limit=0.707945784:attack=5:release=50:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
+        let floor = json!({"name": "limiter", "ceiling_db": -24, "release_ms": 1000});
+        assert_eq!(
+            lower_audio_member("limiter", &floor),
+            Some(
+                "alimiter=limit=0.063095734:attack=5:release=1000:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
+    }
+
+    /// A chain of both, with a bypassed limiter between them that emits nothing.
+    #[test]
+    fn a_dynamics_chain_runs_in_list_order_in_float() {
+        let element = json!({"audio_effects": [
+            {"name": "compressor", "threshold_db": -24, "ratio": 3, "attack_ms": 20,
+             "release_ms": 250, "makeup_db": 4},
+            {"name": "limiter", "ceiling_db": -12, "release_ms": 50, "enabled": false},
+            {"name": "limiter", "ceiling_db": -3, "release_ms": 50},
+        ]});
+        assert_eq!(
+            audio_effects_stage(&element, "bed", &lower_audio_member).ok(),
+            Some(
+                ",aformat=sample_fmts=fltp,\
+                acompressor=threshold=0.063095734:ratio=3:attack=20:release=250:\
+                makeup=1.584893192:knee=1:detection=rms:link=average,\
+                alimiter=limit=0.707945784:attack=5:release=50:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
     }
 
     #[cfg(unix)]

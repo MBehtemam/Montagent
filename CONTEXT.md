@@ -785,7 +785,8 @@ values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`,
 other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction. The first
 wave is `normalize_loudness` (singular, one authored `target_lufs`), the EQ members `highpass`,
 `lowpass`, `shelf` and `bell`, and `compressor` and `limiter`; every parameter is a literal and
-none defaults.
+none defaults. All seven are built; their ADRs stay `proposed` until each one's three-leg
+measured table is committed (ADR-0173).
 ([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
 [ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md),
 [ADR-0178](docs/adr/0178-normalize-loudness-is-a-singular-audio-effect-with-one-authored-target-lufs-and-one-fixed-gain.md),
@@ -950,7 +951,10 @@ dimensions rounded to even — applied only where the project is larger; a cap, 
 fraction of the project, since half of 16K is still 8K. A preview that runs past the `<5 s`
 scrub budget degrades exactly one tier, to 540p (long edge ≤ 960 px), and refuses rather
 than degrade again. Every result **discloses** the tier it used, degraded or not: it is how
-a caller knows whether the softness it is looking at is the project's or the proxy's. Never
+a caller knows whether the softness it is looking at is the project's or the proxy's. A proxy
+also reads a shrunk image more cheaply than true pixels do, so some of that softness is the
+proxy's own sampling and not only its size
+([ADR-0186](docs/adr/0186-a-proxy-tier-reads-a-shrunk-image-through-one-mip-level-and-the-deliverable-keeps-adr-0132s-rule.md)). Never
 applied to `render`, and never to `frame`, both of which are true pixels always.
 The ladder is defined on **caps**, not on sizes, with two consequences worth stating: a
 project between the two caps still degrades — from true pixels to a real 960 px proxy — and

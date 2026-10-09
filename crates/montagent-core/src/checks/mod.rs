@@ -14,6 +14,8 @@
 //! fact about the project and never becomes a finding about one (ADR-0011's exit 70).
 
 pub mod anchor;
+pub mod audio_effects;
+pub mod audio_eq;
 pub mod blend;
 pub mod box_slack;
 pub mod canvas;
@@ -22,6 +24,7 @@ pub mod chroma;
 pub mod coverage;
 pub mod cut;
 pub mod derived;
+pub mod dynamics;
 pub mod ease;
 pub mod extent;
 pub mod fit;
@@ -32,7 +35,9 @@ pub mod highlight;
 pub mod ink;
 pub mod layout;
 pub mod mask;
+pub mod master;
 pub mod motion_blur;
+pub mod normalize;
 pub mod overridden;
 pub mod path;
 pub mod projection;

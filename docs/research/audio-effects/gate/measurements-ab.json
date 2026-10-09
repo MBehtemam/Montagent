@@ -1,0 +1,21 @@
+{
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "member": {
+  "name": "noise_gate",
+  "threshold_db": -34,
+  "ratio": 10,
+  "attack_ms": 5,
+  "release_ms": 150,
+  "range_db": 30
+ },
+ "bypass": {
+  "pause_rms_db": -51.1,
+  "speech_rms_db": -21.26
+ },
+ "gated": {
+  "pause_rms_db": -81.1,
+  "speech_rms_db": -21.26
+ },
+ "pause_reduction_db": -30.0,
+ "speech_change_db": 0.0
+}

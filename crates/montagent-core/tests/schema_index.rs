@@ -98,6 +98,21 @@ fn the_index_holds_every_element_type_and_effect_name_with_its_required_keys() {
 }
 
 #[test]
+fn the_audio_effects_section_is_in_the_index_with_one_entry_per_member() {
+    // ADR-0169: the union is served as a section of its members, never as a whole `$def`.
+    let schema = montagent_core::schema::generate();
+    let index = index();
+    let listed = index["audio_effects"]
+        .as_object()
+        .expect("index.audio_effects");
+    let branches = schema["$defs"]["AudioEffect"]["oneOf"]
+        .as_array()
+        .map_or(0, Vec::len);
+    assert_eq!(listed.len(), branches);
+    assert!(index["definitions"]["AudioEffect"].is_null());
+}
+
+#[test]
 fn the_index_carries_no_descriptions() {
     // ADR-0137 §3: the rules stay in the pieces, beside their keys.
     let text = resources::read(resources::INDEX.uri).unwrap();
@@ -202,7 +217,7 @@ fn every_other_def_is_served_whole() {
     let schema = montagent_core::schema::generate();
     let index = index();
     for (name, def) in schema["$defs"].as_object().unwrap() {
-        if name == "Element" || name == "Effect" {
+        if name == "Element" || name == "Effect" || name == "AudioEffect" {
             continue;
         }
         let uri = index["definitions"][name]

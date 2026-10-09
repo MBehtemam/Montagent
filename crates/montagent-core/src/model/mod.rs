@@ -25,9 +25,11 @@
 //! the *only* signal an old binary has that a file was authored against a newer schema —
 //! and an optional signal is indistinguishable from no signal.
 
+pub mod audio_effects;
 pub mod effects;
 mod element;
 pub mod keyframe;
+pub mod master;
 pub mod paint;
 pub mod playback;
 pub mod stroke;
@@ -39,8 +41,10 @@ use schemars::JsonSchema;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
+pub use audio_effects::AudioEffect;
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
+pub use master::{CeilingDbtp, Master, TargetLufs};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
@@ -447,6 +451,10 @@ pub struct Project {
     pub looping: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    /// The master stage on the final mix: a loudness target and a true-peak ceiling
+    /// (ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub master: Option<Master>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
     #[serde(
@@ -703,6 +711,10 @@ pub struct Video {
     pub volume: Option<Animatable<Volume>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effects: Option<Vec<Effect>>,
+    /// The embedded track's signal-shaping list, run after `speed` and `overrun` and before
+    /// `volume` (ADR-0169). A separate vocabulary from `effects`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_effects: Option<Vec<AudioEffect>>,
 }
 
 impl Video {
@@ -1366,6 +1378,10 @@ pub struct Audio {
     pub overrun: Option<AudioOverrun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub volume: Option<Animatable<Volume>>,
+    /// An ordered list of signal-shaping members, run after `speed` and `overrun` and before
+    /// `volume` (ADR-0169). Written after `volume` in the file, as every list appends.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_effects: Option<Vec<AudioEffect>>,
 }
 
 /// A transition is its own element type, with its own time range and two id references —

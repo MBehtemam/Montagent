@@ -250,6 +250,18 @@ fn run_checks(
     // ADR-0167 §8 and ADR-0168 §3: a projection's `perspective` missing or alone, the eye
     // bound, strong foreshortening, and an element that never faces the eye. Document-only.
     crate::checks::projection::check(document, report);
+    // ADR-0169's three `audio_effects` rules: a member in the other vocabulary's list, a
+    // second enabled copy of a singular member, and a member left bypassed. Document-only.
+    crate::checks::audio_effects::check(document, report);
+    // ADR-0179 §3's five EQ findings: a range, the stack cap, an extreme gain, a crossed
+    // band pair and a zero-gain stage. Document-only.
+    crate::checks::audio_eq::check(document, report);
+    // ADR-0180's six compressor and limiter findings: a range, a limiter over the master's
+    // ceiling, the order, the make-up clip, a ratio of 1 and stacked limiters. Document-only.
+    crate::checks::dynamics::check(document, report);
+    // ADR-0178's two document-only loudness-normalisation findings: a target out of range,
+    // and a target above the master's. Its third, a source with no sound, is on the disk.
+    crate::checks::normalize::check(document, report);
     // ADR-0156's `R-GRAIN-SEED-SHARED`: two grains drawing one pattern. Document-only,
     // decided on the frame grid without painting a frame.
     crate::checks::grain::check(document, report);
@@ -265,6 +277,9 @@ fn run_checks(
     // ADR-0146 §6: a box with no positive size at any frame of its range is never painted.
     // Decided here and in the painter through one function at the same frame instants.
     crate::checks::extent::check(document, report);
+    // ADR-0172's four `master` reviews: a target with no ceiling, an unusual target, a
+    // ceiling above lossy-delivery guidance, and too little headroom. Document-only.
+    crate::checks::master::check(document, report);
     // ADR-0041: checked here **unconditionally**, and `fmt --check`-only was rejected
     // outright — the agent that pretty-printed the fixture from 154 lines to 1595 was not
     // running a formatter and had no reason to invoke one, while `validate` runs on files
@@ -345,5 +360,7 @@ fn run_disk_checks(
     // probe it needs is a cache hit by the time it runs, so it adds no subprocess.
     crate::checks::chroma::on_disk(document, session, report)?;
     // ADR-0176: whether a transition's bridged sources carry sound, off the same cached probes.
-    crate::checks::transition::on_disk(document, session, report)
+    crate::checks::transition::on_disk(document, session, report)?;
+    // ADR-0178: a normalised element whose source carries no sound, off the same probes.
+    crate::checks::normalize::on_disk(document, session, report)
 }
