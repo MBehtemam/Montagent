@@ -168,32 +168,60 @@ jobs:
       # On the x64 Windows leg only, `MONTAGENT_KEEP_FAILED_MP4_DIR` makes `painters.rs` and
       # `letter_spacing.rs` keep a pair of MP4s that differ from equal frames, for the
       # upload below. Empty elsewhere, which the tests read as unset.
+      #
+      # The output is also kept in `test-suite.log` so the diagnostics below can tell an MP4
+      # flake from any other red. `shell: bash` is GitHub's `bash --noprofile --norc -eo
+      # pipefail {0}`, and the script sets `pipefail` again, so the step fails exactly when
+      # `cargo test` does: `tee` succeeding does not hide a failing suite.
       - name: Test suite
+        id: suite
+        shell: bash
         env:
           MONTAGENT_KEEP_FAILED_MP4_DIR: ${{ matrix.target == 'x86_64-pc-windows-msvc' && format('{0}/failed-mp4', runner.temp) || '' }}
-        run: >
-          cargo test --workspace --all-targets --release
-          --target ${{ matrix.target }} --no-fail-fast
+        run: |
+          set -euo pipefail
+          cargo test --workspace --all-targets --release \
+            --target ${{ matrix.target }} --no-fail-fast 2>&1 | tee "$RUNNER_TEMP/test-suite.log"
 
-      # DIAGNOSTIC, x64 Windows only, never gating (`continue-on-error`), removed once
-      # answered: why that leg intermittently writes MP4s that differ from equal frames
-      # (`crates/montagent-core/tests/windows_mp4_determinism.rs` has the variant table).
-      # `!cancelled()` so they still run when the suite above went red, which is when the
-      # answer is most likely in.
-      - name: "Diagnostic (x64 Windows): the runner's CPU and the ffmpeg build"
-        if: ${{ !cancelled() && matrix.target == 'x86_64-pc-windows-msvc' }}
+      # DIAGNOSTIC for the x64 Windows leg's intermittent MP4s that differ from equal frames
+      # (`crates/montagent-core/tests/windows_mp4_determinism.rs` has the variant table),
+      # never gating (`continue-on-error`), removed once answered. Free on a green run: only
+      # this step and the upload run every time, and they take seconds; the heavy experiments
+      # run only when the suite failed in a test binary that compares MP4 bytes.
+
+      # Always, on both Windows legs (the arm64 one is the control that never flakes), and
+      # also when the suite went red (`!cancelled()`): what CPU the runner drew, which ffmpeg,
+      # and the asm x264 picked on it (one 3-frame encode).
+      - name: "Diagnostic (Windows): the runner's CPU and the ffmpeg build"
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         continue-on-error: true
         shell: pwsh
         run: |
           Get-CimInstance Win32_Processor | Format-List Name,Manufacturer,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed
           ffmpeg -hide_banner -version
-          ffmpeg -hide_banner -h encoder=libx264
+          cmd /c "ffmpeg -hide_banner -nostats -f lavfi -i testsrc2=s=320x180:r=30:d=0.1 -c:v libx264 -preset medium -f null - 2>&1" | Select-String 'cpu capabilities'
+
+      # Whether the suite's red is plausibly the MP4 flake: a failed `painters`,
+      # `letter_spacing` or `windows_mp4_determinism` binary in `cargo test`'s closing
+      # `error: N targets failed:` list. Anything else (say `preview_budget` alone) leaves
+      # `mp4_flake` unset and the experiments below skipped.
+      - name: "Diagnostic (x64 Windows): did an MP4-comparing test fail?"
+        id: mp4flake
+        if: ${{ failure() && steps.suite.outcome == 'failure' && matrix.target == 'x86_64-pc-windows-msvc' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          if grep -E -- '--test (painters|letter_spacing|windows_mp4_determinism)`' "$RUNNER_TEMP/test-suite.log"; then
+            echo "mp4_flake=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No MP4-comparing test binary failed; skipping the MP4 experiments."
+          fi
 
       # The same encode with no Montagent in it: one raw rgb24 file piped to the production
       # command line 30 times. One md5 here and several in the variant step means the
       # difference needs Montagent's pipe; several here means ffmpeg or x264 alone.
       - name: "Diagnostic (x64 Windows): the production encode from plain ffmpeg, 30 times"
-        if: ${{ !cancelled() && matrix.target == 'x86_64-pc-windows-msvc' }}
+        if: ${{ !cancelled() && steps.mp4flake.outputs.mp4_flake == 'true' }}
         continue-on-error: true
         shell: bash
         run: |
@@ -201,10 +229,6 @@ jobs:
           mkdir -p "$dir"
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=s=320x180:r=30:d=1.1 \
             -f rawvideo -pix_fmt rgb24 "$dir/in.rgb"
-          # x264's own report of the asm it picked on this CPU.
-          ffmpeg -hide_banner -loglevel info -y -f rawvideo -pix_fmt rgb24 -s 320x180 -r 30 \
-            -i "$dir/in.rgb" -c:v libx264 -preset medium -crf 20 -threads 5 -pix_fmt yuv420p \
-            -f mp4 "$dir/caps.mp4" 2>&1 | grep -i "cpu capabilities" || true
           for i in $(seq 1 30); do
             ffmpeg -hide_banner -loglevel error -y -f rawvideo -pix_fmt rgb24 -s 320x180 -r 30 \
               -i pipe:0 -map 0:v -c:v libx264 -preset medium -crf 20 -threads 5 \
@@ -216,7 +240,7 @@ jobs:
       # load is part of what the flake may need). Read the `DIAG-SUMMARY` lines reprinted at
       # the end: `distinct_mp4=1` is deterministic, more than one is not.
       - name: "Diagnostic (x64 Windows): MP4 determinism per encoder variant"
-        if: ${{ !cancelled() && matrix.target == 'x86_64-pc-windows-msvc' }}
+        if: ${{ !cancelled() && steps.mp4flake.outputs.mp4_flake == 'true' }}
         continue-on-error: true
         shell: bash
         env:
@@ -236,6 +260,8 @@ jobs:
           echo "==== DIAG-SUMMARY (one line per variant and parallelism) ===="
           grep -E "DIAG-SUMMARY|DIAG:" "$log" || true
 
+      # Whatever pairs the suite (or the experiments) kept. Nothing is kept on a green run,
+      # and `if-no-files-found: ignore` makes the missing folder silent.
       - name: "Diagnostic (x64 Windows): keep the differing MP4s"
         if: ${{ !cancelled() && matrix.target == 'x86_64-pc-windows-msvc' }}
         continue-on-error: true
