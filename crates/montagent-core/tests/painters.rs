@@ -27,7 +27,7 @@ use montagent_render::canvas::bound_filter_layers;
 use serde_json::{Value, json};
 
 mod common;
-use common::{canonical, has_ffprobe, tempdir, write_project};
+use common::{canonical, has_ffprobe, mp4_bytes_are_guaranteed, tempdir, write_project};
 
 /// How long one small render may take before it counts as hung.
 const HUNG: Duration = Duration::from_secs(60);
@@ -115,10 +115,26 @@ fn assert_same(one: &Rendered, other: &Rendered, what: &str) {
         .collect();
     assert!(differ.is_empty(), "{what}: frames {differ:?} differ");
     assert_eq!(one.comparable(), other.comparable(), "{what}: the answer");
+    // ADR-0190: x86_64 Windows guarantees the frames above, not the file's bytes.
     assert!(
-        one.mp4 == other.mp4,
+        !mp4_bytes_are_guaranteed() || one.mp4 == other.mp4,
         "{what}: the MP4s differ while every frame at the encoder's input is equal"
     );
+}
+
+/// The two files' decoded frames agree (ADR-0190: not asserted where the bytes are not
+/// guaranteed, since two encodings of the same frames decode to different pixels).
+#[track_caller]
+fn assert_same_decoded(one: &Rendered, other: &Rendered, scratch: &Path) {
+    if !mp4_bytes_are_guaranteed() {
+        return;
+    }
+    let (one, other) = (
+        framemd5(one.mp4.as_deref().expect("a file"), scratch),
+        framemd5(other.mp4.as_deref().expect("a file"), scratch),
+    );
+    assert_eq!(one.len(), 33);
+    assert_eq!(one, other, "the decoded framemd5");
 }
 
 /// The trailer's directory, for its title face and a photo.
@@ -222,12 +238,7 @@ fn three_painters_over_two_frame_chunks_give_the_blur_and_glow_framemd5_of_one()
     assert_same(&one, &three, "K=3, C=2");
 
     let scratch = path.parent().expect("the project's directory");
-    let (one, three) = (
-        framemd5(one.mp4.as_deref().expect("a file"), scratch),
-        framemd5(three.mp4.as_deref().expect("a file"), scratch),
-    );
-    assert_eq!(one.len(), 33);
-    assert_eq!(one, three, "the decoded framemd5");
+    assert_same_decoded(&one, &three, scratch);
 }
 
 #[test]
@@ -927,12 +938,7 @@ fn inverted_masks_with_blur_glow_and_a_ring_give_the_framemd5_of_one_painter_acr
     let scratch = path.parent().expect("the project's directory");
     let three = rendered(&path, chunks(3, 2));
     assert_same(&sequential, &three, "K=3, C=2");
-    let (one, three) = (
-        framemd5(sequential.mp4.as_deref().expect("a file"), scratch),
-        framemd5(three.mp4.as_deref().expect("a file"), scratch),
-    );
-    assert_eq!(one.len(), 33);
-    assert_eq!(one, three, "the decoded framemd5");
+    assert_same_decoded(&sequential, &three, scratch);
 }
 
 /// The stagger's gating fixture (ADR-0144, ADR-0151's consequences): a letter stagger with
@@ -1036,12 +1042,7 @@ fn a_staggered_title_crossing_chunk_boundaries_gives_the_framemd5_of_one_painter
     let scratch = path.parent().expect("the project's directory");
     let three = rendered(&path, chunks(3, 2));
     assert_same(&sequential, &three, "K=3, C=2");
-    let (one, three) = (
-        framemd5(sequential.mp4.as_deref().expect("a file"), scratch),
-        framemd5(three.mp4.as_deref().expect("a file"), scratch),
-    );
-    assert_eq!(one.len(), 33);
-    assert_eq!(one, three, "the decoded framemd5");
+    assert_same_decoded(&sequential, &three, scratch);
 }
 
 /// ADR-0154's gating fixture (#710): paths with sub-pixel motion, rotation, non-uniform

@@ -19,6 +19,16 @@ pub fn tempdir(caller_line: u32) -> PathBuf {
     dir
 }
 
+/// Whether the same frames at the encoder's input must give the same MP4, byte for byte,
+/// on this target.
+///
+/// ADR-0190: on x86_64 Windows the pinned ffmpeg 9's x264 assembly writes slightly different
+/// files from identical frames, so there the guarantee stops at the encoder's input. Every
+/// other target still compares the file (and its decoded frames).
+pub fn mp4_bytes_are_guaranteed() -> bool {
+    !cfg!(all(windows, target_arch = "x86_64"))
+}
+
 /// Write `body` to `name` inside `dir` and hand back the path.
 pub fn write_project(dir: &Path, name: &str, body: &str) -> PathBuf {
     let path = dir.join(name);

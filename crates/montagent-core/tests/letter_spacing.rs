@@ -8,7 +8,7 @@ use montagent_core::validate;
 use serde_json::{Value, json};
 
 mod common;
-use common::{canonical, write_project};
+use common::{canonical, mp4_bytes_are_guaranteed, write_project};
 
 fn workspace(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -520,8 +520,9 @@ fn keyed_spacing_paints_the_same_frames_on_k_painters() {
             window_bytes: None,
         });
         assert_eq!(one, many, "K={painters}, C={chunk}: frames differ");
+        // ADR-0190: x86_64 Windows guarantees the frames above, not the file's bytes.
         assert!(
-            one_mp4 == many_mp4,
+            !mp4_bytes_are_guaranteed() || one_mp4 == many_mp4,
             "K={painters}, C={chunk}: the MP4s differ"
         );
     }
