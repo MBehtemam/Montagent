@@ -2312,6 +2312,12 @@ fn resolved_cells(element: &Value) -> String {
     if let Some(sound) = element["sound"]["text"].as_str() {
         cells.push(sound.to_string());
     }
+    // ADR-0179: the element's `audio_effects`, one cell a member, in list order.
+    for member in element["audio_effects"].as_array().into_iter().flatten() {
+        if let Some(text) = member["text"].as_str() {
+            cells.push(text.to_string());
+        }
+    }
     // A wipe, slide or push puts the element somewhere its `x` and `y` do not say (ADR-0150),
     // so the row says where.
     if let Some(moved) = element["transition"].as_object() {

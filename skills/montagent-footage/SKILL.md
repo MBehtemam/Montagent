@@ -144,6 +144,7 @@ python3 scripts/duck.py project.montagent.json --bed music --voice voice --words
 
 One bed under one voice per call; several beds are several calls, and several voices are one merged span list. A project that has `captions.py` run on it can instead give the captions spec a `duck` entry naming the music element, and `captions.py` calls this script (its old linear keys are deprecated). <!-- guard-ok: duck -->
 
+- **Loudness first:** give the voice `normalize_loudness` at `target_lufs` -23 and the music -38, 15 LU under the voice. The target is a number you write; nothing derives the bed's from the voice's. The duck's `volume` applies after it, so the music ends at -38 plus the duck's dB.
 - **Levels,** in dB with the voice at 0, and the linear `volume` each writes: `--under-db` −15 (0.18) while the voice speaks, `--over-db` −6 (0.5) in pauses, `--end-db` −1.5 (0.84) after the last word. The script prints the dB to linear mapping it wrote.
 - **Pauses:** only a pause of 600 ms or more (`--join-ms`) comes back up. Shorter ones stay down, or the music pumps.
 - **Ramps:** 150–250 ms (`--ramp-ms`, 200), starting 100 ms before the voice (`--lead-ms`, 100), so the first syllable is already clear.

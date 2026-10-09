@@ -99,6 +99,9 @@ This is the capability map. Read it before you design, so the brief does not lea
 
 - Audio on tracks, with per-clip volume: `audio`, `volume`.
 - A crossfade between two audio clips, or between two clips' sound alone: `kind: "audio_crossfade"`, `audio` (`constant_power` unless both sides are the same source, then `constant_gain`). Fading a clip against silence stays a `volume` ramp.
+- EQ on an audio or video clip, stackable and in list order: a high-pass or low-pass at 12, 24 or 48 dB/oct, a low or high shelf, and a bell with a Q (`audio_effects`: `highpass`, `lowpass`, `shelf`, `bell`, `frequency_hz`, `slope_db_per_oct`, `side`, `gain_db`, `q`, `enabled`).
+- Even out or hold a clip's level before `volume`: `audio_effects` with `compressor` (`threshold_db`, `ratio`, `attack_ms`, `release_ms`, `makeup_db`) and `limiter` (`ceiling_db`, `release_ms`); every key is required.
+- Bring a clip to a written loudness with one measured gain, before `volume`: `audio_effects` with `normalize_loudness` (`target_lufs`, -40..-6, required, one per clip).
 
 ### Which skill covers it
 

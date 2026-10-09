@@ -785,7 +785,8 @@ values. A member's levels are in decibels and their keys say so (`_db`, `_lufs`,
 other parameters are bare: Hz, ms (fractional allowed), a ratio, or a 0..1 fraction. The first
 wave is `normalize_loudness` (singular, one authored `target_lufs`), the EQ members `highpass`,
 `lowpass`, `shelf` and `bell`, and `compressor` and `limiter`; every parameter is a literal and
-none defaults.
+none defaults. All seven are built; their ADRs stay `proposed` until each one's three-leg
+measured table is committed (ADR-0173).
 ([ADR-0169](docs/adr/0169-audio-effects-are-an-ordered-list-before-volume-and-gain-and-routing-stay-flat.md),
 [ADR-0170](docs/adr/0170-audio-levels-are-written-in-db-and-their-keys-say-so-volume-stays-the-one-linear-level.md),
 [ADR-0178](docs/adr/0178-normalize-loudness-is-a-singular-audio-effect-with-one-authored-target-lufs-and-one-fixed-gain.md),

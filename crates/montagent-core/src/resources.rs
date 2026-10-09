@@ -73,9 +73,21 @@ macro_rules! format_transitions_uri {
     };
 }
 
+macro_rules! format_audio_effects_uri {
+    () => {
+        "montagent://format/audio-effects.md"
+    };
+}
+
 macro_rules! format_paths_uri {
     () => {
         "montagent://format/paths.md"
+    };
+}
+
+macro_rules! format_audio_dynamics_uri {
+    () => {
+        "montagent://format/audio-dynamics.md"
     };
 }
 
@@ -216,8 +228,16 @@ pub const FORMAT_PAGES: &[FormatPage] = &[
         text: include_str!("../docs/format/transitions.md"),
     },
     FormatPage {
+        uri: format_audio_effects_uri!(),
+        text: include_str!("../docs/format/audio-effects.md"),
+    },
+    FormatPage {
         uri: format_paths_uri!(),
         text: include_str!("../docs/format/paths.md"),
+    },
+    FormatPage {
+        uri: format_audio_dynamics_uri!(),
+        text: include_str!("../docs/format/audio-dynamics.md"),
     },
 ];
 

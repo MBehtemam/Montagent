@@ -33,6 +33,11 @@ const AUDITED: &[(&str, usize, &str)] = &[
          reads stdout only after a zero exit and answers `None` otherwise (ADR-0143 §6)",
     ),
     (
+        "montagent-core/src/verbs/render.rs",
+        2,
+        "the EQ measured unit tests: both assert a zero exit before reading stdout",
+    ),
+    (
         "montagent-core/src/media/probe.rs",
         1,
         "ProcessRunner records success and the exit code; interpret reads tool_failure \

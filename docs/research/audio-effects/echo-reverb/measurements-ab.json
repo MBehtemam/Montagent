@@ -1,0 +1,118 @@
+{
+ "ffmpeg": "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+ "echo": {
+  "delay_ms": 300.0,
+  "feedback": 0.5,
+  "mix": 0.5
+ },
+ "reverb": {
+  "decay_ms": 1200.0,
+  "mix": 0.3
+ },
+ "echo_taps": [
+  [
+   300.0,
+   0.5
+  ],
+  [
+   600.0,
+   0.25
+  ],
+  [
+   900.0,
+   0.125
+  ],
+  [
+   1200.0,
+   0.0625
+  ],
+  [
+   1500.0,
+   0.03125
+  ],
+  [
+   1800.0,
+   0.015625
+  ],
+  [
+   2100.0,
+   0.0078125
+  ],
+  [
+   2400.0,
+   0.00390625
+  ]
+ ],
+ "tail_ms": {
+  "echo": 1500,
+  "reverb": 1500
+ },
+ "source_end_ms": 19425,
+ "tail_pairs_total_s": 21,
+ "clips": {
+  "echo-X": {
+   "what": "bypass",
+   "lufs_before_match": -18.0,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -2.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.8
+  },
+  "echo-Y": {
+   "what": "echo",
+   "lufs_before_match": -16.8,
+   "peak_dbfs_before_match": -2.6,
+   "match_gain_db": -3.2,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -5.8
+  },
+  "reverb-X": {
+   "what": "reverb",
+   "lufs_before_match": -20.6,
+   "peak_dbfs_before_match": -4.1,
+   "match_gain_db": 0.6,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -3.5
+  },
+  "reverb-Y": {
+   "what": "bypass",
+   "lufs_before_match": -18.0,
+   "peak_dbfs_before_match": -2.8,
+   "match_gain_db": -2.0,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -4.8
+  },
+  "echo-tail-X": {
+   "what": "tail-cut",
+   "lufs_before_match": -16.8,
+   "peak_dbfs_before_match": -2.6,
+   "match_gain_db": -3.2,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -5.8
+  },
+  "echo-tail-Y": {
+   "what": "tail-kept-1500ms",
+   "lufs_before_match": -16.9,
+   "peak_dbfs_before_match": -2.6,
+   "match_gain_db": -3.1,
+   "decoded_lufs": -20.1,
+   "decoded_peak_dbfs": -5.7
+  },
+  "reverb-tail-X": {
+   "what": "tail-kept-1500ms",
+   "lufs_before_match": -20.6,
+   "peak_dbfs_before_match": -4.1,
+   "match_gain_db": 0.6,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -3.5
+  },
+  "reverb-tail-Y": {
+   "what": "tail-cut",
+   "lufs_before_match": -20.6,
+   "peak_dbfs_before_match": -4.1,
+   "match_gain_db": 0.6,
+   "decoded_lufs": -20.0,
+   "decoded_peak_dbfs": -3.5
+  }
+ }
+}

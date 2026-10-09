@@ -37,6 +37,7 @@ pub mod attest;
 pub mod digest;
 pub mod dimensions;
 pub mod established;
+pub mod loudness;
 pub mod probe;
 pub mod session;
 pub mod sidecar;

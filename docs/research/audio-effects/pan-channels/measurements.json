@@ -1,0 +1,415 @@
+{
+ "0 mono source -> stereo bus (aformat upmix), per-channel dB re mono": {
+  "got": -3.0103,
+  "want": -3.0103,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=-1 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=-0.5 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=-0.5 right gain": {
+  "got": -6.0206,
+  "want": -6.020599913279624,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=0 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=0 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=0.5 left gain": {
+  "got": -6.0206,
+  "want": -6.020599913279624,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=0.5 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_linear(0dB) p=1 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "law balance_linear(0dB)": [
+  {
+   "p": -1,
+   "L_dB": 0.0,
+   "R_dB": -218.926,
+   "total_dB": -3.01
+  },
+  {
+   "p": -0.5,
+   "L_dB": 0.0,
+   "R_dB": -6.021,
+   "total_dB": -2.041
+  },
+  {
+   "p": 0,
+   "L_dB": 0.0,
+   "R_dB": 0.0,
+   "total_dB": 0.0
+  },
+  {
+   "p": 0.5,
+   "L_dB": -6.021,
+   "R_dB": 0.0,
+   "total_dB": -2.041
+  },
+  {
+   "p": 1,
+   "L_dB": -218.926,
+   "R_dB": 0.0,
+   "total_dB": -3.01
+  }
+ ],
+ "1 balance_cos(0dB) p=-1 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=-0.5 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=-0.5 right gain": {
+  "got": -3.0103,
+  "want": -3.0102999566398116,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=0 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=0 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=0.5 left gain": {
+  "got": -3.0103,
+  "want": -3.0102999566398116,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=0.5 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 balance_cos(0dB) p=1 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "law balance_cos(0dB)": [
+  {
+   "p": -1,
+   "L_dB": 0.0,
+   "R_dB": -218.926,
+   "total_dB": -3.01
+  },
+  {
+   "p": -0.5,
+   "L_dB": 0.0,
+   "R_dB": -3.01,
+   "total_dB": -1.249
+  },
+  {
+   "p": 0,
+   "L_dB": 0.0,
+   "R_dB": 0.0,
+   "total_dB": 0.0
+  },
+  {
+   "p": 0.5,
+   "L_dB": -3.01,
+   "R_dB": 0.0,
+   "total_dB": -1.249
+  },
+  {
+   "p": 1,
+   "L_dB": -218.926,
+   "R_dB": 0.0,
+   "total_dB": -3.01
+  }
+ ],
+ "1 constant_power(-3dB) p=-1 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=-0.5 left gain": {
+  "got": -0.68769,
+  "want": -0.6876930815810872,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=-0.5 right gain": {
+  "got": -8.34321,
+  "want": -8.34320678833835,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=0 left gain": {
+  "got": -3.0103,
+  "want": -3.0102999566398116,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=0 right gain": {
+  "got": -3.0103,
+  "want": -3.0102999566398125,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=0.5 left gain": {
+  "got": -8.34321,
+  "want": -8.343206788338346,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=0.5 right gain": {
+  "got": -0.68769,
+  "want": -0.6876930815810872,
+  "tol": 0.01
+ },
+ "1 constant_power(-3dB) p=1 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "law constant_power(-3dB)": [
+  {
+   "p": -1,
+   "L_dB": 0.0,
+   "R_dB": -218.926,
+   "total_dB": -3.01
+  },
+  {
+   "p": -0.5,
+   "L_dB": -0.688,
+   "R_dB": -8.343,
+   "total_dB": -3.01
+  },
+  {
+   "p": 0,
+   "L_dB": -3.01,
+   "R_dB": -3.01,
+   "total_dB": -3.01
+  },
+  {
+   "p": 0.5,
+   "L_dB": -8.343,
+   "R_dB": -0.688,
+   "total_dB": -3.01
+  },
+  {
+   "p": 1,
+   "L_dB": -218.926,
+   "R_dB": 0.0,
+   "total_dB": -3.01
+  }
+ ],
+ "1 linear(-6dB) p=-1 left gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=-0.5 left gain": {
+  "got": -2.49877,
+  "want": -2.4987747321659985,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=-0.5 right gain": {
+  "got": -12.0412,
+  "want": -12.041199826559248,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=0 left gain": {
+  "got": -6.0206,
+  "want": -6.020599913279624,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=0 right gain": {
+  "got": -6.0206,
+  "want": -6.020599913279624,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=0.5 left gain": {
+  "got": -12.0412,
+  "want": -12.041199826559248,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=0.5 right gain": {
+  "got": -2.49877,
+  "want": -2.4987747321659985,
+  "tol": 0.01
+ },
+ "1 linear(-6dB) p=1 right gain": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "law linear(-6dB)": [
+  {
+   "p": -1,
+   "L_dB": 0.0,
+   "R_dB": -218.926,
+   "total_dB": -3.01
+  },
+  {
+   "p": -0.5,
+   "L_dB": -2.499,
+   "R_dB": -12.041,
+   "total_dB": -5.051
+  },
+  {
+   "p": 0,
+   "L_dB": -6.021,
+   "R_dB": -6.021,
+   "total_dB": -6.021
+  },
+  {
+   "p": 0.5,
+   "L_dB": -12.041,
+   "R_dB": -2.499,
+   "total_dB": -5.051
+  },
+  {
+   "p": 1,
+   "L_dB": -218.926,
+   "R_dB": 0.0,
+   "total_dB": -3.01
+  }
+ ],
+ "2 balance +1: left channel exactly zero": true,
+ "2 balance +1: right channel bit-identical to source right": true,
+ "2 balance never moves L content into R (440 Hz in R < -100 dB)": true,
+ "2 a mixing pan matrix does put 440 Hz in R (> -40 dB)": true,
+ "mono half_sum 0.5(L+R)": {
+  "correlated L=R": 0.0,
+  "uncorrelated noise": -2.981,
+  "anti-phase L=-R": "silent",
+  "left only": -6.021
+ },
+ "mono root_half 0.707(L+R)": {
+  "correlated L=R": 3.01,
+  "uncorrelated noise": 0.03,
+  "anti-phase L=-R": "silent",
+  "left only": -3.01
+ },
+ "mono sum (L+R)": {
+  "correlated L=R": 6.021,
+  "uncorrelated noise": 3.04,
+  "anti-phase L=-R": "silent",
+  "left only": 0.0
+ },
+ "3 pan '<' with c0+c1 on L=R (normalised: unity)": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "3 pan '=' with c0+c1 on L=R (literal: +6.02 dB)": {
+  "got": 6.0206,
+  "want": 6.0206,
+  "tol": 0.01
+ },
+ "3 half_sum on correlated L=R is 0 dB": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "3 half_sum on uncorrelated noise is -3 dB": {
+  "got": -2.981,
+  "want": -3.0,
+  "tol": 0.15
+ },
+ "3 half_sum on left-only is -6.02 dB": {
+  "got": -6.021,
+  "want": -6.0206,
+  "tol": 0.01
+ },
+ "3 root_half on correlated is +3.01 dB": {
+  "got": 3.01,
+  "want": 3.0103,
+  "tol": 0.01
+ },
+ "3 half_sum on anti-phase is exact silence": true,
+ "3 aformat=channel_layouts=mono on L=R (re L): ffmpeg folds at 0.707(L+R)": {
+  "got": 3.0103,
+  "want": 3.0103,
+  "tol": 0.01
+ },
+ "3 aformat=channel_layouts=mono on left-only (re L): ditto": {
+  "got": -3.0103,
+  "want": -3.0103,
+  "tol": 0.02
+ },
+ "4 swap: L' is bit-identical to R, R' to L": true,
+ "4 left (fill): both channels bit-identical to source L": true,
+ "4 right (fill): both channels bit-identical to source R": true,
+ "4 left (mute other): R exactly zero, L bit-identical": true,
+ "4 identity matrix pan=stereo|c0=c0|c1=c1 is bit-identical in float": true,
+ "4 lav-mic case: 'left' fill of left-only source, per-channel dB re the live channel": {
+  "got": 0.0,
+  "want": 0.0,
+  "tol": 0.01
+ },
+ "5 pan balance: impulse onset sample (input at 100)": {
+  "got": 100,
+  "want": 100,
+  "tol": 0
+ },
+ "5 pan balance: output length in samples": {
+  "got": 48000,
+  "want": 48000,
+  "tol": 0
+ },
+ "5 pan swap: impulse onset sample (input at 100)": {
+  "got": 100,
+  "want": 100,
+  "tol": 0
+ },
+ "5 pan swap: output length in samples": {
+  "got": 48000,
+  "want": 48000,
+  "tol": 0
+ },
+ "5 pan mono: impulse onset sample (input at 100)": {
+  "got": 100,
+  "want": 100,
+  "tol": 0
+ },
+ "5 pan mono: output length in samples": {
+  "got": 48000,
+  "want": 48000,
+  "tol": 0
+ },
+ "6 asendcmd to pan has no effect (L unchanged after 0.5 s)": true,
+ "6 split + volume(asendcmd) + join does animate one channel (L silent in last 0.4 s)": true,
+ "7 repeat-run identical: balance_cos p=0.5": true,
+ "7 repeat-run identical: cp3 p=0.3": true,
+ "7 repeat-run identical: mono half_sum": true,
+ "7 repeat-run identical: swap": true,
+ "7 repeat-run identical: left fill": true,
+ "7 repeat-run identical: noise half_sum": true,
+ "digests": {
+  "balance_cos p=0.5": "def9a297a4000017",
+  "cp3 p=0.3": "11993f21600f19d7",
+  "mono half_sum": "5bbdef9ed5d821c2",
+  "swap": "6989c67af9ad0952",
+  "left fill": "b125f9619ffd16c7",
+  "noise half_sum": "d98094afada61977"
+ },
+ "ffmpeg": "ffmpeg version n7.1.5-12-g1fdbca85aa-20260731 Copyright (c) 2000-2026 the FFmpeg developers"
+}

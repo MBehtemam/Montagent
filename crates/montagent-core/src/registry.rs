@@ -1376,6 +1376,116 @@ projected element needs the eye's distance in px to be drawn in perspective. Add
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0169: the two effect vocabularies never share a member (ADR-0040). Refuse: the
+        // member is in the wrong list, but its position in the right one is the order it is
+        // applied in, and only the author knows that.
+        code: "E-AUDIO-EFFECT-WRONG-LIST",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.{list}[{index}]: `{member}` is not a member of `{list}`; it \
+belongs in `{right}`. Move it there, at the position in that list where it should be applied.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0169: a second enabled copy of a member whose own ADR declares it singular.
+        // Refuse: which copy's parameters win is the author's call.
+        code: "E-AUDIO-EFFECT-SINGULAR",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.audio_effects[{index}]: a second enabled `{member}`; the one at \
+index {first} is the same effect, and only one may be enabled. Keep one, or set `\"enabled\": \
+false` on the other.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0169: a bypassed member in a finished project is a leftover. A review: bypassing
+        // is the routine way to listen against the source.
+        code: "R-AUDIO-EFFECT-DISABLED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0169",
+        template: "`{element}`.audio_effects[{index}]: `{member}` is set to `\"enabled\": \
+false`, so it does not render. Delete it, or remove the `enabled` key if it should apply.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. Advise: the value is the nearest bound, or the nearest slope.
+        code: "E-EQ-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}`.{key} is {value}; it must be \
+{allowed}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. Refuse: the fix forks (merge bands, or delete one), so no repair.
+        code: "E-EQ-STACK-CAP",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`: {count} enabled EQ members; at most {cap} may be enabled on one \
+element. Merge bands, delete one, or set `\"enabled\": false` on some.",
+        status: Live,
+        census: Some(Counted),
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. A large gain can be what the author meant, so a review.
+        code: "R-EQ-GAIN-EXTREME",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}` is set to {gain_db} dB, past \
+{threshold_db} dB either way. Keep it if the exaggeration is the point.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. Nothing is left in the passband; deliberate only as a sound effect.
+        code: "R-EQ-BAND-CROSSED",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`: the `highpass` at audio_effects[{highpass}] ({highpass_hz} Hz) \
+is at or above the `lowpass` at audio_effects[{lowpass}] ({lowpass_hz} Hz), so almost nothing \
+passes both.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0179 §3. A zero-gain stage changes nothing.
+        code: "N-EQ-NO-OP",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0179",
+        template: "`{element}`.audio_effects[{index}]: `{member}` has `gain_db` 0, so it changes \
+nothing.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         // ADR-0167 §8, by the precedent of `E-DASH-OFFSET-ALONE`. Advise: with neither angle
         // written the element is not projected, so dropping it changes nothing drawn. An
         // angle written as `0` counts as written (ADR-0168 §1).
@@ -3162,6 +3272,293 @@ in the {other} version, {moved}; {stayed}. ({ref_project} is the reference versi
         status: Live,
         census: None,
         sets: &[CheckSet::Drift],
+    },
+    // ADR-0180 (#846): the compressor and the limiter.
+    CheckSpec {
+        // Advise: the nearest bound is a value the document and the range determine.
+        code: "E-DYNAMICS-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`{member}`).{key}: {value} is outside \
+{min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // Advise: `ceiling_dbtp - 1` is the one value that clears it. Fires only with a
+        // `master.ceiling_dbtp` written.
+        code: "E-LIMITER-ABOVE-MASTER",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`limiter`).ceiling_db: {ceiling_db} is above \
+the master's `ceiling_dbtp` ({ceiling_dbtp}) less 1 dB, so it can never bind: the master's ceiling \
+already governs the delivered file. Lower it to {limit}, or drop the limiter.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // A review: a glue chain can be deliberate, and swapping the two changes the sound.
+        code: "R-DYNAMICS-ORDER",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}]: a `compressor` after the `limiter` at index \
+{limiter} re-exposes the peaks the limiter removed. Put the compressor first, unless this is meant.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- The master stage (ADR-0172, ADR-0174) ---------------------------------------------
+    CheckSpec {
+        // ADR-0172: a target with no limiter. Not an error: `validate` cannot know the gain's
+        // sign before the measurement pass, and a target on a hot mix is pure attenuation.
+        code: "R-MASTER-NO-CEILING",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is which keys are written.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}` and no `ceiling_dbtp`, so a \
+positive gain reaches the mix with no limiter after it and can clip. Add `ceiling_dbtp: -1`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // A review: a static estimate for a full-scale sine, wrong either way on real material.
+        code: "R-COMPRESSOR-MAKEUP-CLIP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}] (`compressor`).makeup_db: {makeup_db} exceeds \
+the {headroom} dB a full-scale sine can take before reaching 0 dBFS at threshold {threshold_db} and \
+ratio {ratio}, and no enabled `limiter` follows it and the project has no `master.ceiling_dbtp`. \
+Lower the make-up, or follow the compressor with a `limiter`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-MASTER-TARGET-UNUSUAL",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::TARGET_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `target_lufs` is {target_lufs} LUFS, {direction} than \
+{threshold_lufs} LUFS.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-COMPRESSOR-RATIO-1",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`.audio_effects[{index}]: a `compressor` at ratio 1 reduces nothing; it \
+is a plain {makeup_db} dB gain.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-MASTER-CEILING-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::CEILING_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master`'s `ceiling_dbtp` is {ceiling_dbtp} dBTP, above {threshold_dbtp} \
+dBTP, and the deliverable is lossy AAC, whose decoding adds peaks between samples.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "N-LIMITER-STACKED",
+        classes: &[Note],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0180",
+        template: "`{element}`: {count} enabled `limiter` members (audio_effects indexes {indexes}); \
+the lowest ceiling binds and the others add look-ahead and nothing else.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // ---- Loudness normalisation (ADR-0178, #844) -------------------------------------------
+    CheckSpec {
+        // Advise: the nearest bound is a value the document and the range determine.
+        code: "E-NORMALIZE-TARGET-RANGE",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}] (`normalize_loudness`).target_lufs: \
+{target_lufs} is outside {min}..{max}. The nearest value in range is {nearest}.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // Refuse (ADR-0120): the fix forks — drop the member, or point the element at a
+        // source with sound — and the document does not say which was meant. The census says
+        // which normalised elements carry sound.
+        code: "E-NORMALIZE-NO-AUDIO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}]: `normalize_loudness` has nothing to \
+measure, because the source {source} carries no audio stream.",
+        status: Live,
+        census: Some(Named),
+        sets: &[Disk],
+    },
+    CheckSpec {
+        // A review: the master's one gain moves the element afterwards, so a target above the
+        // master's is a level the deliverable never has; it can still be meant.
+        code: "R-NORMALIZE-ABOVE-MASTER",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}] (`normalize_loudness`).target_lufs: \
+{target_lufs} LUFS is above `master.target_lufs` ({master_lufs} LUFS), so the master's gain \
+pulls the whole mix, this element with it, back down. Write the element's target at or below \
+the master's.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // The measurement pass's own findings, from `render` and `preview` (ADR-0178 §4).
+    CheckSpec {
+        code: "R-NORMALIZE-LIFT",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::render::master::GAIN_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0178",
+        template: "`{element}` measured {measured_lufs} LUFS on its placed window, so reaching \
+`target_lufs: {target_lufs}` applied {applied_gain_db} dB of gain, above {threshold_db} dB, \
+which lifts its noise floor with it. Check the source and the target.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        code: "N-NORMALIZE-UNDEFINED",
+        classes: &[Note],
+        repair: None,
+        // The deciding fact is BS.1770's own gating, the meter's definition.
+        threshold: Internal,
+        adr: "ADR-0178",
+        template: "`{element}`.audio_effects[{index}]: the placed window has no integrated \
+loudness (silent, or shorter than one 400 ms block), so `normalize_loudness` applied no gain \
+and the element renders unchanged.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // ADR-0172: predicts, before anything renders, the shortfall one gain with no
+        // compensation leaves after heavy limiting.
+        code: "R-MASTER-HEADROOM",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::checks::master::HEADROOM_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "`master` leaves {headroom_db} dB between `target_lufs` ({target_lufs} LUFS) \
+and `ceiling_dbtp` ({ceiling_dbtp} dBTP), under {threshold_db} dB: heavy limiting is likely, \
+and the delivered loudness may land below the target. Lower the target, or reduce the peaks \
+on the elements.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    // The measurement pass's own findings, from `render` and `preview` (ADR-0172).
+    CheckSpec {
+        code: "R-MASTER-LOUDNESS-UNDEFINED",
+        classes: &[Review],
+        repair: None,
+        // The deciding fact is BS.1770's own gating, the meter's definition.
+        threshold: Internal,
+        adr: "ADR-0172",
+        template: "`master` sets `target_lufs: {target_lufs}`, and the whole programme's mix \
+has no integrated loudness: every 400 ms block is silent or below the gate. No gain was \
+applied.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        code: "R-MASTER-GAIN-HIGH",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::render::master::GAIN_SOURCE,
+            adr: "ADR-0172",
+        },
+        adr: "ADR-0172",
+        template: "The mix measured {measured_lufs} LUFS, so reaching `target_lufs: \
+{target_lufs}` applied {applied_gain_db} dB of gain, above {threshold_db} dB, which raises the \
+noise floor with it. Raise the elements' `volume`, or lower the target.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    // `verify`'s two misses against what `master` declares (ADR-0173 §6, ADR-0174 §3).
+    CheckSpec {
+        code: "R-VERIFY-LOUDNESS",
+        classes: &[Review],
+        repair: None,
+        threshold: External {
+            source: crate::verbs::verify::LOUDNESS_SOURCE,
+            adr: "ADR-0173",
+        },
+        adr: "ADR-0173",
+        template: "{output}'s integrated loudness is {integrated_lufs} LUFS, {difference_lu} LU \
+from `target_lufs: {target_lufs}`, beyond the {tolerance_lu} LU tolerance. {cause}",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
+    },
+    CheckSpec {
+        code: "R-VERIFY-TRUE-PEAK",
+        classes: &[Review],
+        repair: None,
+        // ADR-0182's route: the project's own measurement on a committed fixture.
+        threshold: External {
+            source: crate::verbs::verify::TRUE_PEAK_SOURCE,
+            adr: "ADR-0174",
+        },
+        adr: "ADR-0174",
+        template: "{output}'s decoded true peak is {true_peak_dbtp} dBTP, {overshoot_db} dB over \
+`ceiling_dbtp: {ceiling_dbtp}`, beyond the {tolerance_db} dB allowance. On clipped or \
+noise-like material driven far over the ceiling this is advisory (up to +1.8 dB is measured); \
+lower `ceiling_dbtp` by about the overshoot and render again.",
+        status: Live,
+        census: None,
+        sets: &[Deliverable],
     },
 ];
 

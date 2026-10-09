@@ -57,6 +57,9 @@ pub enum Published<'a> {
     /// One member of an element's `effects` list, by its `name` (#774). ADR-0163 §3 states
     /// the mask's: `name, shape, x, y, width, height, radius, points, invert, feather`.
     Effect(&'a str),
+    /// One member of an element's `audio_effects` list, by its `name` (ADR-0169): `name`,
+    /// then the member's parameters as declared, then `enabled`.
+    AudioEffect(&'a str),
 }
 
 impl Published<'_> {
@@ -88,6 +91,7 @@ pub fn canonical_order(published: Published<'_>) -> Option<&'static [String]> {
         Published::Track => Some(&orders.track),
         Published::Element(type_name) => orders.elements.get(type_name).map(Vec::as_slice),
         Published::Effect(name) => orders.effects.get(name).map(Vec::as_slice),
+        Published::AudioEffect(name) => orders.audio_effects.get(name).map(Vec::as_slice),
     }
 }
 
@@ -243,6 +247,10 @@ fn canonical_element(element: &Value, reach: Reach) -> Value {
         let effects: Vec<Value> = effects.iter().map(canonical_effect).collect();
         out.insert("effects".into(), Value::Array(effects));
     }
+    if let Some(Value::Array(members)) = out.get("audio_effects") {
+        let members: Vec<Value> = members.iter().map(canonical_audio_effect).collect();
+        out.insert("audio_effects".into(), Value::Array(members));
+    }
     Value::Object(out)
 }
 
@@ -256,6 +264,17 @@ fn canonical_effect(member: &Value) -> Value {
     }
 }
 
+/// One `audio_effects` member, by the same rule as [`canonical_effect`].
+fn canonical_audio_effect(member: &Value) -> Value {
+    match member.as_object() {
+        Some(object) => Value::Object(reorder(
+            Published::AudioEffect(member.get("name").and_then(Value::as_str).unwrap_or("")),
+            object,
+        )),
+        None => member.clone(),
+    }
+}
+
 /// Every published order, read once out of the generated schema.
 ///
 /// Generating the schema costs real work and the answer cannot change within a process, so
@@ -265,6 +284,7 @@ struct Orders {
     track: Vec<String>,
     elements: BTreeMap<String, Vec<String>>,
     effects: BTreeMap<String, Vec<String>>,
+    audio_effects: BTreeMap<String, Vec<String>>,
 }
 
 fn orders() -> &'static Orders {
@@ -275,7 +295,8 @@ fn orders() -> &'static Orders {
             project: keys_of(schema.get("properties")),
             track: keys_of(schema.pointer("/$defs/Track/properties")),
             elements: element_orders(&schema),
-            effects: effect_orders(&schema),
+            effects: effect_orders(&schema, "/$defs/Effect/oneOf"),
+            audio_effects: effect_orders(&schema, "/$defs/AudioEffect/oneOf"),
         }
     })
 }
@@ -300,8 +321,10 @@ fn element_orders(schema: &Value) -> BTreeMap<String, Vec<String>> {
 /// after the variant's fields. So the order here is the branch's properties with `name`
 /// hoisted to the front, which is the writer's order exactly (ADR-0163 §3 writes the mask's
 /// as `name, shape, …`). `tests/fmt_effects.rs` holds the two together for every member.
-fn effect_orders(schema: &Value) -> BTreeMap<String, Vec<String>> {
-    branch_orders(schema, "/$defs/Effect/oneOf", "name")
+///
+/// `AudioEffect` (ADR-0169) is the same tagged shape and is read the same way.
+fn effect_orders(schema: &Value, pointer: &str) -> BTreeMap<String, Vec<String>> {
+    branch_orders(schema, pointer, "name")
         .into_iter()
         .map(|(name, keys)| {
             let order = std::iter::once("name".to_string())

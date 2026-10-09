@@ -159,6 +159,13 @@ member produces the graph it produced before (ADR-0173 §5).
 - The schema gains two `audio_effects` members and a `validate` pass for them (two errors, two reviews, two
   notes). The tools that read a document describe each member and the RMS convention.
 - `CONTEXT.md`'s **Audio effect** entry names the first-wave members.
+- Found while building (C1–C5): the limiter renders `alimiter ... level=0 latency=1` and **no** `apad…atrim`
+  cancel. Measured on a 20 ms burst, `latency=1` alone lands the onset on the unprocessed sample (4801);
+  adding the cancel moved it to 4562 and cut real audio, and no `latency=1` gave 5040. This is the #843
+  latency rule met by the filter's own option, not by the generic cancel.
+- Found while building: a mono source reaches the list upmixed to stereo at −3 dB per channel, so a compressor
+  threshold reads 3 dB under file level on mono material. Measure it on stereo fixtures, and never with
+  `-ac 1` (ffmpeg's downmix adds +3 dB). The format page states this.
 - Not decided here (the map's fog): an expander or gate; a knee or a look-ahead key; a sidechain compressor
   (a duck stays a script, ADR-0177); animating any parameter (#842); a multiband compressor.
 

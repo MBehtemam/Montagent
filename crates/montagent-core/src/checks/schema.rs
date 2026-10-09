@@ -74,6 +74,9 @@ pub fn check(document: &Loose, report: &mut Report) {
 /// The same findings, as a list.
 pub fn findings(document: &Loose) -> Vec<Finding> {
     let mut faults: Vec<(Fault, Locus<'_>)> = Vec::new();
+    // A fault another check already reports, which the whole-document fallback must not
+    // find again.
+    let mut spoken_for = false;
 
     // The header, with its tracks emptied: what is left is every key and value the project
     // itself states.
@@ -91,6 +94,12 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
         // would fix it, re-run, and only then hear the second.
         for element in elements(track) {
             if let Some(fault) = Fault::of::<Element>(element) {
+                // A member written in the other effect list's vocabulary is the audio
+                // effects check's to report, with the list it belongs in (ADR-0169).
+                if crate::checks::audio_effects::speaks_for(element, &fault.reason) {
+                    spoken_for = true;
+                    continue;
+                }
                 faults.push((fault, Locus::element(element, name)));
             }
         }
@@ -101,6 +110,7 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
     // counted findings would answer that silence by reporting the same key a second time,
     // unlocated, as the project's.
     if faults.is_empty()
+        && !spoken_for
         && let Err(e) = document.strict()
     {
         // The scopes between them did not reproduce what the whole document refuses. Not
