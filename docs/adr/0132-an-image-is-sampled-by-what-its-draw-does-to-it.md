@@ -5,6 +5,14 @@ amends: 0010 (the resampler is a decision of its own, and the golden-frame guard
 
 # An image is sampled by what its draw does to it
 
+> **Amended by [ADR-0186](0186-a-proxy-tier-reads-a-shrunk-image-through-one-mip-level-and-the-deliverable-keeps-adr-0132s-rule.md).**
+> The rule below is the **deliverable's**: `render`, `frame` and `preview --full` keep it
+> unchanged. A `preview` proxy tier reads a shrunk image through **one mip level**, not
+> trilinear, because trilinear took the fixture's scrub preview past ADR-0021's enforced
+> `<5 s`. Section 1's "a proxy canvas's base scale" is still in the matrix. What no longer
+> holds is that the matrix alone decides: on a proxy, the canvas's fidelity decides the
+> minifier.
+
 [#500](https://github.com/MBehtemam/Montagent/issues/500). The cut-out character prototype
 (#487) enlarged its parts through `scale` — the background to 2.37×, the character to
 1.38× — and Montagent drew their outlines stair-stepped where a PIL reference (a Lanczos

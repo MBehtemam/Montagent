@@ -950,7 +950,10 @@ dimensions rounded to even — applied only where the project is larger; a cap, 
 fraction of the project, since half of 16K is still 8K. A preview that runs past the `<5 s`
 scrub budget degrades exactly one tier, to 540p (long edge ≤ 960 px), and refuses rather
 than degrade again. Every result **discloses** the tier it used, degraded or not: it is how
-a caller knows whether the softness it is looking at is the project's or the proxy's. Never
+a caller knows whether the softness it is looking at is the project's or the proxy's. A proxy
+also reads a shrunk image more cheaply than true pixels do, so some of that softness is the
+proxy's own sampling and not only its size
+([ADR-0186](docs/adr/0186-a-proxy-tier-reads-a-shrunk-image-through-one-mip-level-and-the-deliverable-keeps-adr-0132s-rule.md)). Never
 applied to `render`, and never to `frame`, both of which are true pixels always.
 The ladder is defined on **caps**, not on sizes, with two consequences worth stating: a
 project between the two caps still degrades — from true pixels to a real 960 px proxy — and
