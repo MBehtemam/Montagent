@@ -261,6 +261,18 @@ jobs:
       - name: Every Workaround in skills/ carries a well-formed marker
         run: python3 ci/skills_workarounds.py --lint
 
+      # The floor ffmpeg (ADR-0115), the same build the Linux matrix legs test. The pre-render
+      # tests below encode and decode PNG-in-MOV through it, and the reference-frame check
+      # at the end of this job reads the published MP4 with it; without it on PATH every
+      # pre-render machinery test fails with FileNotFoundError: 'ffmpeg'.
+      - name: Install ffmpeg at the floor
+        run: |
+          ci/install_ffmpeg_floor.sh "$RUNNER_TEMP/ffmpeg-floor"
+          echo "$RUNNER_TEMP/ffmpeg-floor/bin" >> "$GITHUB_PATH"
+
+      - name: ffmpeg is on PATH
+        run: ffmpeg -version
+
       - name: The pre-render skill's SVG route still rebuilds, and still fails on a missing font
         run: python3 -m unittest ci/test_prerender_still.py
 
@@ -311,11 +323,9 @@ jobs:
       # rustfmt and python, no Skia — and the script's other half renders
       # through the built binary. That half runs in the matrix leg that has
       # already built one; see "the Ken Burns pivot" there.
-      - name: ffmpeg and Pillow, for the reference-frame check
-        run: |
-          ci/install_ffmpeg_floor.sh "$RUNNER_TEMP/ffmpeg-floor"
-          echo "$RUNNER_TEMP/ffmpeg-floor/bin" >> "$GITHUB_PATH"
-          python3 -m pip install --break-system-packages pillow
+      # ffmpeg is already on PATH from the install ahead of the pre-render tests.
+      - name: Pillow, for the reference-frame check
+        run: python3 -m pip install --break-system-packages pillow
 
       - name: The reference frames are still the frames the suite says they are
         run: python3 ci/reference_frame_instants.py --instants-only

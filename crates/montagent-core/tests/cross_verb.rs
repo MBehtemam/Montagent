@@ -109,6 +109,10 @@ fn assert_containment(path: &Path) {
 }
 
 #[test]
+#[cfg_attr(
+    not(unix),
+    ignore = "needs POSIX permissions to make a present file unreadable"
+)]
 fn a_source_render_cannot_read_is_never_a_clean_pass_to_validate() {
     if !has_ffprobe() {
         eprintln!("skipped: no ffprobe on PATH (ADR-0009)");
@@ -124,11 +128,6 @@ fn a_source_render_cannot_read_is_never_a_clean_pass_to_validate() {
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o000)).expect("chmod");
-    }
-    #[cfg(not(unix))]
-    {
-        eprintln!("skipped: needs POSIX permissions to make a present file unreadable");
-        return;
     }
 
     let path = project(&dir, "unreadable.mp3");
