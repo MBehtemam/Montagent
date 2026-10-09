@@ -5,6 +5,10 @@ amends: 0065 (the `<5 s` scrub budget at the 720p target is unchanged; CI now en
 
 # CI enforces the scrub budget on the best of three cold attempts
 
+> **Amended by [ADR-0191](0191-the-scrub-budget-test-is-not-run-on-x64-windows-until-its-cost-there-is-understood.md).**
+> Best of three still stands on four of the five tested legs. On x86_64 Windows it was not
+> enough, and the test is ignored there until the preview's cost on that leg is understood.
+
 The owner approved this decision.
 
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) makes `<5 s` the enforced number for

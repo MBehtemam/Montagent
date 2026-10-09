@@ -48,6 +48,12 @@ const SCRUB_MS: i64 = 10_000;
 /// (ADR-0189). The first that does ends the test, so the common case is one run.
 const ATTEMPTS: usize = 3;
 
+// ADR-0191: ignored on x86_64 Windows alone, where the preview sits at about 5 s on shared
+// runners and still misses on the best of three. Every other leg enforces it.
+#[cfg_attr(
+    all(windows, target_arch = "x86_64"),
+    ignore = "ADR-0191: misses the 5 s budget on shared x86_64 Windows runners; owner-disabled there"
+)]
 #[test]
 fn a_ten_second_scrub_preview_of_the_fixture_stays_inside_the_budget() {
     if cfg!(debug_assertions) {
