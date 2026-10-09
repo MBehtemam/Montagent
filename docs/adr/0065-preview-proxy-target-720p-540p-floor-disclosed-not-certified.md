@@ -21,6 +21,12 @@ amends: 0021-preview-budget-and-graceful-degradation.md
 > committed fixture that reader costs no more than no mipmaps, but read the two figures as
 > the prototype's.
 
+> **Amended by [ADR-0189](0189-ci-enforces-the-scrub-budget-on-the-best-of-three-cold-attempts.md).**
+> The `<5 s` at the 720p target stands unchanged. What changed is how CI enforces it:
+> `preview_budget` passes if the best of up to three cold attempts of the same preview is inside
+> 5 s at an undegraded 720p, because shared-runner load made one run at ~5.0 s pass and fail on
+> identical code. A regression that slows every attempt still fails.
+
 [ADR-0021](0021-preview-budget-and-graceful-degradation.md) adopted proxy-resolution
 preview as the mechanism for hitting the render/preview budget above 1080p, but
 deliberately left the target resolution, degradation ladder, and floor unstated pending
