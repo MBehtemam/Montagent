@@ -3,8 +3,9 @@
 #
 # ADR-0115 (#477 §8): the floor is ffmpeg 7.1 with libx264, and the floor stated is the
 # floor CI tests. Ubuntu 24.04's apt ships 6.1, which is below it, so the Linux legs take a
-# pinned BtbN static build instead. macOS and Windows keep installing the newest release,
-# so the other end of the range is tested too.
+# pinned BtbN static build instead. macOS keeps installing the newest release, and Windows
+# a pinned build of the newest release series (`ci/install_ffmpeg_windows.ps1`), so the
+# other end of the range is tested too.
 #
 # A month-end BtbN autobuild, because those survive where the daily ones are pruned. The
 # checksums are BtbN's own `checksums.sha256` for that release, cross-checked against the

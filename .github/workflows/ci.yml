@@ -93,9 +93,10 @@ jobs:
           sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
 
       # ADR-0115: the Linux legs test the *floor* — ffmpeg 7.1 with libx264, a pinned
-      # static build verified by checksum — because apt's 6.1 is below it. macOS and
-      # Windows below install the newest release, so the next ffmpeg that removes an
-      # option Montagent uses turns CI red without anyone bumping a pin.
+      # static build verified by checksum — because apt's 6.1 is below it. macOS below
+      # installs the newest release, so the next ffmpeg that removes an option Montagent
+      # uses turns CI red without anyone bumping a pin. Windows takes a pinned build of the
+      # newest release series instead; its step says why.
       - name: Install ffmpeg at the floor (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -106,19 +107,35 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install ffmpeg
 
-      # Chocolatey puts a ShimGen *shim* named ffmpeg.exe on PATH, which runs the real
-      # binary as a child of its own. Killing the shim, which is what a cancelled or failed
-      # render does to its encoder, leaves the real ffmpeg running and holding the temp file
-      # open, so it can never be removed. The real bin directory goes first on PATH, so the
-      # suite runs the ffmpeg it means to.
+      # A pinned BtbN GPL build of the newest release series, native to the runner and
+      # verified by checksum (`ci/install_ffmpeg_windows.ps1`), rather than Chocolatey's
+      # package: that is gyan.dev's x64 build on every machine, so the arm64 leg encoded and
+      # decoded under emulation and missed `preview_budget` on time that was not Skia's.
+      # If the native arm64 build does not run, the script prints why, raises a warning, and
+      # installs the pinned x64 build to run under emulation instead.
+      #
+      # The real bin directory goes first on PATH, and no shim is involved. Chocolatey's was a
+      # ShimGen shim that ran the real binary as a child of its own; killing the shim, which
+      # is what a cancelled or failed render does to its encoder, left the real ffmpeg running
+      # and holding the temp file open, so it could never be removed. The step after this one
+      # fails if `ffmpeg` or `ffprobe` resolves anywhere else.
       - name: Install ffmpeg (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install ffmpeg -y --no-progress
-          $real = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
-          if (-not $real) { throw "no ffmpeg.exe under $env:ChocolateyInstall\lib\ffmpeg\tools" }
-          $real.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          ./ci/install_ffmpeg_windows.ps1 (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+          Join-Path $env:RUNNER_TEMP 'ffmpeg\bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: The Windows suite runs the pinned ffmpeg
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $want = Join-Path $env:RUNNER_TEMP 'ffmpeg\bin'
+          foreach ($tool in 'ffmpeg', 'ffprobe') {
+            $found = (Get-Command $tool -CommandType Application | Select-Object -First 1).Source
+            if ((Split-Path -Parent $found) -ne $want) { throw "$tool resolves to $found, not $want" }
+            Write-Host "$tool -> $found"
+          }
 
       - name: ffmpeg is on PATH
         run: ffmpeg -version
