@@ -78,13 +78,20 @@ fn source(dir: &Path, name: &str, lavfi: &str) -> String {
     path.display().to_string().replace('\\', "/")
 }
 
-/// A 1 kHz sine of exactly this peak (lavfi's own `sine` is fixed at 1/8 amplitude).
+/// A 997 Hz sine of exactly this peak (lavfi's own `sine` is fixed at 1/8 amplitude).
+///
+/// 997 Hz, not 1 kHz: at 48 kHz a 1 kHz tone repeats every 48 samples, and ffmpeg 9.0's
+/// `mpegts` probe reads the opening 2 KiB of some of those `f32` WAVs (-10 dB, -18 dB, ...) as a
+/// transport stream at score 100, above the WAV demuxer's 99, so the source is unprobeable and
+/// never reaches the mix. 997 Hz shares no period with the rate. Each tone level read here is
+/// over a whole second (997 whole cycles), a limited peak, or a ratio of two like windows, so
+/// the frequency moves no reading.
 fn tone(dir: &Path, peak_db: f64, seconds: u32) -> String {
     source(
         dir,
         &format!("tone{peak_db}-{seconds}.wav"),
         &format!(
-            "aevalsrc='{:.9}*sin(2*PI*1000*t)':s=48000:d={seconds}:c=stereo",
+            "aevalsrc='{:.9}*sin(2*PI*997*t)':s=48000:d={seconds}:c=stereo",
             lin(peak_db)
         ),
     )
