@@ -13,7 +13,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by thirty-six later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-seven later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -161,6 +161,10 @@ status: accepted
 > - [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md) — `query --at`
 >   reports a text on a path's raw `path_offset`, its curve length and the letters hidden;
 >   `measure` reports the bent line's ink extent and the same hidden letters
+> - [ADR-0192](0192-a-render-writes-a-progress-file-and-says-its-phase-and-eta-or-why-it-has-none.md) —
+>   **stderr progress is no longer only coarse**: a line at least every ~5 s, each naming its phase and an
+>   ETA labelled an estimate (or why there is none), and `render` gains an optional `progress_file`; the
+>   nine MCP verbs are unchanged
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

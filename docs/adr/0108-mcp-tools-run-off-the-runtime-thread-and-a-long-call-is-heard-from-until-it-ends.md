@@ -5,6 +5,10 @@ amends: 0011 (*"Progress on stderr, coarse"* was written for the CLI and is wron
 
 # MCP tools run off the runtime thread, and a long call is heard from until it ends
 
+> **Amended by [ADR-0192](0192-a-render-writes-a-progress-file-and-says-its-phase-and-eta-or-why-it-has-none.md).**
+> §2 gains phases and a 5 s stderr fill, and a render with no `progressToken` can now be followed through
+> a progress file. The 30 s heartbeat is unchanged.
+
 > **Amended by [ADR-0109](0109-a-cancelled-encode-publishes-nothing.md).** §4 no longer
 > holds: a cancelled `render`/`preview` stops within one frame, publishes nothing, and
 > releases the encode slot only once its work has actually stopped.
