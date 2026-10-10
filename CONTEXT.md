@@ -34,6 +34,14 @@ A remote instance's plain-HTTP way of moving files into and out of a workspace.
 It carries bytes and no decisions; MCP stays the only control surface.
 _Avoid_: upload API, REST API, file API, side channel
 
+**Progress file**:
+The JSON file a render rewrites about once a second, and on every terminal state,
+so an agent can read what is in progress without holding the call open. Each run
+starts it afresh, so a file left by an earlier run is never mistaken for this one.
+_Avoid_: status file, heartbeat file, log. "Heartbeat" names only the MCP
+notification sent when nothing else has been
+([ADR-0108](docs/adr/0108-mcp-tools-run-off-the-runtime-thread-and-a-long-call-is-heard-from-until-it-ends.md)).
+
 ## Language
 
 **Project**:
