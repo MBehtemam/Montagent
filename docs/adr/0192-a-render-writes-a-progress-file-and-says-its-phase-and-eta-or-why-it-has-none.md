@@ -1,5 +1,5 @@
 ---
-status: proposed (DRAFT; becomes accepted once the owner has confirmed the calls in "Owner calls to confirm" and the implementation tickets have landed with the tests named in section 6)
+status: accepted
 amends: 0011 (*"Progress on stderr, coarse"* no longer holds: stderr also prints a line whenever about 5 s pass without one, and every line names its phase, the timeline position and an ETA labelled an estimate, or says why there is none; and `render` gains one optional request field, `progress_file`, so the nine-verb surface is unchanged), 0108 (§2's *"on each progress step the core reports"* now includes the phases the core reports and the 5 s fill; the 30 s heartbeat is unchanged and the progress file is independent of both channels, so a client that sends no `progressToken` is no longer left with stderr alone)
 ---
 
@@ -146,7 +146,7 @@ scripts that guess. The pre-flight slice stays the answer until
 - **Making stderr chatty with a spinner.** Not chosen. The 5 s line exists to carry a phase and
   an ETA, not to show motion.
 
-## Owner calls to confirm
+## Owner calls (confirmed by the owner)
 
 1. A Ctrl-C on the CLI leaves `running`, and section 5 is the whole remedy. A handler that writes
    `cancelled` is the alternative.
