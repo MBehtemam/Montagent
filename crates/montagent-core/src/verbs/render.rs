@@ -147,12 +147,15 @@ pub use master::Applied;
 pub(crate) mod normalize;
 pub use normalize::Normalized;
 mod painters;
+mod watch;
 pub use painters::Painting;
 #[doc(hidden)]
 pub use painters::{
     FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, fail_frames, force_painting,
     tap_frames,
 };
+pub use watch::{Eta, Phase, opening_line};
+pub(crate) use watch::{Guard, Watch};
 
 const TOOL: &str = "render";
 
@@ -205,20 +208,46 @@ pub struct Ask {
     /// path, and `E-OUTPUT-FOREIGN` is such an error. A caller who genuinely means to
     /// replace another project's deliverable changes `output`, or moves the file.
     pub no_clobber: bool,
+    /// ADR-0192: where to keep a JSON file saying what this run is doing. A relative path
+    /// resolves against the project file's folder, as the project's own `output` does
+    /// (ADR-0053), so it lands in one place whatever the caller's working directory — which
+    /// an MCP caller cannot know. Rewritten about once a second, from before the project is
+    /// opened until the run ends, so a caller that cannot hold the call open can poll it.
+    pub progress_file: Option<PathBuf>,
 }
 
-/// One coarse progress step, handed to the caller as frames are encoded.
+/// One progress step, handed to the caller as frames are encoded.
 ///
-/// Coarse on purpose — ADR-0011: *"a spinner is worth nothing to an agent"*. It is
-/// reported when the run starts, each time another tenth of the frames is done, and when
-/// the last frame is in.
+/// ADR-0011 made it coarse — *"a spinner is worth nothing to an agent"* — and it still is
+/// reported when the run starts, each time another tenth of the frames is done, and when the
+/// last frame is in. ADR-0192 adds what an agent cannot work out for itself: the phase, the
+/// timeline position, and an ETA that is labelled an estimate or says why there is none. The
+/// adapters add a line whenever about five seconds pass without one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Progress {
+    pub phase: Phase,
     /// Frames encoded so far.
     pub done: u64,
-    /// Frames in the whole run.
+    /// Frames in the whole run; `0` while it is not yet known.
     pub of: u64,
     pub elapsed: Duration,
+    /// Where on the timeline the next frame is, in milliseconds.
+    pub timeline_ms: i64,
+    pub eta: Eta,
+}
+
+impl Progress {
+    /// A report from the frame loop; the run's [`Watch`] fills in the timeline and the ETA.
+    fn frames(done: u64, of: u64, elapsed: Duration) -> Progress {
+        Progress {
+            phase: Phase::Rendering,
+            done,
+            of,
+            elapsed,
+            timeline_ms: 0,
+            eta: Eta::none("no frames rendered yet"),
+        }
+    }
 }
 
 /// A caller's request that a running encode stop, and publish nothing (ADR-0109).
@@ -260,6 +289,9 @@ pub fn cancelled_after(tool: &str, done: u64, of: u64) -> String {
 pub struct Answer {
     video: Option<Video>,
     report: Report,
+    /// ADR-0192: the progress file this run kept, where one was asked for — named on every
+    /// answer, refused or cancelled as well, because that is where a caller looks.
+    progress_file: Option<String>,
     /// The range of a partial render, wherever the invocation settled one — refused or not,
     /// since the scope of what `render` looked for is the same either way. ADR-0121.
     partial: Option<(i64, i64)>,
@@ -286,6 +318,9 @@ impl Answer {
                 None => Value::Null,
             },
         );
+        if let (Some(file), Some(object)) = (&self.progress_file, json.as_object_mut()) {
+            object.insert("progress_file".to_string(), Value::String(file.clone()));
+        }
         crate::report::extend_boundary(&mut json, &[NOT_VERIFIED]);
         if let Some((from, to)) = self.partial {
             crate::report::extend_boundary(&mut json, &[&partial_scope(from, to)]);
@@ -396,10 +431,52 @@ pub fn render_cancellable(
     progress: &mut dyn FnMut(Progress),
     cancel: Option<&Cancel>,
 ) -> Answer {
-    let mut answer = run(path, ask, progress, cancel);
+    render_watched(path, ask, progress, cancel, None)
+}
+
+/// [`render_cancellable`], and the run keeps itself heard from (ADR-0192).
+///
+/// While it runs, a ticker thread rewrites the progress file (when `ask.progress_file` names
+/// one) about once a second and, whenever about five seconds pass without a report from the
+/// core, hands `quiet` a snapshot to print. `quiet` is a separate callback and not `progress`
+/// because `progress` is called on this thread, between frames, and the ticker's job is the
+/// stretches when no frame is finished — pre-flight above all, which reports nothing until
+/// frame 0.
+pub fn render_watched(
+    path: &FilePath,
+    ask: &Ask,
+    progress: &mut dyn FnMut(Progress),
+    cancel: Option<&Cancel>,
+    quiet: Option<&(dyn Fn(Progress) + Sync)>,
+) -> Answer {
+    let watch = Watch::new(ask.progress_file.as_ref().map(|file| {
+        if file.is_absolute() {
+            file.clone()
+        } else {
+            path.parent().unwrap_or(FilePath::new("")).join(file)
+        }
+    }));
+    // The first record is written before the project is opened, so a file an earlier run
+    // left at this path is replaced at once; one that cannot be written is the caller's to fix.
+    if let Err(reason) = watch.begin() {
+        return refused(Report::rejected(
+            TOOL,
+            Some(path.display().to_string()),
+            reason,
+        ));
+    }
+    let mut answer = std::thread::scope(|scope| {
+        scope.spawn(|| watch.tick(quiet));
+        // Says `failed` and stops the ticker however the run leaves, a panic included.
+        let _guard = Guard(&watch);
+        let answer = run(path, ask, progress, cancel, &watch);
+        watch.finish_as(answer.video.is_some());
+        answer
+    });
     // `request` is a pure function of the flags, so reading it again here names the same
     // range the run used — and on an invocation it rejected, none.
     answer.partial = request(ask).ok().flatten();
+    answer.progress_file = watch.path().map(|file| file.display().to_string());
     answer
 }
 
@@ -408,6 +485,7 @@ fn run(
     ask: &Ask,
     progress: &mut dyn FnMut(Progress),
     cancel: Option<&Cancel>,
+    watch: &Watch,
 ) -> Answer {
     let started = Instant::now();
     let project = Some(path.display().to_string());
@@ -480,6 +558,7 @@ fn run(
         ));
     }
     let frames = (last.frame - first.frame + 1) as u64;
+    watch.plan(from, fps, frames);
 
     let project_dir = crate::checks::project_dir(&document);
     let output = match destination(
@@ -628,8 +707,12 @@ fn run(
         cancel,
         master,
         normalized: &normalized,
+        watch: Some(watch),
     };
-    let painted = match encode_span(&span, started, progress) {
+    // What the core reports is read once more by the watch, so the line, the stream and the
+    // file all come from one place.
+    let mut observed = |p: Progress| progress(watch.report(p));
+    let painted = match encode_span(&span, started, &mut observed) {
         Ok(painted) => painted,
         Err(Stop::Internal(reason)) => {
             report.fail_internally(reason);
@@ -651,6 +734,7 @@ fn run(
         }
         // ADR-0109: stopped where it stood; nothing was written at any path.
         Err(Stop::Cancelled { done }) => {
+            watch.cancelled();
             report.fail_cancelled(cancelled_after(TOOL, done, frames));
             return refused(report);
         }
@@ -687,6 +771,7 @@ fn run(
     // rename happens, and a cancel that arrives after it finds a render that succeeded.
     if span.cancelled() {
         painted.withhold();
+        watch.cancelled();
         report.fail_cancelled(cancelled_after(TOOL, frames, frames));
         return refused(report);
     }
@@ -695,6 +780,7 @@ fn run(
         Ok(video) => Answer {
             video: Some(video),
             report,
+            progress_file: None,
             partial: None,
         },
         // The encode was whole and the rename was not. Nothing is at the declared path.
@@ -757,6 +843,9 @@ pub(crate) struct Span<'a> {
     /// ADR-0178: every `normalize_loudness` gain, measured on each element's whole placed
     /// window before any span, so a partial render and every `preview` rung apply them.
     pub normalized: &'a normalize::Gains,
+    /// ADR-0192: the run's own counters, told after every frame. `None` for `preview`, which
+    /// keeps no progress file and has no ticker.
+    pub watch: Option<&'a Watch>,
 }
 
 impl Span<'_> {
@@ -1008,11 +1097,7 @@ pub(crate) fn encode_span(
         )));
     };
 
-    progress(Progress {
-        done: 0,
-        of: span.frames,
-        elapsed: started.elapsed(),
-    });
+    progress(Progress::frames(0, span.frames, started.elapsed()));
     let mut stages = Stages::default();
     let (made, painting) = match painters::plan(span.document, span.surface, span.frames) {
         // ADR-0141: `render` and `preview` take their pixels from feeds. `Span` carries no
@@ -1146,14 +1231,13 @@ fn encode_frames(
         stages.encode_wait += pushed.elapsed();
 
         let done = done as u64 + 1;
+        if let Some(watch) = span.watch {
+            watch.frame(done);
+        }
         let tenth = done * 10 / span.frames;
         if tenth > reported_tenth {
             reported_tenth = tenth;
-            progress(Progress {
-                done,
-                of: span.frames,
-                elapsed: started.elapsed(),
-            });
+            progress(Progress::frames(done, span.frames, started.elapsed()));
         }
         // Checked after the frame rather than before it, so a span always encodes at least
         // one frame and a miss is a measurement rather than a refusal to start.
@@ -1580,6 +1664,7 @@ fn refused(report: Report) -> Answer {
     Answer {
         video: None,
         report,
+        progress_file: None,
         partial: None,
     }
 }
@@ -2498,7 +2583,8 @@ mod tests {
                 from: Some(1000),
                 to: Some(2000),
                 output: None,
-                no_clobber: false
+                no_clobber: false,
+                progress_file: None
             }),
             Ok(Some((1000, 2000)))
         );
@@ -2513,7 +2599,8 @@ mod tests {
                     from,
                     to,
                     output: None,
-                    no_clobber: false
+                    no_clobber: false,
+                    progress_file: None
                 })
                 .is_err(),
                 "{from:?}..{to:?}"

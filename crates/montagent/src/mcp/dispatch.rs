@@ -190,13 +190,9 @@ where
     let (frames_tx, mut frames) = mpsc::unbounded_channel::<Progress>();
     let tool = reporter.call.tool;
     let sink: Sink = Box::new(move |p: Progress| {
-        // ADR-0011's coarse stderr line, unchanged in shape.
-        eprintln!(
-            "{tool}  {}/{} frames  {:.1} s",
-            p.done,
-            p.of,
-            p.elapsed.as_secs_f64()
-        );
+        // ADR-0011's stderr line, which ADR-0192 gives a phase, a timeline position and an
+        // ETA; the CLI prints the same string.
+        eprintln!("{}", p.line(tool));
         // The receiver outlives the work, so a failed send cannot happen while it matters.
         let _ = frames_tx.send(p);
     });

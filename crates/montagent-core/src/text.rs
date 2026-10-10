@@ -169,6 +169,15 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&video_block("RENDER", video, &[], options));
     }
 
+    // ADR-0192: the progress file this run kept, named on every answer — a refused or a
+    // cancelled one as well — because that is where a caller that was not waiting looks.
+    if let Some(file) = report.get("progress_file").and_then(Value::as_str) {
+        out.push_str(&format!(
+            "\nprogress file  {file} — the last state this run wrote: read `state`, `phase` \
+             and `eta_note` there\n"
+        ));
+    }
+
     // `preview`'s block: the same block, above the same findings, with the tier disclosure
     // first. ADR-0021 makes that disclosure mandatory on every preview, degraded or not —
     // it is how a caller knows what it is looking at — so it prints before the file's own

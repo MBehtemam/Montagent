@@ -1200,8 +1200,28 @@ fn cli_render_puts_the_result_on_stdout_and_progress_on_stderr() {
     assert!(json["render"]["realtime"].as_f64().is_some());
     assert!(dir.join("out/p.mp4").is_file());
     // Progress is stderr's, coarse, and never on stdout.
-    assert!(out.stderr.contains("render  0/5 frames"), "{}", out.stderr);
-    assert!(out.stderr.contains("render  5/5 frames"), "{}", out.stderr);
+    // ADR-0192: every line names its phase, and says why it has no ETA while it has none.
+    assert!(
+        out.stderr.contains("render  rendering  0/5 frames"),
+        "{}",
+        out.stderr
+    );
+    assert!(
+        out.stderr.contains("render  finishing  all 5 frames drawn"),
+        "{}",
+        out.stderr
+    );
+    assert!(out.stderr.contains("no ETA yet: "), "{}", out.stderr);
+    // The first line says what is coming and how to ask for a file to poll.
+    assert!(
+        out.stderr
+            .lines()
+            .next()
+            .is_some_and(|first| first.contains("render  started  preparing")
+                && first.contains("--progress-file")),
+        "{}",
+        out.stderr
+    );
     assert!(!out.stdout.contains("frames  "), "{}", out.stdout);
 
     // The text form: the block, then the findings, then the footer.
@@ -1209,6 +1229,256 @@ fn cli_render_puts_the_result_on_stdout_and_progress_on_stderr() {
     assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
     assert!(out.stdout.contains("RENDER  "), "{}", out.stdout);
     assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
+}
+
+/// A project that renders in a moment, and one that takes a few seconds.
+fn small_project(dir: &Path) -> PathBuf {
+    let project = dir.join("p.montagent.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 200},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"tracks\": [\n    {\"name\": \
+         \"only\", \"layer\": 0, \"elements\": [\n      {\"id\": \"card\", \"type\": \
+         \"rect\", \"start\": 0, \"end\": 200, \"x\": 100, \"y\": 100, \"width\": 100, \
+         \"height\": 100, \"fill\": \"#FF0000\"}\n    ]}\n  ]\n}\n",
+    )
+    .unwrap();
+    project
+}
+
+fn read_json(path: &Path) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap())
+        .unwrap_or_else(|e| panic!("{} is not JSON ({e})", path.display()))
+}
+
+#[test]
+fn cli_render_keeps_a_progress_file_that_ends_done_and_the_result_names_it() {
+    // ADR-0192 §3 to §5.
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-render-progress-file");
+    let project = small_project(&dir);
+    let file = dir.join("run.progress.json");
+    // An earlier run's file at the same path, which a polling agent must never read as this
+    // run's.
+    std::fs::write(&file, r#"{"state":"done","frames_done":999}"#).unwrap();
+
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--progress-file",
+        file.to_str().unwrap(),
+        "--json",
+    ]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+
+    let record = read_json(&file);
+    assert_eq!(record["state"], "done");
+    assert_eq!(record["phase"], "finishing");
+    assert_eq!(record["frames_done"], 5);
+    assert_eq!(record["frames_total"], 5);
+    assert_eq!(record["timeline_ms"], 200);
+    assert!(record["started_at"].is_string() && record["updated_at"].is_string());
+    assert!(record["pid"].is_number() && record["write_interval_s"].is_number());
+    assert!(record.get("eta_s").is_some() && record.get("eta_note").is_some());
+    assert_ne!(record["frames_done"], 999);
+
+    // The first stderr line names the file, and the result names it too.
+    assert!(
+        out.stderr.lines().next().is_some_and(
+            |first| first.contains("progress file") && first.contains("run.progress.json")
+        ),
+        "{}",
+        out.stderr
+    );
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    assert_eq!(json["progress_file"], file.to_str().unwrap());
+    let text = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--progress-file",
+        file.to_str().unwrap(),
+    ]);
+    assert!(text.stdout.contains("progress file  "), "{}", text.stdout);
+}
+
+#[test]
+fn cli_render_resolves_a_relative_progress_file_beside_the_project_not_in_the_working_directory() {
+    // ADR-0192 §3: one place whatever the caller's working directory, which an MCP caller
+    // cannot know. The project is refused so the test needs no ffmpeg.
+    let dir = scratch_dir("cli-render-progress-file-relative");
+    let project = dir.join("p.montagent.json");
+    std::fs::write(
+        &project,
+        "{\"frame\": {\"width\": 200}, \"invented\": true}\n",
+    )
+    .unwrap();
+    let elsewhere = scratch_dir("cli-render-progress-file-relative-cwd");
+
+    let out = Command::new(binary())
+        .current_dir(&elsewhere)
+        .args([
+            "render",
+            project.to_str().unwrap(),
+            "--progress-file",
+            "run.progress.json",
+        ])
+        .output()
+        .expect("run montagent");
+    assert_ne!(out.status.code(), Some(0));
+
+    assert!(dir.join("run.progress.json").is_file());
+    assert!(!elsewhere.join("run.progress.json").exists());
+    assert_eq!(read_json(&dir.join("run.progress.json"))["state"], "failed");
+}
+
+#[test]
+fn cli_render_that_is_refused_leaves_its_progress_file_failed_and_names_it() {
+    // ADR-0192 §4: the first record is written before the project is opened, and a run that
+    // ends any other way than done says so.
+    let dir = scratch_dir("cli-render-progress-file-refused");
+    let project = dir.join("p.montagent.json");
+    std::fs::write(
+        &project,
+        "{\n  \"frame\": {\"width\": 200, \"height\": 200},\n  \"fps\": 25,\n  \
+         \"duration\": 200,\n  \"output\": \"out/p.mp4\",\n  \"invented\": true,\n  \
+         \"tracks\": []\n}\n",
+    )
+    .unwrap();
+    let file = dir.join("run.progress.json");
+    std::fs::write(&file, r#"{"state":"done"}"#).unwrap();
+
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--progress-file",
+        file.to_str().unwrap(),
+    ]);
+    assert_eq!(out.code, Some(1), "{}{}", out.stdout, out.stderr);
+
+    let record = read_json(&file);
+    assert_eq!(record["state"], "failed");
+    assert_eq!(record["phase"], "preparing");
+    assert_eq!(record["frames_done"], 0);
+    assert!(record["started_at"].is_string());
+    assert_eq!(record["eta_s"], serde_json::Value::Null);
+    assert!(record["eta_note"].is_string());
+    assert!(out.stdout.contains("progress file  "), "{}", out.stdout);
+}
+
+#[test]
+fn cli_render_with_a_progress_file_that_cannot_be_written_is_an_invocation_error() {
+    // An agent must not render for a file that will never appear.
+    let dir = scratch_dir("cli-render-progress-file-unwritable");
+    let project = small_project(&dir);
+    let blocker = dir.join("blocker");
+    std::fs::write(&blocker, "a file where a folder is needed").unwrap();
+    let file = blocker.join("run.progress.json");
+
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--progress-file",
+        file.to_str().unwrap(),
+    ]);
+    assert_eq!(out.code, Some(3), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stderr.contains("cannot be written") || out.stdout.contains("cannot be written"),
+        "{}{}",
+        out.stdout,
+        out.stderr
+    );
+    assert!(!dir.join("out").exists());
+}
+
+#[test]
+fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
+    // ADR-0192 §2 and §4: a line whenever the run has been quiet, and a file an agent can
+    // poll. The gap and the write interval are shortened so this is provable in a test's
+    // run time; the production values are the same code path with different constants.
+    if montagent_core::media::tools::resolve().is_err() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("cli-render-reports-while-it-works");
+    let project = dir.join("p.montagent.json");
+    std::fs::write(
+        &project,
+        r##"{"frame":{"width":1280,"height":720},"fps":25,"background":"#000000",
+  "duration":4800,"output":"out/p.mp4",
+  "tracks":[{"name":"only","layer":0,"elements":[
+    {"id":"card","type":"rect","start":0,"end":4800,"x":640,"y":360,"width":400,
+     "height":300,"fill":"#FF0000"}]}]}
+"##,
+    )
+    .unwrap();
+    let file = dir.join("run.progress.json");
+    let stderr_path = dir.join("stderr.txt");
+    let mut child = Command::new(binary())
+        .args([
+            "render",
+            project.to_str().unwrap(),
+            "--progress-file",
+            file.to_str().unwrap(),
+        ])
+        .env("MONTAGENT_PROGRESS_WRITE_MS", "50")
+        .env("MONTAGENT_PROGRESS_LINE_GAP_MS", "100")
+        .env(
+            montagent_core::media::sidecar::CACHE_DIR_VAR,
+            dir.join("cache"),
+        )
+        .stdout(Stdio::null())
+        .stderr(std::fs::File::create(&stderr_path).unwrap())
+        .spawn()
+        .expect("spawn montagent");
+
+    // Poll the file while the render runs: it must be readable at every instant and move.
+    let mut seen_running = Vec::new();
+    while child.try_wait().unwrap().is_none() {
+        if let Ok(text) = std::fs::read_to_string(&file) {
+            let record: serde_json::Value =
+                serde_json::from_str(&text).expect("a reader never sees half a file");
+            if record["state"] == "running" {
+                seen_running.push((
+                    record["phase"].as_str().unwrap_or_default().to_string(),
+                    record["frames_done"].as_u64().unwrap_or_default(),
+                    record["write_interval_s"].as_f64().unwrap_or_default(),
+                ));
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(child.wait().unwrap().success());
+
+    let counts: Vec<u64> = seen_running.iter().map(|(_, done, _)| *done).collect();
+    assert!(
+        counts.windows(2).all(|w| w[0] <= w[1]),
+        "frames_done went backwards: {counts:?}"
+    );
+    assert!(
+        counts.iter().any(|&done| done > 0 && done < 120),
+        "the file never showed a run part-way: {counts:?}"
+    );
+    assert!(
+        seen_running
+            .iter()
+            .all(|(_, _, interval)| *interval == 0.05)
+    );
+    assert_eq!(read_json(&file)["state"], "done");
+
+    // More lines than the tenths alone would make, all of them naming a phase.
+    let stderr = std::fs::read_to_string(&stderr_path).unwrap();
+    let lines: Vec<&str> = stderr
+        .lines()
+        .filter(|line| line.starts_with("render  rendering"))
+        .collect();
+    assert!(lines.len() > 11, "only the tenths were printed:\n{stderr}");
+    assert!(
+        lines.iter().any(|line| line.contains("ETA ~")),
+        "no line ever carried an ETA:\n{stderr}"
+    );
 }
 
 #[test]
@@ -1251,7 +1521,14 @@ fn cli_render_offers_no_flag_that_skips_the_checks_or_scales_the_output() {
             out.stdout
         );
     }
-    for present in ["--from", "--to", "--output", "--json", "--verbose"] {
+    for present in [
+        "--from",
+        "--to",
+        "--output",
+        "--progress-file",
+        "--json",
+        "--verbose",
+    ] {
         assert!(
             out.stdout.contains(present),
             "`render` does not advertise `{present}`: {}",
