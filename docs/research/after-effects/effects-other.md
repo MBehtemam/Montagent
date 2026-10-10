@@ -8,17 +8,35 @@ decision ticket.
 
 ## Sources, version and limits
 
-- **Adobe's effect list and its category pages** ([effect list][list]; the category pages are
-  linked in each table). The search index dates the category pages 26–27 June 2025 and the
-  Noise and Grain page 17 June 2026. That puts them at After Effects 25.x–26.x, the current
-  user guide.
-- **Adobe's pages could not be fetched from this session.** `helpx.adobe.com` and
-  `learn.adobe.com` got a proxy 403 or a DNS failure, and #703 hit the same 403. The category
-  URLs, update dates and per-effect facts come from search-index excerpts of those pages. The
-  membership of each category comes from those excerpts plus the AE 25 Effects menu as known
-  before this session. Rows not confirmed by an excerpt are marked **(menu)**. A reader with a
-  browser should check each **(menu)** row against its category page before a decision ticket
-  quotes it.
+- **Verified against Adobe's live pages on 2026-10-10.** Membership comes from the
+  [effect list][list] (updated 13 May 2026), which lists every effect by category. Each category
+  page was read too, and each row's description was checked against Adobe's text. The pages
+  are dated: Distort, Perspective, Matte and Obsolete 27 June 2025; Generate, Simulation, Time
+  and Transition 26 June 2025; Noise and Grain 17 June 2026; Stylize 7 October 2026; Audio
+  11 September 2026; Immersive Video 27 June 2025. The CC effects are described on Adobe's
+  [Cycore plugins][cc] page (16 June 2025), not on the category pages, which only name them, so
+  CC rows link there. That puts the list at After Effects 26.x, the current user guide.
+- **Where the effect list and a category page disagree**, this note follows the list and says
+  so:
+  - The Noise and Grain page documents **Curl Noise**, which the older effect list does not
+    have yet. It is scored.
+  - The Matte page has no section for **Mocha shape** or **Refine Hard Matte**. The list has
+    both, so both are scored.
+  - The Stylize page shows **Contour Paint**, but only as an After Effects (beta) feature. It
+    is not in the list and is not scored.
+  - The Time page's note names **CC Time Blend** and **CC Time Blend FX**. Neither the list nor
+    the Cycore page has them, so they are not scored.
+  - The Obsolete page and the list differ by one entry each (Fast Blur, Reduce Interlace
+    Flicker; see below).
+- **Still unverified:**
+  - **CC Ball Action** (Simulation), **CC Glass Wipe** (Transition) and **Refine Hard Matte**
+    (Matte) are listed by Adobe, but no helpx page describes them. Their one-line descriptions
+    are this note's own.
+  - **Mocha shape** is scored from one sentence on Adobe's compositing overview ("converts
+    paths from mocha-AE into mattes").
+- **Anchors:** a row links to its effect's section when the page has a stable anchor for it.
+  Displacement Map and Echo link to the page top. Displacement Map's anchor id is reused by the
+  Detail-preserving Upscale section, and Echo has no anchor.
 - **The Montagent side** comes from the repo: `CONTEXT.md` (**Effect**, **Transition**,
   **Direction**, **Motion blur**, **Time remap**, **Seed**, **Pre-rendered footage**),
   `crates/montagent-core/docs/format.md` with its pages `format/compositing.md` and
@@ -63,6 +81,7 @@ A prerender piece is drawn outside the project. Its code may read a source file 
 running the recipe again.
 
 [list]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html
+[cc]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/cycore-plugins.html
 [dist]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html
 [gen]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html
 [noise]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html
@@ -80,105 +99,172 @@ running the recipe again.
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Bezier Warp | Reshapes the layer by a 12-handle closed curve on its edge | [Distort][dist] | reachable | prerender (distortions); free warp undecided |
-| Bulge | Lens-like swelling around a point | [Distort][dist] | reachable | prerender; spherize deferred in ADR-0156 (edge rule) |
-| CC Bend It | Bends the layer between two points | [Distort][dist] (menu) | reachable | prerender |
-| CC Bender | Bends the layer along an axis | [Distort][dist] (menu) | reachable | prerender |
-| CC Blobbylize | Blobby, liquid relief from a map | [Distort][dist] (menu) | reachable | prerender; reading a map layer would be refused by ADR-0150 §4 |
-| CC Flo Motion | Pinch/stretch around two knots | [Distort][dist] (menu) | reachable | prerender |
-| CC Griddler | Cuts the layer into tiles offset in a grid | [Distort][dist] (menu) | reachable | prerender |
-| CC Lens | Fisheye lens | [Distort][dist] (menu) | reachable | prerender; spherize deferred ADR-0156 |
-| CC Page Turn | Page curl showing a back side | [Distort][dist] (menu) | reachable | prerender; a flat flip is `swivel` (ADR-0167) |
-| CC Power Pin | Four-corner pin with perspective | [Distort][dist] (menu) | refused ADR-0167 | "Skew, corner pin … still refused" |
-| CC Ripple Pulse | Ripple driven by a pulse | [Distort][dist] (menu) | reachable | prerender; ripple deferred ADR-0156 |
-| CC Slant | Slants (skews) the layer | [Distort][dist] (menu) | refused ADR-0167 | skew refused (ADR-0012, ADR-0167) |
-| CC Smear | Drags pixels from one point to another | [Distort][dist] (menu) | reachable | prerender |
-| CC Split | Splits the layer open along a line | [Distort][dist] (menu) | reachable | two copies with `mask` and keyed `x`/`y` (ADR-0148 copies) |
-| CC Split 2 | Split with separate strengths per side | [Distort][dist] (menu) | reachable | as CC Split |
-| CC Tiler | Tiles a scaled copy of the layer across it | [Distort][dist] (menu) | reachable | copies as elements (ADR-0148) |
-| Corner Pin | Moves four corners for a perspective distort | [Distort][dist] | refused ADR-0167 | corner pin refused; ADR-0156 sent it to the 2.5D decision |
-| Detail-preserving Upscale | Upscale that keeps edges sharp | [Distort][dist] (menu) | gap | resampling fixed by ADR-0132; no upscaler member |
-| Displacement Map | Shifts pixels by another layer's channels | [Distort][dist] | refused ADR-0156 | "reads another element's pixels" (ADR-0150 §4) |
-| Liquify | Brush-painted mesh warp | [Distort][dist] (menu) | reachable | prerender |
-| Magnify | Circular or square loupe | [Distort][dist] (menu) | reachable | prerender; magnify deferred ADR-0156 |
-| Mesh Warp | Warps by a grid of Bezier patches | [Distort][dist] (menu) | reachable | prerender |
-| Mirror | Reflects about a line | [Distort][dist] (menu) | reachable | copy with `scale: [-1, 1]` + `mask`; mirror deferred ADR-0156 |
-| Offset | Pans the layer within itself, wrapping | [Distort][dist] (menu) | reachable | prerender; wrap is the undecided edge rule (ADR-0156) |
-| Optics Compensation | Adds or removes lens barrel distortion | [Distort][dist] (menu) | reachable | prerender |
-| Polar Coordinates | Rect ↔ polar mapping | [Distort][dist] (menu) | reachable | prerender |
-| Reshape | Morphs one mask shape to another, dragging pixels | [Distort][dist] (menu) | reachable | prerender; a shape morph (no pixels) is `path` `points` (ADR-0162) |
-| Ripple | Concentric ripples from a centre | [Distort][dist] (menu) | reachable | prerender; deferred ADR-0156 (keyed phase, §3) |
-| Rolling Shutter Repair | Fixes CMOS skew in footage | [Distort][dist] (menu) | gap | no footage-analysis route; grep empty |
-| Smear | Moves a masked region, stretching the rest | [Distort][dist] (menu) | reachable | prerender |
-| Spherize | Wraps the layer on a sphere | [Distort][dist] (menu) | reachable | prerender; deferred ADR-0156 |
-| Transform | Anchor, position, scale, skew, rotation, opacity, shutter | [Distort][dist] (menu) | partial | flat transform (ADR-0012), `motion_blur` (ADR-0155); skew refused ADR-0167 |
-| Turbulent Displace | Fractal-noise displacement | [Distort][dist] (menu) | reachable | prerender; seed + time (ADR-0156 §3) |
-| Twirl | Rotates more at the centre than the edge | [Distort][dist] (menu) | reachable | prerender; deferred ADR-0156 |
-| Warp | Arc, bulge, flag, wave and other preset warps | [Distort][dist] (menu) | reachable | prerender |
-| Warp Stabilizer | Analyses and stabilises shaky footage | [Distort][dist] (menu) | gap | no tracking or analysis route; grep empty |
-| Wave Warp | Travelling wave across the layer | [Distort][dist] (menu) | reachable | prerender; deferred ADR-0156 (keyed phase) |
+| Bezier Warp | Reshapes the layer by a closed Bezier curve on its boundary (four segments, 12 points) | [Distort][d-bezier] | reachable | prerender (distortions); free warp undecided |
+| Bulge | Bulges the image toward or away from the viewer around a point | [Distort][d-bulge] | reachable | prerender; spherize deferred in ADR-0156 (edge rule) |
+| CC Bend It | Bends the layer between two points, like a flexed rod | [Cycore][cc] | reachable | prerender |
+| CC Bender | Curves the layer along its vertical axis from one control point | [Cycore][cc] | reachable | prerender |
+| CC Blobbylize | Soft, jelly-like liquid look | [Cycore][cc] | reachable | prerender; its blob-layer input would be refused in-format by ADR-0150 §4 |
+| CC Flo Motion | Smooth mesh warp around two control points | [Cycore][cc] | reachable | prerender |
+| CC Griddler | Cuts the layer into a grid of tiles | [Cycore][cc] | reachable | prerender |
+| CC Lens | Fisheye lens from a centre point | [Cycore][cc] | reachable | prerender; spherize deferred ADR-0156 |
+| CC Page Turn | Page curl or flip, like turning a sheet of paper | [Cycore][cc] | reachable | prerender; a flat flip is `swivel` (ADR-0167) |
+| CC Power Pin | Pins four corners for perspective and shape changes | [Cycore][cc] | refused ADR-0167 | "Skew, corner pin … still refused" |
+| CC Ripple Pulse | Circular ripple waves from the centre | [Cycore][cc] | reachable | prerender; ripple deferred ADR-0156 |
+| CC Slant | Skews the layer diagonally | [Cycore][cc] | refused ADR-0167 | skew refused (ADR-0012, ADR-0167) |
+| CC Smear | Drags part of the layer between two points | [Cycore][cc] | reachable | prerender |
+| CC Split | Splits the layer down the middle and moves the halves apart | [Cycore][cc] | reachable | two copies with `mask` and keyed `x`/`y` (ADR-0148 copies) |
+| CC Split 2 | CC Split with angle and edge-softness controls | [Cycore][cc] | reachable | as CC Split; a soft edge is `mask` `feather` (ADR-0152) |
+| CC Tiler | Repeats the layer across the composition as tiles | [Cycore][cc] | reachable | copies as elements (ADR-0148) |
+| Corner Pin | Moves four corners to stretch, skew or simulate perspective | [Distort][d-corner] | refused ADR-0167 | corner pin refused; ADR-0156 sent it to the 2.5D decision |
+| Detail-preserving Upscale | Scales a layer up while keeping sharpness and detail | [Adobe page][d-dpu] | gap | resampling fixed by ADR-0132; no upscaler member |
+| Displacement Map | Shifts pixels by a control layer's colour values | [Distort][dist] | refused ADR-0156 | "reads another element's pixels" (ADR-0150 §4) |
+| Liquify | Brush tools push, pull, twirl, pucker and bloat areas | [Distort][d-liquify] | reachable | prerender |
+| Magnify | Enlarges part of the image like a loupe, or all of it | [Distort][d-magnify] | reachable | prerender; magnify deferred ADR-0156 |
+| Mesh Warp | Warps by a grid of Bezier patches | [Distort][d-mesh] | reachable | prerender |
+| Mirror | Reflects one side onto the other about a line | [Distort][d-mirror] | reachable | copy with `scale: [-1, 1]` + `mask`; mirror deferred ADR-0156 |
+| Offset | Pans the image within the layer, wrapping at the edges | [Distort][d-offset] | reachable | prerender; wrap is the undecided edge rule (ADR-0156) |
+| Optics Compensation | Adds or removes camera lens distortion | [Distort][d-optics] | reachable | prerender |
+| Polar Coordinates | Maps pixels between rectangular and polar coordinates | [Distort][d-polar] | reachable | prerender |
+| Reshape | Morphs one mask shape into another, dragging the image | [Distort][d-reshape] | reachable | prerender; a shape morph (no pixels) is `path` `points` (ADR-0162) |
+| Ripple | Concentric ripples moving from a centre point | [Distort][d-ripple] | reachable | prerender; deferred ADR-0156 (keyed phase, §3) |
+| Rolling Shutter Repair | Removes rolling-shutter (CMOS) distortion from footage | [Adobe page][d-rsr] | gap | no footage-analysis route; grep empty |
+| Smear | Moves a masked area, stretching the image around it | [Distort][d-smear] | reachable | prerender |
+| Spherize | Wraps a region of the image onto a sphere | [Distort][d-spherize] | reachable | prerender; deferred ADR-0156 |
+| Transform | Anchor, position, scale, skew, rotation, opacity, shutter angle | [Distort][d-transform] | partial | flat transform (ADR-0012), `motion_blur` (ADR-0155); skew refused ADR-0167 |
+| Turbulent Displace | Fractal-noise displacement, Evolution animates | [Distort][d-turb] | reachable | prerender; seed + time (ADR-0156 §3) |
+| Twirl | Rotates more sharply at the centre than at the edges | [Distort][d-twirl] | reachable | prerender; deferred ADR-0156 |
+| Warp | Arc, bulge, flag and other preset warps, as in Illustrator | [Distort][d-warp] | reachable | prerender |
+| Warp Stabilizer | Analyses and stabilises shaky footage | [Adobe page][d-ws] | gap | no tracking or analysis route; grep empty |
+| Wave Warp | A wave travelling across the image, self-animating | [Distort][d-wave] | reachable | prerender; deferred ADR-0156 (keyed phase) |
+
+[d-bezier]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#bezier_warp_effect
+[d-bulge]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#bulge_effect
+[d-corner]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#corner_pin_effect
+[d-dpu]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/detail-preserving-upscale-effect.html
+[d-liquify]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#liquify_effect
+[d-magnify]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#magnify_effect
+[d-mesh]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#mesh_warp_effect
+[d-mirror]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#mirror_effect
+[d-offset]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#offset_effect
+[d-optics]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#optics_compensation_effect
+[d-polar]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#polar_coordinates_effect
+[d-reshape]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#reshape_effect
+[d-ripple]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#ripple_effect
+[d-rsr]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/rolling-shutter-repair.html
+[d-smear]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#smear_effect
+[d-spherize]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#spherize_effect
+[d-transform]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#transform_effect
+[d-turb]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#turbulent_displace_effect
+[d-twirl]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#twirl_effect
+[d-warp]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#warp_effect
+[d-ws]: https://helpx.adobe.com/after-effects/desktop/animate-in-after-effects/track-motion/tracking-stabilizing-motion-cs5.html#stabilize_motion_with_the_warp_stabilizer_effect
+[d-wave]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/distort-effects.html#wave_warp_effect
 
 ## Generate (26)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| 4-Color Gradient | Four-point colour blend | [Generate][gen] | partial | `gradient` is linear or radial only (ADR-0149); stacked radial rects approximate it |
-| Advanced Lightning | Branching lightning bolt | [Generate][gen] | reachable | prerender (procedural) |
-| Audio Spectrum | Frequency bars or lines from an audio layer | [Generate][gen] | reachable | prerender, or keyed `rect` heights from a script (as ducking, ADR-0177); no shipped script |
-| Audio Waveform | Waveform drawn from an audio layer | [Generate][gen] | reachable | as Audio Spectrum; keyed `path` `points` |
-| Beam | Laser beam between two points | [Generate][gen] | partial | `path` stroke + `trim_*` + `glow`; no tapered core |
-| CC Glue Gun | Glue-like stroke along a path | [Generate][gen] | reachable | prerender |
-| CC Light Burst 2.5 | Radial light streaks from bright pixels | [Generate][gen] | reachable | prerender |
-| CC Light Rays | God rays from a point through the layer | [Generate][gen] | reachable | prerender |
-| CC Light Sweep | Light band sweeping across the layer | [Generate][gen] | reachable | `trailer.md` "Light sweeps": gradient `rect`, `blend: screen` |
-| CC Threads | Woven-thread texture | [Generate][gen] | reachable | prerender (procedural) |
-| Cell Pattern | Procedural cellular (Voronoi) texture | [Generate][gen] | reachable | prerender; would need seed (ADR-0156 §3) |
-| Checkerboard | Checker pattern | [Generate][gen] | reachable | `rect` copies (ADR-0148), or prerender |
-| Circle | Filled or ring circle | [Generate][gen] | covered | `ellipse`, `stroke`, `mask` `circle` |
-| Ellipse | Stroked ellipse with glow | [Generate][gen] | covered | `ellipse` + `stroke` + `glow`/`shadow` |
-| Eyedropper Fill | Fills with a colour sampled from the layer | [Generate][gen] | reachable | agent reads the colour with `frame` and writes a literal `tint` (literal values, ADR-0145) |
-| Fill | Fills alpha with a colour | [Generate][gen] | covered | `tint` with `amount: 1` (ADR-0049) |
-| Fractal | Mandelbrot/Julia set | [Generate][gen] | reachable | prerender |
-| Gradient Ramp | Linear or radial two-colour ramp | [Generate][gen] | covered | `gradient` linear/radial on `fill` (ADR-0149) |
-| Grid | Grid lines | [Generate][gen] | reachable | `rect`/`path` copies (ADR-0148), `stroke_dash` |
-| Lens Flare | Simulated lens flare | [Generate][gen] | reachable | `trailer.md` "flares" (gradients, PNG plates, `screen`); prerender |
-| Paint Bucket | Flood fill by tolerance | [Generate][gen] | gap | reads pixels for a region; no route documented |
-| Radio Waves | Rings emanating from a point | [Generate][gen] | reachable | `ellipse` copies with keyed `scale`/`opacity` (ADR-0148) |
-| Scribble | Scribbled fill of a mask | [Generate][gen] | partial | `path` + `trim_end` draws on (ADR-0160); zig-zag points written by hand |
-| Stroke | Strokes a mask path, with start/end | [Generate][gen] | covered | `path` `stroke`, `trim_start`/`trim_end` (ADR-0160) |
-| Vegas | Marching dashes along a path or edges | [Generate][gen] | covered | `stroke_dash` + keyed `stroke_dash_offset` (ADR-0158) |
-| Write-on | Paints a stroke following a keyed brush | [Generate][gen] | covered | `path` + keyed `trim_end` (ADR-0160) |
+| 4-Color Gradient | Four-colour gradient from four animatable points | [Generate][g-4c] | partial | `gradient` is linear or radial only (ADR-0149); stacked radial rects approximate it |
+| Advanced Lightning | Electrical discharge; animated by its properties, not by itself | [Generate][g-lightning] | reachable | prerender (procedural) |
+| Audio Spectrum | Frequency magnitudes of an audio layer, drawn as bars or lines | [Generate][g-spectrum] | reachable | prerender, or keyed `rect` heights from a script (as ducking, ADR-0177); no shipped script |
+| Audio Waveform | Waveform of an audio layer, optionally along a mask path | [Generate][g-waveform] | reachable | as Audio Spectrum; keyed `path` `points` |
+| Beam | Laser-like beam that shoots or stays fixed at one end | [Generate][g-beam] | partial | `path` stroke + `trim_*` + `glow`; no tapered core |
+| CC Glue Gun | Hot-glue strokes that drip, flow and trail | [Cycore][cc] | reachable | prerender |
+| CC Light Burst 2.5 | Burst of light from a single point, like a flash | [Cycore][cc] | reachable | prerender |
+| CC Light Rays | Beams of light radiating from a source | [Cycore][cc] | reachable | prerender |
+| CC Light Sweep | Light streak moving across the layer | [Cycore][cc] | reachable | `trailer.md` "Light sweeps": gradient `rect`, `blend: screen` |
+| CC Threads | Woven strands or fibres | [Cycore][cc] | reachable | prerender (procedural) |
+| Cell Pattern | Cellular-noise texture, static or moving | [Generate][g-cell] | reachable | prerender; would need seed (ADR-0156 §3) |
+| Checkerboard | Checker pattern of rectangles, half transparent | [Generate][g-checker] | reachable | `rect` copies (ADR-0148), or prerender |
+| Circle | Solid disk or ring | [Generate][g-circle] | covered | `ellipse`, `stroke`, `mask` `circle` |
+| Ellipse | Draws an ellipse (a soft-edged ring) | [Generate][g-ellipse] | covered | `ellipse` + `stroke` + `glow`/`shadow` |
+| Eyedropper Fill | Fills with a colour sampled from the layer | [Generate][g-eyedrop] | reachable | agent reads the colour with `frame` and writes a literal `tint` (literal values, ADR-0145) |
+| Fill | Fills masks (or the layer) with a colour | [Generate][g-fill] | covered | `tint` with `amount: 1` (ADR-0049), with `mask` for a masked area |
+| Fractal | Mandelbrot or Julia set | [Generate][g-fractal] | reachable | prerender |
+| Gradient Ramp | Linear or radial colour ramp | [Generate][g-ramp] | covered | `gradient` linear/radial on `fill` (ADR-0149) |
+| Grid | Customisable grid, as colour or alpha | [Generate][g-grid] | reachable | `rect`/`path` copies (ADR-0148), `stroke_dash` |
+| Lens Flare | Simulated refraction of a bright light in the lens | [Generate][g-flare] | reachable | `trailer.md` "flares" (gradients, PNG plates, `screen`); prerender |
+| Paint Bucket | Fills an area with a solid colour by tolerance | [Generate][g-bucket] | gap | reads pixels for a region; no route documented |
+| Radio Waves | Waves radiating from a point | [Generate][g-radio] | reachable | `ellipse` copies with keyed `scale`/`opacity` (ADR-0148) |
+| Scribble | Hand-drawn zig-zag fill or stroke of a closed mask | [Generate][g-scribble] | partial | `path` + `trim_end` draws on (ADR-0160); zig-zag points written by hand |
+| Stroke | Strokes the path of one or more masks | [Generate][g-stroke] | covered | `path` `stroke`, `trim_start`/`trim_end` (ADR-0160) |
+| Vegas | Running lights and pulses along a path or edges | [Generate][g-vegas] | covered | `stroke_dash` + keyed `stroke_dash_offset` (ADR-0158) |
+| Write-on | Animates a brush stroke, like handwriting | [Generate][g-writeon] | covered | `path` + keyed `trim_end` (ADR-0160) |
 
-## Noise & Grain (11)
+[g-4c]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#4_color_gradient_effect
+[g-lightning]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#advanced_lightning_effect
+[g-spectrum]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#audio_spectrum_effect
+[g-waveform]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#audio_waveform_effect
+[g-beam]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#beam_effect
+[g-cell]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#cell_pattern_effect
+[g-checker]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#checkerboard_effect
+[g-circle]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#circle_effect
+[g-ellipse]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#ellipse_effect
+[g-eyedrop]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#eyedropper_fill_effect
+[g-fill]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#fill_effect
+[g-fractal]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#fractal_effect
+[g-ramp]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#GradientRampeffectCC
+[g-grid]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#grid_effect
+[g-flare]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#lens_flare_effect
+[g-bucket]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#paint_bucket_effect
+[g-radio]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#radio_waves_effect
+[g-scribble]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#scribble_effect
+[g-stroke]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#stroke_effect
+[g-vegas]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#vegas_effect
+[g-writeon]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/generate-effects.html#write_on_effect
+
+## Noise & Grain (13)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Add Grain | Synthesises film grain with presets | [Noise & Grain][noise] | partial | `grain` (seed, amount, size, mono; ADR-0156); no stock presets, softness or per-channel intensity |
-| Dust & Scratches | Median-based cleanup within a radius | [Noise & Grain][noise] (menu) | gap | no median member; grep empty |
-| Fractal Noise | Fractal turbulence, Evolution animates | [Noise & Grain][noise] (menu) | reachable | prerender; #703: Evolution needs a time input ADR-0156 §3 refuses |
-| Match Grain | Copies grain from a source layer | [Noise & Grain][noise] | refused ADR-0150 | samples another element's pixels (§4) |
-| Median | Median filter | [Noise & Grain][noise] (menu) | gap | grep empty |
-| Noise | Random per-pixel noise each frame | [Noise & Grain][noise] (menu) | covered | `grain`, `size: 1`, `mono: false`; re-rolls every frame (ADR-0156 §3) |
-| Noise Alpha | Noise on the alpha channel | [Noise & Grain][noise] (menu) | gap | `grain` never changes alpha (compositing page) |
-| Noise HLS | Noise per hue, lightness, saturation | [Noise & Grain][noise] (menu) | partial | `grain` offsets RGB only |
-| Noise HLS Auto | Noise HLS that animates by itself | [Noise & Grain][noise] (menu) | partial | as Noise HLS; `grain` re-rolls per frame |
-| Remove Grain | Denoise footage | [Noise & Grain][noise] | gap | no denoise member (audio has one, ADR-0181); grep empty |
-| Turbulent Noise | Faster fractal noise | [Noise & Grain][noise] (menu) | reachable | prerender; time input as Fractal Noise |
+| Add Grain | Synthesises film grain with presets | [Noise & Grain][n-add] | partial | `grain` (seed, amount, size, mono; ADR-0156); no stock presets, softness or per-channel intensity |
+| Curl Noise | Smooth, fluid animated 2D noise; input from itself, the layer or another layer | [Noise & Grain][n-curl] | reachable | prerender (procedural); a time axis as Fractal Noise; its Other Layer input would be refused in-format (ADR-0150 §4); grep "curl" empty |
+| Dust & Scratches | Makes dissimilar pixels within a radius like their neighbours | [Noise & Grain][n-dust] | gap | no median member; grep empty |
+| Fractal Noise | Perlin-noise greyscale texture, Evolution animates | [Noise & Grain][n-fractal] | reachable | prerender; #703: Evolution needs a time input ADR-0156 §3 refuses |
+| Match Grain | Matches the noise of another image | [Noise & Grain][n-match] | refused ADR-0150 | samples another element's pixels (§4) |
+| Median | Replaces each pixel with the median of its neighbours | [Noise & Grain][n-median] | gap | grep empty |
+| Median (Legacy) | Older median filter, with an option to work on alpha | [Noise & Grain][n-medianl] | gap | as Median |
+| Noise | Random pixel values; colour or same-value noise | [Noise & Grain][n-noise] | covered | `grain`, `size: 1`, `mono: false`; re-rolls every frame (ADR-0156 §3) |
+| Noise Alpha | Noise on the alpha channel | [Noise & Grain][n-alpha] | gap | `grain` never changes alpha (compositing page) |
+| Noise HLS | Noise on hue, lightness and saturation | [Noise & Grain][n-hls] | partial | `grain` offsets RGB only |
+| Noise HLS Auto | Noise HLS that animates by itself | [Noise & Grain][n-hls] | partial | as Noise HLS; `grain` re-rolls per frame |
+| Remove Grain | Removes grain or noise from footage | [Noise & Grain][n-remove] | gap | no denoise member (audio has one, ADR-0181); grep empty |
+| Turbulent Noise | Faster Perlin-noise texture like Fractal Noise | [Noise & Grain][n-turb] | reachable | prerender; time input as Fractal Noise |
+
+[n-add]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#add_grain_effect
+[n-curl]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#curl-noise
+[n-dust]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#dust-scratches
+[n-fractal]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#fractal_noise_effect
+[n-match]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#match_grain_effect
+[n-median]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#median
+[n-medianl]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#median-legacy
+[n-noise]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#noise_effect
+[n-alpha]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#noise_alpha_effect
+[n-hls]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#noise_hls_effect_and_noise_hls_auto_effect
+[n-remove]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#remove_grain_effect
+[n-turb]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/noise-grain-effects.html#turbulent_noise_effect
 
 ## Perspective (10)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| 3D Camera Tracker | Solves a camera from footage | [Perspective][persp] (menu) | refused ADR-0167 | "a camera and depth sorting are After Effects-only"; the tracking data itself is not decided (map #896) |
-| 3D Glasses | Stereo anaglyph from two views | [Perspective][persp] (menu) | gap | grep empty; anaglyph partly reachable with `tint` + `screen` copies |
-| Bevel Alpha | Bevelled edge lit from the alpha | [Perspective][persp] (menu) | gap | no lighting member; grep empty |
-| Bevel Edges | Bevelled rectangle edges | [Perspective][persp] (menu) | gap | gradient `rect` frames approximate it; no member |
-| CC Cylinder | Wraps the layer on a cylinder | [Perspective][persp] (menu) | reachable | prerender (distortion) |
-| CC Environment | Maps an environment onto the layer | [Perspective][persp] (menu) | refused ADR-0150 | reads another layer as the map |
-| CC Sphere | Wraps the layer on a lit sphere | [Perspective][persp] (menu) | reachable | prerender |
-| CC Spotlight | Spotlight pool and falloff | [Perspective][persp] (menu) | reachable | radial-gradient `rect`, `blend: multiply` (vignette line in capability map) |
-| Drop Shadow | Offset soft shadow | [Perspective][persp] (menu) | covered | `shadow` (ADR-0040) |
-| Radial Shadow | Shadow cast from a point light | [Perspective][persp] (menu) | partial | `shadow` with keyed `dx`/`dy`; no projection from a light point |
+| 3D Camera Tracker | Extracts camera movement from 2D footage | [Perspective][p-cam] | refused ADR-0167 | "a camera and depth sorting are After Effects-only"; the tracking data itself is not decided (map #896) |
+| 3D Glasses | Combines left and right views into one 3D image | [Perspective][p-glasses] | gap | grep empty; anaglyph partly reachable with `tint` + `screen` copies |
+| Bevel Alpha | Chiselled, lit edge on the alpha boundary | [Perspective][p-bevela] | gap | no lighting member; grep empty |
+| Bevel Edges | Chiselled, lit rectangular edges | [Perspective][p-bevele] | gap | gradient `rect` frames approximate it; no member |
+| CC Cylinder | Wraps the layer around a 3D cylinder | [Cycore][cc] | reachable | prerender (distortion) |
+| CC Environment | Reflective spherical environment map | [Cycore][cc] | refused ADR-0150 | reads another layer as the map |
+| CC Sphere | Turns the layer into a 3D sphere | [Cycore][cc] | reachable | prerender |
+| CC Spotlight | Spotlight shining on the layer | [Cycore][cc] | reachable | radial-gradient `rect`, `blend: multiply` (vignette line in capability map) |
+| Drop Shadow | Soft shadow behind the layer, shaped by its alpha | [Perspective][p-drop] | covered | `shadow` (ADR-0040) |
+| Radial Shadow | Shadow cast from a point light, not an infinite one | [Perspective][p-radial] | partial | `shadow` with keyed `dx`/`dy`; no projection from a light point |
+
+[p-cam]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#camera-tracker
+[p-glasses]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#3d_glasses_effect
+[p-bevela]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#bevel_alpha_effect
+[p-bevele]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#bevel_edges_effect
+[p-drop]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#drop_shadow_effect
+[p-radial]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/perspective-effects.html#radial_shadow_effect
 
 ## Simulation (18)
 
@@ -188,67 +274,95 @@ mention.
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Card Dance | Layer split into cards driven by a gradient layer | [Simulation][sim] (menu) | reachable | prerender; a gradient driver layer is refused by ADR-0150 §4 |
-| Caustics | Water-surface light caustics | [Simulation][sim] (menu) | reachable | prerender |
-| CC Ball Action | Layer turned into a grid of 3D balls | [Simulation][sim] (menu) | reachable | prerender |
-| CC Bubbles | Bubbles from the layer's colours | [Simulation][sim] (menu) | reachable | prerender |
-| CC Drizzle | Raindrop ripples | [Simulation][sim] (menu) | reachable | prerender |
-| CC Hair | Hair or fur grown from the layer | [Simulation][sim] (menu) | reachable | prerender |
-| CC Mr. Mercury | Liquid blobs | [Simulation][sim] (menu) | reachable | prerender |
-| CC Particle Systems II | 2D particle emitter | [Simulation][sim] (menu) | reachable | prerender |
-| CC Particle World | 3D particle emitter | [Simulation][sim] | reachable | prerender |
-| CC Pixel Polly | Shatters the layer into polygons | [Simulation][sim] (menu) | reachable | prerender |
-| CC Rainfall | Rain | [Simulation][sim] (menu) | reachable | prerender |
-| CC Scatterize | Scatters the layer into pixels | [Simulation][sim] (menu) | reachable | prerender |
-| CC Snowfall | Snow | [Simulation][sim] (menu) | reachable | prerender |
-| CC Star Burst | Star field rushing at the viewer | [Simulation][sim] (menu) | reachable | prerender |
-| Foam | Bubbles and foam | [Simulation][sim] (menu) | reachable | prerender |
-| Particle Playground | Particles, optionally from other layers | [Simulation][sim] (menu) | reachable | prerender; layer-sourced particles would be refused in-format (ADR-0150 §4) |
-| Shatter | Explodes the layer into 3D shards | [Simulation][sim] | reachable | prerender |
-| Wave World | Water-surface height map | [Simulation][sim] (menu) | reachable | prerender |
+| Card Dance | Divides the layer into cards driven by a second layer | [Simulation][s-card] | reachable | prerender; a driver layer is refused by ADR-0150 §4 |
+| Caustics | Light caustics at the bottom of water | [Simulation][s-caustics] | reachable | prerender |
+| CC Ball Action | Turns the layer into a grid of 3D balls (no Adobe description) | [Simulation][sim] | reachable | prerender |
+| CC Bubbles | Bubbles rising through water | [Cycore][cc] | reachable | prerender |
+| CC Drizzle | Light rain, a gentle drizzle | [Cycore][cc] | reachable | prerender |
+| CC Hair | Hair or fibres that move with wind or motion | [Cycore][cc] | reachable | prerender |
+| CC Mr. Mercury | Flowing, dripping liquid like mercury | [Cycore][cc] | reachable | prerender |
+| CC Particle Systems II | Particles for fire, smoke, explosions or dust | [Cycore][cc] | reachable | prerender |
+| CC Particle World | Particles moving freely in 3D | [Cycore][cc] | reachable | prerender |
+| CC Pixel Polly | Breaks the layer into pieces, disintegrating | [Cycore][cc] | reachable | prerender |
+| CC Rainfall | Falling rain | [Cycore][cc] | reachable | prerender |
+| CC Scatterize | Scatters the layer into fragments | [Cycore][cc] | reachable | prerender |
+| CC Snowfall | Falling snow | [Cycore][cc] | reachable | prerender |
+| CC Star Burst | Particles shot outward from a centre point | [Cycore][cc] | reachable | prerender |
+| Foam | Bubbles that flow, cling and pop | [Simulation][s-foam] | reachable | prerender |
+| Particle Playground | Many similar objects animated independently: dots, layers or text | [Simulation][s-pp] | reachable | prerender; layer-sourced particles would be refused in-format (ADR-0150 §4) |
+| Shatter | Explodes the layer into pieces | [Simulation][s-shatter] | reachable | prerender |
+| Wave World | Greyscale displacement map from simulated liquid waves | [Simulation][s-wave] | reachable | prerender |
+
+[s-card]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#card_dance_effect
+[s-caustics]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#caustics_effect
+[s-foam]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#foam_effect
+[s-pp]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#particle_playground_effect
+[s-shatter]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#shatter_effect
+[s-wave]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/simulation-effects.html#wave_world_effect
 
 ## Stylize (25)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Brush Strokes | Painterly brush look | [Stylize][styl] (menu) | reachable | prerender |
-| Cartoon | Flattened fills with ink edges | [Stylize][styl] (menu) | partial | `posterize` (ADR-0156) gives fills; no edges (see Find Edges) |
-| CC Block Load | Progressive-JPEG-style blocky reveal | [Stylize][styl] (menu) | reachable | prerender (mosaic family) |
-| CC Burn Film | Burning-film holes | [Stylize][styl] (menu) | reachable | prerender |
-| CC Glass | Glass relief from a map | [Stylize][styl] (menu) | reachable | prerender; a separate map layer refused (ADR-0150 §4) |
-| CC HexTile | Hexagonal tiling of the layer | [Stylize][styl] (menu) | reachable | prerender |
-| CC Kaleida | Kaleidoscope | [Stylize][styl] (menu) | reachable | prerender; mirror deferred ADR-0156 |
-| CC Mr. Smoothie | Smooth colour bands sampled from the layer | [Stylize][styl] (menu) | reachable | prerender |
-| CC Plastic | Plastic relief, lit | [Stylize][styl] (menu) | gap | lighting/emboss family; deferred-family ADR-0156, no documented route |
-| CC RepeTile | Repeats the layer outward | [Stylize][styl] (menu) | reachable | copies as elements (ADR-0148) |
-| CC Threshold | One-level threshold | [Stylize][styl] | partial | `saturation: 0` + `brightness` + `posterize` `levels: 2`; threshold fixed at mid-grey, shifted by brightness |
-| CC Threshold RGB | Threshold per channel | [Stylize][styl] (menu) | partial | `posterize` `levels: 2` per channel (fixed 0.5 cut) |
-| CC Vignette | Darkened edges | [Stylize][styl] (menu) | reachable | capability map: "a vignette … a `rect` carrying an effect and a blend" (ADR-0040 composable) |
-| Color Emboss | Emboss keeping colour | [Stylize][styl] (menu) | gap | emboss deferred by ADR-0156 |
-| Emboss | Grey relief | [Stylize][styl] (menu) | gap | deferred by ADR-0156 |
-| Find Edges | Edge detection | [Stylize][styl] (menu) | gap | convolution member absent; grep empty (#703: `matrix_convolution`) |
-| Glow | Bloom from bright pixels, colourable | [Stylize][styl] (menu) | covered | `glow` (ADR-0156); colour from alpha is a zero-offset `shadow` |
-| Mosaic | Blocks of averaged colour | [Stylize][styl] (menu) | reachable | prerender (capability map names mosaic); member deferred ADR-0156 |
-| Motion Tile | Tiles the layer, mirrored edges, phase | [Stylize][styl] (menu) | reachable | copies as elements, `scale: [-1, 1]` for mirrored (ADR-0148) |
-| Posterize | Fewer levels per channel | [Stylize][styl] (menu) | covered | `posterize` `levels` 2–256 (ADR-0156) |
-| Roughen Edges | Noisy, eroded alpha edge | [Stylize][styl] (menu) | gap | needs seeded noise on alpha; grep empty |
-| Scatter | Scatters pixels randomly | [Stylize][styl] (menu) | gap | seeded per-pixel offset; no member; grep empty |
-| Strobe Light | Periodic flash or transparency | [Stylize][styl] (menu) | reachable | `trailer.md` "Flash": `rect` with keyed `opacity`, `step` ease |
-| Texturize | Lights the layer with another layer's texture | [Stylize][styl] (menu) | refused ADR-0150 | reads another element's pixels (§4) |
-| Threshold | Pixels to black or white at a level | [Stylize][styl] (menu) | partial | as CC Threshold |
+| Brush Strokes | Rough, painted look | [Stylize][y-brush] | reachable | prerender |
+| Cartoon | Simplified shading and colour with strokes on the edges | [Stylize][y-cartoon] | partial | `posterize` (ADR-0156) gives fills; no edges (see Find Edges) |
+| CC Block Load | Image loading in large blocky segments | [Cycore][cc] | reachable | prerender (mosaic family) |
+| CC Burn Film | Burn marks and scratches of damaged film | [Cycore][cc] | reachable | prerender |
+| CC Glass | Light bent through textured glass | [Cycore][cc] | reachable | prerender; a separate map layer refused (ADR-0150 §4) |
+| CC HexTile | Hexagonal tiles, like a honeycomb | [Cycore][cc] | reachable | prerender |
+| CC Kaleida | Kaleidoscope of reflected sections | [Cycore][cc] | reachable | prerender; mirror deferred ADR-0156 |
+| CC Mr. Smoothie | Softens sharp edges into a smooth, stylised look | [Cycore][cc] | reachable | prerender |
+| CC Plastic | Shiny, glossy plastic look | [Cycore][cc] | gap | lighting/emboss family; deferred-family ADR-0156, no documented route |
+| CC RepeTile | Repeats the layer in a tiled grid | [Cycore][cc] | reachable | copies as elements (ADR-0148) |
+| CC Threshold | High-contrast black and white | [Cycore][cc] | partial | `saturation: 0` + `brightness` + `posterize` `levels: 2`; threshold fixed at mid-grey, shifted by brightness |
+| CC Threshold RGB | Threshold per red, green and blue channel | [Cycore][cc] | partial | `posterize` `levels: 2` per channel (fixed 0.5 cut) |
+| CC Vignette | Darkens or lightens the edges | [Cycore][cc] | reachable | capability map: "a vignette … a `rect` carrying an effect and a blend" (ADR-0040 composable) |
+| Color Emboss | Emboss keeping the original colours | [Stylize][y-cemboss] | gap | emboss deferred by ADR-0156 |
+| Emboss | Sharpens edges and suppresses colour, lit from an angle | [Stylize][y-emboss] | gap | deferred by ADR-0156 |
+| Find Edges | Finds and emphasises edges | [Stylize][y-edges] | gap | convolution member absent; grep empty (#703: `matrix_convolution`) |
+| Glow | Brightens bright areas and their surroundings into a glow | [Stylize][y-glow] | covered | `glow` (ADR-0156); colour from alpha is a zero-offset `shadow` |
+| Mosaic | Solid-colour rectangles, pixelating the image | [Stylize][y-mosaic] | reachable | prerender (capability map names mosaic); member deferred ADR-0156 |
+| Motion Tile | Replicates the source across the output, with mirrored edges and phase | [Stylize][y-mtile] | reachable | copies as elements, `scale: [-1, 1]` for mirrored (ADR-0148) |
+| Posterize | Fewer tonal levels per channel | [Stylize][y-posterize] | covered | `posterize` `levels` 2–256 (ADR-0156) |
+| Roughen Edges | Roughens the alpha edge, optionally with corrosion colour | [Stylize][y-roughen] | gap | needs seeded noise on alpha; grep empty |
+| Scatter | Redistributes pixels randomly nearby | [Stylize][y-scatter] | gap | seeded per-pixel offset; no member; grep empty |
+| Strobe Light | Periodic or random flash or transparency | [Stylize][y-strobe] | reachable | `trailer.md` "Flash": `rect` with keyed `opacity`, `step` ease |
+| Texturize | Gives the layer another layer's texture | [Stylize][y-texturize] | refused ADR-0150 | reads another element's pixels (§4) |
+| Threshold | Pixels to black or white at a level | [Stylize][y-threshold] | partial | as CC Threshold |
+
+[y-brush]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#brush_strokes_effect
+[y-cartoon]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#cartoon_effect
+[y-cemboss]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#color_emboss_effect
+[y-emboss]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#emboss_effect
+[y-edges]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#find_edges_effect
+[y-glow]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#glow_effect
+[y-mosaic]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#mosaic_effect
+[y-mtile]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#motion_tile_effect
+[y-posterize]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#posterize_effect
+[y-roughen]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#roughen_edges_effect
+[y-scatter]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#scatter_effect
+[y-strobe]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#strobe_light_effect
+[y-texturize]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#texturize_effect
+[y-threshold]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/stylize-effects.html#threshold_effect
 
 ## Time (8)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| CC Force Motion Blur | Sub-frame samples of the layer's animation | [Time][time] | covered | `motion_blur` `shutter`/`samples` (ADR-0155) |
-| CC Wide Time | Blends frames before and after | [Time][time] | reachable | copies offset in time with lower `opacity` (ADR-0148); `motion_blur` is not this (CONTEXT avoids "echo") |
-| Echo | Composites frames from other times | [Time][time] | reachable | as CC Wide Time; a video copy uses its own `source_time` offset (ADR-0157) |
-| Pixel Motion Blur | Optical-flow blur of footage content | [Time][time] | gap | "a video's footage is not blurred, only its keyed values" (ADR-0155) |
-| Posterize Time | Locks a layer to a lower frame rate | [Time][time] | reachable | stepped keys: `step` ease, a stepped `source_time` curve (ADR-0157) |
-| Time Difference | Difference between a layer and a target layer | [Time][time] (menu) | refused ADR-0150 | reads a second element's pixels (§4) |
-| Time Displacement | Per-pixel time offset from a map layer | [Time][time] (menu) | refused ADR-0150 | map layer = another element (§4) |
-| Timewarp | Speed change with frame blending or optical flow | [Time][time] | partial | `source_time` speed ramps (ADR-0157); last frame at or before the instant (ADR-0096), no blending or flow |
+| CC Force Motion Blur | Motion blur on the layer's own movement | [Cycore][cc] | covered | `motion_blur` `shutter`/`samples` (ADR-0155) |
+| CC Wide Time | Blends multiple frames into a ghostly trail | [Cycore][cc] | reachable | copies offset in time with lower `opacity` (ADR-0148); `motion_blur` is not this (CONTEXT avoids "echo") |
+| Echo | Combines frames from different times in a layer | [Time][time] | reachable | as CC Wide Time; a video copy uses its own `source_time` offset (ADR-0157) |
+| Pixel Motion Blur | Motion blur synthesised from footage motion vectors | [Time][t-pmb] | gap | "a video's footage is not blurred, only its keyed values" (ADR-0155) |
+| Posterize Time | Locks a layer to a specific frame rate | [Time][t-post] | reachable | stepped keys: `step` ease, a stepped `source_time` curve (ADR-0157) |
+| Time Difference | Colour difference between two layers | [Time][t-diff] | refused ADR-0150 | reads a second element's pixels (§4) |
+| Time Displacement | Shifts pixels across time by a map layer | [Time][t-disp] | refused ADR-0150 | map layer = another element (§4) |
+| Timewarp | Speed change with interpolation, motion blur and cropping | [Time][t-warp] | partial | `source_time` speed ramps (ADR-0157); last frame at or before the instant (ADR-0096), no blending or flow |
+
+[t-pmb]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/time-effects.html#pixel-motion-blur
+[t-post]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/time-effects.html#posterize-time
+[t-diff]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/time-effects.html#time-difference
+[t-disp]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/time-effects.html#time-displacement
+[t-warp]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/time-effects.html#timewarp
 
 ## Transition (17)
 
@@ -261,72 +375,93 @@ not a `transition` kind.
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Block Dissolve | Random blocks reveal the layer below | [Transition][trans] | gap | needs a seed and blocks; no kind; grep empty |
-| Card Wipe | Grid of cards flip to the next picture | [Transition][trans] | gap | per-card copies with `swivel` need a pivot per card (#591 free pivot); no kind |
-| CC Glass Wipe | Glassy melt using a map layer | [Transition][trans] | refused ADR-0150 | map layer (§4) |
-| CC Grid Wipe | Wipe in a grid of shapes | [Transition][trans] | reachable | masks on copies of the incoming element (ADR-0148); masks in one list intersect, so no single-element union |
-| CC Image Wipe | Wipe ordered by another layer's luminance | [Transition][trans] | refused ADR-0150 | "matte from another element" (§4) |
-| CC Jaws | Zig-zag jaws close or open | [Transition][trans] | reachable | keyed `mask` `shape: "path"` with zig-zag `points` (ADR-0163) |
-| CC Light Wipe | Circular wipe with a bright edge | [Transition][trans] | partial | keyed `mask` circle with `feather` (ADR-0152); no edge light |
-| CC Line Sweep | Straight-edge wipe at any angle | [Transition][trans] | partial | `wipe` is four directions only; any angle via a keyed path `mask` (ADR-0163) |
-| CC Radial ScaleWipe | Radial wipe that stretches the image | [Transition][trans] | reachable | prerender (distortion) |
-| CC Scale Wipe | Stretch-off wipe | [Transition][trans] | reachable | prerender (distortion) |
-| CC Twister | Twisting card-like turn | [Transition][trans] | reachable | prerender (distortion) |
-| CC WarpoMatic | Luminance-driven warp transition | [Transition][trans] | reachable | prerender; a driver from another element refused (ADR-0150 §4) |
-| Gradient Wipe | Wipe ordered by a gradient layer's luminance | [Transition][trans] | refused ADR-0150 | the gradient layer is another element (§4) |
-| Iris Wipe | Polygon or circle iris opens | [Transition][trans] (menu) | reachable | keyed `mask` (`ellipse`, `rect`, `path`) with `feather` (ADR-0146, ADR-0152, ADR-0163) |
-| Linear Wipe | Straight edge at any angle, feathered | [Transition][trans] | partial | `wipe` + `direction` (ADR-0150): 4 directions, hard edge; angle and feather via keyed path `mask` |
-| Radial Wipe | Clock sweep around a centre | [Transition][trans] (menu) | reachable | keyed path `mask` drawing the sector (ADR-0163); no kind |
-| Venetian Blinds | Striped reveal in bands | [Transition][trans] (menu) | reachable | one copy of the incoming element per band, each with a keyed `mask` (ADR-0148) |
+| Block Dissolve | Layer disappears in random blocks | [Transition][r-block] | gap | needs a seed and blocks; no kind; grep empty |
+| Card Wipe | Grid of cards flip to a back layer | [Transition][r-card] | gap | per-card copies with `swivel` need a pivot per card (#591 free pivot); no kind |
+| CC Glass Wipe | Glassy melt using a map layer (no Adobe description) | [Transition][trans] | refused ADR-0150 | map layer (§4) |
+| CC Grid Wipe | Grid pattern that uncovers the next picture | [Cycore][cc] | reachable | masks on copies of the incoming element (ADR-0148); masks in one list intersect, so no single-element union |
+| CC Image Wipe | Wipe that uses an image or texture as its mask | [Cycore][cc] | refused ADR-0150 | "matte from another element" (§4) |
+| CC Jaws | Teeth-like "chomp" that reveals the next scene | [Cycore][cc] | reachable | keyed `mask` `shape: "path"` with zig-zag `points` (ADR-0163) |
+| CC Light Wipe | Light source sweeping across, wiping the scene away | [Cycore][cc] | partial | keyed `mask` circle with `feather` (ADR-0152); no edge light |
+| CC Line Sweep | A single moving line reveals the next clip | [Cycore][cc] | partial | `wipe` is four directions only; any angle via a keyed path `mask` (ADR-0163) |
+| CC Radial ScaleWipe | Wipe with a zoom from the centre or edge | [Cycore][cc] | reachable | prerender (distortion) |
+| CC Scale Wipe | Swipe and zoom into the next scene | [Cycore][cc] | reachable | prerender (distortion) |
+| CC Twister | Swirling, twisting distortion into the next scene | [Cycore][cc] | reachable | prerender (distortion) |
+| CC WarpoMatic | Stretchy warp that bends the scene into the next | [Cycore][cc] | reachable | prerender; a driver from another element refused (ADR-0150 §4) |
+| Gradient Wipe | Transparency ordered by a gradient layer's luminance | [Transition][r-grad] | refused ADR-0150 | the gradient layer is another element (§4) |
+| Iris Wipe | Radial iris of 6–32 points reveals the layer below | [Transition][r-iris] | reachable | keyed `mask` (`ellipse`, `rect`, `path`) with `feather` (ADR-0146, ADR-0152, ADR-0163) |
+| Linear Wipe | Simple linear wipe at an angle, feathered | [Transition][r-linear] | partial | `wipe` + `direction` (ADR-0150): 4 directions, hard edge; angle and feather via keyed path `mask` |
+| Radial Wipe | Wipe circling around a point | [Transition][r-radial] | reachable | keyed path `mask` drawing the sector (ADR-0163); no kind |
+| Venetian Blinds | Strips of set direction and width reveal the layer below | [Transition][r-blinds] | reachable | one copy of the incoming element per band, each with a keyed `mask` (ADR-0148) |
 
-## Matte (4)
+[r-block]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#block_dissolve_effect
+[r-card]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#card_wipe_effect
+[r-grad]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#gradient_wipe_effect
+[r-iris]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#iris_wipe_effect
+[r-linear]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#linear_wipe_effect
+[r-radial]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#radial_wipe_effect
+[r-blinds]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/transition-effects.html#venetian_blinds_effect
+
+## Matte (5)
 
 | Effect | What it does | Adobe | Status | Evidence |
 |---|---|---|---|---|
-| Matte Choker | Chokes and spreads a matte in stages to fill holes | [Matte][matte] | gap | no alpha choke; `chroma` `tolerance`/`softness` act before the matte (ADR-0088) |
-| Refine Hard Matte | Cleans a hard keyed edge, decontaminates | [Matte][matte] | partial | `chroma` `softness` + `spill` (ADR-0088); no edge refinement |
-| Refine Soft Matte | Keeps hair and motion-blur detail at the edge | [Matte][matte] | partial | as above |
-| Simple Choker | Grows or shrinks alpha by a few pixels | [Matte][matte] (menu) | gap | `mask` `feather` softens only its own shape (ADR-0152); grep "choke" empty |
+| Matte Choker | Chokes and spreads a matte repeatedly to fill holes | [Matte][m-mchoker] | gap | no alpha choke; `chroma` `tolerance`/`softness` act before the matte (ADR-0088) |
+| Mocha shape | Turns paths tracked in Mocha AE into mattes | [Adobe page][m-mocha] | partial | a keyed path `mask` (ADR-0146, ADR-0163) holds a shape; no route brings in Mocha's tracked paths; grep "mocha" empty |
+| Refine Hard Matte | Cleans a hard keyed edge (no Adobe description) | [Refine Matte][m-refine] | partial | `chroma` `softness` + `spill` (ADR-0088); no edge refinement |
+| Refine Soft Matte | Refines soft edges of a keyed matte, removes spill and noise | [Matte][m-soft] | partial | as above |
+| Simple Choker | Shrinks or expands matte edges in small steps | [Matte][m-schoker] | gap | `mask` `feather` softens only its own shape (ADR-0152); grep "choke" empty |
 
-The ticket names "Refine Matte". The current Matte menu holds Refine Hard Matte and Refine Soft
-Matte, which replaced it (ProVideo Coalition's keying series, and Adobe's Matte page excerpts).
-The page excerpts did not confirm a "mocha shape" entry, so it is not listed.
+[m-mchoker]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/matte-effects.html#matte_choker_effect
+[m-mocha]: https://helpx.adobe.com/after-effects/desktop/work-with-transparency-and-compositing/compositing-in-after-effects/compositing-transparency-overview-resources.html
+[m-refine]: https://helpx.adobe.com/after-effects/desktop/roto-brush-and-refine-matte/roto-brush/roto-brush-refine-matte.html#roto-brush-effect-refine-matte-effect
+[m-soft]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/matte-effects.html#refine-soft-matte
+[m-schoker]: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/matte-effects.html#simple-choker-effect
+
+The ticket names "Refine Matte". The current Matte category holds Refine Hard Matte and Refine
+Soft Matte instead. The Matte page sends Refine Matte readers to the Roto Brush and Refine Matte
+reference.
 
 ## Categories named, not scored row by row
 
-- **Audio** ([Audio][audio], (menu) list): Backwards, Bass & Treble, Delay, Flange & Chorus,
-  High-Low Pass, Modulator, Parametric EQ, Reverb, Stereo Mixer, Tone. The audio map
-  [#795](https://github.com/MBehtemam/Montagent/issues/795) owns them all:
+- **Audio** ([Audio][audio]): the effect list has Backwards, Bass & Treble, Delay, Flange &
+  Chorus, High-Low Pass, Modulator, Parametric EQ, Reverb, Stereo Mixer and Tone. The Audio page
+  (11 September 2026) adds Compressor, Distortion and Gate, plus De-esser as a beta feature. The
+  audio map [#795](https://github.com/MBehtemam/Montagent/issues/795) owns them all:
   - **Already on the capability map:** Bass & Treble (`shelf`), High-Low Pass (`highpass`, `lowpass`), Parametric EQ (`bell`). These come from ADR-0179, still marked proposed while its test table is committed.
-  - **Open on #795:** Delay (ADR-0185 `echo`, draft), Stereo Mixer (ADR-0184 `pan`/`channels`, draft), Reverb (out of ADR-0185, prototype in `docs/research/audio-effects/echo-reverb/`), Flange & Chorus, Modulator, Tone.
+  - **Open on #795:** Delay (ADR-0185 `echo`, draft), Stereo Mixer (ADR-0184 `pan`/`channels`, draft), Reverb (out of ADR-0185, prototype in `docs/research/audio-effects/echo-reverb/`), Flange & Chorus, Modulator, Tone, and the page's new Compressor, Distortion, Gate and De-esser. ADR-0169 already uses a compressor as its example of why an audio effect's order matters.
   - **Backwards:** `source_time` on `audio` is a schema error (ADR-0157). Reversed sound is #795's to decide.
 - **Obsolete** ([Obsolete][obs]): Adobe keeps these effects "for compatibility with projects
-  created with previous versions" and says to use alternatives. The (menu) list: Basic 3D, Basic Text,
-  Color Key, Fast Blur (Legacy), Gaussian Blur (Legacy), Lightning, Luma Key, Path Text,
-  Spill Suppressor. Not scored. Their replacements are scored elsewhere: projection
-  (ADR-0167), `text`, `chroma`, `blur`, Advanced Lightning, text on a path (ADR-0161).
-- **Immersive Video** ([VR effects][vr], (menu) list): VR Blur, VR Chromatic Aberrations,
-  VR Color Gradients, VR Converter, VR De-Noise, VR Digital Glitch, VR Fractal Noise, VR Glow,
-  VR Plane to Sphere, VR Rotate Sphere, VR Sharpen, VR Sphere to Plane. Not scored:
+  created with previous versions" and says to use alternatives. The effect list has Basic 3D,
+  Basic Text, Color Key, Gaussian Blur (Legacy), Lightning, Luma Key, Path Text, Reduce Interlace
+  Flicker and Spill Suppressor. The Obsolete page also documents Fast Blur, which the list no
+  longer has. Not scored. Their replacements are scored elsewhere: projection (ADR-0167),
+  `text`, `chroma`, `blur`, Advanced Lightning, text on a path (ADR-0161). Reduce Interlace
+  Flicker has no counterpart; ADR-0141's equivalence test did not cover interlaced sources.
+- **Immersive Video** ([VR effects][vr]): VR Blur, VR Chromatic Aberrations, VR Color Gradients,
+  VR Converter, VR De-Noise, VR Digital Glitch, VR Fractal Noise, VR Glow, VR Plane to Sphere,
+  VR Rotate Sphere, VR Sharpen, VR Sphere to Plane. Not scored:
   Montagent has no equirectangular or stereo frame model (grep "equirect" and "VR" find nothing
   in the ADRs). Whether 360° video is in scope at all is its own question for #896.
 
 ## Counts
 
-Over the 156 rows scored in the nine categories:
+Over the 159 rows scored in the nine categories:
 
 | Status | Count |
 |---|---|
 | covered | 12 |
-| partial | 18 |
-| reachable | 91 (prerender first: 68; copies, keyed masks, skill recipes or a script: 23) |
-| owned by an open map | 0 (the 10 Audio effects all go to #795 and are not counted) |
+| partial | 19 |
+| reachable | 92 (prerender first: 69; copies, keyed masks, skill recipes or a script: 23) |
+| owned by an open map | 0 (the Audio effects all go to #795 and are not counted) |
 | refused | 13 (ADR-0150: 8, ADR-0167: 4, ADR-0156: 1) |
-| gap | 22 |
+| gap | 23 |
 
 By category (covered / partial / reachable / refused / gap): Distort 0/1/29/4/3, Generate
-7/3/15/0/1, Noise & Grain 1/3/2/1/4, Perspective 1/1/3/2/3, Simulation 0/0/18/0/0, Stylize
-2/4/12/1/6, Time 1/1/3/2/1, Transition 0/3/9/3/2, Matte 0/2/0/0/2.
+7/3/15/0/1, Noise & Grain 1/3/3/1/5, Perspective 1/1/3/2/3, Simulation 0/0/18/0/0, Stylize
+2/4/12/1/6, Time 1/1/3/2/1, Transition 0/3/9/3/2, Matte 0/3/0/0/2.
+
+Verification added three rows: Curl Noise (reachable), Median (Legacy) (gap) and Mocha shape
+(partial). No row was removed, and no existing row changed status.
 
 "Reachable" is large because `montagent-prerender` documents distortions, mosaic, lens flare,
 particles and procedural patterns. Those rows are reachable as fixed footage, not as parameters
@@ -349,11 +484,11 @@ member would beat the prerender route.
 3. **Alpha operations.** Simple Choker, Matte Choker, Roughen Edges, Noise Alpha and Scatter.
    No member reads or changes alpha except `mask` and `chroma`. A keyed-footage pipeline wants
    a choke after `chroma`. A choke stays inside the element, so ADR-0150 §4 does not bar it.
-4. **Generators and noise with a time axis.** Fractal Noise, Turbulent Noise, Cell Pattern and
-   Turbulent Displace. ADR-0156 §3 allows a seed but no time input, and Evolution is time
-   (#703). The questions: a keyed `evolution` parameter (like a keyed phase), or prerender for
-   good? 4-Color Gradient is a separate question: a third `gradient` kind (bilinear corners)
-   under ADR-0149.
+4. **Generators and noise with a time axis.** Fractal Noise, Turbulent Noise, Curl Noise, Cell
+   Pattern and Turbulent Displace. ADR-0156 §3 allows a seed but no time input, and Evolution is
+   time (#703). Curl Noise's drift (Speed and Direction) is the same question. The questions: a
+   keyed `evolution` parameter (like a keyed phase), or prerender for good? 4-Color Gradient is
+   a separate question: a third `gradient` kind (bilinear corners) under ADR-0149.
 5. **Transition kinds.** Iris, Radial (clock), Venetian Blinds, Block Dissolve, Card Wipe and an
    angled or feathered Linear Wipe. Today they are hand-keyed masks on copies. That is the
    "scattered state `validate` cannot tell is one transition" that ADR-0150's "Why" argued
@@ -368,9 +503,11 @@ member would beat the prerender route.
    anything beyond the prerender route enters. A seeded emitter would be a generator element,
    which ADR-0156 refused but left open to "its own ADR".
 8. **Footage analysis.** Warp Stabilizer, Rolling Shutter Repair, 3D Camera Tracker,
-   Detail-preserving Upscale, Remove Grain, Dust & Scratches and Median. None has a route. The
-   tracking and stabilise results could be literal keyframes written by a skill (the
-   "reachable by a skill" line on #896). Denoise and median are filter members.
+   Detail-preserving Upscale, Remove Grain, Dust & Scratches, Median and Median (Legacy). None
+   has a route. The tracking and stabilise results could be literal keyframes written by a
+   skill (the "reachable by a skill" line on #896). Mocha shape's tracked paths are the same
+   kind of result: a skill could write them as keyed path `mask` points. Denoise and median are
+   filter members.
 9. **Lighting and 3D surface looks.** Bevel Alpha, Bevel Edges, Radial Shadow's light point and
    CC Sphere/Cylinder lighting. These are low priority. Skia's lit filters
    (`distant_lit_diffuse`, #703) are the route if any of them is wanted.
