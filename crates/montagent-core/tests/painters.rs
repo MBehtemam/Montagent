@@ -61,6 +61,10 @@ impl Rendered {
             for volatile in ["wall_ms", "realtime", "painting"] {
                 render.remove(volatile);
             }
+            // ADR-0190: the file's size is its bytes, which x86_64 Windows does not guarantee.
+            if !mp4_bytes_are_guaranteed() {
+                render.remove("bytes");
+            }
         }
         answer
     }
