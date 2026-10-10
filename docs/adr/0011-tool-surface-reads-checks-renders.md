@@ -163,7 +163,7 @@ status: accepted
 >   `measure` reports the bent line's ink extent and the same hidden letters
 > - [ADR-0192](0192-a-render-writes-a-progress-file-and-says-its-phase-and-eta-or-why-it-has-none.md) —
 >   **stderr progress is no longer only coarse**: a line at least every ~5 s, each naming its phase and an
->   ETA labelled an estimate (or why there is none), and `render` gains an optional `progressFile`; the
+>   ETA labelled an estimate (or why there is none), and `render` gains an optional `progress_file`; the
 >   nine MCP verbs are unchanged
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`

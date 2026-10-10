@@ -1,6 +1,6 @@
 ---
 status: proposed (DRAFT; becomes accepted once the owner has confirmed the calls in "Owner calls to confirm" and the implementation tickets have landed with the tests named in section 6)
-amends: 0011 (*"Progress on stderr, coarse"* no longer holds: stderr also prints a line whenever about 5 s pass without one, and every line names its phase, the timeline position and an ETA labelled an estimate, or says why there is none; and `render` gains one optional request field, `progressFile`, so the nine-verb surface is unchanged), 0108 (§2's *"on each progress step the core reports"* now includes the phases the core reports and the 5 s fill; the 30 s heartbeat is unchanged and the progress file is independent of both channels, so a client that sends no `progressToken` is no longer left with stderr alone)
+amends: 0011 (*"Progress on stderr, coarse"* no longer holds: stderr also prints a line whenever about 5 s pass without one, and every line names its phase, the timeline position and an ETA labelled an estimate, or says why there is none; and `render` gains one optional request field, `progress_file`, so the nine-verb surface is unchanged), 0108 (§2's *"on each progress step the core reports"* now includes the phases the core reports and the 5 s fill; the 30 s heartbeat is unchanged and the progress file is independent of both channels, so a client that sends no `progressToken` is no longer left with stderr alone)
 ---
 
 # A render writes a progress file, and says its phase and its ETA, or why it has none
@@ -52,13 +52,17 @@ pre-flight**. Every line carries:
 - the **ETA from a rolling-window rate, labelled an estimate** (per ADR-0072), or the words
   saying why there is none (*no frames rendered yet*).
 
-The first line is printed when the run starts. It names the phase, the progress file when one
+Pre-flight (checks, probing, mix) runs on one thread today and reports nothing, so the 5 s line
+there needs a timer that does not depend on the core reaching a step: the same shape as the MCP
+adapter's 30 s heartbeat. This is an implementation requirement, not a detail. The first line is
+printed when the run starts. It names the phase, the progress file when one
 was given (a hint to the flag when none was), and when the next line is due.
 
-### 3. `render`'s `progressFile`
+### 3. `render`'s `progress_file`
 
 One optional field on the shared request, so the CLI (`--progress-file <path>`) and MCP both
-get it. The path resolves like `output`: relative to the project file's folder, and an absolute
+get it. The MCP parameter is `progress_file`, matching `RenderParams`' other fields
+(`no_clobber`-style snake case); there is no camelCase in that struct. The path resolves like `output`: relative to the project file's folder, and an absolute
 path or a `..` that leaves the workspace is refused as a named finding
 ([ADR-0053](0053-asset-path-resolution-no-assetroot.md),
 [ADR-0159](0159-a-remote-instance-moves-bytes-through-a-plain-http-door-into-named-workspaces.md)
@@ -90,7 +94,7 @@ A final write happens on every exit path Montagent controls: `done`, `failed`, `
 ### 5. Staleness is read from the file, not from the agent's clock
 
 A `running` file whose `updated_at` has **not changed across polls spanning at least
-3 × `write_interval_s`** means the render died: a killed process, an out-of-memory kill, or a
+`max(3 × write_interval_s, 10 s)`** means the render died: a killed process, an out-of-memory kill, or a
 Ctrl-C on the CLI (which sends a signal and gives the core no chance to write; no signal handler
 is added). The agent compares the file with itself between polls, never `updated_at` with its
 own clock, because a remote agent's clock can differ from the instance's.
@@ -148,7 +152,8 @@ scripts that guess. The pre-flight slice stays the answer until
    `cancelled` is the alternative.
 2. The 120 s threshold in the skill is a starting point from one reported render. It is a
    constant to revisit, not a finding.
-3. The 3 × `write_interval_s` stale window is a choice, not a measurement. It trades faster
-   detection of a real death against a false verdict on a long pause.
+3. The `max(3 × write_interval_s, 10 s)` stale window is a choice, not a measurement. The 10 s floor
+   stops a once-a-second writer from being declared dead after about 3 s; it costs slower detection
+   of a real death.
 4. Whether the byte door should send `Last-Modified` on a workspace file. This ADR does not need
    it; section 5 avoids the clock entirely.
