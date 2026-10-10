@@ -288,3 +288,30 @@ pub fn serve(uri: &str) -> Option<Contents> {
 pub fn read(uri: &str) -> Option<String> {
     serve(uri).map(|contents| contents.text)
 }
+
+/// The scheme every published URI starts with.
+const SCHEME: &str = "montagent://";
+
+/// Every URI a reader can name without first reading another resource: the listed
+/// resources, then the format docs' pages. Schema pieces are left out; the index names them.
+pub fn reachable_uris() -> Vec<&'static str> {
+    all()
+        .iter()
+        .map(|resource| resource.uri)
+        .chain(FORMAT_PAGES.iter().map(|page| page.uri))
+        .collect()
+}
+
+/// The URI a short name stands for, with what is served there.
+///
+/// For the CLI's `docs` verb, which reaches the same bytes as `resources/read` without an
+/// MCP client. A name is a URI with `montagent://` optional and the extension optional:
+/// `format`, `format.md`, `format/text` and `montagent://format.md` all resolve, as do
+/// `schema` and `schema/index`. `None` if nothing is published at any spelling.
+pub fn resolve(name: &str) -> Option<(String, Contents)> {
+    let bare = name.strip_prefix(SCHEME).unwrap_or(name);
+    ["", ".md", ".json"].iter().find_map(|extension| {
+        let uri = format!("{SCHEME}{bare}{extension}");
+        serve(&uri).map(|contents| (uri, contents))
+    })
+}

@@ -15,7 +15,7 @@ You need a shell with the `montagent` CLI on `PATH`, Python 3, and ideally the M
 
 ## Learning the format
 
-1. Read `montagent://format.md` in full, then each page it lists before you write what that page covers. Together they hold the rules the schema can't express, and each one fits in one read.
+1. Read `montagent://format.md` in full (if your client cannot read resources, `montagent docs format` prints it), then each page it lists (`montagent docs format/text`, and so on) before you write what that page covers. Together they hold the rules the schema can't express, and each one fits in one read.
 2. Open [the starter project](references/starter-project.md) and build from it. It shows the keys most pieces need.
 3. When you need a key the starter doesn't show, read `montagent://schema/index.json`. It lists every element type and effect with its required keys, and the URI of the piece that holds each one's rules. Read the piece you need, not the whole schema.
 4. Read `montagent <verb> --help` for one verb at the moment you first use it, not up front. MCP tool descriptions say the same.

@@ -15,9 +15,9 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, ContentBlock, Implementation, ListResourcesResult, PaginatedRequestParams,
-    ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource,
-    ResourceContents, ServerCapabilities, ServerConfig,
+    CacheScope, CallToolResult, ContentBlock, Implementation, ListResourcesResult,
+    PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
+    Resource, ResourceContents, ServerCapabilities, ServerConfig,
 };
 use rmcp::service::RequestContext;
 use rmcp::transport::stdio;
@@ -1114,12 +1114,21 @@ impl ServerHandler for Montagent {
                 None,
             ));
         };
+        // SEP-2549 makes `ttlMs` and `cacheScope` required of a read result, and a client
+        // that validates the response refuses one without them. The bytes are fixed by the
+        // binary and the same for every caller, so they are public; the hour is short enough
+        // that a remote instance upgraded in place is not read stale for long.
         Ok(ReadResourceResult::new(vec![
             ResourceContents::text(contents.text, request.uri).with_mime_type(contents.mime_type),
         ])
+        .with_ttl_ms(RESOURCE_TTL_MS)
+        .with_cache_scope(CacheScope::Public)
         .into())
     }
 }
+
+/// How long a client may treat a resource read as fresh.
+const RESOURCE_TTL_MS: u64 = 60 * 60 * 1000;
 
 /// Serve the MCP tools over stdio until the client disconnects.
 pub fn serve() -> Result<(), String> {

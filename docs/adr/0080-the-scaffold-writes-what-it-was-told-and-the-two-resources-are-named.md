@@ -17,6 +17,13 @@ amends: 0011 (names the two resource URIs, names and media types it publishes wi
 > `create_project`'s MCP handler now sets `isError` for `E-PROJECT-EXISTS`, matching the
 > CLI's exit-3 reading this ADR gives it.
 
+> **Amended (no new ADR).** The published docs also have a CLI spelling:
+> `montagent docs [<name>]` prints the bytes `resources/read` serves (`docs format` is
+> `montagent://format.md`), and lists the reachable URIs with no name. An unknown name is an
+> invocation error (exit 3). Every `resources/read` result carries `ttlMs` (one hour) and
+> `cacheScope: public`, which SEP-2549 requires and validating clients enforce. URIs, names
+> and media types stay frozen.
+
 > **Amended by [ADR-0137](0137-the-schema-is-also-served-in-pieces-through-one-index.md).** A
 > third named, frozen URI joins §3: `montagent://schema/index.json`. §3 froze URIs, names and
 > media types, not the schema's internal `$def` keys, some of which are renamed there.

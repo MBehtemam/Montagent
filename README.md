@@ -83,7 +83,7 @@ Once it's connected, your agent has ten tools — `compare`, `create_project`, `
 `measure`, `preview`, `query`, `render`, `shift`, `validate`, `verify` — and resources that
 teach it the project format directly: `montagent://format.md` with the pages it lists, and
 the schema, whole at `montagent://schema.json` and in pieces listed by
-`montagent://schema/index.json`. That's where the agent learns the verbs; this page isn't
+`montagent://schema/index.json`. (`montagent docs format` prints the same format docs without an MCP client.) That's where the agent learns the verbs; this page isn't
 trying to repeat them.
 
 ## See it work, without wiring up an agent

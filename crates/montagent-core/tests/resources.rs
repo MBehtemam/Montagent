@@ -254,3 +254,27 @@ fn status(body: &str) -> Option<String> {
         Some(rest.trim().to_lowercase())
     })
 }
+
+#[test]
+fn a_short_name_resolves_to_the_bytes_resources_read_serves() {
+    for (name, uri) in [
+        ("format", resources::FORMAT.uri),
+        ("format.md", resources::FORMAT.uri),
+        ("montagent://format.md", resources::FORMAT.uri),
+        ("schema", resources::SCHEMA.uri),
+        ("schema/index", resources::INDEX.uri),
+        ("format/text", resources::FORMAT_PAGES[0].uri),
+    ] {
+        let (resolved, contents) = resources::resolve(name).unwrap_or_else(|| panic!("{name}"));
+        assert_eq!(resolved, uri);
+        assert_eq!(Some(contents.text), resources::read(uri));
+    }
+    assert!(resources::resolve("nonsense").is_none());
+}
+
+#[test]
+fn every_reachable_uri_is_served() {
+    for uri in resources::reachable_uris() {
+        assert!(resources::serve(uri).is_some(), "{uri}");
+    }
+}

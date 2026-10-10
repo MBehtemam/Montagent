@@ -94,6 +94,16 @@ enum Command {
     /// takes once. Not a verb either — it reads no project and makes no claim about one.
     #[command(subcommand)]
     Cache(CacheCommand),
+    /// Print a published doc: the same bytes `resources/read` serves, without an MCP client.
+    ///
+    /// CLI-only (ADR-0011): the fallback for an agent whose client cannot read the
+    /// resources. `docs format` prints `format.md`; `docs format/text`, `docs schema` and
+    /// `docs schema/index` reach the pages, the schema and its index. With no name it
+    /// lists what can be named. Raw bytes, no report and no `--json`: it is a document.
+    Docs {
+        /// What to print: a resource URI, with `montagent://` and the extension optional.
+        name: Option<String>,
+    },
     /// What are this media file's numbers?
     ///
     /// CLI-only (ADR-0011): an MCP tool schema costs the agent context on every turn,
@@ -1043,6 +1053,27 @@ where
                 }
             }
         }
+        Command::Docs { name } => match name {
+            None => {
+                for uri in montagent_core::resources::reachable_uris() {
+                    println!("{uri}");
+                }
+                ExitCode::SUCCESS
+            }
+            Some(name) => match montagent_core::resources::resolve(&name) {
+                Some((_, contents)) => {
+                    print!("{}", contents.text);
+                    ExitCode::SUCCESS
+                }
+                None => {
+                    let report = Report::bad_invocation(format!(
+                        "no doc named `{name}`; `montagent docs` lists them"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            },
+        },
         Command::Cache(CacheCommand::Clear { json }) => {
             // `MONTAGENT_CACHE_DIR=""` turns persistence off, in which case there is no file
             // to clear and saying so is the whole answer.
