@@ -347,6 +347,19 @@ enum Command {
         /// is no flag in the other direction.
         #[arg(long)]
         no_clobber: bool,
+        /// Keep a JSON file saying what this render is doing, and rewrite it about once a
+        /// second from before the project is opened until the render ends (ADR-0192).
+        ///
+        /// For a render you will not wait on in the foreground: run it in the background and
+        /// poll the file. It holds `state` (`running`, `done`, `failed` or `cancelled`),
+        /// `phase` (`preparing`, `rendering` or `finishing`), `frames_done`, `frames_total`,
+        /// `eta_s` (or `eta_note` saying why there is none), `timeline_ms`, `started_at`,
+        /// `updated_at` and `write_interval_s`. A `running` file whose `updated_at` has not
+        /// changed across polls spanning `max(3 × write_interval_s, 10 s)` means the render
+        /// died. A relative path is relative to the project file's folder. Give each run a
+        /// fresh path and do not delete the file by hand.
+        #[arg(long, value_name = "PATH")]
+        progress_file: Option<PathBuf>,
         /// Print the canonical JSON *instead of* the text result, never alongside it.
         #[arg(long)]
         json: bool,
@@ -852,6 +865,7 @@ where
             to,
             output,
             no_clobber,
+            progress_file,
             json,
             verbose,
         } => {
@@ -864,20 +878,34 @@ where
                 to,
                 output,
                 no_clobber,
+                progress_file,
             };
             // ADR-0011's split, made here: the result is stdout's and progress is
-            // stderr's, coarse — a tenth at a time, with the wall clock beside it so the
-            // caller can budget the next call.
+            // stderr's. ADR-0192: a tenth at a time as before, plus a line whenever about
+            // five seconds pass without one; every line names the phase, the timeline
+            // position and an ETA that is an estimate, or says why there is none.
+            eprintln!(
+                "{}",
+                montagent_core::verbs::render::opening_line(
+                    "render",
+                    ask.progress_file.as_deref(),
+                    "--progress-file"
+                )
+            );
             let mut progress = |p: montagent_core::verbs::render::Progress| {
-                eprintln!(
-                    "render  {}/{} frames  {:.1} s",
-                    p.done,
-                    p.of,
-                    p.elapsed.as_secs_f64()
-                );
+                eprintln!("{}", p.line("render"));
+            };
+            let quiet = |p: montagent_core::verbs::render::Progress| {
+                eprintln!("{}", p.line("render"));
             };
             match run_verb(std::panic::AssertUnwindSafe(|| {
-                montagent_core::verbs::render::render(&project, &ask, &mut progress)
+                montagent_core::verbs::render::render_watched(
+                    &project,
+                    &ask,
+                    &mut progress,
+                    None,
+                    Some(&quiet),
+                )
             })) {
                 Ok(answer) => {
                     println!(

@@ -384,6 +384,7 @@ fn a_range_starting_inside_the_window_renders_the_samples_the_full_render_has() 
             to: Some(2400),
             output: None,
             no_clobber: false,
+            progress_file: None,
         },
         "span.1400-2400.mp4",
     );

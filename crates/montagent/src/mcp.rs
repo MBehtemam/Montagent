@@ -329,6 +329,16 @@ pub struct RenderParams {
     /// names the project's own `output`.
     #[serde(default)]
     pub output: Option<String>,
+    /// A path for a JSON file saying what this render is doing, rewritten about once a second
+    /// from before the project is opened until the render ends. It works with or without a
+    /// progress token. Holds `state` (running, done, failed, cancelled), `phase` (preparing,
+    /// rendering, finishing), `frames_done`, `frames_total`, `eta_s` or `eta_note`,
+    /// `timeline_ms`, `started_at`, `updated_at`, `write_interval_s`. A `running` file whose
+    /// `updated_at` is unchanged across polls spanning max(3 x write_interval_s, 10 s) means
+    /// the render died. A relative path is relative to the project file's folder. Use a fresh
+    /// path per run.
+    #[serde(default)]
+    pub progress_file: Option<String>,
     /// Return the canonical JSON *instead of* the text result, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -658,7 +668,9 @@ impl Montagent {
                        settings and ffmpeg version that wrote the file, and beneath it \
                        the `review` findings the render did not refuse on plus the NOT \
                        CHECKED footer: exit 0 never means the video is right. Run `verify` on \
-                       the result before calling a deliverable done.",
+                       the result before calling a deliverable done. Pass `progress_file` to \
+                       follow a long render without holding the call: a JSON status file with \
+                       the run's state, phase, frames and ETA.",
         input_schema = advertised::<RenderParams>()
     )]
     async fn render(
@@ -678,12 +690,26 @@ impl Montagent {
                 // `dispatch::run` owns progress: the stderr line ADR-0011 specified, and the
                 // MCP stream when the client asked for one (ADR-0108).
                 let mut progress = sink;
-                let answer = montagent_core::verbs::render::render_cancellable(
+                let progress_file = params.progress_file.map(PathBuf::from);
+                eprintln!(
+                    "{}",
+                    montagent_core::verbs::render::opening_line(
+                        "render",
+                        progress_file.as_deref(),
+                        "the `progress_file` parameter"
+                    )
+                );
+                // ADR-0192: a line on the server's stderr whenever about five seconds pass
+                // without one. The MCP stream is untouched; its heartbeat stays at 30 s.
+                let quiet =
+                    |p: montagent_core::verbs::render::Progress| eprintln!("{}", p.line("render"));
+                let answer = montagent_core::verbs::render::render_watched(
                     &PathBuf::from(&params.project),
                     &montagent_core::verbs::render::Ask {
                         from: params.from,
                         to: params.to,
                         output: params.output.map(PathBuf::from),
+                        progress_file,
                         // ADR-0104: CLI-only, for ADR-0011's reason that kept `probe` off this
                         // surface — a tool schema costs context on every turn, and the case the
                         // flag exists for is a batch script. The MCP caller still gets the whole
@@ -694,6 +720,7 @@ impl Montagent {
                     // ADR-0109: stop before the next frame and publish nothing once the
                     // client cancels.
                     Some(&cancel),
+                    Some(&quiet),
                 );
                 let form = Wire::from_flags(params.json, params.verbose);
 

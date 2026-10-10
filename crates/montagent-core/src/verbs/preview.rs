@@ -297,6 +297,8 @@ pub fn preview_cancellable(
         // ADR-0104: `preview` runs the clobber pre-flight itself, below, on its own
         // narrower rule. It never borrows `render`'s.
         no_clobber: false,
+        // `preview` is not a deliverable and keeps no progress file (ADR-0192).
+        progress_file: None,
     };
     let range = match render::request(&asked) {
         Ok(range) => range,
@@ -514,6 +516,7 @@ pub fn preview_cancellable(
             cancel,
             master,
             normalized: &normalized,
+            watch: None,
         };
 
         let attempt = Instant::now();

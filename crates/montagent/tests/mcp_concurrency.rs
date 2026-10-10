@@ -298,7 +298,10 @@ fn a_frame_issued_behind_a_render_is_answered_while_the_render_is_still_encoding
         "{stderr}"
     );
     assert!(stderr.contains("render  finished"), "{stderr}");
-    assert!(stderr.contains("render  0/100 frames"), "{stderr}");
+    assert!(
+        stderr.contains("render  rendering  0/100 frames"),
+        "{stderr}"
+    );
 }
 
 #[test]
@@ -448,4 +451,42 @@ fn a_cancelled_render_publishes_nothing_and_frees_the_slot_for_the_next_call() {
     );
     let stderr = server.stderr();
     assert!(stderr.contains("#3 render  cancel requested"), "{stderr}");
+}
+
+#[test]
+fn a_render_with_a_progress_file_is_followable_without_a_progress_token() {
+    // ADR-0192 §6: a client that sends no `progressToken` gets no `notifications/progress`,
+    // and could not tell what a long render was doing. The file does not depend on a token.
+    if !has_ffmpeg() {
+        eprintln!("skipping: no ffmpeg/ffprobe on PATH");
+        return;
+    }
+    let dir = scratch_dir("progress-file-without-token");
+    let project = slow_project(&dir, "slow").display().to_string();
+    let file = dir.join("run.progress.json");
+    let mut server = Server::start(&dir);
+
+    server.call(
+        2,
+        "render",
+        json!({"project": project, "progress_file": file.display().to_string()}),
+        None,
+    );
+    server.wait_for(2);
+
+    assert!(server.progress("none").is_empty());
+    let record: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(record["state"], "done");
+    assert_eq!(record["frames_total"], 100);
+    assert_eq!(record["frames_done"], 100);
+    // The result names the file where the caller looks, and the server's stderr said so first.
+    let text = text_of(server.response(2));
+    assert!(text.contains("progress file  "), "{text}");
+    assert!(
+        server
+            .stderr()
+            .contains("render  started  preparing  progress file"),
+        "{}",
+        server.stderr()
+    );
 }
