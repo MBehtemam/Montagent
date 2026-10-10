@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "montagent"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "base64",
  "clap",
@@ -1231,7 +1231,7 @@ dependencies = [
 
 [[package]]
 name = "montagent-core"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "image",
  "montagent-render",
@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "montagent-render"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "skia-safe",
  "toml 0.9.12+spec-1.1.0",
@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "montagent-text"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "icu_properties",
  "icu_segmenter",
