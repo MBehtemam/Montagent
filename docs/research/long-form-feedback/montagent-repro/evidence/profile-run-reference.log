@@ -1,0 +1,17 @@
+everything                           0.1337 s/frame    7.5 fps  
+drop table plate                     0.0954 s/frame   10.5 fps  saves  28.6%
+drop book plate (feathered mask)     0.0542 s/frame   18.5 fps  saves  59.5%
+drop table + book plate              0.0205 s/frame   48.8 fps  saves  84.7%
+drop picture loop only               0.0292 s/frame   34.3 fps  saves  78.2%
+drop stickers only                   0.1308 s/frame    7.6 fps  saves   2.2%
+drop picture loop + stickers         0.0344 s/frame   29.0 fps  saves  74.3%
+picture loop without blend           0.1263 s/frame    7.9 fps  saves   5.5%
+drop fade rectangle                  0.1289 s/frame    7.8 fps  saves   3.6%
+drop all marks                       0.1281 s/frame    7.8 fps  saves   4.2%
+drop karaoke text                    0.1295 s/frame    7.7 fps  saves   3.1%
+strip every effect                   0.0787 s/frame   12.7 fps  saves  41.1%
+strip every blend                    0.1212 s/frame    8.3 fps  saves   9.4%
+
+-- bake the two static background images into one picture (needs the slice to be after the book has opened)
+baked background (1 image)           0.0233 s/frame   43.0 fps  saves  82.6%
+done

@@ -1,0 +1,6 @@
+art dropped, nothing else (fast reference)                     rc=0 0.0311 s/frame 
++ a small VIDEO element far outside the slice (2,000 s)        rc=0 0.1245 s/frame 
++ a small IMAGE element far outside the slice (control)        rc=0 0.0268 s/frame 
++ a small VIDEO element far outside the slice (again)          rc=0 0.1204 s/frame 
+art dropped, nothing else (again)                              rc=0 0.0257 s/frame 
+done

@@ -1,0 +1,7 @@
+no audio, all inactive kept: everything              rc=0 0.1355 s/frame
+no audio, all inactive kept: drop art                rc=0 0.1241 s/frame
+audio kept, only active elements: everything         rc=0 0.1260 s/frame
+audio kept, only active elements: drop art           rc=0 0.0285 s/frame
+no audio + only active (= the kit): everything       rc=0 0.1289 s/frame
+no audio + only active (= the kit): drop art         rc=0 0.0272 s/frame
+done
