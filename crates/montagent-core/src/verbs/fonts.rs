@@ -7,9 +7,8 @@
 //! and freezes its bytes into the repo, so the project that renders here renders on a
 //! clean machine.
 //!
-//! CLI-only, by ADR-0011's cost model. Vendoring a font is a once-per-project act, not a
-//! step in the edit loop, and *"a CLI subcommand costs nothing until invoked"* — the agent
-//! already carries a shell.
+//! Exposed through CLI and MCP by the approved font acquisition contract. Agents without
+//! a shell can list and vendor local files; acquisition remains a separately named operation.
 //!
 //! # `list`: the enumeration, with the verdict an attempt would get
 //!
