@@ -334,7 +334,7 @@ fn prepare(
         ));
     }
     let faces = montagent_text::names::faces(&bytes).map_err(|e| failure("invalid_payload", e))?;
-    if (faces.len() > 1 && ask.face_index.is_none())
+    if (bytes.starts_with(b"ttcf") && ask.face_index.is_none())
         || ask.face_index.is_some_and(|i| i as usize >= faces.len())
     {
         return Ok(
@@ -444,6 +444,71 @@ fn publish(destination: &std::path::Path, files: &[(String, Vec<u8>)]) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ambiguous_google_family_publishes_no_bundle() {
+        let destination = std::env::temp_dir().join(format!(
+            "montagent-ambiguous-fixture-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&destination);
+        let fetch = |url: &str| {
+            let data = if url.contains("/commits/") {
+                serde_json::to_vec(&json!({"sha":"0123456789012345678901234567890123456789"}))
+                    .unwrap()
+            } else if url.contains("/git/trees/") {
+                serde_json::to_vec(&json!({"truncated":false,"tree":[{"path":"ofl/inter/A.ttf"},{"path":"ofl/inter/B.ttf"}]})).unwrap()
+            } else {
+                include_bytes!("../../../../fixtures/skills/fonts/Inter-Bold.ttf").to_vec()
+            };
+            Ok((data, url.into()))
+        };
+        let out = acquire_using(
+            &Acquire {
+                source: Source::GoogleFonts {
+                    family: Some("Inter".into()),
+                    file: None,
+                    revision: None,
+                    weight: None,
+                    style: None,
+                },
+                destination: destination.clone(),
+                face_index: None,
+                expected_sha256: None,
+            },
+            &fetch,
+        );
+        assert_eq!(out["status"], "selection_required");
+        assert_eq!(out["candidates"].as_array().unwrap().len(), 2);
+        assert!(!destination.exists());
+    }
+    #[test]
+    fn even_a_single_face_collection_requires_explicit_face_selection() {
+        let mut font = include_bytes!("../../../../fixtures/skills/fonts/Inter-Bold.ttf").to_vec();
+        let count = u16::from_be_bytes([font[4], font[5]]) as usize;
+        for index in 0..count {
+            let at = 12 + index * 16 + 8;
+            let offset = u32::from_be_bytes(font[at..at + 4].try_into().unwrap()) + 16;
+            font[at..at + 4].copy_from_slice(&offset.to_be_bytes());
+        }
+        let mut collection = b"ttcf".to_vec();
+        collection.extend_from_slice(&0x00010000u32.to_be_bytes());
+        collection.extend_from_slice(&1u32.to_be_bytes());
+        collection.extend_from_slice(&16u32.to_be_bytes());
+        collection.extend_from_slice(&font);
+        let out = acquire_using(
+            &Acquire {
+                source: Source::Url {
+                    url: "https://example.com/font.ttc".into(),
+                },
+                destination: std::env::temp_dir().join("unused-collection-bundle"),
+                face_index: None,
+                expected_sha256: None,
+            },
+            &|url| Ok((collection.clone(), url.into())),
+        );
+        assert_eq!(out["status"], "selection_required");
+        assert_eq!(out["findings"][0]["code"], "required_face");
+    }
     #[test]
     fn pinned_google_family_retains_original_licence_and_inspected_candidates() {
         let destination =
