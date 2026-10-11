@@ -154,8 +154,8 @@ pub use crate::verbs::frame::prefix::{ForcedPrefixCache, PREFIX_CACHE_VAR, force
 pub use painters::Painting;
 #[doc(hidden)]
 pub use painters::{
-    FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, fail_frames, force_painting,
-    tap_frames,
+    FailFrames, Forced, ForcedPainting, FrameTap, PAINTING_VAR, VideoProbeClock, fail_frames,
+    force_painting, force_video_probe, tap_frames,
 };
 pub use watch::{Eta, Phase, opening_line};
 pub(crate) use watch::{Guard, Watch};
@@ -1084,6 +1084,10 @@ pub(crate) fn encode_span(
         return Err(Stop::Cancelled { done: 0 });
     }
 
+    let plan = painters::plan(span, started)?;
+    if span.cancelled() {
+        return Err(Stop::Cancelled { done: 0 });
+    }
     let mut encoder = match Encoder::start(
         span.ffmpeg,
         span.output,
@@ -1115,13 +1119,13 @@ pub(crate) fn encode_span(
 
     progress(Progress::frames(0, span.frames, started.elapsed()));
     let mut stages = Stages::default();
-    let (made, painting) = match painters::plan(span.document, span.surface, span.frames) {
+    let (made, painting) = match plan {
         // ADR-0141: `render` and `preview` take their pixels from feeds. `Span` carries no
         // supplier of its own, so the two verbs still differ only in the surface and the
         // clock; and each span builds its own painter, so `preview`'s 540p retry opens fresh
         // feeds and an abandoned span closes its feeds by `Drop` on the way out of this
         // function.
-        None => {
+        painters::Plan::One(painting) => {
             let mut producer = Producer::new(
                 span.document,
                 span.fps,
@@ -1143,14 +1147,11 @@ pub(crate) fn encode_span(
                 &mut |n| producer.produce(n),
             )?;
             stages.add(&producer.stages());
-            (
-                producer.take(Mark::default()),
-                painters::Painting::one(span.frames),
-            )
+            (producer.take(Mark::default()), painting)
         }
         // #627's step 3: K painters over paint chunks, each with a painter of its own built the
         // same way, feeding this thread's one encoder in timeline order.
-        Some(painting) => {
+        painters::Plan::Chunks(painting) => {
             drop(canvas);
             let made = painters::paint(span, painting, &mut stages, |next, stages| {
                 encode_frames(span, &mut encoder, started, progress, stages, next)

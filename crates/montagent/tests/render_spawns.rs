@@ -7,6 +7,10 @@
 //! shimmed on `PATH` to log every invocation, classifies each one by its command line, and
 //! asserts:
 //!
+//! This isolates the sequential feed path with `MONTAGENT_PAINTING=one`. Adaptive
+//! video painting may legitimately add bounded probe and paint-chunk opens (ADR-0196);
+//! its scheduling and byte identity are covered by the painter/source integration tests.
+//!
 //! - the decode spawns are exactly the **feeds opened plus their reopens** (ADR-0141) — one
 //!   per element, one more per loop wrap — and no `frame_at` at all;
 //! - **doubling the frames does not add a single spawn**, decode or otherwise.
@@ -138,6 +142,7 @@ fn render(
         .arg(project)
         .arg("--json")
         .env("PATH", path)
+        .env(montagent_core::verbs::render::PAINTING_VAR, "one")
         // A cold probe cache, so both renders pay the same `ffprobe`s.
         .env(
             montagent_core::media::sidecar::CACHE_DIR_VAR,

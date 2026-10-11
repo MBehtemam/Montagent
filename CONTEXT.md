@@ -749,7 +749,9 @@ stream, as `ffprobe` names it), run of frames (ADR-0127's phrase, retired)
 C consecutive timeline frames that one of `render`'s K painters paints in order, on a
 painter of its own, while one encoder takes every painter's frames in timeline order.
 Chunks are handed out in timeline order, and a chunk start paints exactly what a
-`--from` render starting there would. Always "paint chunk" in prose: bare "chunk" is
+`--from` render starting there would. Video spans choose K and C through a bounded
+consecutive-frame probe, a peak-feed process cap and reopen/window checks
+([ADR-0196](docs/adr/0196-video-painters-are-chosen-by-a-bounded-consecutive-frame-probe.md)). Always "paint chunk" in prose: bare "chunk" is
 on **Run**'s avoid list.
 ([ADR-0144](docs/adr/0144-render-paints-on-k-painters-over-chunks-and-the-spy-trailer-renders-in-a-minute.md))
 _Avoid_: segment, slice, batch, range (a `--from`/`--to` render's), run

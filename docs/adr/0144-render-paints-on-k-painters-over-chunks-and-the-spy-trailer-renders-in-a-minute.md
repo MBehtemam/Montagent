@@ -11,6 +11,11 @@ amends: 0142 (its "render has *one* speed target" becomes one target per bottlen
 > §7's painter state now also carries the shared immutable prefix and its paint/provenance
 > records, replayed without changing output or findings.
 
+> **Amended by [ADR-0196](0196-video-painters-are-chosen-by-a-bounded-consecutive-frame-probe.md):**
+> §7's blanket one-painter-with-video rule is replaced by a bounded consecutive-frame
+> probe, a feed-process cap and conservative reopen/window checks. Both bottleneck-class
+> targets and byte-identity gates stand.
+
 [#653](https://github.com/MBehtemam/Montagent/issues/653), the paint-speed map's
 ([#641](https://github.com/MBehtemam/Montagent/issues/641)) paint-target ADR. It builds the
 parallelism ladder's step 3 for the paint class. The decisions come from four specs, each

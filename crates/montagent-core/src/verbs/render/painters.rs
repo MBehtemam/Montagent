@@ -72,8 +72,13 @@ use serde::Serialize;
 use montagent_render::canvas::{bound_filter_layers, filter_layers_bounded};
 
 use super::{Made, Producer, Span, Stages, Stop};
-use crate::permissive::Loose;
 use crate::verbs::frame::{Feeds, Painter, prefix, supply};
+
+/// Conservative contended reopen allowance measured in ADR-0196.
+const REOPEN: Duration = Duration::from_millis(1100);
+/// The probe checks this ceiling between frames; one in-flight decode can overrun it.
+const PROBE_BUDGET: Duration = Duration::from_secs(4);
+const WINDOW_FACTOR: u64 = 2;
 
 /// The cores left to the encoder when K is chosen: libx264 at ADR-0143's 5 threads keeps
 /// about 3.6 cores busy on the trailer (#643), and its `ffmpeg` and the audio mix take the
@@ -101,6 +106,12 @@ pub struct Painting {
     /// Whether W is the floor K·C rather than what [`WINDOW_BYTES`] holds at this resolution:
     /// the budget held fewer frames than K painters need to each have a paint chunk in hand.
     pub window_floor: bool,
+    /// Feed-process cap used to admit parallel video painting (ADR-0196).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feed_cap: Option<usize>,
+    /// Peak video presence in the requested span, independent of probe samples.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peak_video_feeds: Option<usize>,
 }
 
 impl Painting {
@@ -111,6 +122,8 @@ impl Painting {
             chunk: frames,
             window: 1,
             window_floor: false,
+            feed_cap: None,
+            peak_video_feeds: None,
         }
     }
 }
@@ -119,7 +132,7 @@ impl Painting {
 #[doc(hidden)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Forced {
-    /// One painter on the verb's own thread, as a span with a `video` element is painted.
+    /// One painter on the verb's own thread, without an adaptive scheduling probe.
     OnePainter,
     /// K painters over C-frame paint chunks — `painters: 1` is chunking with one painter — under
     /// `window_bytes`, or [`WINDOW_BYTES`] where `None`.
@@ -134,6 +147,7 @@ thread_local! {
     static FORCED: Cell<Option<Forced>> = const { Cell::new(None) };
     static FAULTS: RefCell<Vec<(i64, Duration)>> = const { RefCell::new(Vec::new()) };
     static TAP: RefCell<Option<Vec<u64>>> = const { RefCell::new(None) };
+    static PROBE_CLOCK: Cell<Option<(usize, Option<Duration>)>> = const { Cell::new(None) };
 }
 
 /// Force how this thread's spans paint, until the guard drops.
@@ -155,6 +169,28 @@ pub fn force_painting(forced: Forced) -> ForcedPainting {
 impl Drop for ForcedPainting {
     fn drop(&mut self) {
         FORCED.with(|cell| cell.set(self.before));
+    }
+}
+
+/// Override the machine's core count and the probe's measured frame time for tests.
+/// `None` represents a probe that exhausted its wall-clock budget; `Some` replaces both
+/// clocks (with no wall-budget overrun). The real probe still
+/// paints its samples for a supplied duration, so identity tests exercise its lifecycle.
+#[doc(hidden)]
+#[must_use = "the override lasts as long as the guard"]
+pub struct VideoProbeClock {
+    before: Option<(usize, Option<Duration>)>,
+}
+
+#[doc(hidden)]
+pub fn force_video_probe(cores: usize, frame_time: Option<Duration>) -> VideoProbeClock {
+    let before = PROBE_CLOCK.with(|cell| cell.replace(Some((cores, frame_time))));
+    VideoProbeClock { before }
+}
+
+impl Drop for VideoProbeClock {
+    fn drop(&mut self) {
+        PROBE_CLOCK.with(|cell| cell.set(self.before));
     }
 }
 
@@ -219,7 +255,7 @@ pub(super) fn tapped(rgb: &[u8]) {
 }
 
 /// The environment variable that forces K, C and W for a measurement: `K,C` or `K,C,W`, W in
-/// frames.
+/// frames, or `one` for the painter on the verb thread without a scheduling probe.
 ///
 /// `#[doc(hidden)]` measurement plumbing for ADR-0144's sweeps, which time the shipped binary
 /// as a process, as [`super::STAGES_VAR`] is for ADR-0142's. Not a setting: nothing a project,
@@ -230,6 +266,9 @@ pub const PAINTING_VAR: &str = "MONTAGENT_PAINTING";
 
 fn from_env(frame_bytes: u64) -> Option<Forced> {
     let value = std::env::var(PAINTING_VAR).ok()?;
+    if value.trim() == "one" {
+        return Some(Forced::OnePainter);
+    }
     let numbers: Vec<u64> = value
         .split(',')
         .map(|part| part.trim().parse().ok())
@@ -249,57 +288,207 @@ fn from_env(frame_bytes: u64) -> Option<Forced> {
     }
 }
 
-/// How a span paints: `None` for one painter on the verb's own thread, or K painters over
-/// paint chunks.
-///
-/// A document with a `video` element keeps one painter. Step 3 was opened for the paint class
-/// (#647), and a paint chunk boundary reopens every visible feed: the ladder's reopen floor puts C in
-/// the hundreds there, which at 1080p puts the window K·C at gigabytes, while the decode class
-/// already meets its own target on one painter (ADR-0142). Otherwise K is the cores the
-/// encoder leaves, C is [`CHUNK_FRAMES`], and W is [`WINDOW_BYTES`] at this resolution, or
-/// K·C where that is more.
-pub(super) fn plan(document: &Loose, surface: super::Surface, frames: u64) -> Option<Painting> {
+/// Scheduling mode is explicit: a forced one-frame window still means chunked work.
+pub(super) enum Plan {
+    One(Painting),
+    Chunks(Painting),
+}
+
+/// Choose before any output painter or encoder exists. Forced measurement schedules
+/// retain their old meaning; automatic video schedules amortise a measured reopen cost.
+pub(super) fn plan(span: &Span<'_>, started: Instant) -> Result<Plan, Stop> {
+    let (surface, frames) = (span.surface, span.frames);
     let frame_bytes = (surface.width.max(1) as u64) * (surface.height.max(1) as u64) * 3;
     let forced = FORCED.with(Cell::get).or_else(|| from_env(frame_bytes));
-    let (painters, chunk, budget) = match forced {
-        Some(Forced::OnePainter) => return None,
+    match forced {
+        Some(Forced::OnePainter) => return Ok(Plan::One(Painting::one(frames))),
         Some(Forced::Chunks {
             painters,
             chunk,
             window_bytes,
-        }) => (
-            painters.max(1),
-            chunk.max(1),
-            window_bytes.unwrap_or(WINDOW_BYTES),
-        ),
-        None => {
-            if has_video(document) {
-                return None;
-            }
-            let cores = std::thread::available_parallelism().map_or(1, usize::from);
-            let painters = cores.saturating_sub(ENCODER_CORES);
-            if painters < 2 {
-                return None;
-            }
-            (painters, CHUNK_FRAMES, WINDOW_BYTES)
+        }) => {
+            return Ok(Plan::Chunks(chunk_plan(
+                surface,
+                frames,
+                painters.max(1),
+                chunk.max(1),
+                window_bytes.unwrap_or(WINDOW_BYTES),
+            )));
         }
+        None => {}
+    }
+    let cores = PROBE_CLOCK.with(Cell::get).map_or_else(
+        || std::thread::available_parallelism().map_or(1, usize::from),
+        |(cores, _)| cores.max(1),
+    );
+    let mut painters = cores.saturating_sub(ENCODER_CORES);
+    let peak = peak_video_feeds(span);
+    if peak == 0 {
+        return Ok(if painters < 2 {
+            Plan::One(Painting::one(frames))
+        } else {
+            Plan::Chunks(chunk_plan(
+                surface,
+                frames,
+                painters,
+                CHUNK_FRAMES,
+                WINDOW_BYTES,
+            ))
+        });
+    }
+    let cap = cores.saturating_mul(2);
+    let mut one = Painting::one(frames);
+    one.feed_cap = Some(cap);
+    one.peak_video_feeds = Some(peak);
+    // Apply the process cap before sampling or pricing the reorder window.
+    painters = painters.min(cap / peak);
+    if painters < 2 || frames < painters as u64 * CHUNK_FRAMES {
+        return Ok(Plan::One(one));
+    }
+    let Some(p) = probe(span, started)? else {
+        return Ok(Plan::One(one));
     };
-    // A painter with no paint chunk to take is a thread for nothing.
+    // C = ceil(N·R / (0.5·p)). Zero or sub-clock-resolution samples cannot justify
+    // parallelism. Saturating conversion and products keep extreme inputs conservative.
+    let p = p.as_secs_f64();
+    if p <= 0.0 {
+        return Ok(Plan::One(one));
+    }
+    let tax = peak as f64 * REOPEN.as_secs_f64();
+    let chunk = ((tax / (0.5 * p)).ceil() as u64).max(CHUNK_FRAMES);
+    let floor = (painters as u64).saturating_mul(chunk);
+    let budgeted = WINDOW_BYTES / frame_bytes;
+    let speedup = painters as f64 / (1.0 + tax / (chunk as f64 * p));
+    if floor > budgeted.saturating_mul(WINDOW_FACTOR) || frames < floor || speedup < 1.5 {
+        return Ok(Plan::One(one));
+    }
+    let mut chosen = chunk_plan(surface, frames, painters, chunk, WINDOW_BYTES);
+    chosen.feed_cap = Some(cap);
+    chosen.peak_video_feeds = Some(peak);
+    Ok(Plan::Chunks(chosen))
+}
+
+fn chunk_plan(
+    surface: super::Surface,
+    frames: u64,
+    painters: usize,
+    chunk: u64,
+    budget: u64,
+) -> Painting {
+    let frame_bytes = (surface.width.max(1) as u64) * (surface.height.max(1) as u64) * 3;
     let painters = painters.min(frames.div_ceil(chunk).max(1) as usize);
-    let floor = painters as u64 * chunk;
+    let floor = (painters as u64).saturating_mul(chunk);
     let budgeted = budget / frame_bytes;
-    Some(Painting {
+    Painting {
         painters,
         chunk,
         window: budgeted.max(floor),
         window_floor: budgeted < floor,
-    })
+        feed_cap: None,
+        peak_video_feeds: None,
+    }
 }
 
-fn has_video(document: &Loose) -> bool {
-    document
-        .elements_in_tracks()
-        .any(|(_, element)| element.get("type").and_then(|t| t.as_str()) == Some("video"))
+/// Three short consecutive runs, at the beginning, middle and end of the span. Each
+/// uses a fresh producer and discards its first frame's cold opens. Neither pixels,
+/// provenance nor prefix composites are reused by the output painters.
+fn probe(span: &Span<'_>, started: Instant) -> Result<Option<Duration>, Stop> {
+    let clock = PROBE_CLOCK.with(Cell::get);
+    if clock.is_some_and(|(_, p)| p.is_none()) {
+        return Ok(None);
+    }
+    let began = Instant::now();
+    let mut samples = Vec::new();
+    for offset in [
+        0,
+        span.frames.saturating_sub(4) / 2,
+        span.frames.saturating_sub(4),
+    ] {
+        let Some(canvas) = span.surface.canvas() else {
+            return Err(Stop::Internal(
+                "no raster surface could be made for the video probe".into(),
+            ));
+        };
+        let mut producer = Producer::new(
+            span.document,
+            span.fps,
+            canvas,
+            Painter::for_a_deliverable(
+                span.document,
+                span.from,
+                span.declared,
+                Box::new(Feeds::new()),
+            ),
+        );
+        for i in 0..4.min(span.frames) {
+            if span.cancelled() {
+                return Err(Stop::Cancelled { done: 0 });
+            }
+            if let Some(deadline) = span.deadline {
+                let elapsed = started.elapsed();
+                if elapsed > deadline {
+                    return Err(Stop::Missed { elapsed, done: 0 });
+                }
+            }
+            if clock.is_none() && began.elapsed() > PROBE_BUDGET {
+                return Ok(None);
+            }
+            let first = Instant::now();
+            producer.produce(span.first + (offset + i) as i64)?;
+            if i > 0 {
+                samples.push(first.elapsed());
+            }
+            if clock.is_none() && began.elapsed() > PROBE_BUDGET {
+                return Ok(None);
+            }
+        }
+    }
+    // The final supplier teardown is part of the probe budget too.
+    if span.cancelled() {
+        return Err(Stop::Cancelled { done: 0 });
+    }
+    if let Some(deadline) = span.deadline {
+        let elapsed = started.elapsed();
+        if elapsed > deadline {
+            return Err(Stop::Missed { elapsed, done: 0 });
+        }
+    }
+    if clock.is_none() && began.elapsed() > PROBE_BUDGET {
+        return Ok(None);
+    }
+    samples.sort_unstable();
+    Ok(clock
+        .and_then(|(_, p)| p)
+        .or_else(|| samples.get(samples.len() / 2).copied()))
+}
+
+/// A sweep over half-open timeline intervals, clipped to this span. Counting even
+/// occluded or transparent videos is conservative: the process cap cannot undercount.
+fn peak_video_feeds(span: &Span<'_>) -> usize {
+    let from = crate::exact::instant_of(span.first, span.fps);
+    let to = crate::exact::instant_of(span.last, span.fps).saturating_add(1);
+    let mut events = BTreeMap::<i64, i64>::new();
+    for (_, element) in span.document.elements_in_tracks() {
+        if element.get("type").and_then(|t| t.as_str()) != Some("video") {
+            continue;
+        }
+        if let (Some(start), Some(end)) = (
+            element.get("start").and_then(|v| v.as_i64()),
+            element.get("end").and_then(|v| v.as_i64()),
+        ) {
+            let (start, end) = (start.max(from), end.min(to));
+            if start < end {
+                *events.entry(start).or_default() += 1;
+                *events.entry(end).or_default() -= 1;
+            }
+        }
+    }
+    let (mut active, mut peak) = (0, 0);
+    for change in events.values() {
+        active += change;
+        peak = peak.max(active);
+    }
+    peak as usize
 }
 
 /// Paint `span` on `painting.painters` painters, while `encode` — the encoder's side, on this
@@ -638,46 +827,22 @@ mod tests {
             chunk,
             window,
             window_floor: false,
+            feed_cap: None,
+            peak_video_feeds: None,
         }
     }
 
     #[test]
     fn the_window_is_the_budget_at_this_resolution_and_never_below_k_times_c() {
-        let document = Loose::new(
-            "test.montagent.json",
-            serde_json::json!({
-                "fps": 30, "frame": {"width": 1920, "height": 1080}, "tracks": []
-            }),
-        );
         let hd = super::super::Surface::declared(1920, 1080);
-        let _forced = force_painting(Forced::Chunks {
-            painters: 6,
-            chunk: 2,
-            window_bytes: None,
-        });
-        let chosen = plan(&document, hd, 1080).expect("chunks");
+        let chosen = chunk_plan(hd, 1080, 6, 2, WINDOW_BYTES);
         assert_eq!((chosen.window, chosen.window_floor), (150, false));
-
         let small = 10 * 1920 * 1080 * 3;
-        let _forced = force_painting(Forced::Chunks {
-            painters: 6,
-            chunk: 4,
-            window_bytes: Some(small),
-        });
-        let chosen = plan(&document, hd, 1080).expect("chunks");
+        let chosen = chunk_plan(hd, 1080, 6, 4, small);
         assert_eq!((chosen.window, chosen.window_floor), (24, true));
-
-        // At a quarter of the pixels the same budget holds four times the frames.
         let quarter = super::super::Surface::declared(960, 540);
-        let _forced = force_painting(Forced::Chunks {
-            painters: 6,
-            chunk: 4,
-            window_bytes: Some(small),
-        });
-        assert_eq!(plan(&document, quarter, 1080).expect("chunks").window, 40);
-
-        // No more painters than paint chunks.
-        assert_eq!(plan(&document, hd, 5).expect("chunks").painters, 2);
+        assert_eq!(chunk_plan(quarter, 1080, 6, 4, small).window, 40);
+        assert_eq!(chunk_plan(hd, 5, 6, 4, small).painters, 2);
     }
 
     #[test]

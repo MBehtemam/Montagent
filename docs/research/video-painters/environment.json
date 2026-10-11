@@ -1,0 +1,16 @@
+{
+  "captured_after_measurement": true,
+  "baseline_commit": "4f866555c53107c3cfd8fececac89b7f6b4ed9ac-dirty",
+  "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "macos": "27.0 (26A428)",
+  "cpu": "Apple M1 Pro",
+  "memory_bytes": 17179869184,
+  "cores": 10,
+  "power": "Now drawing from 'AC Power'",
+  "binary": "/Users/mohammedehtemam/.cargo/shared-target/release/montagent",
+  "binary_sha256": "6e04fc193332d2528360d08a3b57a4529d4d444276e54c53f9e3efda7a456db7",
+  "source_sha256": {
+    "crates/montagent-core/src/verbs/render.rs": "e4d983ed49202028b89e25934855a420cd0e86bb767b7e50fe2041da52866fd3",
+    "crates/montagent-core/src/verbs/render/painters.rs": "174f02d32d82560fca66ff796170242201790631251c63ce643a6866c6c30cfa"
+  }
+}
