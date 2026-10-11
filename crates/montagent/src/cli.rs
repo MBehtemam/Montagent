@@ -520,6 +520,31 @@ enum CacheCommand {
 
 #[derive(Subcommand)]
 enum FontsCommand {
+    /// Explicitly acquire native font bytes and licence evidence; never edits a project.
+    #[command(group(clap::ArgGroup::new("font_source").required(true)))]
+    Acquire {
+        /// Directory for acquired files and the receipt.
+        destination: PathBuf,
+        #[arg(long, group = "font_source")]
+        url: Option<String>,
+        #[arg(long, group = "font_source")]
+        google_family: Option<String>,
+        #[arg(long, group = "font_source")]
+        google_file: Option<String>,
+        #[arg(long, conflicts_with = "url")]
+        revision: Option<String>,
+        #[arg(long, conflicts_with = "url")]
+        weight: Option<u16>,
+        #[arg(long, conflicts_with = "url")]
+        style: Option<String>,
+        #[arg(long)]
+        face_index: Option<u32>,
+        #[arg(long)]
+        expected_sha256: Option<String>,
+        /// Acquisition always returns its structured JSON contract.
+        #[arg(long)]
+        json: bool,
+    },
     /// Every font file on this machine, with its faces and their licence status.
     ///
     /// `blocklisted` will be refused by `vendor` and nothing lifts that; `recognised-open`
@@ -556,6 +581,14 @@ enum FontsCommand {
         /// The path to vendor under, relative to the project. Defaults to `fonts/<name>`.
         #[arg(long = "as", value_name = "PATH")]
         destination: Option<String>,
+        /// Acquisition receipt to preserve and verify.
+        #[arg(long)]
+        receipt: Option<PathBuf>,
+        /// Explicit caller-adopted material conflict resolution.
+        #[arg(long)]
+        resolution: Option<PathBuf>,
+        #[arg(long)]
+        face_index: Option<u32>,
         /// Print the canonical JSON *instead of* the text report, never alongside it.
         #[arg(long)]
         json: bool,
@@ -563,6 +596,31 @@ enum FontsCommand {
         #[arg(long)]
         verbose: bool,
     },
+}
+
+/// Both adapters identify the host whose font directories were inspected.
+pub(crate) fn render_fonts_list(
+    answer: &montagent_core::verbs::fonts::Listing,
+    json: bool,
+) -> String {
+    let execution = serde_json::json!({
+        "scope": "local",
+        "working_directory": std::env::current_dir().ok().map(|p| p.display().to_string()),
+        "host": std::env::var("HOSTNAME").ok().or_else(|| std::env::var("COMPUTERNAME").ok()),
+    });
+    if json {
+        let mut value = answer.to_json();
+        value["execution"] = execution;
+        serde_json::to_string_pretty(&value).expect("JSON value")
+    } else {
+        format!(
+            "Execution: endpoint-local filesystem ({})\n{}",
+            execution["working_directory"]
+                .as_str()
+                .unwrap_or("unknown working directory"),
+            montagent_core::wire::render_fonts_list(answer, Wire::Text { verbose: false })
+        )
+    }
 }
 
 /// What an unknown argument on `frame` is told: the range mode is arguments, not a flag.
@@ -1104,18 +1162,64 @@ where
             }
         }
         Command::Fonts {
+            command:
+                FontsCommand::Acquire {
+                    destination,
+                    url,
+                    google_family,
+                    google_file,
+                    revision,
+                    weight,
+                    style,
+                    face_index,
+                    expected_sha256,
+                    json: _,
+                },
+        } => {
+            use montagent_core::verbs::fonts_acquire::{Acquire, Source};
+            let source = match url {
+                Some(url) => Source::Url { url },
+                None => Source::GoogleFonts {
+                    family: google_family,
+                    file: google_file,
+                    revision,
+                    weight,
+                    style,
+                },
+            };
+            let ask = Acquire {
+                source,
+                destination,
+                face_index,
+                expected_sha256,
+            };
+            match run_verb(|| montagent_core::verbs::fonts_acquire::acquire(&ask)) {
+                Ok(answer) => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&answer).expect("JSON value")
+                    );
+                    if answer["status"] == "success" {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::from(2)
+                    }
+                }
+                Err(report) => {
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    exit_code(&report)
+                }
+            }
+        }
+        Command::Fonts {
             command: FontsCommand::List { roots, json },
         } => {
             // `--verbose` is deliberately absent: the listing is the answer and is never
             // collapsed. No `--root` is passed through as no roots; which directories are
             // the platform's is the core's to say.
-            let form = Wire::from_flags(json, false);
             match run_verb(|| montagent_core::verbs::fonts::list(&roots)) {
                 Ok(answer) => {
-                    println!(
-                        "{}",
-                        montagent_core::wire::render_fonts_list(&answer, form).trim_end()
-                    );
+                    println!("{}", render_fonts_list(&answer, json).trim_end());
                     exit_code(answer.report())
                 }
                 Err(report) => {
@@ -1132,6 +1236,9 @@ where
                     licence,
                     source,
                     destination,
+                    receipt,
+                    resolution,
+                    face_index,
                     json,
                     verbose,
                 },
@@ -1142,6 +1249,9 @@ where
                 licence,
                 source,
                 destination,
+                receipt,
+                resolution,
+                face_index,
             };
             match run_verb(|| montagent_core::verbs::fonts::vendor(&project, &ask)) {
                 Ok(answer) => {
@@ -1260,7 +1370,9 @@ mod tests {
         leaves(&Cli::command(), "", &mut all);
         let mut without: Vec<String> = all
             .into_iter()
-            .filter(|(name, verbose)| !verbose && name != "mcp" && name != "cache clear")
+            .filter(|(name, verbose)| {
+                !verbose && name != "mcp" && name != "cache clear" && name != "fonts acquire"
+            })
             // A report's `tool` spells a verb with `_` where the CLI spells it with `-`.
             .map(|(name, _)| name.replace('-', "_"))
             .collect();
