@@ -1139,6 +1139,9 @@ pub(crate) struct Painter<'a> {
     /// The timeline frame being painted, where this painter paints frames rather than
     /// instants — set by [`Painter::begin_frame`].
     frame_number: Option<i64>,
+    /// ADR-0194: what each element and effect cost, where `render` was asked for a
+    /// `profile`. `None` everywhere else, and then painting reads nothing extra.
+    pub(crate) profile: Option<crate::verbs::render::profile::Profile>,
 }
 
 impl<'a> Painter<'a> {
@@ -1205,6 +1208,7 @@ impl<'a> Painter<'a> {
                 .filter(|fps| *fps > 0)
                 .unwrap_or(1),
             frame_number: None,
+            profile: None,
         }
     }
 
@@ -1290,7 +1294,33 @@ impl<'a> Painter<'a> {
                 offset: present.source_offset,
                 origin: present.source_origin,
             };
+            let timing = self.profile.is_some().then(|| {
+                montagent_render::canvas::effect_clock::set_enabled(true);
+                (
+                    std::time::Instant::now(),
+                    self.decoding(),
+                    self.painted.len(),
+                )
+            });
             self.element(canvas, &name, element, playhead);
+            if let Some((started, decoding, painted)) = timing {
+                // ADR-0194: the time spent waiting on decoded frames is the `decode` stage's,
+                // so it is taken out of the element that waited.
+                let spent = started
+                    .elapsed()
+                    .saturating_sub(self.decoding().saturating_sub(decoding));
+                let drawn = self.painted.len() > painted;
+                let kind = element.get("type").and_then(Value::as_str).unwrap_or("?");
+                if let Some(profile) = self.profile.as_mut() {
+                    profile.element(&name, kind, spent, drawn);
+                    for (effect, spent) in montagent_render::canvas::effect_clock::take() {
+                        profile.effect(effect, spent);
+                    }
+                }
+            }
+        }
+        if self.profile.is_some() {
+            montagent_render::canvas::effect_clock::set_enabled(false);
         }
     }
 

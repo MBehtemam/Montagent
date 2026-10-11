@@ -299,6 +299,7 @@ pub fn preview_cancellable(
         no_clobber: false,
         // `preview` is not a deliverable and keeps no progress file (ADR-0192).
         progress_file: None,
+        profile: false,
     };
     let range = match render::request(&asked) {
         Ok(range) => range,
@@ -517,6 +518,7 @@ pub fn preview_cancellable(
             master,
             normalized: &normalized,
             watch: None,
+            profile: false,
         };
 
         let attempt = Instant::now();

@@ -361,6 +361,15 @@ enum Command {
         /// fresh path and do not delete the file by hand.
         #[arg(long, value_name = "PATH")]
         progress_file: Option<PathBuf>,
+        /// Add `render.profile` to the answer: CPU milliseconds per element id, element
+        /// type and effect, and the stage split (decode, paint, encode wait), summed across
+        /// painters (ADR-0194).
+        ///
+        /// Timing slows a render, so a profiled run is never a speed measurement; it paints
+        /// the same bytes as one without. It is for finding what a slice costs: use it with
+        /// `--from`/`--to`. Read it with `--json`; the text form does not print it.
+        #[arg(long)]
+        profile: bool,
         /// Print the canonical JSON *instead of* the text result, never alongside it.
         #[arg(long)]
         json: bool,
@@ -867,6 +876,7 @@ where
             output,
             no_clobber,
             progress_file,
+            profile,
             json,
             verbose,
         } => {
@@ -880,6 +890,7 @@ where
                 output,
                 no_clobber,
                 progress_file,
+                profile,
             };
             // ADR-0011's split, made here: the result is stdout's and progress is
             // stderr's. ADR-0192: a tenth at a time as before, plus a line whenever about
