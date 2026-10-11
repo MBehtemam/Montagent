@@ -1,0 +1,190 @@
+{
+ "title": "Montagent feedback from a long-form production (montagent 0.2.0)",
+ "audience": "Montagent developer and their coding agent",
+ "document": "montagent-feedback.md",
+ "repro_kit": "montagent-repro/ (profile.py, video_presence_test.py, evidence/)",
+ "environment": {
+  "montagent": "0.2.0 (arm64, cargo install)",
+  "ffmpeg": "9.0.2",
+  "machine": "Apple M1 Pro, 10 cores (8P+2E), 16 GB, macOS Darwin 27.0.0 arm64",
+  "frame": "1920x1080 @ 30 fps"
+ },
+ "workload": {
+  "video_minutes": 49.3,
+  "frames": 88722,
+  "tracks": 1386,
+  "marks": 1060,
+  "render_hours": 3.24,
+  "average_fps": 7.6,
+  "cpu_percent_mean_single_render": 118,
+  "memory_mb_single_render": 610,
+  "parallel_test": {
+   "jobs": 4,
+   "seconds_each": "52-54 (vs ~45 alone)",
+   "aggregate_speedup": 3.3
+  }
+ },
+ "key_findings": [
+  "Two never-changing full-frame images (table plate + book plate with feathered mask) cost ~75% of a normal page frame.",
+  "Masks and shadows cost ~41%; text, marks and shapes together ~10-15%.",
+  "One video element anywhere in the project (even outside the rendered range) makes every frame ~4x slower (0.026-0.031 -> 0.120-0.125 s/frame in the kit); an image does not; audio does not.",
+  "Baking the two background images into one picture: 5x faster (6.2 -> ~32 fps), visually identical (mean diff 1.5/255, max 24).",
+  "One render uses ~1.2 of 10 cores; 4 renders in parallel are only ~15% slower each (3.3x aggregate).",
+  "GPU is idle (renderer utilisation 0.3%); encoder is libx264 medium, ~15% of the work."
+ ],
+ "user_stories": [
+  {
+   "id": "US-1",
+   "priority": "P0",
+   "title": "Cache static layers across frames",
+   "as_a": "a producer of long videos with a fixed background",
+   "i_want": "layers that do not change between frames to be rendered once and reused",
+   "so_that": "a frame costs only what changes.",
+   "evidence": "two never-changing full-frame images cost 75% of every frame; baking them into one picture is 5x faster with an identical result (mean difference 1.5/255, no pixel off by more than 24 levels, which is re-encoding noise).",
+   "options": "(a) automatic: a layer whose pixels do not depend on time (no keyframes on transform/opacity/effects, static source) is composited once together with the static layers below the first changing layer; (b) explicit hint, see US-4.",
+   "acceptance": "on the kit with the unbaked background, `profile.py` \"everything\" is at most 1.25x the time of the manually baked variant (reference machine: at most 0.030 s/frame, versus 0.134 today); output differs from the current renderer by a mean of at most 2/255 and no pixel by more than 24 (or is bit-identical when caching is off); a layer that has an opacity keyframe is never wrongly cached (frames equal with caching on and off at 20 random times)."
+  },
+  {
+   "id": "US-2",
+   "priority": "P0",
+   "title": "The fast path must not depend on whether a video exists in the project",
+   "as_a": "a producer",
+   "i_want": "static layers cached even when a video (or sticker) is present",
+   "so_that": "a small picture loop does not make the whole frame expensive.",
+   "evidence": "one small video element anywhere in the project (even at 2,000 s, outside the rendered range) makes every frame 4-4.5x slower; an image does not. Dropping the only active video leaves the slice at 0.026-0.031 s/frame. (Our reading: when no video exists the static layers are reused; any video disables it. Please confirm or correct.)",
+   "options": "composite cached static background + only the layers (or dirty rectangles) that change each frame (the picture loop 740x416, a sticker, the line being read).",
+   "acceptance": "`video_presence_test.py` reports the same time (within 15%) with and without the extra video element; with the picture loop and 2 sticker videos active the kit slice is at most 0.045 s/frame; time grows with the area of the changing layers (a test with the loop at half the area is faster)."
+  },
+  {
+   "id": "US-3",
+   "priority": "P1",
+   "title": "Cheap feathered masks and shadows",
+   "as_a": "a producer",
+   "i_want": "a rect mask with feather (and a drop shadow) on a static element to cost almost nothing per frame",
+   "so_that": "soft edges do not dominate the render.",
+   "evidence": "effects (masks, shadows) are 41% of the frame; the table plate (no mask) costs 29%, the book plate (mask feather 26) 60%.",
+   "options": "compute the mask alpha once per element and reuse it; cache the masked, shadowed bitmap; separable blur.",
+   "acceptance": "the kit with the unbaked book plate (mask kept) is within 10% of the same slice with the plate baked; a micro-benchmark of 20 shadowed stickers shows the shadow cost per frame at least 5x lower than today."
+  },
+  {
+   "id": "US-4",
+   "priority": "P1",
+   "title": "A \"static / cache\" hint and group elements",
+   "as_a": "a producer who writes projects with a script",
+   "i_want": "to mark an element or a group as static (`\"cache\": true`) and to group elements that share a transform",
+   "so_that": "I can help the renderer and stop creating one track per mark.",
+   "evidence": "1,060 marks are 1,060 tracks, layer bands are used to avoid `E-LAYER-TIE`, and every mark gets its own fade keyframes.",
+   "acceptance": "the schema accepts `cache` and a `group` element; a group with opacity keyframes renders the same pixels as the same members with per-element keyframes (mean difference at most 1/255); the 1,060-mark project can be written with at most 40 tracks."
+  },
+  {
+   "id": "US-5",
+   "priority": "P1",
+   "title": "A per-element render profile",
+   "as_a": "a producer",
+   "i_want": "`montagent render --profile` (or a `profile` verb) to report the time spent per element id, per element type and per effect, plus cache hits",
+   "so_that": "I do not need 14 test renders to find what costs time.",
+   "evidence": "this analysis needed 14 renders of the same slice.",
+   "acceptance": "JSON output; the listed costs add up to at least 90% of the render time; element ids are the ones in the project file; includes \"frames drawn from scratch / frames reused\"."
+  },
+  {
+   "id": "US-6",
+   "priority": "P1",
+   "title": "Use more than one core inside a render",
+   "as_a": "a producer",
+   "i_want": "one render to use the machine",
+   "so_that": "I do not have to split the film into chunks by hand.",
+   "evidence": "one render uses 1.2 of 10 cores; four renders of different ranges ran side by side at 52-54 s each instead of 45 s alone (aggregate 3.3x, memory 0.6 GB each); the intro scene alone runs at 5.8 fps and pages at 7.9 fps.",
+   "options": "`--jobs N` that renders disjoint frame ranges in parallel and feeds one ordered encoder (or concatenates), compositing and encoding on separate threads.",
+   "acceptance": "`--jobs 4` renders the kit slice (and a 60-second range) at least 3x faster than `--jobs 1`; output is identical to `--jobs 1` within the tolerance of US-1; no visible seam (frame difference across a chunk boundary at most 1/255 on average)."
+  },
+  {
+   "id": "US-7",
+   "priority": "P2",
+   "title": "A better progress file",
+   "as_a": "a producer who polls it",
+   "i_want": "a windowed fps (last 10-30 s), a smoothed ETA, and a stall indicator",
+   "so_that": "estimates stop jumping and a paused machine is visible.",
+   "evidence": "our ETA changed from 3.8 h to 5.2 h to 4.5 h to 3.4 h (actual 3.24 h) because `fps` follows the current scene. The Mac went to sleep during one render: `started_at` and `updated_at` were 9 hours apart while `elapsed_s` was 1,250 s, with nothing in the file saying so. Timestamps are UTC while the machine's clock is local (easy to misread as stale).",
+   "acceptance": "new fields `fps_window`, `wall_clock_gap_ms` (or `state: \"paused\"` after a `SIGSTOP`/`SIGCONT` or sleep test), `elements_drawn`, `frames_reused` documented and covered by a test that suspends the process for 10 s."
+  },
+  {
+   "id": "US-8",
+   "priority": "P2",
+   "title": "Review noise control",
+   "as_a": "a producer",
+   "i_want": "to silence or aggregate a review class per project",
+   "so_that": "real findings stay visible.",
+   "evidence": "`R-KEYFRAME-UNREACHED` 1,470 and `R-EASE-INERT` 1,163 on a project where every mark fades in and out; the one real finding (`R-HIGHLIGHT-UNPAINTED`, a 17 ms karaoke word) is a needle in a haystack.",
+   "acceptance": "a `suppress` list (class, optional element-id pattern) in the project; `validate` prints at most 20 lines for the final project and a count of suppressed findings."
+  },
+  {
+   "id": "US-9",
+   "priority": "P2",
+   "title": "Batch `measure`",
+   "as_a": "a script author",
+   "i_want": "to measure many texts in one call",
+   "so_that": "building a project is fast.",
+   "evidence": "our builder calls `montagent measure` thousands of times; building 64 units takes 63 s, almost all of it process starts.",
+   "acceptance": "`measure --batch file.json` (or a daemon/library mode) measures 1,000 texts in under 2 s with results identical to single calls."
+  },
+  {
+   "id": "US-10",
+   "priority": "P2",
+   "title": "Stabilise video clips",
+   "as_a": "a producer using AI-generated clips",
+   "i_want": "an effect that locks a clip to a reference frame",
+   "so_that": "drift and slow zoom do not have to be removed outside Montagent.",
+   "evidence": "Veo clips of \"a still drawing, camera does not move\" drift 2-15% in centre and size (measured: size 205 to 237 px in 4 s). We measure the drawing's ink centre and spread per frame in Python, fit a cubic, re-place each frame with sub-pixel transforms, play forward and back, slow it with frame blending and bake a new mp4. Driving the same correction with keyframed `scale`/`source_time` made the render 3.7x slower.",
+   "acceptance": "an effect `stabilize` (reference: first frame; optional `loop: ping-pong`; `fill: paper|edge`) reduces residual size drift of the test clip from 15% to below 1% with no black edges."
+  },
+  {
+   "id": "US-11",
+   "priority": "P1",
+   "title": "Linux, container and hosted rendering",
+   "as_a": "a producer who wants to render in the cloud",
+   "i_want": "official Linux (x86-64 and ARM64) builds, a container image, clear server-use licence terms and a way to feed many workers",
+   "so_that": "chunks can render in parallel on GCP or Azure.",
+   "evidence": "one render uses 1.2 cores and 0.6 GB, so a 16-core machine can run about 10 jobs (E); the whole project is about 12 hours of serial rendering today.",
+   "acceptance": "the container renders the kit slice on linux/amd64 and linux/arm64 with a mean frame difference to the macOS output below the stated tolerance.",
+   "needs": "no GUI dependencies; ffmpeg dependency documented; a content-addressed asset cache (345 MB of assets per part); progress to stdout or a URL; documented tolerance of pixel differences between architectures (same chunk-seam test as US-6)."
+  },
+  {
+   "id": "US-12",
+   "priority": "P3",
+   "title": "GPU drawing back-end",
+   "evidence": "`ioreg` renderer utilisation averaged 0.3% (max 8%) during a render; the binary has no GPU frameworks linked but contains the strings `webgpu`, `metal`, `vulkan`, `sksl_gpu`.",
+   "notes": "- Evidence: `ioreg` renderer utilisation averaged 0.3% (max 8%) during a render; the binary has no GPU frameworks linked but contains the strings `webgpu`, `metal`, `vulkan`, `sksl_gpu`. - Question and acceptance: is a GPU back-end planned or hidden behind a flag? If so, document it; it must be opt-in and pixel-compatible; a useful result is at least 2x on the kit, or an explanation of why not (our cost is redundant per-frame work, see US-1/2, not raw drawing speed).",
+   "acceptance": "Document whether a GPU back-end exists or is planned and how to enable it; it must be opt-in and pixel-compatible; a useful result is at least 2x on the kit, or an explanation of why not (our cost is redundant per-frame work, see US-1/US-2, not raw drawing speed).",
+   "question": "Is a GPU back-end planned or hidden behind a flag?"
+  },
+  {
+   "id": "US-13",
+   "priority": "P3",
+   "title": "Encoder options",
+   "evidence": "libx264 `medium` is fixed; the encoder is about 15% of the work (about 0.2 core of the 1.2 used).",
+   "acceptance": "`--encoder`, `--preset`, `--crf` documented, default unchanged; `h264_videotoolbox` selectable for drafts.",
+   "notes": "- Evidence: libx264 `medium` is fixed; the encoder is about 15% of the work (about 0.2 core of the 1.2 used). - Acceptance: `--encoder`, `--preset`, `--crf` documented, default unchanged; `h264_videotoolbox` selectable for drafts."
+  },
+  {
+   "id": "US-14",
+   "priority": "P3",
+   "title": "Clarify output-file behaviour (unverified observation)",
+   "notes": "- While timing variants we once wrote several different projects to the same `--output` path and saw implausibly fast timings (about 27 fps for a project that normally runs at 6 fps). We did not capture the exit codes, so this may be our mistake. Please confirm that a render never silently skips work because an output file exists, and document what `--output` does when the file belongs to another project or range.",
+   "acceptance": "Confirm and document that a render never silently skips work because an output file exists, and what --output does when the file belongs to another project or range; add a test.",
+   "status": "unverified observation (exit codes were not captured)"
+  }
+ ],
+ "questions_for_developer": [
+  "Is the static-layer fast path real, and is it turned off by any video element in the project (as the decisive test suggests)? Is the check per project, per render range or per frame?",
+  "Is a Linux build available, and what are the licence terms for hosted/server rendering?",
+  "Is there a GPU back-end (the binary mentions webgpu/metal/vulkan/sksl_gpu) and can it be enabled?",
+  "Are masks, shadows and `fit: cover` resampling recomputed per frame? Would a pre-scaled image help (we expect so)?",
+  "Is intra-render parallelism planned? Any constraint that makes frames dependent on each other (so that `--jobs` would not be safe)?",
+  "What happens when `--output` names a file written by another project (US-14)?",
+  "Are pixel results guaranteed identical across macOS arm64 and Linux x86-64/ARM64?"
+ ],
+ "acceptance_test_commands": [
+  "cd montagent-repro && python3 profile.py",
+  "cd montagent-repro && python3 video_presence_test.py"
+ ]
+}
