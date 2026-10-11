@@ -880,6 +880,11 @@ where
             json,
             verbose,
         } => {
+            if profile && !json {
+                eprintln!(
+                    "note: --profile adds render.profile to the JSON answer; pass --json to read it"
+                );
+            }
             let form = Wire::from_flags(json, verbose);
             // Which combinations of `--from`/`--to`/`--output` are legal is the verb's rule
             // and not argv's: the MCP surface takes the same arguments with no `clap` to

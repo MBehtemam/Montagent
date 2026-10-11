@@ -481,6 +481,24 @@ pub mod effect_clock {
         SPENT.with(|spent_by| spent_by.borrow_mut().push((name, spent)));
     }
 
+    /// Time this thread's effects until the guard drops, which switches the clock off and
+    /// forgets what it had not yet handed over, so a paint that unwinds cannot leave it on.
+    pub fn timing() -> Timing {
+        set_enabled(true);
+        Timing(())
+    }
+
+    /// Holds the clock on; see [`timing`].
+    #[must_use]
+    pub struct Timing(());
+
+    impl Drop for Timing {
+        fn drop(&mut self) {
+            set_enabled(false);
+            take();
+        }
+    }
+
     /// What this thread's effects spent since the last call, by the effect's `name`.
     pub fn take() -> Vec<(&'static str, Duration)> {
         SPENT.with(|spent| std::mem::take(&mut *spent.borrow_mut()))

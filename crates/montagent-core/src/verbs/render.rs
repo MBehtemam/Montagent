@@ -1400,7 +1400,6 @@ impl<'a> Producer<'a> {
         }
     }
 
-    /// Frame `n`, painted and read back as the encoder's RGB.
     /// Time this producer's elements and effects, where `on`.
     pub(crate) fn profiling(mut self, on: bool) -> Self {
         if on {
@@ -1409,6 +1408,7 @@ impl<'a> Producer<'a> {
         self
     }
 
+    /// Frame `n`, painted and read back as the encoder's RGB.
     pub(crate) fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
         let instant = instant_of(n, self.fps);
         let view = at::presence(self.document, instant);

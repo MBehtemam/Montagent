@@ -70,8 +70,10 @@ whoever builds that story, and is not decided here.
 
 ## Consequences
 
+- A painter that fails or is cancelled takes its partial profile with it, but then the render
+  answers with no video and no `render` block, so a partial profile is never shown.
 - Skia's lazy filters mean an effect is charged where its layer unwinds. The sum of effect rows
   can differ from "the effect's true cost" by the compositing of its parent layer; the element
   row stays exact.
-- Elements with no `id` share one row.
+- An element's `id` is required and unique, so a row is one element.
 - `--profile` is read with `--json`; the text form does not print it.
