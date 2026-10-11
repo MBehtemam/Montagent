@@ -15,6 +15,7 @@
 //! itself is `montagent_text::names`'s.
 
 pub mod chrome;
+pub mod evidence;
 pub mod licence;
 
 use sha2::{Digest, Sha256};

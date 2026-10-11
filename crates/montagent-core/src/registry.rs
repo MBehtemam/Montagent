@@ -1775,6 +1775,17 @@ resolve to an attestation.",
         // hand — is not readable off either. ADR-0007 is why it is an `error` at all: a
         // font swapped in place "is a silent whole-project render change that no census
         // sees".
+        code: "E-FONT-EVIDENCE-INTEGRITY",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0057",
+        template: "Font evidence could not be verified: {detail}. Restore the exact referenced bytes or supply a verified acquisition receipt.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "E-FONT-HASH-MISMATCH",
         classes: &[Error],
         repair: Some(Refuse),
