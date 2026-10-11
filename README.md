@@ -40,6 +40,22 @@ rather than linking it in (its codecs are GPL; Montagent's binary isn't), and it
 asked for when you actually render — validating or scaffolding a project needs nothing
 but the `montagent` binary itself.
 
+### Linux, containers and hosting
+
+The Linux binaries run in a container or on a server today: install `ffmpeg` 7.1 or newer and
+run `montagent` as above. A hosted, remote MCP server (an HTTP door and named workspaces,
+ADR-0064, ADR-0159) is designed but not shipped: its container image is tracked in
+[#656](https://github.com/MBehtemam/Montagent/issues/656), and long renders over a remote
+connection in [#662](https://github.com/MBehtemam/Montagent/issues/662).
+
+### Same project, same bytes: per target
+
+A project renders to the same frames and the same MP4 bytes every time on one target (one
+platform and architecture, one ffmpeg build), whatever the painter count or chunk size
+(ADR-0143). Across architectures there is no promise: x86_64 and aarch64 may differ, and there
+is no tolerance that makes them count as equal. On x86_64 Windows the guarantee is the frames
+handed to the encoder, not the file's bytes (ADR-0190).
+
 ### macOS: signed and notarized after v0.1.0
 
 Release binaries after v0.1.0 are signed with a Developer ID and notarized by Apple
