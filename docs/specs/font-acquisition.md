@@ -1,5 +1,7 @@
 ## Approved font acquisition contract
 
+Source: [approved contract review](https://github.com/MBehtemam/Montagent/issues/952#issuecomment-6113673541), on [the font acquisition map](https://github.com/MBehtemam/Montagent/issues/939).
+
 The map author accepted all final-review recommendations. This contract consolidates the map's resolved decisions and is approved for implementation handoff.
 
 ### Operations
