@@ -1483,8 +1483,10 @@ fn cli_render_reports_while_it_works_and_the_file_moves_with_it() {
         .collect();
     assert!(lines.len() > 11, "only the tenths were printed:\n{stderr}");
     assert!(
-        lines.iter().any(|line| line.contains("ETA ~")),
-        "no line ever carried an ETA:\n{stderr}"
+        lines.iter().any(|line| line.contains("ETA ~")
+            || line.contains("no ETA yet: too few frames so far to read a rate")),
+        // A cached static card can finish before the estimator's two-second window.
+        "no line explained its ETA or why it was unavailable:\n{stderr}"
     );
 }
 

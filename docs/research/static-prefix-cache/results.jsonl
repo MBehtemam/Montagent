@@ -1,0 +1,10 @@
+{"repeat": 0, "variant": "off", "seconds": 16.643944167066365, "seconds_per_frame": 0.18493271296740407, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 0, "variant": "on", "seconds": 4.361239874968305, "seconds_per_frame": 0.048458220832981166, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 0, "variant": "baked", "seconds": 3.18359679216519, "seconds_per_frame": 0.03537329769072433, "frames_sha256": "abf5a969497079fd0f05a02ffbd9589449371c774d9c33a6ca92d9aa800f345d"}
+{"repeat": 1, "variant": "off", "seconds": 11.73099312512204, "seconds_per_frame": 0.13034436805691157, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 1, "variant": "on", "seconds": 2.3130183338653296, "seconds_per_frame": 0.025700203709614775, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 1, "variant": "baked", "seconds": 2.1133509590290487, "seconds_per_frame": 0.023481677322544987, "frames_sha256": "abf5a969497079fd0f05a02ffbd9589449371c774d9c33a6ca92d9aa800f345d"}
+{"repeat": 2, "variant": "off", "seconds": 12.193360042059794, "seconds_per_frame": 0.13548177824510882, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 2, "variant": "on", "seconds": 2.2723174998536706, "seconds_per_frame": 0.02524797222059634, "frames_sha256": "5aafebb29a1c626f57e387174459cfc37f64c52da923ad52143c004ea97cfefa"}
+{"repeat": 2, "variant": "baked", "seconds": 2.096761915832758, "seconds_per_frame": 0.023297354620363978, "frames_sha256": "abf5a969497079fd0f05a02ffbd9589449371c774d9c33a6ca92d9aa800f345d"}
+{"medians": {"off": 0.13548177824510882, "on": 0.025700203709614775, "baked": 0.023481677322544987}, "speedup": 5.2716227379327485, "percent_over_baked": 9.447904238679584}

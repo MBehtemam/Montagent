@@ -1541,6 +1541,36 @@ impl Canvas {
         }
     }
 
+    /// What a [`Raster`] taken from this canvas can be restored onto: its size and base
+    /// scale, as bits so the tuple compares exactly.
+    pub fn geometry(&self) -> (i32, i32, u32, u32) {
+        (
+            self.width,
+            self.height,
+            self.base.0.to_bits(),
+            self.base.1.to_bits(),
+        )
+    }
+
+    /// Put every pixel back as `source` — a [`Canvas::snapshot`] of this canvas's geometry —
+    /// held them: one device pixel from one source pixel, `Src`, so nothing is blended or
+    /// resampled and the base scale of a proxy canvas is not applied a second time
+    /// (ADR-0195). The canvas's matrix and clip are as they were on return.
+    pub fn restore(&mut self, source: &Raster) {
+        let canvas = self.surface.canvas();
+        canvas.save();
+        canvas.reset_matrix();
+        let mut paint = SkPaint::default();
+        paint.set_blend_mode(BlendMode::Src);
+        canvas.draw_image_with_sampling_options(
+            &source.image,
+            (0, 0),
+            SamplingOptions::new(skia_safe::FilterMode::Nearest, skia_safe::MipmapMode::None),
+            Some(&paint),
+        );
+        canvas.restore();
+    }
+
     /// Draw `source` into `into`, resampled to exactly that rectangle — a contact sheet's
     /// tile, composited down from a frame painted at true pixels (ADR-0095 §5).
     ///
