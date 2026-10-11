@@ -405,6 +405,13 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
                 if let Ok(old) = serde_json::from_value::<FontAttestation>(previous.clone())
                     && let Some(reference) = old.evidence
                 {
+                    if ask
+                        .licence
+                        .as_ref()
+                        .is_some_and(|declared| declared != &old.licence)
+                    {
+                        return refused(evidence_refusal(project, document.path(), "changing a licence with retained evidence requires a fresh verified receipt and resolution".into()));
+                    }
                     if let Err(reason) = crate::fonts::evidence::verify(&base, &reference, &hash) {
                         return refused(evidence_refusal(project, document.path(), reason));
                     }
