@@ -73,5 +73,3 @@ Bound fetch size, duration and redirects, checking network policy at every redir
 - Remote cleanup recovery is explicit and hash-verified; unsupported providers give actionable external-acquisition instructions.
 
 This planning effort approves the specification only. No implementation was performed.
-
-
