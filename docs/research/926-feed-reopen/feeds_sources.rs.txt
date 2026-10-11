@@ -1,0 +1,265 @@
+// **Feeds paint the pixels `frame` paints** (ADR-0141), and they cost what they should.
+//
+// `render` and `preview` read each `video` element through one long-lived `ffmpeg` — a
+// **feed** — instead of one `frame_at` spawn per frame. The painter is the same one `frame`
+// uses; only the supplier of its pixels differs. So the standing evidence is a byte
+// comparison of the two suppliers through the one painter: every case below paints a short
+// span through the feed supplier and through `frame`'s per-frame supplier and compares the
+// **rasters before encoding**, byte for byte, so no encoder can quantize a difference away
+// (`render::paint_span`).
+//
+// The cases are #626 §5's: a hold, a loop wrap, leaving and re-entering, a partial range that
+// starts partway through an element, `speed` ≥ 2 and < 1, an off-grid `fps`, two elements on
+// one source at different offsets, holding past the source's end, an offset exactly at the
+// probed end, and a VP9-with-alpha source (`Decoder::LibVpxVp9`, the decoder the gate check
+// did not cover). Every case also states how many `ffmpeg`s it may spawn, through the
+// `#[doc(hidden)]` per-thread counts: **feeds opened plus reopens, never one per frame.**
+//
+// Then #636 §7's seven feed-budget cases, through the `#[doc(hidden)]` budget override:
+// an element past the budget is painted per frame with the same pixels, and the render
+// answer names it.
+//
+// **Codecs covered**, at [`decode::FEED_THREADS`] decoder threads: H.264 (`libx264`, long GOP
+// with B-frames), FFV1 in Matroska (a container with no stream duration), and VP9 with an
+// alpha side stream through `libvpx-vp9`. The fixtures are generated, a few kilobytes each,
+// on `seek_clamp.rs`'s reasoning: a committed clip is one nobody can re-derive.
+
+mod common;
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use montagent_core::media::tools;
+use montagent_core::verbs::frame::supply::{self, Counts};
+use montagent_core::verbs::render::{Rasters, Supplying, paint_span};
+use montagent_render::decode;
+
+use common::{canonical, has_ffprobe, tempdir, write_project};
+
+const SOURCE_FRAMES: i64 = 82;
+
+fn ffmpeg() -> PathBuf {
+    tools::resolve().expect("an ffmpeg").ffmpeg
+}
+
+/// `SOURCE_FRAMES` frames of a moving test pattern at 25 fps, `size`, encoded with `args`,
+/// or `None` where this `ffmpeg` cannot. Every frame differs from its neighbours, so a
+/// supplier one frame off cannot pass.
+fn source(dir: &Path, name: &str, size: &str, args: &[&str]) -> Option<PathBuf> {
+    let path = dir.join(name);
+    let ok = Command::new(ffmpeg())
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi"])
+        .args(["-i", &format!("testsrc2=s={size}:r=25")])
+        .args(["-frames:v", &SOURCE_FRAMES.to_string()])
+        .args(args)
+        .arg(&path)
+        .output()
+        .ok()?
+        .status
+        .success();
+    ok.then_some(path)
+}
+
+/// H.264 with a two-second GOP and B-frames, the shape a real source has.
+fn h264(dir: &Path, name: &str, size: &str) -> PathBuf {
+    source(
+        dir,
+        name,
+        size,
+        &[
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "50", "-bf", "2",
+        ],
+    )
+    .expect("libx264 is ADR-0115's floor")
+}
+
+/// A project of `fps` on a 160x120 frame, with `tracks` as written.
+fn project(dir: &Path, fps: i64, tracks: &str) -> PathBuf {
+    write_project(
+        dir,
+        "feeds.montagent.json",
+        &canonical(&format!(
+            r##"{{"frame":{{"width":160,"height":120}},"fps":{fps},"background":"#000000",
+                "duration":4000,"output":"out/feeds.mp4","tracks":[{tracks}]}}"##
+        )),
+    )
+}
+
+/// One track holding `elements`.
+fn track(name: &str, layer: i64, elements: &[String]) -> String {
+    format!(
+        r#"{{"name":"{name}","layer":{layer},"elements":[{}]}}"#,
+        elements.join(",")
+    )
+}
+
+/// A `video` element. `extra` is spliced in as written: `"speed":2,` or `"overrun":"loop",`.
+#[allow(clippy::too_many_arguments)]
+fn video(
+    id: &str,
+    source: &Path,
+    (start, end): (i64, i64),
+    (source_start, source_end): (i64, i64),
+    (x, width, height): (i64, i64, i64),
+    extra: &str,
+) -> String {
+    let source = source.display().to_string().replace('\\', "/");
+    format!(
+        r#"{{"id":"{id}","type":"video","start":{start},"end":{end},{extra}"source":"{source}",
+            "source_start":{source_start},"source_end":{source_end},"x":{x},"y":0,
+            "origin":"top-left","width":{width},"height":{height},"fit":"literal","volume":0}}"#
+    )
+}
+
+/// Paint `[from, to)` through `supplying`, counting what it spawned.
+fn painted(path: &Path, from: i64, to: i64, supplying: Supplying) -> (Rasters, Counts) {
+    supply::reset_counts();
+    let rasters = paint_span(path, from, to, supplying).expect("the span paints");
+    let counts = supply::counts();
+    assert!(
+        rasters.declined.is_empty(),
+        "{supplying:?} declined to paint: {:?}",
+        rasters.declined
+    );
+    assert_eq!(
+        counts.open, 0,
+        "every feed is closed once the painter is gone"
+    );
+    (rasters, counts)
+}
+
+/// The two suppliers' rasters for `[from, to)`, asserted byte for byte equal, and the feed
+/// supplier's counts.
+#[track_caller]
+fn same_pixels(path: &Path, from: i64, to: i64) -> Counts {
+    let (per_frame, _) = painted(path, from, to, Supplying::PerFrame);
+    let (feeds, counts) = painted(path, from, to, Supplying::Feeds);
+    assert_eq!(per_frame.frames.len(), feeds.frames.len());
+    for (n, (want, got)) in per_frame.frames.iter().zip(&feeds.frames).enumerate() {
+        assert!(
+            want == got,
+            "frame {n} of {from}..{to}: the feed's raster differs from frame_at's"
+        );
+    }
+    assert_eq!(per_frame.painted, feeds.painted);
+    // The fixture must be moving, or equal rasters would prove nothing about which frame.
+    assert!(
+        feeds.frames.windows(2).any(|pair| pair[0] != pair[1]),
+        "the span shows a still picture, which cannot tell one frame from the next"
+    );
+    counts
+}
+
+/// What a case may spawn: feeds opened, reopened, and single `frame_at`s.
+#[track_caller]
+fn spawned(counts: Counts, opened: u64, reopened: u64, frame_at: u64) {
+    assert_eq!(
+        (counts.opened, counts.reopened, counts.frame_at),
+        (opened, reopened, frame_at),
+        "feeds opened, reopened and frame_at spawns"
+    );
+}
+
+
+/// Throwaway for #926: seek-based feeds at every chunk start, over sources ADR-0141 did not cover.
+/// Each source is painted once per frame (`frame_at`), then in C-frame chunks through feeds, each chunk
+/// a fresh painter (a chunk start is `--from`); every chunk's rasters must equal the per-frame ones.
+static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn check(name: &str, args: &[&str], extra: &str) {
+    let dir = tempdir(1000 + NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst));
+    let Some(clip) = source(&dir, name, "64x48", args) else {
+        eprintln!("SKIP {name}: this ffmpeg cannot make it");
+        return;
+    };
+    let path = project(
+        &dir,
+        25,
+        &track("a", 0, &[video("v", &clip, (0, 4000), (0, 3000), (0, 128, 96), extra)]),
+    );
+    let (want, _) = painted(&path, 0, 4000, Supplying::PerFrame);
+    assert!(want.frames.windows(2).any(|p| p[0] != p[1]), "{name}: a still picture");
+    let mut chunks = 0;
+    let mut reopened = 0;
+    for c in [1_i64, 2, 7, 25] {
+        let mut s = 0;
+        while s < 100 {
+            let e = (s + c).min(100);
+            let (got, counts) = painted(&path, s * 40, e * 40, Supplying::Feeds);
+            reopened += counts.opened + counts.reopened;
+            for (i, f) in got.frames.iter().enumerate() {
+                assert!(
+                    *f == want.frames[(s as usize) + i],
+                    "{name}: C={c}, chunk {s}..{e}, frame {}: feed differs from frame_at",
+                    s as usize + i
+                );
+            }
+            chunks += 1;
+            s = e;
+        }
+    }
+    eprintln!("RESULT {name} {extra}: {chunks} chunks (C=1,2,7,25), {reopened} feed opens+reopens, all frames byte-equal to frame_at");
+}
+
+const X264: &[&str] = &["-c:v", "libx264", "-g", "50", "-bf", "2"];
+
+#[test]
+fn x926_h264_baseline_control() {
+    check("h264.mp4", &[X264, &["-pix_fmt", "yuv420p"]].concat(), "\"overrun\":\"loop\",");
+}
+#[test]
+fn x926_h264_speed() {
+    check("h264s.mp4", &[X264, &["-pix_fmt", "yuv420p"]].concat(), "\"overrun\":\"loop\",\"speed\":0.645,");
+}
+#[test]
+fn x926_interlaced_tff() {
+    check(
+        "tff.mp4",
+        &[&["-vf", "interlace=scan=tff,format=yuv420p", "-flags", "+ilme+ildct", "-x264opts", "tff=1"], X264, &["-pix_fmt", "yuv420p"]].concat(),
+        "\"overrun\":\"loop\",",
+    );
+}
+#[test]
+fn x926_interlaced_bff() {
+    check(
+        "bff.mp4",
+        &[&["-vf", "interlace=scan=bff,format=yuv420p", "-flags", "+ilme+ildct", "-x264opts", "bff=1"], X264, &["-pix_fmt", "yuv420p"]].concat(),
+        "\"overrun\":\"loop\",",
+    );
+}
+#[test]
+fn x926_full_range() {
+    check(
+        "full.mp4",
+        &[&["-vf", "scale=in_range=limited:out_range=full,format=yuvj420p", "-color_range", "pc"], X264, &["-pix_fmt", "yuvj420p"]].concat(),
+        "\"overrun\":\"loop\",",
+    );
+}
+#[test]
+fn x926_full_range_bt709_tagged() {
+    check(
+        "full709.mp4",
+        &[&["-vf", "scale=in_range=limited:out_range=full:out_color_matrix=bt709,format=yuvj420p", "-color_range", "pc", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"], X264, &["-pix_fmt", "yuvj420p"]].concat(),
+        "\"overrun\":\"loop\",",
+    );
+}
+#[test]
+fn x926_vp9_alpha() {
+    check(
+        "alpha.webm",
+        &["-vf", "format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(lt(X,32),255,64)'", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-g", "50"],
+        "\"overrun\":\"loop\",",
+    );
+}
+#[test]
+fn x926_vp9_alpha_speed() {
+    check(
+        "alphas.webm",
+        &["-vf", "format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(lt(X,32),255,64)'", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-g", "50"],
+        "\"overrun\":\"loop\",\"speed\":2.5,",
+    );
+}
+#[test]
+fn x926_hevc_10bit() {
+    check("hevc10.mp4", &["-c:v", "libx265", "-pix_fmt", "yuv420p10le", "-g", "50", "-x265-params", "log-level=error"], "\"overrun\":\"loop\",");
+}
