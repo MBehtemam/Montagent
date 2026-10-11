@@ -25,12 +25,25 @@ struct Cost {
     spent: Duration,
     /// Frames the element was drawn in; for an effect, the times it was applied.
     count: u64,
+    /// Frames the element was restored from the static-prefix cache instead of drawn
+    /// (ADR-0195). Not part of `count`.
+    reused: u64,
 }
 
 impl Cost {
     fn add(&mut self, spent: Duration, count: u64) {
         self.spent += spent;
         self.count += count;
+    }
+
+    fn add_reused(&mut self, reused: u64) {
+        self.reused += reused;
+    }
+
+    /// `other`, all of it: time, drawn frames and restored frames.
+    fn merge(&mut self, other: &Cost) {
+        self.add(other.spent, other.count);
+        self.add_reused(other.reused);
     }
 }
 
@@ -58,6 +71,20 @@ impl Profile {
             .add(spent, frames);
     }
 
+    /// One element's turn in one frame, restored from the static-prefix cache (ADR-0195): no
+    /// time of its own, which the restore leaves in `unattributed`.
+    pub(crate) fn reused(&mut self, id: &str, kind: &str) {
+        self.elements
+            .entry(id.to_string())
+            .or_insert_with(|| (kind.to_string(), Cost::default()))
+            .1
+            .add_reused(1);
+        self.types
+            .entry(kind.to_string())
+            .or_default()
+            .add_reused(1);
+    }
+
     /// One effect's layer unwinding, inside whichever element was being painted.
     pub(crate) fn effect(&mut self, name: &'static str, spent: Duration) {
         self.effects.entry(name).or_default().add(spent, 1);
@@ -69,13 +96,10 @@ impl Profile {
                 .entry(id.clone())
                 .or_insert_with(|| (kind.clone(), Cost::default()))
                 .1
-                .add(cost.spent, cost.count);
+                .merge(cost);
         }
         for (kind, cost) in &other.types {
-            self.types
-                .entry(kind.clone())
-                .or_default()
-                .add(cost.spent, cost.count);
+            self.types.entry(kind.clone()).or_default().merge(cost);
         }
         for (name, cost) in &other.effects {
             self.effects
@@ -112,13 +136,16 @@ impl Profile {
                     "type": kind,
                     "cpu_ms": ms1(cost.spent),
                     "frames_painted": cost.count,
+                    "frames_reused": cost.reused,
                 })
             })
             .collect();
         let remainder = (!rest.is_empty()).then(|| {
             let spent: Duration = rest.iter().map(|(_, (_, cost))| cost.spent).sum();
             let frames: u64 = rest.iter().map(|(_, (_, cost))| cost.count).sum();
-            json!({"elements": rest.len(), "cpu_ms": ms1(spent), "frames_painted": frames})
+            let reused: u64 = rest.iter().map(|(_, (_, cost))| cost.reused).sum();
+            json!({"elements": rest.len(), "cpu_ms": ms1(spent), "frames_painted": frames,
+                   "frames_reused": reused})
         });
 
         let mut types: Vec<(&String, &Cost)> = self.types.iter().collect();
@@ -148,6 +175,7 @@ impl Profile {
             "elements": rows,
             "types": types.iter().map(|(kind, cost)| json!({
                 "type": kind, "cpu_ms": ms1(cost.spent), "frames_painted": cost.count,
+                "frames_reused": cost.reused,
             })).collect::<Vec<_>>(),
             "effects": effects.iter().map(|(name, cost)| json!({
                 "effect": name, "cpu_ms": ms1(cost.spent), "applications": cost.count,

@@ -149,6 +149,8 @@ pub use normalize::Normalized;
 mod painters;
 pub(crate) mod profile;
 mod watch;
+#[doc(hidden)]
+pub use crate::verbs::frame::prefix::{ForcedPrefixCache, PREFIX_CACHE_VAR, force_prefix_cache};
 pub use painters::Painting;
 #[doc(hidden)]
 pub use painters::{

@@ -32,12 +32,15 @@
 //! - `internal` and `tool_missing`: failures, which stop the span at the frame they are
 //!   found on.
 //! - `sources` and `fonts`: append-only records of every file used, read per paint chunk below.
+//! - The static prefix: an immutable composite shared across painters (ADR-0195). A hit
+//!   restores identical pixels and prefix-local paint records and source/font provenance.
+//!   A miss paints normally, so chunk scheduling can change counts, never the picture.
 //! - The canvas: cleared to the background at the start of every frame, with every `save`
 //!   in the paint matched by a `restore`, and its only lasting state the surface's scale,
 //!   set the same way when each painter's canvas is made.
 //!
 //! Thread-local switches the painter reads are handed from the calling thread to each
-//! painter's: the feed budget and the filter-layer bound. The feed counts come back.
+//! painter's: the feed budget, filter-layer bound and prefix-cache switch. The feed counts come back.
 //!
 //! ## The report
 //!
@@ -70,7 +73,7 @@ use montagent_render::canvas::{bound_filter_layers, filter_layers_bounded};
 
 use super::{Made, Producer, Span, Stages, Stop};
 use crate::permissive::Loose;
-use crate::verbs::frame::{Feeds, Painter, supply};
+use crate::verbs::frame::{Feeds, Painter, prefix, supply};
 
 /// The cores left to the encoder when K is chosen: libx264 at ADR-0143's 5 threads keeps
 /// about 3.6 cores busy on the trailer (#643), and its `ffmpeg` and the audio mix take the
@@ -312,11 +315,14 @@ pub(super) fn paint(
     let inherited = Inherited {
         feed_budget: supply::budget(),
         bounded: filter_layers_bounded(),
+        prefix_cache: prefix::enabled(),
+        prefix: Default::default(),
     };
 
     let (encoded, painters) = std::thread::scope(|scope| {
         let workers: Vec<_> = (0..painting.painters)
             .map(|_| {
+                let inherited = inherited.clone();
                 let (shared, faults) = (&shared, &faults[..]);
                 scope.spawn(move || work(span, shared, faults, inherited))
             })
@@ -376,10 +382,12 @@ pub(super) fn paint(
 }
 
 /// The calling thread's switches, for each painter's thread.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Inherited {
     feed_budget: u64,
     bounded: bool,
+    prefix_cache: bool,
+    prefix: prefix::Shared,
 }
 
 /// What one painter's thread hands back once it has stopped.
@@ -398,6 +406,7 @@ fn work(
 ) -> Worked {
     let _budget = supply::override_budget(inherited.feed_budget);
     bound_filter_layers(inherited.bounded);
+    let _prefix_cache = prefix::force_prefix_cache(inherited.prefix_cache);
     let (width, height) = span.declared;
     let painting = shared.painting;
 
@@ -424,19 +433,16 @@ fn work(
                         );
                         break 'chunks;
                     };
+                    let mut painter = Painter::for_a_deliverable(
+                        span.document,
+                        span.from,
+                        (width, height),
+                        Box::new(Feeds::new()),
+                    );
+                    painter.prefix = inherited.prefix.clone();
                     producer.insert(
-                        Producer::new(
-                            span.document,
-                            span.fps,
-                            canvas,
-                            Painter::for_a_deliverable(
-                                span.document,
-                                span.from,
-                                (width, height),
-                                Box::new(Feeds::new()),
-                            ),
-                        )
-                        .profiling(span.profile),
+                        Producer::new(span.document, span.fps, canvas, painter)
+                            .profiling(span.profile),
                     )
                 }
             };

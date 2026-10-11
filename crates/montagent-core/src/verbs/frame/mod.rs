@@ -134,6 +134,7 @@ use crate::verbs::query::geometry::{self, Rect};
 mod ink;
 mod keyframes;
 mod label;
+pub(crate) mod prefix;
 mod sheet;
 mod sizing;
 #[doc(hidden)]
@@ -1142,6 +1143,14 @@ pub(crate) struct Painter<'a> {
     /// ADR-0194: what each element and effect cost, where `render` was asked for a
     /// `profile`. `None` everywhere else, and then painting reads nothing extra.
     pub(crate) profile: Option<crate::verbs::render::profile::Profile>,
+    /// ADR-0195: whether a frame's static prefix is composited once and restored. On for the
+    /// painters that paint frames for a file, off for `frame`'s one-off pictures.
+    prefix_cache: bool,
+    /// [`prefix::invariant`] of each element, by position in [`Painter::elements`].
+    invariant: Vec<bool>,
+    /// The last prefix this painter composited. Carried across paint chunks, which changes
+    /// no pixel and no report (`painters.rs`'s module doc).
+    pub(crate) prefix: prefix::Shared,
 }
 
 impl<'a> Painter<'a> {
@@ -1163,7 +1172,9 @@ impl<'a> Painter<'a> {
         frame: (i64, i64),
         supplier: Box<dyn FrameSupplier>,
     ) -> Painter<'a> {
-        Painter::at_class(document, instant, frame, Class::Error, supplier)
+        let mut painter = Painter::at_class(document, instant, frame, Class::Error, supplier);
+        painter.prefix_cache = prefix::enabled();
+        painter
     }
 
     fn at_class(
@@ -1173,12 +1184,17 @@ impl<'a> Painter<'a> {
         class: Class,
         supplier: Box<dyn FrameSupplier>,
     ) -> Painter<'a> {
+        let elements: Vec<(Named, &Value)> = document
+            .elements_in_tracks()
+            .map(|(track, element)| (Named::of(element, track), element))
+            .collect();
         Painter {
             document,
-            elements: document
-                .elements_in_tracks()
-                .map(|(track, element)| (Named::of(element, track), element))
+            invariant: elements
+                .iter()
+                .map(|(_, element)| prefix::invariant(element))
                 .collect(),
+            elements,
             instant,
             t: (i128::from(instant), 1),
             sampling: false,
@@ -1209,6 +1225,8 @@ impl<'a> Painter<'a> {
                 .unwrap_or(1),
             frame_number: None,
             profile: None,
+            prefix_cache: false,
+            prefix: Default::default(),
         }
     }
 
@@ -1278,48 +1296,178 @@ impl<'a> Painter<'a> {
         self.resolve_transitions();
         canvas.background(self.background());
 
-        for present in &view.stack {
-            let name = present
-                .named
-                .id
-                .clone()
-                .unwrap_or_else(|| "(element with no id)".to_string());
-            let Some((key, element)) = self.element_named(&present.named) else {
-                // A caption row with no element behind it means this pass and the view
-                // disagree about the document, which is a bug in Montagent rather than a
-                // fact about the project — but the picture still owes the row an answer.
-                self.contradiction(
-                    &name,
-                    "a name the caption produced and the document does not hold",
-                );
-                continue;
-            };
-            let playhead = Playhead {
-                key,
-                offset: present.source_offset,
-                origin: present.source_origin,
-            };
-            let timing = self.profile.is_some().then(|| {
-                (
-                    std::time::Instant::now(),
-                    self.decoding(),
-                    self.painted.len(),
-                )
-            });
-            self.element(canvas, &name, element, playhead);
-            if let Some((started, decoding, painted)) = timing {
-                // ADR-0194: the time spent waiting on decoded frames is the `decode` stage's,
-                // so it is taken out of the element that waited.
-                let spent = started
-                    .elapsed()
-                    .saturating_sub(self.decoding().saturating_sub(decoding));
-                let drawn = self.painted.len() > painted;
-                let kind = element.get("type").and_then(Value::as_str).unwrap_or("?");
-                if let Some(profile) = self.profile.as_mut() {
-                    profile.element(&name, kind, spent, drawn);
-                    for (effect, spent) in montagent_render::canvas::effect_clock::take() {
-                        profile.effect(effect, spent);
-                    }
+        let split = self.prefix_split(view);
+        if split > 0 {
+            self.paint_prefix(canvas, view, split);
+        }
+        for present in &view.stack[split..] {
+            self.paint_present(canvas, present);
+        }
+    }
+
+    /// How many layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
+    /// hold: the longest run of elements that are invariant over their whole span and that no
+    /// running transition touches this frame. `0` with the cache off.
+    fn prefix_split(&self, view: &At) -> usize {
+        if !self.prefix_cache {
+            return 0;
+        }
+        view.stack
+            .iter()
+            .take_while(|present| {
+                self.element_named(&present.named)
+                    .is_some_and(|(key, element)| {
+                        self.invariant[key]
+                            && self.bridge(element) == crate::transition::Bridge::default()
+                    })
+            })
+            .count()
+    }
+
+    /// The first `split` layers: restored where this painter composited the same prefix on the
+    /// same canvas last, painted (and kept) where it did not.
+    ///
+    /// A restore appends what painting those layers appended, in the same order, so the lists
+    /// of what was painted do not differ with the cache (ADR-0144 §7). A prefix whose painting
+    /// set `internal` or `tool_missing` is not kept: the frame it belongs to ends the span.
+    fn paint_prefix(&mut self, canvas: &mut Canvas, view: &At, split: usize) {
+        let keys: Vec<usize> = view.stack[..split]
+            .iter()
+            .filter_map(|present| self.element_named(&present.named).map(|(key, _)| key))
+            .collect();
+        let key = (keys, canvas.geometry());
+        // The lock only publishes/looks up an immutable composite; painting and copying
+        // pixels happen without holding it. Simultaneous misses may paint twice.
+        let cached = self.prefix.lock().unwrap().clone();
+        if let Some(cached) = cached.filter(|cached| cached.key == key) {
+            canvas.restore(&cached.pixels);
+            let record = cached.record.clone();
+            self.painted.extend(record.painted);
+            self.not_painted.extend(record.not_painted);
+            self.painted_partially.extend(record.painted_partially);
+            self.declined.extend(record.declined);
+            for source in record.sources {
+                if !self.sources.contains(&source) {
+                    self.sources.push(source);
+                }
+            }
+            for font in record.fonts {
+                if !self.fonts.contains(&font) {
+                    self.fonts.push(font);
+                }
+            }
+            if self.profile.is_some() {
+                for present in &view.stack[..split] {
+                    self.profile_reused(&present.named);
+                }
+            }
+            return;
+        }
+        let before = (
+            self.painted.len(),
+            self.not_painted.len(),
+            self.painted_partially.len(),
+            self.declined.len(),
+        );
+        // A shared entry must contain only files this prefix uses, including files this
+        // painter had already opened. Isolate provenance and font registration while
+        // constructing it, then restore the painter's cumulative first-use order.
+        let mut sources = std::mem::take(&mut self.sources);
+        let mut fonts = std::mem::take(&mut self.fonts);
+        let registry = std::mem::replace(&mut self.registry, montagent_text::Fonts::new());
+        for present in &view.stack[..split] {
+            self.paint_present(canvas, present);
+        }
+        let prefix_sources = std::mem::take(&mut self.sources);
+        let prefix_fonts = std::mem::take(&mut self.fonts);
+        self.registry = registry;
+        for source in &prefix_sources {
+            if !sources.contains(source) {
+                sources.push(source.clone());
+            }
+        }
+        for font in &prefix_fonts {
+            if !fonts.contains(font) {
+                fonts.push(font.clone());
+            }
+        }
+        self.sources = sources;
+        self.fonts = fonts;
+        if self.internal.is_some() || self.tool_missing.is_some() {
+            return;
+        }
+        *self.prefix.lock().unwrap() = Some(std::sync::Arc::new(prefix::Cached {
+            key,
+            pixels: canvas.snapshot(),
+            record: prefix::Record {
+                painted: self.painted[before.0..].to_vec(),
+                not_painted: self.not_painted[before.1..].to_vec(),
+                painted_partially: self.painted_partially[before.2..].to_vec(),
+                declined: self.declined[before.3..].to_vec(),
+                sources: prefix_sources,
+                fonts: prefix_fonts,
+            },
+        }));
+    }
+
+    /// ADR-0195: the frame restored this element instead of painting it.
+    fn profile_reused(&mut self, named: &Named) {
+        let name = named
+            .id
+            .clone()
+            .unwrap_or_else(|| "(element with no id)".to_string());
+        let kind = self
+            .element_named(named)
+            .and_then(|(_, element)| element.get("type").and_then(Value::as_str))
+            .unwrap_or("?")
+            .to_string();
+        if let Some(profile) = self.profile.as_mut() {
+            profile.reused(&name, &kind);
+        }
+    }
+
+    /// One layer of the stack, in the caption's order.
+    fn paint_present(&mut self, canvas: &mut Canvas, present: &at::Present) {
+        let name = present
+            .named
+            .id
+            .clone()
+            .unwrap_or_else(|| "(element with no id)".to_string());
+        let Some((key, element)) = self.element_named(&present.named) else {
+            // A caption row with no element behind it means this pass and the view
+            // disagree about the document, which is a bug in Montagent rather than a
+            // fact about the project — but the picture still owes the row an answer.
+            self.contradiction(
+                &name,
+                "a name the caption produced and the document does not hold",
+            );
+            return;
+        };
+        let playhead = Playhead {
+            key,
+            offset: present.source_offset,
+            origin: present.source_origin,
+        };
+        let timing = self.profile.is_some().then(|| {
+            (
+                std::time::Instant::now(),
+                self.decoding(),
+                self.painted.len(),
+            )
+        });
+        self.element(canvas, &name, element, playhead);
+        if let Some((started, decoding, painted)) = timing {
+            // ADR-0194: the time spent waiting on decoded frames is the `decode` stage's,
+            // so it is taken out of the element that waited.
+            let spent = started
+                .elapsed()
+                .saturating_sub(self.decoding().saturating_sub(decoding));
+            let drawn = self.painted.len() > painted;
+            let kind = element.get("type").and_then(Value::as_str).unwrap_or("?");
+            if let Some(profile) = self.profile.as_mut() {
+                profile.element(&name, kind, spent, drawn);
+                for (effect, spent) in montagent_render::canvas::effect_clock::take() {
+                    profile.effect(effect, spent);
                 }
             }
         }
