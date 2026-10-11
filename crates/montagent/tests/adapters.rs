@@ -1283,6 +1283,13 @@ fn cli_render_keeps_a_progress_file_that_ends_done_and_the_result_names_it() {
     assert!(record["started_at"].is_string() && record["updated_at"].is_string());
     assert!(record["pid"].is_number() && record["write_interval_s"].is_number());
     assert!(record.get("eta_s").is_some() && record.get("eta_note").is_some());
+    // ADR-0193: a short run that never slept has a gap near 0 (a few ms of read-order noise).
+    assert!(
+        record["wall_clock_gap_ms"]
+            .as_u64()
+            .is_some_and(|gap| gap < 1000),
+        "{record}"
+    );
     assert_ne!(record["frames_done"], 999);
 
     // The first stderr line names the file, and the result names it too.

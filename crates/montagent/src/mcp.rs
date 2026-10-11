@@ -333,7 +333,8 @@ pub struct RenderParams {
     /// from before the project is opened until the render ends. It works with or without a
     /// progress token. Holds `state` (running, done, failed, cancelled), `phase` (preparing,
     /// rendering, finishing), `frames_done`, `frames_total`, `eta_s` or `eta_note`,
-    /// `timeline_ms`, `started_at`, `updated_at`, `write_interval_s`. A `running` file whose
+    /// `timeline_ms`, `started_at`, `updated_at`, `write_interval_s`, `wall_clock_gap_ms` (wall clock
+    /// the run's own elapsed time missed: a large value means the machine slept; it is not a liveness signal). A `running` file whose
     /// `updated_at` is unchanged across polls spanning max(3 x write_interval_s, 10 s) means
     /// the render died. A relative path is relative to the project file's folder. Use a fresh
     /// path per run.

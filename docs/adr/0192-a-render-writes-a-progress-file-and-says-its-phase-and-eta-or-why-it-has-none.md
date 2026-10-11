@@ -5,6 +5,10 @@ amends: 0011 (*"Progress on stderr, coarse"* no longer holds: stderr also prints
 
 # A render writes a progress file, and says its phase and its ETA, or why it has none
 
+> **Amended by [ADR-0193](0193-the-progress-file-says-how-much-wall-clock-its-elapsed-time-missed.md).**
+> §3's table gains `wall_clock_gap_ms`, the wall-clock span the monotonic `elapsed_s` missed
+> (a machine that slept). Nothing else here changes.
+
 [#872](https://github.com/MBehtemam/Montagent/issues/872). An agent ran a 30-minute,
 13,767-frame `render` and could not tell, by itself, what was in progress. It saw about ten
 `render N/TOTAL frames SECONDS s` lines and a summary at the end. It tailed a log, watched the
