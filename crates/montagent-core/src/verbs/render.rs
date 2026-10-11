@@ -147,6 +147,7 @@ pub use master::Applied;
 pub(crate) mod normalize;
 pub use normalize::Normalized;
 mod painters;
+pub(crate) mod profile;
 mod watch;
 pub use painters::Painting;
 #[doc(hidden)]
@@ -214,6 +215,9 @@ pub struct Ask {
     /// an MCP caller cannot know. Rewritten about once a second, from before the project is
     /// opened until the run ends, so a caller that cannot hold the call open can poll it.
     pub progress_file: Option<PathBuf>,
+    /// ADR-0194: add a `profile` block to the answer's `render`, saying where the painters'
+    /// CPU went. Timed, so never speed-gated; it changes no byte of the file.
+    pub profile: bool,
 }
 
 /// One progress step, handed to the caller as frames are encoded.
@@ -397,6 +401,10 @@ pub struct Video {
     /// how far painting could lead the encoder (#653). Disclosed like `threads`, and like it
     /// not choosable; and like it, it changes no byte of the file.
     pub painting: painters::Painting,
+    /// ADR-0194: where the painters' CPU went, by element, element type and effect, with the
+    /// stage split it is measured against. Present only where the request asked for it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<Value>,
     /// ADR-0172: `measured_lufs` and `applied_gain_db`, whenever `master` sets `target_lufs`.
     /// The gain is in no file, so this is where it stays visible. Absent otherwise.
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
@@ -708,6 +716,7 @@ fn run(
         master,
         normalized: &normalized,
         watch: Some(watch),
+        profile: ask.profile,
     };
     // What the core reports is read once more by the watch, so the line, the stream and the
     // file all come from one place.
@@ -846,6 +855,9 @@ pub(crate) struct Span<'a> {
     /// ADR-0192: the run's own counters, told after every frame. `None` for `preview`, which
     /// keeps no progress file and has no ticker.
     pub watch: Option<&'a Watch>,
+    /// ADR-0194: whether the painters time their elements and effects. `false` for
+    /// `preview`.
+    pub profile: bool,
 }
 
 impl Span<'_> {
@@ -952,6 +964,7 @@ pub(crate) struct Painted {
     sources: Vec<String>,
     fonts: Vec<String>,
     painting: painters::Painting,
+    profile: Option<Value>,
 }
 
 impl Painted {
@@ -1005,6 +1018,7 @@ impl Painted {
             sources: self.sources,
             fonts: self.fonts,
             painting: self.painting,
+            profile: self.profile,
             master: span.master.applied(),
             normalized: span.normalized.applied(),
         })
@@ -1116,7 +1130,8 @@ pub(crate) fn encode_span(
                     (width, height),
                     Box::new(Feeds::new()),
                 ),
-            );
+            )
+            .profiling(span.profile);
             encode_frames(
                 span,
                 &mut encoder,
@@ -1148,6 +1163,10 @@ pub(crate) fn encode_span(
     let sealed = encoder.seal();
     stages.seal = sealing.elapsed();
     report_stages(&stages, span.frames, painting);
+    let profile = stages
+        .profile
+        .as_ref()
+        .map(|profile| profile.to_json(&stages));
     let sealed = match sealed {
         Ok(sealed) => sealed,
         Err(reason) => {
@@ -1197,6 +1216,7 @@ pub(crate) fn encode_span(
         sources: made.sources,
         fonts: made.fonts,
         painting,
+        profile,
     })
 }
 
@@ -1381,6 +1401,14 @@ impl<'a> Producer<'a> {
     }
 
     /// Frame `n`, painted and read back as the encoder's RGB.
+    /// Time this producer's elements and effects, where `on`.
+    pub(crate) fn profiling(mut self, on: bool) -> Self {
+        if on {
+            self.painter.profile = Some(profile::Profile::default());
+        }
+        self
+    }
+
     pub(crate) fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
         let instant = instant_of(n, self.fps);
         let view = at::presence(self.document, instant);
@@ -1432,6 +1460,7 @@ impl<'a> Producer<'a> {
             decode,
             paint: self.paint.saturating_sub(decode),
             readback: self.readback,
+            profile: self.painter.profile.clone(),
             ..Stages::default()
         }
     }
@@ -1646,6 +1675,8 @@ pub(crate) struct Stages {
     paint_wait: Duration,
     encode_wait: Duration,
     seal: Duration,
+    /// ADR-0194: the elements' and effects' share of `paint`, where the request asked.
+    profile: Option<profile::Profile>,
 }
 
 impl Stages {
@@ -1656,6 +1687,11 @@ impl Stages {
         self.paint_wait += other.paint_wait;
         self.encode_wait += other.encode_wait;
         self.seal += other.seal;
+        if let Some(other) = &other.profile {
+            self.profile
+                .get_or_insert_with(Default::default)
+                .merge(other);
+        }
     }
 }
 
@@ -2584,7 +2620,8 @@ mod tests {
                 to: Some(2000),
                 output: None,
                 no_clobber: false,
-                progress_file: None
+                progress_file: None,
+                profile: false
             }),
             Ok(Some((1000, 2000)))
         );
@@ -2600,7 +2637,8 @@ mod tests {
                     to,
                     output: None,
                     no_clobber: false,
-                    progress_file: None
+                    progress_file: None,
+                    profile: false
                 })
                 .is_err(),
                 "{from:?}..{to:?}"

@@ -453,6 +453,60 @@ pub struct UnitDraw {
     pub opacity: f32,
 }
 
+/// Where a thread's effects spent their time, for `render`'s `profile` (#931).
+///
+/// Skia filters a layer when it is restored into its parent, so the time one effect costs is
+/// the time its own layer takes to unwind: the filter, a `grain`'s pass or a `mask`'s eraser.
+/// Off by default, and then the cost is one thread-local read per effect. Per thread, like
+/// [`bound_filter_layers`], so each painter's thread is told on its own.
+pub mod effect_clock {
+    use std::cell::{Cell, RefCell};
+    use std::time::Duration;
+
+    thread_local! {
+        static ON: Cell<bool> = const { Cell::new(false) };
+        static SPENT: RefCell<Vec<(&'static str, Duration)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    /// Time this thread's effects from now on (`true`), or stop (`false`).
+    pub fn set_enabled(on: bool) {
+        ON.with(|enabled| enabled.set(on));
+    }
+
+    pub(super) fn enabled() -> bool {
+        ON.with(Cell::get)
+    }
+
+    pub(super) fn record(name: &'static str, spent: Duration) {
+        SPENT.with(|spent_by| spent_by.borrow_mut().push((name, spent)));
+    }
+
+    /// What this thread's effects spent since the last call, by the effect's `name`.
+    pub fn take() -> Vec<(&'static str, Duration)> {
+        SPENT.with(|spent| std::mem::take(&mut *spent.borrow_mut()))
+    }
+}
+
+impl Effect {
+    /// The member's `name` in the project file.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Effect::Blur { .. } => "blur",
+            Effect::Shadow { .. } => "shadow",
+            Effect::Mask { .. } => "mask",
+            Effect::Tint { .. } => "tint",
+            Effect::Saturation { .. } => "saturation",
+            Effect::Brightness { .. } => "brightness",
+            Effect::Contrast { .. } => "contrast",
+            Effect::Chroma { .. } => "chroma",
+            Effect::Grain { .. } => "grain",
+            Effect::Posterize { .. } => "posterize",
+            Effect::Glow { .. } => "glow",
+            Effect::DirectionalBlur { .. } => "directional_blur",
+        }
+    }
+}
+
 /// One member of the closed `effects` vocabulary, already parsed.
 ///
 /// The rasterizer's own spelling of what `montagent-core`'s model reads, for the same
@@ -1922,6 +1976,7 @@ impl Canvas {
         }
         draw(canvas);
         for (effect, grain) in effects.iter().zip(&grains) {
+            let timing = effect_clock::enabled().then(std::time::Instant::now);
             if let Some(grain) = grain {
                 grain.apply(canvas);
             }
@@ -1936,6 +1991,9 @@ impl Canvas {
                 shape.erase(canvas, extent, *rect, *radius, *invert, *feather);
             }
             canvas.restore();
+            if let Some(timing) = timing {
+                effect_clock::record(effect.name(), timing.elapsed());
+            }
         }
     }
 

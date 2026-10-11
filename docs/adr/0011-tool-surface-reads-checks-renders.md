@@ -13,7 +13,7 @@ status: accepted
 > (*"a CLI subcommand costs nothing until invoked"*). It reads no project and makes no claim
 > about one, so the nine-verb surface below is unchanged and no MCP schema slot is spent.
 
-> **Amended by thirty-seven later ADRs.** Read them before relying on anything below.
+> **Amended by thirty-eight later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0012](0012-flat-transform-keyframes-carried-by-their-element.md) — the crop
 >   rectangle becomes computable, and `shift` is unblocked
@@ -165,6 +165,9 @@ status: accepted
 >   **stderr progress is no longer only coarse**: a line at least every ~5 s, each naming its phase and an
 >   ETA labelled an estimate (or why there is none), and `render` gains an optional `progress_file`; the
 >   nine MCP verbs are unchanged
+> - [ADR-0194](0194-render-profile-says-where-the-painters-cpu-went-by-element-type-and-effect.md) —
+>   `render` gains an optional `profile` (CLI `--profile`, MCP parameter) and its answer an optional
+>   `render.profile` block: CPU ms per element, type and effect, and the stage split; no tenth verb
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

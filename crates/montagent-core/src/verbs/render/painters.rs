@@ -424,17 +424,20 @@ fn work(
                         );
                         break 'chunks;
                     };
-                    producer.insert(Producer::new(
-                        span.document,
-                        span.fps,
-                        canvas,
-                        Painter::for_a_deliverable(
+                    producer.insert(
+                        Producer::new(
                             span.document,
-                            span.from,
-                            (width, height),
-                            Box::new(Feeds::new()),
-                        ),
-                    ))
+                            span.fps,
+                            canvas,
+                            Painter::for_a_deliverable(
+                                span.document,
+                                span.from,
+                                (width, height),
+                                Box::new(Feeds::new()),
+                            ),
+                        )
+                        .profiling(span.profile),
+                    )
                 }
             };
             let mark = producer.mark();

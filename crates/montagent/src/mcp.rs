@@ -340,6 +340,12 @@ pub struct RenderParams {
     /// path per run.
     #[serde(default)]
     pub progress_file: Option<String>,
+    /// Add `render.profile` to the answer: CPU milliseconds per element id, element type and
+    /// effect, plus the stage split (decode, paint, encode wait), summed across painters.
+    /// Timing slows the render, so it is never a speed measurement; the file's bytes are
+    /// the same. Meant for a slice: pair it with `from`/`to`.
+    #[serde(default)]
+    pub profile: bool,
     /// Return the canonical JSON *instead of* the text result, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -716,6 +722,7 @@ impl Montagent {
                         // flag exists for is a batch script. The MCP caller still gets the whole
                         // default rule: a foreign deliverable is refused, an unattested one reviewed.
                         no_clobber: false,
+                        profile: params.profile,
                     },
                     &mut progress,
                     // ADR-0109: stop before the next frame and publish nothing once the
