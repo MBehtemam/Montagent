@@ -36,8 +36,11 @@ const MAX_BYTES: u64 = 32 * 1024 * 1024;
 fn failure(code: &'static str, detail: impl ToString) -> Failure {
     (code, detail.to_string())
 }
+fn execution() -> Value {
+    json!({"scope":"local","working_directory":std::env::current_dir().ok().map(|path|path.display().to_string())})
+}
 fn outcome(error: Failure) -> Value {
-    json!({"status":"failed","execution":{"scope":"local"},"files":[],"receipt":null,
+    json!({"status":"failed","execution":execution(),"files":[],"receipt":null,
         "findings":[{"code":error.0,"detail":error.1}],"next_step":"Correct the reported input or explicitly acquire native font files externally, then retry."})
 }
 pub fn acquire(ask: &Acquire) -> Value {
@@ -64,6 +67,8 @@ fn public_address(ip: std::net::IpAddr) -> bool {
                 && o[0] < 224
                 && !(o[0] == 100 && (64..=127).contains(&o[1]))
                 && !(o[0] == 198 && (o[1] == 18 || o[1] == 19))
+                && !(o[0] == 192 && o[1] == 0 && o[2] == 0)
+                && !(o[0] == 192 && o[1] == 88 && o[2] == 99)
         }
         std::net::IpAddr::V6(v) => {
             if let Some(v4) = v.to_ipv4_mapped() {
@@ -277,7 +282,7 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
             }
             if suitable.len() != 1 {
                 return Ok(
-                    json!({"status":"selection_required","execution":{"scope":"local"},"files":[],"receipt":null,"candidates":candidates,"findings":[{"code":if suitable.is_empty(){"unsupported_selection"}else{"ambiguous_selection"}}],"next_step":"Select an exact suitable repository file and retry; exact weight/style requires static bytes."}),
+                    json!({"status":"selection_required","execution":execution(),"files":[],"receipt":null,"candidates":candidates,"findings":[{"code":if suitable.is_empty(){"unsupported_selection"}else{"ambiguous_selection"}}],"next_step":"Select an exact suitable repository file and retry; exact weight/style requires static bytes."}),
                 );
             }
             let (path, url, data, final_url) = suitable.remove(0);
@@ -336,7 +341,7 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
         || ask.face_index.is_some_and(|i| i as usize >= faces.len())
     {
         return Ok(
-            json!({"status":"selection_required","execution":{"scope":"local"},"files":[],"receipt":null,
+            json!({"status":"selection_required","execution":execution(),"files":[],"receipt":null,
             "candidates":faces,"findings":[{"code":if ask.face_index.is_none(){"required_face"}else{"invalid_face"}}],"next_step":"Select an explicit valid face_index and retry."}),
         );
     }
@@ -404,7 +409,7 @@ fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
     files.push(("receipt.json".into(), receipt_bytes.clone()));
     publish(&ask.destination, &files)?;
     Ok(
-        json!({"status":"acquired","execution":{"scope":"local"},"files":[{"path":ask.destination.join(&name),"sha256":hash,"faces":faces}],
+        json!({"status":"acquired","execution":execution(),"files":[{"path":ask.destination.join(&name),"sha256":hash,"faces":faces}],
         "receipt":{"path":ask.destination.join("receipt.json"),"sha256":crate::fonts::sha256_hex(&receipt_bytes)},
         "findings":std::mem::take(&mut findings),"next_step":"Invoke fonts vendor with the font path and receipt; acquisition does not grant redistribution permission."}),
     )
@@ -646,6 +651,10 @@ mod tests {
             &|url| Ok((bytes.clone(), url.into())),
         );
         assert_eq!(out["status"], "acquired");
+        assert_eq!(
+            out["execution"]["working_directory"],
+            std::env::current_dir().unwrap().display().to_string()
+        );
         assert_eq!(std::fs::read(destination.join("font.ttf")).unwrap(), bytes);
         let receipt: Value =
             serde_json::from_slice(&std::fs::read(destination.join("receipt.json")).unwrap())
@@ -703,6 +712,26 @@ mod tests {
                 assert_eq!(result["findings"][0]["code"], "unsupported_selection");
                 assert!(!destination.exists());
             }
+        }
+    }
+    #[test]
+    fn special_purpose_ipv4_urls_are_denied_before_fetch_and_publication() {
+        for host in ["192.0.0.1", "192.88.99.2"] {
+            let destination = std::env::temp_dir()
+                .join(format!("montagent-reserved-{}-{host}", std::process::id()));
+            let out = acquire(&Acquire {
+                source: Source::Url {
+                    url: format!("https://{host}/font.ttf"),
+                    family: None,
+                    weight: None,
+                    style: None,
+                },
+                destination: destination.clone(),
+                face_index: None,
+                expected_sha256: None,
+            });
+            assert_eq!(out["findings"][0]["code"], "network_denied", "{out}");
+            assert!(!destination.exists());
         }
     }
 }
