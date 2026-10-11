@@ -1768,6 +1768,38 @@ fn mcp_does_not_advertise_timeline() {
 }
 
 #[test]
+fn font_acquisition_refusals_have_cli_mcp_parity_without_writing_a_bundle() {
+    let destination = scratch_dir("acquisition-parity").join("bundle");
+    let out = montagent(&[
+        "fonts",
+        "acquire",
+        destination.to_str().unwrap(),
+        "--url",
+        "file:///font.ttf",
+        "--json",
+    ]);
+    assert_eq!(out.code, Some(2), "{}{}", out.stdout, out.stderr);
+    let cli: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({"name":"fonts_acquire", "arguments": {"source":{"kind":"url","url":"file:///font.ttf"},"destination": destination}}),
+        ),
+    ]);
+    assert_eq!(session[&2]["result"]["isError"], true);
+    let body = session[&2]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap();
+    let mcp: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(cli, mcp);
+    assert_eq!(mcp["status"], "failed");
+    assert!(!destination.exists());
+}
+
+#[test]
 fn mcp_fonts_list_matches_cli_json_and_acquire_schema_has_no_byte_payload() {
     let dir = scratch_dir("fonts-parity");
     let cli = montagent(&["fonts", "list", "--root", dir.to_str().unwrap(), "--json"]);
