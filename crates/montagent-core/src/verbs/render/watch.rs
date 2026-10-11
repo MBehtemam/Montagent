@@ -204,6 +204,7 @@ pub fn opening_line(tool: &str, progress_file: Option<&Path>, flag: &str) -> Str
 pub(crate) struct Watch {
     file: Option<PathBuf>,
     started: Instant,
+    started_wall: SystemTime,
     started_at: String,
     phase: AtomicU8,
     done: AtomicU64,
@@ -224,6 +225,7 @@ impl Watch {
         Watch {
             file,
             started: now,
+            started_wall: SystemTime::now(),
             started_at: rfc3339(SystemTime::now()),
             phase: AtomicU8::new(Phase::Preparing.code()),
             done: AtomicU64::new(0),
@@ -381,14 +383,19 @@ impl Watch {
     fn record(&self, state: State) -> Value {
         let p = self.snapshot();
         let planned = self.fps.load(Ordering::Relaxed) > 0;
+        let now = SystemTime::now();
         json!({
             "state": state.word(),
             "phase": p.phase.word(),
             "started_at": self.started_at,
-            "updated_at": rfc3339(SystemTime::now()),
+            "updated_at": rfc3339(now),
             "write_interval_s": write_interval().as_secs_f64(),
             "pid": std::process::id(),
             "elapsed_s": (p.elapsed.as_secs_f64() * 10.0).round() / 10.0,
+            "wall_clock_gap_ms": wall_clock_gap_ms(
+                now.duration_since(self.started_wall).unwrap_or_default(),
+                p.elapsed,
+            ),
             "frames_done": p.done,
             "frames_total": (p.of > 0).then_some(p.of),
             // Frames drawn per second over the recent window, not the project's frame rate.
@@ -507,6 +514,13 @@ fn write_atomic(path: &Path, value: &Value) -> std::io::Result<()> {
     })
 }
 
+/// How much wall clock passed that `elapsed_s` did not count (ADR-0193): the span from
+/// `started_at` to `updated_at`, minus the monotonic elapsed time, which stops while the
+/// machine sleeps. Whole milliseconds, never negative.
+fn wall_clock_gap_ms(wall: Duration, elapsed: Duration) -> u64 {
+    wall.saturating_sub(elapsed).as_millis() as u64
+}
+
 /// `YYYY-MM-DDTHH:MM:SS.mmmZ`, in UTC.
 fn rfc3339(at: SystemTime) -> String {
     let since = at.duration_since(UNIX_EPOCH).unwrap_or_default();
@@ -542,6 +556,35 @@ mod tests {
         // A leap day, which the civil-date arithmetic has to get right.
         let leap = UNIX_EPOCH + Duration::from_secs(1_709_164_800);
         assert_eq!(rfc3339(leap), "2024-02-29T00:00:00.000Z");
+    }
+
+    #[test]
+    fn the_gap_is_the_wall_clock_span_the_monotonic_elapsed_time_did_not_count() {
+        // Nine hours of wall clock against 1,250 s of elapsed time: the reported sleep.
+        let gap = wall_clock_gap_ms(Duration::from_secs(9 * 3600), Duration::from_secs(1250));
+        assert_eq!(gap, (9 * 3600 - 1250) * 1000);
+        // No sleep: the two agree, and a reading that puts elapsed a hair ahead is 0, not wrapped.
+        assert_eq!(
+            wall_clock_gap_ms(Duration::from_secs(5), Duration::from_secs(5)),
+            0
+        );
+        assert_eq!(
+            wall_clock_gap_ms(Duration::from_millis(4_999), Duration::from_secs(5)),
+            0
+        );
+    }
+
+    #[test]
+    fn a_running_record_carries_a_small_gap_when_nothing_slept() {
+        let watch = Watch::new(None);
+        std::thread::sleep(Duration::from_millis(30));
+        let gap = watch.record(State::Running)["wall_clock_gap_ms"]
+            .as_u64()
+            .expect("the field is always present, a number");
+        assert!(
+            gap < 25,
+            "a run that never slept reported a gap of {gap} ms"
+        );
     }
 
     #[test]
