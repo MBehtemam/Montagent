@@ -362,6 +362,9 @@ jobs:
       - name: The pre-render skill's SVG route still rebuilds, and still fails on a missing font
         run: python3 -m unittest ci/test_prerender_still.py
 
+      - name: The ink-on-paper stabilization recipe bakes lossless footage and verifies rebuilds
+        run: python3 -m unittest ci/test_stabilize.py
+
       - name: The pre-render skill's Lottie route still rebuilds, refuses what a player skips, and draws one fresh player per frame
         run: |
           python3 -m pip install thorvg-python==1.1.3
