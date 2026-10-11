@@ -21,9 +21,9 @@ meant. [ADR-0192](0192-a-render-writes-a-progress-file-and-says-its-phase-and-et
 
 | field | meaning |
 | --- | --- |
-| `wall_clock_gap_ms` | `(updated_at − started_at) − elapsed_s`, in whole milliseconds, never negative |
+| `wall_clock_gap_ms` | about `(updated_at − started_at) − elapsed_s`, in whole milliseconds, never negative |
 
-It is derived from the two clocks the file already carries, at the moment of the write. It
+"About": it is read from the same two clocks at the moment of the write, unrounded, so a reader's own subtraction of the file's rounded `elapsed_s` and millisecond timestamps can differ by up to ~50 ms. A wall clock stepped backwards (NTP, a manual change) reads 0, and one stepped forwards reads as a gap: the field says the two clocks disagree, which is all it can know. It is derived from the two clocks the file already carries, at the moment of the write. It
 needs no signal handling, no sleep notification and no new thread. `0` (or a few ms of
 read-order noise) means the run's elapsed time covers its wall-clock span. A large value means
 the wall clock moved on while the run's own clock did not: the machine slept. The ETA is not
@@ -50,6 +50,7 @@ rate, and the file is not asked to guess when the run would have finished.
   *the machine slept and woke*; staleness says *nothing is writing*. A reader that sees a large
   gap on a `running` file whose `updated_at` is changing knows the run survived a sleep and is
   alive. A reader that sees a large gap on a file whose `updated_at` is frozen still applies §5.
+- #921 asked for a test that suspends the process with `SIGSTOP`/`SIGCONT`. That test is not written, on purpose: under `SIGSTOP` both clocks advance, so it could only assert a gap of 0, and the premise that the gap "says it after resume" holds for a system sleep, not for `SIGSTOP`.
 - Tested by the pure function with injected clocks, since a test cannot put the machine to
   sleep, and by a real run's record carrying a small gap.
 - `--progress-file`, the MCP `render` description and `SKILL.md` list the field.

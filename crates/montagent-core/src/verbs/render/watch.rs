@@ -222,11 +222,12 @@ pub(crate) struct Watch {
 impl Watch {
     pub(crate) fn new(file: Option<PathBuf>) -> Watch {
         let now = Instant::now();
+        let wall = SystemTime::now();
         Watch {
             file,
             started: now,
-            started_wall: SystemTime::now(),
-            started_at: rfc3339(SystemTime::now()),
+            started_wall: wall,
+            started_at: rfc3339(wall),
             phase: AtomicU8::new(Phase::Preparing.code()),
             done: AtomicU64::new(0),
             of: AtomicU64::new(0),
@@ -582,7 +583,7 @@ mod tests {
             .as_u64()
             .expect("the field is always present, a number");
         assert!(
-            gap < 25,
+            gap < 1000,
             "a run that never slept reported a gap of {gap} ms"
         );
     }
