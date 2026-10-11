@@ -27,7 +27,7 @@ pub fn confined(base: &Path, file: &str) -> Result<PathBuf, String> {
     let root = base.canonicalize().map_err(|e| e.to_string())?;
     let target = root.join(relative);
     let mut existing = target.as_path();
-    while !existing.exists() {
+    while std::fs::symlink_metadata(existing).is_err() {
         existing = existing.parent().ok_or("invalid destination")?;
     }
     if !existing
