@@ -1,11 +1,11 @@
 ---
 name: montagent-prerender
-description: "Bring a look drawn in code, or a Lottie animation, into a Montagent video as lossless footage with alpha, or a vector drawing (an SVG still) in as one PNG image, each with a recipe that rebuilds it. Load when the look is not an `effects` member (distortions, mosaic, lens flare, a particle or shader piece), when the brief asks for generative or code-drawn visuals, or when you are handed an SVG or a Lottie file."
+description: "Bring code-drawn visuals, Lottie animation, or stabilized source video into Montagent as lossless footage, or an SVG still as one PNG, each with a rebuild recipe. Load for a look outside the effects list, generative visuals, SVG or Lottie input, or source-video stabilization, reference-frame locking, ping-pong and slow-down."
 ---
 
-# Pre-render: a code-drawn piece or a Lottie as footage, an SVG as one image
+# Pre-render: generated visuals and stabilized footage
 
-Three routes, one set of [common rules](#common-rules). A **code-drawn piece** becomes footage, placed as a `video`: read it first. An **SVG still** becomes one PNG, placed as an `image`: jump to [the SVG route](#the-svg-route). A **Lottie animation** becomes footage too, drawn one fresh player per frame: jump to [the Lottie route](#the-lottie-route). All are drawn once, outside the render, so every painter decodes the same pixels.
+Four routes, one set of [common rules](#common-rules). A **code-drawn piece** becomes footage, placed as a `video`: read it first. An **SVG still** becomes one PNG, placed as an `image`: jump to [the SVG route](#the-svg-route). A **Lottie animation** becomes footage too, drawn one fresh player per frame: jump to [the Lottie route](#the-lottie-route). **Source-video stabilization** bakes a new clip: jump to [the stabilize route](#the-stabilize-route). All run outside the render, so every painter decodes the same pixels.
 
 Montagent has no shader or script file ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md)). A look outside the `effects` list is drawn in your own code, encoded once as footage, and placed as an ordinary `video`. The format, the schema and the painter stay as they are ([ADR-0156](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md) §7).
 
@@ -21,7 +21,7 @@ A pre-rendered piece is fixed footage. Its size, fps and length are set when you
 
 ## Common rules
 
-Both routes read these. They are written once.
+Every route reads these. They are written once.
 
 - **Size.** Rasterise or draw at the largest size the piece is ever shown, after `fit`, `scale` and any keyed zoom, as a literal pixel `width` and `height`. Never derive it from an SVG's `viewBox`: a `viewBox` sets the drawing's proportions, not its pixels, and the tools disagree on a file with none. Write the size in the recipe. A later zoom past it resamples a raster, so re-run the recipe larger instead of scaling up. <!-- guard-ok: viewBox -->
 - **Text.** Vendored fonts only, or text converted to outlines. Never a system font: a machine without it draws something else. A font that cannot be found is a build failure, not a dropped span. `usvg`, for one, logs the miss and skips the text, so `build` reads the SVG's `font-family` values against the font files you list in `fonts`, and fails on the rasteriser's own font warning too. <!-- guard-ok: build usvg fonts font-family viewBox -->
@@ -125,9 +125,15 @@ The footage is an ordinary `video`, placed at its own size with `fit` of `contai
 
 Run `validate`. Key `opacity`, `scale` and `position`, add `effects`, lay it on a track like any clip. Do not retime or restyle the animation inside the project: change the Lottie or the spec and run `build` again. <!-- guard-ok: position build -->
 
+## The stabilize route
+
+Reach for this route when a source video needs stabilization, a lock to a reference frame, or baked ping-pong and slow-down. Bake a **new lossless clip**, then place it as an ordinary `video` under the common rules. [US-10's resolution](https://github.com/MBehtemam/Montagent/issues/920#issuecomment-6109518213) keeps this work in the skill under ADR-0156 §7 / ADR-0171: no format change or ADR, and no `stabilize` effect. For a very short clip, literal keyframes for `scale` and `source_time` are an alternative; paper fill needs new pixels and belongs in the bake. <!-- guard-ok: stabilize source_time -->
+
+Read [the stabilize recipe](references/stabilize.md) for this branch. It includes [a narrow reference script](references/stabilize.py) for opaque ink on light, uniform paper: measure ink centroid and spread per frame, fit a cubic, re-place with subpixel transforms, fill with paper colour or replicated edges, and encode lossless. The script is **non-normative**: the acceptance check decides whether the bake is usable. Use another external tracker for footage outside that scope.
+
 ## The codec
 
-Footage (the code-drawn and Lottie routes) is **PNG in a MOV**, `-c:v png -pix_fmt rgba`, and `build` writes exactly that. It is the codec checked to return every byte of RGBA, alpha included, through Montagent's decoder. Keep `-pix_fmt rgba` explicit: left to itself, ffmpeg can pick `rgb24` and drop the alpha. <!-- guard-ok: build rgb24 -->
+Footage (the code-drawn, Lottie and stabilize routes) is **PNG in a MOV**, `-c:v png -pix_fmt rgba`, and `build` writes exactly that. It is the codec checked to return every byte of RGBA, alpha included, through Montagent's decoder. Keep `-pix_fmt rgba` explicit: left to itself, ffmpeg can pick `rgb24` and drop the alpha. <!-- guard-ok: build rgb24 -->
 
 Any `yuva` pixel format is not exact from RGBA: FFV1 `yuva444p` and VP9 lossless both change pixels, and ProRes 4444 is lossy. A lossy or `yuva` encode makes the recipe's hashes meaningless, so do not swap one in. FFV1 with `bgra` also round-trips and is smaller on noisy frames, but this skill uses PNG. <!-- guard-ok: yuva yuva444p rgb24 bgra -->
 
