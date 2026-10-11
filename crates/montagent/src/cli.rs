@@ -1199,7 +1199,7 @@ where
                         "{}",
                         serde_json::to_string_pretty(&answer).expect("JSON value")
                     );
-                    if answer["status"] == "success" {
+                    if answer["status"] == "acquired" {
                         ExitCode::SUCCESS
                     } else {
                         ExitCode::from(2)

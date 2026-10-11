@@ -465,7 +465,7 @@ impl Montagent {
                 let content = vec![ContentBlock::text(
                     serde_json::to_string_pretty(&answer).expect("JSON value"),
                 )];
-                if answer["status"] == "success" || answer["status"] == "selection_required" {
+                if answer["status"] == "acquired" || answer["status"] == "selection_required" {
                     CallToolResult::success(content)
                 } else {
                     CallToolResult::error(content)
