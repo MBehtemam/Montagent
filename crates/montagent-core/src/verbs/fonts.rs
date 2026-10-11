@@ -423,23 +423,21 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
         None
     };
     if let Some(prepared) = &evidence {
-        if let Some(index) = prepared.face_index {
-            if !faces.iter().any(|f| f.index == index)
-                || ask.face_index.is_some_and(|asked| asked != index)
-            {
-                return refused(evidence_refusal(
-                    project,
-                    document.path(),
-                    "receipt Face does not match selected Face".into(),
-                ));
-            }
+        if let Some(index) = prepared.face_index
+            && (!faces.iter().any(|f| f.index == index)
+                || ask.face_index.is_some_and(|asked| asked != index))
+        {
+            return refused(evidence_refusal(
+                project,
+                document.path(),
+                "receipt Face does not match selected Face".into(),
+            ));
         }
-        if prepared.resolved_licence.is_none()
-            && ask
-                .licence
-                .as_ref()
-                .zip(prepared.recognised.as_ref())
-                .is_some_and(|(a, b)| a != b)
+        if matches!(bucket, Bucket::Unknown)
+            && prepared.resolved_licence.is_none()
+            && ask.licence.as_ref().is_some_and(|a| {
+                !prepared.alternatives.is_empty() && !prepared.alternatives.contains(a)
+            })
         {
             return refused(evidence_refusal(
                 project,
@@ -447,14 +445,7 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
                 "caller declaration contradicts recognized external licence".into(),
             ));
         }
-        let embedded = match &bucket {
-            Bucket::Recognised { identifier } => Some(*identifier),
-            _ => None,
-        };
-        let conflicting = prepared.conflict
-            || embedded
-                .zip(prepared.recognised.as_deref())
-                .is_some_and(|(a, b)| a != b);
+        let conflicting = prepared.conflict;
         if conflicting && prepared.resolved_licence.is_none() {
             return refused(evidence_refusal(
                 project,

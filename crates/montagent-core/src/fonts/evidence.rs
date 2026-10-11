@@ -9,6 +9,7 @@ pub struct Prepared {
     pub writes: Vec<(String, Vec<u8>)>,
     pub reference: FontEvidence,
     pub recognised: Option<String>,
+    pub alternatives: Vec<String>,
     pub conflict: bool,
     pub resolved_licence: Option<String>,
 }
@@ -75,6 +76,12 @@ pub fn prepare(
     if receipt["schema_version"] != 1 {
         return Err("unsupported receipt schema".into());
     }
+    #[derive(serde::Deserialize)]
+    struct SelectedFont {
+        face_index: u32,
+    }
+    let selected: SelectedFont = serde_json::from_value(receipt["font"].clone())
+        .map_err(|e| format!("invalid receipt selected Face: {e}"))?;
     let hash = sha256_hex(font);
     let base = receipt_path.parent().unwrap_or(Path::new("."));
     if receipt["font"]["sha256"] != hash || checked(base, &receipt["font"])? != font {
@@ -98,8 +105,8 @@ pub fn prepare(
                 "https://raw.githubusercontent.com/google/fonts/{commit}/{repository_font}"
             )
         });
-    let mut found = None;
-    let mut conflict = receipt["licence_findings"].as_array().is_some_and(|fs| {
+    let mut alternatives = Vec::new();
+    let conflict = receipt["licence_findings"].as_array().is_some_and(|fs| {
         fs.iter().any(|f| {
             f["code"]
                 .as_str()
@@ -121,11 +128,11 @@ pub fn prepare(
                 && family(repo) == family(repository_font)
                 && material["source_url"]
                     == format!("https://raw.githubusercontent.com/google/fonts/{commit}/{repo}");
-            if associated && let Some(identifier) = recognised(&String::from_utf8_lossy(&bytes)) {
-                if found.as_ref().is_some_and(|f| f != &identifier) {
-                    conflict = true;
-                }
-                found = Some(identifier);
+            if associated
+                && let Some(identifier) = recognised(&String::from_utf8_lossy(&bytes))
+                && !alternatives.contains(&identifier)
+            {
+                alternatives.push(identifier);
             }
         }
         writes.push((format!("{directory}/{file}"), bytes));
@@ -160,12 +167,26 @@ pub fn prepare(
                 return Err("resolution references unverified evidence".into());
             }
         }
-        if materials.iter().any(|m| {
+        let findings = receipt["licence_findings"].as_array();
+        let relevant: Vec<&Value> = findings
+            .into_iter()
+            .flatten()
+            .filter(|f| {
+                f["kind"] == "material_conflict"
+                    || f["code"]
+                        .as_str()
+                        .is_some_and(|c| c.to_ascii_uppercase().contains("CONFLICT"))
+            })
+            .flat_map(|f| f["evidence"].as_array().into_iter().flatten())
+            .collect();
+        if relevant.iter().any(|required| {
             !refs
                 .iter()
-                .any(|r| r["file"] == m["file"] && r["sha256"] == m["sha256"])
+                .any(|r| r["file"] == required["file"] && r["sha256"] == required["sha256"])
         }) {
-            return Err("resolution must cite all retained contradictory evidence".into());
+            return Err(
+                "resolution must cite the contradictory evidence named by the findings".into(),
+            );
         }
         artifacts.push(json!({"file":"resolution.json","sha256":sha256_hex(&raw)}));
         writes.push((format!("{directory}/resolution.json"), raw));
@@ -174,7 +195,7 @@ pub fn prepare(
         None
     };
     let manifest = serde_json::to_vec_pretty(
-        &json!({"schema_version":1,"font_sha256":hash,"artifacts":artifacts}),
+        &json!({"schema_version":1,"font_sha256":hash,"artifacts":artifacts,"recognized_alternatives":alternatives}),
     )
     .map_err(|e| e.to_string())?;
     let reference = FontEvidence {
@@ -183,12 +204,15 @@ pub fn prepare(
     };
     writes.push((reference.file.clone(), manifest));
     Ok(Prepared {
-        face_index: receipt["font"]["face_index"]
-            .as_u64()
-            .and_then(|index| u32::try_from(index).ok()),
+        face_index: Some(selected.face_index),
         writes,
         reference,
-        recognised: found,
+        recognised: if alternatives.len() == 1 {
+            alternatives.first().cloned()
+        } else {
+            None
+        },
+        alternatives,
         conflict,
         resolved_licence,
     })

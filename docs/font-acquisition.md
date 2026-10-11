@@ -31,6 +31,10 @@ MCP acquisition accepts the same tagged source, destination, expected hash and F
 
 Paths refer to the machine executing the invoked endpoint. Listing reports endpoint execution identity and the directories actually inspected; it cannot list fonts on another machine. Acquisition results carry execution identity, paths, SHA-256 values, inspected Faces, receipt, findings and next steps. Selection-required results are not successful acquisition; inspect candidates and invoke an explicit selection. Failed acquisition must preserve existing destination content and publish no usable incomplete receipt.
 
+Direct URLs accept optional `--family`, `--weight` and `--style` selectors (MCP `source.family`, `source.weight`, `source.style`). These must match the inspected selected Face. Exact weight/style selectors require static bytes; acquisition does not select variable axes. Receipt `font.face_index` is a required unsigned 32-bit selected Face index, including zero for a single font.
+
+Different recognized open licence identifiers are retained as alternatives, not treated as a contradiction by themselves. Embedded recognition remains authoritative for the existing declaration gate; without embedded recognition, one external recognized identifier can be used automatically and multiple alternatives require caller choice. A conflict resolution cites the verified contradictory evidence identified by findings; unrelated attribution files remain preserved without needing a resolution citation.
+
 ## Evidence and recovery
 
 Preserve acquired files and the receipt until vendoring. The project's optional attestation `evidence: {file, sha256}` points to a manifest containing project-local, hashed references to the original receipt, materials and authorized resolution. Moving the complete project preserves these dependencies; historical receipt paths are provenance, not live dependencies. URLs and hashes do not confer redistribution permission or source authenticity.

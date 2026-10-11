@@ -9,6 +9,9 @@ use std::path::PathBuf;
 pub enum Source {
     Url {
         url: String,
+        family: Option<String>,
+        weight: Option<u16>,
+        style: Option<String>,
     },
     GoogleFonts {
         family: Option<String>,
@@ -27,6 +30,7 @@ pub struct Acquire {
     pub face_index: Option<u32>,
     pub expected_sha256: Option<String>,
 }
+type Fetch<'a> = dyn Fn(&str) -> Result<(Vec<u8>, String), Failure> + 'a;
 type Failure = (&'static str, String);
 const MAX_BYTES: u64 = 32 * 1024 * 1024;
 fn failure(code: &'static str, detail: impl ToString) -> Failure {
@@ -39,10 +43,7 @@ fn outcome(error: Failure) -> Value {
 pub fn acquire(ask: &Acquire) -> Value {
     acquire_using(ask, &download)
 }
-fn acquire_using(
-    ask: &Acquire,
-    fetch: &dyn Fn(&str) -> Result<(Vec<u8>, String), Failure>,
-) -> Value {
+fn acquire_using(ask: &Acquire, fetch: &Fetch) -> Value {
     match prepare(ask, fetch) {
         Ok(value) => value,
         Err(error) => outcome(error),
@@ -163,14 +164,11 @@ fn download(locator: &str) -> Result<(Vec<u8>, String), Failure> {
     }
     Err(failure("limit_exceeded", "Too many redirects"))
 }
-fn prepare(
-    ask: &Acquire,
-    fetch: &dyn Fn(&str) -> Result<(Vec<u8>, String), Failure>,
-) -> Result<Value, Failure> {
+fn prepare(ask: &Acquire, fetch: &Fetch) -> Result<Value, Failure> {
     let mut materials: Vec<(String, Vec<u8>, String, String)> = Vec::new();
     let mut source = json!({"kind":"url"});
     let (requested, bytes, final_url) = match &ask.source {
-        Source::Url { url } => {
+        Source::Url { url, .. } => {
             let (bytes, final_url) = fetch(url)?;
             (url.clone(), bytes, final_url)
         }
@@ -342,6 +340,39 @@ fn prepare(
             "candidates":faces,"findings":[{"code":if ask.face_index.is_none(){"required_face"}else{"invalid_face"}}],"next_step":"Select an explicit valid face_index and retry."}),
         );
     }
+    if let Source::Url {
+        family,
+        weight,
+        style,
+        ..
+    } = &ask.source
+    {
+        let selected = ask.face_index.unwrap_or(0);
+        let inspected = metadata(&bytes)?;
+        let face = faces
+            .iter()
+            .find(|face| face.index == selected)
+            .ok_or_else(|| failure("invalid_face", "Selected Face not found"))?;
+        let details = inspected
+            .iter()
+            .find(|m| m["index"] == selected)
+            .ok_or_else(|| failure("invalid_face", "Selected Face metadata not found"))?;
+        if family.as_ref().is_some_and(|expected| {
+            face.family
+                .as_ref()
+                .is_none_or(|actual| !actual.eq_ignore_ascii_case(expected))
+        }) || weight.is_some_and(|expected| details["weight"] != expected)
+            || style
+                .as_ref()
+                .is_some_and(|expected| details["style"] != *expected)
+            || ((weight.is_some() || style.is_some()) && details["variable"] == true)
+        {
+            return Err(failure(
+                "unsupported_selection",
+                "URL selectors must match the inspected selected static Face; variable axis selection is unsupported",
+            ));
+        }
+    }
     let extension = if bytes.starts_with(b"ttcf") {
         "ttc"
     } else if bytes.starts_with(b"OTTO") {
@@ -499,6 +530,9 @@ mod tests {
             &Acquire {
                 source: Source::Url {
                     url: "https://example.com/font.ttc".into(),
+                    family: None,
+                    weight: None,
+                    style: None,
                 },
                 destination: std::env::temp_dir().join("unused-collection-bundle"),
                 face_index: None,
@@ -568,6 +602,9 @@ mod tests {
             &Acquire {
                 source: Source::Url {
                     url: "https://example.com/font.ttf".into(),
+                    family: None,
+                    weight: None,
+                    style: None,
                 },
                 destination: destination.clone(),
                 face_index: None,
@@ -598,6 +635,9 @@ mod tests {
             &Acquire {
                 source: Source::Url {
                     url: "https://example.com/font.ttf".into(),
+                    family: None,
+                    weight: None,
+                    style: None,
                 },
                 destination: destination.clone(),
                 face_index: None,
@@ -620,6 +660,9 @@ mod tests {
         let out = acquire(&Acquire {
             source: Source::Url {
                 url: "https://127.0.0.1/font.ttf".into(),
+                family: None,
+                weight: None,
+                style: None,
             },
             destination: destination.clone(),
             face_index: None,
@@ -627,5 +670,39 @@ mod tests {
         });
         assert_eq!(out["findings"][0]["code"], "network_denied");
         assert!(!destination.exists());
+    }
+    #[test]
+    fn direct_url_selectors_check_selected_native_face_before_publication() {
+        let bytes = include_bytes!("../../../../fixtures/skills/fonts/Inter-Bold.ttf");
+        for (family, weight, style, success) in [
+            ("Inter", 700, "normal", true),
+            ("Wrong", 700, "normal", false),
+            ("Inter", 400, "normal", false),
+            ("Inter", 700, "italic", false),
+        ] {
+            let destination = std::env::temp_dir().join(format!(
+                "url-selectors-{}-{family}-{weight}-{style}",
+                std::process::id()
+            ));
+            let ask = Acquire {
+                source: Source::Url {
+                    url: "https://example.com/font.ttf".into(),
+                    family: Some(family.into()),
+                    weight: Some(weight),
+                    style: Some(style.into()),
+                },
+                destination: destination.clone(),
+                face_index: None,
+                expected_sha256: None,
+            };
+            let result = acquire_using(&ask, &|url| Ok((bytes.to_vec(), url.into())));
+            assert_eq!(result["status"] == "acquired", success, "{result}");
+            if success {
+                std::fs::remove_dir_all(destination).unwrap();
+            } else {
+                assert_eq!(result["findings"][0]["code"], "unsupported_selection");
+                assert!(!destination.exists());
+            }
+        }
     }
 }

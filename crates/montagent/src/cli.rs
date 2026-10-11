@@ -533,10 +533,13 @@ enum FontsCommand {
         google_file: Option<String>,
         #[arg(long, conflicts_with = "url")]
         revision: Option<String>,
-        #[arg(long, conflicts_with = "url")]
+        #[arg(long)]
         weight: Option<u16>,
-        #[arg(long, conflicts_with = "url")]
+        #[arg(long)]
         style: Option<String>,
+        /// Expected family for a direct URL's selected Face.
+        #[arg(long, requires = "url")]
+        family: Option<String>,
         #[arg(long)]
         face_index: Option<u32>,
         #[arg(long)]
@@ -1168,6 +1171,7 @@ where
                     url,
                     google_family,
                     google_file,
+                    family,
                     revision,
                     weight,
                     style,
@@ -1178,7 +1182,12 @@ where
         } => {
             use montagent_core::verbs::fonts_acquire::{Acquire, Source};
             let source = match url {
-                Some(url) => Source::Url { url },
+                Some(url) => Source::Url {
+                    url,
+                    family,
+                    weight,
+                    style,
+                },
                 None => Source::GoogleFonts {
                     family: google_family,
                     file: google_file,

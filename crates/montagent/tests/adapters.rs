@@ -3117,3 +3117,40 @@ fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
     assert!(Path::new(&path).exists());
     path
 }
+
+#[test]
+fn direct_url_selector_arguments_reach_same_cli_and_mcp_core_contract() {
+    let directory = scratch_dir("font-url-selectors");
+    let cli = montagent(&[
+        "fonts",
+        "acquire",
+        directory.join("cli").to_str().unwrap(),
+        "--url",
+        "https://127.0.0.1/font.ttf",
+        "--family",
+        "Inter",
+        "--weight",
+        "700",
+        "--style",
+        "normal",
+    ]);
+    assert_eq!(cli.code, Some(2), "{}", cli.stderr);
+    let cli: serde_json::Value = serde_json::from_str(&cli.stdout).unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({"name":"fonts_acquire","arguments":{"destination":directory.join("mcp"),"source":{"kind":"url","url":"https://127.0.0.1/font.ttf","family":"Inter","weight":700,"style":"normal"}}}),
+        ),
+    ]);
+    let mcp: serde_json::Value = serde_json::from_str(
+        session[&2]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(cli, mcp);
+    assert_eq!(cli["findings"][0]["code"], "network_denied");
+}
