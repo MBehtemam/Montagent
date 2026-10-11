@@ -5,11 +5,11 @@ amends: 0142 (its "render has *one* speed target" becomes one target per bottlen
 
 # `render` paints on K painters over chunks, and the spy trailer renders in a minute
 
-**Amended by [ADR-0195](0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md):**
-time-invariant bottom layers now share a byte-identical prefix composite. It belongs to
-§2's paint class; §6's rejection of caching moving filtered layers and both targets stand.
-§7's painter state now also carries the shared immutable prefix and its paint/provenance
-records, replayed without changing output or findings.
+> **Amended by [ADR-0195](0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md):**
+> time-invariant bottom layers now share a byte-identical prefix composite. It belongs to
+> §2's paint class; §6's rejection of caching moving filtered layers and both targets stand.
+> §7's painter state now also carries the shared immutable prefix and its paint/provenance
+> records, replayed without changing output or findings.
 
 [#653](https://github.com/MBehtemam/Montagent/issues/653), the paint-speed map's
 ([#641](https://github.com/MBehtemam/Montagent/issues/641)) paint-target ADR. It builds the

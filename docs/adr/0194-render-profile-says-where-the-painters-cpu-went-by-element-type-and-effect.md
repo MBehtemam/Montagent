@@ -5,10 +5,10 @@ amends: 0011 (`render`'s request gains an optional `profile` and its answer an o
 
 # `render --profile` says where the painters' CPU went, by element, type and effect
 
-**Amended by [ADR-0195](0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md):**
-`frames_reused` now joins element/type rows and the folded remainder; decision 6's deferral of
-that counter ends with the static-prefix cache. Actual paints and effect applications
-keep their existing counters, and copying a cached composite stays unattributed.
+> **Amended by [ADR-0195](0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md):**
+> `frames_reused` now joins element/type rows and the folded remainder; decision 6's deferral of
+> that counter ends with the static-prefix cache. Actual paints and effect applications
+> keep their existing counters, and copying a cached composite stays unattributed.
 
 [#931](https://github.com/MBehtemam/Montagent/issues/931), from the US-5 verdict in
 [#925](https://github.com/MBehtemam/Montagent/issues/925) (map
