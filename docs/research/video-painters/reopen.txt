@@ -1,0 +1,7 @@
+# /private/tmp/w926/bench/media/lane-a-1080.mp4 576x1024 gop=300 load 8.1 parallel=6
+GOP phase 0.00 (frame   0 of GOP): first frame median    162 ms  min   140  max   271  (n=18)
+GOP phase 0.25 (frame  75 of GOP): first frame median    369 ms  min   338  max   374  (n=18)
+GOP phase 0.50 (frame 150 of GOP): first frame median    621 ms  min   544  max   646  (n=18)
+GOP phase 0.75 (frame 225 of GOP): first frame median    811 ms  min   766  max   858  (n=18)
+GOP phase 0.99 (frame 297 of GOP): first frame median   1004 ms  min   943  max  1018  (n=18)
+steady state after open: 342 fps (3 runs: [356, 342, 337])

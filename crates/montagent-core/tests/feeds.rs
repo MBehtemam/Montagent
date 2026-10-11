@@ -749,3 +749,198 @@ fn a_feed_opened_partway_is_the_run_the_render_paints_from_there() {
         }
     }
 }
+
+/// The seek oracle across the source kinds researched in #926. A fresh chunk is
+/// a partial span through the public supplier boundary, compared with frame_at.
+fn chunk_source(name: &str, args: &[&str], extra: &str, required: bool) {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(9000);
+    let dir = tempdir(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    let Some(clip) = source(&dir, name, "64x48", args) else {
+        assert!(!required, "ffmpeg must provide ADR-0115's H.264 floor");
+        eprintln!("SKIP {name}: optional source encoder unavailable");
+        return;
+    };
+    let path = project(
+        &dir,
+        25,
+        &track(
+            "v",
+            0,
+            &[video("v", &clip, (0, 760), (0, 400), (0, 128, 96), extra)],
+        ),
+    );
+    let (want, _) = painted(&path, 0, 760, Supplying::PerFrame);
+    assert_eq!(want.frames.len(), 19);
+    assert!(
+        want.frames.windows(2).any(|p| p[0] != p[1]),
+        "{name}: moving source"
+    );
+    for c in [2_usize, 7] {
+        for start in (0..19).step_by(c) {
+            let end = (start + c).min(19);
+            let (got, _) = painted(&path, start as i64 * 40, end as i64 * 40, Supplying::Feeds);
+            assert_eq!(
+                got.frames,
+                want.frames[start..end],
+                "{name}: C={c}, start={start}"
+            );
+        }
+    }
+    // Whole-render identity at the probe's selection and at forced chunk extremes.
+    use montagent_core::verbs::render::{
+        Ask, Forced, force_painting, force_video_probe, render, tap_frames,
+    };
+    let mut reference = None;
+    for forced in [
+        Some(Forced::OnePainter),
+        None,
+        Some(Forced::Chunks {
+            painters: 3,
+            chunk: 2,
+            window_bytes: None,
+        }),
+        Some(Forced::Chunks {
+            painters: 2,
+            chunk: 7,
+            window_bytes: None,
+        }),
+    ] {
+        let _clock = force_video_probe(7, Some(std::time::Duration::from_secs(1)));
+        let _forced = forced.map(force_painting);
+        let tap = tap_frames();
+        let answer = render(&path, &Ask::default(), &mut |_| {});
+        assert_eq!(
+            answer.report().exit_code(),
+            montagent_core::report::ExitCode::Ok,
+            "{name}: {}",
+            answer.to_json()
+        );
+        if forced.is_none() {
+            assert_eq!(answer.to_json()["render"]["painting"]["painters"], 3);
+        }
+        let hashes = tap.hashes();
+        let mp4 = std::fs::read(&answer.video().unwrap().path).unwrap();
+        if let Some((ref hashes_before, ref mp4_before)) = reference {
+            assert_eq!(&hashes, hashes_before, "{name}: encoder input");
+            if common::mp4_bytes_are_guaranteed() {
+                assert_eq!(&mp4, mp4_before, "{name}: MP4 bytes");
+            }
+        } else {
+            reference = Some((hashes, mp4));
+        }
+    }
+}
+
+const CHUNK_X264: &[&str] = &["-c:v", "libx264", "-g", "50", "-bf", "2"];
+
+#[test]
+fn chunk_starts_preserve_h264_frames_across_loop_wraps_and_fractional_speed() {
+    if !has_ffprobe() {
+        return;
+    }
+    let args = [CHUNK_X264, &["-pix_fmt", "yuv420p"]].concat();
+    chunk_source("h264.mp4", &args, "\"overrun\":\"loop\",", true);
+    chunk_source(
+        "speed.mp4",
+        &args,
+        "\"overrun\":\"loop\",\"speed\":0.645,",
+        true,
+    );
+}
+
+#[test]
+fn chunk_starts_preserve_interlaced_fields_and_full_range_colour() {
+    if !has_ffprobe() {
+        return;
+    }
+    for (name, scan, flag) in [
+        ("tff.mp4", "interlace=scan=tff,format=yuv420p", "tff=1"),
+        ("bff.mp4", "interlace=scan=bff,format=yuv420p", "bff=1"),
+    ] {
+        let args = [
+            CHUNK_X264,
+            &[
+                "-vf",
+                scan,
+                "-flags",
+                "+ilme+ildct",
+                "-x264opts",
+                flag,
+                "-pix_fmt",
+                "yuv420p",
+            ],
+        ]
+        .concat();
+        chunk_source(name, &args, "\"overrun\":\"loop\",", true);
+    }
+    for (name, tags) in [
+        ("full.mp4", &[][..]),
+        (
+            "tagged.mp4",
+            &[
+                "-colorspace",
+                "bt709",
+                "-color_primaries",
+                "bt709",
+                "-color_trc",
+                "bt709",
+            ][..],
+        ),
+    ] {
+        let args = [
+            CHUNK_X264,
+            &[
+                "-vf",
+                "scale=in_range=limited:out_range=full,format=yuvj420p",
+                "-color_range",
+                "pc",
+                "-pix_fmt",
+                "yuvj420p",
+            ],
+            tags,
+        ]
+        .concat();
+        chunk_source(name, &args, "\"overrun\":\"loop\",", true);
+    }
+}
+
+#[test]
+fn chunk_starts_preserve_vp9_alpha_and_hevc_ten_bit_frames() {
+    if !has_ffprobe() {
+        return;
+    }
+    let alpha = &[
+        "-vf",
+        "format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(lt(X,32),255,64)'",
+        "-c:v",
+        "libvpx-vp9",
+        "-pix_fmt",
+        "yuva420p",
+        "-auto-alt-ref",
+        "0",
+        "-g",
+        "50",
+    ];
+    chunk_source("alpha.webm", alpha, "\"overrun\":\"loop\",", false);
+    chunk_source(
+        "fast-alpha.webm",
+        alpha,
+        "\"overrun\":\"loop\",\"speed\":2.5,",
+        false,
+    );
+    chunk_source(
+        "hevc.mp4",
+        &[
+            "-c:v",
+            "libx265",
+            "-pix_fmt",
+            "yuv420p10le",
+            "-g",
+            "50",
+            "-x265-params",
+            "log-level=error:pools=1:frame-threads=1",
+        ],
+        "\"overrun\":\"loop\",",
+        false,
+    );
+}

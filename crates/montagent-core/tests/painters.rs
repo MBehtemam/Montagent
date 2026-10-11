@@ -548,7 +548,7 @@ fn gradients_paint_the_same_frames_on_any_number_of_painters_with_the_hint_on_or
 }
 
 #[test]
-fn a_video_element_keeps_the_render_on_one_painter_unless_forced() {
+fn a_short_video_span_stays_on_one_painter_and_discloses_the_feed_cap() {
     if !has_ffprobe() {
         return;
     }
@@ -564,10 +564,12 @@ fn a_video_element_keeps_the_render_on_one_painter_unless_forced() {
     });
     let path = write_project(&dir, "v.montagent.json", &canonical(&project.to_string()));
     let answer = within(move || render(&path, &Ask::default(), &mut |_: Progress| {}).to_json());
-    assert_eq!(
-        answer["render"]["painting"],
-        json!({"painters": 1, "chunk": 10, "window": 1, "window_floor": false})
-    );
+    let painting = &answer["render"]["painting"];
+    assert_eq!(painting["painters"], 1);
+    assert_eq!(painting["chunk"], 10);
+    assert_eq!(painting["window"], 1);
+    assert_eq!(painting["peak_video_feeds"], 1);
+    assert!(painting["feed_cap"].as_u64().is_some_and(|cap| cap >= 2));
 }
 
 #[test]
@@ -2223,4 +2225,169 @@ fn projected_elements_paint_the_same_frames_on_one_to_ten_painters_with_the_hint
         runs += 1;
     }
     println!("{runs} renders of 33 frames, every frame byte-identical to one painter's");
+}
+
+/// A moving, looped source with N simultaneous feeds and a ragged final chunk.
+fn video_probe_project(line: u32, n: usize, frames: i64) -> PathBuf {
+    let dir = tempdir(line);
+    let clip = clip(&dir).display().to_string().replace('\\', "/");
+    let tracks: Vec<_> = (0..n)
+        .map(|i| {
+            json!({
+                "name": format!("v-{i}"), "layer": i,
+                "elements": [{"id": format!("v-{i}"), "type": "video", "start": 0,
+                    "end": frames * 40, "source": clip, "source_start": 0, "source_end": 3000.min((frames / 2) * 40),
+                    "overrun": "loop", "x": i * 80, "y": 0, "origin": "top-left",
+                    "width": 64, "height": 48, "fit": "literal", "volume": 0}]
+            })
+        })
+        .collect();
+    let project = json!({"frame": {"width": (n * 80).max(160), "height": 120},
+        "fps": 25, "background": "#000000", "duration": frames * 40,
+        "output": "out/probe.mp4", "tracks": tracks});
+    write_project(
+        &dir,
+        "probe.montagent.json",
+        &canonical(&project.to_string()),
+    )
+}
+
+fn rendered_after_probe(path: &Path, cores: usize, frame_time: Option<Duration>) -> Rendered {
+    let path = path.to_path_buf();
+    within(move || {
+        // Mock only system boundaries: machine cores and the probe's clocks.
+        let _probe = montagent_core::verbs::render::force_video_probe(cores, frame_time);
+        let tap = tap_frames();
+        let answer = render(&path, &Ask::default(), &mut |_: Progress| {});
+        let mp4 = answer.video().map(|v| std::fs::read(&v.path).unwrap());
+        Rendered {
+            frames: tap.hashes(),
+            exit: answer.report().exit_code(),
+            answer: answer.to_json(),
+            mp4,
+        }
+    })
+}
+
+#[test]
+fn a_video_probe_can_select_painters_without_changing_any_output_byte() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = video_probe_project(line!(), 1, 163);
+    let one = rendered(&path, Forced::OnePainter);
+    let auto = rendered_after_probe(&path, 10, Some(Duration::from_millis(100)));
+    let painting = &auto.answer["render"]["painting"];
+    assert_eq!(painting["painters"], 6);
+    assert_eq!(painting["chunk"], 22);
+    assert_eq!(painting["feed_cap"], 20);
+    assert_same(&one, &auto, "probe selected six painters");
+    assert_same(&one, &rendered(&path, chunks(6, 2)), "forced C=2");
+}
+
+#[test]
+fn the_video_feed_cap_shrinks_k_before_selecting_a_chunk_and_preserves_bytes() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = video_probe_project(line!(), 4, 223);
+    let one = rendered(&path, Forced::OnePainter);
+    let capped = rendered_after_probe(&path, 10, Some(Duration::from_millis(200)));
+    let painting = &capped.answer["render"]["painting"];
+    assert_eq!(painting["painters"], 5);
+    assert_eq!(painting["chunk"], 44);
+    assert_eq!(painting["peak_video_feeds"], 4);
+    assert_eq!(painting["feed_cap"], 20);
+    assert_same(&one, &capped, "five painters, four feeds each");
+}
+
+#[test]
+fn a_probe_over_budget_or_a_span_too_short_to_amortise_reopens_keeps_one_painter() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = video_probe_project(line!(), 1, 163);
+    let one = rendered(&path, Forced::OnePainter);
+    for frame_time in [None, Some(Duration::from_millis(1)), Some(Duration::ZERO)] {
+        let fallback = rendered_after_probe(&path, 10, frame_time);
+        assert_eq!(
+            fallback.answer["render"]["painting"]["painters"], 1,
+            "{}",
+            fallback.answer
+        );
+        assert_same(&one, &fallback, "a conservative probe exit");
+    }
+}
+
+#[test]
+fn too_many_video_feeds_or_too_few_cores_keeps_one_painter() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = video_probe_project(line!(), 11, 13);
+    for cores in [4, 10] {
+        let fallback = rendered_after_probe(&path, cores, Some(Duration::from_millis(200)));
+        assert_eq!(
+            fallback.answer["render"]["painting"]["painters"], 1,
+            "{}",
+            fallback.answer
+        );
+        assert_eq!(
+            fallback.answer["render"]["painting"]["peak_video_feeds"],
+            11
+        );
+        assert_eq!(fallback.answer["render"]["painting"]["feed_cap"], cores * 2);
+    }
+}
+
+#[test]
+fn feed_count_uses_peak_presence_in_the_rendered_span_not_the_whole_document() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = video_probe_project(line!(), 4, 223);
+    let mut project: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    // Four source elements, only two at once; meeting endpoints are half-open.
+    for (i, track) in project["tracks"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        let element = &mut track["elements"][0];
+        if i < 2 {
+            element["end"] = json!(4000);
+        } else {
+            element["start"] = json!(4000);
+        }
+    }
+    std::fs::write(&path, canonical(&project.to_string())).unwrap();
+    let selected = rendered_after_probe(&path, 10, Some(Duration::from_millis(200)));
+    assert_eq!(selected.answer["render"]["painting"]["peak_video_feeds"], 2);
+    assert_eq!(selected.answer["render"]["painting"]["painters"], 6);
+}
+
+#[test]
+fn a_forced_single_painter_with_a_one_frame_window_still_runs_paint_chunks() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = glow_project(line!());
+    let answer = rendered_with(
+        &path,
+        Forced::Chunks {
+            painters: 1,
+            chunk: 1,
+            window_bytes: Some(0),
+        },
+        &[(2, Duration::ZERO)],
+    );
+    assert_eq!(answer.exit, ExitCode::Internal, "{}", answer.answer);
+    assert!(
+        answer
+            .answer
+            .to_string()
+            .contains("frame 2: an injected failure")
+    );
 }

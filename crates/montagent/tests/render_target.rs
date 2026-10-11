@@ -53,12 +53,12 @@
 //!
 //! ## What the frame-hash check is, exactly
 //!
-//! `render` exposes no hash of the frames it hands the encoder. So the smallest honest
+//! The CLI exposes no hash of the frames it hands the encoder. So the smallest honest
 //! version is used: each run's MP4 is decoded with `ffmpeg -f framemd5` and its per-frame
-//! hashes are compared with a **sequential** render's. Today every render is sequential, so
-//! by default the reference is this binary's own warm-up run, and the check proves only
-//! that runs agree with each other. The benchmark project has `video` elements, so it still
-//! paints on one painter after ADR-0144; where a parallel path paints it, pass the warm-up
+//! hashes are compared with a **sequential** render's. By default the reference is this
+//! binary's own warm-up run, which only proves that runs agree. ADR-0196's probe usually
+//! keeps this decode-bound project on one painter, but video presence alone no longer
+//! guarantees it. To supply an independent sequential reference, pass the warm-up
 //! `framemd5` a sequential build wrote (the path is printed) as
 //! `MONTAGENT_RENDER_TARGET_SEQUENTIAL_FRAMEMD5`.
 //!
@@ -532,12 +532,111 @@ struct Run {
     stages: Value,
 }
 
+/// A one-sided relative gate: speedup is observed, decode regression over 10% fails.
+/// Interleaved pairs, fresh sidecars, one discarded pair, five timed pairs. Quiet
+/// conditions are checked before every run; an explicit load exception is recorded in
+/// every measurement and does not claim a quiet-machine result.
+#[test]
+#[ignore = "ADR-0196: run on purpose with --release on a quiet M1 Pro"]
+fn video_painters_do_not_regress_the_decode_bound_benchmark() {
+    if cfg!(debug_assertions) {
+        eprintln!("refusing to judge: use --release");
+        return;
+    }
+    let Ok(tools) = montagent_core::media::tools::resolve() else {
+        return;
+    };
+    let project = benchmark(JUDGED_VARIANT);
+    let dir = scratch("video-painters");
+    let output = dir.join("comparison.mp4");
+    let environment = json!({
+        "commit": commit(),
+        "ffmpeg": first_line(Command::new(&tools.ffmpeg).arg("-version")),
+        "macos": format!("{} ({})",
+            first_line(Command::new("sw_vers").arg("-productVersion")),
+            first_line(Command::new("sw_vers").arg("-buildVersion"))),
+        "cpu": sysctl("machdep.cpu.brand_string"),
+        "memory_bytes": sysctl("hw.memsize").parse::<u64>().ok(),
+        "available_parallelism": std::thread::available_parallelism().map(|n| n.get()).ok(),
+        "power": power_source(),
+    });
+    let allow_load = env("MONTAGENT_VIDEO_PAINTERS_ALLOW_LOAD").as_deref() == Some("1");
+    let mut sequential = Vec::new();
+    let mut automatic = Vec::new();
+    let mut reference = None;
+    for pair in 0..=PROTOCOL_RUNS {
+        let order = if pair % 2 == 0 {
+            ["one", ""]
+        } else {
+            ["", "one"]
+        };
+        for (position, schedule) in order.into_iter().enumerate() {
+            let load = load_average();
+            if (!allow_load && load[0] >= MAX_START_LOAD)
+                || power_source().contains("Battery")
+                || sysctl("machdep.cpu.brand_string") != STATED_MACHINE
+            {
+                eprintln!("refusing to judge: quiet M1 Pro on AC required; load={load:?}");
+                return;
+            }
+            let cache = dir.join(format!("cache-{pair}-{position}"));
+            let run = render_scheduled(&project, &output, &cache, None, Some(schedule));
+            let hashes = frame_hashes(&tools.ffmpeg, &output, &dir.join("frames.framemd5"));
+            assert_eq!(hashes.len(), 10800);
+            if let Some(ref reference) = reference {
+                assert_eq!(&hashes, reference, "automatic schedule changed frame bytes");
+            } else {
+                reference = Some(hashes);
+            }
+            println!(
+                "{}",
+                json!({"gate": "video-painters-decode", "pair": pair,
+                "schedule": if schedule.is_empty() { "auto" } else { schedule },
+                "warmup": pair == 0, "load_before": load, "load_after": load_average(),
+                "under_load_exception": allow_load, "environment": &environment,
+                "wall_s": run.wall.as_secs_f64(), "user_s": run.user_s, "sys_s": run.sys_s,
+                "peak_rss": run.max_rss_bytes, "answer": run.answer, "stages": run.stages})
+            );
+            if pair > 0 {
+                if schedule.is_empty() {
+                    automatic.push(run.wall);
+                } else {
+                    sequential.push(run.wall);
+                }
+            }
+        }
+    }
+    sequential.sort();
+    automatic.sort();
+    let one = sequential[PROTOCOL_RUNS / 2].as_secs_f64();
+    let auto = automatic[PROTOCOL_RUNS / 2].as_secs_f64();
+    println!(
+        "{}",
+        json!({"gate": "video-painters-decode", "one_median_s": one,
+                           "auto_median_s": auto, "ratio": auto / one})
+    );
+    assert!(
+        auto <= one * 1.1,
+        "automatic schedule regressed decode: {auto:.3}s vs {one:.3}s"
+    );
+}
+
 /// Render `project` to `output` under `/usr/bin/time -l`, with a fresh probe sidecar.
 ///
 /// `/usr/bin/time` reports the rusage `wait4` hands back, which on macOS folds in the
 /// children the process reaped — so user+sys and peak memory cover the `ffmpeg` spawns
 /// as well as `montagent` itself, peak memory as the largest single process.
 fn render(project: &Path, output: &Path, cache: &Path, shims: Option<&Shims>) -> Run {
+    render_scheduled(project, output, cache, shims, None)
+}
+
+fn render_scheduled(
+    project: &Path,
+    output: &Path,
+    cache: &Path,
+    shims: Option<&Shims>,
+    schedule: Option<&str>,
+) -> Run {
     let mut command = Command::new("/usr/bin/time");
     command
         .arg("-l")
@@ -551,6 +650,9 @@ fn render(project: &Path, output: &Path, cache: &Path, shims: Option<&Shims>) ->
         .env(montagent_core::verbs::render::STAGES_VAR, "1");
     if let Some(shims) = shims {
         command.env("PATH", shims.path());
+    }
+    if let Some(schedule) = schedule {
+        command.env(montagent_core::verbs::render::PAINTING_VAR, schedule);
     }
     let started = Instant::now();
     let out = command
