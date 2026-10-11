@@ -1270,6 +1270,11 @@ impl<'a> Painter<'a> {
     /// carefully written, would be a second place draw order could be decided, and the one
     /// failure the caption exists to prevent is a defect attributed to the wrong element.
     pub(crate) fn paint(&mut self, canvas: &mut Canvas, view: &At) {
+        // ADR-0194: the effect clock is on for this frame's paint and off however it ends.
+        let _clock = self
+            .profile
+            .is_some()
+            .then(montagent_render::canvas::effect_clock::timing);
         self.resolve_transitions();
         canvas.background(self.background());
 
@@ -1295,7 +1300,6 @@ impl<'a> Painter<'a> {
                 origin: present.source_origin,
             };
             let timing = self.profile.is_some().then(|| {
-                montagent_render::canvas::effect_clock::set_enabled(true);
                 (
                     std::time::Instant::now(),
                     self.decoding(),
@@ -1318,9 +1322,6 @@ impl<'a> Painter<'a> {
                     }
                 }
             }
-        }
-        if self.profile.is_some() {
-            montagent_render::canvas::effect_clock::set_enabled(false);
         }
     }
 

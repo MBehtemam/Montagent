@@ -98,7 +98,7 @@ impl Profile {
         let attributed_pct = if stages.paint.is_zero() {
             100.0
         } else {
-            (ms(attributed.min(stages.paint)) / ms(stages.paint) * 1000.0).round() / 10.0
+            (ms(attributed) / ms(stages.paint) * 1000.0).round() / 10.0
         };
 
         let mut elements: Vec<(&String, &(String, Cost))> = self.elements.iter().collect();
@@ -130,7 +130,8 @@ impl Profile {
             "unit": "ms",
             "note": "CPU time summed across painters. A profile run is timed, not speed-gated, \
                      and paints the same bytes as one without. `effects` are inside their \
-                     element's cost, not added to it.",
+                     element's cost, not added to it, and each is charged where its layer \
+                     unwinds, so the split between stacked effects is approximate.",
             "stages": {
                 "decode_ms": ms1(stages.decode),
                 "paint_ms": ms1(stages.paint),
