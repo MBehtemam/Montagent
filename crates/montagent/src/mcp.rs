@@ -55,6 +55,38 @@ pub struct ValidateParams {
     pub verbose: bool,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct FontsListParams {
+    /// Directories on the endpoint host; omitted to inspect platform font directories.
+    #[serde(default)]
+    pub roots: Vec<PathBuf>,
+    #[serde(default)]
+    pub json: bool,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct FontsVendorParams {
+    pub project: PathBuf,
+    /// Local endpoint path, never a URL or font family.
+    pub font: PathBuf,
+    #[serde(default)]
+    pub licence: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub destination: Option<String>,
+    #[serde(default)]
+    pub receipt: Option<PathBuf>,
+    #[serde(default)]
+    pub resolution: Option<PathBuf>,
+    #[serde(default)]
+    pub face_index: Option<u32>,
+    #[serde(default)]
+    pub json: bool,
+    #[serde(default)]
+    pub verbose: bool,
+}
+
 /// `create_project`'s arguments: **the project header, in the shape the schema gives it.**
 ///
 /// ADR-0011's write-tool invariant is that a write tool *"may only take a complete element,
@@ -408,6 +440,103 @@ impl Montagent {
         Montagent {
             tool_router: Self::tool_router(),
         }
+    }
+
+    #[tool(
+        name = "fonts_acquire",
+        description = "Explicitly acquire native font files and licence evidence from a direct URL or Google Fonts. Returns scoped paths, hashes, receipt and selection candidates. Runs on this endpoint host; never vendors, edits project JSON or transfers font bytes through MCP. Remote workspace transport is not shipped.",
+        input_schema = advertised::<montagent_core::verbs::fonts_acquire::Acquire>()
+    )]
+    async fn fonts_acquire(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: montagent_core::verbs::fonts_acquire::Acquire =
+            match serde_json::from_value(raw) {
+                Ok(params) => params,
+                Err(e) => return Ok(rejected("fonts_acquire", &e)),
+            };
+        dispatch::run(
+            dispatch::Call::of("fonts_acquire", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::fonts_acquire::acquire(&params);
+                let content = vec![ContentBlock::text(
+                    serde_json::to_string_pretty(&answer).expect("JSON value"),
+                )];
+                if answer["status"] == "acquired" || answer["status"] == "selection_required" {
+                    CallToolResult::success(content)
+                } else {
+                    CallToolResult::error(content)
+                }
+            },
+        )
+        .await
+    }
+
+    #[tool(
+        name = "fonts_list",
+        description = "List font files installed on this endpoint host with Faces and licence status. Execution identity identifies whose filesystem was inspected; no network fetching.",
+        input_schema = advertised::<FontsListParams>()
+    )]
+    async fn fonts_list(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: FontsListParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("fonts_list", &e)),
+        };
+        dispatch::run(
+            dispatch::Call::of("fonts_list", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let answer = montagent_core::verbs::fonts::list(&params.roots);
+                let body = crate::cli::render_fonts_list(&answer, params.json);
+                respond(answer.report(), vec![ContentBlock::text(body)])
+            },
+        )
+        .await
+    }
+
+    #[tool(
+        name = "fonts_vendor",
+        description = "Copy an endpoint-local font and verified acquisition evidence into a project behind the licence gate. Writes path-keyed attestation and returns a chain entry to paste; never fetches or edits Font chains. Optional receipt and caller-adopted resolution preserve portable evidence.",
+        input_schema = advertised::<FontsVendorParams>()
+    )]
+    async fn fonts_vendor(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(raw): Parameters<serde_json::Value>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params: FontsVendorParams = match serde_json::from_value(raw) {
+            Ok(params) => params,
+            Err(e) => return Ok(rejected("fonts_vendor", &e)),
+        };
+        dispatch::run(
+            dispatch::Call::of("fonts_vendor", &context),
+            dispatch::Slot::Free,
+            move |_sink, _cancel| {
+                let ask = montagent_core::verbs::fonts::Vendor {
+                    font: params.font,
+                    licence: params.licence,
+                    source: params.source,
+                    destination: params.destination,
+                    receipt: params.receipt,
+                    resolution: params.resolution,
+                    face_index: params.face_index,
+                };
+                let answer = montagent_core::verbs::fonts::vendor(&params.project, &ask);
+                let body = montagent_core::wire::render_fonts_vendor(
+                    &answer,
+                    Wire::from_flags(params.json, params.verbose),
+                );
+                respond(answer.report(), vec![ContentBlock::text(body)])
+            },
+        )
+        .await
     }
 
     #[tool(

@@ -117,6 +117,26 @@ number, and the ADR is right where the two disagree.
   blocklist of known non-redistributable fonts is refused with no override, a recognised
   open licence is recorded, and anything else needs a `--licence` you have verified. Use
   `montagent fonts list` to see each installed font's status before you try.
+- **Acquisition is explicit and separate from vendoring.** CLI `fonts acquire` / MCP
+  `fonts_acquire` acquire native font bytes and a hashed evidence receipt, returning candidates
+  when selection is ambiguous. `fonts list` / `fonts_list` describe fonts on the executing
+  endpoint host. `fonts vendor` / `fonts_vendor` consume local files, optional `receipt`, and
+  optional caller-adopted `resolution`; they return a chain entry without changing chains.
+  Remote named-workspace transport is not shipped. Validate/render never fetch missing fonts.
+- **Portable evidence is optional on existing attestations:** `evidence: {file, sha256}`
+  refers to a project-relative manifest, not another licence declaration. The version-1
+  manifest records `font_sha256` and hashed `artifacts`; their `file` paths are relative to
+  the manifest directory and confined to the project. It preserves the original acquisition
+  receipt verbatim, original licence/notice materials and any resolution; historical receipt
+  paths are provenance, not live dependencies. Preserve the complete project on relocation.
+  Materials reported absent during acquisition remain a finding. Referenced materials that
+  disappear or change fail verification; dropping the receipt cannot repair that failure.
+  Initial external licence recognition associates Google Fonts family materials and selected
+  files from one pinned official repository revision. Other sources need existing embedded
+  recognition or an explicit caller declaration. Material conflicts require a resolution
+  containing `licence`, `font_sha256`, `rationale`, hashed `evidence`, `caller_adoption: true`
+  and `authorization_basis`. An agent may draft or relay it but cannot invent caller authority;
+  the record is a caller assertion, not a legal verdict. The blocklist remains absolute.
 
 ## Text on a path (ADR-0161)
 

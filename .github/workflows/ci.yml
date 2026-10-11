@@ -371,7 +371,9 @@ jobs:
           python3 -m unittest ci/test_prerender_lottie.py
 
       - name: ADR-0064's packaging invariants still hold (no tap, no phone-home, no linked FFmpeg)
-        run: python3 ci/assert_passive_packaging.py
+        run: |
+          python3 ci/assert_passive_packaging.py
+          python3 -m unittest ci.test_passive_packaging
 
       # The licence gate (#359). `assert_passive_packaging.py` above names the specific crates
       # that must never enter the graph; this asks the complementary question — whether

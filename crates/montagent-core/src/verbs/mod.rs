@@ -10,6 +10,7 @@ pub mod compare;
 pub mod create_project;
 pub mod fmt;
 pub mod fonts;
+pub mod fonts_acquire;
 pub mod frame;
 pub mod keyed;
 pub mod measure;

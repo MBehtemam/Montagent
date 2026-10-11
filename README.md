@@ -95,7 +95,7 @@ adjust the wrapper for whatever client you use):
 }
 ```
 
-Once it's connected, your agent has ten tools — `compare`, `create_project`, `frame`,
+Once it's connected, your agent has thirteen tools — `compare`, `create_project`, `fonts_acquire`, `fonts_list`, `fonts_vendor`, `frame`,
 `measure`, `preview`, `query`, `render`, `shift`, `validate`, `verify` — and resources that
 teach it the project format directly: `montagent://format.md` with the pages it lists, and
 the schema, whole at `montagent://schema.json` and in pieces listed by
@@ -144,3 +144,5 @@ research media are not covered by it; see [`LICENSE-MEDIA.md`](LICENSE-MEDIA.md)
 carve-out. The binary itself statically links Skia and around 128 other Rust crates;
 [`THIRD-PARTY.md`](THIRD-PARTY.md) — shipped in this repo and in every release archive —
 lists what's owed for them.
+
+Explicit font acquisition, portable licence evidence, and CLI/MCP examples are documented in [Font acquisition](docs/font-acquisition.md).

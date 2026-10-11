@@ -5,6 +5,8 @@ amends: 0007 (discharges the fonts-vendor mechanics, licence-check and substitut
 
 # `fonts vendor` is a local-only file copy gated by a three-bucket licence check; attestation is keyed by file path, not by fonts-table entry; a refusal may suggest open substitutes but never auto-vendors one; the live fixture defect is a separate follow-up task
 
+> **Amended by [ADR-0197](./0197-explicit-font-acquisition-is-the-only-in-process-http-entry-point.md)**: explicit acquisition retains portable receipts and licence evidence; vendoring remains local-only and keeps its licence gate.
+
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) settled that a project
 declares fonts as vendored file paths under a top-level `fonts` table — never a
 system family name — and named the shape of a `fonts` discovery tool (`fonts list`

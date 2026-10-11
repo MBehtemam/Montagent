@@ -133,6 +133,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "evidence": {
+          "$ref": "#/$defs/FontEvidence"
+        },
         "licence": {
           "type": "string"
         },
@@ -146,6 +149,22 @@
       "required": [
         "licence",
         "source",
+        "sha256"
+      ]
+    },
+    "FontEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
         "sha256"
       ],
       "description": "What `fonts vendor` learned about one font file, keyed by that file's path.\n\nADR-0057 put this in its own top-level table rather than inline on each chain entry:\nthe `fonts` table is a *reference* structure and one file may appear under several\nkeys, so inlining would duplicate the same hash and licence at every point of reference\n— and duplicated facts drift the moment one copy is re-vendored and the other is not."

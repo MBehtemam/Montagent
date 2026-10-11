@@ -359,7 +359,8 @@ pub fn probe_local(
     Ok(outcome)
 }
 
-/// Probe a remote URL. **The only function in Montagent that can cause a network call.**
+/// Probe a remote media URL through ffprobe. Explicit font acquisition is the other
+/// authoring-time network entry point (ADR-0197); local validate/render never invoke it.
 pub fn probe_remote(
     runner: &dyn Runner,
     tools: &Tools,

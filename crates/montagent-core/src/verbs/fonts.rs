@@ -7,9 +7,8 @@
 //! and freezes its bytes into the repo, so the project that renders here renders on a
 //! clean machine.
 //!
-//! CLI-only, by ADR-0011's cost model. Vendoring a font is a once-per-project act, not a
-//! step in the edit loop, and *"a CLI subcommand costs nothing until invoked"* — the agent
-//! already carries a shell.
+//! Exposed through CLI and MCP by the approved font acquisition contract. Agents without
+//! a shell can list and vendor local files; acquisition remains a separately named operation.
 //!
 //! # `list`: the enumeration, with the verdict an attempt would get
 //!
@@ -264,6 +263,9 @@ fn describe(path: &Path, inventory: &mut Inventory) {
 /// What one `fonts vendor` invocation asks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Vendor {
+    pub receipt: Option<PathBuf>,
+    pub resolution: Option<PathBuf>,
+    pub face_index: Option<u32>,
     /// The local font file to copy.
     pub font: PathBuf,
     /// Bucket 3's declaration: the licence identifier a human has verified. Ignored in
@@ -370,8 +372,99 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
         }
     };
 
+    let hash = sha256_hex(&bytes);
+    let base = crate::checks::project_dir(&document);
+    let previous = document.value()["fontVendor"][&destination].clone();
+    if let Some(index) = ask.face_index
+        && !faces.iter().any(|f| f.index == index)
+    {
+        return refused(Report::rejected(VENDOR, project, "invalid font Face index"));
+    }
+    // Blocklist precedes evidence parsing and no resolution overrides it.
+    let bucket = licence::bucket(&faces);
+    let evidence = if !matches!(bucket, Bucket::Blocklisted { .. }) {
+        match &ask.receipt {
+            Some(receipt) => match crate::fonts::evidence::prepare(
+                receipt,
+                ask.resolution.as_deref(),
+                &bytes,
+                &destination,
+            ) {
+                Ok(prepared) => Some(prepared),
+                Err(reason) => return refused(evidence_refusal(project, document.path(), reason)),
+            },
+            None => {
+                if ask.resolution.is_some() {
+                    return refused(evidence_refusal(
+                        project,
+                        document.path(),
+                        "resolution requires receipt".into(),
+                    ));
+                }
+                if let Ok(old) = serde_json::from_value::<FontAttestation>(previous.clone())
+                    && let Some(reference) = old.evidence
+                {
+                    if ask
+                        .licence
+                        .as_ref()
+                        .is_some_and(|declared| declared != &old.licence)
+                    {
+                        return refused(evidence_refusal(project, document.path(), "changing a licence with retained evidence requires a fresh verified receipt and resolution".into()));
+                    }
+                    if let Err(reason) = crate::fonts::evidence::verify(&base, &reference, &hash) {
+                        return refused(evidence_refusal(project, document.path(), reason));
+                    }
+                }
+                None
+            }
+        }
+    } else {
+        None
+    };
+    if let Some(prepared) = &evidence {
+        if let Some(index) = prepared.face_index
+            && (!faces.iter().any(|f| f.index == index)
+                || ask.face_index.is_some_and(|asked| asked != index))
+        {
+            return refused(evidence_refusal(
+                project,
+                document.path(),
+                "receipt Face does not match selected Face".into(),
+            ));
+        }
+        if matches!(bucket, Bucket::Unknown)
+            && prepared.resolved_licence.is_none()
+            && ask.licence.as_ref().is_some_and(|a| {
+                !prepared.alternatives.is_empty() && !prepared.alternatives.contains(a)
+            })
+        {
+            return refused(evidence_refusal(
+                project,
+                document.path(),
+                "caller declaration contradicts recognized external licence".into(),
+            ));
+        }
+        let conflicting = prepared.conflict;
+        if conflicting && prepared.resolved_licence.is_none() {
+            return refused(evidence_refusal(
+                project,
+                document.path(),
+                "material licence conflict requires authorized resolution".into(),
+            ));
+        }
+        if let Some(resolved) = &prepared.resolved_licence
+            && ask.licence.as_ref() != Some(resolved)
+        {
+            return refused(evidence_refusal(
+                project,
+                document.path(),
+                "resolution licence requires matching caller declaration".into(),
+            ));
+        }
+    }
+
     // ---- The gate. Nothing below this line runs unless it passes. -------------------
-    let (identifier, basis) = match licence::bucket(&faces) {
+    let (identifier, basis) = match bucket {
         Bucket::Blocklisted {
             matched,
             name,
@@ -407,9 +500,19 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
             }
             (identifier.to_string(), "recognised")
         }
-        Bucket::Unknown => match &ask.licence {
+        Bucket::Unknown => match ask
+            .licence
+            .as_ref()
+            .or_else(|| evidence.as_ref().and_then(|e| e.recognised.as_ref()))
+        {
             Some(declared) if !declared.trim().is_empty() => {
-                (declared.trim().to_string(), "declared")
+                let recognised = evidence.as_ref().is_some_and(|e| {
+                    e.recognised.as_ref() == Some(declared) && e.resolved_licence.is_none()
+                });
+                (
+                    declared.trim().to_string(),
+                    if recognised { "recognised" } else { "declared" },
+                )
             }
             _ => {
                 let mut report = Report::new(VENDOR, project);
@@ -430,8 +533,25 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
     };
 
     // ---- The copy. ------------------------------------------------------------------
-    let base = crate::checks::project_dir(&document);
-    let target = base.join(&destination);
+    let target = match crate::fonts::evidence::confined(&base, &destination) {
+        Ok(target) => target,
+        Err(reason) => return refused(evidence_refusal(project, document.path(), reason)),
+    };
+    if let Some(prepared) = &evidence {
+        for (file, bytes) in &prepared.writes {
+            let target = match crate::fonts::evidence::confined(&base, file) {
+                Ok(target) => target,
+                Err(reason) => return refused(evidence_refusal(project, document.path(), reason)),
+            };
+            if target.exists() && std::fs::read(&target).ok().as_ref() != Some(bytes) {
+                return refused(evidence_refusal(
+                    project,
+                    document.path(),
+                    format!("evidence destination collision: {file}"),
+                ));
+            }
+        }
+    }
     let already_present = match std::fs::read(&target) {
         Ok(existing) if existing == bytes => true,
         Ok(_) => {
@@ -464,8 +584,26 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
         }
     }
 
+    if let Some(prepared) = &evidence {
+        for (file, bytes) in &prepared.writes {
+            let target = base.join(file);
+            if let Some(parent) = target.parent()
+                && let Err(e) = std::fs::create_dir_all(parent)
+            {
+                return refused(evidence_refusal(project, document.path(), e.to_string()));
+            }
+            if let Err(e) = write::atomically_bytes(&target, bytes) {
+                return refused(evidence_refusal(project, document.path(), e.to_string()));
+            }
+        }
+    }
     // ---- The attestation. -----------------------------------------------------------
     let attestation = FontAttestation {
+        evidence: evidence.as_ref().map(|e| e.reference.clone()).or_else(|| {
+            serde_json::from_value::<FontAttestation>(previous)
+                .ok()
+                .and_then(|a| a.evidence)
+        }),
         licence: identifier,
         source: match &ask.source {
             Some(source) => source.clone(),
@@ -518,7 +656,13 @@ pub fn vendor(path: &Path, ask: &Vendor) -> Vendored {
             file: destination.clone(),
             attestation,
             licence_basis: basis,
-            chain_entry: json!({"file": destination}),
+            chain_entry: match ask
+                .face_index
+                .or_else(|| evidence.as_ref().and_then(|e| e.face_index))
+            {
+                Some(index) => json!({"file": destination,"index":index}),
+                None => json!({"file":destination}),
+            },
             already_present,
         }),
         report,
@@ -606,4 +750,14 @@ fn substitutes(matched: &str, name: &str) -> String {
         .map(|s| format!("{} ({}, {}) — {}", s.name, s.licence, s.source, s.basis))
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+fn evidence_refusal(project: Option<String>, path: &str, reason: String) -> Report {
+    let mut report = Report::new(VENDOR, project);
+    report.push(
+        Finding::new("E-FONT-EVIDENCE-INTEGRITY")
+            .at_file(path)
+            .field("detail", json!(reason)),
+    );
+    report
 }

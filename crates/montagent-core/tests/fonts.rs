@@ -36,6 +36,9 @@ fn ask(font: PathBuf, licence: Option<&str>) -> Vendor {
         licence: licence.map(String::from),
         source: None,
         destination: None,
+        receipt: None,
+        resolution: None,
+        face_index: None,
     }
 }
 
@@ -221,6 +224,9 @@ fn a_declared_licence_copies_the_bytes_and_writes_the_attestation_keyed_by_path(
             licence: Some("OFL-1.1".into()),
             source: Some("https://github.com/lauridskern/open-runde".into()),
             destination: None,
+            receipt: None,
+            resolution: None,
+            face_index: None,
         },
     );
 
@@ -284,6 +290,9 @@ fn the_attestation_matches_the_committed_fixtures_entry_exactly() {
             licence: Some(committed["licence"].as_str().unwrap().into()),
             source: Some(committed["source"].as_str().unwrap().into()),
             destination: None,
+            receipt: None,
+            resolution: None,
+            face_index: None,
         },
     );
     let written: serde_json::Value =
@@ -349,6 +358,9 @@ fn as_names_the_path_inside_the_project_and_may_not_escape_it() {
         &project,
         &Vendor {
             destination: Some("brand/rounded-bold.otf".into()),
+            receipt: None,
+            resolution: None,
+            face_index: None,
             ..ask(open_runde(), Some("OFL-1.1"))
         },
     );
@@ -360,6 +372,9 @@ fn as_names_the_path_inside_the_project_and_may_not_escape_it() {
             &project,
             &Vendor {
                 destination: Some(escape.into()),
+                receipt: None,
+                resolution: None,
+                face_index: None,
                 ..ask(open_runde(), Some("OFL-1.1"))
             },
         );
@@ -422,6 +437,9 @@ fn the_advised_repair_converges_when_the_fonts_table_names_a_path_vendor_would_n
         &project,
         &Vendor {
             destination: Some("body.otf".into()),
+            receipt: None,
+            resolution: None,
+            face_index: None,
             ..ask(open_runde(), Some("OFL-1.1"))
         },
     );
@@ -1106,4 +1124,175 @@ fn a_missing_glyph_names_the_projects_other_chains_that_do_have_it() {
     // `@` is covered by both, so nothing fires and there is nothing to census.
     let report = montagent_core::validate_with_cache(&project, &cache(&dir));
     assert_eq!(findings(&report, "E-FONT-NO-GLYPH").len(), 0, "{report:?}");
+}
+
+#[test]
+fn vendor_preserves_receipt_materials_and_validate_detects_changed_portable_evidence() {
+    let dir = common::tempdir(line!());
+    let acquisition = dir.join("acquisition");
+    std::fs::create_dir_all(&acquisition).unwrap();
+    std::fs::copy(open_runde(), acquisition.join("font.otf")).unwrap();
+    std::fs::write(acquisition.join("NOTICE.txt"), "original notice").unwrap();
+    let receipt = serde_json::json!({"schema_version":1,"source":{"kind":"url","requested_url":"https://example.com/font.otf","final_url":"https://example.com/font.otf"},"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":[{"file":"NOTICE.txt","sha256":montagent_core::fonts::sha256_hex(b"original notice"),"font_sha256":OPEN_RUNDE_SHA256}],"licence_findings":[]});
+    std::fs::write(acquisition.join("receipt.json"), receipt.to_string()).unwrap();
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    let mut request = ask(acquisition.join("font.otf"), Some("OFL-1.1"));
+    request.receipt = Some(acquisition.join("receipt.json"));
+    let result = vendor(&project, &request);
+    let evidence = result
+        .view()
+        .expect("vendored bundle")
+        .attestation
+        .evidence
+        .clone()
+        .unwrap();
+    std::fs::remove_dir_all(acquisition).unwrap();
+    let material = dir
+        .join(Path::new(&evidence.file).parent().unwrap())
+        .join("material-0.txt");
+    std::fs::write(&material, "altered notice").unwrap();
+    assert!(
+        codes(&montagent_core::verbs::validate::validate(&project))
+            .contains(&"E-FONT-EVIDENCE-INTEGRITY")
+    );
+    std::fs::remove_file(&material).unwrap();
+    assert!(
+        codes(&montagent_core::verbs::validate::validate(&project))
+            .contains(&"E-FONT-EVIDENCE-INTEGRITY")
+    );
+    std::fs::write(&material, "original notice").unwrap();
+    assert!(
+        !codes(&montagent_core::verbs::validate::validate(&project))
+            .contains(&"E-FONT-EVIDENCE-INTEGRITY")
+    );
+    std::fs::write(dir.join(evidence.file), "changed manifest").unwrap();
+    assert!(
+        codes(&montagent_core::verbs::validate::validate(&project))
+            .contains(&"E-FONT-EVIDENCE-INTEGRITY")
+    );
+}
+
+#[test]
+fn supplied_receipt_cannot_ignore_missing_materials_or_escape_its_directory() {
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("font.otf")).unwrap();
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    for file in ["missing.txt", "../outside.txt"] {
+        let receipt = serde_json::json!({"schema_version":1,"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":[{"file":file,"sha256":"bad","font_sha256":OPEN_RUNDE_SHA256}]});
+        std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+        let mut request = ask(dir.join("font.otf"), Some("OFL-1.1"));
+        request.receipt = Some(dir.join("receipt.json"));
+        let result = vendor(&project, &request);
+        assert!(result.view().is_none());
+        assert!(codes(result.report()).contains(&"E-FONT-EVIDENCE-INTEGRITY"));
+        assert!(!dir.join("fonts/font.otf").exists());
+    }
+}
+
+#[test]
+fn material_conflict_needs_explicit_adopted_resolution_bound_to_font_and_evidence() {
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("font.otf")).unwrap();
+    std::fs::write(dir.join("terms.txt"), "contradictory terms").unwrap();
+    let material = serde_json::json!({"file":"terms.txt","sha256":montagent_core::fonts::sha256_hex(b"contradictory terms"),"font_sha256":OPEN_RUNDE_SHA256});
+    let receipt = serde_json::json!({"schema_version":1,"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":[material],"licence_findings":[{"kind":"material_conflict"}]});
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    let mut request = ask(dir.join("font.otf"), Some("OFL-1.1"));
+    request.receipt = Some(dir.join("receipt.json"));
+    assert!(vendor(&project, &request).view().is_none());
+    let mut resolution = serde_json::json!({"licence":"OFL-1.1","font_sha256":OPEN_RUNDE_SHA256,"rationale":"The authorized caller has verified the applicable terms.","evidence":[material],"authorization_basis":"explicit project owner declaration","caller_adoption":false});
+    request.resolution = Some(dir.join("resolution.json"));
+    std::fs::write(dir.join("resolution.json"), resolution.to_string()).unwrap();
+    assert!(vendor(&project, &request).view().is_none());
+    resolution["caller_adoption"] = serde_json::json!(true);
+    std::fs::write(dir.join("resolution.json"), resolution.to_string()).unwrap();
+    assert!(vendor(&project, &request).view().is_some());
+    request.receipt = None;
+    request.resolution = None;
+    assert!(
+        vendor(&project, &request)
+            .view()
+            .unwrap()
+            .attestation
+            .evidence
+            .is_some()
+    );
+}
+
+#[test]
+fn pinned_google_fonts_family_terms_apply_to_static_subdirectory_but_nearby_url_terms_do_not() {
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("font.otf")).unwrap();
+    let ofl = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("fonts/OFL.txt")).unwrap();
+    std::fs::write(dir.join("OFL.txt"), &ofl).unwrap();
+    let commit = "1234567890123456789012345678901234567890";
+    let mut receipt = serde_json::json!({"schema_version":1,"source":{"kind":"url","commit":commit,"repository_path":"ofl/example/static/font.otf","final_url":format!("https://raw.githubusercontent.com/google/fonts/{commit}/ofl/example/static/font.otf")},"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":[{"file":"OFL.txt","sha256":montagent_core::fonts::sha256_hex(&ofl),"font_sha256":OPEN_RUNDE_SHA256,"repository_path":"ofl/example/OFL.txt","source_url":format!("https://raw.githubusercontent.com/google/fonts/{commit}/ofl/example/OFL.txt")} ]});
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    let mut request = ask(dir.join("font.otf"), None);
+    request.receipt = Some(dir.join("receipt.json"));
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    assert!(vendor(&project, &request).view().is_none());
+    receipt["source"]["kind"] = serde_json::json!("google_fonts");
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    let result = vendor(&project, &request);
+    assert_eq!(result.view().unwrap().attestation.licence, "OFL-1.1");
+}
+
+#[test]
+fn vendor_rejects_receipt_without_typed_selected_face_and_accepts_conflict_resolution_without_benign_notices()
+ {
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("font.otf")).unwrap();
+    std::fs::write(dir.join("terms.txt"), "terms").unwrap();
+    std::fs::write(dir.join("notice.txt"), "attribution").unwrap();
+    let terms = serde_json::json!({"file":"terms.txt","sha256":montagent_core::fonts::sha256_hex(b"terms"),"font_sha256":OPEN_RUNDE_SHA256});
+    let notice = serde_json::json!({"file":"notice.txt","sha256":montagent_core::fonts::sha256_hex(b"attribution"),"font_sha256":OPEN_RUNDE_SHA256});
+    let mut receipt = serde_json::json!({"schema_version":1,"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":[terms,notice],"licence_findings":[{"kind":"material_conflict","evidence":[terms]}]});
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    let mut request = ask(dir.join("font.otf"), Some("OFL-1.1"));
+    request.receipt = Some(dir.join("receipt.json"));
+    receipt["font"]
+        .as_object_mut()
+        .unwrap()
+        .remove("face_index");
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    assert!(vendor(&project, &request).view().is_none());
+    for index in [
+        serde_json::Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!("0"),
+        serde_json::json!(4294967296u64),
+    ] {
+        receipt["font"]["face_index"] = index;
+        std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+        assert!(vendor(&project, &request).view().is_none());
+    }
+    receipt["font"]["face_index"] = serde_json::json!(0);
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    let resolution = serde_json::json!({"licence":"OFL-1.1","font_sha256":OPEN_RUNDE_SHA256,"rationale":"Verified applicable terms","authorization_basis":"project owner authorization","caller_adoption":true,"evidence":[terms]});
+    std::fs::write(dir.join("resolution.json"), resolution.to_string()).unwrap();
+    request.resolution = Some(dir.join("resolution.json"));
+    assert!(vendor(&project, &request).view().is_some());
+}
+
+#[test]
+fn compatible_external_licence_alternatives_need_choice_not_conflict_resolution() {
+    let dir = common::tempdir(line!());
+    std::fs::copy(open_runde(), dir.join("font.otf")).unwrap();
+    let ofl = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("fonts/OFL.txt")).unwrap();
+    let apache=b"Apache License Version 2.0, January 2004 TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION";
+    std::fs::write(dir.join("OFL.txt"), &ofl).unwrap();
+    std::fs::write(dir.join("LICENSE.txt"), apache).unwrap();
+    let commit = "1234567890123456789012345678901234567890";
+    let materials:Vec<_>=[("OFL.txt",ofl.as_slice()),("LICENSE.txt",apache.as_slice())].iter().map(|(file,bytes)|serde_json::json!({"file":file,"sha256":montagent_core::fonts::sha256_hex(bytes),"font_sha256":OPEN_RUNDE_SHA256,"repository_path":format!("ofl/example/{file}"),"source_url":format!("https://raw.githubusercontent.com/google/fonts/{commit}/ofl/example/{file}")})).collect();
+    let receipt = serde_json::json!({"schema_version":1,"source":{"kind":"google_fonts","commit":commit,"repository_path":"ofl/example/font.otf","final_url":format!("https://raw.githubusercontent.com/google/fonts/{commit}/ofl/example/font.otf")},"font":{"file":"font.otf","sha256":OPEN_RUNDE_SHA256,"face_index":0},"materials":materials,"licence_findings":[]});
+    std::fs::write(dir.join("receipt.json"), receipt.to_string()).unwrap();
+    let project = common::write_project(&dir, "p.montagent.json", HEADER_ONLY);
+    let mut request = ask(dir.join("font.otf"), None);
+    request.receipt = Some(dir.join("receipt.json"));
+    let undecided = vendor(&project, &request);
+    assert!(codes(undecided.report()).contains(&"E-FONT-LICENCE-UNKNOWN"));
+    request.licence = Some("OFL-1.1".into());
+    assert!(vendor(&project, &request).view().is_some());
 }

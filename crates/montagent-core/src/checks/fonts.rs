@@ -118,6 +118,23 @@ fn attestation(document: &Loose, report: &mut Report) {
         }
     }
 
+    if let Some(table) = document.value()["fontVendor"].as_object() {
+        for (file, record) in table {
+            if let Ok(attestation) =
+                serde_json::from_value::<crate::model::FontAttestation>(record.clone())
+                && let Some(reference) = attestation.evidence
+                && let Err(reason) =
+                    crate::fonts::evidence::verify(&base, &reference, &attestation.sha256)
+            {
+                report.push(
+                    Finding::new("E-FONT-EVIDENCE-INTEGRITY")
+                        .at_file(document.path())
+                        .field("file", json!(file))
+                        .field("detail", json!(reason)),
+                );
+            }
+        }
+    }
     for file in attested.keys() {
         if !referenced.contains(file) {
             report.push(

@@ -19,6 +19,21 @@ const HEADER_ONLY: &str = r##"{
 }
 "##;
 
+#[test]
+fn cli_fonts_acquire_help_exposes_explicit_sources_and_evidence_inputs() {
+    let out = montagent(&["fonts", "acquire", "--help"]);
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    for flag in [
+        "--url",
+        "--google-family",
+        "--google-file",
+        "--expected-sha256",
+        "--face-index",
+    ] {
+        assert!(out.stdout.contains(flag), "missing {flag}: {}", out.stdout);
+    }
+}
+
 // ---- CLI ----------------------------------------------------------------------------
 
 #[test]
@@ -1693,12 +1708,8 @@ fn mcp_does_not_advertise_probe() {
 }
 
 #[test]
-fn the_mcp_surface_is_exactly_ten_tools_and_verify_is_the_tenth() {
-    // ADR-0011's table listed eight and spec #168's title says nine; ADR-0078 (#295) settles
-    // it by giving the table a `preview` row, and ADR-0117 (#436) adds `verify` as the tenth:
-    // the last step of every agent's workflow, and MONTAGENT-9's question over MCP. The count is asserted against the router
-    // rather than restated in prose, because ADR-0011's own opening sentence ("nine verbs
-    // and two resources", against a table of eleven) is what a prose count is worth.
+fn the_mcp_surface_includes_explicit_font_acquisition_listing_and_vendoring() {
+    // The approved font acquisition contract adds three tools to the existing authoring surface.
     let session = mcp_session(&[
         handshake(1),
         notification("notifications/initialized"),
@@ -1718,6 +1729,9 @@ fn the_mcp_surface_is_exactly_ten_tools_and_verify_is_the_tenth() {
         vec![
             "compare",
             "create_project",
+            "fonts_acquire",
+            "fonts_list",
+            "fonts_vendor",
             "frame",
             "measure",
             "preview",
@@ -1751,6 +1765,98 @@ fn mcp_does_not_advertise_timeline() {
         .collect::<Vec<_>>();
 
     assert!(!tools.iter().any(|name| name == "timeline"), "{tools:?}");
+}
+
+#[test]
+fn font_acquisition_refusals_have_cli_mcp_parity_without_writing_a_bundle() {
+    let destination = scratch_dir("acquisition-parity").join("bundle");
+    let out = montagent(&[
+        "fonts",
+        "acquire",
+        destination.to_str().unwrap(),
+        "--url",
+        "file:///font.ttf",
+        "--json",
+    ]);
+    assert_eq!(out.code, Some(2), "{}{}", out.stdout, out.stderr);
+    let cli: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({"name":"fonts_acquire", "arguments": {"source":{"kind":"url","url":"file:///font.ttf"},"destination": destination}}),
+        ),
+    ]);
+    assert_eq!(session[&2]["result"]["isError"], true);
+    let body = session[&2]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap();
+    let mcp: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(cli, mcp);
+    assert_eq!(mcp["status"], "failed");
+    assert!(!destination.exists());
+}
+
+#[test]
+fn mcp_fonts_list_matches_cli_json_and_acquire_schema_has_no_byte_payload() {
+    let dir = scratch_dir("fonts-parity");
+    let cli = montagent(&["fonts", "list", "--root", dir.to_str().unwrap(), "--json"]);
+    let cli: serde_json::Value = serde_json::from_str(&cli.stdout).unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(2, "tools/list", serde_json::json!({})),
+        request(
+            3,
+            "tools/call",
+            serde_json::json!({"name": "fonts_list", "arguments": {"roots": [dir], "json": true}}),
+        ),
+        request(
+            4,
+            "tools/call",
+            serde_json::json!({"name": "fonts_acquire", "arguments": {}}),
+        ),
+        request(
+            5,
+            "tools/call",
+            serde_json::json!({"name": "fonts_vendor", "arguments": {"project": "missing.json", "font": "missing.ttf", "receipt": 3}}),
+        ),
+    ]);
+    let body = session[&3]["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap();
+    let mcp: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(cli, mcp);
+    assert_eq!(mcp["execution"]["scope"], "local");
+    let tools = session[&2]["result"]["tools"].as_array().unwrap();
+    let acquire = tools.iter().find(|t| t["name"] == "fonts_acquire").unwrap();
+    assert!(acquire["inputSchema"]["properties"].get("source").is_some());
+    assert!(
+        acquire["inputSchema"]["properties"]
+            .get("destination")
+            .is_some()
+    );
+    assert!(!acquire["inputSchema"].to_string().contains("base64"));
+    let vendor = tools.iter().find(|t| t["name"] == "fonts_vendor").unwrap();
+    for field in ["receipt", "resolution", "face_index"] {
+        assert!(vendor["inputSchema"]["properties"].get(field).is_some());
+    }
+    assert_eq!(session[&5]["result"]["isError"], true);
+    assert!(
+        session[&5]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("E-INVOCATION")
+    );
+    assert_eq!(session[&4]["result"]["isError"], true);
+    assert!(
+        session[&4]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("E-INVOCATION")
+    );
 }
 
 #[test]
@@ -3042,4 +3148,41 @@ fn scratch(name: &str, file: &str, body: &str) -> PathBuf {
     std::fs::write(&path, body).expect("write project");
     assert!(Path::new(&path).exists());
     path
+}
+
+#[test]
+fn direct_url_selector_arguments_reach_same_cli_and_mcp_core_contract() {
+    let directory = scratch_dir("font-url-selectors");
+    let cli = montagent(&[
+        "fonts",
+        "acquire",
+        directory.join("cli").to_str().unwrap(),
+        "--url",
+        "https://127.0.0.1/font.ttf",
+        "--family",
+        "Inter",
+        "--weight",
+        "700",
+        "--style",
+        "normal",
+    ]);
+    assert_eq!(cli.code, Some(2), "{}", cli.stderr);
+    let cli: serde_json::Value = serde_json::from_str(&cli.stdout).unwrap();
+    let session = mcp_session(&[
+        handshake(1),
+        notification("notifications/initialized"),
+        request(
+            2,
+            "tools/call",
+            serde_json::json!({"name":"fonts_acquire","arguments":{"destination":directory.join("mcp"),"source":{"kind":"url","url":"https://127.0.0.1/font.ttf","family":"Inter","weight":700,"style":"normal"}}}),
+        ),
+    ]);
+    let mcp: serde_json::Value = serde_json::from_str(
+        session[&2]["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(cli, mcp);
+    assert_eq!(cli["findings"][0]["code"], "network_denied");
 }

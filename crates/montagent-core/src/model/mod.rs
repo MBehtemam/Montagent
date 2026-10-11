@@ -360,7 +360,16 @@ pub struct FontFile {
 /// — and duplicated facts drift the moment one copy is re-vendored and the other is not.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct FontEvidence {
+    pub file: String,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct FontAttestation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<FontEvidence>,
     pub licence: String,
     pub source: String,
     pub sha256: String,

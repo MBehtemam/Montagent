@@ -16,11 +16,9 @@ without anyone noticing:
 
   1. no Homebrew formula lives in the repo (a formula is a pointer at a release tarball,
      and ADR-0064 defers the tap itself past v1);
-  2. `Cargo.lock` names no crate from the update-check/telemetry/HTTP-client families —
-     `montagent_core::media::probe::probe_remote`'s own doc comment is "the only function
-     in Montagent that can cause a network call", and that claim is false the moment an
-     HTTP client crate enters the dependency graph, self-reported network_attempts
-     notwithstanding;
+  2. no update-check/telemetry client enters the graph. ADR-0197 permits the
+     reqwest HTTPS stack only for explicit font acquisition; other HTTP clients and
+     direct use of that stack outside the acquisition module remain refused;
   3. `Cargo.lock` names no FFmpeg-linking crate (`ffmpeg-next`, `ffmpeg-sys*`,
      `rusty_ffmpeg`), which would make the *build* pull in the GPL library ADR-0009
      requires stay strictly on the user's own PATH.
@@ -34,9 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LOCKFILE = os.path.join(ROOT, "Cargo.lock")
 
-# Crates whose mere presence in the dependency graph would mean Montagent itself is
-# capable of reaching the network — the invariant `probe_remote`'s doc comment states as
-# a fact about the source, checked here as a fact about the resolved graph.
+# Network clients outside the explicit acquisition stack still fail closed (ADR-0197).
 NETWORK_CLIENT_CRATES = [
     "reqwest",
     "ureq",
@@ -46,6 +42,9 @@ NETWORK_CLIENT_CRATES = [
     "surf",
     "attohttpc",
 ]
+
+APPROVED_FONT_HTTP_CRATES = {"reqwest", "hyper", "hyper-util", "hyper-rustls"}
+FONT_ACQUISITION = "crates/montagent-core/src/verbs/fonts_acquire.rs"
 
 # Crates whose job is specifically an update check or usage telemetry — the "no update
 # check of any kind, ever" half of ADR-0064.
@@ -101,15 +100,33 @@ else:
         return sorted(name for name in package_names if any(name == c or name.startswith(c) for c in candidates))
 
     for name in named(NETWORK_CLIENT_CRATES):
-        failures.append(f"Cargo.lock names an HTTP client crate ({name!r}); probe_remote's 'only function that can cause a network call' claim no longer holds")
+        if name not in APPROVED_FONT_HTTP_CRATES:
+            failures.append(f"Cargo.lock names an unapproved HTTP client crate ({name!r}); ADR-0197 permits only explicit font acquisition")
     for name in named(UPDATE_OR_TELEMETRY_CRATES):
         failures.append(f"Cargo.lock names an update-check/telemetry crate ({name!r}); ADR-0064 requires none, ever")
     for name in named(FFMPEG_LINKING_CRATES):
         failures.append(f"Cargo.lock names an FFmpeg-linking crate ({name!r}); ADR-0009 requires FFmpeg stay resolved from PATH, never linked")
+
+# The approved stack is not a general network capability for renderers or other verbs.
+client_names = r"(?:reqwest|hyper|hyper_util|hyper_rustls)"
+client_use = re.compile(
+    rf"\b{client_names}\s*::|\b(?:use|extern\s+crate)\s+{client_names}\b"
+)
+for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "crates")):
+    dirnames[:] = [d for d in dirnames if d not in ("target", ".git")]
+    for filename in filenames:
+        if not filename.endswith(".rs"):
+            continue
+        path = os.path.join(dirpath, filename)
+        relative = os.path.relpath(path, ROOT).replace(os.sep, "/")
+        if relative != FONT_ACQUISITION:
+            with open(path, encoding="utf-8") as source:
+                if client_use.search(source.read()):
+                    failures.append(f"HTTP client use outside explicit font acquisition: {relative}")
 
 if failures:
     for failure in failures:
         print(f"FAIL: {failure}", file=sys.stderr)
     sys.exit(1)
 
-print("passive packaging holds: no Homebrew tap, no network/telemetry client, no linked FFmpeg")
+print("passive packaging holds: no Homebrew tap, explicit acquisition only, no update/telemetry client, no linked FFmpeg")
