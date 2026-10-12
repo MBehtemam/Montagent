@@ -174,6 +174,29 @@ fn keyed_opacity(id: &str) -> Value {
            "opacity": [{"t": 0, "v": 1}, {"t": 600, "v": 0.2, "ease": "linear"}]})
 }
 
+/// A sine tone, `ms` long, beside the project at `path`, as an `audio` element's `source`.
+fn tone(path: &Path, ms: i64) -> &'static str {
+    let ffmpeg = montagent_core::media::tools::resolve()
+        .expect("an ffmpeg")
+        .ffmpeg;
+    let made = std::process::Command::new(ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i"])
+        .arg(format!("sine=frequency=440:duration={}", ms as f64 / 1000.0))
+        .args(["-ac", "2"])
+        .arg(path.parent().unwrap().join("tone.wav"))
+        .status()
+        .expect("ffmpeg runs")
+        .success();
+    assert!(made, "write the tone");
+    "tone.wav"
+}
+
+/// An `audio` element playing [`tone`] over `[start, end)`. It draws nothing.
+fn audio(id: &str, start: i64, end: i64) -> Value {
+    json!({"id": id, "type": "audio", "start": start, "end": end, "source": "tone.wav",
+           "source_start": 0, "source_end": end - start})
+}
+
 /// Plates, then (in layer order) the project's own elements, one track each.
 fn stacked(elements: Vec<Value>) -> Value {
     Value::Array(
@@ -426,6 +449,31 @@ fn static_plates_under_a_mover_are_restored_and_every_frame_is_the_same() {
         let row = on.row(id);
         assert_eq!(row["frames_painted"], 18, "{row}");
         assert_eq!(row["frames_reused"], 0, "{row}");
+    }
+}
+
+/// #974: an audio element on a layer below static plates draws nothing, so it neither
+/// joins nor ends the static prefix; the plates are restored as if it were not there.
+#[test]
+fn audio_below_static_plates_does_not_end_the_prefix() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = write(
+        line!(),
+        stacked(vec![
+            audio("voice", 0, 600),
+            plate("table", 0, 600, "#3A2A1E"),
+            feathered_image("book"),
+            mover("mover"),
+        ]),
+    );
+    tone(&path, 600);
+    let on = identical_with_and_without(&path);
+    for id in ["table", "book"] {
+        let row = on.row(id);
+        assert_eq!(row["frames_painted"], 1, "{row}");
+        assert_eq!(row["frames_reused"], 17, "{row}");
     }
 }
 
