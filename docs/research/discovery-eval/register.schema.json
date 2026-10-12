@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MontagentFeatureCoverageRegister",
+  "type": "object",
+  "required": [
+    "version",
+    "updated_at",
+    "evaluation_arms",
+    "coverage_states",
+    "summary",
+    "features"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "The pinned Montagent semantic release version this register benchmarks."
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp of the last register state modification."
+    },
+    "evaluation_arms": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["cli-bare", "cli-skills", "mcp-bare", "mcp-skills"]
+      }
+    },
+    "coverage_states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "untested",
+          "passed",
+          "failed",
+          "stale",
+          "unavailable",
+          "intentionally_excluded"
+        ]
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_capabilities", "by_arm"],
+      "properties": {
+        "total_capabilities": { "type": "integer" },
+        "by_arm": {
+          "type": "object",
+          "patternProperties": {
+            "^(cli-bare|cli-skills|mcp-bare|mcp-skills)$": {
+              "type": "object",
+              "required": [
+                "untested",
+                "passed",
+                "failed",
+                "stale",
+                "unavailable",
+                "intentionally_excluded"
+              ],
+              "properties": {
+                "untested": { "type": "integer" },
+                "passed": { "type": "integer" },
+                "failed": { "type": "integer" },
+                "stale": { "type": "integer" },
+                "unavailable": { "type": "integer" },
+                "intentionally_excluded": { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "name",
+          "description",
+          "interfaces",
+          "coverage",
+          "tasks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^cap:[a-z0-9_-]+/[a-z0-9_-]+$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "project",
+              "inspection",
+              "timeline",
+              "rendering",
+              "assets",
+              "effects",
+              "primitives",
+              "animation",
+              "resources",
+              "maintenance"
+            ]
+          },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "interfaces": {
+            "type": "object",
+            "required": ["cli", "mcp"],
+            "properties": {
+              "cli": { "type": ["string", "null"] },
+              "mcp": { "type": ["string", "null"] }
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "required": ["cli-bare", "cli-skills", "mcp-bare", "mcp-skills"],
+            "properties": {
+              "cli-bare": {
+                "type": "string",
+                "enum": [
+                  "untested",
+                  "passed",
+                  "failed",
+                  "stale",
+                  "unavailable",
+                  "intentionally_excluded"
+                ]
+              },
+              "cli-skills": {
+                "type": "string",
+                "enum": [
+                  "untested",
+                  "passed",
+                  "failed",
+                  "stale",
+                  "unavailable",
+                  "intentionally_excluded"
+                ]
+              },
+              "mcp-bare": {
+                "type": "string",
+                "enum": [
+                  "untested",
+                  "passed",
+                  "failed",
+                  "stale",
+                  "unavailable",
+                  "intentionally_excluded"
+                ]
+              },
+              "mcp-skills": {
+                "type": "string",
+                "enum": [
+                  "untested",
+                  "passed",
+                  "failed",
+                  "stale",
+                  "unavailable",
+                  "intentionally_excluded"
+                ]
+              }
+            }
+          },
+          "tasks": {
+            "type": "object",
+            "required": ["primary_targets", "incidental"],
+            "properties": {
+              "primary_targets": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "incidental": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "invalidation_triggers": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
