@@ -6,6 +6,8 @@ on:
       - "docs/research/discovery-eval/**"
       - "crates/montagent-cli/**"
       - "crates/montagent-core/**"
+      - "crates/montagent-mcp/**"
+      - "docs/specs/**"
       - "skills/**"
       - ".github/workflows/discovery-smoke.yml"
   push:
@@ -16,6 +18,8 @@ on:
       - "docs/research/discovery-eval/**"
       - "crates/montagent-cli/**"
       - "crates/montagent-core/**"
+      - "crates/montagent-mcp/**"
+      - "docs/specs/**"
       - "skills/**"
       - ".github/workflows/discovery-smoke.yml"
   workflow_dispatch:
@@ -50,6 +54,11 @@ jobs:
           python3 -m unittest docs/research/discovery-eval/test_run_arm.py
           python3 -m unittest docs/research/discovery-eval/test_score_trace.py
           python3 -m unittest docs/research/discovery-eval/test_sync_register.py
+          python3 -m unittest docs/research/discovery-eval/test_stage_1.py
+
+      - name: Run Stage 1 smoke pilot telemetry execution
+        run: |
+          python3 docs/research/discovery-eval/harness/execute_stage_1.py --version 0.2.1
 
       - name: Verify coverage register reporting and synchronization
         run: |

@@ -213,17 +213,19 @@ def score_dimensions(info: dict, deliverable_valid: bool, missed_flagged: bool =
     }
 
 
-def evaluate_composite_verdict(dimensions: dict) -> str:
+def evaluate_composite_verdict(dimensions: dict[str, Any]) -> str:
     disc = dimensions["discovery"]
     sel = dimensions["selection"]
     exe = dimensions["execution"]
     guess = dimensions["guessing"]
     missed = dimensions["missed_capability"]
 
-    # Hard failures
+    # Hard failures per SCORING.md §2
     if exe == "Failed Execution":
         return "Failure"
     if sel in ("Unsupported Workaround", "Mismatched Tool"):
+        return "Failure"
+    if guess == "Persistent":
         return "Failure"
 
     # Full success check
@@ -238,7 +240,7 @@ def evaluate_composite_verdict(dimensions: dict) -> str:
 
     # Partial success
     if exe in ("Clean Pass", "Recovered Pass"):
-        if missed == "Flagged" or guess == "Persistent" or sel == "Acceptable Alternative":
+        if missed == "Flagged" or sel == "Acceptable Alternative":
             return "Partial Success"
 
     return "Failure"
@@ -293,12 +295,13 @@ def attribute_outcome(
     }
 
 
-def compute_effort_tier(discovery_turns: int, total_turns: int) -> str:
+def compute_effort_tier(discovery_turns: int, total_turns: int, max_turns: int = 25) -> str:
+    """Classify discovery effort tier per SCORING.md §4."""
+    if discovery_turns > 8 or (max_turns > 0 and (discovery_turns / max_turns) > 0.30):
+        return "Excessive"
     if discovery_turns <= 3:
         return "Direct"
-    if discovery_turns <= 8:
-        return "Moderate"
-    return "Excessive"
+    return "Moderate"
 
 
 def create_scorecard(
@@ -307,10 +310,10 @@ def create_scorecard(
     arm: str,
     trial: int,
     montagent_version: str,
-    dimensions: dict,
-    metrics: dict,
-    attribution: dict,
-) -> dict:
+    dimensions: dict[str, Any],
+    metrics: dict[str, Any],
+    attribution: dict[str, str],
+) -> dict[str, Any]:
     verdict = evaluate_composite_verdict(dimensions)
     return {
         "run_id": run_id,
@@ -342,8 +345,9 @@ def verify_workspace_deliverable(
     with open(manifest_file, "r") as f:
         task_manifest = json.load(f)
 
-    # Check for expected deliverables
-    expected = task_manifest.get("deliverables", {}).get("expected_files", [])
+    # Check for expected deliverables (supports both list and dict schemas)
+    raw_deliv = task_manifest.get("deliverables", [])
+    expected = raw_deliv.get("expected_files", []) if isinstance(raw_deliv, dict) else raw_deliv
     for exp_file in expected:
         fpath = workspace_dir / exp_file
         if not fpath.exists():

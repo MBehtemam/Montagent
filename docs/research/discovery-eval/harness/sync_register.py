@@ -40,32 +40,33 @@ def load_register(path: Path | None = None) -> dict:
         return json.load(f)
 
 
-def calculate_gap_index(register: dict) -> dict:
+def _calculate_arm_rate(
+    by_arm: dict[str, dict[str, int]], arms: tuple[str, ...]
+) -> tuple[int, int, float]:
+    """Calculate (tested_count, passed_count, pass_rate) for a set of arms."""
+    tested = sum(
+        by_arm.get(arm, {}).get("passed", 0) + by_arm.get(arm, {}).get("failed", 0)
+        for arm in arms
+    )
+    passed = sum(
+        by_arm.get(arm, {}).get("passed", 0)
+        for arm in arms
+    )
+    rate = (passed / tested) if tested > 0 else 0.0
+    return tested, passed, rate
+
+
+def calculate_gap_index(register: dict[str, Any]) -> dict[str, float]:
+    """Compute Gap Index G = 1.0 - R_bare and Skill Leverage L_skill per PILOT.md."""
     by_arm = register.get("summary", {}).get("by_arm", {})
 
     bare_arms = ("cli-bare", "mcp-bare")
     skills_arms = ("cli-skills", "mcp-skills")
 
-    bare_tested = sum(
-        by_arm.get(arm, {}).get("passed", 0) + by_arm.get(arm, {}).get("failed", 0)
-        for arm in bare_arms
-    )
-    bare_passed = sum(
-        by_arm.get(arm, {}).get("passed", 0)
-        for arm in bare_arms
-    )
-    bare_rate = (bare_passed / bare_tested) if bare_tested > 0 else 0.0
-    gap_index = 1.0 - bare_rate
+    _, _, bare_rate = _calculate_arm_rate(by_arm, bare_arms)
+    _, _, skills_rate = _calculate_arm_rate(by_arm, skills_arms)
 
-    skills_tested = sum(
-        by_arm.get(arm, {}).get("passed", 0) + by_arm.get(arm, {}).get("failed", 0)
-        for arm in skills_arms
-    )
-    skills_passed = sum(
-        by_arm.get(arm, {}).get("passed", 0)
-        for arm in skills_arms
-    )
-    skills_rate = (skills_passed / skills_tested) if skills_tested > 0 else 0.0
+    gap_index = 1.0 - bare_rate
     skill_leverage = skills_rate - bare_rate
 
     return {
@@ -80,7 +81,7 @@ def sync_register(
     register_path: Path,
     runs_path: Path,
     tasks_path: Path,
-) -> dict:
+) -> dict[str, Any]:
     with open(register_path, "r") as f:
         register = json.load(f)
 
@@ -101,7 +102,7 @@ def sync_register(
                     )
                     task_manifest_cache[task_id] = targets
                     return targets
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass
         return []
 
@@ -131,7 +132,7 @@ def sync_register(
                         if cur_state not in ("unavailable", "intentionally_excluded"):
                             new_state = "passed" if verdict == "Full Success" else "failed"
                             feat["coverage"][arm] = new_state
-            except Exception:
+            except (OSError, json.JSONDecodeError, KeyError):
                 pass
 
     # Recalculate summary counts
@@ -162,7 +163,7 @@ def sync_register(
     return register
 
 
-def find_stale_or_untested_tasks(register: dict, tasks_dir: Path | None = None) -> list[str]:
+def find_stale_or_untested_tasks(register: dict[str, Any], tasks_dir: Path | None = None) -> list[str]:
     tasks = set()
     for feat in register.get("features", []):
         coverage = feat.get("coverage", {})
@@ -186,7 +187,7 @@ def clean_local_cache(local_dir: Path, days: int = 14, purge_all: bool = False) 
                 if purge_all or p.stat().st_mtime < cutoff:
                     p.unlink()
                     deleted_count += 1
-            except Exception:
+            except OSError:
                 pass
         for d in dirs:
             dp = Path(root) / d
@@ -194,14 +195,14 @@ def clean_local_cache(local_dir: Path, days: int = 14, purge_all: bool = False) 
                 if purge_all or (dp.is_dir() and not any(dp.iterdir())):
                     dp.rmdir()
                     deleted_count += 1
-            except Exception:
+            except OSError:
                 pass
 
     if purge_all and local_dir.exists():
         try:
             shutil.rmtree(local_dir)
             deleted_count += 1
-        except Exception:
+        except OSError:
             pass
 
     return deleted_count

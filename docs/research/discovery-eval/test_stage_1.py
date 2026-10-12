@@ -30,7 +30,7 @@ class TestStage1Contract(unittest.TestCase):
     def test_stage_1_tasks_and_arms_configuration(self):
         self.assertEqual(
             execute_stage_1.STAGE_1_TASKS,
-            ["discovery-01-assembly-inspect", "discovery-02-font-licensing"]
+            ["discovery-01-assembly-inspect", "discovery-05-scene-transition"]
         )
         self.assertEqual(
             execute_stage_1.STAGE_1_ARMS,
@@ -57,6 +57,11 @@ class TestStage1Contract(unittest.TestCase):
             self.assertIn("composite_verdict", sc)
             self.assertIn("dimensions", sc)
             self.assertIn("attribution", sc)
+
+            # Per RETENTION.md §1: failures and partial successes must have transcript.jsonl.gz
+            if sc["composite_verdict"] in ("Failure", "Partial Success"):
+                gz_file = run_dir / "transcript.jsonl.gz"
+                self.assertTrue(gz_file.is_file(), f"Missing transcript.jsonl.gz at {gz_file}")
 
 
 if __name__ == "__main__":

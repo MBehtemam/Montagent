@@ -288,7 +288,7 @@ def sweep_sandbox_tmp(before: set[str], dest: Path) -> list[str]:
         dst = dest / name
         try:
             shutil.move(str(src), str(dst))
-        except Exception:
+        except OSError:
             pass
     return new
 

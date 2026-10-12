@@ -1,7 +1,7 @@
 {
   "$schema": "./register.schema.json",
   "version": "0.2.1",
-  "updated_at": "2026-10-12T16:01:35.604154+00:00",
+  "updated_at": "2026-10-12T16:15:10.147135+00:00",
   "evaluation_arms": [
     "cli-bare",
     "cli-skills",
@@ -20,32 +20,32 @@
     "total_capabilities": 31,
     "by_arm": {
       "cli-bare": {
-        "untested": 13,
-        "passed": 3,
-        "failed": 4,
+        "untested": 10,
+        "passed": 2,
+        "failed": 8,
         "stale": 0,
         "unavailable": 9,
         "intentionally_excluded": 2
       },
       "cli-skills": {
-        "untested": 13,
-        "passed": 7,
+        "untested": 10,
+        "passed": 10,
         "failed": 0,
         "stale": 0,
         "unavailable": 9,
         "intentionally_excluded": 2
       },
       "mcp-bare": {
-        "untested": 19,
-        "passed": 3,
-        "failed": 4,
+        "untested": 16,
+        "passed": 2,
+        "failed": 8,
         "stale": 0,
         "unavailable": 3,
         "intentionally_excluded": 2
       },
       "mcp-skills": {
-        "untested": 19,
-        "passed": 7,
+        "untested": 16,
+        "passed": 10,
         "failed": 0,
         "stale": 0,
         "unavailable": 3,
@@ -299,10 +299,10 @@
         "mcp": "render"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
         "primary_targets": [
@@ -329,9 +329,9 @@
         "mcp": "verify"
       },
       "coverage": {
-        "cli-bare": "passed",
+        "cli-bare": "failed",
         "cli-skills": "passed",
-        "mcp-bare": "passed",
+        "mcp-bare": "failed",
         "mcp-skills": "passed"
       },
       "tasks": {
@@ -756,10 +756,10 @@
         "mcp": "declarative:element/transition:crossfade"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
         "primary_targets": [
@@ -782,10 +782,10 @@
         "mcp": "declarative:transition:audio"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
         "primary_targets": [

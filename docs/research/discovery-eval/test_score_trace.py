@@ -73,6 +73,28 @@ class TestScoreTraceContract(unittest.TestCase):
         verdict = score_trace.evaluate_composite_verdict(dimensions)
         self.assertEqual(verdict, "Failure")
 
+    def test_composite_verdict_failure_on_persistent_guessing(self):
+        # Per SCORING.md §2: Guessing: Persistent -> Failure
+        dimensions = {
+            "discovery": "Inspected",
+            "selection": "Native Optimal",
+            "execution": "Clean Pass",
+            "guessing": "Persistent",
+            "missed_capability": "None"
+        }
+        verdict = score_trace.evaluate_composite_verdict(dimensions)
+        self.assertEqual(verdict, "Failure")
+
+    def test_compute_effort_tier(self):
+        # Direct: <= 3 turns
+        self.assertEqual(score_trace.compute_effort_tier(2, 5, 25), "Direct")
+        # Moderate: 4-8 turns and <= 30% of max budget
+        self.assertEqual(score_trace.compute_effort_tier(5, 10, 25), "Moderate")
+        # Excessive: > 8 turns
+        self.assertEqual(score_trace.compute_effort_tier(9, 15, 25), "Excessive")
+        # Excessive: > 30% of max budget (e.g. 8 turns out of 20 = 40%)
+        self.assertEqual(score_trace.compute_effort_tier(8, 12, 20), "Excessive")
+
     def test_failure_attribution_taxonomy(self):
         # Budget exhaustion
         attr = score_trace.attribute_outcome(

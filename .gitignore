@@ -33,3 +33,4 @@ fixtures/benchmark/spy-trailer/score.wav
 
 # Discovery evaluation local ephemeral cache and raw transcripts (RETENTION.md §1)
 docs/research/discovery-eval/runs/.local/
+.*.montagent-partial-*

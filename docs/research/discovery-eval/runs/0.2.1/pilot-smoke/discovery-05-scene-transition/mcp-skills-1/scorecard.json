@@ -1,7 +1,7 @@
 {
-  "run_id": "discovery-02-font-licensing-cli-skills-1",
-  "task_id": "discovery-02-font-licensing",
-  "arm": "cli-skills",
+  "run_id": "discovery-05-scene-transition-mcp-skills-1",
+  "task_id": "discovery-05-scene-transition",
+  "arm": "mcp-skills",
   "trial": 1,
   "montagent_version": "0.2.1",
   "composite_verdict": "Full Success",
