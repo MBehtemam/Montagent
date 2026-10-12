@@ -15,6 +15,8 @@ Open the reference file for the kind of piece before you plan it:
 | Logo reveal, logo sting, anything that loops | [the logo loop](references/logo-loop.md) |
 | Trailer, or any slammed, glitched, flashing or HUD effect | [trailer effects](references/trailer.md) |
 
+For a new piece or a redesign, read [creative direction](references/creative-direction.md) before choosing the layout. It covers visual concepts, composition and choreography in native Montagent. For a specific edit, read only the relevant recipe and preserve the existing direction.
+
 ## Plan on a beat sheet
 
 Before you write an element, write the **beat sheet**: every entrance, colour change, cut and exit in one table, each on a beat of the grid `montagent-craft` gives (its tempo, downbeat, frame snapping, and which events go on beats).
