@@ -477,6 +477,61 @@ fn audio_below_static_plates_does_not_end_the_prefix() {
     }
 }
 
+/// #974: an audio clip that starts and stops mid-span is not part of the prefix's key, so its
+/// entry and exit cost the plates nothing — unlike a drawn element entering
+/// (`an_element_that_enters_mid_span_starts_a_new_prefix`).
+#[test]
+fn audio_entering_and_leaving_mid_span_does_not_restart_the_prefix() {
+    if !has_ffprobe() {
+        return;
+    }
+    let path = write(
+        line!(),
+        stacked(vec![
+            audio("voice", 200, 400),
+            plate("table", 0, 600, "#3A2A1E"),
+            feathered_image("book"),
+            mover("mover"),
+        ]),
+    );
+    tone(&path, 200);
+    let on = identical_with_and_without(&path);
+    for id in ["table", "book"] {
+        let row = on.row(id);
+        assert_eq!(row["frames_painted"], 1, "{row}");
+        assert_eq!(row["frames_reused"], 17, "{row}");
+    }
+}
+
+/// #974: a `transition` element draws nothing of its own, so on a layer below plates it does
+/// not end their prefix. (The elements it bridges are still excluded while it runs:
+/// `plates_bridged_by_a_transition_are_not_cached_while_it_runs`.)
+#[test]
+fn a_transition_element_below_static_plates_does_not_end_the_prefix() {
+    if !has_ffprobe() {
+        return;
+    }
+    let transition = json!({"id": "x", "type": "transition", "start": 200, "end": 400,
+                            "kind": "crossfade", "from": "one", "to": "two"});
+    let path = write(
+        line!(),
+        stacked(vec![
+            transition,
+            plate("table", 0, 600, "#3A2A1E"),
+            feathered_image("book"),
+            mover("mover"),
+            plate("one", 0, 400, "#2E6A9F"),
+            plate("two", 200, 600, "#9F2E6A"),
+        ]),
+    );
+    let on = identical_with_and_without(&path);
+    for id in ["table", "book"] {
+        let row = on.row(id);
+        assert_eq!(row["frames_painted"], 1, "{row}");
+        assert_eq!(row["frames_reused"], 17, "{row}");
+    }
+}
+
 #[test]
 fn a_layer_with_an_opacity_keyframe_is_never_wrongly_cached() {
     if !has_ffprobe() {
