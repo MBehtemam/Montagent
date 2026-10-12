@@ -1,0 +1,64 @@
+name: Discovery Smoke
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/discovery-eval/**"
+      - "crates/montagent-cli/**"
+      - "crates/montagent-core/**"
+      - "skills/**"
+      - ".github/workflows/discovery-smoke.yml"
+  push:
+    branches:
+      - main
+      - "impl/**"
+    paths:
+      - "docs/research/discovery-eval/**"
+      - "crates/montagent-cli/**"
+      - "crates/montagent-core/**"
+      - "skills/**"
+      - ".github/workflows/discovery-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: discovery smoke check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip jsonschema
+          cargo build -p montagent-cli
+
+      - name: Run task fixtures and rubric validation
+        run: python3 -m unittest docs/research/discovery-eval/test_tasks.py
+
+      - name: Run discovery evaluation harness unit and contract tests
+        run: |
+          python3 -m unittest docs/research/discovery-eval/test_run_arm.py
+          python3 -m unittest docs/research/discovery-eval/test_score_trace.py
+          python3 -m unittest docs/research/discovery-eval/test_sync_register.py
+
+      - name: Verify coverage register reporting and synchronization
+        run: |
+          python3 docs/research/discovery-eval/harness/sync_register.py --report
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-smoke-artifacts
+          path: |
+            docs/research/discovery-eval/runs/
