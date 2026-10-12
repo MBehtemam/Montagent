@@ -363,7 +363,9 @@ enum Command {
         progress_file: Option<PathBuf>,
         /// Add `render.profile` to the answer: CPU milliseconds per element id, element
         /// type and effect, and the stage split (decode, paint, encode wait), summed across
-        /// painters (ADR-0194).
+        /// painters (ADR-0194). Each element and type row counts `frames_painted` (frames it
+        /// was drawn on) and `frames_reused` (frames its pixels were copied from the static
+        /// prefix instead, ADR-0195).
         ///
         /// Timing slows a render, so a profiled run is never a speed measurement; it paints
         /// the same bytes as one without. It is for finding what a slice costs: use it with

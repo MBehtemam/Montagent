@@ -29,7 +29,8 @@ served beside this one and each fitting one read. Read a page before you write w
   and a line bent along its own curve (`path`, `path_offset`).
 - **`montagent://format/compositing.md`**: how elements combine. Paint and gradients, effect
   order, `blend` and shadows, masks, `chroma`, `grain` and textures, the named effects
-  (`posterize`, `glow`, `directional_blur`) and `motion_blur`.
+  (`posterize`, `glow`, `directional_blur`), `motion_blur`, and which bottom layers are drawn
+  once and reused (the static prefix).
 - **`montagent://format/transitions.md`**: a `transition` element. Its `kind`, `direction` and
   `ease`, the window it must equal, and the sound it carries across that window (`audio`,
   `audio_crossfade`).
