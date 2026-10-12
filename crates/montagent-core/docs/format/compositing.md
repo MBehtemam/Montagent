@@ -298,23 +298,13 @@ two disagree.
 
 ## The static prefix
 
-- **Unchanging bottom layers are drawn once and reused** (ADR-0195). `render` and `preview`
-  draw the frame's **static prefix** once: the run of layers at the bottom of the stack whose
-  pixels cannot change while each is present. Later frames copy those pixels, byte for byte,
-  until an element of the run enters or leaves. Nothing turns it on or off, and the frame is
-  the same either way; only the cost changes.
-- **A time-varying layer ends the run** (ADR-0195). That is a keyframe anywhere in the
-  element (effect and gradient parameters included), a `video`, a `group` member, a `blend`
-  other than `normal`, `motion_blur`, a `units` stagger, a run's `highlight`, any effect other
-  than `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `chroma`,
-  `posterize` and `glow` (so `grain` and `directional_blur` end it), or a running transition
-  that bridges the element. Every
-  layer above it is drawn again on every frame. That includes a static layer that sits between
-  two time-varying ones: only the bottom run is reused.
-- **An element that draws nothing does not count** (ADR-0198). An `audio` or `transition`
-  element on any layer neither joins the run nor ends it, and its start and end do not restart
-  it. Put an audio track on whatever layer suits the project.
-- **Where it shows.** `render --profile` gives each element `frames_painted` (frames on which
-  it was drawn) and `frames_reused` (frames on which its pixels were copied from the static
-  prefix). A static plate low in the stack that shows `frames_reused` near zero has something
-  time-varying below it.
+- **The bottom run of unchanging layers is drawn once and reused** by `render` and `preview`
+  (ADR-0195), until one of them enters or leaves. The frame's bytes are the same either way.
+- **A time-varying layer ends the run**: a keyframe (effect and gradient parameters too), a
+  `video`, a `group` member, a non-`normal` `blend`, `motion_blur`, `units`, a `highlight`, an
+  effect outside `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`,
+  `chroma`, `posterize`, `glow`, or a running transition bridging it. Every layer above is
+  drawn every frame, a static one between moving ones included.
+- **`audio` and `transition` elements draw nothing** (ADR-0198): on any layer, they neither
+  join nor end the run, and their start or end does not restart it.
+- `render --profile` counts `frames_painted` (drawn) and `frames_reused` (copied from the run).
