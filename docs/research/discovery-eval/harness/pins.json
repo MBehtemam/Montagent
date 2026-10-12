@@ -1,0 +1,16 @@
+{
+  "model": "claude-3-7-sonnet",
+  "effort": "high",
+  "claude_code_version": "2.1.296",
+  "caps": {
+    "wall_clock_s": 300,
+    "max_turns": 25,
+    "max_tokens": 100000,
+    "budget_usd": 2.00
+  },
+  "network": {
+    "why": "Air-gapped clean-room permissions: WebFetch and WebSearch denied, zero allowed network domains.",
+    "allowed_domains": []
+  },
+  "target_version": "v0.2.1"
+}
