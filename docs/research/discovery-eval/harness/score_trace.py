@@ -453,7 +453,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.sync_register:
-        print("Note: --sync-register will be connected in Ticket #969.")
+        from sync_register import sync_register, REGISTER_FILE
+        sync_register(REGISTER_FILE, EVAL_DIR / "runs", TASKS_DIR)
+        print(f"Synchronized {REGISTER_FILE.name} with scorecards.")
         return 0
 
     if not args.run_dir:

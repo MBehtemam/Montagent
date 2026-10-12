@@ -515,25 +515,25 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.clean_local:
+        from sync_register import clean_local_cache
         local_root = RUNS_DIR / ".local"
-        if not local_root.exists():
-            print("No local cache directory found.")
-            return 0
-        if args.all:
-            shutil.rmtree(local_root)
-            print("Purged all local run caches.")
-            return 0
-        cutoff = time.time() - (args.days * 86400)
-        for root, dirs, files in os.walk(local_root, topdown=False):
-            for f in files:
-                p = Path(root) / f
-                if p.stat().st_mtime < cutoff:
-                    p.unlink()
-        print(f"Cleaned local run caches older than {args.days} days.")
+        del_count = clean_local_cache(local_root, days=args.days, purge_all=args.all)
+        print(f"Cleaned {del_count} ephemeral cache entries from {local_root}")
         return 0
 
-    if args.report or args.stale:
-        print("Note: --report and --stale will be connected to register synchronization in Ticket #969.")
+    if args.report:
+        from sync_register import load_register, format_register_report
+        reg = load_register()
+        print(format_register_report(reg, filter_state=args.filter))
+        return 0
+
+    if args.stale:
+        from sync_register import load_register, find_stale_or_untested_tasks
+        reg = load_register()
+        stale_tasks = find_stale_or_untested_tasks(reg)
+        print("Tasks covering stale or untested capabilities:")
+        for t in stale_tasks:
+            print(f"  - {t}")
         return 0
 
     if not args.task or not args.arm:
