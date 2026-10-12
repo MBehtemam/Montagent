@@ -1,0 +1,25 @@
+{
+  "run_id": "discovery-05-scene-transition-cli-bare-1",
+  "task_id": "discovery-05-scene-transition",
+  "arm": "cli-bare",
+  "trial": 1,
+  "montagent_version": "0.2.1",
+  "composite_verdict": "Partial Success",
+  "dimensions": {
+    "discovery": "Hint-Prompted",
+    "selection": "Acceptable Alternative",
+    "execution": "Recovered Pass",
+    "guessing": "Incidental",
+    "missed_capability": "Flagged"
+  },
+  "metrics": {
+    "discovery_turns": 5,
+    "total_turns": 11,
+    "total_tokens": 32000,
+    "discovery_effort_tier": "Moderate"
+  },
+  "attribution": {
+    "primary_code": "SELECTION_AMBIGUITY",
+    "rationale": "Agent fell back to keyframe approximation before locating native transition curves."
+  }
+}

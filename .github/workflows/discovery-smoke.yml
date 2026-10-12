@@ -1,0 +1,91 @@
+name: Discovery Smoke
+
+on:
+  pull_request:
+    paths:
+      - "docs/research/discovery-eval/**"
+      - "crates/montagent/**"
+      - "crates/montagent-cli/**"
+      - "crates/montagent-core/**"
+      - "crates/montagent-mcp/**"
+      - "docs/specs/**"
+      - "skills/**"
+      - ".github/workflows/discovery-smoke.yml"
+  push:
+    branches:
+      - main
+      - "impl/**"
+    paths:
+      - "docs/research/discovery-eval/**"
+      - "crates/montagent/**"
+      - "crates/montagent-cli/**"
+      - "crates/montagent-core/**"
+      - "crates/montagent-mcp/**"
+      - "docs/specs/**"
+      - "skills/**"
+      - ".github/workflows/discovery-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: discovery smoke check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Skia's Linux link dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev
+
+      - name: Install ffmpeg at the floor (Linux)
+        run: |
+          ci/install_ffmpeg_floor.sh "$RUNNER_TEMP/ffmpeg-floor"
+          echo "$RUNNER_TEMP/ffmpeg-floor/bin" >> "$GITHUB_PATH"
+
+      - name: Install dependencies & build Montagent binary
+        run: |
+          python3 -m pip install --upgrade pip jsonschema
+          cargo build -p montagent
+          echo "$GITHUB_WORKSPACE/target/debug" >> "$GITHUB_PATH"
+
+      - name: Run task fixtures and rubric validation
+        run: python3 -m unittest docs/research/discovery-eval/test_tasks.py
+
+      - name: Run discovery evaluation harness unit and contract tests
+        run: |
+          python3 -m unittest docs/research/discovery-eval/test_run_arm.py
+          python3 -m unittest docs/research/discovery-eval/test_score_trace.py
+          python3 -m unittest docs/research/discovery-eval/test_sync_register.py
+          python3 -m unittest docs/research/discovery-eval/test_ci_workflow.py
+          python3 -m unittest docs/research/discovery-eval/test_stage_1.py
+
+      - name: Run Stage 1 smoke pilot telemetry execution
+        run: |
+          python3 docs/research/discovery-eval/harness/execute_stage_1.py --version 0.2.1
+
+      - name: Verify coverage register reporting and synchronization
+        run: |
+          python3 docs/research/discovery-eval/harness/sync_register.py --report
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-smoke-artifacts
+          path: |
+            docs/research/discovery-eval/runs/

@@ -1,0 +1,14 @@
+{
+  "task_id": "discovery-01-assembly-inspect",
+  "arm": "cli-bare",
+  "trial": 1,
+  "version": "0.2.1",
+  "model": "claude-3-7-sonnet",
+  "timestamp_start": "2026-10-12T16:15:10.105640+00:00",
+  "duration_s": 35.8,
+  "turn_count": 6,
+  "token_count": 18400,
+  "cost_usd": 0.28,
+  "exit_code": 0,
+  "abort_reason": null
+}

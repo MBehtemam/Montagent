@@ -30,3 +30,7 @@ docs/research/skills-eval/assets/incoming/
 
 # The spy-trailer fixture's score, synthesised by its score.py (fixtures/benchmark/spy-trailer/README.md).
 fixtures/benchmark/spy-trailer/score.wav
+
+# Discovery evaluation local ephemeral cache and raw transcripts (RETENTION.md §1)
+docs/research/discovery-eval/runs/.local/
+.*.montagent-partial-*
