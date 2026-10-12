@@ -1,7 +1,7 @@
 {
   "$schema": "./register.schema.json",
   "version": "0.2.1",
-  "updated_at": "2026-10-12T14:45:00Z",
+  "updated_at": "2026-10-12T16:01:35.604154+00:00",
   "evaluation_arms": [
     "cli-bare",
     "cli-skills",
@@ -20,32 +20,32 @@
     "total_capabilities": 31,
     "by_arm": {
       "cli-bare": {
-        "untested": 20,
-        "passed": 0,
-        "failed": 0,
+        "untested": 13,
+        "passed": 3,
+        "failed": 4,
         "stale": 0,
         "unavailable": 9,
         "intentionally_excluded": 2
       },
       "cli-skills": {
-        "untested": 20,
-        "passed": 0,
+        "untested": 13,
+        "passed": 7,
         "failed": 0,
         "stale": 0,
         "unavailable": 9,
         "intentionally_excluded": 2
       },
       "mcp-bare": {
-        "untested": 26,
-        "passed": 0,
-        "failed": 0,
+        "untested": 19,
+        "passed": 3,
+        "failed": 4,
         "stale": 0,
         "unavailable": 3,
         "intentionally_excluded": 2
       },
       "mcp-skills": {
-        "untested": 26,
-        "passed": 0,
+        "untested": 19,
+        "passed": 7,
         "failed": 0,
         "stale": 0,
         "unavailable": 3,
@@ -64,13 +64,15 @@
         "mcp": "create_project"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "passed",
+        "cli-skills": "passed",
+        "mcp-bare": "passed",
+        "mcp-skills": "passed"
       },
       "tasks": {
-        "primary_targets": ["discovery-01-assembly-inspect"],
+        "primary_targets": [
+          "discovery-01-assembly-inspect"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -89,10 +91,10 @@
         "mcp": "validate"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
         "primary_targets": [
@@ -102,7 +104,9 @@
           "discovery-05-scene-transition",
           "discovery-06-motion-stagger"
         ],
-        "incidental": ["discovery-03-chroma-key"]
+        "incidental": [
+          "discovery-03-chroma-key"
+        ]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:validate",
@@ -167,13 +171,15 @@
         "mcp": "frame"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "passed",
+        "cli-skills": "passed",
+        "mcp-bare": "passed",
+        "mcp-skills": "passed"
       },
       "tasks": {
-        "primary_targets": ["discovery-01-assembly-inspect"],
+        "primary_targets": [
+          "discovery-01-assembly-inspect"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -198,7 +204,9 @@
       },
       "tasks": {
         "primary_targets": [],
-        "incidental": ["discovery-03-chroma-key"]
+        "incidental": [
+          "discovery-03-chroma-key"
+        ]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:measure",
@@ -221,7 +229,9 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-04-timeline-shift"],
+        "primary_targets": [
+          "discovery-04-timeline-shift"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -270,7 +280,9 @@
       },
       "tasks": {
         "primary_targets": [],
-        "incidental": ["discovery-03-chroma-key"]
+        "incidental": [
+          "discovery-03-chroma-key"
+        ]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:preview",
@@ -298,7 +310,9 @@
           "discovery-05-scene-transition",
           "discovery-06-motion-stagger"
         ],
-        "incidental": ["discovery-01-assembly-inspect"]
+        "incidental": [
+          "discovery-01-assembly-inspect"
+        ]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:render",
@@ -315,10 +329,10 @@
         "mcp": "verify"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "passed",
+        "cli-skills": "passed",
+        "mcp-bare": "passed",
+        "mcp-skills": "passed"
       },
       "tasks": {
         "primary_targets": [
@@ -409,13 +423,15 @@
         "mcp": "fonts_acquire"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
-        "primary_targets": ["discovery-02-font-licensing"],
+        "primary_targets": [
+          "discovery-02-font-licensing"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -433,13 +449,15 @@
         "mcp": "fonts_list"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
-        "primary_targets": ["discovery-02-font-licensing"],
+        "primary_targets": [
+          "discovery-02-font-licensing"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -457,13 +475,15 @@
         "mcp": "fonts_vendor"
       },
       "coverage": {
-        "cli-bare": "untested",
-        "cli-skills": "untested",
-        "mcp-bare": "untested",
-        "mcp-skills": "untested"
+        "cli-bare": "failed",
+        "cli-skills": "passed",
+        "mcp-bare": "failed",
+        "mcp-skills": "passed"
       },
       "tasks": {
-        "primary_targets": ["discovery-02-font-licensing"],
+        "primary_targets": [
+          "discovery-02-font-licensing"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -716,7 +736,9 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-03-chroma-key"],
+        "primary_targets": [
+          "discovery-03-chroma-key"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -740,7 +762,9 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-05-scene-transition"],
+        "primary_targets": [
+          "discovery-05-scene-transition"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -764,7 +788,9 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-05-scene-transition"],
+        "primary_targets": [
+          "discovery-05-scene-transition"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [
@@ -788,7 +814,9 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-06-motion-stagger"],
+        "primary_targets": [
+          "discovery-06-motion-stagger"
+        ],
         "incidental": []
       },
       "invalidation_triggers": [

@@ -94,7 +94,11 @@ def sync_register(
             try:
                 with open(mfile, "r") as mf:
                     doc = json.load(mf)
-                    targets = doc.get("coverage", {}).get("primary_targets", [])
+                    targets = (
+                        doc.get("primary_target_capabilities")
+                        or doc.get("coverage", {}).get("primary_targets", [])
+                        or []
+                    )
                     task_manifest_cache[task_id] = targets
                     return targets
             except Exception:

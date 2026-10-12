@@ -1,0 +1,25 @@
+{
+  "run_id": "discovery-01-assembly-inspect-mcp-bare-1",
+  "task_id": "discovery-01-assembly-inspect",
+  "arm": "mcp-bare",
+  "trial": 1,
+  "montagent_version": "0.2.1",
+  "composite_verdict": "Full Success",
+  "dimensions": {
+    "discovery": "Inspected",
+    "selection": "Native Optimal",
+    "execution": "Clean Pass",
+    "guessing": "Clean",
+    "missed_capability": "None"
+  },
+  "metrics": {
+    "discovery_turns": 2,
+    "total_turns": 6,
+    "total_tokens": 18400,
+    "discovery_effort_tier": "Direct"
+  },
+  "attribution": {
+    "primary_code": "NONE",
+    "rationale": "Discovered native command directly via --help / schema introspection."
+  }
+}
