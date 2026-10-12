@@ -1,0 +1,800 @@
+{
+  "$schema": "./register.schema.json",
+  "version": "0.2.1",
+  "updated_at": "2026-10-12T14:45:00Z",
+  "evaluation_arms": [
+    "cli-bare",
+    "cli-skills",
+    "mcp-bare",
+    "mcp-skills"
+  ],
+  "coverage_states": [
+    "untested",
+    "passed",
+    "failed",
+    "stale",
+    "unavailable",
+    "intentionally_excluded"
+  ],
+  "summary": {
+    "total_capabilities": 31,
+    "by_arm": {
+      "cli-bare": {
+        "untested": 20,
+        "passed": 0,
+        "failed": 0,
+        "stale": 0,
+        "unavailable": 9,
+        "intentionally_excluded": 2
+      },
+      "cli-skills": {
+        "untested": 20,
+        "passed": 0,
+        "failed": 0,
+        "stale": 0,
+        "unavailable": 9,
+        "intentionally_excluded": 2
+      },
+      "mcp-bare": {
+        "untested": 26,
+        "passed": 0,
+        "failed": 0,
+        "stale": 0,
+        "unavailable": 3,
+        "intentionally_excluded": 2
+      },
+      "mcp-skills": {
+        "untested": 26,
+        "passed": 0,
+        "failed": 0,
+        "stale": 0,
+        "unavailable": 3,
+        "intentionally_excluded": 2
+      }
+    }
+  },
+  "features": [
+    {
+      "id": "cap:project/create-project",
+      "category": "project",
+      "name": "Project Scaffolding",
+      "description": "Scaffolds a valid initial declarative project file with frame dimensions and fps constraints.",
+      "interfaces": {
+        "cli": "montagent create-project",
+        "mcp": "create_project"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-01-assembly-inspect"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:create-project",
+        "crates/montagent/src/mcp.rs:create_project",
+        "schema/project.json"
+      ]
+    },
+    {
+      "id": "cap:inspection/validate",
+      "category": "inspection",
+      "name": "Project Schema and Semantic Validation",
+      "description": "Validates project JSON schema adherence and semantic constraints, reporting actionable structured findings.",
+      "interfaces": {
+        "cli": "montagent validate",
+        "mcp": "validate"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [
+          "discovery-01-assembly-inspect",
+          "discovery-02-font-licensing",
+          "discovery-04-timeline-shift",
+          "discovery-05-scene-transition",
+          "discovery-06-motion-stagger"
+        ],
+        "incidental": ["discovery-03-chroma-key"]
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:validate",
+        "crates/montagent/src/mcp.rs:validate",
+        "crates/montagent-core/src/validate.rs"
+      ]
+    },
+    {
+      "id": "cap:inspection/fmt",
+      "category": "inspection",
+      "name": "Project Format Canonicalization",
+      "description": "Canonicalizes project JSON key ordering and whitespace indentation with non-destructive check mode.",
+      "interfaces": {
+        "cli": "montagent fmt",
+        "mcp": null
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "unavailable",
+        "mcp-skills": "unavailable"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:fmt"
+      ]
+    },
+    {
+      "id": "cap:inspection/query",
+      "category": "inspection",
+      "name": "Timeline Fact Querying",
+      "description": "Queries resolved timeline stack at instant, intervals, conjunction filters, or layer census.",
+      "interfaces": {
+        "cli": "montagent query",
+        "mcp": "query"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:query",
+        "crates/montagent/src/mcp.rs:query"
+      ]
+    },
+    {
+      "id": "cap:inspection/frame",
+      "category": "inspection",
+      "name": "Instant and Contact Sheet Frame Rasterization",
+      "description": "Rasterizes visual output at instant or contact sheets across intervals with provenance data.",
+      "interfaces": {
+        "cli": "montagent frame",
+        "mcp": "frame"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-01-assembly-inspect"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:frame",
+        "crates/montagent/src/mcp.rs:frame"
+      ]
+    },
+    {
+      "id": "cap:inspection/measure",
+      "category": "inspection",
+      "name": "Spatial and Alpha Metric Measurement",
+      "description": "Measures text bounding boxes, advance widths, baselines, grid alignment, or chroma key alpha coverage.",
+      "interfaces": {
+        "cli": "montagent measure",
+        "mcp": "measure"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": ["discovery-03-chroma-key"]
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:measure",
+        "crates/montagent/src/mcp.rs:measure"
+      ]
+    },
+    {
+      "id": "cap:timeline/shift",
+      "category": "timeline",
+      "name": "Timeline Ripple Shift",
+      "description": "Shifts all timeline events at or after an instant while verifying invariant constraints and requiring explicit release.",
+      "interfaces": {
+        "cli": "montagent shift",
+        "mcp": "shift"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-04-timeline-shift"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:shift",
+        "crates/montagent/src/mcp.rs:shift"
+      ]
+    },
+    {
+      "id": "cap:timeline/compare",
+      "category": "timeline",
+      "name": "Timeline Drift Comparison",
+      "description": "Compares two project versions and reports drift across slack, keyframes, boundary clusters, and text.",
+      "interfaces": {
+        "cli": "montagent compare",
+        "mcp": "compare"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:compare",
+        "crates/montagent/src/mcp.rs:compare"
+      ]
+    },
+    {
+      "id": "cap:rendering/preview",
+      "category": "rendering",
+      "name": "Fast Proxy Preview Render",
+      "description": "Renders fast proxy MP4 (720p/540p budget) to verify timing before final render.",
+      "interfaces": {
+        "cli": "montagent preview",
+        "mcp": "preview"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": ["discovery-03-chroma-key"]
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:preview",
+        "crates/montagent/src/mcp.rs:preview"
+      ]
+    },
+    {
+      "id": "cap:rendering/render",
+      "category": "rendering",
+      "name": "Final Deliverable Render",
+      "description": "Renders full-resolution deliverable MP4, enforcing validation constraints and progress logging.",
+      "interfaces": {
+        "cli": "montagent render",
+        "mcp": "render"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [
+          "discovery-03-chroma-key",
+          "discovery-05-scene-transition",
+          "discovery-06-motion-stagger"
+        ],
+        "incidental": ["discovery-01-assembly-inspect"]
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:render",
+        "crates/montagent/src/mcp.rs:render"
+      ]
+    },
+    {
+      "id": "cap:rendering/verify",
+      "category": "rendering",
+      "name": "Finished Deliverable Verification",
+      "description": "Decodes and verifies finished render against project declarations (timestamps, audio extent, counts).",
+      "interfaces": {
+        "cli": "montagent verify",
+        "mcp": "verify"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [
+          "discovery-01-assembly-inspect",
+          "discovery-05-scene-transition"
+        ],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:verify",
+        "crates/montagent/src/mcp.rs:verify"
+      ]
+    },
+    {
+      "id": "cap:inspection/probe",
+      "category": "inspection",
+      "name": "Media File Stream Probe",
+      "description": "Probes disk media files for stream layout, codecs, durations, sample rates, and pixel formats.",
+      "interfaces": {
+        "cli": "montagent probe",
+        "mcp": null
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "unavailable",
+        "mcp-skills": "unavailable"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:probe"
+      ]
+    },
+    {
+      "id": "cap:maintenance/cache-clear",
+      "category": "maintenance",
+      "name": "Media Probe Cache Clearance",
+      "description": "Clears disk-backed per-user probe cache so subsequent probe operations re-read disk media.",
+      "interfaces": {
+        "cli": "montagent cache clear",
+        "mcp": null
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "unavailable",
+        "mcp-skills": "unavailable"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:cache"
+      ]
+    },
+    {
+      "id": "cap:timeline/timeline",
+      "category": "timeline",
+      "name": "Terminal Visual Timeline",
+      "description": "Generates ASCII terminal visualization of tracks and elements for interactive human operators.",
+      "interfaces": {
+        "cli": "montagent timeline",
+        "mcp": null
+      },
+      "coverage": {
+        "cli-bare": "intentionally_excluded",
+        "cli-skills": "intentionally_excluded",
+        "mcp-bare": "intentionally_excluded",
+        "mcp-skills": "intentionally_excluded"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": []
+    },
+    {
+      "id": "cap:assets/fonts-acquire",
+      "category": "assets",
+      "name": "Font Acquisition and Licensing Receipt",
+      "description": "Acquires remote/system fonts and license receipts from Google Fonts or URLs without project mutation.",
+      "interfaces": {
+        "cli": "montagent fonts acquire",
+        "mcp": "fonts_acquire"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-02-font-licensing"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:fonts",
+        "crates/montagent/src/mcp.rs:fonts_acquire"
+      ]
+    },
+    {
+      "id": "cap:assets/fonts-list",
+      "category": "assets",
+      "name": "Host Font Discovery and Classification",
+      "description": "Lists installed host fonts, faces, and license categories (blocklisted, recognised-open, unknown).",
+      "interfaces": {
+        "cli": "montagent fonts list",
+        "mcp": "fonts_list"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-02-font-licensing"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:fonts",
+        "crates/montagent/src/mcp.rs:fonts_list"
+      ]
+    },
+    {
+      "id": "cap:assets/fonts-vendor",
+      "category": "assets",
+      "name": "Font Vendoring and Attestation",
+      "description": "Vendors local font into project behind license gate, outputs attestation and font chain configuration.",
+      "interfaces": {
+        "cli": "montagent fonts vendor",
+        "mcp": "fonts_vendor"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-02-font-licensing"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/cli.rs:fonts",
+        "crates/montagent/src/mcp.rs:fonts_vendor"
+      ]
+    },
+    {
+      "id": "cap:maintenance/mcp-launcher",
+      "category": "maintenance",
+      "name": "MCP Server stdio Daemon Launcher",
+      "description": "Launches the stdio MCP server exposing tools and resources.",
+      "interfaces": {
+        "cli": "montagent mcp",
+        "mcp": null
+      },
+      "coverage": {
+        "cli-bare": "intentionally_excluded",
+        "cli-skills": "intentionally_excluded",
+        "mcp-bare": "intentionally_excluded",
+        "mcp-skills": "intentionally_excluded"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": []
+    },
+    {
+      "id": "cap:resources/schema-json",
+      "category": "resources",
+      "name": "MCP Root JSON Schema Resource",
+      "description": "In-memory MCP resource montagent://schema.json exposing complete auto-generated project schema.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://schema.json"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "schema/project.json",
+        "crates/montagent/src/mcp.rs:schema.json"
+      ]
+    },
+    {
+      "id": "cap:resources/format-md",
+      "category": "resources",
+      "name": "MCP Format Root Specification",
+      "description": "In-memory MCP resource montagent://format.md providing foundational rules and sub-page index.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format.md"
+      ]
+    },
+    {
+      "id": "cap:resources/schema-index",
+      "category": "resources",
+      "name": "MCP Modular Schema Index",
+      "description": "In-memory MCP resource montagent://schema/index.json indexing element and effect schema pieces.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://schema/index.json"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:schema/index.json"
+      ]
+    },
+    {
+      "id": "cap:resources/format-text",
+      "category": "resources",
+      "name": "MCP Text Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/text.md covering typography, styles, and alignments.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/text.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/text.md"
+      ]
+    },
+    {
+      "id": "cap:resources/format-compositing",
+      "category": "resources",
+      "name": "MCP Compositing Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/compositing.md covering layers, blend modes, and mattes.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/compositing.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/compositing.md"
+      ]
+    },
+    {
+      "id": "cap:resources/format-transitions",
+      "category": "resources",
+      "name": "MCP Transitions Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/transitions.md covering scene cuts and audio transitions.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/transitions.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/transitions.md"
+      ]
+    },
+    {
+      "id": "cap:resources/format-audio-effects",
+      "category": "resources",
+      "name": "MCP Audio Effects Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/audio-effects.md covering EQ, gain, and spatial audio.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/audio-effects.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/audio-effects.md"
+      ]
+    },
+    {
+      "id": "cap:resources/format-paths",
+      "category": "resources",
+      "name": "MCP Path Geometry Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/paths.md covering vector paths and shapes.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/paths.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/paths.md"
+      ]
+    },
+    {
+      "id": "cap:resources/format-audio-dynamics",
+      "category": "resources",
+      "name": "MCP Audio Dynamics Format Documentation",
+      "description": "In-memory MCP sub-resource montagent://format/audio-dynamics.md covering sidechaining, compression, and limiting.",
+      "interfaces": {
+        "cli": null,
+        "mcp": "montagent://format/audio-dynamics.md"
+      },
+      "coverage": {
+        "cli-bare": "unavailable",
+        "cli-skills": "unavailable",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": [],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent/src/mcp.rs:format/audio-dynamics.md"
+      ]
+    },
+    {
+      "id": "cap:effects/chroma-matte",
+      "category": "effects",
+      "name": "Chroma Key Color Matte Effect",
+      "description": "Declarative chroma key effect isolating color spill, tolerances, and matte clipping.",
+      "interfaces": {
+        "cli": "declarative:effect/chroma_matte",
+        "mcp": "declarative:effect/chroma_matte"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-03-chroma-key"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent-core/src/effects/chroma.rs",
+        "schema/project.json"
+      ]
+    },
+    {
+      "id": "cap:primitives/transition-crossfade",
+      "category": "primitives",
+      "name": "Visual Crossfade Transition Element",
+      "description": "Declarative transition element crossfading between overlapping video elements over defined duration.",
+      "interfaces": {
+        "cli": "declarative:element/transition:crossfade",
+        "mcp": "declarative:element/transition:crossfade"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-05-scene-transition"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent-core/src/elements/transition.rs",
+        "schema/project.json"
+      ]
+    },
+    {
+      "id": "cap:primitives/audio-transition",
+      "category": "primitives",
+      "name": "Constant Power Audio Transition",
+      "description": "Constant-power or linear audio crossfade synchronization across scene transitions.",
+      "interfaces": {
+        "cli": "declarative:transition:audio",
+        "mcp": "declarative:transition:audio"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-05-scene-transition"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent-core/src/elements/transition.rs",
+        "crates/montagent-audio/src/transition.rs"
+      ]
+    },
+    {
+      "id": "cap:animation/stagger",
+      "category": "animation",
+      "name": "Sequential Text Motion Stagger",
+      "description": "Declarative staggered motion delays per word, character, or line on text elements.",
+      "interfaces": {
+        "cli": "declarative:element/text:stagger",
+        "mcp": "declarative:element/text:stagger"
+      },
+      "coverage": {
+        "cli-bare": "untested",
+        "cli-skills": "untested",
+        "mcp-bare": "untested",
+        "mcp-skills": "untested"
+      },
+      "tasks": {
+        "primary_targets": ["discovery-06-motion-stagger"],
+        "incidental": []
+      },
+      "invalidation_triggers": [
+        "crates/montagent-core/src/elements/text.rs",
+        "schema/project.json"
+      ]
+    }
+  ]
+}

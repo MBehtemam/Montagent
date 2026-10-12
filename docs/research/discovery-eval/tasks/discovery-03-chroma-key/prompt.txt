@@ -1,0 +1,3 @@
+Composite the presenter video (presenter-green.mp4) over the virtual studio background (studio-bg.mp4). The presenter footage was shot against a standard green backdrop (#00FF00).
+
+Remove the green background so the presenter appears cleanly in the virtual studio with smooth edges and no green tint on their clothing or hair. Export the 4-second composite video to output.mp4 and ensure the resulting file is complete and defect-free.

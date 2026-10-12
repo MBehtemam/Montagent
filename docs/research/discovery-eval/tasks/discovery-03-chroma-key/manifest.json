@@ -1,0 +1,24 @@
+{
+  "task_id": "discovery-03-chroma-key",
+  "name": "Chroma Key Color Matte Background Replacement",
+  "primary_target_capabilities": [
+    "cap:rendering/render",
+    "cap:effects/chroma-matte"
+  ],
+  "incidental_capabilities": [
+    "cap:inspection/validate",
+    "cap:inspection/measure",
+    "cap:rendering/preview"
+  ],
+  "deliverables": [
+    "project.json",
+    "output.mp4"
+  ],
+  "allowable_alternatives": [
+    "Attempting manual color-key ffmpeg filters (Non-declarative, bypassing Montagent core effect engine)"
+  ],
+  "diagnostic_traps": [
+    "Placing studio plate on higher layer than presenter, occluding the presenter",
+    "Setting chroma tolerance too high (>0.3) causing foreground presenter elements to become transparent"
+  ]
+}

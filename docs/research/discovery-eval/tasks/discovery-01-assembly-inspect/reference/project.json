@@ -1,0 +1,22 @@
+{
+  "frame": {"width": 1920, "height": 1080},
+  "fps": 30,
+  "duration": 5000,
+  "output": "output.mp4",
+  "tracks": [
+    {
+      "name": "background",
+      "layer": 0,
+      "elements": [
+        {"id":"bg","type":"video","start":0,"end":5000,"source":"background.mp4","source_start":0,"source_end":5000,"x":0,"y":0,"width":1920,"height":1080,"fit":"cover"}
+      ]
+    },
+    {
+      "name": "overlay",
+      "layer": 1,
+      "elements": [
+        {"id":"logo","type":"image","start":0,"end":3000,"source":"logo.png","x":860,"y":440,"width":200,"height":200,"fit":"contain"}
+      ]
+    }
+  ]
+}

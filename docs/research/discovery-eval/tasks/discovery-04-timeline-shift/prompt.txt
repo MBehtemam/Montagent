@@ -1,0 +1,3 @@
+We have an existing video timeline (promo-cut.json) that currently runs for 8 seconds. We need to insert a 3-second sponsor card image (sponsor-card.png) starting at 4 seconds.
+
+Insert the sponsor card so it displays from 4.0s to 7.0s. All video clips, titles, and text that currently appear after the 4-second mark must ripple forward by exactly 3 seconds so nothing gets overwritten or cut off, and the total duration must extend to 11 seconds. Ensure the modified timeline is consistent, export the updated video to output.mp4, and confirm that the exported video is healthy.

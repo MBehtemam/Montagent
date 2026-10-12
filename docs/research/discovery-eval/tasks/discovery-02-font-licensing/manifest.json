@@ -1,0 +1,22 @@
+{
+  "task_id": "discovery-02-font-licensing",
+  "name": "Font Acquisition, Licensing Receipt, and Repository Vendoring",
+  "primary_target_capabilities": [
+    "cap:inspection/validate",
+    "cap:assets/fonts-acquire",
+    "cap:assets/fonts-list",
+    "cap:assets/fonts-vendor"
+  ],
+  "incidental_capabilities": [],
+  "deliverables": [
+    "project.json",
+    "output.mp4"
+  ],
+  "allowable_alternatives": [
+    "Manual folder creation of fonts/ and handwritten evidence manifest (Suboptimal, high error rate)"
+  ],
+  "diagnostic_traps": [
+    "Referencing Inter-Bold in project without vendoring receipt evidence, triggering E-FONT-EVIDENCE-INTEGRITY",
+    "Omitting the font license text from the evidence bundle"
+  ]
+}

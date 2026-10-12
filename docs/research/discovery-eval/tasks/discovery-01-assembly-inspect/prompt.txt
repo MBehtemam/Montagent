@@ -1,0 +1,3 @@
+We need a short 5-second video bumper for our brand. Place the background video (background.mp4) across the full 5 seconds (1920x1080 at 30fps). Overlay our logo image (logo.png) centered on the screen.
+
+Inspect a still image of the composition at 2.5 seconds to confirm the graphic is properly centered over the background. Once you are satisfied with the composition, export the final deliverable video as output.mp4 and confirm that the exported file is complete and error-free.

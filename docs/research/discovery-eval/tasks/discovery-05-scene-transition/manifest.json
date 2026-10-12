@@ -1,0 +1,23 @@
+{
+  "task_id": "discovery-05-scene-transition",
+  "name": "Scene Dissolve and Constant-Power Audio Crossfade",
+  "primary_target_capabilities": [
+    "cap:inspection/validate",
+    "cap:rendering/render",
+    "cap:rendering/verify",
+    "cap:primitives/transition-crossfade",
+    "cap:primitives/audio-transition"
+  ],
+  "incidental_capabilities": [],
+  "deliverables": [
+    "project.json",
+    "output.mp4"
+  ],
+  "allowable_alternatives": [
+    "Using opacity keyframes and audio volume gain envelopes to approximate the transition manually (Acceptable Alternative, Missed Built-In Capability)"
+  ],
+  "diagnostic_traps": [
+    "Placing both overlapping clips on the same track, triggering E-TRACK-OVERLAP",
+    "Attempting linear volume fading instead of constant-power curve resulting in an audio perceived volume dip during the crossfade"
+  ]
+}

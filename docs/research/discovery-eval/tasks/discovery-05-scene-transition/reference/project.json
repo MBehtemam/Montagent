@@ -1,0 +1,67 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 11000,
+  "output": "output.mp4",
+  "tracks": [
+    {
+      "name": "first_scene",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "scene_a",
+          "type": "video",
+          "start": 0,
+          "end": 6000,
+          "source": "scene-a.mp4",
+          "source_start": 0,
+          "source_end": 6000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        }
+      ]
+    },
+    {
+      "name": "second_scene",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "scene_b",
+          "type": "video",
+          "start": 5000,
+          "end": 11000,
+          "source": "scene-b.mp4",
+          "source_start": 0,
+          "source_end": 6000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        }
+      ]
+    },
+    {
+      "name": "transition_track",
+      "layer": 2,
+      "elements": [
+        {
+          "id": "trans",
+          "type": "transition",
+          "start": 5000,
+          "end": 6000,
+          "kind": "crossfade",
+          "from": "scene_a",
+          "to": "scene_b",
+          "audio": "constant_power"
+        }
+      ]
+    }
+  ]
+}
