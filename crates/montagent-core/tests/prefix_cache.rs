@@ -174,21 +174,31 @@ fn keyed_opacity(id: &str) -> Value {
            "opacity": [{"t": 0, "v": 1}, {"t": 600, "v": 0.2, "ease": "linear"}]})
 }
 
-/// A sine tone, `ms` long, beside the project at `path`, as an `audio` element's `source`.
-fn tone(path: &Path, ms: i64) -> &'static str {
+/// A sine tone, `ms` long, written as `tone.wav` beside the project at `path`.
+fn tone(path: &Path, ms: i64) {
     let ffmpeg = montagent_core::media::tools::resolve()
         .expect("an ffmpeg")
         .ffmpeg;
     let made = std::process::Command::new(ffmpeg)
-        .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!("sine=frequency=440:duration={}", ms as f64 / 1000.0))
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+        ])
+        .arg(format!(
+            "sine=frequency=440:duration={}",
+            ms as f64 / 1000.0
+        ))
         .args(["-ac", "2"])
         .arg(path.parent().unwrap().join("tone.wav"))
         .status()
         .expect("ffmpeg runs")
         .success();
     assert!(made, "write the tone");
-    "tone.wav"
 }
 
 /// An `audio` element playing [`tone`] over `[start, end)`. It draws nothing.

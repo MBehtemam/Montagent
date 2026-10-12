@@ -1350,7 +1350,8 @@ impl<'a> Painter<'a> {
             if draws_nothing(element) {
                 continue;
             }
-            if !(self.invariant[key] && self.bridge(element) == crate::transition::Bridge::default())
+            if !(self.invariant[key]
+                && self.bridge(element) == crate::transition::Bridge::default())
             {
                 break;
             }
