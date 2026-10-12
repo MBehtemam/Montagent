@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MontagentDiscoveryScorecard",
+  "type": "object",
+  "required": [
+    "run_id",
+    "task_id",
+    "arm",
+    "trial",
+    "montagent_version",
+    "composite_verdict",
+    "dimensions",
+    "metrics",
+    "attribution"
+  ],
+  "properties": {
+    "run_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "arm": { "enum": ["cli-bare", "cli-skills", "mcp-bare", "mcp-skills"] },
+    "trial": { "type": "integer", "minimum": 1 },
+    "montagent_version": { "type": "string" },
+    "composite_verdict": { "enum": ["Full Success", "Partial Success", "Failure"] },
+    "dimensions": {
+      "type": "object",
+      "required": ["discovery", "selection", "execution", "guessing", "missed_capability"],
+      "properties": {
+        "discovery": { "enum": ["Inspected", "Hint-Prompted", "Uninspected"] },
+        "selection": { "enum": ["Native Optimal", "Acceptable Alternative", "Unsupported Workaround", "Mismatched Tool"] },
+        "execution": { "enum": ["Clean Pass", "Recovered Pass", "Failed Execution"] },
+        "guessing": { "enum": ["Clean", "Incidental", "Persistent"] },
+        "missed_capability": { "enum": ["None", "Flagged"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["discovery_turns", "total_turns", "total_tokens", "discovery_effort_tier"],
+      "properties": {
+        "discovery_turns": { "type": "integer" },
+        "total_turns": { "type": "integer" },
+        "total_tokens": { "type": "integer" },
+        "discovery_effort_tier": { "enum": ["Direct", "Moderate", "Excessive"] }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": ["primary_code", "rationale"],
+      "properties": {
+        "primary_code": {
+          "enum": [
+            "NONE",
+            "DISCOVERY_INVISIBILITY",
+            "SELECTION_AMBIGUITY",
+            "ERGONOMIC_FRICTION",
+            "BUDGET_EXHAUSTION",
+            "MODEL_HALLUCINATION"
+          ]
+        },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}
