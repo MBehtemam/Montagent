@@ -305,8 +305,10 @@ two disagree.
   the same either way; only the cost changes.
 - **A time-varying layer ends the run** (ADR-0195). That is a keyframe anywhere in the
   element (effect and gradient parameters included), a `video`, a `group` member, a `blend`
-  other than `normal`, `motion_blur`, a `units` stagger, a run's `highlight`, an effect whose
-  output changes over time (`grain`), or a running transition that bridges the element. Every
+  other than `normal`, `motion_blur`, a `units` stagger, a run's `highlight`, any effect other
+  than `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`, `chroma`,
+  `posterize` and `glow` (so `grain` and `directional_blur` end it), or a running transition
+  that bridges the element. Every
   layer above it is drawn again on every frame. That includes a static layer that sits between
   two time-varying ones: only the bottom run is reused.
 - **An element that draws nothing does not count** (ADR-0198). An `audio` or `transition`

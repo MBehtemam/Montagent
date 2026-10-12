@@ -207,6 +207,22 @@ fn audio(id: &str, start: i64, end: i64) -> Value {
            "source_start": 0, "source_end": end - start})
 }
 
+/// ADR-0198 §3: an element that draws nothing is still visited with the cache on, so its
+/// profile row (time aside) is the one it has with the cache off, and nothing of it is reused.
+#[track_caller]
+fn listed_alike(path: &Path, on: &Rendered, id: &str) {
+    let off = rendered(path, forced(1), false, true);
+    let counts = |row: Value| {
+        (
+            row["type"].clone(),
+            row["frames_painted"].clone(),
+            row["frames_reused"].clone(),
+        )
+    };
+    assert_eq!(counts(on.row(id)), counts(off.row(id)), "{id}");
+    assert_eq!(on.row(id)["frames_reused"], 0, "{id}");
+}
+
 /// Plates, then (in layer order) the project's own elements, one track each.
 fn stacked(elements: Vec<Value>) -> Value {
     Value::Array(
@@ -485,6 +501,7 @@ fn audio_below_static_plates_does_not_end_the_prefix() {
         assert_eq!(row["frames_painted"], 1, "{row}");
         assert_eq!(row["frames_reused"], 17, "{row}");
     }
+    listed_alike(&path, &on, "voice");
 }
 
 /// #974: an audio clip that starts and stops mid-span is not part of the prefix's key, so its
@@ -511,6 +528,7 @@ fn audio_entering_and_leaving_mid_span_does_not_restart_the_prefix() {
         assert_eq!(row["frames_painted"], 1, "{row}");
         assert_eq!(row["frames_reused"], 17, "{row}");
     }
+    listed_alike(&path, &on, "voice");
 }
 
 /// #974: a `transition` element draws nothing of its own, so on a layer below plates it does
@@ -540,6 +558,7 @@ fn a_transition_element_below_static_plates_does_not_end_the_prefix() {
         assert_eq!(row["frames_painted"], 1, "{row}");
         assert_eq!(row["frames_reused"], 17, "{row}");
     }
+    listed_alike(&path, &on, "x");
 }
 
 #[test]

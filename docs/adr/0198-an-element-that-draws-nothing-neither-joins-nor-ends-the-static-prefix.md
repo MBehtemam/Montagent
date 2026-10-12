@@ -12,9 +12,11 @@ amends: 0195 (§1: elements that draw nothing are passed over by the prefix and 
 ADR-0195 §1 caches "the contiguous bottom run of static images, text, rectangles, ellipses
 and paths". The run was computed over the whole resolved stack, which also holds `audio` and
 `transition` elements. Neither type is on that list, so one of them on a layer below static
-plates ended the run, and every plate above it was painted on every frame. In the
-reporter's 684.9 s project, a narration track on layer 0 made a 6 s slice cost 4.7× its
-paint time. Moving that track to a higher layer gave back byte-identical frames. Nothing told the author why.
+plates ended the run, and every plate above it was drawn again on every frame. The
+reporter's own measurements in #974, not reproduced here, show a narration track on a low
+layer multiplying a slice's paint time, and moving that track up giving back byte-identical
+frames. Nothing told the author why. The regression tests below assert the reuse itself,
+not a time.
 
 Neither type has a frame-space footprint. The painter draws nothing for them and records
 nothing for them, so their place in the stack cannot change a prefix's pixels or its

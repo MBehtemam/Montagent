@@ -369,7 +369,8 @@ fn not_a_frame(document: &Loose) -> Finding {
 /// descriptive: name the pair, own the exact window" (ADR-0059) — what it does to the picture
 /// is already in the two bridged elements' opacities, offsets and cuts, resolved in
 /// `resolve_transitions` before a single element was drawn. The static prefix passes over
-/// them (#974), so a narration track's layer cannot cost the plates under it their reuse.
+/// them (ADR-0198, #974), so a narration track's layer cannot cost the plates under it their
+/// reuse.
 const DRAWS_NOTHING: [&str; 2] = ["audio", "transition"];
 
 fn draws_nothing(element: &Value) -> bool {
@@ -377,6 +378,17 @@ fn draws_nothing(element: &Value) -> bool {
         .get("type")
         .and_then(Value::as_str)
         .is_some_and(|kind| DRAWS_NOTHING.contains(&kind))
+}
+
+/// The bottom of one frame's stack the static prefix covers (ADR-0195, ADR-0198).
+#[derive(Default)]
+struct PrefixSplit<'v> {
+    /// How many layers of the stack the run spans; the rest are painted one by one.
+    len: usize,
+    /// The run's drawn layers: the composite's key, restored or painted together.
+    drawn: Vec<&'v at::Present>,
+    /// The run's layers that draw nothing, passed over and visited outside the composite.
+    drawless: Vec<&'v at::Present>,
 }
 
 /// The one reason two element types give in the same words, so they give it in one place.
@@ -1311,43 +1323,36 @@ impl<'a> Painter<'a> {
         self.resolve_transitions();
         canvas.background(self.background());
 
-        let split = self.prefix_split(view);
-        if split > 0 {
-            // #974: what draws nothing is passed over by the prefix, not part of it — it is
-            // neither in the composite's key nor restored, and is visited as it always is.
-            let (drawing, silent): (Vec<&at::Present>, Vec<&at::Present>) = view.stack[..split]
-                .iter()
-                .partition(|present| !self.silent(present));
-            self.paint_prefix(canvas, &drawing);
-            for present in silent {
-                self.paint_present(canvas, present);
-            }
+        let prefix = self.prefix_split(view);
+        if !prefix.drawn.is_empty() {
+            self.paint_prefix(canvas, &prefix.drawn);
         }
-        for present in &view.stack[split..] {
+        // ADR-0198: what draws nothing is passed over by the prefix, not part of it — it is
+        // neither in the composite's key nor restored, and is visited as it always is.
+        for present in prefix.drawless {
+            self.paint_present(canvas, present);
+        }
+        for present in &view.stack[prefix.len..] {
             self.paint_present(canvas, present);
         }
     }
 
-    /// Whether `present` is an element that draws nothing ([`draws_nothing`]).
-    fn silent(&self, present: &at::Present) -> bool {
-        self.element_named(&present.named)
-            .is_some_and(|(_, element)| draws_nothing(element))
-    }
-
-    /// How many layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
+    /// The layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
     /// hold: the longest run of elements that are invariant over their whole span and that no
-    /// running transition touches this frame, passing over elements that draw nothing (#974)
-    /// and ending at the run's last drawn element. `0` with the cache off.
-    fn prefix_split(&self, view: &At) -> usize {
+    /// running transition touches this frame, passing over elements that draw nothing
+    /// (ADR-0198, #974) and ending at the run's last drawn element. Empty with the cache off.
+    fn prefix_split<'v>(&self, view: &'v At) -> PrefixSplit<'v> {
+        let mut split = PrefixSplit::default();
         if !self.prefix_cache {
-            return 0;
+            return split;
         }
-        let mut split = 0;
+        let mut passed = Vec::new();
         for (at, present) in view.stack.iter().enumerate() {
             let Some((key, element)) = self.element_named(&present.named) else {
                 break;
             };
             if draws_nothing(element) {
+                passed.push(present);
                 continue;
             }
             if !(self.invariant[key]
@@ -1355,7 +1360,10 @@ impl<'a> Painter<'a> {
             {
                 break;
             }
-            split = at + 1;
+            split.len = at + 1;
+            split.drawn.push(present);
+            // Passed over below a drawn layer: inside the run.
+            split.drawless.append(&mut passed);
         }
         split
     }
