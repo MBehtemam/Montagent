@@ -295,3 +295,16 @@ two disagree.
   differs between two instants inside its `[start, end)`, a `units` stagger counting as
   motion; motion wholly outside its life counts as still. Remove the field. `query --at`
   prints the field as written and `moving` or `still` for the frame holding the instant.
+
+## The static prefix
+
+- **The bottom run of unchanging layers is drawn once and reused** by `render` and `preview`
+  (ADR-0195), until one of them enters or leaves. The frame's bytes are the same either way.
+- **A time-varying layer ends the run**: a keyframe (effect and gradient parameters too), a
+  `video`, a `group` member, a non-`normal` `blend`, `motion_blur`, `units`, a `highlight`, an
+  effect outside `blur`, `shadow`, `mask`, `tint`, `saturation`, `brightness`, `contrast`,
+  `chroma`, `posterize`, `glow`, or a running transition bridging it. Every layer above is
+  drawn every frame, a static one between moving ones included.
+- **`audio` and `transition` elements draw nothing** (ADR-0198): on any layer, they neither
+  join nor end the run, and their start or end does not restart it.
+- `render --profile` counts `frames_painted` (drawn) and `frames_reused` (copied from the run).

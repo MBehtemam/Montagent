@@ -364,6 +364,33 @@ fn not_a_frame(document: &Loose) -> Finding {
         }))
 }
 
+/// The element types with no frame-space footprint: the painter draws nothing for them and
+/// records nothing. An `audio` element is heard, not seen. A `transition` is "purely
+/// descriptive: name the pair, own the exact window" (ADR-0059) — what it does to the picture
+/// is already in the two bridged elements' opacities, offsets and cuts, resolved in
+/// `resolve_transitions` before a single element was drawn. The static prefix passes over
+/// them (ADR-0198, #974), so a narration track's layer cannot cost the plates under it their
+/// reuse.
+const DRAWS_NOTHING: [&str; 2] = ["audio", "transition"];
+
+fn draws_nothing(element: &Value) -> bool {
+    element
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| DRAWS_NOTHING.contains(&kind))
+}
+
+/// The bottom of one frame's stack the static prefix covers (ADR-0195, ADR-0198).
+#[derive(Default)]
+struct PrefixSplit<'v> {
+    /// How many layers of the stack the run spans; the rest are painted one by one.
+    len: usize,
+    /// The run's drawn layers: the composite's key, restored or painted together.
+    drawn: Vec<&'v at::Present>,
+    /// The run's layers that draw nothing, passed over and visited outside the composite.
+    drawless: Vec<&'v at::Present>,
+}
+
 /// The one reason two element types give in the same words, so they give it in one place.
 ///
 /// A function rather than a `const` since ADR-0093: the sentence is now a registered
@@ -1296,42 +1323,59 @@ impl<'a> Painter<'a> {
         self.resolve_transitions();
         canvas.background(self.background());
 
-        let split = self.prefix_split(view);
-        if split > 0 {
-            self.paint_prefix(canvas, view, split);
+        let prefix = self.prefix_split(view);
+        if !prefix.drawn.is_empty() {
+            self.paint_prefix(canvas, &prefix.drawn);
         }
-        for present in &view.stack[split..] {
+        // ADR-0198: what draws nothing is passed over by the prefix, not part of it — it is
+        // neither in the composite's key nor restored, and is visited as it always is.
+        for present in prefix.drawless {
+            self.paint_present(canvas, present);
+        }
+        for present in &view.stack[prefix.len..] {
             self.paint_present(canvas, present);
         }
     }
 
-    /// How many layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
+    /// The layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
     /// hold: the longest run of elements that are invariant over their whole span and that no
-    /// running transition touches this frame. `0` with the cache off.
-    fn prefix_split(&self, view: &At) -> usize {
+    /// running transition touches this frame, passing over elements that draw nothing
+    /// (ADR-0198, #974) and ending at the run's last drawn element. Empty with the cache off.
+    fn prefix_split<'v>(&self, view: &'v At) -> PrefixSplit<'v> {
+        let mut split = PrefixSplit::default();
         if !self.prefix_cache {
-            return 0;
+            return split;
         }
-        view.stack
-            .iter()
-            .take_while(|present| {
-                self.element_named(&present.named)
-                    .is_some_and(|(key, element)| {
-                        self.invariant[key]
-                            && self.bridge(element) == crate::transition::Bridge::default()
-                    })
-            })
-            .count()
+        let mut passed = Vec::new();
+        for (at, present) in view.stack.iter().enumerate() {
+            let Some((key, element)) = self.element_named(&present.named) else {
+                break;
+            };
+            if draws_nothing(element) {
+                passed.push(present);
+                continue;
+            }
+            if !(self.invariant[key]
+                && self.bridge(element) == crate::transition::Bridge::default())
+            {
+                break;
+            }
+            split.len = at + 1;
+            split.drawn.push(present);
+            // Passed over below a drawn layer: inside the run.
+            split.drawless.append(&mut passed);
+        }
+        split
     }
 
-    /// The first `split` layers: restored where this painter composited the same prefix on the
-    /// same canvas last, painted (and kept) where it did not.
+    /// The prefix's drawn layers: restored where this painter composited the same prefix on
+    /// the same canvas last, painted (and kept) where it did not.
     ///
     /// A restore appends what painting those layers appended, in the same order, so the lists
     /// of what was painted do not differ with the cache (ADR-0144 §7). A prefix whose painting
     /// set `internal` or `tool_missing` is not kept: the frame it belongs to ends the span.
-    fn paint_prefix(&mut self, canvas: &mut Canvas, view: &At, split: usize) {
-        let keys: Vec<usize> = view.stack[..split]
+    fn paint_prefix(&mut self, canvas: &mut Canvas, layers: &[&at::Present]) {
+        let keys: Vec<usize> = layers
             .iter()
             .filter_map(|present| self.element_named(&present.named).map(|(key, _)| key))
             .collect();
@@ -1357,7 +1401,7 @@ impl<'a> Painter<'a> {
                 }
             }
             if self.profile.is_some() {
-                for present in &view.stack[..split] {
+                for present in layers {
                     self.profile_reused(&present.named);
                 }
             }
@@ -1375,7 +1419,7 @@ impl<'a> Painter<'a> {
         let mut sources = std::mem::take(&mut self.sources);
         let mut fonts = std::mem::take(&mut self.fonts);
         let registry = std::mem::replace(&mut self.registry, montagent_text::Fonts::new());
-        for present in &view.stack[..split] {
+        for present in layers {
             self.paint_present(canvas, present);
         }
         let prefix_sources = std::mem::take(&mut self.sources);
@@ -1532,16 +1576,10 @@ impl<'a> Painter<'a> {
             return;
         }
         match kind {
-            // No frame-space footprint at all. Not listed as unpainted: an audio element
-            // that draws nothing is not a thing the picture is missing.
-            Some("audio") => {}
+            // No frame-space footprint at all ([`DRAWS_NOTHING`]). Not listed as unpainted:
+            // it is not a thing the picture is missing.
+            Some(kind) if DRAWS_NOTHING.contains(&kind) => {}
             Some("text") => self.text(canvas, name, element),
-            // No frame-space footprint of its own. ADR-0059 keeps a transition's job
-            // "purely descriptive: name the pair, own the exact window" — what it does to
-            // the picture is already in the two bridged elements' opacities, offsets and
-            // cuts, resolved in `resolve_transitions` before a single element was drawn. Listing it as
-            // unpainted would say the picture is missing something it is not.
-            Some("transition") => {}
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
             Some("path") => self.path(canvas, name, element),
             Some("image") | Some("video") => self.raster(canvas, name, element, kind, playhead),

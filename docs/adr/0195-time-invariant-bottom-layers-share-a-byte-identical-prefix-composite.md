@@ -5,6 +5,10 @@ amends: 0144 (§2/§6 by reference, §7's shared painter state), 0194 (decision 
 
 # Time-invariant bottom layers share a byte-identical prefix composite
 
+> **Amended by [ADR-0198](0198-an-element-that-draws-nothing-neither-joins-nor-ends-the-static-prefix.md):**
+> §1's run is computed with `audio` and `transition` elements passed over. They draw nothing,
+> so they neither join nor end the prefix, and they stay out of its key (#974).
+
 [#932](https://github.com/MBehtemam/Montagent/issues/932), implementing the owner-approved
 verdicts of [#923](https://github.com/MBehtemam/Montagent/issues/923) and
 [#924](https://github.com/MBehtemam/Montagent/issues/924).

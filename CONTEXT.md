@@ -899,6 +899,13 @@ outside the document — the offset into the source, the crop rectangle, the ink
 ([ADR-0011](docs/adr/0011-tool-surface-reads-checks-renders.md))
 _Avoid_: frame, render state, snapshot, sample
 
+**Static prefix**:
+The contiguous run of unchanging layers at the bottom of a frame's resolved stack, drawn
+once and reused while that run holds. An element that draws nothing (audio, a transition)
+neither joins nor ends it; a static layer above anything time-varying is not part of it.
+([ADR-0195](docs/adr/0195-time-invariant-bottom-layers-share-a-byte-identical-prefix-composite.md))
+_Avoid_: cached prefix, prefix composite, bottom prefix, prefix cache (for the run itself)
+
 **Predicate**:
 The expression `query --where` matches elements against: terms of the form
 `<field> <op> <value>`, `<field> exists` or `<field> missing`, joined with `and`.
