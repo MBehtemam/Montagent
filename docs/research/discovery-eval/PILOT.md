@@ -35,7 +35,7 @@ docs/research/discovery-eval/
 │   ├── run_arm.py          # Dedicated 4-arm discovery evaluation runner
 │   └── score_trace.py      # Automated trace parser & scorecard evaluator
 ├── tasks/
-│   ├── discovery-01-assembly-frame/
+│   ├── discovery-01-assembly-inspect/
 │   ├── discovery-02-font-licensing/
 │   ├── discovery-03-chroma-key/
 │   ├── discovery-04-timeline-shift/
@@ -94,7 +94,7 @@ To ensure infrastructure stability before committing full evaluation budgets, ex
 
 ### Stage 1: Smoke Pilot (8 Runs)
 - **Scope**: 2 representative tasks across all 4 arms ($N=1$):
-  - `discovery-01-assembly-frame` (Focused inspection: single CLI/MCP capability)
+  - `discovery-01-assembly-inspect` (Focused inspection: single CLI/MCP capability)
   - `discovery-05-scene-transition` (Multi-feature scene narrative: multiple tracks, transition element, audio mix)
 - **Total Runs**: $2 \text{ tasks} \times 4 \text{ arms} \times 1 \text{ trial} = 8 \text{ runs}$.
 - **Ceiling Budget**: 8 runs $\times$ $2.00 = $16.00 max (expected actual: ~$2.50 total).

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source": "https://fonts.google.com/specimen/Inter",
+  "retrieved_at": "2026-10-12T00:00:00Z",
+  "selection": {
+    "source": "https://fonts.google.com/specimen/Inter",
+    "face_index": 0
+  },
+  "font": {
+    "file": "Inter-Bold.ttf",
+    "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f",
+    "face_index": 0
+  },
+  "materials": [
+    {
+      "file": "Inter-LICENSE.txt",
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+      "source_url": "https://fonts.google.com/specimen/Inter",
+      "font_sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"
+    }
+  ],
+  "licence_findings": []
+}

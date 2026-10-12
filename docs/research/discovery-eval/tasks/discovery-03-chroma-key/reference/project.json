@@ -1,0 +1,60 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 4000,
+  "output": "output.mp4",
+  "tracks": [
+    {
+      "name": "background",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "bg",
+          "type": "video",
+          "start": 0,
+          "end": 4000,
+          "source": "studio-bg.mp4",
+          "source_start": 0,
+          "source_end": 4000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        }
+      ]
+    },
+    {
+      "name": "presenter",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "fg",
+          "type": "video",
+          "start": 0,
+          "end": 4000,
+          "source": "presenter-green.mp4",
+          "source_start": 0,
+          "source_end": 4000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover",
+          "effects": [
+            {
+              "name": "chroma",
+              "color": "#00FF00",
+              "tolerance": 0.1,
+              "softness": 0.08,
+              "spill": 0.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

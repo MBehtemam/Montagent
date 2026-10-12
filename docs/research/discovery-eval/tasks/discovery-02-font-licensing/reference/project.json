@@ -1,0 +1,72 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 4000,
+  "output": "output.mp4",
+  "fonts": {
+    "title": [
+      {
+        "file": "fonts/Inter-Bold.ttf"
+      }
+    ]
+  },
+  "fontVendor": {
+    "fonts/Inter-Bold.ttf": {
+      "evidence": {
+        "file": "fonts/Inter-Bold.ttf.evidence/manifest.json",
+        "sha256": "2fc677bbc73786fa4a7e48405aca0496d5af42fa519fbd163ecadc05e4d7272f"
+      },
+      "licence": "OFL-1.1",
+      "source": "assets/fonts/Inter-Bold.ttf",
+      "sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f"
+    }
+  },
+  "tracks": [
+    {
+      "name": "bg",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "bg",
+          "type": "rect",
+          "start": 0,
+          "end": 4000,
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1920,
+          "height": 1080,
+          "fill": "#111827"
+        }
+      ]
+    },
+    {
+      "name": "text_track",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "title",
+          "type": "text",
+          "start": 0,
+          "end": 4000,
+          "x": 460,
+          "y": 480,
+          "width": 1000,
+          "height": 120,
+          "font": "title",
+          "size": 64,
+          "color": "#F3F4F6",
+          "align": "center",
+          "runs": [
+            {
+              "text": "Spring Collection"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

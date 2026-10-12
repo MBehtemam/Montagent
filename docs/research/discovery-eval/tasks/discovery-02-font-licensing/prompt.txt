@@ -1,0 +1,5 @@
+We have a starter project (project.json) that displays our brand headline using the Inter font. Before this project can be used in production, our legal policy requires that all font files and their license documentation are officially bundled, verified, and checked into the project repository.
+
+A local copy of the font (Inter-Bold.ttf), its license text (Inter-LICENSE.txt), and its acquisition receipt (receipt.json) have been provided in assets/fonts/.
+
+Bundle and record this font with its license receipt so that the project passes all compliance checks without font warnings. Then export the 4-second video as output.mp4 and ensure the final file has no issues.

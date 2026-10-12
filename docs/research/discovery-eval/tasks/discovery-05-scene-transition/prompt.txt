@@ -1,0 +1,5 @@
+We have two 6-second video clips (scene-a.mp4 and scene-b.mp4), each with accompanying audio. Build an 11-second sequence where scene A plays first and dissolves into scene B.
+
+The scene blend should take place between 5.0 seconds and 6.0 seconds, smoothly fading the visual picture from scene A into scene B over that 1-second interval. The audio should blend across that same interval such that there is no audible dip or spike in sound level as the first scene fades out and the second scene fades in.
+
+Check that the project is completely valid and consistent, export the finished video to output.mp4, and confirm that the resulting file is complete and intact.

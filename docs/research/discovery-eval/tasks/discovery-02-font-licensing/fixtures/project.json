@@ -1,0 +1,29 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 4000,
+  "output": "output.mp4",
+  "tracks": [
+    {
+      "name": "bg",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "bg",
+          "type": "rect",
+          "start": 0,
+          "end": 4000,
+          "x": 0,
+          "y": 0,
+          "origin": "top-left",
+          "width": 1920,
+          "height": 1080,
+          "fill": "#111827"
+        }
+      ]
+    }
+  ]
+}

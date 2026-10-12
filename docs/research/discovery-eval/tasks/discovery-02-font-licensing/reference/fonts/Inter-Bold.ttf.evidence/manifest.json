@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "font_sha256": "288316099b1e0a47a4716d159098005eef7c0066921f34e3200393dbdb01947f",
+  "artifacts": [
+    {
+      "file": "receipt.json",
+      "sha256": "f5ba399e769ea84418df148b276ab80ac728279da288bdf51329530f0cc0e296"
+    },
+    {
+      "file": "material-0.txt",
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+      "original_file": "Inter-LICENSE.txt",
+      "source_url": "https://fonts.google.com/specimen/Inter",
+      "repository_path": null
+    }
+  ],
+  "recognized_alternatives": []
+}

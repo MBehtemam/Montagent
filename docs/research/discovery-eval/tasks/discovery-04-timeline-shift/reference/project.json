@@ -1,0 +1,85 @@
+{
+  "frame": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 30,
+  "duration": 11000,
+  "output": "output.mp4",
+  "tracks": [
+    {
+      "name": "main_video",
+      "layer": 0,
+      "elements": [
+        {
+          "id": "intro_video",
+          "type": "video",
+          "start": 0,
+          "end": 4000,
+          "source": "intro.mp4",
+          "source_start": 0,
+          "source_end": 4000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        },
+        {
+          "id": "sponsor_card",
+          "type": "image",
+          "start": 4000,
+          "end": 7000,
+          "source": "sponsor-card.png",
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        },
+        {
+          "id": "outro_video",
+          "type": "video",
+          "start": 7000,
+          "end": 11000,
+          "source": "outro.mp4",
+          "source_start": 0,
+          "source_end": 4000,
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1080,
+          "fit": "cover"
+        }
+      ]
+    },
+    {
+      "name": "captions",
+      "layer": 1,
+      "elements": [
+        {
+          "id": "intro_caption",
+          "type": "rect",
+          "start": 1000,
+          "end": 3000,
+          "x": 200,
+          "y": 850,
+          "width": 600,
+          "height": 100,
+          "fill": "#2563EB"
+        },
+        {
+          "id": "outro_caption",
+          "type": "rect",
+          "start": 8000,
+          "end": 10000,
+          "x": 200,
+          "y": 850,
+          "width": 600,
+          "height": 100,
+          "fill": "#DC2626"
+        }
+      ]
+    }
+  ]
+}

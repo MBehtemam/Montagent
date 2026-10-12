@@ -1,0 +1,20 @@
+{
+  "task_id": "discovery-04-timeline-shift",
+  "name": "Multi-Track Ripple Editing and Timeline Shift",
+  "primary_target_capabilities": [
+    "cap:inspection/validate",
+    "cap:timeline/shift"
+  ],
+  "incidental_capabilities": [],
+  "deliverables": [
+    "project.json",
+    "output.mp4"
+  ],
+  "allowable_alternatives": [
+    "Manually editing start and end timestamps on all downstream elements across all tracks (Acceptable Alternative, Missed Built-In Capability)"
+  ],
+  "diagnostic_traps": [
+    "Shifting video track without shifting caption track, desynchronizing subtitles",
+    "Omitting --release for track slack gaps when using shift command, triggering E-SHIFT-SLACK"
+  ]
+}

@@ -102,7 +102,7 @@
           "discovery-05-scene-transition",
           "discovery-06-motion-stagger"
         ],
-        "incidental": ["discovery-03-chroma-key-matte"]
+        "incidental": ["discovery-03-chroma-key"]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:validate",
@@ -198,7 +198,7 @@
       },
       "tasks": {
         "primary_targets": [],
-        "incidental": ["discovery-03-chroma-key-matte"]
+        "incidental": ["discovery-03-chroma-key"]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:measure",
@@ -270,7 +270,7 @@
       },
       "tasks": {
         "primary_targets": [],
-        "incidental": ["discovery-03-chroma-key-matte"]
+        "incidental": ["discovery-03-chroma-key"]
       },
       "invalidation_triggers": [
         "crates/montagent/src/cli.rs:preview",
@@ -294,7 +294,7 @@
       },
       "tasks": {
         "primary_targets": [
-          "discovery-03-chroma-key-matte",
+          "discovery-03-chroma-key",
           "discovery-05-scene-transition",
           "discovery-06-motion-stagger"
         ],
@@ -716,7 +716,7 @@
         "mcp-skills": "untested"
       },
       "tasks": {
-        "primary_targets": ["discovery-03-chroma-key-matte"],
+        "primary_targets": ["discovery-03-chroma-key"],
         "incidental": []
       },
       "invalidation_triggers": [
