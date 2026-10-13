@@ -287,6 +287,30 @@ scaffold somewhere else.",
         sets: &[Document],
     },
     CheckSpec {
+        // ADR-0206: a referenced 3D LUT (.cube) must exist on disk.
+        code: "E-LUT-NOT-FOUND",
+        classes: &[Error],
+        repair: Some(Advise),
+        threshold: Internal,
+        adr: "ADR-0206",
+        template: "{element}: effect {index} references 3D LUT '{source}', which does not exist at {path} (ADR-0206)",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    CheckSpec {
+        // ADR-0206: a 3D LUT (.cube) must be valid and conform to ADR-0206 specifications.
+        code: "E-LUT-INVALID",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0206",
+        template: "{element}: 3D LUT '{source}' in effect {index} is invalid: {reason} (ADR-0206)",
+        status: Live,
+        census: None,
+        sets: &[Disk],
+    },
+    CheckSpec {
         code: "E-INVOCATION",
         classes: &[Error],
         // ADR-0073 (#224): not about a document — exit 3's next move is "fix the

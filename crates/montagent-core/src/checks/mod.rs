@@ -34,6 +34,7 @@ pub mod grain;
 pub mod highlight;
 pub mod ink;
 pub mod layout;
+pub mod lut;
 pub mod mask;
 pub mod master;
 pub mod motion_blur;

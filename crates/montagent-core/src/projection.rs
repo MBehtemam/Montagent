@@ -84,7 +84,7 @@ pub(crate) fn effects_at(element: &Value, t: (i128, i128)) -> Vec<Effect> {
         .and_then(Value::as_array)
         .map_or(0, Vec::len);
     (0..count)
-        .filter_map(|index| crate::verbs::frame::effect_of(element, index, t, 0))
+        .filter_map(|index| crate::verbs::frame::effect_of(element, index, t, 0, None))
         .collect()
 }
 

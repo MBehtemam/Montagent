@@ -77,8 +77,11 @@ use skia_safe::{
 mod gradient;
 mod grain;
 mod layer_bound;
+pub mod lut3d;
 mod named;
 mod projection;
+
+pub use lut3d::{ParsedCube, parse_cube};
 
 pub use gradient::{Gradient, GradientKind, Ink};
 pub use grain::grain_draw;
@@ -523,6 +526,8 @@ impl Effect {
             Effect::Posterize { .. } => "posterize",
             Effect::Glow { .. } => "glow",
             Effect::DirectionalBlur { .. } => "directional_blur",
+            Effect::Cdl { .. } => "cdl",
+            Effect::Lut3d { .. } => "lut3d",
         }
     }
 }
@@ -609,6 +614,19 @@ pub enum Effect {
     /// A centred smear along `angle` degrees (clockwise, element space), `length` element
     /// pixels long in all (ADR-0156 §4).
     DirectionalBlur { angle: f64, length: f64 },
+    /// ASC CDL (American Society of Cinematographers Color Decision List) color grading (ADR-0206).
+    Cdl {
+        slope: [f64; 3],
+        offset: [f64; 3],
+        power: [f64; 3],
+        saturation: f64,
+    },
+    /// 3D LUT (.cube) color grading using tetrahedral interpolation (ADR-0206).
+    Lut3d {
+        size: u32,
+        table: Vec<u8>,
+        intensity: f64,
+    },
 }
 
 /// The figure a mask cuts in its rect (ADR-0084).
@@ -1015,6 +1033,23 @@ impl Effect {
                     None,
                 )
             }
+            Effect::Cdl {
+                slope,
+                offset,
+                power,
+                saturation,
+            } => {
+                let cf = lut3d::cdl_filter(slope, offset, power, saturation)?;
+                image_filters::color_filter(cf, None, None)
+            }
+            Effect::Lut3d {
+                size,
+                ref table,
+                intensity,
+            } => {
+                let cf = lut3d::lut3d_filter(size, table, intensity)?;
+                image_filters::color_filter(cf, None, None)
+            }
         }
     }
 
@@ -1126,7 +1161,9 @@ impl Effect {
             | Effect::Grain { .. }
             | Effect::Posterize { .. }
             | Effect::Glow { .. }
-            | Effect::DirectionalBlur { .. } => [
+            | Effect::DirectionalBlur { .. }
+            | Effect::Cdl { .. }
+            | Effect::Lut3d { .. } => [
                 1.0, 0.0, 0.0, 0.0, 0.0, //
                 0.0, 1.0, 0.0, 0.0, 0.0, //
                 0.0, 0.0, 1.0, 0.0, 0.0, //
