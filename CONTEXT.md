@@ -198,8 +198,32 @@ One stretch of a text element's content, carrying its own text plus style deltas
 over the element's base style. A text element's content is always an ordered array
 of runs, even when there is only one. A run boundary is *style only* — it never
 implies a line break; a line break is a `\n` character inside a run's text. A run
-that holds exactly one unit of a stagger may single that unit out.
+that holds exactly one unit of a stagger may single that unit out. A run may carry an
+optional `annotation` object defining interlinear ruby text.
+([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md),
+[ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
 _Avoid_: span, segment, chunk (a **Paint chunk** is a stretch of frames, never text)
+
+**Ruby annotation**:
+Secondary explanatory or phonetic gloss text placed adjacent to a base word or phrase, declared as an optional `annotation` object on a `Run`. Carries `text`, `font`, `size`, `color`, `position` (`over` or `under`), `align` (`center`, `start`, or `end`), `tier`, `gap`, and `overhang`. Placed deterministically without runtime layout negotiation, inflating line leading as needed to guarantee collision-free rendering.
+([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
+_Avoid_: furigana (the Japanese-specific use case; ruby annotation is general across scripts and pedagogical glosses), interlinear subtitle, floating text box
+
+**Tier**:
+An integer index (`0, 1, 2, …`) defining the vertical stacking order for overlapping annotations on a line. Tier 0 is closest to the base text line; subsequent tiers stack further outward at declared tier pitch. Declared literally by the authoring agent; never negotiated by runtime layout solvers.
+([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
+_Avoid_: layer (conflates with timeline track or canvas stacking order), level
+
+**Extra leading**:
+The additional vertical clearance allocated to a line slot to accommodate protruding annotations without ink collisions: `max(0, required_extent - available_leading)`. Evaluated in exact tenths integer arithmetic per ADR-0028. Expands the line's slot height and displaces subsequent lines downward.
+([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
+_Avoid_: line spacing, padding, margin
+
+**Overhang**:
+The maximum horizontal distance in integer pixels an annotation may extend beyond the horizontal advance bounds of its base run without pushing adjacent words or triggering `R-ANNOTATION-OVERHANG`.
+([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
+_Avoid_: bleed, margin
+
 
 **Letter spacing**:
 Space added after every grapheme of a line but the last, in thousandths of an em of the

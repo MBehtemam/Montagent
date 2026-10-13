@@ -6,6 +6,10 @@ amends: 0007 (`line_height`'s numeric domain), 0014 (states the arithmetic its `
 
 # Text-block height: exact tenths, `ceil`, and a rule for the next field
 
+> **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: line
+> slot inflation arithmetic for ruby text annotations is evaluated in exact tenths integer arithmetic.
+
+
 [ADR-0014](./0014-stroke-is-paint-the-text-box-is-required.md) fixed the text-block height
 formula as `ceil(size × line_height × line_count)`, `size` and `line_count` both integers.
 It did not say what numeric domain `line_height` draws from or what arithmetic evaluates

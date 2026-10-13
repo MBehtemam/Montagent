@@ -6,6 +6,11 @@ amends: 0007 (states the baseline rule the slot definition never gave), 0011
 
 # The line baseline is half-leading, read from every run's metrics
 
+> **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: base
+> text baseline shifts downward by `extra_leading_over` within inflated line slots; annotation baselines are placed
+> at tier pitches above and below base text.
+
+
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) gives a line's **slot** —
 *the largest `size` among the runs on that line* × `line_height` — and a worked
 example that places the block (size 55, `line_height` 1.1, centred on 1537 →
