@@ -1,6 +1,6 @@
 ---
 status: accepted
-amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0208 (interchange architecture)
+amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0209 (interchange architecture)
 ---
 
 # CMX 3600 EDL and FCPXML translate via SMPTE timecode and lane mapping
@@ -9,11 +9,11 @@ amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0208 (
 
 ## Context
 
-Alongside OpenTimelineIO ([ADR-0209](0209-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)), two interchange formats dominate professional film and broadcast workflows:
+Alongside OpenTimelineIO ([ADR-0210](0210-opentimelineio-translates-bi-directionally-via-rational-time-and-sequential-tracks.md)), two interchange formats dominate professional film and broadcast workflows:
 1. **CMX 3600 EDL**: The universal legacy standard for linear cut lists. Every broadcast NLE (Premiere, Avid Media Composer, DaVinci Resolve) imports and exports CMX 3600 EDLs.
 2. **Apple Final Cut Pro XML (FCPXML)**: The primary multi-track interchange format used for exchanging complex sequences, connected clips, and multi-channel audio across Apple Final Cut Pro, DaVinci Resolve, and Adobe Premiere Pro (via XML translation).
 
-Montagent must ingest both formats into valid declarative projects and export Montagent timelines back to standard CMX 3600 EDLs and FCPXML documents without external renderer dependencies ([ADR-0208](0208-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)).
+Montagent must ingest both formats into valid declarative projects and export Montagent timelines back to standard CMX 3600 EDLs and FCPXML documents without external renderer dependencies ([ADR-0209](0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)).
 
 ## Decision
 
