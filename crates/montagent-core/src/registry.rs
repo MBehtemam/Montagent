@@ -3202,6 +3202,61 @@ that reported them.",
         census: None,
         sets: &[],
     },
+    CheckSpec {
+        // ADR-0200 §1: a shift with delta == 0 is a no-op and is refused.
+        code: "E-SHIFT-ZERO",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0200",
+        template: "`delta` is zero: a shift of zero milliseconds is a no-op and is refused.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // ADR-0200 §3: moving an element or keyframe earlier than 0 ms would place it
+        // before the start of the project clock.
+        code: "E-SHIFT-UNDERFLOW",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0200",
+        template: "shifting at {at} ms by {delta} ms would move `{element}` to {new_time} ms: \
+timeline instants before zero are not representable. Choose a smaller |delta| or shift from an \
+instant >= |delta|.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // ADR-0200 §2: negative shift without `delete: true` refuses if any element or
+        // keyframe exists in the excised window [at, at + |delta|).
+        code: "E-SHIFT-DESTRUCTIVE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0200",
+        template: "the excised span [{at}..{cut_end}) ms contains authored material: \
+`{first}`. Shift refuses to destroy authored content without explicit permission. Pass \
+`delete: true` to confirm deletion or clear the span first.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
+    CheckSpec {
+        // ADR-0200 §3: an edit that reduces an element's duration to <= 0 ms.
+        code: "E-ELEMENT-COLLAPSE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0200",
+        template: "`{element}` would collapse to duration {duration} ms (start: {start}, end: \
+{end}): every element must have strictly positive duration.",
+        status: Live,
+        census: None,
+        sets: &[],
+    },
     // ---- `compare` (#221). -----------------------------------------------------------
     //
     // Four codes, one per predicate the ADR series names, and every one is `Drift`-class:

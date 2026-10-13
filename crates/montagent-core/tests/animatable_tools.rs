@@ -364,6 +364,7 @@ fn every_animatable_property_is_carried_by_every_tool() {
                 delta: 100,
                 scope: None,
                 release: Vec::new(),
+                delete: false,
             },
         );
         assert_eq!(answer.report().exit_code(), ExitCode::Ok, "`{property}`");

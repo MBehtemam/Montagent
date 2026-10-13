@@ -450,12 +450,15 @@ enum Command {
         /// The instant to shift at or after, in absolute milliseconds.
         #[arg(long, value_name = "MS")]
         at: i64,
-        /// The offset, in milliseconds. Must be positive.
-        #[arg(long, value_name = "MS")]
+        /// The offset, in milliseconds. Can be positive (insertion) or negative (excision).
+        #[arg(long, value_name = "MS", allow_hyphen_values = true)]
         delta: i64,
         /// Narrow the edit to one track. Defaults to the whole project.
         #[arg(long, value_name = "TRACK")]
         scope: Option<String>,
+        /// Authorize ripple deletion of elements and keyframes inside the excised window under negative shift.
+        #[arg(long)]
+        delete: bool,
         /// A slack this edit would otherwise change, named as `FROM,TO` — its full
         /// boundary-instant pair, exactly as a refusal reports it. Repeatable; there is no
         /// bulk form.
@@ -1072,6 +1075,7 @@ where
             at,
             delta,
             scope,
+            delete,
             release,
             json,
             verbose,
@@ -1090,6 +1094,7 @@ where
                 delta,
                 scope,
                 release,
+                delete,
             };
             match run_verb(|| montagent_core::verbs::shift::shift(&project, &ask)) {
                 Ok(answer) => {

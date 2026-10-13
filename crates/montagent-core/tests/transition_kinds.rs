@@ -874,6 +874,7 @@ fn shift_compare_and_timeline_carry_direction_and_ease_unchanged() {
             delta: 500,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(

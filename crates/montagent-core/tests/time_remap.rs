@@ -715,6 +715,7 @@ fn shift_refuses_a_cut_inside_a_remapped_element_and_moves_one_whole_with_its_va
         delta: 100,
         scope: None,
         release: Vec::new(),
+        delete: false,
     };
 
     let inside = shift(&path, &ask(1500));

@@ -646,6 +646,7 @@ fn shifted(path: &std::path::Path, at: i64) -> montagent_core::verbs::shift::Ans
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     )
 }

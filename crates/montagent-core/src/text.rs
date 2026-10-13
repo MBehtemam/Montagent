@@ -202,6 +202,11 @@ pub fn render(report: &Value, options: Options) -> Result<String, RenderError> {
         out.push_str(&vendor_block(vendor));
     }
 
+    // `shift`'s coincident instants and deletion receipt.
+    if let Some(shift) = report.get("shift").filter(|view| !view.is_null()) {
+        out.push_str(&shift_block(shift));
+    }
+
     let findings = report["findings"]
         .as_array()
         .ok_or_else(|| RenderError("report has no `findings` array".into()))?;
@@ -2640,6 +2645,64 @@ fn vendor_block(vendor: &Value) -> String {
         attestation["sha256"].as_str().unwrap_or("?").to_string(),
     );
     field("chain entry", compact(&vendor["chain_entry"]));
+    out
+}
+
+fn shift_block(shift: &Value) -> String {
+    let mut out = String::new();
+    if let Some(coincident) = shift
+        .get("coincident")
+        .and_then(Value::as_array)
+        .filter(|a| !a.is_empty())
+    {
+        out.push_str("COINCIDENT INSTANTS\n");
+        for rec in coincident {
+            let elem = rec["element"].as_str().unwrap_or("?");
+            let kind = rec["kind"].as_str().unwrap_or("?");
+            let role = rec["role"].as_str().unwrap_or("?");
+            let effect = rec["effect"].as_str().unwrap_or("");
+            if let Some(prop) = rec.get("property").and_then(Value::as_str) {
+                out.push_str(&format!("  `{elem}` ({kind} {role} on {prop}): {effect}\n"));
+            } else {
+                out.push_str(&format!("  `{elem}` ({kind} {role}): {effect}\n"));
+            }
+        }
+        out.push('\n');
+    }
+    if let Some(receipt) = shift.get("receipt").filter(|r| !r.is_null()) {
+        if let Some(deleted) = receipt
+            .get("deleted_elements")
+            .and_then(Value::as_array)
+            .filter(|a| !a.is_empty())
+        {
+            out.push_str("DELETED ELEMENTS\n");
+            for el in deleted {
+                let id = el["id"].as_str().unwrap_or("?");
+                let track = el["track"].as_str().unwrap_or("?");
+                let kind = el["type"].as_str().unwrap_or("?");
+                let start = el["start"].as_i64().unwrap_or(0);
+                let end = el["end"].as_i64().unwrap_or(0);
+                out.push_str(&format!(
+                    "  `{id}` ({kind}) in track `{track}` [{start}..{end}) ms\n"
+                ));
+            }
+            out.push('\n');
+        }
+        if let Some(dropped) = receipt
+            .get("dropped_keyframes")
+            .and_then(Value::as_array)
+            .filter(|a| !a.is_empty())
+        {
+            out.push_str("DROPPED KEYFRAMES\n");
+            for kf in dropped {
+                let elem = kf["element"].as_str().unwrap_or("?");
+                let prop = kf["property"].as_str().unwrap_or("?");
+                let t = kf["t"].as_i64().unwrap_or(0);
+                out.push_str(&format!("  `{elem}.{prop}` at {t} ms\n"));
+            }
+            out.push('\n');
+        }
+    }
     out
 }
 

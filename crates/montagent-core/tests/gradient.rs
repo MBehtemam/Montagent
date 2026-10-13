@@ -487,6 +487,7 @@ fn shift_compare_timeline_and_the_contact_sheet_carry_a_static_gradient() {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(

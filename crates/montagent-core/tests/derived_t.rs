@@ -437,6 +437,7 @@ fn a_segment_cut_leaves_a_stale_declaration_and_shift_hands_back_the_finding() {
             delta: 1000,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
 

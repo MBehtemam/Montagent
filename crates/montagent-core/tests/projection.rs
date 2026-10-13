@@ -549,6 +549,7 @@ fn shift_splits_a_projected_element_with_keyed_angles_and_perspective() {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(

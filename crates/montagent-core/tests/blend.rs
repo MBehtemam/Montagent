@@ -480,6 +480,7 @@ fn shift_compare_and_timeline_carry_the_field_unchanged() {
             delta: 40,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(

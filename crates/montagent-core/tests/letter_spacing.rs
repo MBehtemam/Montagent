@@ -578,6 +578,7 @@ fn a_shift_split_inside_a_keyed_spacing_segment_writes_an_integer() {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_ne!(
@@ -623,6 +624,7 @@ fn a_plain_shift_carries_a_keyed_spacing_with_its_element() {
             delta: 300,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
