@@ -70,7 +70,7 @@ use crate::media::digest::{self, Digest};
 use crate::media::probe::{self, Execution, LOCAL_PROTOCOLS, Runner};
 use crate::media::tools::{self, Tools};
 use crate::media::{Source, display_local};
-use crate::model::{Animatable, Keyframe, Volume};
+use crate::model::{Animatable, FrameRate, Keyframe, Volume};
 use crate::parse;
 use crate::permissive::Loose;
 use crate::registry::CheckSet;
@@ -306,7 +306,7 @@ pub fn verify(path: &Path) -> Answer {
 
     // Frame timing, from decoded PTS spacing. One tick either way is the rounding a
     // non-integral `timebase / fps` forces on the muxer; anything past it is a different rate.
-    let step = file.time_base.1 as f64 / (fps as f64 * file.time_base.0 as f64);
+    let step = file.time_base.1 as f64 / (fps.as_f64() * file.time_base.0 as f64);
     let gaps: Vec<(usize, i64)> = file
         .pts
         .windows(2)
@@ -321,7 +321,7 @@ pub fn verify(path: &Path) -> Answer {
                 .field("irregular", json!(gaps.len()))
                 .field("frame", json!(first))
                 .field("interval_ms", json!(round3(file.ms(ticks as f64))))
-                .field("expected_ms", json!(round3(1000.0 / fps as f64))),
+                .field("expected_ms", json!(round3(1000.0 / fps.as_f64()))),
         );
     }
 
@@ -336,7 +336,7 @@ pub fn verify(path: &Path) -> Answer {
         }
         _ => 0,
     };
-    let expected_ms = expected_frames as f64 * 1000.0 / fps as f64;
+    let expected_ms = expected_frames as f64 * 1000.0 / fps.as_f64();
     let video_ms = file.video_ms(step);
     let tick_ms = file.ms(1.0);
     if file.pts.len() as u64 != expected_frames || (video_ms - expected_ms).abs() > tick_ms {
@@ -366,7 +366,7 @@ pub fn verify(path: &Path) -> Answer {
     // granularity each stream is cut at. A truncated mixed track is at least as likely a
     // shape for "silent at 0:30" as a quiet one, and this catches it with no borrowed number.
     if let Some(audio) = &file.audio {
-        let slack = 1000.0 / fps as f64 + audio.frame_ms;
+        let slack = 1000.0 / fps.as_f64() + audio.frame_ms;
         if (audio.ms - video_ms).abs() > slack {
             report.push(
                 at("E-VERIFY-AUDIO-EXTENT")
@@ -851,7 +851,7 @@ impl Heard {
         project_dir: &Path,
         runner: &dyn Runner,
         tools: &Tools,
-        fps: i64,
+        fps: FrameRate,
         extent: i64,
     ) -> Heard {
         let mut has_audio: BTreeMap<PathBuf, bool> = BTreeMap::new();
@@ -951,7 +951,12 @@ impl Heard {
 /// The spans of `[from, to)` in which the element's resolved `volume` is above 0, and the
 /// largest value it takes there. `None` where the volume does not resolve — the check engine
 /// refuses such a document, and this verb does not guess at one.
-fn audible_spans(element: &Value, from: i64, to: i64, fps: i64) -> Option<(Vec<(i64, i64)>, f64)> {
+fn audible_spans(
+    element: &Value,
+    from: i64,
+    to: i64,
+    fps: FrameRate,
+) -> Option<(Vec<(i64, i64)>, f64)> {
     let volume: Animatable<f64> = match element.get("volume") {
         None | Some(Value::Null) => Animatable::Static(1.0),
         Some(written) => {

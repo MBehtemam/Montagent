@@ -9,8 +9,7 @@
       "$ref": "#/$defs/Frame"
     },
     "fps": {
-      "type": "integer",
-      "format": "int64"
+      "$ref": "#/$defs/FrameRate"
     },
     "background": {
       "$ref": "#/$defs/Colour"
@@ -76,6 +75,45 @@
         "height"
       ],
       "description": "The project's pixel dimensions."
+    },
+    "FrameRate": {
+      "description": "Sequence frame rate in frames per second. Whole integer (24, 25, 30, 50, 60), exact rational object ({\"num\": 24000, \"den\": 1001}), or exact rational pair ([24000, 1001]). Decimal floats are strictly forbidden (ADR-0199).",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Whole frame rate in frames per second."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "num": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "den": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "num",
+            "den"
+          ],
+          "additionalProperties": false,
+          "description": "Exact rational frame rate (e.g. {\"num\": 24000, \"den\": 1001} for 23.976 fps)."
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Exact rational pair [num, den]."
+        }
+      ]
     },
     "Colour": {
       "type": "string",

@@ -150,7 +150,7 @@ fn header(scaffold: &Scaffold) -> Result<Value, String> {
             width: scaffold.width,
             height: scaffold.height,
         },
-        fps: scaffold.fps,
+        fps: scaffold.fps.into(),
         background,
         duration: scaffold.duration,
         // ADR-0062's `loop` is not one of the five #194 enumerates, and ADR-0030 means
