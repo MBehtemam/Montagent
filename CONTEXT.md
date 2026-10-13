@@ -199,10 +199,17 @@ over the element's base style. A text element's content is always an ordered arr
 of runs, even when there is only one. A run boundary is *style only* — it never
 implies a line break; a line break is a `\n` character inside a run's text. A run
 that holds exactly one unit of a stagger may single that unit out. A run may carry an
-optional `annotation` object defining interlinear ruby text.
+optional `annotation` object defining interlinear ruby text, or a `decoration` object defining
+multi-line range decorations (boxes, highlights, underlines).
 ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md),
-[ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
+[ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md),
+[ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md))
 _Avoid_: span, segment, chunk (a **Paint chunk** is a stretch of frames, never text)
+
+**Text range decoration** / **Phrase box**:
+A visual decoration (`box`, `highlight`, or `underline`) applied across the character span of a `Run`, declared via an optional `decoration` object on `Run`. Renders per-line fragmented `SkRRect` boxes when a phrase breaks across line wraps (`\n`) under `decoration_break: clone` or `slice`. Executed in Pass 0 (BackgroundDecorations) prior to glyph outlines so fills never occlude text ink. Adheres strictly to the ADR-0048 paint-only invariant (never alters line slot height or triggers text reflow). May carry an optional `window` (`start`, `end`, `fade_in`, `fade_out`) for speech-synchronized appearance.
+([ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md))
+_Avoid_: bounding box (a single bounding box across lines produces bounding-union blowout), background card (as an independent `rect` element; decorations are inline run-level paint), karaoke (karaoke is the timed style-delta mechanism of ADR-0048; decorations are multi-line box/highlight/underline geometric objects)
 
 **Ruby annotation**:
 Secondary explanatory or phonetic gloss text placed adjacent to a base word or phrase, declared as an optional `annotation` object on a `Run`. Carries `text`, `font`, `size`, `color`, `position` (`over` or `under`), `align` (`center`, `start`, or `end`), `tier`, `gap`, and `overhang`. Placed deterministically without runtime layout negotiation, inflating line leading as needed to guarantee collision-free rendering.
