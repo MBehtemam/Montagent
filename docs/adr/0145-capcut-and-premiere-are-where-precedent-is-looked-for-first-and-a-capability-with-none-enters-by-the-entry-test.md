@@ -5,6 +5,10 @@ amends: 0003 ("After Effects is out of scope for now" is replaced: the reference
 
 # CapCut and Premiere are where precedent is looked for first, not the edge of scope; a capability with no precedent in either enters by the entry test
 
+> **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: ruby text
+> annotations enter via the ADR-0145 entry test with an accepted prototype and owner sign-off.
+
+
 [#667](https://github.com/MBehtemam/Montagent/issues/667), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0003](0003-general-video-editor-not-channel-tooling.md) named CapCut and Premiere as

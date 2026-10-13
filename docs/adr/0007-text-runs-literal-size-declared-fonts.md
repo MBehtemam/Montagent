@@ -8,6 +8,11 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: a run
+> gains an optional `annotation` object with position, align, tier, gap, and overhang; line slots inflate
+> deterministically to prevent collisions.
+
+
 > **Amended by [ADR-0153](0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)**: a text element's
 > joining-script letters are shaped with their optional ligatures on and take no letter
 > spacing between them.
