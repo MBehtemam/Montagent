@@ -15,6 +15,9 @@ status: accepted
 > their own transform. ADR-0001's refusal of a local clock stands; it never argued against a
 > shared space.
 
+> **Amended by [ADR-0215](0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)**: After Effects joins the reference class as precedent for
+> rendered results, while CapCut and Premiere stay first for mechanism and schema shape.
+
 Montagent is a **general-purpose, agent-first video editor**. It will be open
 source and run by people other than its author. Its primitives are shaped by what
 a video editor must be able to express — never by what any one project happens to

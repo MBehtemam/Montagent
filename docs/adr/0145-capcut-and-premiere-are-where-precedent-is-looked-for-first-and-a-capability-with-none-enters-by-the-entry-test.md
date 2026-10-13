@@ -11,6 +11,11 @@ amends: 0003 ("After Effects is out of scope for now" is replaced: the reference
 > **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: ruby text
 > annotations enter via the ADR-0145 entry test with an accepted prototype and owner sign-off.
 
+> **Amended by [ADR-0215](0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)**: After Effects is precedent that a rendered result is wanted,
+> so an After Effects-documented capability needs no entry-test prototype merely to prove
+> demand; CapCut and Premiere remain first for mechanism and schema shape, and the 26 rulings in
+> the After Effects-only census are disposed of.
+
 
 [#667](https://github.com/MBehtemam/Montagent/issues/667), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
