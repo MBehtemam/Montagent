@@ -168,6 +168,14 @@ status: accepted
 > - [ADR-0194](0194-render-profile-says-where-the-painters-cpu-went-by-element-type-and-effect.md) —
 >   `render` gains an optional `profile` (CLI `--profile`, MCP parameter) and its answer an optional
 >   `render.profile` block: CPU ms per element, type and effect, and the stage split; no tenth verb
+> - [ADR-0200](0200-negative-shift-excises-time-under-the-cut-origin-convention-with-two-tier-safety.md) —
+>   `shift` accepts negative durations excising time intervals under two-tier safety
+> - [ADR-0202](0202-the-output-field-accepts-a-path-string-or-a-structured-output-config-with-container-inference.md) —
+>   `output` accepts a path string or a structured `OutputConfig` object with container inference
+> - [ADR-0204](0204-audio-stems-are-role-partitioned-24-bit-broadcast-wav-files-dispatched-in-decoupled-passes.md) —
+>   audio stems export as role-partitioned Broadcast WAV deliverables in decoupled render passes
+> - [ADR-0213](0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md) —
+>   `measure` gains layout reporting (`--layout`, `layout: true`) returning word boxes, lines, and per-line range query fragments
 
 > **Extended by [ADR-0030](./0030-defaultable-field-presence-is-content.md)**: `fmt`
 > must never insert a default for an omitted field or strip one written explicitly at its

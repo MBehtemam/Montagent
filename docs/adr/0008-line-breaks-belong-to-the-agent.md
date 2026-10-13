@@ -1,11 +1,15 @@
 # ADR-0008: Line breaks belong to the agent; the renderer only obeys them
 
+> **Amended by [ADR-0213](0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md)**: measure
+> layout report exposes UAX #14 mandatory breaks and dictionary break opportunities alongside word and line geometry.
+
 **Status:** accepted
 **Date:** 2026-09-04
 **Resolves:** [#28](https://github.com/MBehtemam/Montagent/issues/28)
 **Supersedes:** the "Text and internationalisation" paragraph of
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md). Everything else in
 ADR-0007 stands.
+
 
 ## Context
 
