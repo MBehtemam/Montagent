@@ -474,6 +474,9 @@ pub struct Project {
     /// (ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub master: Option<Master>,
+    /// Project-level master visual effects executed at the device boundary (ADR-0205).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<BTreeMap<String, Vec<FontFile>>>,
     #[serde(

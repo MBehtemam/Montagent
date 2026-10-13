@@ -177,6 +177,10 @@ fn walk(document: &Value, reach: Reach) -> Value {
     };
 
     let mut out = reorder(Published::Project, root);
+    if let Some(Value::Array(effects)) = out.get("effects") {
+        let effects: Vec<Value> = effects.iter().map(canonical_effect).collect();
+        out.insert("effects".into(), Value::Array(effects));
+    }
     if let Some(Value::Array(tracks)) = out.get("tracks") {
         let tracks: Vec<Value> = tracks
             .iter()

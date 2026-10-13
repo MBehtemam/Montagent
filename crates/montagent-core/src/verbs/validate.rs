@@ -253,6 +253,8 @@ fn run_checks(
     // ADR-0169's three `audio_effects` rules: a member in the other vocabulary's list, a
     // second enabled copy of a singular member, and a member left bypassed. Document-only.
     crate::checks::audio_effects::check(document, report);
+    // ADR-0205: project-level master effects validation (mask refusal, literal keyframe checks). Document-only.
+    crate::checks::project_effects::check(document, report);
     // ADR-0179 §3's five EQ findings: a range, the stack cap, an extreme gain, a crossed
     // band pair and a zero-gain stage. Document-only.
     crate::checks::audio_eq::check(document, report);

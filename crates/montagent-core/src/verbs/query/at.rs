@@ -103,6 +103,9 @@ pub struct At {
     /// 58 of 60 elements is a wrong answer that looks like a right one, and *which* way the
     /// range is malformed is `validate`'s question and not a view's.
     pub unplaced: Vec<String>,
+    /// Project-level master effects (ADR-0205).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Value>>,
     /// The region of the frame no element in the presence set reaches — ADR-0011's
     /// `NOT COVERED`, as a set of rectangles whose union is exactly that region. Never the
     /// *fewest* rectangles that could say it (see [`geometry::not_covered`]).
@@ -881,8 +884,15 @@ fn build(document: &Loose, instant: i64, mut session: Option<&mut Session>, deta
         _ => Vec::new(),
     };
 
+    let effects = document
+        .value()
+        .get("effects")
+        .and_then(Value::as_array)
+        .cloned();
+
     At {
         at: instant,
+        effects,
         stack: present,
         unplaced,
         not_covered,

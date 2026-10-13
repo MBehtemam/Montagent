@@ -2089,6 +2089,42 @@ impl Canvas {
         }
     }
 
+    /// Apply master effects across the whole canvas at the device boundary (ADR-0205).
+    ///
+    /// The canvas surface is snapshotted, and drawn through the ordered effect chain
+    /// with `BlendMode::Src` onto the surface, replacing the pre-effect composite with the
+    /// graded result.
+    pub fn apply_master_effects(&mut self, effects: &[Effect]) {
+        if effects.is_empty() {
+            return;
+        }
+        let snapshot = self.surface.image_snapshot();
+        let extent = Extent {
+            width: self.width as f64,
+            height: self.height as f64,
+        };
+        let canvas = self.surface.canvas();
+        canvas.save();
+        canvas.reset_matrix();
+        let mut paint = SkPaint::default();
+        paint.set_blend_mode(BlendMode::Src);
+        canvas.save_layer(&SaveLayerRec::default().paint(&paint));
+
+        let mut draw_paint = SkPaint::default();
+        draw_paint.set_blend_mode(BlendMode::Src);
+        Canvas::through(canvas, extent, effects, |c| {
+            c.draw_image_with_sampling_options(
+                &snapshot,
+                (0, 0),
+                SamplingOptions::new(skia_safe::FilterMode::Nearest, skia_safe::MipmapMode::None),
+                Some(&draw_paint),
+            );
+        });
+
+        canvas.restore();
+        canvas.restore();
+    }
+
     /// Crop, scale and encode — the three things that happen to the finished frame, in the
     /// one place they happen, so a `--crop` and a `--full` cannot disagree about order.
     ///
@@ -3755,5 +3791,24 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn master_effects_grades_full_canvas() {
+        let mut canvas = Canvas::new(10, 10).unwrap();
+        // Fill canvas with opaque white
+        canvas.background(Rgba([255, 255, 255, 255]));
+
+        // Brightness effect at -0.5
+        let effect = Effect::Brightness { amount: -0.5 };
+        canvas.apply_master_effects(&[effect]);
+
+        let rgba = canvas.rgba().expect("rgba pixels");
+        // Each pixel should now be darkened from 255 to ~128
+        assert_eq!(rgba.len(), 10 * 10 * 4);
+        assert_eq!(rgba[0], 128); // R
+        assert_eq!(rgba[1], 128); // G
+        assert_eq!(rgba[2], 128); // B
+        assert_eq!(rgba[3], 255); // A
     }
 }
