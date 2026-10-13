@@ -32,6 +32,8 @@ pub struct Summary {
     pub integrated: Option<f64>,
     /// True peak in dBTP, or `None` for digital silence (`-inf`).
     pub true_peak: Option<f64>,
+    /// Loudness range in LU, or `None` if undefined.
+    pub loudness_range: Option<f64>,
 }
 
 /// EBU R 128's absolute gate. An integrated reading at or below it is the meter's floor.
@@ -65,10 +67,12 @@ pub fn parse(stderr: &str) -> Result<Summary, String> {
         }
     };
     let integrated = after("Integrated loudness:", "I:")?.filter(|lufs| *lufs > GATE_LUFS);
+    let loudness_range = after("Loudness range:", "LRA:").ok().flatten();
     let true_peak = after("True peak:", "Peak:")?;
     Ok(Summary {
         integrated,
         true_peak,
+        loudness_range,
     })
 }
 
@@ -178,7 +182,8 @@ I:         -27.1 LUFS\n    Threshold: -37.1 LUFS\n\n  Loudness range:\n    LRA: 
             parse(SUMMARY).unwrap(),
             Summary {
                 integrated: Some(-27.1),
-                true_peak: Some(-24.1)
+                true_peak: Some(-24.1),
+                loudness_range: Some(20.0),
             }
         );
     }
@@ -195,7 +200,8 @@ I:         -27.1 LUFS\n    Threshold: -37.1 LUFS\n\n  Loudness range:\n    LRA: 
             parse(&silent).unwrap(),
             Summary {
                 integrated: None,
-                true_peak: None
+                true_peak: None,
+                loudness_range: Some(20.0),
             }
         );
     }

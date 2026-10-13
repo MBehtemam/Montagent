@@ -74,9 +74,7 @@ fn measure(project: &Path, element: Value) -> Answer {
         project,
         &Ask {
             element: Some(element),
-            at: None,
-            elements: None,
-            all: false,
+            ..Default::default()
         },
     )
 }
@@ -86,10 +84,8 @@ fn measure_elements(project: &Path, elements: Vec<Value>) -> Answer {
     montagent_core::verbs::measure::measure(
         project,
         &Ask {
-            element: None,
-            at: None,
             elements: Some(elements),
-            all: false,
+            ..Default::default()
         },
     )
 }
@@ -99,10 +95,8 @@ fn measure_all(project: &Path) -> Answer {
     montagent_core::verbs::measure::measure(
         project,
         &Ask {
-            element: None,
-            at: None,
-            elements: None,
             all: true,
+            ..Default::default()
         },
     )
 }
@@ -1260,38 +1254,32 @@ fn elements_and_all_and_element_and_at_are_pairwise_mutually_exclusive() {
         Ask {
             element: Some(text(20, one_run("x"))),
             at: Some(0),
-            elements: None,
-            all: false,
+            ..Default::default()
         },
         Ask {
             element: Some(text(20, one_run("x"))),
-            at: None,
             elements: Some(one.clone()),
-            all: false,
+            ..Default::default()
         },
         Ask {
             element: Some(text(20, one_run("x"))),
-            at: None,
-            elements: None,
             all: true,
+            ..Default::default()
         },
         Ask {
-            element: None,
             at: Some(0),
             elements: Some(one.clone()),
-            all: false,
+            ..Default::default()
         },
         Ask {
-            element: None,
             at: Some(0),
-            elements: None,
             all: true,
+            ..Default::default()
         },
         Ask {
-            element: None,
-            at: None,
             elements: Some(one),
             all: true,
+            ..Default::default()
         },
     ];
 

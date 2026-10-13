@@ -309,6 +309,10 @@ enum Command {
         /// `--elements`.
         #[arg(long)]
         all: bool,
+        /// Perceptual diagnostic visual and audio scopes (ADR-0207). Measures 256-bin
+        /// channel histograms, 64x64 vectorscope chroma density, and audio loudness.
+        #[arg(long)]
+        scopes: bool,
         /// Print the canonical JSON *instead of* the text answer, never alongside it.
         #[arg(long)]
         json: bool,
@@ -881,6 +885,7 @@ where
             at,
             elements,
             all,
+            scopes,
             json,
         } => {
             // `--verbose` is deliberately absent, so `false` here is the only form there is
@@ -923,6 +928,7 @@ where
                 at,
                 elements,
                 all,
+                scopes,
             };
             match run_verb(|| montagent_core::verbs::measure::measure(&project, &ask)) {
                 Ok(answer) => {

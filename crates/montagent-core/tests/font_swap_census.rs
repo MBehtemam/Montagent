@@ -133,10 +133,8 @@ fn measure_all(project: &Path) -> Answer {
     montagent_core::verbs::measure::measure(
         project,
         &Ask {
-            element: None,
-            at: None,
-            elements: None,
             all: true,
+            ..Default::default()
         },
     )
 }

@@ -1110,11 +1110,43 @@ fn measure_block(measure: &Value) -> String {
         Some("at") => instant_block(measure),
         Some("batch") => batch_block(measure),
         Some("coverage") => coverage_block(measure),
+        Some("scopes") => scopes_block(measure),
         other => format!(
             "\nMEASURE  this build cannot render a `{}` answer\n",
             other.unwrap_or("(unnamed)")
         ),
     }
+}
+
+fn scopes_block(measure: &Value) -> String {
+    let at_ms = measure["at_ms"].as_i64().unwrap_or(0);
+    let mut out = format!("\nMEASURE  scopes at {at_ms} ms\n");
+    out.push_str(&row(
+        "  visual scopes: histogram 256 bins (luma, red, green, blue), vectorscope 64x64 grid"
+            .to_string(),
+    ));
+
+    if let Some(audio) = measure.get("audio_scopes").filter(|v| !v.is_null()) {
+        let lufs_str = audio["integrated_lufs"]
+            .as_f64()
+            .map(|v| format!("{v:.1} LUFS"))
+            .unwrap_or_else(|| "none".to_string());
+        let peak_str = audio["true_peak_db"]
+            .as_f64()
+            .map(|v| format!("{v:.1} dBTP"))
+            .unwrap_or_else(|| "none".to_string());
+        let lra_str = audio["loudness_range_lu"]
+            .as_f64()
+            .map(|v| format!("{v:.1} LU"))
+            .unwrap_or_else(|| "none".to_string());
+        out.push_str(&row(format!(
+            "  audio scopes: integrated {lufs_str}, true peak {peak_str}, loudness range {lra_str}"
+        )));
+    } else {
+        out.push_str(&row("  audio scopes: none".to_string()));
+    }
+
+    out
 }
 
 /// `elements`/`all`'s answer (#317): one row per slot, in input order, each stating the

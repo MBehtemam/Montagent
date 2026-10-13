@@ -273,6 +273,10 @@ pub struct MeasureParams {
     /// empty batch, not an error. Exclusive with `element`, `at` and `elements`.
     #[serde(default)]
     pub all: bool,
+    /// Perceptual diagnostic visual and audio scopes (ADR-0207). Measures 256-bin
+    /// channel histograms, 64x64 vectorscope chroma density, and audio loudness.
+    #[serde(default)]
+    pub scopes: bool,
     /// Return the canonical JSON *instead of* the text answer, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -1040,6 +1044,7 @@ impl Montagent {
                         at: params.at,
                         elements: params.elements,
                         all: params.all,
+                        scopes: params.scopes,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query`: the answer *is* the

@@ -404,6 +404,7 @@ pub fn verify(path: &Path) -> Answer {
         None => crate::media::loudness::Summary {
             integrated: None,
             true_peak: None,
+            loudness_range: None,
         },
         Some(_) => match programme_loudness(&runner, &resolved, &output) {
             Ok(summary) => summary,

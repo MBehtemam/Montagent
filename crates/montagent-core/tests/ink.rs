@@ -116,9 +116,7 @@ fn measure_one(element: Value) -> Value {
         &path,
         &Ask {
             element: Some(element),
-            at: None,
-            elements: None,
-            all: false,
+            ..Default::default()
         },
     );
     answer.to_json()["measure"].clone()

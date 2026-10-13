@@ -26,10 +26,11 @@ pub const CAP: usize = 8;
 /// A gain whose magnitude is above this is reviewed.
 pub const GAIN_REVIEW_DB: f64 = 12.0;
 
-const NAMES: [&str; 4] = ["highpass", "lowpass", "shelf", "bell"];
+const NAMES: [&str; 5] = ["highpass", "lowpass", "shelf", "bell", "equalizer"];
 const SLOPES: [f64; 3] = [12.0, 24.0, 48.0];
 const FREQUENCY: (f64, f64) = (20.0, 20000.0);
 const GAIN: (f64, f64) = (-24.0, 24.0);
+const EQ_GAIN: (f64, f64) = (-48.0, 24.0);
 const Q: (f64, f64) = (0.1, 10.0);
 
 pub fn check(document: &Loose, report: &mut Report) {
@@ -39,7 +40,18 @@ pub fn check(document: &Loose, report: &mut Report) {
 }
 
 fn number(member: &Value, key: &str) -> Option<f64> {
-    member.get(key).and_then(Value::as_f64)
+    member
+        .get(key)
+        .or_else(|| {
+            if key == "frequency_hz" {
+                member.get("frequency")
+            } else if key == "frequency" {
+                member.get("frequency_hz")
+            } else {
+                None
+            }
+        })
+        .and_then(Value::as_f64)
 }
 
 fn enabled(member: &Value) -> bool {
@@ -108,12 +120,27 @@ pub(crate) fn findings(document: &Loose) -> Vec<Finding> {
                         .repair_value(json!({ key: value.clamp(bounds.0, bounds.1) })),
                 ));
             };
-            range("frequency_hz", FREQUENCY);
-            if matches!(name, "shelf" | "bell") {
-                range("gain_db", GAIN);
-            }
-            if name == "bell" {
-                range("q", Q);
+            if name == "equalizer" {
+                let freq_key = if member.get("frequency").is_some() {
+                    "frequency"
+                } else {
+                    "frequency_hz"
+                };
+                range(freq_key, FREQUENCY);
+                if member.get("gain_db").is_some() {
+                    range("gain_db", EQ_GAIN);
+                }
+                if member.get("q").is_some() {
+                    range("q", Q);
+                }
+            } else {
+                range("frequency_hz", FREQUENCY);
+                if matches!(name, "shelf" | "bell") {
+                    range("gain_db", GAIN);
+                }
+                if name == "bell" {
+                    range("q", Q);
+                }
             }
             if matches!(name, "highpass" | "lowpass")
                 && let Some(slope) = number(member, "slope_db_per_oct")
