@@ -6,8 +6,14 @@
 //! - OpenTimelineIO (`.otio`) timelines (ADR-0210).
 //! - CMX 3600 EDL and Final Cut Pro XML (`.fcpxml`) sequences (ADR-0211).
 
+pub mod otio;
 pub mod subtitles;
 
+pub use otio::{
+    OtioChild, OtioClip, OtioEffect, OtioError, OtioGap, OtioMediaReference, OtioRationalTime,
+    OtioStack, OtioTimeRange, OtioTimeline, OtioTrack, frame_rate_to_rate, otio_to_project,
+    project_to_otio, rate_to_frame_rate,
+};
 pub use subtitles::{
     SubtitleCue, SubtitleError, SubtitleFormat, export_subtitles, import_subtitles, parse_srt,
     parse_vtt, serialize_srt, serialize_vtt,
