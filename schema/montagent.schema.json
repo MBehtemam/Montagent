@@ -661,6 +661,76 @@
             "length"
           ],
           "description": "A centred smear along one direction (ADR-0156 §4). `angle` in degrees, `0`\nhorizontal and clockwise positive, as `rotation` is, measured in the element's own\nspace; `length` the whole smear in element pixels. Not motion blur: it smears whether\nor not the element moves."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slope": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "offset": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "power": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "saturation": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "cdl"
+            }
+          },
+          "required": [
+            "name",
+            "slope",
+            "offset",
+            "power"
+          ],
+          "description": "ASC CDL (American Society of Cinematographers Color Decision List) color grading (ADR-0206)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "intensity": {
+              "type": "number",
+              "format": "double"
+            },
+            "name": {
+              "type": "string",
+              "const": "lut3d"
+            }
+          },
+          "required": [
+            "name",
+            "source"
+          ],
+          "description": "3D LUT (.cube) tetrahedral interpolation grading (ADR-0206)."
         }
       ],
       "description": "One member of the closed vocabulary, discriminated by `name`.\n\nTwo effects of the same name are ordinary rather than forbidden (ADR-0040) — the\ncontainer is a list precisely so a second shadow has somewhere to go."

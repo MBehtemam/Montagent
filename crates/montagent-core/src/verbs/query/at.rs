@@ -958,7 +958,13 @@ fn grain_of(document: &Loose, element: &Value, instant: i64) -> Option<Vec<Value
     let count = element.get("effects").and_then(Value::as_array)?.len();
     let grains: Vec<Value> = (0..count)
         .filter_map(|index| {
-            match crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame)? {
+            match crate::verbs::frame::effect_of(
+                element,
+                index,
+                (i128::from(instant), 1),
+                frame,
+                None,
+            )? {
                 montagent_render::canvas::Effect::Grain {
                     seed,
                     amount,

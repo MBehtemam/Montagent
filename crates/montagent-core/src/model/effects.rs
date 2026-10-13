@@ -211,6 +211,20 @@ pub enum Effect {
         angle: Animatable<f64>,
         length: Animatable<Smear>,
     },
+    /// ASC CDL (American Society of Cinematographers Color Decision List) color grading (ADR-0206).
+    Cdl {
+        slope: [f64; 3],
+        offset: [f64; 3],
+        power: [f64; 3],
+        #[serde(default = "default_cdl_saturation", skip_serializing_if = "is_one")]
+        saturation: f64,
+    },
+    /// 3D LUT (.cube) tetrahedral interpolation grading (ADR-0206).
+    Lut3d {
+        source: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        intensity: Option<f64>,
+    },
 }
 
 /// Declares a bounded number type for one named-effect parameter (ADR-0156 §4), the way
@@ -665,6 +679,50 @@ impl Effect {
             return Ok(self);
         }
 
+        if let Effect::Cdl {
+            slope,
+            offset: _,
+            power,
+            saturation,
+        } = &self
+        {
+            for (i, &val) in slope.iter().enumerate() {
+                if val < 0.0 {
+                    let channel = ["red", "green", "blue"][i];
+                    return Err(format!(
+                        "`cdl`'s `slope` {channel} channel is {val}: slope must be at least 0.0 (ADR-0206)"
+                    ));
+                }
+            }
+            for (i, &val) in power.iter().enumerate() {
+                if val <= 0.0 {
+                    let channel = ["red", "green", "blue"][i];
+                    return Err(format!(
+                        "`cdl`'s `power` {channel} channel is {val}: power must be greater than 0.0 (ADR-0206)"
+                    ));
+                }
+            }
+            if *saturation < 0.0 {
+                return Err(format!(
+                    "`cdl`'s `saturation` is {saturation}: saturation must be at least 0.0 (ADR-0206)"
+                ));
+            }
+            return Ok(self);
+        }
+
+        if let Effect::Lut3d { source, intensity } = &self {
+            if source.trim().is_empty() {
+                return Err("`lut3d`'s `source` path cannot be empty (ADR-0206)".to_string());
+            }
+            if matches!(intensity, Some(val) if !(0.0..=1.0).contains(val)) {
+                let val = intensity.unwrap();
+                return Err(format!(
+                    "`lut3d`'s `intensity` is {val}: intensity must be within [0.0, 1.0] (ADR-0206)"
+                ));
+            }
+            return Ok(self);
+        }
+
         let Effect::Mask {
             shape,
             x,
@@ -854,4 +912,12 @@ impl MaskShape {
             MaskShape::Path => "path",
         }
     }
+}
+
+const fn default_cdl_saturation() -> f64 {
+    1.0
+}
+
+fn is_one(v: &f64) -> bool {
+    (*v - 1.0).abs() < 1e-6
 }

@@ -313,6 +313,8 @@ fn run_checks(
     // findings are a set and nothing downstream reads their order — and it is named only so
     // the next reader wondering where a slow run went does not have to measure to find out.
     crate::checks::ink::check(document, report);
+    // ADR-0206: 3D LUT (.cube) existence on disk and format qualification.
+    crate::checks::lut::check(document, report);
     // ADR-0112: the document half has completed, and its findings stand whatever the disk
     // half does next — so it is recorded here, before anything below can stop the run.
     report.record(CheckSet::Document);

@@ -558,7 +558,7 @@ fn effects_at(
     let frame = crate::grain::local_frame(element, instant, fps);
     (0..declared.len())
         .filter_map(|index| {
-            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame)
+            crate::verbs::frame::effect_of(element, index, (i128::from(instant), 1), frame, None)
         })
         .collect()
 }

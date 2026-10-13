@@ -1682,8 +1682,9 @@ impl<'a> Painter<'a> {
         };
         let mut effects = Vec::with_capacity(declared.len());
         let frame = crate::grain::local_frame(element, self.instant, self.fps);
+        let project_dir = std::path::Path::new(self.document.path()).parent();
         for (i, value) in declared.iter().enumerate() {
-            match effect_of(element, i, self.t, frame) {
+            match effect_of(element, i, self.t, frame, project_dir) {
                 Some(effect) => effects.push(effect),
                 // Drawn, minus one thing it asked for — the `painted_partially` list, so
                 // its own code (ADR-0093).
@@ -2847,6 +2848,43 @@ pub(crate) fn rgba_of(colour: &Colour) -> Option<Rgba> {
 /// ([`animatable::hiding_mask`]); an inverted one keeps everything, so its rect reaches the
 /// rasterizer no smaller than empty.
 ///
+static LUT_CACHE: std::sync::LazyLock<
+    std::sync::Mutex<
+        std::collections::HashMap<
+            std::path::PathBuf,
+            std::sync::Arc<montagent_render::canvas::lut3d::ParsedCube>,
+        >,
+    >,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+fn load_lut3d_cached(
+    source: &str,
+    project_dir: Option<&std::path::Path>,
+) -> Option<std::sync::Arc<montagent_render::canvas::lut3d::ParsedCube>> {
+    let path = match project_dir {
+        Some(dir) => {
+            let candidate = dir.join(source);
+            if candidate.exists() {
+                candidate
+            } else {
+                std::path::PathBuf::from(source)
+            }
+        }
+        None => std::path::PathBuf::from(source),
+    };
+
+    let mut cache = LUT_CACHE.lock().ok()?;
+    if let Some(parsed) = cache.get(&path) {
+        return Some(std::sync::Arc::clone(parsed));
+    }
+
+    let content = std::fs::read_to_string(&path).ok()?;
+    let parsed = montagent_render::canvas::lut3d::parse_cube(&content).ok()?;
+    let arc = std::sync::Arc::new(parsed);
+    cache.insert(path, std::sync::Arc::clone(&arc));
+    Some(arc)
+}
+
 /// `frame` is the element's local frame (`crate::grain::local_frame`), which only `grain`'s
 /// draw reads: it re-rolls per output frame, so every motion-blur sample of one frame shares
 /// it while `t` moves (ADR-0156 §3, ADR-0155 §3).
@@ -2855,6 +2893,7 @@ pub(crate) fn effect_of(
     index: usize,
     t: (i128, i128),
     frame: i64,
+    project_dir: Option<&std::path::Path>,
 ) -> Option<Effect> {
     let declared: model::Effect =
         serde_json::from_value(element.get("effects")?.get(index)?.clone()).ok()?;
@@ -2987,6 +3026,28 @@ pub(crate) fn effect_of(
             angle: number("angle")?,
             length: number("length")?,
         },
+        model::Effect::Cdl {
+            slope,
+            offset,
+            power,
+            saturation,
+        } => Effect::Cdl {
+            slope,
+            offset,
+            power,
+            saturation,
+        },
+        model::Effect::Lut3d {
+            ref source,
+            intensity,
+        } => {
+            let parsed = load_lut3d_cached(source, project_dir)?;
+            Effect::Lut3d {
+                size: parsed.size,
+                table: parsed.table.clone(),
+                intensity: intensity.unwrap_or(1.0),
+            }
+        }
     })
 }
 
