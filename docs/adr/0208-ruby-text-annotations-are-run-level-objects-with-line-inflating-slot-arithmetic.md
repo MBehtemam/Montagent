@@ -5,7 +5,7 @@ amends: 0007 (a run gains an optional annotation object), 0028 (slot inflation a
 
 # Ruby text annotations are run-level objects with line-inflating slot arithmetic
 
-[#1025](https://github.com/MBehtemam/Montagent/issues/1025), on the map [#1013](https://github.com/MBehtemam/Montagent/issues/1013). Unblocked by [#1014](https://github.com/MBehtemam/Montagent/issues/1014).
+[#1025](https://github.com/MBehtemam/Montagent/issues/1025) and [#1035](https://github.com/MBehtemam/Montagent/issues/1035), on the map [#1013](https://github.com/MBehtemam/Montagent/issues/1013). Unblocked by [#1014](https://github.com/MBehtemam/Montagent/issues/1014).
 
 ## Context
 
@@ -149,10 +149,38 @@ Baseline positioning preserves half-leading symmetry ([ADR-0029](./0029-line-bas
    - `align: "end"`:  
      $$x_a = x_{\text{end}} - W_a \quad (\text{in LTR}; \text{left edge in RTL})$$
 
-4. **Overhang Validation**:  
-   If $W_a > W_r$, the annotation extends horizontally past the base run by:
-   $$\text{overhang}_{\text{left}} = \max(0, x_{\text{start}} - x_a), \quad \text{overhang}_{\text{right}} = \max(0, (x_a + W_a) - x_{\text{end}})$$
-   If $\max(\text{overhang}_{\text{left}}, \text{overhang}_{\text{right}}) > a.\text{overhang}$, `validate` reports `R-ANNOTATION-OVERHANG`.
+4. **Overhang & Same-Tier Overlap Geometry**:  
+   - **Overhang (`R-ANNOTATION-OVERHANG`)**: If $W_a > W_r$, the annotation extends horizontally past the base run by:
+     $$\text{overhang}_{\text{left}} = \max(0, x_{\text{start}} - x_a), \quad \text{overhang}_{\text{right}} = \max(0, (x_a + W_a) - x_{\text{end}})$$
+     If $\max(\text{overhang}_{\text{left}}, \text{overhang}_{\text{right}}) > a.\text{overhang}$, `validate` reports `R-ANNOTATION-OVERHANG`.
+   - **Same-Tier Overlap (`R-ANNOTATION-OVERLAP`)**: For any two annotations $a_1, a_2$ ($a_1 \neq a_2$) on the same `(line, position, tier)`, let their horizontal intervals be $[x_{a_1}, x_{a_1} + W_{a_1}]$ and $[x_{a_2}, x_{a_2} + W_{a_2}]$. If their horizontal intersection is strictly positive:
+     $$\text{overlap\_px} = \min(x_{a_1} + W_{a_1}, x_{a_2} + W_{a_2}) - \max(x_{a_1}, x_{a_2}) > 0$$
+     `validate` reports `R-ANNOTATION-OVERLAP`.
+
+---
+
+### 3.5. Validation Seam Placement & Performance Floor (`#1035`)
+
+Because horizontal collision (`R-ANNOTATION-OVERLAP`) and overhang (`R-ANNOTATION-OVERHANG`) depend on shaped glyph advance widths ($W_r$ and $W_a$), [#1035](https://github.com/MBehtemam/Montagent/issues/1035) resolves which tool seam owns the check and establishes the performance floor for font shaping in `validate`:
+
+1. **Seam Placement — `validate` (`CheckSet::Document`) Evaluates Verdicts; `measure --layout` Reports Raw Boxes**:
+   - **Selected Seam (`validate` inside `CheckSet::Document`)**: Both `R-ANNOTATION-OVERLAP` and `R-ANNOTATION-OVERHANG` execute unconditionally in `validate` (`crates/montagent-core/src/checks/ink.rs`, invoked by `verbs::validate::run_checks` in `CheckSet::Document`), while `measure --layout` exposes the raw derived `annotations[]` bounding boxes (`x`, `y`, `width`, `height`, `tier`, `position` per [ADR-0213](./0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md)) with **no verdict**. This mirrors the exact architectural split established by [ADR-0087](./0087-thai-line-height-collision-is-a-font-selection-problem.md), where `measure` reports raw `ink_seams` and `validate` emits `R-LINE-INK-COLLISION`, and satisfies [ADR-0145](./0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md) Invariant 3 (*"Checkable by `validate` from the file and its probed assets alone"*).
+   - **Why `measure` (as an advisory finding) is refused**: [ADR-0024](./0024-measure-writes-the-fit-repair-not-the-verdict.md) (unanimous 3/3 court, reaffirmed in [ADR-0087](./0087-thai-line-height-collision-is-a-font-selection-problem.md) and [ADR-0088](./0088-the-contrast-verdict-is-refused-and-validate-checks-for-self-erasure-instead.md)) establishes that `measure` returns derived extents and fit repairs, never verdicts or findings about the document. Furthermore, [ADR-0112](./0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md) §2 fixes `measure`'s completed check sets as empty (`check_sets: []`).
+   - **Why a dedicated `montagent lint` verb is refused**: [ADR-0011](./0011-tool-surface-reads-checks-renders.md) fixes the minimal verb surface and rejects redundant verbs, while [ADR-0006](./0006-validate-reports-facts-and-render-enforces.md) and [ADR-0041](./0041-canonical-key-order-is-schema-order-validate-checks-it-fmt-splits.md) reject opt-in lint commands because *"an opt-in check you might not run manufactures false confidence."* Keeping the checks in `validate` ensures they run unconditionally on `validate` and during pre-flight in `render`, `preview`, and `shift` (`verbs::validate::checked`).
+
+2. **Check Registry Specification**:
+   Both codes register in `crates/montagent-core/src/registry.rs` with:
+   - `classes: &[Class::Review]` — overlapping or overhanging glosses are legible in some contexts and defective in others; `validate` surfaces the exact pixel overlap/overhang for human or agent review without blocking `render` ([ADR-0006](./0006-validate-reports-facts-and-render-enforces.md)).
+   - `repair: None` — multiple valid authorial repairs exist (incrementing `tier`, adjusting `align`, `overhang`, or `size`, or splitting runs); per [ADR-0043](./0043-finding-carries-its-repair-only-where-the-document-decides-the-direction.md) and [ADR-0087](./0087-thai-line-height-collision-is-a-font-selection-problem.md), the document does not determine which branch the author intends.
+   - `threshold: ThresholdProvenance::Internal` — `R-ANNOTATION-OVERLAP` fires on strictly positive horizontal overlap (`overlap_px > 0`) on the same `(line, position, tier)`, and `R-ANNOTATION-OVERHANG` fires when horizontal extension exceeds the author-declared `a.overhang` integer (`max(overhang_left, overhang_right) > a.overhang`).
+   - `sets: &[CheckSet::Document]` — evaluated across `written_letter_spacings(element)` (initial and keyframe endpoint `letter_spacing` values, matching `R-LINE-INK-COLLISION` under [ADR-0151](./0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
+
+3. **Permissibility & Performance Floor of Font Shaping in `validate`**:
+   - **In-Process Hermetic Font Shaping**: [ADR-0112](./0112-a-report-names-the-check-sets-that-ran-and-prints-no-zero-it-did-not-earn.md) §2 defines `CheckSet::Document` as *"`validate`'s checks that read only the file and its fonts."* Three existing `validate` check modules already open the project's declared font files and invoke `montagent-text` (Parley + Skrifa) in-process with zero subprocess spawns: `checks::fonts` (`E-FONT-NO-GLYPH`, `E-FONT-UNATTESTED`, `N-FONT-CENSUS`, `R-FONT-SWAP` — [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md), [ADR-0057](./0057-font-census-and-swap-review-split.md)), `checks::units` (`E-UNIT-RUN-MERGED`, `R-UNIT-MERGED` — [ADR-0151](./0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)), and `checks::ink` (`R-LINE-INK-COLLISION` — [ADR-0087](./0087-thai-line-height-collision-is-a-font-selection-problem.md)). Under [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md), `fontique`'s system-font discovery is not compiled into `montagent-text`; only fonts declared in the project's `fonts` table are loaded, making shaping in `validate` strictly hermetic and deterministic.
+   - **Performance Floor**:
+     - *Unannotated fast path (`0 µs` overhead)*: Elements where no `Run` carries `annotation` bypass annotation shaping and interval comparisons via an $O(\text{runs})$ guard.
+     - *Shared single-pass shaping*: `checks::ink::check` already calls `montagent_text::measure` for every text element. Shaping $k$ short annotation strings reuses the already-loaded `Fonts` and `LayoutContext<u32>` in memory during the same pass, adding $< 0.1\text{ ms}$ per annotation and $O(k^2)$ integer interval comparisons per `(line, position, tier)` (where $k$ is typically $1\text{–}6$).
+     - *Measured floor*: All 21 ink integration tests (`cargo test -p montagent-core --test ink`), including full-engine `validate` over the 22-text-element reference fixture (`fixtures/en-halloween-decorating`), complete in `110 ms` total in unoptimized debug builds (`~5 ms` per `validate` call). Annotation validation must add `0 ms` to unannotated elements and keep `validate` latency under `< 10 ms` per annotated element in debug builds (`< 2 ms` in release builds), with zero external process spawns.
 
 ---
 
@@ -173,5 +201,5 @@ Baseline positioning preserves half-leading symmetry ([ADR-0029](./0029-line-bas
 
 - **Schema Extension**: `schema/montagent.schema.json` admits the optional `annotation` object on `Run`.
 - **Determinism**: Given identical project JSON and fonts, all annotation bounding boxes, baselines, and line-slot inflations resolve to identical integer coordinates across all platforms.
-- **Verification**: `montagent measure` layout reports include bounding boxes and baseline positions for both base runs and annotation runs.
-- **Backward Compatibility**: Existing text elements without annotations produce identical line heights, slot heights, and baseline positions.
+- **Validation & Measurement Split**: `validate` (`CheckSet::Document`) evaluates `R-ANNOTATION-OVERLAP` and `R-ANNOTATION-OVERHANG` (`Class::Review`, `repair: None`, `ThresholdProvenance::Internal`) in-process using `montagent-text`, while `montagent measure --layout` reports raw derived `annotations[]` bounding boxes without verdicts ([ADR-0024](./0024-measure-writes-the-fit-repair-not-the-verdict.md)).
+- **Backward Compatibility**: Existing text elements without annotations produce identical line heights, slot heights, and baseline positions with zero validation overhead.
