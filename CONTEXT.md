@@ -212,7 +212,7 @@ A visual decoration (`box`, `highlight`, or `underline`) applied across the char
 _Avoid_: bounding box (a single bounding box across lines produces bounding-union blowout), background card (as an independent `rect` element; decorations are inline run-level paint), karaoke (karaoke is the timed style-delta mechanism of ADR-0048; decorations are multi-line box/highlight/underline geometric objects)
 
 **Ruby annotation**:
-Secondary explanatory or phonetic gloss text placed adjacent to a base word or phrase, declared as an optional `annotation` object on a `Run`. Carries `text`, `font`, `size`, `color`, `position` (`over` or `under`), `align` (`center`, `start`, or `end`), `tier`, `gap`, and `overhang`. Placed deterministically without runtime layout negotiation, inflating line leading as needed to guarantee collision-free rendering.
+Secondary explanatory or phonetic gloss text placed adjacent to a base word or phrase, declared as an optional `annotation` object on a `Run`. Carries `text`, `font`, `size`, `color`, `position` (`over` or `under`), `align` (`center`, `start`, or `end`), `tier`, `gap`, and `overhang`. Placed deterministically without runtime layout negotiation, inflating line leading as needed to guarantee collision-free rendering. Horizontal collisions on the same `(line, position, tier)` (`R-ANNOTATION-OVERLAP`) and excess overhang (`R-ANNOTATION-OVERHANG`) are checked in-process by `validate` (`CheckSet::Document`), while `measure --layout` reports raw annotation bounding boxes without verdicts.
 ([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
 _Avoid_: furigana (the Japanese-specific use case; ruby annotation is general across scripts and pedagogical glosses), interlinear subtitle, floating text box
 
@@ -227,7 +227,7 @@ The additional vertical clearance allocated to a line slot to accommodate protru
 _Avoid_: line spacing, padding, margin
 
 **Overhang**:
-The maximum horizontal distance in integer pixels an annotation may extend beyond the horizontal advance bounds of its base run without pushing adjacent words or triggering `R-ANNOTATION-OVERHANG`.
+The maximum horizontal distance in integer pixels an annotation may extend beyond the horizontal advance bounds of its base run without pushing adjacent words or triggering `R-ANNOTATION-OVERHANG` in `validate` (`CheckSet::Document`).
 ([ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md))
 _Avoid_: bleed, margin
 
