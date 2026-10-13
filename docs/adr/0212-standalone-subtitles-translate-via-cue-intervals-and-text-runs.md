@@ -1,6 +1,6 @@
 ---
 status: accepted
-amends: 0054 (captions), 0145 (four invariants), 0208 (interchange architecture)
+amends: 0054 (captions), 0145 (four invariants), 0209 (interchange architecture)
 ---
 
 # Standalone subtitles translate via cue intervals and text runs
@@ -15,7 +15,7 @@ Subtitles and closed captions are essential deliverables in modern video editing
 
 In Montagent, captions are represented declaratively as `type: "text"` elements carrying text `runs: [...]` on timeline tracks ([ADR-0054](0054-silence-detection-is-external-validate-and-compare-catch-drift.md)). 
 
-Montagent requires a bidirectional translator between standalone `.srt` / `.vtt` files and declarative caption tracks without requiring external rendering or font shaping ([ADR-0208](0208-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)).
+Montagent requires a bidirectional translator between standalone `.srt` / `.vtt` files and declarative caption tracks without requiring external rendering or font shaping ([ADR-0209](0209-timeline-interchange-is-a-decoupled-zero-renderer-conversion-engine.md)).
 
 ## Decision
 

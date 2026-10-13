@@ -1,6 +1,6 @@
 ---
 status: accepted
-amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0208 (interchange architecture)
+amends: 0004 (tracks), 0145 (four invariants), 0199 (rational timebases), 0209 (interchange architecture)
 ---
 
 # OpenTimelineIO translates bi-directionally via rational time and sequential tracks
