@@ -8,6 +8,9 @@ amended-by: 0029 (baseline placement within the line slot), 0030 (`line_height`'
 
 # Text is styled runs at a literal size, in fonts the project declares
 
+> **Amended by [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md)**: a run
+> gains an optional `decoration` object (`kind`, `fill`, `stroke`, `stroke_width`, `stroke_dash`, `radius`, `padding`, `decoration_break`, `window`) to draw multi-line boxes, highlights, and underlines across line wraps.
+
 > **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: a run
 > gains an optional `annotation` object with position, align, tier, gap, and overhang; line slots inflate
 > deterministically to prevent collisions.

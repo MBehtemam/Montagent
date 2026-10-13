@@ -5,6 +5,9 @@ amends: 0007 (a run gains an optional timed style delta, in addition to its unco
 
 # Per-word (karaoke) highlighting is a timed window on the run: no run ids, no event array, no automatic wrapping
 
+> **Amended by [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md)**:
+> generalizes timed windows to multi-line text range decorations (`decoration.window`), supporting boxes, highlights, and underlines while preserving the paint-only invariant.
+
 > **Amended by
 > [ADR-0051](0051-word-alignment-is-external-validate-and-compare-catch-drift.md).** Fulfills
 > the deferred authoring-time-tool obligation.

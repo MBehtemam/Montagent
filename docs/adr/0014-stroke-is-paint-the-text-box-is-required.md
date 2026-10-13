@@ -5,8 +5,10 @@ amends: 0007 (closes its open run style-delta item; the box stays required and g
 
 # Stroke is paint, the text box is required, and a point list has no extent
 
-> **Amended by nine later ADRs.** Read them before relying on anything below.
+> **Amended by ten later ADRs.** Read them before relying on anything below.
 >
+> - [ADR-0214](0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md) — text range
+>   decorations introduce Pass 0: BackgroundDecorations before glyph outline passes
 > - [ADR-0015](0015-fit-is-a-derivation-claim-and-gravity-retires.md) — `gravity` is
 >   decided here, as that ADR deferred it
 > - [ADR-0028](0028-text-block-arithmetic-is-exact-tenths.md)
