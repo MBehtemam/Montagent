@@ -3257,6 +3257,59 @@ instant >= |delta|.",
         census: None,
         sets: &[],
     },
+    // ---- ADR-0201: Bounded nested sequences. ----------------------------------------
+    CheckSpec {
+        // ADR-0201 §2: all child timestamps are absolute milliseconds contained within
+        // parent nest start..end.
+        code: "E-NEST-TEMPORAL-BOUNDS",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0201",
+        template: "`{element}`: child `{child}` runs {child_start}..{child_end} ms, extending \
+outside its parent nest's range {nest_start}..{nest_end} ms.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0201 §4: maximum nesting depth is clamped to 4.
+        code: "E-NEST-DEPTH",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0201",
+        template: "`{element}`: nesting depth {depth} exceeds the maximum supported nesting \
+depth of 4.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0201 §4: circular nest references are forbidden via DAG cycle detection.
+        code: "E-NEST-CIRCULAR",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0201",
+        template: "`{element}`: circular nest reference detected involving `{cycle}`.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0201 §4 & ADR-0019: element IDs inside nests must be unique document-wide.
+        code: "E-ID-DUPLICATE",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0201",
+        template: "`{element}`: the element ID `{id}` is already used by another element in this \
+project.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
     // ---- `compare` (#221). -----------------------------------------------------------
     //
     // Four codes, one per predicate the ADR series names, and every one is `Drift`-class:

@@ -251,6 +251,14 @@ fn canonical_element(element: &Value, reach: Reach) -> Value {
         let members: Vec<Value> = members.iter().map(canonical_audio_effect).collect();
         out.insert("audio_effects".into(), Value::Array(members));
     }
+    if let Some(Value::Array(elements)) = out.get("elements") {
+        let mut elements: Vec<Value> = elements
+            .iter()
+            .map(|element| canonical_element(element, reach))
+            .collect();
+        sort_by_start(&mut elements);
+        out.insert("elements".into(), Value::Array(elements));
+    }
     Value::Object(out)
 }
 

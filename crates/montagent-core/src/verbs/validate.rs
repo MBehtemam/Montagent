@@ -277,6 +277,8 @@ fn run_checks(
     // ADR-0146 §6: a box with no positive size at any frame of its range is never painted.
     // Decided here and in the painter through one function at the same frame instants.
     crate::checks::extent::check(document, report);
+    // ADR-0201: Bounded nested sequences (depth, cycle, duplicate IDs, temporal bounds).
+    crate::checks::nest::check(document, report);
     // ADR-0172's four `master` reviews: a target with no ceiling, an unusual target, a
     // ceiling above lossy-delivery guidance, and too little headroom. Document-only.
     crate::checks::master::check(document, report);

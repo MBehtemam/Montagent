@@ -125,6 +125,16 @@ fn canonical_key_order_is_the_schemas_property_order() {
             .cloned()
             .collect::<Vec<_>>()
     );
+
+    let nest = canonical_order(Published::Element("nest")).expect("nest is a published type");
+    assert_eq!(&nest[..6], &prefix);
+    assert_eq!(
+        &nest[6..],
+        &[
+            "x", "y", "origin", "width", "height", "clip", "scale", "rotation", "swivel",
+            "tilt", "perspective", "opacity", "blend", "motion_blur", "effects", "elements"
+        ]
+    );
 }
 
 /// The `mask` branch of the published `Effect` union.
