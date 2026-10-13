@@ -221,6 +221,8 @@ pub struct Ask {
     /// ADR-0194: add a `profile` block to the answer's `render`, saying where the painters'
     /// CPU went. Timed, so never speed-gated; it changes no byte of the file.
     pub profile: bool,
+    /// ADR-0204: export only the declared audio stems and skip video frame rasterization.
+    pub stems_only: bool,
 }
 
 /// One progress step, handed to the caller as frames are encoded.
@@ -416,6 +418,17 @@ pub struct Video {
     /// gain, in document order. Absent where no element carries one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub normalized: Vec<Normalized>,
+    /// ADR-0204: auxiliary audio stems exported beside the main render.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stems: Vec<StemDeliverable>,
+}
+
+/// Machine-readable result of an exported stem file (ADR-0204).
+#[derive(Debug, Clone, Serialize)]
+pub struct StemDeliverable {
+    pub role: String,
+    pub path: String,
+    pub bytes: u64,
 }
 
 /// The padded frame, where there was one.
@@ -677,6 +690,11 @@ fn run(
         ),
     };
 
+    let stems_config = match &header.output {
+        Some(Output::Config(cfg)) => cfg.stems.clone().unwrap_or_default(),
+        _ => Vec::new(),
+    };
+
     let background = header
         .background
         .as_ref()
@@ -718,6 +736,122 @@ fn run(
     };
     for finding in measured {
         report.push(finding);
+    }
+
+    if ask.stems_only {
+        if stems_config.is_empty() {
+            return refused(Report::rejected(
+                TOOL,
+                Some(document.path().to_string()),
+                "cannot run `--stems-only`: the project declares no `output.stems`",
+            ));
+        }
+
+        let mut stem_deliverables = Vec::new();
+        for stem in &stems_config {
+            let stem_path = project_dir.join(&stem.path);
+            let stem_mix = Mix::of_role(
+                &document,
+                &project_dir,
+                &Established::of(&report),
+                fps,
+                from,
+                to,
+                &master.bus(),
+                &normalized,
+                Some(&stem.role),
+            );
+            if let Some(reason) = stem_mix.internal {
+                report.fail_internally(reason);
+                return refused(report);
+            }
+            if stem_mix.refuses() {
+                for finding in stem_mix.declined {
+                    report.push(finding);
+                }
+                return refused(report);
+            }
+
+            let stem_spec = montagent_render::AudioStemSpec {
+                codec: "pcm_s24le".to_string(),
+                sample_rate: 48000,
+                duration_ms: to - from,
+            };
+            match montagent_render::export_audio(
+                &ffmpeg,
+                &stem_path,
+                stem_mix.audio.as_ref(),
+                &stem_spec,
+            ) {
+                Ok(finished) => {
+                    stem_deliverables.push(StemDeliverable {
+                        role: stem.role.clone(),
+                        path: stem_path.display().to_string(),
+                        bytes: finished.bytes,
+                    });
+                }
+                Err(e) => {
+                    report.fail_internally(format!(
+                        "failed to export audio stem '{}': {e}",
+                        stem.role
+                    ));
+                    return refused(report);
+                }
+            }
+        }
+
+        let wall_ms = started.elapsed().as_millis() as u64;
+        let duration_ms = to - from;
+        let video = Video {
+            path: output.display().to_string(),
+            from,
+            to,
+            partial,
+            duration_ms,
+            frames: 0,
+            fps,
+            width,
+            height,
+            encoded: None,
+            bytes: 0,
+            encoder: "none",
+            preset: "",
+            crf: 0,
+            threads: 0,
+            ffmpeg_version: montagent_render::floor::version(&ffmpeg),
+            wall_ms,
+            realtime: if wall_ms == 0 {
+                f64::INFINITY
+            } else {
+                duration_ms as f64 / wall_ms as f64
+            },
+            mixed: vec![],
+            not_mixed: vec![],
+            painted: vec![],
+            not_painted: vec![],
+            painted_partially: vec![],
+            decoded_per_frame: vec![],
+            sources: vec![],
+            fonts: vec![],
+            painting: painters::Painting {
+                painters: 0,
+                chunk: 0,
+                window: 0,
+                window_floor: false,
+                feed_cap: None,
+                peak_video_feeds: None,
+            },
+            profile: None,
+            master: master.applied(),
+            normalized: normalized.applied(),
+            stems: stem_deliverables,
+        };
+        return Answer {
+            video: Some(video),
+            report,
+            progress_file: None,
+            partial: None,
+        };
     }
 
     // The declared frame, and nothing else: `render` has no surface of its own to choose
@@ -816,13 +950,69 @@ fn run(
         return refused(report);
     }
 
+    let mut stem_deliverables = Vec::new();
+    for stem in &stems_config {
+        let stem_path = project_dir.join(&stem.path);
+        let stem_mix = Mix::of_role(
+            &document,
+            &project_dir,
+            &Established::of(&report),
+            fps,
+            from,
+            to,
+            &master.bus(),
+            &normalized,
+            Some(&stem.role),
+        );
+        if let Some(reason) = stem_mix.internal {
+            painted.withhold();
+            report.fail_internally(reason);
+            return refused(report);
+        }
+        if stem_mix.refuses() {
+            painted.withhold();
+            for finding in stem_mix.declined {
+                report.push(finding);
+            }
+            return refused(report);
+        }
+
+        let stem_spec = montagent_render::AudioStemSpec {
+            codec: "pcm_s24le".to_string(),
+            sample_rate: 48000,
+            duration_ms: to - from,
+        };
+        match montagent_render::export_audio(
+            &ffmpeg,
+            &stem_path,
+            stem_mix.audio.as_ref(),
+            &stem_spec,
+        ) {
+            Ok(finished) => {
+                stem_deliverables.push(StemDeliverable {
+                    role: stem.role.clone(),
+                    path: stem_path.display().to_string(),
+                    bytes: finished.bytes,
+                });
+            }
+            Err(e) => {
+                painted.withhold();
+                report.fail_internally(format!("failed to export audio stem '{}': {e}", stem.role));
+                return refused(report);
+            }
+        }
+    }
+
     match painted.into_video(&span, partial, wall_ms) {
-        Ok(video) => Answer {
-            video: Some(video),
-            report,
-            progress_file: None,
-            partial: None,
-        },
+        Ok(mut video) => {
+            video.stems = stem_deliverables;
+            Answer {
+                video: Some(video),
+                report,
+                progress_file: None,
+                partial: None,
+            }
+        }
         // The encode was whole and the rename was not. Nothing is at the declared path.
         Err(reason) => {
             report.fail_internally(reason);
@@ -1060,6 +1250,7 @@ impl Painted {
             profile: self.profile,
             master: span.master.applied(),
             normalized: span.normalized.applied(),
+            stems: Vec::new(),
         })
     }
 
@@ -1946,38 +2137,60 @@ impl Mix {
         bus: &str,
         gains: &normalize::Gains,
     ) -> Mix {
+        Self::of_role(
+            document,
+            project_dir,
+            established,
+            fps,
+            from,
+            to,
+            bus,
+            gains,
+            None,
+        )
+    }
+
+    /// Read every audible element matching the optional `role_filter` inside `[from, to)`
+    /// and write its chain. When `role_filter` is `None`, includes all audible elements.
+    #[allow(clippy::too_many_arguments)]
+    fn of_role(
+        document: &Loose,
+        project_dir: &FilePath,
+        established: &Established,
+        fps: FrameRate,
+        from: i64,
+        to: i64,
+        bus: &str,
+        gains: &normalize::Gains,
+        role_filter: Option<&str>,
+    ) -> Mix {
         let mut inputs: Vec<PathBuf> = Vec::new();
         let mut chains: Vec<String> = Vec::new();
         let mut mixed = Vec::new();
         let mut declined: Vec<Finding> = Vec::new();
         let mut internal: Option<String> = None;
 
-        // What `validate` established about each file, under ADR-0092's observed identity
-        // — never under `Probe::source`, which is a label.
-        //
-        // ADR-0093, ruling 3: read through `Established`, the one structure both verbs ask.
-        // This block used to derive the same answer inline from `report.media`, which is
-        // how `validate` and `render` came to answer one question from two data structures
-        // and disagree about one file in one session. A consumer that re-derives usability
-        // here has forked the data path again.
-        //
-        // (#385, for the record on why the identity is the thing compared: this once read
-        // `canonicalize(&probe.source)`. `probe.source` holds whichever spelling first
-        // cached the probe, and a *relative* spelling resolves against the calling
-        // process's working directory — so a sidecar written by a CLI run inside the
-        // project directory was unreadable to an MCP render started anywhere else.
-        // `canonicalize` failed, `.ok()?` dropped the entry silently, every audible element
-        // fell through to the "established nothing" arm, `chains` came out empty, and the
-        // encoder took its `-an` branch: a complete, entirely silent video at exit 0. The
-        // working directory had become a third input to a render that `CONTEXT.md` promises
-        // is a function of the project and its files.)
-
         let fades = crate::transition::audio_fades(document);
 
-        for (index, element) in document.elements().enumerate() {
+        for (index, (element, track)) in document.elements_with_track().enumerate() {
             let kind = element.get("type").and_then(Value::as_str);
             if !Use::of(kind).contains(&Use::Mix) {
                 continue;
+            }
+            if let Some(target_role) = role_filter {
+                let effective_role = element
+                    .get("role")
+                    .or_else(|| track.get("role"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("sfx");
+                let matches = match target_role {
+                    "mix" => true,
+                    "m_and_e" => effective_role != "dialogue" && effective_role != "voiceover",
+                    exact => effective_role == exact,
+                };
+                if !matches {
+                    continue;
+                }
             }
             let name = element_name(element, index);
             match chain(
@@ -2692,7 +2905,8 @@ mod tests {
                 output: None,
                 no_clobber: false,
                 progress_file: None,
-                profile: false
+                profile: false,
+                stems_only: false,
             }),
             Ok(Some((1000, 2000)))
         );
@@ -2709,7 +2923,8 @@ mod tests {
                     output: None,
                     no_clobber: false,
                     progress_file: None,
-                    profile: false
+                    profile: false,
+                    stems_only: false,
                 })
                 .is_err(),
                 "{from:?}..{to:?}"

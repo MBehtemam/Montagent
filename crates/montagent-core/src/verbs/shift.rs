@@ -361,7 +361,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
             );
         }
         for track in &project.tracks {
-            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+            if ask
+                .scope
+                .as_deref()
+                .is_some_and(|scope| scope != track.name)
+            {
                 continue;
             }
             for element in &track.elements {
@@ -409,7 +413,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         // 2. Straddler check: time-based elements cannot be sliced (E-SHIFT-STRADDLE).
         let mut straddlers: Vec<Finding> = Vec::new();
         for track in &project.tracks {
-            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+            if ask
+                .scope
+                .as_deref()
+                .is_some_and(|scope| scope != track.name)
+            {
                 continue;
             }
             for element in &track.elements {
@@ -447,7 +455,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         // 3. Stagger window check: text stagger units cannot be cut across (E-SHIFT-UNITS-WINDOW).
         let mut cut: Vec<Finding> = Vec::new();
         for track in &project.tracks {
-            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+            if ask
+                .scope
+                .as_deref()
+                .is_some_and(|scope| scope != track.name)
+            {
                 continue;
             }
             for element in &track.elements {
@@ -482,7 +494,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         if !ask.delete {
             let mut destructive_first: Option<String> = None;
             for track in &project.tracks {
-                if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                if ask
+                    .scope
+                    .as_deref()
+                    .is_some_and(|scope| scope != track.name)
+                {
                     continue;
                 }
                 for element in &track.elements {
@@ -535,7 +551,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         // 5. Element duration collapse check (E-ELEMENT-COLLAPSE).
         let mut collapsed: Vec<Finding> = Vec::new();
         for track in &project.tracks {
-            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+            if ask
+                .scope
+                .as_deref()
+                .is_some_and(|scope| scope != track.name)
+            {
                 continue;
             }
             for element in &track.elements {
@@ -644,7 +664,9 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     new_instants.insert((element.id.clone(), Side::Start), element.start);
                     new_instants.insert((element.id.clone(), Side::End), element.end);
                     transformed_elements.push(element);
-                } else if element.start >= cut_start && element.start < cut_end && element.end > cut_end
+                } else if element.start >= cut_start
+                    && element.start < cut_end
+                    && element.end > cut_end
                 {
                     // Starts inside cut, ends after cut
                     element.start = cut_start;
@@ -693,10 +715,8 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         }
 
         // 7. Collision check: ensure downstream shift didn't cause track overlap or layer tie.
-        let loose = crate::permissive::Loose::new(
-            document.path(),
-            serde_json::to_value(&project).unwrap(),
-        );
+        let loose =
+            crate::permissive::Loose::new(document.path(), serde_json::to_value(&project).unwrap());
         let mut check_report = Report::new(TOOL, Some(document.path().to_string()));
         crate::checks::track::check(&loose, &mut check_report);
         crate::checks::tie::check(&loose, &mut check_report);
@@ -1626,21 +1646,15 @@ fn excise_list(
                 }
             })
         }
-        Kind::Integer => {
-            excise_typed::<i64>(list, cut_start, span, &mut dropped, |raw| {
-                bounded(raw).map(round_i64)
-            })
-        }
-        Kind::Number => {
-            excise_typed::<f64>(list, cut_start, span, &mut dropped, |raw| {
-                bounded(raw).map(round6)
-            })
-        }
-        Kind::Pair => {
-            excise_typed::<Scale>(list, cut_start, span, &mut dropped, |raw| {
-                Ok(round_scale(raw))
-            })
-        }
+        Kind::Integer => excise_typed::<i64>(list, cut_start, span, &mut dropped, |raw| {
+            bounded(raw).map(round_i64)
+        }),
+        Kind::Number => excise_typed::<f64>(list, cut_start, span, &mut dropped, |raw| {
+            bounded(raw).map(round6)
+        }),
+        Kind::Pair => excise_typed::<Scale>(list, cut_start, span, &mut dropped, |raw| {
+            Ok(round_scale(raw))
+        }),
         Kind::Stops => {
             excise_typed::<Stops>(list, cut_start, span, &mut dropped, |blend: StopsBlend| {
                 match blend.first_fault() {
@@ -1662,22 +1676,20 @@ fn excise_list(
                 }
             })
         }
-        Kind::Points => {
-            excise_typed::<Points>(
-                list,
-                cut_start,
-                span,
-                &mut dropped,
-                |vertices: Vec<VertexAt>| {
-                    integer_points(&vertices).ok_or_else(|| {
-                        refuse(format!(
-                            "a vertex list with a fractional coordinate ({})",
-                            serde_json::to_string(&vertices).unwrap_or_default()
-                        ))
-                    })
-                },
-            )
-        }
+        Kind::Points => excise_typed::<Points>(
+            list,
+            cut_start,
+            span,
+            &mut dropped,
+            |vertices: Vec<VertexAt>| {
+                integer_points(&vertices).ok_or_else(|| {
+                    refuse(format!(
+                        "a vertex list with a fractional coordinate ({})",
+                        serde_json::to_string(&vertices).unwrap_or_default()
+                    ))
+                })
+            },
+        ),
     };
     for (t, v) in dropped {
         dropped_kfs.push((path.to_string(), t, v));
@@ -1724,7 +1736,9 @@ where
     {
         let a = records[seg].clone();
         let b = records[seg + 1].clone();
-        let b_ease = b.ease.expect("ADR-0038: every non-first record carries an ease");
+        let b_ease = b
+            .ease
+            .expect("ADR-0038: every non-first record carries an ease");
         let fraction = (cut_start - a.t) as f64 / (b.t - a.t) as f64;
         let (left, _, progress) = subdivide(&b_ease, fraction);
         let v = write(T::between(&a.v, &b.v, progress))?;

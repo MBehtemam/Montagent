@@ -6,8 +6,8 @@
 //! 3. DAG cycle prevention (`E-NEST-CIRCULAR`).
 //! 4. Document-wide unique element IDs (`E-ID-DUPLICATE`).
 
-use std::collections::BTreeMap;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 
 use crate::finding::Finding;
 use crate::permissive::Loose;

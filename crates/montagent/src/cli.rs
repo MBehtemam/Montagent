@@ -372,6 +372,9 @@ enum Command {
         /// `--from`/`--to`. Read it with `--json`; the text form does not print it.
         #[arg(long)]
         profile: bool,
+        /// Export only the declared audio stems and skip video frame rasterization (ADR-0204).
+        #[arg(long)]
+        stems_only: bool,
         /// Print the canonical JSON *instead of* the text result, never alongside it.
         #[arg(long)]
         json: bool,
@@ -943,6 +946,7 @@ where
             no_clobber,
             progress_file,
             profile,
+            stems_only,
             json,
             verbose,
         } => {
@@ -962,6 +966,7 @@ where
                 no_clobber,
                 progress_file,
                 profile,
+                stems_only,
             };
             // ADR-0011's split, made here: the result is stdout's and progress is
             // stderr's. ADR-0192: a tenth at a time as before, plus a line whenever about

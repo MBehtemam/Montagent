@@ -174,6 +174,23 @@ impl Loose {
             })
     }
 
+    /// Every element across every track, paired with its enclosing track.
+    pub fn elements_with_track(&self) -> impl Iterator<Item = (&Value, &Value)> {
+        self.value["tracks"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter()
+            .flat_map(|track| {
+                track["elements"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(move |element| (element, track))
+            })
+    }
+
     /// The line an element's `id` is written on, if it can be found unambiguously.
     ///
     /// Located by text rather than by a span the parser kept, because `serde_json` keeps

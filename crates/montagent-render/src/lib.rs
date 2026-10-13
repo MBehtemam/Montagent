@@ -61,3 +61,5 @@ pub mod decode;
 pub mod encode;
 pub mod floor;
 pub mod proxy;
+
+pub use encode::{AudioStemSpec, FinishedAudio, export_audio};

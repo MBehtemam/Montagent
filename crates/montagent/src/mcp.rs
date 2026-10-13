@@ -857,6 +857,7 @@ impl Montagent {
                         // default rule: a foreign deliverable is refused, an unattested one reviewed.
                         no_clobber: false,
                         profile: params.profile,
+                        stems_only: false,
                     },
                     &mut progress,
                     // ADR-0109: stop before the next frame and publish nothing once the

@@ -90,20 +90,56 @@ fn output_structured_config_deserializes_all_fields() {
 fn validate_accepts_valid_shorthand_and_structured_output() {
     let dir = tempdir(line!());
 
-    let path_str = write_project(&dir, "shorthand.montagent.json", &scaffold_json(json!("out.mp4")));
+    let path_str = write_project(
+        &dir,
+        "shorthand.montagent.json",
+        &scaffold_json(json!("out.mp4")),
+    );
     let report = validate(&path_str);
     assert_eq!(report.summary().error, 0, "findings: {:?}", report.findings);
     assert_eq!(report.exit_code(), ExitCode::Ok);
 
+    let fixture_wav = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("fixtures/skills/media/beat.wav");
+    let _ = std::fs::copy(&fixture_wav, dir.join("audio.wav"));
+
     let path_cfg = write_project(
         &dir,
         "structured.montagent.json",
-        &scaffold_json(json!({
-            "path": "out.mov",
-            "video": { "codec": "prores", "profile": "4444", "alpha": true },
-            "audio": { "codec": "pcm" },
-            "stems": [{ "role": "dialogue", "path": "dx.wav" }]
-        })),
+        &json!({
+            "frame": { "width": 1920, "height": 1080 },
+            "fps": 30,
+            "duration": 5000,
+            "output": {
+                "path": "out.mov",
+                "video": { "codec": "prores", "profile": "4444", "alpha": true },
+                "audio": { "codec": "pcm" },
+                "stems": [{ "role": "dialogue", "path": "dx.wav" }]
+            },
+            "tracks": [
+                {
+                    "name": "VO",
+                    "layer": 1,
+                    "role": "dialogue",
+                    "elements": [
+                        {
+                            "id": "vo1",
+                            "type": "audio",
+                            "start": 0,
+                            "end": 2000,
+                            "source": "audio.wav",
+                            "source_start": 0,
+                            "source_end": 2000
+                        }
+                    ]
+                }
+            ]
+        })
+        .to_string(),
     );
     let report = validate(&path_cfg);
     assert_eq!(report.summary().error, 0, "findings: {:?}", report.findings);
@@ -121,7 +157,11 @@ fn validate_refuses_empty_output_path() {
         "expected E-OUTPUT-EMPTY for empty string"
     );
 
-    let path_ws = write_project(&dir, "whitespace.montagent.json", &scaffold_json(json!({ "path": "  " })));
+    let path_ws = write_project(
+        &dir,
+        "whitespace.montagent.json",
+        &scaffold_json(json!({ "path": "  " })),
+    );
     let report = validate(&path_ws);
     assert!(
         report.findings.iter().any(|f| f.code == "E-OUTPUT-EMPTY"),
@@ -142,7 +182,10 @@ fn validate_refuses_extension_container_mismatch() {
     );
     let report = validate(&path);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-OUTPUT-EXTENSION-MISMATCH"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-OUTPUT-EXTENSION-MISMATCH"),
         "expected E-OUTPUT-EXTENSION-MISMATCH"
     );
 }
@@ -150,10 +193,17 @@ fn validate_refuses_extension_container_mismatch() {
 #[test]
 fn validate_refuses_unknown_extension_without_container() {
     let dir = tempdir(line!());
-    let path = write_project(&dir, "unknown_ext.montagent.json", &scaffold_json(json!("video.avi")));
+    let path = write_project(
+        &dir,
+        "unknown_ext.montagent.json",
+        &scaffold_json(json!("video.avi")),
+    );
     let report = validate(&path);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-OUTPUT-EXTENSION-UNKNOWN"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-OUTPUT-EXTENSION-UNKNOWN"),
         "expected E-OUTPUT-EXTENSION-UNKNOWN"
     );
 }
@@ -171,7 +221,10 @@ fn validate_refuses_incompatible_container_and_codec() {
     );
     let report = validate(&path);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-CONTAINER-CODEC-MISMATCH"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-CONTAINER-CODEC-MISMATCH"),
         "expected E-CONTAINER-CODEC-MISMATCH for MP4 with ProRes"
     );
 }
@@ -189,7 +242,10 @@ fn validate_refuses_invalid_codec_profile() {
     );
     let report = validate(&path);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-CODEC-PROFILE-INVALID"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-CODEC-PROFILE-INVALID"),
         "expected E-CODEC-PROFILE-INVALID"
     );
 }
@@ -208,7 +264,10 @@ fn validate_refuses_alpha_on_unsupported_codecs() {
     );
     let report = validate(&path_h264);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-CODEC-ALPHA-UNSUPPORTED"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-CODEC-ALPHA-UNSUPPORTED"),
         "expected E-CODEC-ALPHA-UNSUPPORTED for h264"
     );
 
@@ -222,7 +281,10 @@ fn validate_refuses_alpha_on_unsupported_codecs() {
     );
     let report = validate(&path_proxy);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-CODEC-ALPHA-UNSUPPORTED"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-CODEC-ALPHA-UNSUPPORTED"),
         "expected E-CODEC-ALPHA-UNSUPPORTED for prores proxy"
     );
 }
@@ -240,7 +302,10 @@ fn validate_refuses_non_wav_stem_format() {
     );
     let report = validate(&path);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-STEM-FORMAT-INVALID"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-STEM-FORMAT-INVALID"),
         "expected E-STEM-FORMAT-INVALID"
     );
 }
@@ -259,7 +324,10 @@ fn validate_refuses_colliding_stem_paths() {
     );
     let report = validate(&path_main);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-STEM-PATH-COLLISION"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-STEM-PATH-COLLISION"),
         "expected E-STEM-PATH-COLLISION with main output"
     );
 
@@ -276,7 +344,65 @@ fn validate_refuses_colliding_stem_paths() {
     );
     let report = validate(&path_between);
     assert!(
-        report.findings.iter().any(|f| f.code == "E-STEM-PATH-COLLISION"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-STEM-PATH-COLLISION"),
         "expected E-STEM-PATH-COLLISION between stems"
+    );
+}
+
+#[test]
+fn validate_refuses_empty_stem_role() {
+    let dir = tempdir(line!());
+
+    let fixture_wav = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("fixtures/skills/media/beat.wav");
+    let _ = std::fs::copy(&fixture_wav, dir.join("audio.wav"));
+
+    let path = write_project(
+        &dir,
+        "empty_stem_role.montagent.json",
+        &json!({
+            "frame": { "width": 1920, "height": 1080 },
+            "fps": 30,
+            "duration": 5000,
+            "output": {
+                "path": "out.mov",
+                "stems": [{ "role": "dialogue", "path": "dx.wav" }]
+            },
+            "tracks": [
+                {
+                    "name": "SFX",
+                    "layer": 1,
+                    "role": "sfx",
+                    "elements": [
+                        {
+                            "id": "sfx1",
+                            "type": "audio",
+                            "start": 0,
+                            "end": 2000,
+                            "source": "audio.wav",
+                            "source_start": 0,
+                            "source_end": 2000
+                        }
+                    ]
+                }
+            ]
+        })
+        .to_string(),
+    );
+    let report = validate(&path);
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-STEM-ROLE-EMPTY"),
+        "expected E-STEM-ROLE-EMPTY when dialogue stem has no dialogue elements: {:?}",
+        report.findings
     );
 }

@@ -30,10 +30,11 @@ pub mod effects;
 mod element;
 pub mod keyframe;
 pub mod master;
+pub mod output;
 pub mod paint;
 pub mod playback;
 pub mod rates;
-pub mod output;
+pub mod role;
 pub mod stroke;
 pub mod text;
 
@@ -53,6 +54,7 @@ pub use output::{
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use rates::FrameRate;
+pub use role::Role;
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
@@ -441,6 +443,8 @@ impl Anchor {
 pub struct Track {
     pub name: String,
     pub layer: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<Role>,
     pub elements: Vec<Element>,
 }
 
@@ -517,6 +521,13 @@ pub struct Element {
     pub body: Body,
 }
 
+impl Element {
+    /// Semantic audio role if this element declares one (ADR-0204).
+    pub fn role(&self) -> Option<Role> {
+        self.body.role()
+    }
+}
+
 /// The per-type field set, discriminated by `type`.
 ///
 /// ADR-0012: the field set is a **function of `type`** — *"`x` on an audio element is a
@@ -552,6 +563,15 @@ impl Body {
             Body::Audio(_) => "audio",
             Body::Transition(_) => "transition",
             Body::Nest(_) => "nest",
+        }
+    }
+
+    /// Semantic audio role if this body is an audio or video element declaring one (ADR-0204).
+    pub fn role(&self) -> Option<Role> {
+        match self {
+            Body::Audio(a) => a.role,
+            Body::Video(v) => v.role,
+            _ => None,
         }
     }
 }
@@ -717,6 +737,9 @@ pub struct Video {
     pub blend: Option<Blend>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion_blur: Option<MotionBlur>,
+    /// Semantic audio role for stem partitioning (ADR-0204).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<Role>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1386,6 +1409,9 @@ pub struct Audio {
     pub source: String,
     pub source_start: i64,
     pub source_end: i64,
+    /// Semantic audio role for stem partitioning (ADR-0204).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<Role>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Speed>,
     // No field doc: [`AudioOverrun`] carries the whole of why `hold` is absent here, and
@@ -1627,4 +1653,3 @@ pub struct Nest {
     pub effects: Option<Vec<Effect>>,
     pub elements: Vec<Element>,
 }
-
