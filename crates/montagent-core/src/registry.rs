@@ -263,6 +263,30 @@ scaffold somewhere else.",
         sets: &[],
     },
     CheckSpec {
+        // ADR-0205: a mask is an element-local shape mask and cannot be applied at the project root level.
+        code: "E-PROJECT-EFFECT-MASK",
+        classes: &[Error, Review],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0205",
+        template: "project.effects[{index}]: `mask` is an element-local shape mask and cannot be applied at project level. Move the mask to an individual element or remove it.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        // ADR-0205: project-level master effects execute at device boundary and do not admit keyframes.
+        code: "E-PROJECT-EFFECT-KEYFRAME",
+        classes: &[Error],
+        repair: Some(Refuse),
+        threshold: Internal,
+        adr: "ADR-0205",
+        template: "project.effects[{index}].{property}: project-level master effects do not admit keyframes or animations. Replace the keyframe list with a static literal value.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
         code: "E-INVOCATION",
         classes: &[Error],
         // ADR-0073 (#224): not about a document — exit 3's next move is "fix the

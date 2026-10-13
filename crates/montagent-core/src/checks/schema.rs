@@ -81,7 +81,11 @@ pub fn findings(document: &Loose) -> Vec<Finding> {
     // The header, with its tracks emptied: what is left is every key and value the project
     // itself states.
     if let Some(fault) = Fault::of::<Project>(&emptied(document.value(), "tracks")) {
-        faults.push((fault, Locus::project()));
+        if crate::checks::audio_effects::speaks_for(document.value(), &fault.reason) {
+            spoken_for = true;
+        } else {
+            faults.push((fault, Locus::project()));
+        }
     }
 
     for track in tracks(document.value()) {

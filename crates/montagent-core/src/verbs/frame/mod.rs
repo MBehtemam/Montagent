@@ -1335,6 +1335,8 @@ impl<'a> Painter<'a> {
         for present in &view.stack[prefix.len..] {
             self.paint_present(canvas, present);
         }
+
+        self.apply_master_effects(canvas);
     }
 
     /// The layers at the bottom of the frame's stack [`prefix::invariant`] lets the cache
@@ -1706,6 +1708,24 @@ impl<'a> Painter<'a> {
             }
         }
         effects
+    }
+
+    /// Master visual effects applied to the finished composite at the device boundary (ADR-0205).
+    fn apply_master_effects(&mut self, canvas: &mut Canvas) {
+        let effects = self.effects_of("project", self.document.value());
+        let effects: Vec<_> = effects
+            .into_iter()
+            .filter(|e| match e {
+                Effect::Mask { .. } => {
+                    self.partially("project", Finding::new("E-PROJECT-EFFECT-MASK"));
+                    false
+                }
+                _ => true,
+            })
+            .collect();
+        if !effects.is_empty() {
+            canvas.apply_master_effects(&effects);
+        }
     }
 
     /// Read every `transition` in the document and resolve what each does to the elements it

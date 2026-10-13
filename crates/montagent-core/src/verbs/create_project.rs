@@ -158,6 +158,7 @@ fn header(scaffold: &Scaffold) -> Result<Value, String> {
         looping: None,
         output: scaffold.output.clone().map(Output::Path),
         master: None,
+        effects: None,
         fonts: None,
         font_vendor: None,
         tracks: Vec::new(),

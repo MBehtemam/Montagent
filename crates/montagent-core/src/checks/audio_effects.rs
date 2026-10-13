@@ -135,6 +135,17 @@ pub fn check(document: &Loose, report: &mut Report) {
 
 pub(crate) fn findings(document: &Loose, vocab: &Vocabulary) -> Vec<Finding> {
     let mut out = Vec::new();
+    for m in misplaced(document.value(), vocab) {
+        out.push(
+            Finding::new("E-AUDIO-EFFECT-WRONG-LIST")
+                .at_file(document.path())
+                .field("element", json!("project"))
+                .field("list", json!(m.list))
+                .field("index", json!(m.index))
+                .field("member", json!(m.name))
+                .field("right", json!(m.right)),
+        );
+    }
     for (track, element) in document.elements_in_tracks() {
         let subject = crate::checks::subject_of(element.get("id").and_then(Value::as_str));
         let locate = |finding: Finding| {

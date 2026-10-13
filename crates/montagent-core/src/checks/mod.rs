@@ -42,6 +42,7 @@ pub mod normalize;
 pub mod output;
 pub mod overridden;
 pub mod path;
+pub mod project_effects;
 pub mod projection;
 pub mod quantization;
 pub mod range;
