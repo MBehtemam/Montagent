@@ -1137,3 +1137,41 @@ fn an_unpainted_state_at_the_end_still_names_what_leaves_there() {
         serde_json::json!({"at": 2000, "entering": [], "leaving": [{"element": "bg", "track": "bg"}]}),
     );
 }
+
+#[test]
+fn exact_rational_fps_object_validates_cleanly() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let doc = r#"{"frame":{"width":1920,"height":1080},"fps":{"num":24000,"den":1001},"tracks":[{"name":"v1","layer":1,"elements":[{"id":"r1","type":"rect","start":0,"end":1000,"x":0,"y":0,"width":100,"height":100}]}]}"#;
+    let path = write_project(&dir, "p.montagent.json", &canonical(doc));
+    let report = validate(&path);
+    assert_eq!(report.exit_code(), ExitCode::Ok, "{:?}", report.findings);
+}
+
+#[test]
+fn exact_rational_fps_pair_validates_cleanly() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let doc = r#"{"frame":{"width":1920,"height":1080},"fps":[30000,1001],"tracks":[{"name":"v1","layer":1,"elements":[{"id":"r1","type":"rect","start":0,"end":1000,"x":0,"y":0,"width":100,"height":100}]}]}"#;
+    let path = write_project(&dir, "p.montagent.json", &canonical(doc));
+    let report = validate(&path);
+    assert_eq!(report.exit_code(), ExitCode::Ok, "{:?}", report.findings);
+}
+
+#[test]
+fn decimal_float_fps_is_rejected_by_schema() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let doc = r#"{"frame":{"width":1920,"height":1080},"fps":23.976,"tracks":[]}"#;
+    let path = write_project(&dir, "p.montagent.json", doc);
+    let report = validate(&path);
+    assert_eq!(report.exit_code(), ExitCode::Errors);
+    assert!(report.findings.iter().any(|f| f.code == "E-SCHEMA"));
+}
+
+#[test]
+fn non_positive_fps_is_rejected_by_schema() {
+    let dir = common::tempdir(std::panic::Location::caller().line());
+    let doc = r#"{"frame":{"width":1920,"height":1080},"fps":0,"tracks":[]}"#;
+    let path = write_project(&dir, "p.montagent.json", doc);
+    let report = validate(&path);
+    assert_eq!(report.exit_code(), ExitCode::Errors);
+    assert!(report.findings.iter().any(|f| f.code == "E-SCHEMA"));
+}

@@ -25,6 +25,7 @@ use serde_json::json;
 
 use crate::finding::{Citation, Finding};
 use crate::media::established::Established;
+use crate::model::FrameRate;
 use crate::permissive::Loose;
 
 /// The rate the closing limiter runs at: four times the mix bus's (ADR-0174 §2).
@@ -96,7 +97,7 @@ pub(crate) fn settle(
     document: &Loose,
     project_dir: &FilePath,
     established: &Established,
-    fps: i64,
+    fps: FrameRate,
     ffmpeg: &FilePath,
     normalized: &super::normalize::Gains,
 ) -> Result<(Stage, Vec<Finding>), String> {

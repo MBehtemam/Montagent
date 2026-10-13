@@ -32,6 +32,7 @@ pub mod keyframe;
 pub mod master;
 pub mod paint;
 pub mod playback;
+pub mod rates;
 pub mod stroke;
 pub mod text;
 
@@ -47,6 +48,7 @@ pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe
 pub use master::{CeilingDbtp, Master, TargetLufs};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
+pub use rates::FrameRate;
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
 pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
 
@@ -449,7 +451,7 @@ pub struct Track {
 #[serde(deny_unknown_fields)]
 pub struct Project {
     pub frame: Frame,
-    pub fps: i64,
+    pub fps: FrameRate,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Colour>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

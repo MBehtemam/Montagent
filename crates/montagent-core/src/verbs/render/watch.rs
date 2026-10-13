@@ -30,6 +30,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde_json::{Value, json};
 
 use super::Progress;
+use crate::model::FrameRate;
 
 /// How often the progress file is rewritten, and how often the ticker looks.
 const WRITE_INTERVAL: Duration = Duration::from_secs(1);
@@ -211,7 +212,8 @@ pub(crate) struct Watch {
     of: AtomicU64,
     /// The first frame's instant and the project's frame rate, once the span is known.
     first_ms: AtomicI64,
-    fps: AtomicI64,
+    fps_num: AtomicI64,
+    fps_den: AtomicI64,
     cancelled: AtomicBool,
     samples: Mutex<VecDeque<(Duration, u64)>>,
     last_line: Mutex<Instant>,
@@ -232,7 +234,8 @@ impl Watch {
             done: AtomicU64::new(0),
             of: AtomicU64::new(0),
             first_ms: AtomicI64::new(0),
-            fps: AtomicI64::new(0),
+            fps_num: AtomicI64::new(0),
+            fps_den: AtomicI64::new(1),
             cancelled: AtomicBool::new(false),
             samples: Mutex::new(VecDeque::new()),
             last_line: Mutex::new(now),
@@ -272,9 +275,11 @@ impl Watch {
 
     /// The span, once it is known: where it starts on the timeline, the project's frame rate
     /// and how many frames there are.
-    pub(crate) fn plan(&self, first_ms: i64, fps: i64, frames: u64) {
+    pub(crate) fn plan(&self, first_ms: i64, fps: impl Into<FrameRate>, frames: u64) {
+        let rate = fps.into();
         self.first_ms.store(first_ms, Ordering::Relaxed);
-        self.fps.store(fps, Ordering::Relaxed);
+        self.fps_num.store(rate.num(), Ordering::Relaxed);
+        self.fps_den.store(rate.den(), Ordering::Relaxed);
         self.of.store(frames, Ordering::Relaxed);
         self.flush();
     }
@@ -316,9 +321,10 @@ impl Watch {
         let done = self.done.load(Ordering::Relaxed);
         let of = self.of.load(Ordering::Relaxed);
         let phase = Phase::of(self.phase.load(Ordering::Relaxed));
-        let fps = self.fps.load(Ordering::Relaxed);
-        let timeline_ms = if fps > 0 {
-            self.first_ms.load(Ordering::Relaxed) + (done as i64 * 1000) / fps
+        let num = self.fps_num.load(Ordering::Relaxed);
+        let den = self.fps_den.load(Ordering::Relaxed);
+        let timeline_ms = if num > 0 && den > 0 {
+            self.first_ms.load(Ordering::Relaxed) + (done as i64 * 1000 * den) / num
         } else {
             self.first_ms.load(Ordering::Relaxed)
         };
@@ -383,7 +389,7 @@ impl Watch {
     /// The JSON record for `state`.
     fn record(&self, state: State) -> Value {
         let p = self.snapshot();
-        let planned = self.fps.load(Ordering::Relaxed) > 0;
+        let planned = self.fps_num.load(Ordering::Relaxed) > 0;
         let now = SystemTime::now();
         json!({
             "state": state.word(),

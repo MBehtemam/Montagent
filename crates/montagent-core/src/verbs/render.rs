@@ -135,7 +135,7 @@ use crate::media::established::{self, Established, Use};
 use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
 use crate::media::{Source, attest, digest, display_local, probe, tools};
-use crate::model::{Animatable, Keyframe, Volume};
+use crate::model::{Animatable, FrameRate, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
 use crate::resolve;
@@ -349,7 +349,7 @@ pub struct Video {
     /// `to - from`.
     pub duration_ms: i64,
     pub frames: u64,
-    pub fps: i64,
+    pub fps: FrameRate,
     /// The frame that was rasterized. For `render` this is always the project's declared
     /// frame at true pixels (ADR-0021); for `preview` it is the tier's, which that verb's
     /// block discloses beside this one.
@@ -823,7 +823,7 @@ pub(crate) struct Span<'a> {
     pub declared: (i64, i64),
     /// The device the painting lands on.
     pub surface: Surface,
-    pub fps: i64,
+    pub fps: FrameRate,
     pub from: i64,
     pub to: i64,
     /// The first and last frame numbers on ADR-0035's grid, inclusive.
@@ -1094,7 +1094,7 @@ pub(crate) fn encode_span(
         &Spec {
             width: span.surface.width as u32,
             height: span.surface.height as u32,
-            fps: span.fps,
+            fps: montagent_render::encode::Rate::new(span.fps.num(), span.fps.den()),
             background: span.background,
             audio: mix.audio,
             stamp: span.stamp.clone(),
@@ -1376,7 +1376,7 @@ pub(crate) struct Mark {
 /// thread, and hands back a [`Made`] per paint chunk.
 pub(crate) struct Producer<'a> {
     document: &'a Loose,
-    fps: i64,
+    fps: FrameRate,
     canvas: Canvas,
     painter: Painter<'a>,
     record: Record,
@@ -1388,7 +1388,7 @@ pub(crate) struct Producer<'a> {
 impl<'a> Producer<'a> {
     pub(crate) fn new(
         document: &'a Loose,
-        fps: i64,
+        fps: FrameRate,
         canvas: Canvas,
         painter: Painter<'a>,
     ) -> Producer<'a> {
@@ -1533,11 +1533,11 @@ pub fn mix_audio(
     let (document, report) =
         crate::verbs::validate::checked(TOOL, path, None, Sidecar::default_path())
             .map_err(|report| format!("{:?}", report.exit_code()))?;
-    let fps = document
+    let fps: FrameRate = document
         .value()
         .get("fps")
-        .and_then(Value::as_i64)
-        .ok_or("the project states no integer `fps`")?;
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or("the project states no valid `fps`")?;
     let project_dir = crate::checks::project_dir(&document);
     let established = Established::of(&report);
     // ADR-0178 then ADR-0172: each normalised element's window, then the master stage, both
@@ -1596,11 +1596,11 @@ pub fn paint_span(
     supplying: Supplying,
 ) -> Result<Rasters, String> {
     let document = crate::parse::read(path).map_err(|finding| format!("{finding:?}"))?;
-    let fps = document
+    let fps: FrameRate = document
         .value()
         .get("fps")
-        .and_then(Value::as_i64)
-        .ok_or("the project states no integer `fps`")?;
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or("the project states no valid `fps`")?;
     let (width, height) =
         at::frame_dimensions(&document).ok_or("the project states no legal `frame`")?;
     let (Some(first), Some(last)) = (
@@ -1872,7 +1872,7 @@ impl Mix {
         document: &Loose,
         project_dir: &FilePath,
         established: &Established,
-        fps: i64,
+        fps: FrameRate,
         from: i64,
         to: i64,
         bus: &str,
@@ -2018,7 +2018,7 @@ fn chain(
     kind: Option<&str>,
     project_dir: &FilePath,
     established: &Established,
-    fps: i64,
+    fps: FrameRate,
     from: i64,
     to: i64,
     input: usize,

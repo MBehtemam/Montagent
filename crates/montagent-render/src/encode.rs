@@ -106,13 +106,58 @@ impl Settings {
     }
 }
 
+/// An exact rational frame rate for video encoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rate {
+    pub num: i64,
+    pub den: i64,
+}
+
+impl Rate {
+    pub const fn integer(fps: i64) -> Self {
+        Self { num: fps, den: 1 }
+    }
+
+    pub const fn new(num: i64, den: i64) -> Self {
+        Self { num, den }
+    }
+}
+
+impl From<i64> for Rate {
+    fn from(fps: i64) -> Self {
+        Self::integer(fps)
+    }
+}
+
+impl From<(i64, i64)> for Rate {
+    fn from((num, den): (i64, i64)) -> Self {
+        Self::new(num, den)
+    }
+}
+
+impl From<[i64; 2]> for Rate {
+    fn from([num, den]: [i64; 2]) -> Self {
+        Self::new(num, den)
+    }
+}
+
+impl std::fmt::Display for Rate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.den == 1 {
+            write!(f, "{}", self.num)
+        } else {
+            write!(f, "{}/{}", self.num, self.den)
+        }
+    }
+}
+
 /// What one encode is asked to produce.
 #[derive(Debug, Clone)]
 pub struct Spec {
     /// The project's declared frame, at true pixels. Never proxy-scaled (ADR-0021).
     pub width: u32,
     pub height: u32,
-    pub fps: i64,
+    pub fps: Rate,
     /// The colour an odd dimension is padded with.
     pub background: Rgba,
     /// The audio mix, where the project has anything audible.
@@ -239,7 +284,7 @@ impl Encoder {
                 spec.width, spec.height
             ));
         }
-        if spec.fps <= 0 {
+        if spec.fps.num <= 0 || spec.fps.den <= 0 {
             return Err(format!("{} frames per second is not a rate", spec.fps));
         }
         let deliverable = Deliverable::begin(output)?;
@@ -675,7 +720,7 @@ mod tests {
             &Spec {
                 width: 16,
                 height: 16,
-                fps: 25,
+                fps: 25.into(),
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
@@ -707,7 +752,7 @@ mod tests {
             &Spec {
                 width: 16,
                 height: 16,
-                fps: 25,
+                fps: 25.into(),
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
@@ -754,7 +799,7 @@ mod tests {
             &Spec {
                 width: 16,
                 height: 16,
-                fps: 25,
+                fps: 25.into(),
                 background: Rgba::BLACK,
                 audio: None,
                 stamp: None,
@@ -769,5 +814,13 @@ mod tests {
         drop(encoder);
         assert!(!target.exists(), "an unfinished encode publishes nothing");
         assert_eq!(entries(&dir), Vec::<String>::new());
+    }
+
+    #[test]
+    fn exact_rational_rate_displays_as_fraction_and_integer_as_number() {
+        assert_eq!(Rate::integer(25).to_string(), "25");
+        assert_eq!(Rate::new(24000, 1001).to_string(), "24000/1001");
+        assert_eq!(Rate::new(30000, 1001).to_string(), "30000/1001");
+        assert_eq!(Rate::new(60000, 1001).to_string(), "60000/1001");
     }
 }

@@ -49,6 +49,7 @@
 
 use serde_json::Value;
 
+use crate::model::FrameRate;
 use crate::permissive::Loose;
 
 /// A finite decimal, held exactly: `units × 10⁻ˢᶜᵃˡᵉ`.
@@ -337,18 +338,23 @@ pub fn corrective_speed(source_span: i64, timeline_span: i64) -> Option<Decimal>
 /// A negative `from` is clamped to zero, which the published formula does not state
 /// because the format's times are not negative: there is no frame *−1* to be the first one
 /// at or after it, and `ceil` on a negative would name one.
-pub fn holds_a_sampled_frame(from: i64, to: i64, fps: i64) -> Option<bool> {
-    if fps <= 0 || to <= from {
+pub fn holds_a_sampled_frame(from: i64, to: i64, fps: impl Into<FrameRate>) -> Option<bool> {
+    let rate = fps.into();
+    if rate.num() <= 0 || rate.den() <= 0 || to <= from {
         return None;
     }
-    let first = ceil_div(i128::from(from.max(0)).checked_mul(i128::from(fps))?, 1000);
-    Some(first.checked_mul(1000)? < i128::from(to).checked_mul(i128::from(fps))?)
+    let step_den = i128::from(rate.den()).checked_mul(1000)?;
+    let first = ceil_div(
+        i128::from(from.max(0)).checked_mul(i128::from(rate.num()))?,
+        step_den,
+    );
+    Some(first.checked_mul(step_den)? < i128::from(to).checked_mul(i128::from(rate.num()))?)
 }
 
 /// **One sampled frame** — its index, and the instant it samples.
 ///
 /// A type rather than a bare `(i64, i64)` because the instant is the one quantity ADR-0035
-/// insists must *"never"* become a float: it is `frame × 1000/fps` ms, *"not necessarily
+/// insists must *"never"* become a float: it is `frame × 1000 / fps` ms, *"not necessarily
 /// integral"*, and at 30 fps it is `100/3`. Holding the frame index and the rate together
 /// keeps [`Sampled::ratio`] exact for the resolver and puts the single division that
 /// produces a printable millisecond in [`Sampled::ms`], where a reader can see it, rather
@@ -357,21 +363,25 @@ pub fn holds_a_sampled_frame(from: i64, to: i64, fps: i64) -> Option<bool> {
 pub struct Sampled {
     /// Frame *n*, counted from zero at the project's own `t = 0`.
     pub frame: i64,
-    fps: i64,
+    rate: FrameRate,
 }
 
 impl Sampled {
     /// The instant this frame samples, as the exact ratio of milliseconds ADR-0035's
-    /// formula produces — `frame × 1000 / fps`, undivided.
+    /// formula produces — `frame × 1000 × den / num`, undivided.
     ///
     /// Handed to [`crate::resolve::at_instant`] as-is.
     pub fn ratio(self) -> (i128, i128) {
-        (i128::from(self.frame) * 1000, i128::from(self.fps))
+        (
+            i128::from(self.frame) * 1000 * i128::from(self.rate.den()),
+            i128::from(self.rate.num()),
+        )
     }
 
-    /// Does this frame sample at or before `t`? — `n × 1000 <= t × fps`, on integers.
+    /// Does this frame sample at or before `t`? — `n × 1000 × den <= t × num`, on integers.
     pub fn is_at_or_before(self, t: i64) -> bool {
-        i128::from(self.frame) * 1000 <= i128::from(t) * i128::from(self.fps)
+        i128::from(self.frame) * 1000 * i128::from(self.rate.den())
+            <= i128::from(t) * i128::from(self.rate.num())
     }
 
     /// The instant in milliseconds, as a float.
@@ -384,22 +394,29 @@ impl Sampled {
         let (numerator, denominator) = self.ratio();
         numerator as f64 / denominator as f64
     }
+
+    /// The frame rate of this sampled instant.
+    pub fn rate(self) -> FrameRate {
+        self.rate
+    }
 }
 
 /// **The first sampled frame at or after `t`** — `ceil(t × fps / 1000)`.
 ///
 /// A negative `t` is clamped to zero, for [`holds_a_sampled_frame`]'s reason: there is no
 /// frame *-1* to be the first one at or after it.
-pub fn frame_at_or_after(t: i64, fps: i64) -> Option<Sampled> {
-    if fps <= 0 {
+pub fn frame_at_or_after(t: i64, fps: impl Into<FrameRate>) -> Option<Sampled> {
+    let rate = fps.into();
+    if rate.num() <= 0 || rate.den() <= 0 {
         return None;
     }
+    let step_den = i128::from(rate.den()).checked_mul(1000)?;
     let frame = i64::try_from(ceil_div(
-        i128::from(t.max(0)).checked_mul(i128::from(fps))?,
-        1000,
+        i128::from(t.max(0)).checked_mul(i128::from(rate.num()))?,
+        step_den,
     ))
     .ok()?;
-    Some(Sampled { frame, fps })
+    Some(Sampled { frame, rate })
 }
 
 /// **The nearest sampled frame at-or-before `t`** — ADR-0035's `measure` output:
@@ -409,16 +426,18 @@ pub fn frame_at_or_after(t: i64, fps: i64) -> Option<Sampled> {
 ///
 /// A negative `t` is clamped to zero, [`frame_at_or_after`]'s reason: frame zero is the
 /// first sampled instant and there is none behind it to name.
-pub fn frame_at_or_before(t: i64, fps: i64) -> Option<Sampled> {
-    if fps <= 0 {
+pub fn frame_at_or_before(t: i64, fps: impl Into<FrameRate>) -> Option<Sampled> {
+    let rate = fps.into();
+    if rate.num() <= 0 || rate.den() <= 0 {
         return None;
     }
+    let step_den = i128::from(rate.den()).checked_mul(1000)?;
     let frame = i64::try_from(floor_div(
-        i128::from(t.max(0)).checked_mul(i128::from(fps))?,
-        1000,
+        i128::from(t.max(0)).checked_mul(i128::from(rate.num()))?,
+        step_den,
     ))
     .ok()?;
-    Some(Sampled { frame, fps })
+    Some(Sampled { frame, rate })
 }
 
 /// **The last sampled frame strictly before `t`** — the frame a half-open range ending at
@@ -427,17 +446,19 @@ pub fn frame_at_or_before(t: i64, fps: i64) -> Option<Sampled> {
 /// `None` where `t` is at or before the first frame: a range that ends at or before zero
 /// has no frame behind it, and reporting frame `-1` would be naming an instant the render
 /// never samples.
-pub fn frame_before(t: i64, fps: i64) -> Option<Sampled> {
-    if fps <= 0 || t <= 0 {
+pub fn frame_before(t: i64, fps: impl Into<FrameRate>) -> Option<Sampled> {
+    let rate = fps.into();
+    if rate.num() <= 0 || rate.den() <= 0 || t <= 0 {
         return None;
     }
-    let last = ceil_div(i128::from(t).checked_mul(i128::from(fps))?, 1000) - 1;
+    let step_den = i128::from(rate.den()).checked_mul(1000)?;
+    let last = ceil_div(i128::from(t).checked_mul(i128::from(rate.num()))?, step_den) - 1;
     if last < 0 {
         return None;
     }
     Some(Sampled {
         frame: i64::try_from(last).ok()?,
-        fps,
+        rate,
     })
 }
 
@@ -445,14 +466,15 @@ fn ceil_div(numerator: i128, denominator: i128) -> i128 {
     -floor_div(-numerator, denominator)
 }
 
-/// The whole millisecond frame `n` is painted at: `⌊n × 1000 / fps⌋`.
+/// The whole millisecond frame `n` is painted at: `⌊n × 1000 × den / num⌋`.
 ///
 /// The one place this floor is spelled: for `render`'s frame loop, for its `volume`
 /// commands, and for every tile `frame`'s range mode samples (#488). They must all sample
 /// the same instants, or a fade would be heard on a different clock from the one it is
 /// seen on, and a tile would not be a frame the render emits.
-pub(crate) fn instant_of(n: i64, fps: i64) -> i64 {
-    ((i128::from(n) * 1000) / i128::from(fps)) as i64
+pub(crate) fn instant_of(n: i64, fps: impl Into<FrameRate>) -> i64 {
+    let rate = fps.into();
+    ((i128::from(n) * 1000 * i128::from(rate.den())) / i128::from(rate.num())) as i64
 }
 
 /// The instant the whole render ends at: the declared `duration`, or the last boundary
@@ -897,5 +919,57 @@ mod tests {
             fitted_extent(FitRule::Contain, (100, 100), (-500, -500)),
             None
         );
+    }
+
+    #[test]
+    fn exact_rational_ntsc_timebase_satisfies_1001ms_periodicity_and_zero_drift() {
+        // ADR-0199: 23.976 fps is exactly 24000/1001 fps.
+        let ntsc_24 = FrameRate::new(24000, 1001);
+
+        // Instant formula is ⌊n × 1000 × den / num⌋
+        assert_eq!(instant_of(0, ntsc_24), 0);
+        assert_eq!(instant_of(1, ntsc_24), 41);
+        assert_eq!(instant_of(2, ntsc_24), 83);
+        assert_eq!(instant_of(23, ntsc_24), 959);
+
+        // 1001 ms periodicity theorem: exactly 24 frames per 1001 ms, with zero remainder.
+        assert_eq!(instant_of(24, ntsc_24), 1001);
+        assert_eq!(instant_of(48, ntsc_24), 2002);
+        assert_eq!(instant_of(24 * 10, ntsc_24), 10010);
+
+        // Over 1 hour: 86,313.6 -> 86,314 frames: exactly (86314 * 1000 * 1001) / 24000 ms
+        let hour_frames = 86_314;
+        let instant_1hr = instant_of(hour_frames, ntsc_24);
+        assert_eq!(
+            instant_1hr,
+            ((i128::from(hour_frames) * 1000 * 1001) / 24000) as i64
+        );
+
+        // 29.97 fps is exactly 30000/1001 fps.
+        let ntsc_30 = FrameRate::new(30000, 1001);
+        assert_eq!(instant_of(0, ntsc_30), 0);
+        assert_eq!(instant_of(30, ntsc_30), 1001);
+        assert_eq!(instant_of(60, ntsc_30), 2002);
+        assert_eq!(instant_of(30 * 100, ntsc_30), 100100);
+    }
+
+    #[test]
+    fn exact_rational_sampling_windows_and_boundaries() {
+        let ntsc_24 = FrameRate::new(24000, 1001);
+
+        // Frame 0 is at 0 ms, Frame 1 is at ~41.708 ms (instant 41 ms)
+        assert_eq!(frame_at_or_after(0, ntsc_24).unwrap().frame, 0);
+        assert_eq!(frame_at_or_after(1, ntsc_24).unwrap().frame, 1);
+        assert_eq!(frame_at_or_after(41, ntsc_24).unwrap().frame, 1);
+        assert_eq!(frame_at_or_after(42, ntsc_24).unwrap().frame, 2);
+
+        // Frame before 1001 ms: frame 24 samples at 1001 ms exactly, so frame strictly before
+        // 1001 ms is frame 23.
+        assert_eq!(frame_before(1001, ntsc_24).unwrap().frame, 23);
+        assert_eq!(frame_at_or_before(1001, ntsc_24).unwrap().frame, 24);
+
+        // holds_a_sampled_frame
+        assert_eq!(holds_a_sampled_frame(0, 42, ntsc_24), Some(true));
+        assert_eq!(holds_a_sampled_frame(1, 41, ntsc_24), Some(false));
     }
 }
