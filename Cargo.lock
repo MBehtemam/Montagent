@@ -1453,6 +1453,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "montagent-interchange"
+version = "0.2.2"
+dependencies = [
+ "montagent-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "montagent-render"
 version = "0.2.2"
 dependencies = [

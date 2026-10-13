@@ -1,0 +1,19 @@
+[package]
+name = "montagent-interchange"
+description = "Format interchange engine for Montagent: OpenTimelineIO, FCPXML, CMX 3600 EDL, and subtitles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords = ["video-editing", "interchange", "otio", "edl", "subtitles"]
+categories = ["multimedia::video", "parsing"]
+
+[dependencies]
+montagent-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
