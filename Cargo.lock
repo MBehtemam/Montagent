@@ -1426,6 +1426,7 @@ dependencies = [
  "base64 0.23.1",
  "clap",
  "montagent-core",
+ "montagent-interchange",
  "montagent-render",
  "rmcp",
  "schemars",

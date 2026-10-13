@@ -9,6 +9,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use montagent_core::Wire;
+use montagent_core::model::FrameRate;
 use montagent_core::report::Report;
 
 #[derive(Parser)]
@@ -506,6 +507,51 @@ enum Command {
     Fonts {
         #[command(subcommand)]
         command: FontsCommand,
+    },
+
+    /// Ingest an external timeline or subtitle format into a Montagent project document (ADR-0209).
+    Import {
+        /// External file to import (.srt, .vtt, .otio, .edl, .fcpxml, .xml).
+        input: PathBuf,
+        /// Explicit format override (srt, vtt, otio, edl, fcpxml).
+        #[arg(long)]
+        format: Option<String>,
+        /// Where to write the imported project JSON. Defaults to standard output.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Frame width for imported timeline (defaults to 1920 or sequence format).
+        #[arg(long, default_value_t = 1920)]
+        width: i64,
+        /// Frame height for imported timeline (defaults to 1080 or sequence format).
+        #[arg(long, default_value_t = 1080)]
+        height: i64,
+        /// Frames per second for imported timeline (defaults to 24 or sequence format).
+        #[arg(long, default_value_t = 24)]
+        fps: i64,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
+    },
+
+    /// Export a Montagent project document to an external timeline or subtitle format (ADR-0209).
+    Export {
+        /// The Montagent project file.
+        project: PathBuf,
+        /// Target export format (srt, vtt, otio, edl, fcpxml).
+        #[arg(long)]
+        format: String,
+        /// Where to write the exported file. Defaults to standard output.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Print the canonical JSON *instead of* the text report, never alongside it.
+        #[arg(long)]
+        json: bool,
+        /// Expand the informational classes that collapse to one counted line.
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// Serve the MCP tools over stdio.
@@ -1293,6 +1339,237 @@ where
                     exit_code(&report)
                 }
             }
+        }
+        Command::Import {
+            input,
+            format,
+            output,
+            width,
+            height,
+            fps,
+            json,
+            verbose: _,
+        } => {
+            let content = match std::fs::read_to_string(&input) {
+                Ok(c) => c,
+                Err(e) => {
+                    let report = Report::bad_invocation(format!(
+                        "failed to read input file '{}': {e}",
+                        input.display()
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let detected_format = format.as_deref().unwrap_or_else(|| {
+                let ext = input
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                match ext.as_str() {
+                    "srt" => "srt",
+                    "vtt" => "vtt",
+                    "otio" => "otio",
+                    "edl" => "edl",
+                    "fcpxml" | "xml" => "fcpxml",
+                    _ => "",
+                }
+            });
+
+            let frame_rate = FrameRate::integer(fps);
+            let project_result = match detected_format.to_lowercase().as_str() {
+                "srt" => montagent_interchange::import_subtitles(
+                    &content,
+                    montagent_interchange::SubtitleFormat::Srt,
+                    width,
+                    height,
+                    frame_rate,
+                )
+                .map_err(|e| e.to_string()),
+                "vtt" => montagent_interchange::import_subtitles(
+                    &content,
+                    montagent_interchange::SubtitleFormat::Vtt,
+                    width,
+                    height,
+                    frame_rate,
+                )
+                .map_err(|e| e.to_string()),
+                "otio" => montagent_interchange::otio_to_project(&content)
+                    .map_err(|e| e.to_string()),
+                "edl" => montagent_interchange::edl_to_project(&content, frame_rate)
+                    .map_err(|e| e.to_string()),
+                "fcpxml" => montagent_interchange::fcpxml_to_project(&content)
+                    .map_err(|e| e.to_string()),
+                other => {
+                    let report = Report::bad_invocation(format!(
+                        "unsupported or unrecognized import format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let project = match project_result {
+                Ok(p) => p,
+                Err(err) => {
+                    let report = Report::bad_invocation(format!(
+                        "failed to parse '{detected_format}' timeline: {err}"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let json_str = match serde_json::to_string_pretty(&project) {
+                Ok(s) => s,
+                Err(e) => {
+                    let report = Report::internal_failure(format!(
+                        "failed to serialize imported project: {e}"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            if let Some(out_path) = output {
+                if let Err(e) = std::fs::write(&out_path, &json_str) {
+                    let report = Report::bad_invocation(format!(
+                        "failed to write output file '{}': {e}",
+                        out_path.display()
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "ok",
+                            "input": input.display().to_string(),
+                            "output": out_path.display().to_string(),
+                            "format": detected_format,
+                            "tracks": project.tracks.len(),
+                            "duration": project.duration.unwrap_or(0),
+                        })
+                    );
+                } else {
+                    println!(
+                        "Imported {} ({detected_format}) into {} ({} tracks, {} ms)",
+                        input.display(),
+                        out_path.display(),
+                        project.tracks.len(),
+                        project.duration.unwrap_or(0)
+                    );
+                }
+            } else {
+                println!("{json_str}");
+            }
+
+            ExitCode::SUCCESS
+        }
+        Command::Export {
+            project,
+            format,
+            output,
+            json,
+            verbose: _,
+        } => {
+            let content = match std::fs::read_to_string(&project) {
+                Ok(c) => c,
+                Err(e) => {
+                    let report = Report::bad_invocation(format!(
+                        "failed to read project file '{}': {e}",
+                        project.display()
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let proj: montagent_core::model::Project = match serde_json::from_str(&content) {
+                Ok(p) => p,
+                Err(e) => {
+                    let report = Report::bad_invocation(format!(
+                        "failed to parse project JSON '{}': {e}",
+                        project.display()
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let export_result = match format.to_lowercase().as_str() {
+                "srt" => montagent_interchange::export_subtitles(
+                    &proj,
+                    montagent_interchange::SubtitleFormat::Srt,
+                )
+                .map_err(|e| e.to_string()),
+                "vtt" => montagent_interchange::export_subtitles(
+                    &proj,
+                    montagent_interchange::SubtitleFormat::Vtt,
+                )
+                .map_err(|e| e.to_string()),
+                "otio" => montagent_interchange::project_to_otio(&proj)
+                    .map_err(|e| e.to_string()),
+                "edl" => montagent_interchange::project_to_edl(&proj, "Montagent Export")
+                    .map_err(|e| e.to_string()),
+                "fcpxml" => montagent_interchange::project_to_fcpxml(&proj)
+                    .map_err(|e| e.to_string()),
+                other => {
+                    let report = Report::bad_invocation(format!(
+                        "unsupported export format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            let exported_text = match export_result {
+                Ok(text) => text,
+                Err(err) => {
+                    let report = Report::bad_invocation(format!(
+                        "failed to export project to '{format}': {err}"
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+            };
+
+            if let Some(out_path) = output {
+                if let Err(e) = std::fs::write(&out_path, &exported_text) {
+                    let report = Report::bad_invocation(format!(
+                        "failed to write output file '{}': {e}",
+                        out_path.display()
+                    ));
+                    eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                    return exit_code(&report);
+                }
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "status": "ok",
+                            "project": project.display().to_string(),
+                            "output": out_path.display().to_string(),
+                            "format": format,
+                            "bytes": exported_text.len(),
+                        })
+                    );
+                } else {
+                    println!(
+                        "Exported {} to {} ({format}, {} bytes)",
+                        project.display(),
+                        out_path.display(),
+                        exported_text.len()
+                    );
+                }
+            } else {
+                print!("{exported_text}");
+            }
+
+            ExitCode::SUCCESS
         }
         Command::Mcp => match crate::mcp::serve() {
             Ok(()) => ExitCode::SUCCESS,
