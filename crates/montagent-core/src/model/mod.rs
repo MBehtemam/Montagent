@@ -33,6 +33,7 @@ pub mod master;
 pub mod paint;
 pub mod playback;
 pub mod rates;
+pub mod output;
 pub mod stroke;
 pub mod text;
 
@@ -46,6 +47,9 @@ pub use audio_effects::AudioEffect;
 pub use effects::{Effect, Fraction, MaskShape, ScreenColour};
 pub use keyframe::{Animatable, Derivation, Ease, EaseName, Keyframe, is_keyframe_list};
 pub use master::{CeilingDbtp, Master, TargetLufs};
+pub use output::{
+    AudioExportConfig, Output, OutputConfig, StemExportConfig, VideoExportConfig, infer_container,
+};
 pub use paint::{Gradient, Paint, ResolvedGradient, Stops};
 pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use rates::FrameRate;
@@ -461,7 +465,7 @@ pub struct Project {
     #[serde(rename = "loop", default, skip_serializing_if = "Option::is_none")]
     pub looping: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output: Option<String>,
+    pub output: Option<Output>,
     /// The master stage on the final mix: a loudness target and a true-peak ceiling
     /// (ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -366,7 +366,7 @@ pub fn preview_cancellable(
     let output = match destination(
         &document,
         &project_dir,
-        header.output.as_deref(),
+        header.output.as_ref().map(|o| o.path()),
         ask,
         from,
         to,

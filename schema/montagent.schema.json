@@ -23,7 +23,7 @@
       "description": "ADR-0062. Default `false`/absent; affects nothing but one `validate` check, and\nMontagent writes no container-level loop metadata."
     },
     "output": {
-      "type": "string"
+      "$ref": "#/$defs/Output"
     },
     "master": {
       "description": "The master stage on the final mix: a loudness target and a true-peak ceiling\n(ADR-0172, ADR-0174). Absent or `{}`, the mix is left exactly as summed.",
@@ -118,6 +118,116 @@
     "Colour": {
       "type": "string",
       "description": "`#RRGGBB` or `#RRGGBBAA`, uppercase, and nothing else."
+    },
+    "Output": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/OutputConfig"
+        }
+      ],
+      "description": "The deliverable output definition.\n\nUntagged union under ADR-0202:\n- A shorthand relative path string (`\"out/video.mp4\"`), maintaining 100% backward compatibility.\n- A structured `OutputConfig` object declaring container, video, audio, and stems configuration."
+    },
+    "OutputConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative filesystem destination for the deliverable."
+        },
+        "container": {
+          "type": "string",
+          "description": "Container format override (`\"mp4\"`, `\"mov\"`, `\"mxf\"`). Inferred from path extension if omitted."
+        },
+        "video": {
+          "description": "Video encoding configuration (codec, profile, crf, alpha).",
+          "$ref": "#/$defs/VideoExportConfig"
+        },
+        "audio": {
+          "description": "Audio encoding configuration (codec, sample rate, bitrate).",
+          "$ref": "#/$defs/AudioExportConfig"
+        },
+        "stems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StemExportConfig"
+          },
+          "description": "Auxiliary audio stems to export."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "description": "Detailed deliverable output configuration (ADR-0202)."
+    },
+    "VideoExportConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string",
+          "description": "Video codec (`\"h264\"`, `\"prores\"`, `\"dnxhr\"`). Default `\"h264\"`."
+        },
+        "profile": {
+          "type": "string",
+          "description": "Codec profile (e.g. `\"standard\"`, `\"4444\"` for ProRes; `\"dnxhr_hq\"` for DNxHR)."
+        },
+        "crf": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "Constant Rate Factor for H.264 (default 20)."
+        },
+        "alpha": {
+          "type": "boolean",
+          "description": "Whether to preserve the alpha channel transparency (requires ProRes 4444)."
+        }
+      },
+      "description": "Video encoding parameters (ADR-0202, ADR-0203)."
+    },
+    "AudioExportConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string",
+          "description": "Audio codec (`\"aac\"`, `\"pcm\"`). Default `\"aac\"` for MP4, `\"pcm\"` for MOV/MXF."
+        },
+        "sample_rate": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "description": "Sample rate in Hz (default 48000)."
+        },
+        "bitrate": {
+          "type": "string",
+          "description": "Target bitrate for compressed audio (e.g. `\"160k\"` for AAC)."
+        }
+      },
+      "description": "Audio encoding parameters (ADR-0202, ADR-0204)."
+    },
+    "StemExportConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "description": "Semantic audio role to isolate (`\"dialogue\"`, `\"voiceover\"`, `\"music\"`, `\"sfx\"`, `\"foley\"`)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Destination path ending in `.wav`."
+        }
+      },
+      "required": [
+        "role",
+        "path"
+      ],
+      "description": "Auxiliary audio stem deliverable (ADR-0204)."
     },
     "Master": {
       "type": "object",
