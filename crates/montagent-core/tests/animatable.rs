@@ -493,6 +493,8 @@ fn every_numeric_and_colour_effect_parameter_is_in_the_list() {
             ("posterize", vec!["levels"]),
             ("glow", vec!["threshold", "radius", "intensity"]),
             ("directional_blur", vec!["angle", "length"]),
+            ("cdl", vec![]),
+            ("lut3d", vec![]),
         ]
     );
     let (_, chroma) = animatable::effect_members()
