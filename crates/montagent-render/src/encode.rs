@@ -168,6 +168,227 @@ pub struct Spec {
     pub stamp: Option<String>,
     /// The video encoder's settings: [`Settings::PRODUCTION`] everywhere but a test.
     pub settings: Settings,
+    /// Target container override: "mp4", "mov", "mxf". If None, inferred from output file extension.
+    pub container: Option<String>,
+    /// Video codec name: "h264", "prores", "dnxhr". Default is "h264".
+    pub video_codec: Option<String>,
+    /// Video profile name (e.g. "4444", "standard", "dnxhr_hq").
+    pub video_profile: Option<String>,
+    /// Audio codec name: "aac", "pcm".
+    pub audio_codec: Option<String>,
+    /// Audio sample rate in Hz (e.g. 48000).
+    pub audio_sample_rate: Option<u32>,
+    /// Audio bitrate (e.g. "160k").
+    pub audio_bitrate: Option<String>,
+    /// Whether alpha transparency is preserved in the video stream (ADR-0203).
+    pub alpha: bool,
+}
+
+impl Spec {
+    /// A new basic Spec with production settings, defaulting to H.264 MP4 without alpha.
+    pub fn new(width: u32, height: u32, fps: Rate, background: Rgba) -> Self {
+        Self {
+            width,
+            height,
+            fps,
+            background,
+            audio: None,
+            stamp: None,
+            settings: Settings::PRODUCTION,
+            container: None,
+            video_codec: None,
+            video_profile: None,
+            audio_codec: None,
+            audio_sample_rate: None,
+            audio_bitrate: None,
+            alpha: false,
+        }
+    }
+
+    /// Assemble the output-side and input-side arguments for FFmpeg (ADR-0077, ADR-0143, ADR-0203).
+    pub fn ffmpeg_args(
+        &self,
+        target_path: &Path,
+        output_temp: &Path,
+        encoded: Option<Encoded>,
+        script: Option<&Path>,
+    ) -> Vec<String> {
+        let mut args = vec![
+            "-hide_banner".to_string(),
+            "-loglevel".to_string(),
+            "error".to_string(),
+            "-y".to_string(),
+        ];
+        let raw_pix_fmt = if self.alpha { "rgba" } else { "rgb24" };
+        args.extend([
+            "-f".to_string(),
+            "rawvideo".to_string(),
+            "-pix_fmt".to_string(),
+            raw_pix_fmt.to_string(),
+            "-s".to_string(),
+            format!("{}x{}", self.width, self.height),
+            "-r".to_string(),
+            self.fps.to_string(),
+            "-i".to_string(),
+            "pipe:0".to_string(),
+        ]);
+        if let Some(audio) = &self.audio {
+            for input in &audio.inputs {
+                args.push("-i".to_string());
+                args.push(input.display().to_string());
+            }
+        }
+        if let Some(script) = script {
+            args.push(crate::floor::FILTER_COMPLEX_FILE.to_string());
+            args.push(script.display().to_string());
+        }
+        args.extend(["-map".to_string(), "0:v".to_string()]);
+        if let Some(Encoded { width, height }) = encoded {
+            let pad_color = if self.alpha {
+                "0x00000000".to_string()
+            } else {
+                let Rgba([r, g, b, _]) = self.background;
+                format!("0x{r:02X}{g:02X}{b:02X}")
+            };
+            args.extend([
+                "-vf".to_string(),
+                format!("pad={width}:{height}:0:0:color={pad_color}"),
+            ]);
+        }
+
+        let video_codec = self.video_codec.as_deref().unwrap_or("h264");
+        match video_codec {
+            "prores" => {
+                let profile = self.video_profile.as_deref().unwrap_or("standard");
+                args.extend([
+                    "-c:v".to_string(),
+                    "prores_ks".to_string(),
+                    "-profile:v".to_string(),
+                    profile.to_string(),
+                    "-vendor".to_string(),
+                    "apl0".to_string(),
+                ]);
+                let out_pix_fmt = if self.alpha {
+                    "yuva444p10le"
+                } else if profile == "4444" || profile == "4444xq" {
+                    "yuv444p10le"
+                } else {
+                    "yuv422p10le"
+                };
+                args.extend([
+                    "-pix_fmt".to_string(),
+                    out_pix_fmt.to_string(),
+                    "-r".to_string(),
+                    self.fps.to_string(),
+                ]);
+            }
+            "dnxhr" => {
+                let profile = self.video_profile.as_deref().unwrap_or("dnxhr_hq");
+                let lower = profile.to_ascii_lowercase();
+                let normalized_profile = match lower.as_str() {
+                    "dnxhr_lb" | "lb" => "dnxhr_lb",
+                    "dnxhr_sq" | "sq" => "dnxhr_sq",
+                    "dnxhr_hq" | "hq" => "dnxhr_hq",
+                    "dnxhr_hqx" | "hqx" => "dnxhr_hqx",
+                    "dnxhr_444" | "444" => "dnxhr_444",
+                    _ => profile,
+                };
+                args.extend([
+                    "-c:v".to_string(),
+                    "dnxhd".to_string(),
+                    "-profile:v".to_string(),
+                    normalized_profile.to_string(),
+                ]);
+                let out_pix_fmt = match normalized_profile {
+                    "dnxhr_444" => "yuv444p10le",
+                    "dnxhr_hqx" => "yuv422p10le",
+                    _ => "yuv422p",
+                };
+                args.extend([
+                    "-pix_fmt".to_string(),
+                    out_pix_fmt.to_string(),
+                    "-r".to_string(),
+                    self.fps.to_string(),
+                ]);
+            }
+            _ => {
+                args.extend(self.settings.args());
+                if let Some(profile) = self.video_profile.as_deref() {
+                    args.extend(["-profile:v".to_string(), profile.to_string()]);
+                }
+                args.extend([
+                    "-pix_fmt".to_string(),
+                    "yuv420p".to_string(),
+                    "-r".to_string(),
+                    self.fps.to_string(),
+                ]);
+            }
+        }
+
+        if self.audio.is_some() {
+            args.extend(["-map".to_string(), "[mix]".to_string()]);
+            let audio_codec = self.audio_codec.as_deref().unwrap_or(
+                if video_codec == "prores" || video_codec == "dnxhr" {
+                    "pcm"
+                } else {
+                    "aac"
+                },
+            );
+            if audio_codec == "pcm" {
+                args.extend(["-c:a".to_string(), "pcm_s16le".to_string()]);
+            } else {
+                args.extend(["-c:a".to_string(), "aac".to_string()]);
+                let bitrate = self.audio_bitrate.as_deref().unwrap_or("160k");
+                args.extend(["-b:a".to_string(), bitrate.to_string()]);
+            }
+            if let Some(sr) = self.audio_sample_rate {
+                args.extend(["-ar".to_string(), sr.to_string()]);
+            }
+        } else {
+            args.push("-an".to_string());
+        }
+
+        if let Some(stamp) = &self.stamp {
+            args.extend(["-metadata".to_string(), format!("comment={stamp}")]);
+        }
+
+        let container = self.container.clone().unwrap_or_else(|| {
+            target_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| match s.to_ascii_lowercase().as_str() {
+                    "mov" => "mov".to_string(),
+                    "mxf" => "mxf".to_string(),
+                    _ => "mp4".to_string(),
+                })
+                .unwrap_or_else(|| "mp4".to_string())
+        });
+
+        match container.as_str() {
+            "mov" => {
+                args.extend([
+                    "-movflags".to_string(),
+                    "+faststart".to_string(),
+                    "-f".to_string(),
+                    "mov".to_string(),
+                ]);
+            }
+            "mxf" => {
+                args.extend(["-f".to_string(), "mxf".to_string()]);
+            }
+            _ => {
+                args.extend([
+                    "-movflags".to_string(),
+                    "+faststart".to_string(),
+                    "-f".to_string(),
+                    "mp4".to_string(),
+                ]);
+            }
+        }
+
+        args.push(output_temp.display().to_string());
+        args
+    }
 }
 
 /// One audio mix: the files to open, in input order, and the filter graph that turns
@@ -309,51 +530,7 @@ impl Encoder {
         };
 
         let mut command = Command::new(ffmpeg);
-        command.args(["-hide_banner", "-loglevel", "error", "-y"]);
-        command.args([
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgb24",
-            "-s",
-            &format!("{}x{}", spec.width, spec.height),
-            "-r",
-            &spec.fps.to_string(),
-            "-i",
-            "pipe:0",
-        ]);
-        if let Some(audio) = &spec.audio {
-            for input in &audio.inputs {
-                command.arg("-i").arg(input);
-            }
-        }
-        if let Some(script) = &script {
-            // ADR-0115: the graph is read from a file, in the spelling the floor fixes.
-            command.arg(crate::floor::FILTER_COMPLEX_FILE).arg(script);
-        }
-        command.args(["-map", "0:v"]);
-        if let Some(Encoded { width, height }) = encoded {
-            let Rgba([r, g, b, _]) = spec.background;
-            command.args([
-                "-vf",
-                &format!("pad={width}:{height}:0:0:color=0x{r:02X}{g:02X}{b:02X}"),
-            ]);
-        }
-        command.args(spec.settings.args());
-        command.args(["-pix_fmt", "yuv420p", "-r", &spec.fps.to_string()]);
-        if spec.audio.is_some() {
-            command.args(["-map", "[mix]", "-c:a", "aac", "-b:a", "160k"]);
-        } else {
-            command.arg("-an");
-        }
-        // ADR-0104: the attestation, written at the moment of the act. It is what makes
-        // *"did this project produce the file already at the output path?"* a question a
-        // later run reads an answer to instead of guessing one from duration or frame count.
-        if let Some(stamp) = &spec.stamp {
-            command.arg("-metadata").arg(format!("comment={stamp}"));
-        }
-        command.args(["-movflags", "+faststart", "-f", "mp4"]);
-        command.arg(deliverable.temp());
+        command.args(spec.ffmpeg_args(output, deliverable.temp(), encoded, script.as_deref()));
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -381,13 +558,15 @@ impl Encoder {
             })
         });
 
+        let bytes_per_pixel = if spec.alpha { 4 } else { 3 };
+
         Ok(Encoder {
             child,
             stdin,
             stderr,
             deliverable: Some(deliverable),
             script,
-            frame_bytes: spec.width as usize * spec.height as usize * 3,
+            frame_bytes: spec.width as usize * spec.height as usize * bytes_per_pixel,
             frames: 0,
             encoded,
             settings: spec.settings,
@@ -717,15 +896,7 @@ mod tests {
         let e = Encoder::start(
             Path::new("/nowhere/ffmpeg"),
             &target,
-            &Spec {
-                width: 16,
-                height: 16,
-                fps: 25.into(),
-                background: Rgba::BLACK,
-                audio: None,
-                stamp: None,
-                settings: Settings::PRODUCTION,
-            },
+            &Spec::new(16, 16, 25.into(), Rgba::BLACK),
         )
         .err()
         .expect("nothing to run");
@@ -746,20 +917,9 @@ mod tests {
         };
         let dir = scratch("dropped");
         let target = dir.join("video.mp4");
-        let mut encoder = Encoder::start(
-            &ffmpeg,
-            &target,
-            &Spec {
-                width: 16,
-                height: 16,
-                fps: 25.into(),
-                background: Rgba::BLACK,
-                audio: None,
-                stamp: None,
-                settings: Settings::PRODUCTION,
-            },
-        )
-        .expect("spawned");
+        let mut encoder =
+            Encoder::start(&ffmpeg, &target, &Spec::new(16, 16, 25.into(), Rgba::BLACK))
+                .expect("spawned");
         for _ in 0..10 {
             encoder.push(&[0x80u8; 16 * 16 * 3]).expect("a frame");
         }
@@ -793,20 +953,9 @@ mod tests {
         };
         let dir = scratch("wrong-size");
         let target = dir.join("video.mp4");
-        let mut encoder = Encoder::start(
-            &ffmpeg,
-            &target,
-            &Spec {
-                width: 16,
-                height: 16,
-                fps: 25.into(),
-                background: Rgba::BLACK,
-                audio: None,
-                stamp: None,
-                settings: Settings::PRODUCTION,
-            },
-        )
-        .expect("spawned");
+        let mut encoder =
+            Encoder::start(&ffmpeg, &target, &Spec::new(16, 16, 25.into(), Rgba::BLACK))
+                .expect("spawned");
         let e = encoder
             .push(&[0u8; 7])
             .expect_err("seven bytes is not a frame");
@@ -822,5 +971,132 @@ mod tests {
         assert_eq!(Rate::new(24000, 1001).to_string(), "24000/1001");
         assert_eq!(Rate::new(30000, 1001).to_string(), "30000/1001");
         assert_eq!(Rate::new(60000, 1001).to_string(), "60000/1001");
+    }
+
+    #[test]
+    fn prores_arguments_and_alpha_pixel_format() {
+        let spec_alpha = Spec {
+            video_codec: Some("prores".to_string()),
+            video_profile: Some("4444".to_string()),
+            alpha: true,
+            ..Spec::new(1920, 1080, 25.into(), Rgba::BLACK)
+        };
+        let args_alpha = spec_alpha.ffmpeg_args(
+            Path::new("out.mov"),
+            Path::new(".out.mov.tmp"),
+            Some(Encoded {
+                width: 1920,
+                height: 1080,
+            }),
+            None,
+        );
+        let find_first = |flag: &str| -> Option<&str> {
+            args_alpha
+                .iter()
+                .position(|a| a == flag)
+                .map(|i| args_alpha[i + 1].as_str())
+        };
+        let find_last = |flag: &str| -> Option<&str> {
+            args_alpha
+                .iter()
+                .rposition(|a| a == flag)
+                .map(|i| args_alpha[i + 1].as_str())
+        };
+        assert_eq!(find_first("-pix_fmt"), Some("rgba"));
+        assert_eq!(find_last("-c:v"), Some("prores_ks"));
+        assert_eq!(find_last("-profile:v"), Some("4444"));
+        assert_eq!(find_last("-vendor"), Some("apl0"));
+        assert_eq!(find_last("-pix_fmt"), Some("yuva444p10le"));
+        assert!(args_alpha.contains(&"-f".to_string()));
+        assert!(args_alpha.contains(&"mov".to_string()));
+        assert!(args_alpha.iter().any(|a| a.contains("color=0x00000000")));
+
+        // Non-alpha ProRes defaults to standard (422) and yuv422p10le
+        let spec_standard = Spec {
+            video_codec: Some("prores".to_string()),
+            ..Spec::new(1920, 1080, 25.into(), Rgba::BLACK)
+        };
+        let args_standard =
+            spec_standard.ffmpeg_args(Path::new("out.mov"), Path::new(".out.mov.tmp"), None, None);
+        let find_first_std = |flag: &str| -> Option<&str> {
+            args_standard
+                .iter()
+                .position(|a| a == flag)
+                .map(|i| args_standard[i + 1].as_str())
+        };
+        let find_last_std = |flag: &str| -> Option<&str> {
+            args_standard
+                .iter()
+                .rposition(|a| a == flag)
+                .map(|i| args_standard[i + 1].as_str())
+        };
+        assert_eq!(find_first_std("-pix_fmt"), Some("rgb24"));
+        assert_eq!(find_last_std("-c:v"), Some("prores_ks"));
+        assert_eq!(find_last_std("-profile:v"), Some("standard"));
+        assert_eq!(find_last_std("-pix_fmt"), Some("yuv422p10le"));
+    }
+
+    #[test]
+    fn dnxhr_arguments_and_mxf_container() {
+        let spec = Spec {
+            video_codec: Some("dnxhr".to_string()),
+            video_profile: Some("dnxhr_hq".to_string()),
+            ..Spec::new(1920, 1080, 25.into(), Rgba::BLACK)
+        };
+        let args = spec.ffmpeg_args(
+            Path::new("master.mxf"),
+            Path::new(".master.mxf.tmp"),
+            None,
+            None,
+        );
+        let find_first = |flag: &str| -> Option<&str> {
+            args.iter()
+                .position(|a| a == flag)
+                .map(|i| args[i + 1].as_str())
+        };
+        let find_last = |flag: &str| -> Option<&str> {
+            args.iter()
+                .rposition(|a| a == flag)
+                .map(|i| args[i + 1].as_str())
+        };
+        assert_eq!(find_first("-pix_fmt"), Some("rgb24"));
+        assert_eq!(find_last("-c:v"), Some("dnxhd"));
+        assert_eq!(find_last("-profile:v"), Some("dnxhr_hq"));
+        assert_eq!(find_last("-pix_fmt"), Some("yuv422p"));
+        assert!(args.contains(&"-f".to_string()));
+        assert!(args.contains(&"mxf".to_string()));
+        assert!(!args.contains(&"-movflags".to_string()));
+    }
+
+    #[test]
+    fn alpha_pushes_4_bytes_per_pixel() {
+        let Some(ffmpeg) = find_ffmpeg() else {
+            return;
+        };
+        let dir = scratch("alpha-frame-bytes");
+        let target = dir.join("alpha.mov");
+        let mut encoder = Encoder::start(
+            &ffmpeg,
+            &target,
+            &Spec {
+                video_codec: Some("prores".to_string()),
+                video_profile: Some("4444".to_string()),
+                alpha: true,
+                ..Spec::new(16, 16, 25.into(), Rgba::TRANSPARENT)
+            },
+        )
+        .expect("spawned");
+
+        // 3 bytes/pixel should be rejected because alpha expects 4 bytes/pixel
+        let err = encoder
+            .push(&[0u8; 16 * 16 * 3])
+            .expect_err("3 bytes rejected");
+        assert!(err.contains("expecting 1024"), "{err}");
+
+        // 4 bytes/pixel succeeds
+        encoder
+            .push(&[0u8; 16 * 16 * 4])
+            .expect("valid 4-byte frame");
+        drop(encoder);
     }
 }

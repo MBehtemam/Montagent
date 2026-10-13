@@ -1517,13 +1517,29 @@ impl<'a> Painter<'a> {
         }
     }
 
-    /// The project's `background`, or opaque black where it declares none.
+    /// The project's `background`, or opaque black where it declares none (or transparent if alpha is true, ADR-0203).
     fn background(&self) -> Rgba {
         self.document
             .value()
             .get("background")
             .and_then(rgba)
-            .unwrap_or(Rgba::BLACK)
+            .unwrap_or_else(|| {
+                if self.is_alpha() {
+                    Rgba::TRANSPARENT
+                } else {
+                    Rgba::BLACK
+                }
+            })
+    }
+
+    fn is_alpha(&self) -> bool {
+        self.document
+            .value()
+            .get("output")
+            .and_then(|v| v.get("video"))
+            .and_then(|v| v.get("alpha"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
     }
 
     /// Find the element the caption's row names.
@@ -2057,10 +2073,7 @@ impl<'a> Painter<'a> {
         self.frame = (extent.width as i64, extent.height as i64);
 
         for (_, child) in active {
-            let child_name = child
-                .get("id")
-                .and_then(Value::as_str)
-                .unwrap_or("child");
+            let child_name = child.get("id").and_then(Value::as_str).unwrap_or("child");
             let child_kind = child.get("type").and_then(Value::as_str);
             let (child_offset, _, child_origin) = crate::verbs::query::at::source_offset(
                 child,

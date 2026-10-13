@@ -135,6 +135,7 @@ use crate::media::established::{self, Established, Use};
 use crate::media::sidecar::Sidecar;
 use crate::media::tools::Missing;
 use crate::media::{Source, attest, digest, display_local, probe, tools};
+use crate::model::output::{AudioExportConfig, Output, VideoExportConfig, infer_container};
 use crate::model::{Animatable, FrameRate, Keyframe, Volume};
 use crate::permissive::Loose;
 use crate::report::{ExitCode, Report};
@@ -656,11 +657,35 @@ fn run(
         }
     }
 
+    let (container, video_config, audio_config, is_alpha) = match &header.output {
+        Some(Output::Config(cfg)) => {
+            let is_alpha = cfg.video.as_ref().and_then(|v| v.alpha).unwrap_or(false);
+            (
+                cfg.container
+                    .clone()
+                    .or_else(|| infer_container(&output.to_string_lossy()).map(|s| s.to_string())),
+                cfg.video.clone(),
+                cfg.audio.clone(),
+                is_alpha,
+            )
+        }
+        _ => (
+            infer_container(&output.to_string_lossy()).map(|s| s.to_string()),
+            None,
+            None,
+            false,
+        ),
+    };
+
     let background = header
         .background
         .as_ref()
         .and_then(crate::verbs::frame::rgba_of)
-        .unwrap_or(Rgba::BLACK);
+        .unwrap_or(if is_alpha {
+            Rgba::TRANSPARENT
+        } else {
+            Rgba::BLACK
+        });
 
     // ADR-0178: each normalised element's own measurement, on its whole placed window, before
     // the master's, which measures the mix those gains make.
@@ -719,6 +744,10 @@ fn run(
         normalized: &normalized,
         watch: Some(watch),
         profile: ask.profile,
+        alpha: is_alpha,
+        container,
+        video_config,
+        audio_config,
     };
     // What the core reports is read once more by the watch, so the line, the stream and the
     // file all come from one place.
@@ -860,6 +889,14 @@ pub(crate) struct Span<'a> {
     /// ADR-0194: whether the painters time their elements and effects. `false` for
     /// `preview`.
     pub profile: bool,
+    /// Whether alpha channel transparency is preserved in the deliverable (ADR-0203).
+    pub alpha: bool,
+    /// Target container override (e.g. "mov", "mxf", "mp4").
+    pub container: Option<String>,
+    /// Video export configuration (codec, profile, crf, alpha).
+    pub video_config: Option<VideoExportConfig>,
+    /// Audio export configuration (codec, sample_rate, bitrate).
+    pub audio_config: Option<AudioExportConfig>,
 }
 
 impl Span<'_> {
@@ -1088,6 +1125,10 @@ pub(crate) fn encode_span(
     if span.cancelled() {
         return Err(Stop::Cancelled { done: 0 });
     }
+    let mut settings = encode::Settings::PRODUCTION;
+    if let Some(crf) = span.video_config.as_ref().and_then(|v| v.crf) {
+        settings.crf = crf;
+    }
     let mut encoder = match Encoder::start(
         span.ffmpeg,
         span.output,
@@ -1098,8 +1139,14 @@ pub(crate) fn encode_span(
             background: span.background,
             audio: mix.audio,
             stamp: span.stamp.clone(),
-            // ADR-0143: one set, never a field of the project or an option of the caller.
-            settings: encode::Settings::PRODUCTION,
+            settings,
+            container: span.container.clone(),
+            video_codec: span.video_config.as_ref().and_then(|v| v.codec.clone()),
+            video_profile: span.video_config.as_ref().and_then(|v| v.profile.clone()),
+            audio_codec: span.audio_config.as_ref().and_then(|a| a.codec.clone()),
+            audio_sample_rate: span.audio_config.as_ref().and_then(|a| a.sample_rate),
+            audio_bitrate: span.audio_config.as_ref().and_then(|a| a.bitrate.clone()),
+            alpha: span.alpha,
         },
     ) {
         Ok(encoder) => encoder,
@@ -1137,6 +1184,7 @@ pub(crate) fn encode_span(
                     Box::new(Feeds::new()),
                 ),
             )
+            .with_alpha(span.alpha)
             .profiling(span.profile);
             encode_frames(
                 span,
@@ -1383,6 +1431,7 @@ pub(crate) struct Producer<'a> {
     /// `Painter::paint`, decode included — [`Producer::stages`] takes it out.
     paint: Duration,
     readback: Duration,
+    alpha: bool,
 }
 
 impl<'a> Producer<'a> {
@@ -1400,7 +1449,14 @@ impl<'a> Producer<'a> {
             record: Record::default(),
             paint: Duration::ZERO,
             readback: Duration::ZERO,
+            alpha: false,
         }
+    }
+
+    /// Whether this producer preserves alpha channel transparency (ADR-0203).
+    pub(crate) fn with_alpha(mut self, alpha: bool) -> Self {
+        self.alpha = alpha;
+        self
     }
 
     /// Time this producer's elements and effects, where `on`.
@@ -1411,7 +1467,7 @@ impl<'a> Producer<'a> {
         self
     }
 
-    /// Frame `n`, painted and read back as the encoder's RGB.
+    /// Frame `n`, painted and read back as the encoder's RGB (or RGBA if alpha is true).
     pub(crate) fn produce(&mut self, n: i64) -> Result<Vec<u8>, Stop> {
         let instant = instant_of(n, self.fps);
         let view = at::presence(self.document, instant);
@@ -1428,7 +1484,12 @@ impl<'a> Producer<'a> {
         }
 
         let reading = Instant::now();
-        let Some(rgb) = self.canvas.rgb() else {
+        let bytes = if self.alpha {
+            self.canvas.rgba()
+        } else {
+            self.canvas.rgb()
+        };
+        let Some(rgb) = bytes else {
             return Err(Stop::Internal(format!(
                 "frame {n} could not be read back off the canvas"
             )));
@@ -1619,7 +1680,14 @@ pub fn paint_span(
         Supplying::Feeds => Box::new(Feeds::new()),
     };
     let painter = Painter::for_a_deliverable(&document, from, (width, height), supplier);
-    let mut producer = Producer::new(&document, fps, canvas, painter);
+    let is_alpha = document
+        .value()
+        .get("output")
+        .and_then(|v| v.get("video"))
+        .and_then(|v| v.get("alpha"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let mut producer = Producer::new(&document, fps, canvas, painter).with_alpha(is_alpha);
     let mut frames = Vec::new();
     for n in first.frame..=last.frame {
         match producer.produce(n) {

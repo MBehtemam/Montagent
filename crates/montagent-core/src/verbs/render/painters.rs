@@ -419,7 +419,8 @@ fn probe(span: &Span<'_>, started: Instant) -> Result<Option<Duration>, Stop> {
                 span.declared,
                 Box::new(Feeds::new()),
             ),
-        );
+        )
+        .with_alpha(span.alpha);
         for i in 0..4.min(span.frames) {
             if span.cancelled() {
                 return Err(Stop::Cancelled { done: 0 });
@@ -631,6 +632,7 @@ fn work(
                     painter.prefix = inherited.prefix.clone();
                     producer.insert(
                         Producer::new(span.document, span.fps, canvas, painter)
+                            .with_alpha(span.alpha)
                             .profiling(span.profile),
                     )
                 }

@@ -519,6 +519,10 @@ pub fn preview_cancellable(
             normalized: &normalized,
             watch: None,
             profile: false,
+            alpha: false,
+            container: None,
+            video_config: None,
+            audio_config: None,
         };
 
         let attempt = Instant::now();
