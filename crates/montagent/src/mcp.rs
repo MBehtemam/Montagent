@@ -290,11 +290,14 @@ pub struct ShiftParams {
     pub project: String,
     /// The instant to shift at or after, in absolute milliseconds.
     pub at: i64,
-    /// The offset, in milliseconds. Must be positive.
+    /// The offset, in milliseconds. Positive to insert time, negative to excise time under the cut-origin convention.
     pub delta: i64,
     /// Narrow the edit to one track's elements. Omit for the whole project.
     #[serde(default)]
     pub scope: Option<String>,
+    /// Authorize ripple deletion of elements and keyframes inside the excised window under negative shift.
+    #[serde(default)]
+    pub delete: bool,
     /// Every slack this edit would otherwise change, as `[from, to]` — its full
     /// boundary-instant pair, exactly as a refusal reports it. Naming one that does not
     /// currently bound a real, protected slack this edit would change is itself refused.
@@ -1096,6 +1099,7 @@ impl Montagent {
                             .into_iter()
                             .map(|[from, to]| (from, to))
                             .collect(),
+                        delete: params.delete,
                     },
                 );
                 let form = Wire::from_flags(params.json, params.verbose);

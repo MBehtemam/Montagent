@@ -12,6 +12,7 @@ fn ask(at: i64, delta: i64) -> Ask {
         delta,
         scope: None,
         release: Vec::new(),
+        delete: false,
     }
 }
 
@@ -292,6 +293,7 @@ fn releasing_exactly_the_reported_pair_lets_the_edit_through() {
             delta: 200,
             scope: None,
             release: vec![(500, 600)],
+            delete: false,
         },
     );
 
@@ -358,6 +360,7 @@ fn a_release_pair_that_does_not_bound_a_threatened_slack_is_itself_refused() {
             scope: None,
             // The real threat, plus a pair this edit never touches.
             release: vec![(500, 600), (9000, 9500)],
+            delete: false,
         },
     );
 
@@ -399,6 +402,7 @@ fn a_shift_scoped_to_a_track_with_no_elements_touches_nothing() {
             delta: 100,
             scope: Some("b".to_string()),
             release: Vec::new(),
+            delete: false,
         },
     );
 
@@ -427,6 +431,7 @@ fn a_scope_naming_no_track_is_rejected() {
             delta: 200,
             scope: Some("nope".to_string()),
             release: Vec::new(),
+            delete: false,
         },
     );
 
@@ -437,14 +442,235 @@ fn a_scope_naming_no_track_is_rejected() {
 // Invocation-shaped refusals.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Negative shift, cut-origin convention, and ripple deletion (ADR-0200).
+// ---------------------------------------------------------------------------
+
 #[test]
-fn a_non_positive_delta_is_rejected() {
+fn delta_zero_is_refused_with_e_shift_zero() {
     let dir = common::tempdir(line!());
     let path = write_project(&dir, "p.json", &gap_project());
 
     let answer = shift(&path, &ask(550, 0));
-    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
-
-    let answer = shift(&path, &ask(550, -100));
-    assert_eq!(answer.report().exit_code(), ExitCode::BadInvocation);
+    assert_eq!(answer.report().exit_code(), ExitCode::Errors);
+    assert_eq!(error_codes(answer.report()), vec!["E-SHIFT-ZERO"]);
 }
+
+#[test]
+fn negative_at_is_refused_with_e_shift_underflow() {
+    let dir = common::tempdir(line!());
+    let path = write_project(&dir, "p.json", &gap_project());
+
+    let answer = shift(&path, &ask(-100, -200));
+    assert_eq!(answer.report().exit_code(), ExitCode::Errors);
+    assert_eq!(error_codes(answer.report()), vec!["E-SHIFT-UNDERFLOW"]);
+}
+
+#[test]
+fn negative_shift_straddling_time_based_element_is_refused() {
+    if !common::has_ffprobe() {
+        return;
+    }
+    let dir = common::tempdir(line!());
+    std::fs::copy(
+        common::fixture_dir().join("audio/05-cobweb.mp3"),
+        dir.join("cobweb.mp3"),
+    )
+    .expect("copy real media beside the project");
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":1080,"height":1920},"fps":25,"tracks":[{"name":"vo","layer":1,"elements":[{"id":"vo-01","type":"audio","start":0,"end":1776,"source":"cobweb.mp3","source_start":0,"source_end":1776}]}]}"##,
+        ),
+    );
+    let before = std::fs::read_to_string(&path).unwrap();
+
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 800,
+            delta: -100,
+            scope: None,
+            release: Vec::new(),
+            delete: true,
+        },
+    );
+
+    assert_eq!(answer.report().exit_code(), ExitCode::Errors);
+    assert_eq!(codes(answer.report()), vec!["E-SHIFT-STRADDLE"]);
+    let finding = &answer.report().findings[0];
+    assert_eq!(finding.location.element.as_deref(), Some("vo-01"));
+    assert_eq!(finding.fields["start"], 0);
+    assert_eq!(finding.fields["end"], 1776);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
+}
+
+#[test]
+fn negative_shift_slices_straddling_rect_and_excises_keyframes() {
+    let dir = common::tempdir(line!());
+    // r1 runs [0..1000) with keyframes at t=0 (0.0), t=500 (0.5), t=1000 (1.0).
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":100,"height":100},"fps":25,"tracks":[{"name":"v1","layer":1,"elements":[{"id":"r1","type":"rect","start":0,"end":1000,"width":10,"height":10,"fill":"#FFFFFF","opacity":[{"t":0,"v":0.0},{"t":500,"v":0.5,"ease":"linear"},{"t":1000,"v":1.0,"ease":"linear"}]}]}]}"##,
+        ),
+    );
+
+    // Excise [400..700) (span = 300 ms).
+    // Keyframe at t=500 is excised.
+    // Keyframe at boundary t=400 is synthesized (v=0.4, ease="step").
+    // Keyframe at t=1000 is shifted left by 300 to 700.
+    // r1 end decreases by 300 from 1000 to 700.
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 400,
+            delta: -300,
+            scope: None,
+            release: Vec::new(),
+            delete: true,
+        },
+    );
+
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        codes(answer.report())
+    );
+
+    let receipt = answer.receipt();
+    assert_eq!(receipt.dropped_keyframes.len(), 1);
+    assert_eq!(receipt.dropped_keyframes[0].element, "r1");
+    assert_eq!(receipt.dropped_keyframes[0].property, "opacity");
+    assert_eq!(receipt.dropped_keyframes[0].t, 500);
+
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let element = &written["tracks"][0]["elements"][0];
+    assert_eq!(element["end"], 700);
+
+    let opacity = element["opacity"].as_array().unwrap();
+    assert_eq!(opacity.len(), 3);
+    assert_eq!(opacity[0]["t"], 0);
+    assert_eq!(opacity[1]["t"], 400);
+    assert!((opacity[1]["v"].as_f64().unwrap() - 0.4).abs() < 1e-9);
+    assert_eq!(opacity[1]["ease"], "linear");
+    assert_eq!(opacity[2]["t"], 700);
+    assert_eq!(opacity[2]["ease"], "step");
+}
+
+#[test]
+fn safe_gap_closure_on_empty_interval_shifts_downstream_left() {
+    let dir = common::tempdir(line!());
+    // In gap_project, a1 is [0..500) and a2 is [600..1000). The gap is [500..600).
+    let path = write_project(&dir, "p.json", &gap_project());
+
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 500,
+            delta: -100,
+            scope: None,
+            release: vec![(500, 600)],
+            delete: false,
+        },
+    );
+
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        codes(answer.report())
+    );
+
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let elements = written["tracks"][0]["elements"].as_array().unwrap();
+    assert_eq!(elements[0]["id"], "a1");
+    assert_eq!(elements[0]["start"], 0);
+    assert_eq!(elements[0]["end"], 500);
+
+    assert_eq!(elements[1]["id"], "a2");
+    assert_eq!(elements[1]["start"], 500, "a2 shifted left by 100 to close gap");
+    assert_eq!(elements[1]["end"], 900);
+}
+
+#[test]
+fn gap_closure_refuses_destructive_overlap_without_delete_flag() {
+    let dir = common::tempdir(line!());
+    let path = write_project(&dir, "p.json", &gap_project());
+    let before = std::fs::read_to_string(&path).unwrap();
+
+    // Range [400..600) covers part of a1 [0..500) and gap [500..600).
+    // With delete: false, this must be refused with E-SHIFT-DESTRUCTIVE!
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 400,
+            delta: -200,
+            scope: None,
+            release: Vec::new(),
+            delete: false,
+        },
+    );
+
+    assert_eq!(answer.report().exit_code(), ExitCode::Errors);
+    assert_eq!(error_codes(answer.report()), vec!["E-SHIFT-DESTRUCTIVE"]);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
+}
+
+#[test]
+fn ripple_delete_removes_wholly_contained_element_and_shifts_downstream() {
+    let dir = common::tempdir(line!());
+    // Three elements: a1 [0..500), a2 [600..1000), a3 [1200..1600).
+    let path = write_project(
+        &dir,
+        "p.json",
+        &canonical(
+            r##"{"frame":{"width":100,"height":100},"fps":25,"tracks":[{"name":"v1","layer":1,"elements":[{"id":"a1","type":"rect","start":0,"end":500,"width":10,"height":10,"fill":"#FF0000"},{"id":"a2","type":"rect","start":600,"end":1000,"width":10,"height":10,"fill":"#00FF00"},{"id":"a3","type":"rect","start":1200,"end":1600,"width":10,"height":10,"fill":"#0000FF"}]}]}"##,
+        ),
+    );
+
+    // Ripple delete range [600..1100) (span = 500 ms).
+    // a2 is wholly inside [600..1100).
+    // a3 starts at 1200 and shifts left by 500 to 700.
+    // Slacks affected:
+    // (500, 600): a1 end to a2 start -> a2 deleted so edge maps to cut_start 600, slack is (500, 600) = 100ms untouched!
+    // (1000, 1200): a2 end to a3 start -> a2 deleted maps to 600, a3 moves to 700, size is 100ms (changed from 200ms)!
+    let answer = shift(
+        &path,
+        &Ask {
+            at: 600,
+            delta: -500,
+            scope: None,
+            release: vec![(1000, 1200)],
+            delete: true,
+        },
+    );
+
+    assert_eq!(
+        answer.report().exit_code(),
+        ExitCode::Ok,
+        "{:?}",
+        codes(answer.report())
+    );
+
+    let receipt = answer.receipt();
+    assert_eq!(receipt.deleted_elements.len(), 1);
+    assert_eq!(receipt.deleted_elements[0].id, "a2");
+    assert_eq!(receipt.deleted_elements[0].track, "v1");
+    assert_eq!(receipt.deleted_elements[0].kind, "rect");
+
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let elements = written["tracks"][0]["elements"].as_array().unwrap();
+    assert_eq!(elements.len(), 2);
+    assert_eq!(elements[0]["id"], "a1");
+    assert_eq!(elements[1]["id"], "a3");
+    assert_eq!(elements[1]["start"], 700);
+    assert_eq!(elements[1]["end"], 1100);
+}
+

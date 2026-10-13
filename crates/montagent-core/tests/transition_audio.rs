@@ -945,6 +945,7 @@ fn shift_and_compare_carry_an_audio_crossfade_unchanged() {
             delta: 500,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(shifted.report().exit_code(), ExitCode::Ok);

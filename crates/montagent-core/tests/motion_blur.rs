@@ -483,6 +483,7 @@ fn shift_splits_a_moving_element_and_both_halves_carry_the_field_unchanged() {
             delta: 120,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_eq!(

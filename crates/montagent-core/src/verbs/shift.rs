@@ -55,7 +55,8 @@ const TOOL: &str = "shift";
 pub struct Ask {
     /// The instant to shift at or after, in absolute milliseconds.
     pub at: i64,
-    /// The offset, in milliseconds. Must be positive — see the module note.
+    /// The offset, in milliseconds. Signed: positive shifts right (inserts time);
+    /// negative shifts left (excises time under cut-origin convention).
     pub delta: i64,
     /// A single track's name, narrowing the edit to it. `None` is the whole project
     /// (ADR-0005/ADR-0011).
@@ -64,6 +65,59 @@ pub struct Ask {
     /// pair (ADR-0047). No bulk form: each pair is checked against this call's own
     /// threatened slacks, and a pair that does not match one is itself a refusal.
     pub release: Vec<(i64, i64)>,
+    /// Explicit permission to delete elements wholly contained in the excised span
+    /// [at, at + |delta|) and drop excised keyframes (ADR-0200). Without this flag,
+    /// excising occupied timeline refuses with E-SHIFT-DESTRUCTIVE.
+    pub delete: bool,
+}
+
+impl Ask {
+    pub fn new(at: i64, delta: i64) -> Self {
+        Ask {
+            at,
+            delta,
+            scope: None,
+            release: Vec::new(),
+            delete: false,
+        }
+    }
+
+    pub fn delete(at: i64, delta: i64) -> Self {
+        Ask {
+            at,
+            delta,
+            scope: None,
+            release: Vec::new(),
+            delete: true,
+        }
+    }
+}
+
+/// An element deleted by ripple deletion under `delete: true` (ADR-0200).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DeletedElement {
+    pub id: String,
+    pub track: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub start: i64,
+    pub end: i64,
+}
+
+/// A keyframe dropped by ripple deletion under `delete: true` (ADR-0200).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DroppedKeyframe {
+    pub element: String,
+    pub property: String,
+    pub t: i64,
+    pub v: Value,
+}
+
+/// An itemized receipt of elements deleted and keyframes dropped during negative shift (ADR-0200).
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ShiftReceipt {
+    pub deleted_elements: Vec<DeletedElement>,
+    pub dropped_keyframes: Vec<DroppedKeyframe>,
 }
 
 /// One record sitting exactly at the shift's `at`, and what `shift`'s own rules do to it
@@ -88,10 +142,11 @@ pub struct CoincidentRecord {
     pub effect: String,
 }
 
-/// One `shift` invocation's answer: the coincident preamble, and the report every write
-/// tool answers with — the new state's findings, never `ok` (ADR-0011).
+/// One `shift` invocation's answer: the coincident preamble, itemized receipt, and the
+/// report every write tool answers with — the new state's findings, never `ok` (ADR-0011).
 pub struct Answer {
     preamble: Vec<CoincidentRecord>,
+    receipt: ShiftReceipt,
     report: Report,
 }
 
@@ -100,14 +155,26 @@ impl Answer {
         &self.report
     }
 
-    /// The canonical JSON: the report's own object, plus the preamble under `shift`.
+    pub fn preamble(&self) -> &[CoincidentRecord] {
+        &self.preamble
+    }
+
+    pub fn receipt(&self) -> &ShiftReceipt {
+        &self.receipt
+    }
+
+    /// The canonical JSON: the report's own object, plus the preamble and receipt under `shift`.
     pub fn to_json(&self) -> Value {
-        self.report.to_json_with(
-            "shift",
-            json!({
-                "coincident": self.preamble,
-            }),
-        )
+        let mut shift_meta = json!({
+            "coincident": self.preamble,
+        });
+        if !self.receipt.deleted_elements.is_empty() || !self.receipt.dropped_keyframes.is_empty() {
+            shift_meta["receipt"] = json!({
+                "deleted_elements": self.receipt.deleted_elements,
+                "dropped_keyframes": self.receipt.dropped_keyframes,
+            });
+        }
+        self.report.to_json_with("shift", shift_meta)
     }
 }
 
@@ -116,17 +183,19 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
     let project_name = Some(path.display().to_string());
     let refused = |report| Answer {
         preamble: Vec::new(),
+        receipt: ShiftReceipt::default(),
         report,
     };
 
-    if ask.delta <= 0 {
-        return refused(Report::rejected(
-            TOOL,
-            project_name,
-            "`delta` must be a positive number of milliseconds; a non-positive `delta` is \
-             refused rather than shipped half-reasoned (see the module note on negative \
-             `delta`)",
-        ));
+    if ask.delta == 0 {
+        let (document, mut report) =
+            match crate::verbs::validate::checked(TOOL, path, None, Sidecar::default_path()) {
+                Ok(checked) => checked,
+                Err(report) => return refused(*report),
+            };
+        report.tool = TOOL.to_string();
+        report.push(Finding::new("E-SHIFT-ZERO").at_file(document.path()));
+        return refused(report);
     }
 
     // The identical check engine `render` gates on (ADR-0006/ADR-0011): a document that
@@ -162,107 +231,485 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         ));
     }
 
-    let preamble = coincident_preamble(&project, ask.at);
+    let preamble = coincident_preamble(&project, ask.at, ask.delta);
 
-    // ---- A cut inside a stagger window is refused (ADR-0151 §5), naming the window: a
-    // split of the unit lists at `at` would be right for one unit only, and writing a split
-    // for every unit would turn one block into one run per unit. Only an element the shift
-    // would split — one in scope that straddles `at` — can be cut. --------------------------
-    let mut cut: Vec<Finding> = Vec::new();
-    for track in &project.tracks {
-        if ask
-            .scope
-            .as_deref()
-            .is_some_and(|scope| scope != track.name)
-        {
-            continue;
-        }
-        for element in &track.elements {
-            if !(element.start < ask.at && ask.at < element.end) {
-                continue;
-            }
-            let Some((from, to)) = stagger_window(element) else {
-                continue;
-            };
-            if from < ask.at && ask.at < to {
-                cut.push(
-                    Finding::new("E-SHIFT-UNITS-WINDOW")
-                        .at_file(document.path())
-                        .at_element(element.id.clone())
-                        .at_track(track.name.clone())
-                        .field("at", json!(ask.at))
-                        .field("from", json!(from))
-                        .field("to", json!(to)),
-                );
-            }
-        }
-    }
-    if !cut.is_empty() {
-        for finding in cut {
-            report.push(finding);
-        }
-        return Answer { preamble, report };
-    }
-
-    // ---- The transform, over a clone: a refused edit must leave the file untouched. ----
     let old_slacks = slack::of(&document);
     let mut new_instants: HashMap<(String, Side), i64> = HashMap::new();
-    let mut straddlers: Vec<Straddle> = Vec::new();
-    let mut unwritable: Vec<(String, String, Unwritable)> = Vec::new();
+    let mut receipt = ShiftReceipt::default();
 
-    for track in &mut project.tracks {
-        let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
-        for element in &mut track.elements {
-            match transform_element(element, ask.at, ask.delta, in_scope) {
-                Outcome::Straddle => {
-                    straddlers.push(Straddle {
+    if ask.delta > 0 {
+        // ---- Positive shift: expanding timeline at `at` by `delta`. ----
+        let mut cut: Vec<Finding> = Vec::new();
+        for track in &project.tracks {
+            if ask
+                .scope
+                .as_deref()
+                .is_some_and(|scope| scope != track.name)
+            {
+                continue;
+            }
+            for element in &track.elements {
+                if !(element.start < ask.at && ask.at < element.end) {
+                    continue;
+                }
+                let Some((from, to)) = stagger_window(element) else {
+                    continue;
+                };
+                if from < ask.at && ask.at < to {
+                    cut.push(
+                        Finding::new("E-SHIFT-UNITS-WINDOW")
+                            .at_file(document.path())
+                            .at_element(element.id.clone())
+                            .at_track(track.name.clone())
+                            .field("at", json!(ask.at))
+                            .field("from", json!(from))
+                            .field("to", json!(to)),
+                    );
+                }
+            }
+        }
+        if !cut.is_empty() {
+            for finding in cut {
+                report.push(finding);
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        let mut straddlers: Vec<Straddle> = Vec::new();
+        let mut unwritable: Vec<(String, String, Unwritable)> = Vec::new();
+
+        for track in &mut project.tracks {
+            let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
+            for element in &mut track.elements {
+                match transform_element(element, ask.at, ask.delta, in_scope) {
+                    Outcome::Straddle => {
+                        straddlers.push(Straddle {
+                            id: element.id.clone(),
+                            track: track.name.clone(),
+                            start: element.start,
+                            end: element.end,
+                        });
+                    }
+                    Outcome::Unwritable(refusal) => {
+                        unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    }
+                    Outcome::Untouched | Outcome::Moved => {}
+                }
+                new_instants.insert((element.id.clone(), Side::Start), element.start);
+                new_instants.insert((element.id.clone(), Side::End), element.end);
+            }
+        }
+
+        if !straddlers.is_empty() {
+            for straddle in &straddlers {
+                report.push(
+                    Finding::new("E-SHIFT-STRADDLE")
+                        .at_file(document.path())
+                        .at_element(straddle.id.clone())
+                        .at_track(straddle.track.clone())
+                        .field("at", json!(ask.at))
+                        .field("delta", json!(ask.delta))
+                        .field("start", json!(straddle.start))
+                        .field("end", json!(straddle.end)),
+                );
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        if !unwritable.is_empty() {
+            for (element, track, refusal) in &unwritable {
+                report.push(
+                    Finding::new("E-SHIFT-SPLIT-UNWRITABLE")
+                        .at_file(document.path())
+                        .at_element(element.clone())
+                        .at_track(track.clone())
+                        .field("property", json!(refusal.property))
+                        .field("at", json!(ask.at))
+                        .field("value", json!(refusal.value)),
+                );
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+    } else {
+        // ---- Negative shift: excising timeline in [at, at + |delta|) (ADR-0200). ----
+        let cut_start = ask.at;
+        let span = -ask.delta;
+        let cut_end = cut_start + span;
+
+        // 1. Underflow check: instants before 0 are unrepresentable (E-SHIFT-UNDERFLOW).
+        let mut underflow: Vec<Finding> = Vec::new();
+        if ask.at < 0 {
+            underflow.push(
+                Finding::new("E-SHIFT-UNDERFLOW")
+                    .at_file(document.path())
+                    .field("at", json!(ask.at))
+                    .field("delta", json!(ask.delta))
+                    .field("element", json!("(origin)"))
+                    .field("new_time", json!(ask.at)),
+            );
+        }
+        for track in &project.tracks {
+            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                continue;
+            }
+            for element in &track.elements {
+                if element.start >= cut_end && element.start - span < 0 {
+                    underflow.push(
+                        Finding::new("E-SHIFT-UNDERFLOW")
+                            .at_file(document.path())
+                            .at_element(element.id.clone())
+                            .at_track(track.name.clone())
+                            .field("at", json!(ask.at))
+                            .field("delta", json!(ask.delta))
+                            .field("element", json!(element.id))
+                            .field("new_time", json!(element.start - span)),
+                    );
+                }
+                for (prop, times) in animatable_lists(&element.body) {
+                    for t in times {
+                        if t >= cut_end && t - span < 0 {
+                            underflow.push(
+                                Finding::new("E-SHIFT-UNDERFLOW")
+                                    .at_file(document.path())
+                                    .at_element(element.id.clone())
+                                    .at_track(track.name.clone())
+                                    .field("at", json!(ask.at))
+                                    .field("delta", json!(ask.delta))
+                                    .field("element", json!(format!("{}.{prop}", element.id)))
+                                    .field("new_time", json!(t - span)),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        if !underflow.is_empty() {
+            for f in underflow {
+                report.push(f);
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        // 2. Straddler check: time-based elements cannot be sliced (E-SHIFT-STRADDLE).
+        let mut straddlers: Vec<Finding> = Vec::new();
+        for track in &project.tracks {
+            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                continue;
+            }
+            for element in &track.elements {
+                if !is_time_based(&element.body) {
+                    continue;
+                }
+                let straddles_start = element.start < cut_start && cut_start < element.end;
+                let straddles_end = element.start < cut_end && cut_end < element.end;
+                let encompasses = element.start < cut_start && element.end > cut_end;
+                if straddles_start || straddles_end || encompasses {
+                    straddlers.push(
+                        Finding::new("E-SHIFT-STRADDLE")
+                            .at_file(document.path())
+                            .at_element(element.id.clone())
+                            .at_track(track.name.clone())
+                            .field("at", json!(ask.at))
+                            .field("delta", json!(ask.delta))
+                            .field("start", json!(element.start))
+                            .field("end", json!(element.end)),
+                    );
+                }
+            }
+        }
+        if !straddlers.is_empty() {
+            for f in straddlers {
+                report.push(f);
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        // 3. Stagger window check: text stagger units cannot be cut across (E-SHIFT-UNITS-WINDOW).
+        let mut cut: Vec<Finding> = Vec::new();
+        for track in &project.tracks {
+            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                continue;
+            }
+            for element in &track.elements {
+                let Some((from, to)) = stagger_window(element) else {
+                    continue;
+                };
+                if from < cut_end && cut_start < to {
+                    cut.push(
+                        Finding::new("E-SHIFT-UNITS-WINDOW")
+                            .at_file(document.path())
+                            .at_element(element.id.clone())
+                            .at_track(track.name.clone())
+                            .field("at", json!(ask.at))
+                            .field("from", json!(from))
+                            .field("to", json!(to)),
+                    );
+                }
+            }
+        }
+        if !cut.is_empty() {
+            for f in cut {
+                report.push(f);
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        // 4. Destructive check: excising occupied timeline without delete: true (E-SHIFT-DESTRUCTIVE).
+        if !ask.delete {
+            let mut destructive_first: Option<String> = None;
+            for track in &project.tracks {
+                if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                    continue;
+                }
+                for element in &track.elements {
+                    if element.start < cut_end && element.end > cut_start {
+                        destructive_first = Some(format!(
+                            "element `{}` ({}) in track `{}` [{}..{}) ms",
+                            element.id,
+                            element.body.type_name(),
+                            track.name,
+                            element.start,
+                            element.end
+                        ));
+                        break;
+                    }
+                    for (prop, times) in animatable_lists(&element.body) {
+                        for t in times {
+                            if cut_start <= t && t < cut_end {
+                                destructive_first = Some(format!(
+                                    "keyframe `{}.{prop}` in track `{}` at {t} ms",
+                                    element.id, track.name
+                                ));
+                                break;
+                            }
+                        }
+                        if destructive_first.is_some() {
+                            break;
+                        }
+                    }
+                }
+                if destructive_first.is_some() {
+                    break;
+                }
+            }
+            if let Some(first) = destructive_first {
+                report.push(
+                    Finding::new("E-SHIFT-DESTRUCTIVE")
+                        .at_file(document.path())
+                        .field("at", json!(cut_start))
+                        .field("cut_end", json!(cut_end))
+                        .field("first", json!(first)),
+                );
+                return Answer {
+                    preamble,
+                    receipt,
+                    report,
+                };
+            }
+        }
+
+        // 5. Element duration collapse check (E-ELEMENT-COLLAPSE).
+        let mut collapsed: Vec<Finding> = Vec::new();
+        for track in &project.tracks {
+            if ask.scope.as_deref().is_some_and(|scope| scope != track.name) {
+                continue;
+            }
+            for element in &track.elements {
+                if element.start < cut_start && element.end > cut_end {
+                    let new_end = element.end - span;
+                    let duration = new_end - element.start;
+                    if duration <= 0 {
+                        collapsed.push(
+                            Finding::new("E-ELEMENT-COLLAPSE")
+                                .at_file(document.path())
+                                .at_element(element.id.clone())
+                                .at_track(track.name.clone())
+                                .field("element", json!(element.id))
+                                .field("duration", json!(duration))
+                                .field("start", json!(element.start))
+                                .field("end", json!(new_end)),
+                        );
+                    }
+                }
+            }
+        }
+        if !collapsed.is_empty() {
+            for f in collapsed {
+                report.push(f);
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
+        }
+
+        // 6. Transform elements and keyframes.
+        let mut unwritable: Vec<(String, String, Unwritable)> = Vec::new();
+        for track in &mut project.tracks {
+            let in_scope = ask.scope.as_deref().is_none_or(|scope| scope == track.name);
+            if !in_scope {
+                for element in &track.elements {
+                    new_instants.insert((element.id.clone(), Side::Start), element.start);
+                    new_instants.insert((element.id.clone(), Side::End), element.end);
+                }
+                continue;
+            }
+
+            let mut transformed_elements = Vec::with_capacity(track.elements.len());
+            for mut element in track.elements.drain(..) {
+                if element.end <= cut_start {
+                    // Untouched before cut
+                    new_instants.insert((element.id.clone(), Side::Start), element.start);
+                    new_instants.insert((element.id.clone(), Side::End), element.end);
+                    transformed_elements.push(element);
+                } else if element.start >= cut_start && element.end <= cut_end {
+                    // Wholly deleted by ripple excision
+                    receipt.deleted_elements.push(DeletedElement {
                         id: element.id.clone(),
                         track: track.name.clone(),
+                        kind: element.body.type_name().to_string(),
                         start: element.start,
                         end: element.end,
                     });
+                    record_all_keyframes_dropped(&element, &mut receipt.dropped_keyframes);
+                    new_instants.insert((element.id.clone(), Side::Start), cut_start);
+                    new_instants.insert((element.id.clone(), Side::End), cut_start);
+                } else if element.start >= cut_end {
+                    // Downstream element: shifts left by span
+                    element.start -= span;
+                    element.end -= span;
+                    if let Err(refusal) = edit_lists(&mut element.body, |_, _, list| {
+                        carry(list, -span);
+                        Ok(())
+                    }) {
+                        unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    }
+                    carry_unit_lists(&mut element.body, -span);
+                    new_instants.insert((element.id.clone(), Side::Start), element.start);
+                    new_instants.insert((element.id.clone(), Side::End), element.end);
+                    transformed_elements.push(element);
+                } else if element.start < cut_start && element.end > cut_start {
+                    // Straddling element
+                    let new_end = if element.end <= cut_end {
+                        cut_start
+                    } else {
+                        element.end - span
+                    };
+                    element.end = new_end;
+                    let carries_units =
+                        stagger_window(&element).is_some_and(|(start, _)| start >= cut_end);
+                    let element_id = element.id.clone();
+                    let mut dropped_kfs = Vec::new();
+                    let res = edit_lists(&mut element.body, |path, property, list| {
+                        excise_list(path, property, list, cut_start, span, &mut dropped_kfs)
+                    });
+                    for (prop, t, v) in dropped_kfs {
+                        receipt.dropped_keyframes.push(DroppedKeyframe {
+                            element: element_id.clone(),
+                            property: prop,
+                            t,
+                            v,
+                        });
+                    }
+                    if let Err(refusal) = res {
+                        unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    } else if carries_units {
+                        carry_unit_lists(&mut element.body, -span);
+                    }
+                    new_instants.insert((element.id.clone(), Side::Start), element.start);
+                    new_instants.insert((element.id.clone(), Side::End), element.end);
+                    transformed_elements.push(element);
+                } else if element.start >= cut_start && element.start < cut_end && element.end > cut_end
+                {
+                    // Starts inside cut, ends after cut
+                    element.start = cut_start;
+                    element.end -= span;
+                    let element_id = element.id.clone();
+                    let mut dropped_kfs = Vec::new();
+                    let res = edit_lists(&mut element.body, |path, property, list| {
+                        excise_list(path, property, list, cut_start, span, &mut dropped_kfs)
+                    });
+                    for (prop, t, v) in dropped_kfs {
+                        receipt.dropped_keyframes.push(DroppedKeyframe {
+                            element: element_id.clone(),
+                            property: prop,
+                            t,
+                            v,
+                        });
+                    }
+                    if let Err(refusal) = res {
+                        unwritable.push((element.id.clone(), track.name.clone(), refusal));
+                    }
+                    new_instants.insert((element.id.clone(), Side::Start), element.start);
+                    new_instants.insert((element.id.clone(), Side::End), element.end);
+                    transformed_elements.push(element);
                 }
-                Outcome::Unwritable(refusal) => {
-                    unwritable.push((element.id.clone(), track.name.clone(), refusal));
-                }
-                Outcome::Untouched | Outcome::Moved => {}
             }
-            new_instants.insert((element.id.clone(), Side::Start), element.start);
-            new_instants.insert((element.id.clone(), Side::End), element.end);
+            track.elements = transformed_elements;
         }
-    }
 
-    if !straddlers.is_empty() {
-        for straddle in &straddlers {
-            report.push(
-                Finding::new("E-SHIFT-STRADDLE")
-                    .at_file(document.path())
-                    .at_element(straddle.id.clone())
-                    .at_track(straddle.track.clone())
-                    .field("at", json!(ask.at))
-                    .field("delta", json!(ask.delta))
-                    .field("start", json!(straddle.start))
-                    .field("end", json!(straddle.end)),
-            );
+        if !unwritable.is_empty() {
+            for (element, track, refusal) in &unwritable {
+                report.push(
+                    Finding::new("E-SHIFT-SPLIT-UNWRITABLE")
+                        .at_file(document.path())
+                        .at_element(element.clone())
+                        .at_track(track.clone())
+                        .field("property", json!(refusal.property))
+                        .field("at", json!(ask.at))
+                        .field("value", json!(refusal.value)),
+                );
+            }
+            return Answer {
+                preamble,
+                receipt,
+                report,
+            };
         }
-        return Answer { preamble, report };
-    }
 
-    // ADR-0146 §7: a split writes a new keyframe, and its value must be a legal literal.
-    // Clamping it instead would bend both halves of the curve without saying so.
-    if !unwritable.is_empty() {
-        for (element, track, refusal) in &unwritable {
-            report.push(
-                Finding::new("E-SHIFT-SPLIT-UNWRITABLE")
-                    .at_file(document.path())
-                    .at_element(element.clone())
-                    .at_track(track.clone())
-                    .field("property", json!(refusal.property))
-                    .field("at", json!(ask.at))
-                    .field("value", json!(refusal.value)),
-            );
+        // 7. Collision check: ensure downstream shift didn't cause track overlap or layer tie.
+        let loose = crate::permissive::Loose::new(
+            document.path(),
+            serde_json::to_value(&project).unwrap(),
+        );
+        let mut check_report = Report::new(TOOL, Some(document.path().to_string()));
+        crate::checks::track::check(&loose, &mut check_report);
+        crate::checks::tie::check(&loose, &mut check_report);
+        if check_report.exit_code() != ExitCode::Ok {
+            for f in check_report.findings {
+                report.push(f);
+            }
+            return Answer {
+                preamble,
+                receipt: ShiftReceipt::default(),
+                report,
+            };
         }
-        return Answer { preamble, report };
     }
 
     // ---- Slack (ADR-0032, ADR-0047). ---------------------------------------------------
@@ -294,7 +741,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
         for (slack, new_size) in &changed {
             report.push(slack_finding(slack, *new_size, document.path()));
         }
-        return Answer { preamble, report };
+        return Answer {
+            preamble,
+            receipt,
+            report,
+        };
     }
 
     let stale: Vec<(i64, i64)> = ask
@@ -312,7 +763,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
                     .field("to", json!(to)),
             );
         }
-        return Answer { preamble, report };
+        return Answer {
+            preamble,
+            receipt,
+            report,
+        };
     }
 
     // ---- The write. `shift` re-emits the whole file in the canonical convention, or not
@@ -330,7 +785,11 @@ pub fn shift(path: &FilePath, ask: &Ask) -> Answer {
     // what keeps that partial-ness a property of the check set rather than of this verb.
     let mut report = crate::verbs::validate::validate(path);
     report.tool = TOOL.to_string();
-    Answer { preamble, report }
+    Answer {
+        preamble,
+        receipt,
+        report,
+    }
 }
 
 struct Straddle {
@@ -559,39 +1018,78 @@ fn describe_edges(edges: &[Edge<'_>], to_duration: bool) -> String {
         .join(", ")
 }
 
-/// The coincident-instant preamble (ADR-0036), computed against the document before
+/// The coincident-instant preamble (ADR-0036, ADR-0200), computed against the document before
 /// anything moves. Unconditional: printed whenever `at` lands on an existing element
 /// boundary or keyframe `t`, never gated behind a flag.
-fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
+fn coincident_preamble(project: &Project, at: i64, delta: i64) -> Vec<CoincidentRecord> {
     let mut out = Vec::new();
+    let cut_start = at;
+    let cut_end = if delta < 0 { at - delta } else { at };
+
     for track in &project.tracks {
         for element in &track.elements {
-            if element.start == at {
-                out.push(CoincidentRecord {
-                    element: element.id.clone(),
-                    kind: "boundary",
-                    role: "start",
-                    property: None,
-                    effect: "at or after `at`: moves with the element".to_string(),
-                });
-            }
-            if element.end == at {
-                out.push(CoincidentRecord {
-                    element: element.id.clone(),
-                    kind: "boundary",
-                    role: "end",
-                    property: None,
-                    effect: "before `at` (half-open): stays".to_string(),
-                });
+            if delta >= 0 {
+                if element.start == at {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "start",
+                        property: None,
+                        effect: "at or after `at`: moves with the element".to_string(),
+                    });
+                }
+                if element.end == at {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "end",
+                        property: None,
+                        effect: "before `at` (half-open): stays".to_string(),
+                    });
+                }
+            } else {
+                if element.start == cut_start {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "start",
+                        property: None,
+                        effect: "at cut origin: excised in [at, at+|delta|)".to_string(),
+                    });
+                }
+                if element.end == cut_start {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "end",
+                        property: None,
+                        effect: "before `at` (half-open): stays".to_string(),
+                    });
+                }
+                if element.start == cut_end {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "start",
+                        property: None,
+                        effect: "at cut end: moves left by |delta| to `at`".to_string(),
+                    });
+                }
+                if element.end == cut_end {
+                    out.push(CoincidentRecord {
+                        element: element.id.clone(),
+                        kind: "boundary",
+                        role: "end",
+                        property: None,
+                        effect: "at cut end: excised in [at, at+|delta|)".to_string(),
+                    });
+                }
             }
             for (property, times) in animatable_lists(&element.body) {
                 if times.is_empty() {
                     continue;
                 }
                 for (index, t) in times.iter().enumerate() {
-                    if *t != at {
-                        continue;
-                    }
                     let role = if index == 0 {
                         "first"
                     } else if index + 1 == times.len() {
@@ -599,15 +1097,35 @@ fn coincident_preamble(project: &Project, at: i64) -> Vec<CoincidentRecord> {
                     } else {
                         "interior"
                     };
-                    out.push(CoincidentRecord {
-                        element: element.id.clone(),
-                        kind: "keyframe",
-                        role,
-                        property: Some(property.clone()),
-                        effect: "carried with its element, not moved by the at-or-after \
-                                 rule (ADR-0012)"
-                            .to_string(),
-                    });
+                    if delta >= 0 && *t == at {
+                        out.push(CoincidentRecord {
+                            element: element.id.clone(),
+                            kind: "keyframe",
+                            role,
+                            property: Some(property.clone()),
+                            effect: "carried with its element, not moved by the at-or-after \
+                                     rule (ADR-0012)"
+                                .to_string(),
+                        });
+                    } else if delta < 0 {
+                        if *t == cut_start {
+                            out.push(CoincidentRecord {
+                                element: element.id.clone(),
+                                kind: "keyframe",
+                                role,
+                                property: Some(property.clone()),
+                                effect: "at cut origin: evaluated at excision boundary".to_string(),
+                            });
+                        } else if *t == cut_end {
+                            out.push(CoincidentRecord {
+                                element: element.id.clone(),
+                                kind: "keyframe",
+                                role,
+                                property: Some(property.clone()),
+                                effect: "at cut end: shifts left by |delta| to `at`".to_string(),
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -1052,4 +1570,198 @@ fn collapse_holds<T: PartialEq>(records: &mut Vec<Keyframe<T>>) {
         index += 1;
         keep_this
     });
+}
+
+fn record_all_keyframes_dropped(element: &Element, out: &mut Vec<DroppedKeyframe>) {
+    let Ok(val) = serde_json::to_value(&element.body) else {
+        return;
+    };
+    for declared in animatable::declared(&val) {
+        if let Some(records) = declared.records() {
+            for r in records {
+                if let (Some(t), Some(v)) = (r.get("t").and_then(Value::as_i64), r.get("v")) {
+                    out.push(DroppedKeyframe {
+                        element: element.id.clone(),
+                        property: declared.path.clone(),
+                        t,
+                        v: v.clone(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn excise_list(
+    path: &str,
+    property: &Property,
+    list: &mut Value,
+    cut_start: i64,
+    span: i64,
+    dropped_kfs: &mut Vec<(String, i64, Value)>,
+) -> Result<(), Unwritable> {
+    let refuse = |value: String| Unwritable {
+        property: path.to_string(),
+        value,
+    };
+    let bounded = |raw: f64| {
+        let below = property.minimum.is_some_and(|minimum| raw < minimum);
+        let above = property.maximum.is_some_and(|maximum| raw > maximum);
+        match below || above {
+            true => Err(refuse(format!("{}", round6(raw)))),
+            false => Ok(raw),
+        }
+    };
+    let mut dropped = Vec::new();
+    let res = match property.kind {
+        Kind::Integer if property.name == "stroke_dash_offset" => {
+            excise_typed::<i64>(list, cut_start, span, &mut dropped, |raw: f64| {
+                let rounded = raw.round();
+                match (raw - rounded).abs() < 1e-9 {
+                    true => Ok(rounded as i64),
+                    false => Err(refuse(format!(
+                        "a fractional dash offset ({})",
+                        round6(raw)
+                    ))),
+                }
+            })
+        }
+        Kind::Integer => {
+            excise_typed::<i64>(list, cut_start, span, &mut dropped, |raw| {
+                bounded(raw).map(round_i64)
+            })
+        }
+        Kind::Number => {
+            excise_typed::<f64>(list, cut_start, span, &mut dropped, |raw| {
+                bounded(raw).map(round6)
+            })
+        }
+        Kind::Pair => {
+            excise_typed::<Scale>(list, cut_start, span, &mut dropped, |raw| {
+                Ok(round_scale(raw))
+            })
+        }
+        Kind::Stops => {
+            excise_typed::<Stops>(list, cut_start, span, &mut dropped, |blend: StopsBlend| {
+                match blend.first_fault() {
+                    Some(fault) => Err(refuse(fault)),
+                    None => Ok(blend.settle()),
+                }
+            })
+        }
+        Kind::Colour | Kind::Paint => {
+            excise_typed::<Colour>(list, cut_start, span, &mut dropped, |blend: Blend| {
+                if blend.in_range() {
+                    Ok(blend.settle())
+                } else {
+                    let [r, g, b, a] = blend.0.map(round6);
+                    Err(refuse(format!(
+                        "a colour outside its range (premultiplied red {r}, green {g}, blue {b}, \
+                         alpha {a})"
+                    )))
+                }
+            })
+        }
+        Kind::Points => {
+            excise_typed::<Points>(
+                list,
+                cut_start,
+                span,
+                &mut dropped,
+                |vertices: Vec<VertexAt>| {
+                    integer_points(&vertices).ok_or_else(|| {
+                        refuse(format!(
+                            "a vertex list with a fractional coordinate ({})",
+                            serde_json::to_string(&vertices).unwrap_or_default()
+                        ))
+                    })
+                },
+            )
+        }
+    };
+    for (t, v) in dropped {
+        dropped_kfs.push((path.to_string(), t, v));
+    }
+    res
+}
+
+fn excise_typed<T>(
+    list: &mut Value,
+    cut_start: i64,
+    span: i64,
+    dropped: &mut Vec<(i64, Value)>,
+    write: impl Fn(<T as Interpolate>::Out) -> Result<T, Unwritable>,
+) -> Result<(), Unwritable>
+where
+    T: Interpolate + Clone + PartialEq + Serialize + serde::de::DeserializeOwned,
+{
+    let Ok(mut records) = serde_json::from_value::<Vec<Keyframe<T>>>(list.clone()) else {
+        return Ok(());
+    };
+    excise_keyed(&mut records, cut_start, span, dropped, &write)?;
+    if let Ok(written) = serde_json::to_value(&records) {
+        *list = written;
+    }
+    Ok(())
+}
+
+fn excise_keyed<T>(
+    records: &mut Vec<Keyframe<T>>,
+    cut_start: i64,
+    span: i64,
+    dropped: &mut Vec<(i64, Value)>,
+    write: &impl Fn(<T as Interpolate>::Out) -> Result<T, Unwritable>,
+) -> Result<(), Unwritable>
+where
+    T: Interpolate + Clone + PartialEq + Serialize,
+{
+    records.sort_by_key(|r| r.t);
+    let cut_end = cut_start + span;
+
+    let mut synth_start: Option<(usize, Keyframe<T>)> = None;
+    if let Some(seg) = (0..records.len().saturating_sub(1))
+        .find(|&i| records[i].t < cut_start && cut_start < records[i + 1].t)
+    {
+        let a = records[seg].clone();
+        let b = records[seg + 1].clone();
+        let b_ease = b.ease.expect("ADR-0038: every non-first record carries an ease");
+        let fraction = (cut_start - a.t) as f64 / (b.t - a.t) as f64;
+        let (left, _, progress) = subdivide(&b_ease, fraction);
+        let v = write(T::between(&a.v, &b.v, progress))?;
+        synth_start = Some((
+            seg + 1,
+            Keyframe {
+                t: cut_start,
+                t_from: None,
+                v,
+                ease: Some(left),
+            },
+        ));
+    }
+
+    if let Some((idx, kf)) = synth_start {
+        records.insert(idx, kf);
+    }
+
+    let mut surviving: Vec<Keyframe<T>> = Vec::with_capacity(records.len());
+    let mut downstream_first = true;
+
+    for mut r in records.drain(..) {
+        if r.t <= cut_start {
+            surviving.push(r);
+        } else if r.t < cut_end {
+            dropped.push((r.t, serde_json::to_value(&r.v).unwrap_or(Value::Null)));
+        } else {
+            r.t -= span;
+            if downstream_first {
+                r.ease = Some(Ease::Named(EaseName::Step));
+                downstream_first = false;
+            }
+            surviving.push(r);
+        }
+    }
+
+    *records = surviving;
+    collapse_holds(records);
+    Ok(())
 }

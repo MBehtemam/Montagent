@@ -158,6 +158,7 @@ fn render_preview_shift_and_create_project_record_what_validate_records() {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     let dir = tempdir(line!());
@@ -193,9 +194,10 @@ fn a_refused_shift_or_create_project_records_no_check_set() {
         &project(line!(), NO_MEDIA),
         &shift::Ask {
             at: 0,
-            delta: -1,
-            scope: None,
+            delta: 100,
+            scope: Some("nonexistent_track".to_string()),
             release: Vec::new(),
+            delete: false,
         },
     );
     let dir = tempdir(line!());

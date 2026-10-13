@@ -924,6 +924,7 @@ fn shifted(path: &Path, at: i64) -> montagent_core::verbs::shift::Answer {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     )
 }

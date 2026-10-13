@@ -453,6 +453,7 @@ fn shifted(path: &std::path::Path, at: i64, delta: i64) -> (ExitCode, Value) {
             delta,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     let written: Value =
@@ -542,6 +543,7 @@ fn shift_refuses_a_split_whose_value_leaves_the_parameters_range() {
             delta: 100,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     let refusal = answer

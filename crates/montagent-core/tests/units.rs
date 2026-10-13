@@ -713,6 +713,7 @@ fn shifted(element: Value, at: i64) -> (montagent_core::verbs::shift::Answer, Va
             delta: 500,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     let written: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();

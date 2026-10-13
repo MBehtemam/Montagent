@@ -116,6 +116,7 @@ fn shifted_feather(path: &std::path::Path, at: i64, delta: i64) -> Vec<(i64, ser
             delta,
             scope: None,
             release: Vec::new(),
+            delete: false,
         },
     );
     assert_ne!(
