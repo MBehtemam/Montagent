@@ -3235,3 +3235,69 @@ fn direct_url_selector_arguments_reach_same_cli_and_mcp_core_contract() {
     assert_eq!(cli, mcp);
     assert_eq!(cli["findings"][0]["code"], "network_denied");
 }
+
+#[test]
+fn cli_import_and_export_round_trip() {
+    let srt_content = "1\n00:00:01,000 --> 00:00:04,500\nHello World\n\n2\n00:00:05,000 --> 00:00:08,000\nSecond line\n";
+    let srt_path = scratch("interchange-cli", "input.srt", srt_content);
+    let proj_path = srt_path.parent().unwrap().join("imported.json");
+
+    // 1. Import SRT to Project JSON
+    let import_out = montagent(&[
+        "import",
+        srt_path.to_str().unwrap(),
+        "-o",
+        proj_path.to_str().unwrap(),
+    ]);
+    assert_eq!(import_out.code, Some(0), "import stderr: {}", import_out.stderr);
+    assert!(proj_path.exists());
+
+    // 2. Validate imported project
+    let val_out = montagent(&["validate", proj_path.to_str().unwrap()]);
+    assert_eq!(val_out.code, Some(0), "validate stderr: {}", val_out.stderr);
+
+    // 3. Export to VTT
+    let vtt_path = srt_path.parent().unwrap().join("exported.vtt");
+    let export_out = montagent(&[
+        "export",
+        proj_path.to_str().unwrap(),
+        "--format",
+        "vtt",
+        "-o",
+        vtt_path.to_str().unwrap(),
+    ]);
+    assert_eq!(export_out.code, Some(0), "export stderr: {}", export_out.stderr);
+    assert!(vtt_path.exists());
+    let vtt_content = std::fs::read_to_string(&vtt_path).unwrap();
+    assert!(vtt_content.contains("WEBVTT"));
+    assert!(vtt_content.contains("Hello World"));
+
+    // 4. Import EDL
+    let edl_content = "TITLE: TEST\nFCM: NON-DROP FRAME\n001  AX  V  C  00:00:00:00 00:00:05:00 01:00:00:00 01:00:05:00\n* FROM CLIP NAME: clip.mp4\n";
+    let edl_path = scratch("interchange-cli", "input.edl", edl_content);
+    let edl_proj_path = edl_path.parent().unwrap().join("edl_imported.json");
+    let edl_import_out = montagent(&[
+        "import",
+        edl_path.to_str().unwrap(),
+        "-o",
+        edl_proj_path.to_str().unwrap(),
+    ]);
+    assert_eq!(edl_import_out.code, Some(0), "edl import stderr: {}", edl_import_out.stderr);
+    assert!(edl_proj_path.exists());
+
+    // 5. Export to EDL
+    let exported_edl_path = edl_path.parent().unwrap().join("exported.edl");
+    let edl_export_out = montagent(&[
+        "export",
+        edl_proj_path.to_str().unwrap(),
+        "--format",
+        "edl",
+        "-o",
+        exported_edl_path.to_str().unwrap(),
+    ]);
+    assert_eq!(edl_export_out.code, Some(0), "edl export stderr: {}", edl_export_out.stderr);
+    assert!(exported_edl_path.exists());
+    let exported_edl_text = std::fs::read_to_string(&exported_edl_path).unwrap();
+    assert!(exported_edl_text.contains("clip.mp4"));
+}
+
