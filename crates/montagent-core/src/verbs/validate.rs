@@ -279,6 +279,8 @@ fn run_checks(
     crate::checks::extent::check(document, report);
     // ADR-0201: Bounded nested sequences (depth, cycle, duplicate IDs, temporal bounds).
     crate::checks::nest::check(document, report);
+    // ADR-0202, ADR-0203, ADR-0204: Output deliverable, container inference, codecs and stems.
+    crate::checks::output::check(document, report);
     // ADR-0172's four `master` reviews: a target with no ceiling, an unusual target, a
     // ceiling above lossy-delivery guidance, and too little headroom. Document-only.
     crate::checks::master::check(document, report);

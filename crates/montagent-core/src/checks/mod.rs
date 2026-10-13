@@ -39,6 +39,7 @@ pub mod master;
 pub mod motion_blur;
 pub mod nest;
 pub mod normalize;
+pub mod output;
 pub mod overridden;
 pub mod path;
 pub mod projection;

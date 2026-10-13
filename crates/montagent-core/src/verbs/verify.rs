@@ -196,7 +196,7 @@ pub fn verify(path: &Path) -> Answer {
         }
     };
     let project_dir = crate::checks::project_dir(&document);
-    let Some(declared) = header.output.as_deref() else {
+    let Some(declared) = header.output.as_ref().map(|o| o.path()) else {
         return refused(Report::rejected(
             TOOL,
             project,
