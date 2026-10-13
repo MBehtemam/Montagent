@@ -1,0 +1,796 @@
+{
+ "worst_abs_px": {
+  "pil_vs_ma_adv": 3.55615234375,
+  "ma_ink_vs_paint": 0.8955078125,
+  "pil_ink_vs_paint": 5.0
+ },
+ "rows": [
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "It",
+   "pil_adv": [
+    482.0,
+    504.0
+   ],
+   "ma_adv": [
+    482,
+    503.80126953125
+   ],
+   "pil_ink": [
+    482.0,
+    504.0
+   ],
+   "ma_ink_from_bearings": [
+    483.095703125,
+    503.3662109375
+   ],
+   "painted_ink": [
+    483,
+    503
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "was",
+   "pil_adv": [
+    511.0,
+    563.0
+   ],
+   "ma_adv": [
+    511.068359375,
+    562.6953125
+   ],
+   "pil_ink": [
+    511.0,
+    563.0
+   ],
+   "ma_ink_from_bearings": [
+    511.3583984375,
+    561.3095703125
+   ],
+   "painted_ink": [
+    512,
+    561
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "so",
+   "pil_adv": [
+    570.0,
+    600.0
+   ],
+   "ma_adv": [
+    569.96240234375,
+    599.90087890625
+   ],
+   "pil_ink": [
+    570.0,
+    600.0
+   ],
+   "ma_ink_from_bearings": [
+    571.396484375,
+    598.6923828125
+   ],
+   "painted_ink": [
+    571,
+    599
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "lovely",
+   "pil_adv": [
+    607.0,
+    689.0
+   ],
+   "ma_adv": [
+    607.16796875,
+    689.4423828125
+   ],
+   "pil_ink": [
+    607.0,
+    690.0
+   ],
+   "ma_ink_from_bearings": [
+    608.1025390625,
+    689.15234375
+   ],
+   "painted_ink": [
+    608,
+    689
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "out",
+   "pil_adv": [
+    696.0,
+    743.0
+   ],
+   "ma_adv": [
+    696.70947265625,
+    743.05126953125
+   ],
+   "pil_ink": [
+    696.0,
+    743.0
+   ],
+   "ma_ink_from_bearings": [
+    697.91796875,
+    742.6162109375
+   ],
+   "painted_ink": [
+    698,
+    742
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "in",
+   "pil_adv": [
+    750.0,
+    778.0
+   ],
+   "ma_adv": [
+    750.318359375,
+    778.11376953125
+   ],
+   "pil_ink": [
+    750.0,
+    778.0
+   ],
+   "ma_ink_from_bearings": [
+    751.4140625,
+    777.6787109375
+   ],
+   "painted_ink": [
+    752,
+    778
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "word": "the",
+   "pil_adv": [
+    785.0,
+    831.0
+   ],
+   "ma_adv": [
+    785.380859375,
+    831.0458984375
+   ],
+   "pil_ink": [
+    785.0,
+    831.0
+   ],
+   "ma_ink_from_bearings": [
+    785.62255859375,
+    829.83740234375
+   ],
+   "painted_ink": [
+    786,
+    830
+   ]
+  },
+  {
+   "element": "c01-01-text",
+   "line": 1,
+   "word": "countryside.",
+   "pil_adv": [
+    482.0,
+    656.0
+   ],
+   "ma_adv": [
+    482,
+    655.00830078125
+   ],
+   "pil_ink": [
+    482.0,
+    656.0
+   ],
+   "ma_ink_from_bearings": [
+    483.20849609375,
+    653.42919921875
+   ],
+   "painted_ink": [
+    483,
+    653
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "It",
+   "pil_adv": [
+    482.0,
+    504.0
+   ],
+   "ma_adv": [
+    482,
+    503.80126953125
+   ],
+   "pil_ink": [
+    482.0,
+    504.0
+   ],
+   "ma_ink_from_bearings": [
+    483.095703125,
+    503.3662109375
+   ],
+   "painted_ink": [
+    483,
+    503
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "was",
+   "pil_adv": [
+    511.0,
+    563.0
+   ],
+   "ma_adv": [
+    511.068359375,
+    562.6953125
+   ],
+   "pil_ink": [
+    511.0,
+    563.0
+   ],
+   "ma_ink_from_bearings": [
+    511.3583984375,
+    561.3095703125
+   ],
+   "painted_ink": [
+    512,
+    561
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "summer;",
+   "pil_adv": [
+    570.0,
+    692.0
+   ],
+   "ma_adv": [
+    569.96240234375,
+    691.923828125
+   ],
+   "pil_ink": [
+    570.0,
+    692.0
+   ],
+   "ma_ink_from_bearings": [
+    571.396484375,
+    690.68310546875
+   ],
+   "painted_ink": [
+    571,
+    691
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "the",
+   "pil_adv": [
+    699.0,
+    745.0
+   ],
+   "ma_adv": [
+    699.19091796875,
+    744.85595703125
+   ],
+   "pil_ink": [
+    699.0,
+    745.0
+   ],
+   "ma_ink_from_bearings": [
+    699.4326171875,
+    743.6474609375
+   ],
+   "painted_ink": [
+    700,
+    744
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "corn",
+   "pil_adv": [
+    752.0,
+    817.0
+   ],
+   "ma_adv": [
+    752.123046875,
+    815.72216796875
+   ],
+   "pil_ink": [
+    752.0,
+    817.0
+   ],
+   "ma_ink_from_bearings": [
+    753.33154296875,
+    815.287109375
+   ],
+   "painted_ink": [
+    753,
+    815
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "stood",
+   "pil_adv": [
+    824.0,
+    901.0
+   ],
+   "ma_adv": [
+    822.9892578125,
+    899.02783203125
+   ],
+   "pil_ink": [
+    824.0,
+    901.0
+   ],
+   "ma_ink_from_bearings": [
+    824.42333984375,
+    898.83447265625
+   ],
+   "painted_ink": [
+    824,
+    898
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "word": "yellow,",
+   "pil_adv": [
+    908.0,
+    1005.0
+   ],
+   "ma_adv": [
+    906.294921875,
+    1001.44384765625
+   ],
+   "pil_ink": [
+    907.0,
+    1005.0
+   ],
+   "ma_ink_from_bearings": [
+    905.45703125,
+    1000.203125
+   ],
+   "painted_ink": [
+    906,
+    1000
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 1,
+   "word": "the",
+   "pil_adv": [
+    482.0,
+    528.0
+   ],
+   "ma_adv": [
+    482,
+    527.6650390625
+   ],
+   "pil_ink": [
+    482.0,
+    528.0
+   ],
+   "ma_ink_from_bearings": [
+    482.24169921875,
+    526.45654296875
+   ],
+   "painted_ink": [
+    483,
+    526
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 1,
+   "word": "oats",
+   "pil_adv": [
+    535.0,
+    593.0
+   ],
+   "ma_adv": [
+    534.93212890625,
+    592.1181640625
+   ],
+   "pil_ink": [
+    535.0,
+    593.0
+   ],
+   "ma_ink_from_bearings": [
+    536.140625,
+    590.732421875
+   ],
+   "painted_ink": [
+    536,
+    591
+   ]
+  },
+  {
+   "element": "c01-02-text",
+   "line": 1,
+   "word": "green,",
+   "pil_adv": [
+    600.0,
+    687.0
+   ],
+   "ma_adv": [
+    599.38525390625,
+    686.4130859375
+   ],
+   "pil_ink": [
+    600.0,
+    687.0
+   ],
+   "ma_ink_from_bearings": [
+    599.7880859375,
+    685.17236328125
+   ],
+   "painted_ink": [
+    600,
+    685
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "the",
+   "pil_adv": [
+    482.0,
+    528.0
+   ],
+   "ma_adv": [
+    482,
+    527.6650390625
+   ],
+   "pil_ink": [
+    482.0,
+    528.0
+   ],
+   "ma_ink_from_bearings": [
+    482.24169921875,
+    526.45654296875
+   ],
+   "painted_ink": [
+    483,
+    526
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "hay",
+   "pil_adv": [
+    535.0,
+    586.0
+   ],
+   "ma_adv": [
+    534.93212890625,
+    585.49560546875
+   ],
+   "pil_ink": [
+    535.0,
+    587.0
+   ],
+   "ma_ink_from_bearings": [
+    535.7861328125,
+    585.20556640625
+   ],
+   "painted_ink": [
+    536,
+    585
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "was",
+   "pil_adv": [
+    593.0,
+    645.0
+   ],
+   "ma_adv": [
+    592.7626953125,
+    644.3896484375
+   ],
+   "pil_ink": [
+    593.0,
+    645.0
+   ],
+   "ma_ink_from_bearings": [
+    593.052734375,
+    643.00390625
+   ],
+   "painted_ink": [
+    593,
+    643
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "piled",
+   "pil_adv": [
+    652.0,
+    721.0
+   ],
+   "ma_adv": [
+    651.65673828125,
+    721.0888671875
+   ],
+   "pil_ink": [
+    652.0,
+    721.0
+   ],
+   "ma_ink_from_bearings": [
+    652.5107421875,
+    720.8955078125
+   ],
+   "painted_ink": [
+    653,
+    720
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "in",
+   "pil_adv": [
+    728.0,
+    756.0
+   ],
+   "ma_adv": [
+    728.35595703125,
+    756.1513671875
+   ],
+   "pil_ink": [
+    728.0,
+    756.0
+   ],
+   "ma_ink_from_bearings": [
+    729.45166015625,
+    755.71630859375
+   ],
+   "painted_ink": [
+    730,
+    756
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "stacks",
+   "pil_adv": [
+    763.0,
+    849.0
+   ],
+   "ma_adv": [
+    763.41845703125,
+    847.75537109375
+   ],
+   "pil_ink": [
+    763.0,
+    849.0
+   ],
+   "ma_ink_from_bearings": [
+    764.8525390625,
+    846.36962890625
+   ],
+   "painted_ink": [
+    765,
+    846
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "down",
+   "pil_adv": [
+    856.0,
+    933.0
+   ],
+   "ma_adv": [
+    855.0224609375,
+    930.93212890625
+   ],
+   "pil_ink": [
+    856.0,
+    933.0
+   ],
+   "ma_ink_from_bearings": [
+    856.23095703125,
+    930.4970703125
+   ],
+   "painted_ink": [
+    856,
+    930
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "word": "in",
+   "pil_adv": [
+    940.0,
+    968.0
+   ],
+   "ma_adv": [
+    938.19921875,
+    965.99462890625
+   ],
+   "pil_ink": [
+    940.0,
+    968.0
+   ],
+   "ma_ink_from_bearings": [
+    939.294921875,
+    965.5595703125
+   ],
+   "painted_ink": [
+    939,
+    965
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 1,
+   "word": "the",
+   "pil_adv": [
+    482.0,
+    528.0
+   ],
+   "ma_adv": [
+    482,
+    527.6650390625
+   ],
+   "pil_ink": [
+    482.0,
+    528.0
+   ],
+   "ma_ink_from_bearings": [
+    482.24169921875,
+    526.45654296875
+   ],
+   "painted_ink": [
+    483,
+    526
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 1,
+   "word": "green",
+   "pil_adv": [
+    535.0,
+    614.0
+   ],
+   "ma_adv": [
+    534.93212890625,
+    613.95166015625
+   ],
+   "pil_ink": [
+    535.0,
+    614.0
+   ],
+   "ma_ink_from_bearings": [
+    535.3349609375,
+    613.5166015625
+   ],
+   "painted_ink": [
+    535,
+    614
+   ]
+  },
+  {
+   "element": "c01-03-text",
+   "line": 1,
+   "word": "meadows,",
+   "pil_adv": [
+    621.0,
+    758.0
+   ],
+   "ma_adv": [
+    621.21875,
+    757.74658203125
+   ],
+   "pil_ink": [
+    621.0,
+    758.0
+   ],
+   "ma_ink_from_bearings": [
+    622.07275390625,
+    756.505859375
+   ],
+   "painted_ink": [
+    622,
+    756
+   ]
+  }
+ ],
+ "vertical": [
+  {
+   "element": "c01-01-text",
+   "line": 0,
+   "pil_baseline": 180.6849609375,
+   "ma_baseline": 180.6849609375,
+   "ma_ink_top": 155.709375,
+   "ma_ink_bottom": 188.69326171875,
+   "painted_ink_top": 156,
+   "painted_ink_bottom": 188
+  },
+  {
+   "element": "c01-01-text",
+   "line": 1,
+   "pil_baseline": 259.88496093749995,
+   "ma_baseline": 259.8849609375,
+   "ma_ink_top": 234.90937499999998,
+   "ma_ink_bottom": 267.89326171875,
+   "painted_ink_top": 235,
+   "painted_ink_bottom": 267
+  },
+  {
+   "element": "c01-02-text",
+   "line": 0,
+   "pil_baseline": 365.6849609375,
+   "ma_baseline": 365.68496093749997,
+   "ma_ink_top": 340.70937499999997,
+   "ma_ink_bottom": 373.69326171874997,
+   "painted_ink_top": 341,
+   "painted_ink_bottom": 373
+  },
+  {
+   "element": "c01-02-text",
+   "line": 1,
+   "pil_baseline": 444.8849609375,
+   "ma_baseline": 444.8849609375,
+   "ma_ink_top": 419.909375,
+   "ma_ink_bottom": 452.89326171875,
+   "painted_ink_top": 420,
+   "painted_ink_bottom": 452
+  },
+  {
+   "element": "c01-03-text",
+   "line": 0,
+   "pil_baseline": 568.6849609375,
+   "ma_baseline": 568.6849609375,
+   "ma_ink_top": 543.709375,
+   "ma_ink_bottom": 576.69326171875,
+   "painted_ink_top": 544,
+   "painted_ink_bottom": 576
+  },
+  {
+   "element": "c01-03-text",
+   "line": 1,
+   "pil_baseline": 647.8849609375001,
+   "ma_baseline": 647.8849609375001,
+   "ma_ink_top": 622.9093750000001,
+   "ma_ink_bottom": 655.8932617187501,
+   "painted_ink_top": 623,
+   "painted_ink_bottom": 655
+  }
+ ]
+}

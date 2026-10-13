@@ -10,6 +10,10 @@ amends: 0007 (states the baseline rule the slot definition never gave), 0011
 > text baseline shifts downward by `extra_leading_over` within inflated line slots; annotation baselines are placed
 > at tier pitches above and below base text.
 
+> **Amended by [ADR-0213](0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md)**: `measure`
+> layout report exposes `baseline_y` for lines, word tokens, and per-line range query fragments, alongside slot extents `slot_top` and `slot_height`.
+
+
 
 [ADR-0007](./0007-text-runs-literal-size-declared-fonts.md) gives a line's **slot** —
 *the largest `size` among the runs on that line* × `line_height` — and a worked

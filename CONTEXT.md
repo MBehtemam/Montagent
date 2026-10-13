@@ -339,6 +339,11 @@ about a stacked mark, and a *whole-line* box was measured to be a false-positive
 generator — ADR-0087), gap (a seam's ordinary sign is negative; see also Gap,
 which is a fact about the *clock*)
 
+**Layout Report** / **Word Box** / **Range Fragment**:
+`measure`'s structural view of shaped text (`--layout`), reporting lines, word tokens, and queryable character ranges. Dual-represented as conservative integer bounding boxes (`box`: $x = \lfloor x_0 \rfloor, y = \lfloor y_0 \rfloor, w = \lceil x_1 \rceil - \lfloor x_0 \rfloor, h = \lceil y_1 \rceil - \lfloor y_0 \rfloor$) for direct project insertion and exact subpixel floats (`advance_box`, `ink_box`) for analytical stacking. A **word box** represents a lexical word segmented via UAX #29, carrying `center_x` and `baseline_y`. A **range fragment** is one bounding box per touched line for an arbitrary character query span `[start, end)`, handling multi-line wrapped phrases without box inflation.
+([ADR-0213](docs/adr/0213-measure-layout-report-exposes-word-boxes-and-character-ranges-under-conservative-integer-enclosure.md))
+_Avoid_: prefix batching, external font metrics measurement
+
 **Shape**:
 A drawn primitive with no source file — `rect`, `ellipse` or `path`, each its own element
 type, never a `shape` field inside a shared one. An ellipse inscribes its declared rect and a
