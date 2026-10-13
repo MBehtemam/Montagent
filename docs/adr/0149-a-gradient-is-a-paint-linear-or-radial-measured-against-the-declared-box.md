@@ -5,6 +5,10 @@ amends: 0014 ("gradients are out of v1, as unevidenced" is closed: a gradient en
 
 # A gradient is a paint, linear or radial, measured against the declared box
 
+> **Amended by [ADR-0215](0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)**: §1's "no precedent in the reference class" bar on `sweep` and
+> `two_point_conical` gradients is lifted; both are documented in After Effects and enter map
+> [#896](https://github.com/MBehtemam/Montagent/issues/896)'s triage ([#908](https://github.com/MBehtemam/Montagent/issues/908)), still gated by §8's Skia byte-identity prototype rule before any build.
+
 [#677](https://github.com/MBehtemam/Montagent/issues/677), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0014](0014-stroke-is-paint-the-text-box-is-required.md) left gradients out of v1 "as

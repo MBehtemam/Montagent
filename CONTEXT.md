@@ -1220,18 +1220,30 @@ _Avoid_: gap ceiling (**Gap** is a stretch of a track with no element — a diff
 max gap, infill count, infill interval / period
 
 **Reference class**:
-CapCut and Premiere: the tools whose mechanisms are Montagent's first source of precedent.
-Read by mechanism, not by name; a mechanism confirmed in either tool is a precedent
-([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)).
+CapCut, Premiere, and After Effects: the tools that count as precedent that a **rendered
+result** is wanted, with a two-tier order for **mechanism and shape**. CapCut and Premiere are
+looked to first for mechanism and schema shape; when only After Effects has the capability, its
+rendered result is precedent, never its mechanism, and the capability is reached through
+existing primitives, a literal-writing skill script
+([ADR-0177](docs/adr/0177-ducking-is-a-skill-script-that-writes-ordinary-volume-keyframes-and-the-format-stays-untouched.md)),
+pre-rendered footage
+([ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md),
+[ADR-0171](docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md)),
+or a format addition reshaped to keep the four invariants
+([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md),
+[ADR-0215](docs/adr/0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)).
 _Avoid_: "in scope", "out of scope" — a capability outside the reference class can still
 enter, and one inside it must still keep the invariants
 
 **Entry test**:
-What a capability with no precedent in the reference class must pass on top of the four
-invariants every capability keeps (literal values, closed vocabulary, checkable by
-`validate`, exact-string replace): the owner accepts a rendered prototype of it. Passing is
-necessary, not sufficient
-([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)).
+What a capability with no precedent in any of CapCut, Premiere, or After Effects must pass on
+top of the four invariants every capability keeps (literal values, closed vocabulary, checkable
+by `validate`, exact-string replace): the owner accepts a rendered prototype of it. Passing is
+necessary, not sufficient. An After Effects-documented capability needs no entry-test prototype
+to prove demand, though a ticket, map, or ADR still runs a prototype whenever visual behavior,
+Skia feasibility, byte-identical painting, audio tolerance, or a map's A/B bar requires one
+([ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md),
+[ADR-0215](docs/adr/0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)).
 _Avoid_: approval, sign-off — passing lets the capability's ADR be argued; it does not
 decide it
 
