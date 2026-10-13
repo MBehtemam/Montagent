@@ -1246,6 +1246,55 @@ fn cli_render_puts_the_result_on_stdout_and_progress_on_stderr() {
     assert!(out.stdout.contains("NOT CHECKED"), "{}", out.stdout);
 }
 
+#[test]
+fn cli_render_stems_only_exports_stems_without_video() {
+    let dir = scratch_dir("cli-render-stems-only");
+    let bed = dir.join("bed.wav");
+    let tools = montagent_core::media::tools::resolve().expect("ffmpeg");
+    let status = std::process::Command::new(tools.ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=1",
+            "-c:a",
+            "pcm_s16le",
+        ])
+        .arg(&bed)
+        .status()
+        .expect("ffmpeg runs");
+    assert!(status.success());
+
+    let project = dir.join("p.montagent.json");
+    let doc = format!(
+        r#"{{"frame":{{"width":200,"height":200}},"fps":25,"duration":200,"output":{{"path":"out/p.mp4","stems":[{{"role":"mix","path":"stems/mix.wav"}}]}},"tracks":[{{"name":"only","layer":0,"elements":[{{"id":"sound","type":"audio","start":0,"end":200,"source":"{}","source_start":0,"source_end":200}}]}}]}}"#,
+        bed.display().to_string().replace('\\', "/")
+    );
+    let val: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    let canonical = montagent_core::write::canonical(&montagent_core::layout::canonicalise(&val));
+    std::fs::write(&project, canonical).unwrap();
+
+    let out = montagent(&[
+        "render",
+        project.to_str().unwrap(),
+        "--stems-only",
+        "--json",
+    ]);
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let json: serde_json::Value = serde_json::from_str(&out.stdout).expect("render is JSON");
+    assert_eq!(json["render"]["frames"], 0);
+    assert_eq!(json["render"]["bytes"], 0);
+    assert!(!dir.join("out/p.mp4").exists(), "video must not exist");
+    assert!(dir.join("stems/mix.wav").exists(), "stem must exist");
+    let stems = json["render"]["stems"].as_array().expect("stems array");
+    assert_eq!(stems.len(), 1);
+    assert_eq!(stems[0]["role"], "mix");
+}
+
 /// A project that renders in a moment, and one that takes a few seconds.
 fn small_project(dir: &Path) -> PathBuf {
     let project = dir.join("p.montagent.json");

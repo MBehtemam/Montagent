@@ -131,8 +131,22 @@ fn canonical_key_order_is_the_schemas_property_order() {
     assert_eq!(
         &nest[6..],
         &[
-            "x", "y", "origin", "width", "height", "clip", "scale", "rotation", "swivel",
-            "tilt", "perspective", "opacity", "blend", "motion_blur", "effects", "elements"
+            "x",
+            "y",
+            "origin",
+            "width",
+            "height",
+            "clip",
+            "scale",
+            "rotation",
+            "swivel",
+            "tilt",
+            "perspective",
+            "opacity",
+            "blend",
+            "motion_blur",
+            "effects",
+            "elements"
         ]
     );
 }

@@ -155,10 +155,36 @@ pub fn check(document: &Loose, report: &mut Report) {
         let mut paths_seen = HashSet::new();
         paths_seen.insert(path.to_string());
 
+        let audible_elements: Vec<(&str, &serde_json::Value)> = document
+            .elements_with_track()
+            .filter_map(|(element, track)| {
+                let kind = element.get("type").and_then(|v| v.as_str())?;
+                if kind != "audio" && kind != "video" {
+                    return None;
+                }
+                if let Some(vol) = element.get("volume").and_then(|v| v.as_f64())
+                    && vol == 0.0
+                {
+                    return None;
+                }
+                let role = element
+                    .get("role")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| track.get("role").and_then(|v| v.as_str()))
+                    .unwrap_or("sfx");
+                Some((role, element))
+            })
+            .collect();
+
         for stem in stems {
             let Some(stem_obj) = stem.as_object() else {
                 continue;
             };
+            let stem_role = stem_obj
+                .get("role")
+                .or_else(|| stem_obj.get("stem"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let stem_path = stem_obj.get("path").and_then(|v| v.as_str()).unwrap_or("");
 
             if !stem_path.ends_with(".wav") {
@@ -167,6 +193,27 @@ pub fn check(document: &Loose, report: &mut Report) {
 
             if !paths_seen.insert(stem_path.to_string()) {
                 report.push(at("E-STEM-PATH-COLLISION").field("path", json!(stem_path)));
+            }
+
+            let count = match stem_role {
+                "dialogue" | "voiceover" | "music" | "sfx" | "foley" => audible_elements
+                    .iter()
+                    .filter(|(r, _)| *r == stem_role)
+                    .count(),
+                "m_and_e" => audible_elements
+                    .iter()
+                    .filter(|(r, _)| *r != "dialogue" && *r != "voiceover")
+                    .count(),
+                "mix" => audible_elements.len(),
+                _ => 0,
+            };
+
+            if count == 0 {
+                report.push(
+                    at("E-STEM-ROLE-EMPTY")
+                        .field("path", json!(stem_path))
+                        .field("role", json!(stem_role)),
+                );
             }
         }
     }

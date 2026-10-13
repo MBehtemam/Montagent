@@ -73,6 +73,7 @@ fn range(from: i64, to: i64) -> Ask {
         no_clobber: false,
         progress_file: None,
         profile: false,
+        stems_only: false,
     }
 }
 
@@ -438,6 +439,7 @@ fn a_partial_render_derives_its_name_and_can_never_land_on_the_deliverable() {
                 no_clobber: false,
                 progress_file: None,
                 profile: false,
+                stems_only: false,
             },
         );
         assert_eq!(
@@ -465,6 +467,7 @@ fn a_partial_render_derives_its_name_and_can_never_land_on_the_deliverable() {
             no_clobber: false,
             progress_file: None,
             profile: false,
+            stems_only: false,
         },
     );
     assert_eq!(
@@ -492,6 +495,7 @@ fn a_range_is_both_flags_or_neither_and_is_half_open() {
             no_clobber: false,
             progress_file: None,
             profile: false,
+            stems_only: false,
         },
         Ask {
             from: None,
@@ -500,6 +504,7 @@ fn a_range_is_both_flags_or_neither_and_is_half_open() {
             no_clobber: false,
             progress_file: None,
             profile: false,
+            stems_only: false,
         },
         range(500, 500),
         range(600, 500),
@@ -1195,6 +1200,7 @@ fn the_whole_fixture_renders_to_its_declared_duration_with_every_narration_mixed
             no_clobber: false,
             progress_file: None,
             profile: false,
+            stems_only: false,
         }
     };
 

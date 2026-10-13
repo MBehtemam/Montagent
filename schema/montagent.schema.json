@@ -328,6 +328,9 @@
           "type": "integer",
           "format": "int64"
         },
+        "role": {
+          "$ref": "#/$defs/Role"
+        },
         "elements": {
           "type": "array",
           "items": {
@@ -341,6 +344,17 @@
         "elements"
       ],
       "description": "A named container holding elements, with an integer `layer` giving its place in the\nstack.\n\nA track supplies *stacking*, never *timing*: it has no start, no duration and no clock\n(ADR-0004). Array order carries no meaning, for timing or for stacking — ADR-0060\nconfirmed a layer tie is never broken by declaration order."
+    },
+    "Role": {
+      "type": "string",
+      "enum": [
+        "dialogue",
+        "voiceover",
+        "music",
+        "sfx",
+        "foley"
+      ],
+      "description": "Semantic audio role for stem partitioning: dialogue, voiceover, music, sfx, foley (ADR-0204)."
     },
     "Element": {
       "oneOf": [
@@ -554,6 +568,10 @@
             },
             "motion_blur": {
               "$ref": "#/$defs/MotionBlur"
+            },
+            "role": {
+              "description": "Semantic audio role for stem partitioning (ADR-0204).",
+              "$ref": "#/$defs/Role"
             },
             "speed": {
               "$ref": "#/$defs/Speed"
@@ -1209,6 +1227,10 @@
             "source_end": {
               "type": "integer",
               "format": "int64"
+            },
+            "role": {
+              "description": "Semantic audio role for stem partitioning (ADR-0204).",
+              "$ref": "#/$defs/Role"
             },
             "speed": {
               "$ref": "#/$defs/Speed"

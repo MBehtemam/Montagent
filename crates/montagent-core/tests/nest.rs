@@ -95,7 +95,10 @@ fn child_element_extending_before_nest_start_emits_temporal_bounds_error() {
     let report = validate(&path);
 
     assert!(
-        report.findings.iter().any(|f| f.code == "E-NEST-TEMPORAL-BOUNDS"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-NEST-TEMPORAL-BOUNDS"),
         "expected E-NEST-TEMPORAL-BOUNDS, got: {:?}",
         report.findings
     );
@@ -143,7 +146,10 @@ fn child_element_extending_past_nest_end_emits_temporal_bounds_error() {
     let report = validate(&path);
 
     assert!(
-        report.findings.iter().any(|f| f.code == "E-NEST-TEMPORAL-BOUNDS"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-NEST-TEMPORAL-BOUNDS"),
         "expected E-NEST-TEMPORAL-BOUNDS, got: {:?}",
         report.findings
     );
@@ -504,7 +510,10 @@ fn child_element_specifying_track_key_is_rejected_by_schema() {
     let report = validate(&path);
 
     assert!(
-        report.findings.iter().any(|f| f.code == "E-SCHEMA-UNKNOWN-KEY"),
+        report
+            .findings
+            .iter()
+            .any(|f| f.code == "E-SCHEMA-UNKNOWN-KEY"),
         "expected E-SCHEMA-UNKNOWN-KEY for track on child, got: {:?}",
         report.findings
     );
@@ -588,4 +597,3 @@ fn rendering_frame_with_nest_opacity_composites_onto_background() {
         center[2]
     );
 }
-

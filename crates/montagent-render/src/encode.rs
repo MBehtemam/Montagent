@@ -775,6 +775,147 @@ impl Drop for Deliverable {
     }
 }
 
+/// Specifications for exporting an audio stem (ADR-0204).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioStemSpec {
+    pub codec: String,
+    pub sample_rate: u32,
+    pub duration_ms: i64,
+}
+
+impl Default for AudioStemSpec {
+    fn default() -> Self {
+        Self {
+            codec: "pcm_s24le".to_string(),
+            sample_rate: 48000,
+            duration_ms: 0,
+        }
+    }
+}
+
+/// What an audio stem export came to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinishedAudio {
+    pub path: PathBuf,
+    pub bytes: u64,
+}
+
+/// Export an audio stem to a Broadcast WAV file using FFmpeg (ADR-0204).
+pub fn export_audio(
+    ffmpeg: &Path,
+    output: &Path,
+    audio: Option<&Audio>,
+    spec: &AudioStemSpec,
+) -> Result<FinishedAudio, String> {
+    let mut deliverable = Deliverable::begin(output)?;
+
+    let mut command = Command::new(ffmpeg);
+    command.arg("-y");
+
+    let script = if let Some(audio) = audio {
+        if !audio.inputs.is_empty() && !audio.graph.trim().is_empty() {
+            // Input 0: dummy null audio so graph input indices [1:a], [2:a] match exactly
+            command.args(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]);
+            for input in &audio.inputs {
+                command.arg("-i").arg(input);
+            }
+            let script_path = deliverable.sibling("montagent-stem-filtergraph");
+            if let Err(e) = std::fs::write(&script_path, &audio.graph) {
+                return Err(format!(
+                    "{} could not be written: {e}",
+                    script_path.display()
+                ));
+            }
+            command
+                .arg(crate::floor::FILTER_COMPLEX_FILE)
+                .arg(&script_path);
+            command.args(["-map", "[mix]"]);
+            Some(script_path)
+        } else {
+            let duration_sec = (spec.duration_ms.max(0) as f64) / 1000.0;
+            command.args([
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-t",
+                &format!("{:.3}", duration_sec),
+            ]);
+            None
+        }
+    } else {
+        let duration_sec = (spec.duration_ms.max(0) as f64) / 1000.0;
+        command.args([
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=stereo",
+            "-t",
+            &format!("{:.3}", duration_sec),
+        ]);
+        None
+    };
+
+    command.args([
+        "-vn",
+        "-c:a",
+        &spec.codec,
+        "-ar",
+        &spec.sample_rate.to_string(),
+        "-f",
+        "wav",
+    ]);
+    command.arg(deliverable.temp());
+
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            if let Some(script) = &script {
+                let _ = std::fs::remove_file(script);
+            }
+            return Err(format!("{} could not be run: {e}", ffmpeg.display()));
+        }
+    };
+
+    let mut stderr_output = String::new();
+    if let Some(mut err_pipe) = child.stderr.take() {
+        let _ = std::io::Read::read_to_string(&mut err_pipe, &mut stderr_output);
+    }
+
+    let status = match child.wait() {
+        Ok(status) => status,
+        Err(e) => {
+            if let Some(script) = &script {
+                let _ = std::fs::remove_file(script);
+            }
+            return Err(format!("ffmpeg process error: {e}"));
+        }
+    };
+
+    if let Some(script) = &script {
+        let _ = std::fs::remove_file(script);
+    }
+
+    if !status.success() {
+        return Err(format!(
+            "ffmpeg failed to export audio stem {}: {stderr_output}",
+            output.display()
+        ));
+    }
+
+    let bytes = std::fs::metadata(deliverable.temp())
+        .map(|m| m.len())
+        .unwrap_or(0);
+    let path = deliverable.commit()?;
+
+    Ok(FinishedAudio { path, bytes })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1098,5 +1239,30 @@ mod tests {
             .push(&[0u8; 16 * 16 * 4])
             .expect("valid 4-byte frame");
         drop(encoder);
+    }
+
+    #[test]
+    fn audio_stem_export_writes_broadcast_wav_and_silence_fallback() {
+        let Some(ffmpeg) = find_ffmpeg() else {
+            return;
+        };
+        let dir = scratch("audio-stem");
+        let target = dir.join("dx.wav");
+
+        let res = export_audio(
+            &ffmpeg,
+            &target,
+            None,
+            &AudioStemSpec {
+                codec: "pcm_s24le".to_string(),
+                sample_rate: 48000,
+                duration_ms: 1000,
+            },
+        )
+        .expect("exported audio stem");
+
+        assert_eq!(res.path, target);
+        assert!(res.bytes > 0);
+        assert!(target.exists());
     }
 }

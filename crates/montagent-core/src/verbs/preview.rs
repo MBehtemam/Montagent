@@ -300,6 +300,7 @@ pub fn preview_cancellable(
         // `preview` is not a deliverable and keeps no progress file (ADR-0192).
         progress_file: None,
         profile: false,
+        stems_only: false,
     };
     let range = match render::request(&asked) {
         Ok(range) => range,

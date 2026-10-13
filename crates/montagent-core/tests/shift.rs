@@ -594,7 +594,10 @@ fn safe_gap_closure_on_empty_interval_shifts_downstream_left() {
     assert_eq!(elements[0]["end"], 500);
 
     assert_eq!(elements[1]["id"], "a2");
-    assert_eq!(elements[1]["start"], 500, "a2 shifted left by 100 to close gap");
+    assert_eq!(
+        elements[1]["start"], 500,
+        "a2 shifted left by 100 to close gap"
+    );
     assert_eq!(elements[1]["end"], 900);
 }
 
@@ -673,4 +676,3 @@ fn ripple_delete_removes_wholly_contained_element_and_shifts_downstream() {
     assert_eq!(elements[1]["start"], 700);
     assert_eq!(elements[1]["end"], 1100);
 }
-
