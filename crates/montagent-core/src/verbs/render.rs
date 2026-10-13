@@ -2579,6 +2579,7 @@ fn lower_audio_member(name: &str, member: &Value) -> Option<String> {
     match name {
         "compressor" => lower_compressor(member),
         "limiter" => lower_limiter(member),
+        "gate" => lower_gate(member),
         _ => lower_eq(name, member),
     }
 }
@@ -2631,6 +2632,23 @@ fn lower_eq(name: &str, member: &Value) -> Option<String> {
             num("q")?,
             num("gain_db")?
         )),
+        "equalizer" => {
+            let filter = member.get("filter").and_then(Value::as_str)?;
+            let freq = num("frequency").or_else(|| num("frequency_hz"))?;
+            let q = num("q").unwrap_or(1.0);
+            let gain = num("gain_db").unwrap_or(0.0);
+            match filter {
+                "peaking" => Some(format!(
+                    "equalizer=f={freq}:width_type=q:width={q}:g={gain}"
+                )),
+                "lowshelf" => Some(format!("lowshelf=f={freq}:width_type=q:width={q}:g={gain}")),
+                "highshelf" => Some(format!(
+                    "highshelf=f={freq}:width_type=q:width={q}:g={gain}"
+                )),
+                "bandpass" => Some(format!("bandpass=f={freq}:width_type=q:width={q}")),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -2647,6 +2665,7 @@ fn linear_db(db: f64) -> String {
 /// `acompressor`'s own floor and what a non-negative `makeup_db` already guarantees.
 fn lower_compressor(member: &Value) -> Option<String> {
     let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    let makeup = key("makeup_db").or_else(|| key("makeup_gain_db"))?;
     Some(format!(
         "acompressor=threshold={}:ratio={}:attack={}:release={}:makeup={}:knee=1:detection=rms:\
          link=average",
@@ -2654,7 +2673,18 @@ fn lower_compressor(member: &Value) -> Option<String> {
         ratio(key("ratio")?),
         ratio(key("attack_ms")?),
         ratio(key("release_ms")?),
-        linear_db(key("makeup_db")?.max(0.0)),
+        linear_db(makeup.max(0.0)),
+    ))
+}
+
+/// ADR-0207: `agate` with downward attenuation below threshold.
+fn lower_gate(member: &Value) -> Option<String> {
+    let key = |name: &str| member.get(name).and_then(Value::as_f64);
+    Some(format!(
+        "agate=threshold={}:attack={}:release={}:detection=rms:link=average",
+        linear_db(key("threshold_db")?),
+        ratio(key("attack_ms")?),
+        ratio(key("release_ms")?),
     ))
 }
 
@@ -3521,6 +3551,61 @@ mod tests {
                 acompressor=threshold=0.063095734:ratio=3:attack=20:release=250:\
                 makeup=1.584893192:knee=1:detection=rms:link=average,\
                 alimiter=limit=0.707945784:attack=5:release=50:asc=0:level=0:latency=1"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_gate_lowers_to_agate_in_linear_units() {
+        let member =
+            json!({"name": "gate", "threshold_db": -24, "attack_ms": 10, "release_ms": 100});
+        assert_eq!(
+            lower_audio_member("gate", &member),
+            Some(
+                "agate=threshold=0.063095734:attack=10:release=100:detection=rms:link=average"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn an_equalizer_lowers_to_biquad_filters() {
+        let peaking = json!({"name": "equalizer", "filter": "peaking", "frequency": 1000, "gain_db": 6, "q": 1.4});
+        assert_eq!(
+            lower_audio_member("equalizer", &peaking),
+            Some("equalizer=f=1000:width_type=q:width=1.4:g=6".to_string())
+        );
+
+        let lowshelf = json!({"name": "equalizer", "filter": "lowshelf", "frequency_hz": 120, "gain_db": -3, "q": 0.7});
+        assert_eq!(
+            lower_audio_member("equalizer", &lowshelf),
+            Some("lowshelf=f=120:width_type=q:width=0.7:g=-3".to_string())
+        );
+
+        let highshelf =
+            json!({"name": "equalizer", "filter": "highshelf", "frequency": 8000, "gain_db": 4});
+        assert_eq!(
+            lower_audio_member("equalizer", &highshelf),
+            Some("highshelf=f=8000:width_type=q:width=1:g=4".to_string())
+        );
+
+        let bandpass =
+            json!({"name": "equalizer", "filter": "bandpass", "frequency": 500, "q": 2.5});
+        assert_eq!(
+            lower_audio_member("equalizer", &bandpass),
+            Some("bandpass=f=500:width_type=q:width=2.5".to_string())
+        );
+    }
+
+    #[test]
+    fn a_compressor_accepts_makeup_gain_db_alias() {
+        let member = json!({"name": "compressor", "threshold_db": -20, "ratio": 4, "attack_ms": 15, "release_ms": 150, "makeup_gain_db": 3});
+        assert_eq!(
+            lower_audio_member("compressor", &member),
+            Some(
+                "acompressor=threshold=0.1:ratio=4:attack=15:release=150:\
+                 makeup=1.412537545:knee=1:detection=rms:link=average"
                     .to_string()
             )
         );

@@ -87,6 +87,7 @@ pub enum AudioEffect {
         /// Envelope release in ms. 1..9000.
         release_ms: f64,
         /// Make-up gain in dB. 0..24.
+        #[serde(alias = "makeup_gain_db")]
         makeup_db: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enabled: Option<bool>,
@@ -116,6 +117,51 @@ pub enum AudioEffect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         enabled: Option<bool>,
     },
+    /// A noise gate (ADR-0207): `agate` with downward attenuation below threshold.
+    Gate {
+        /// Signal level in dBFS below which the gate closes. -70..0.
+        threshold_db: f64,
+        /// Envelope attack in ms. 0.01..1000.
+        attack_ms: f64,
+        /// Envelope release in ms. 1..9000.
+        release_ms: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled: Option<bool>,
+    },
+    /// A parametric equalizer band (ADR-0207): lowshelf, highshelf, peaking, or bandpass.
+    Equalizer {
+        filter: EqualizerFilter,
+        #[serde(alias = "frequency_hz")]
+        frequency: f64,
+        #[serde(default, skip_serializing_if = "is_zero_f64")]
+        gain_db: f64,
+        #[serde(default = "default_eq_q", skip_serializing_if = "is_default_q")]
+        q: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        enabled: Option<bool>,
+    },
+}
+
+fn default_eq_q() -> f64 {
+    1.0
+}
+
+fn is_default_q(v: &f64) -> bool {
+    (*v - 1.0).abs() < 1e-6
+}
+
+fn is_zero_f64(v: &f64) -> bool {
+    v.abs() < 1e-6
+}
+
+/// The filter shape of a parametric equalizer band (ADR-0207).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EqualizerFilter {
+    Lowshelf,
+    Highshelf,
+    Peaking,
+    Bandpass,
 }
 
 /// Which end of the spectrum a `shelf` lifts or cuts.

@@ -100,6 +100,7 @@
 
 use std::path::Path as FilePath;
 
+use montagent_render::canvas::Canvas;
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -113,6 +114,7 @@ use crate::model::Origin;
 use crate::parse;
 use crate::permissive::Loose;
 use crate::report::Report;
+use crate::verbs::frame::{Painter, PerFrame};
 
 const TOOL: &str = "measure";
 
@@ -139,6 +141,8 @@ pub struct Ask {
     /// on, fed through the same engine `elements` uses (#317). Mutually exclusive with
     /// `element`, `at` and `elements`.
     pub all: bool,
+    /// Perceptual diagnostic visual and audio scopes (ADR-0207).
+    pub scopes: bool,
 }
 
 /// One `measure` invocation's answer: what the text occupies, and the report every verb
@@ -184,6 +188,44 @@ pub enum View {
     Batch(Batch),
     /// What an element's key does to its own pixels, frame by frame (ADR-0088).
     Coverage(crate::verbs::keyed::Coverage),
+    /// Perceptual diagnostic visual and audio scopes (ADR-0207).
+    Scopes(Box<ScopesReading>),
+}
+
+/// Diagnostic scopes reading for a timeline frame and audio mix (ADR-0207).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ScopesReading {
+    pub at_ms: i64,
+    pub visual_scopes: VisualScopes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_scopes: Option<AudioScopes>,
+}
+
+/// Visual diagnostic scopes computed across a rendered raster frame.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct VisualScopes {
+    pub histogram: ColorHistogram,
+    pub vectorscope: Vec<Vec<u32>>,
+}
+
+/// 256-bin channel histograms for luma and primary RGB channels.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ColorHistogram {
+    pub luma: Vec<u32>,
+    pub red: Vec<u32>,
+    pub green: Vec<u32>,
+    pub blue: Vec<u32>,
+}
+
+/// Audio perceptual loudness and peak measurements (ITU-R BS.1770-4 / EBU R128).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct AudioScopes {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub integrated_lufs: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub true_peak_db: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loudness_range_lu: Option<f64>,
 }
 
 /// The ordered answer to a batch call: one slot per input element, in input order.
@@ -351,20 +393,25 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
         }
     };
 
-    // Which one question this call is asking — batch or not, `element` or not, `at` or not.
+    // Which one question this call is asking — batch or not, `element` or not, `at` or not, `scopes` or not.
     // Mutually exclusive with each other, `element`/`at`'s own existing rule extended to the
-    // two new modes rather than replaced (#317).
+    // new modes rather than replaced (#317, ADR-0207).
     let named = usize::from(ask.element.is_some())
-        + usize::from(ask.at.is_some())
+        + usize::from(ask.at.is_some() && !ask.scopes)
         + usize::from(ask.elements.is_some())
-        + usize::from(ask.all);
+        + usize::from(ask.all)
+        + usize::from(ask.scopes);
     if named > 1 {
         return rejected(
             project,
-            "`measure` takes exactly one of an element, `--at`, `--elements` or `--all`: \
+            "`measure` takes exactly one of an element, `--at`, `--elements`, `--all` or `--scopes`: \
              they are different questions and a call naming more than one does not say \
              which it is asking",
         );
+    }
+
+    if ask.scopes {
+        return scopes(&document, project, ask.at.unwrap_or(0));
     }
 
     if let Some(elements) = &ask.elements {
@@ -391,10 +438,11 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
         (None, None) => {
             return rejected(
                 project,
-                "`measure` needs an element, `--at`, `--elements` or `--all`: pass the text \
+                "`measure` needs an element, `--at`, `--elements`, `--all` or `--scopes`: pass the text \
                  element as JSON, the same shape you are about to write into the file, an \
                  array of them, a time to resolve against the project's frame grid \
-                 (ADR-0035), or ask for every text element the project already has",
+                 (ADR-0035), ask for every text element the project already has, or inspect \
+                 visual and audio scopes",
             );
         }
     };
@@ -603,6 +651,136 @@ fn by_instant(document: &Loose, project: Option<String>, at: i64) -> Answer {
         })),
         report: Report::new(TOOL, project),
     }
+}
+
+fn scopes(document: &Loose, project: Option<String>, at_ms: i64) -> Answer {
+    let mut report = Report::new(TOOL, project.clone());
+
+    if let Err(not_a_project) = document.shape() {
+        report.push(Finding::not_a_project(
+            document.path(),
+            &not_a_project,
+            "point measure at the project file",
+        ));
+        return Answer { view: None, report };
+    }
+
+    let Some((frame_width, frame_height)) = crate::verbs::query::at::frame_dimensions(document)
+    else {
+        report.fail_internally("project states no valid frame dimensions");
+        return Answer { view: None, report };
+    };
+
+    let Some(mut canvas) = Canvas::new(frame_width, frame_height) else {
+        report.fail_internally(format!(
+            "no raster surface could be made at {frame_width}x{frame_height}"
+        ));
+        return Answer { view: None, report };
+    };
+
+    let view = match crate::verbs::query::at::answer(document, at_ms) {
+        Ok(view) => view,
+        Err(reason) => {
+            report.fail_internally(reason);
+            return Answer { view: None, report };
+        }
+    };
+
+    let mut painter = Painter::new(
+        document,
+        at_ms,
+        (frame_width, frame_height),
+        Box::new(PerFrame::default()),
+    );
+    painter.paint(&mut canvas, &view);
+
+    let Some(rgba) = canvas.rgba() else {
+        report.fail_internally("failed to read pixels from canvas");
+        return Answer { view: None, report };
+    };
+
+    let mut luma = vec![0u32; 256];
+    let mut red = vec![0u32; 256];
+    let mut green = vec![0u32; 256];
+    let mut blue = vec![0u32; 256];
+    let mut vectorscope = vec![vec![0u32; 64]; 64];
+
+    for chunk in rgba.chunks_exact(4) {
+        let r = chunk[0];
+        let g = chunk[1];
+        let b = chunk[2];
+        let a = chunk[3];
+
+        let (r_val, g_val, b_val) = if a == 255 {
+            (r, g, b)
+        } else if a > 0 {
+            (
+                ((r as u32 * 255) / a as u32).min(255) as u8,
+                ((g as u32 * 255) / a as u32).min(255) as u8,
+                ((b as u32 * 255) / a as u32).min(255) as u8,
+            )
+        } else {
+            (0, 0, 0)
+        };
+
+        red[r_val as usize] += 1;
+        green[g_val as usize] += 1;
+        blue[b_val as usize] += 1;
+
+        // Rec. 709 luma Y = 0.2126*R + 0.7152*G + 0.0722*B
+        let y = (0.2126 * r_val as f64 + 0.7152 * g_val as f64 + 0.0722 * b_val as f64).round()
+            as usize;
+        let y_bin = y.min(255);
+        luma[y_bin] += 1;
+
+        // Rec. 709 Cb and Cr
+        let cb =
+            128.0 - 0.114572 * r_val as f64 - 0.385428 * g_val as f64 + 0.500000 * b_val as f64;
+        let cr =
+            128.0 + 0.500000 * r_val as f64 - 0.454153 * g_val as f64 - 0.045847 * b_val as f64;
+
+        let cb_bin = ((cb / 4.0).floor() as usize).min(63);
+        let cr_bin = ((cr / 4.0).floor() as usize).min(63);
+
+        vectorscope[cr_bin][cb_bin] += 1;
+    }
+
+    let visual_scopes = VisualScopes {
+        histogram: ColorHistogram {
+            luma,
+            red,
+            green,
+            blue,
+        },
+        vectorscope,
+    };
+
+    let audio_scopes = compute_audio_scopes(document);
+
+    Answer {
+        view: Some(View::Scopes(Box::new(ScopesReading {
+            at_ms,
+            visual_scopes,
+            audio_scopes,
+        }))),
+        report,
+    }
+}
+
+fn compute_audio_scopes(document: &Loose) -> Option<AudioScopes> {
+    let end = crate::exact::extent(document).unwrap_or(0);
+    if end <= 0 {
+        return None;
+    }
+    let tools = crate::media::tools::resolve().ok()?;
+    let (inputs, graph) =
+        crate::verbs::render::mix_audio(FilePath::new(document.path()), 0, end).ok()??;
+    let summary = crate::media::loudness::of_graph(&tools.ffmpeg, &inputs, &graph).ok()?;
+    Some(AudioScopes {
+        integrated_lufs: summary.integrated,
+        true_peak_db: summary.true_peak,
+        loudness_range_lu: summary.loudness_range,
+    })
 }
 
 impl Text {

@@ -33,6 +33,12 @@ const COMPRESSOR: &[Bound] = &[
 
 const LIMITER: &[Bound] = &[("ceiling_db", -24.0, 0.0), ("release_ms", 1.0, 1000.0)];
 
+const GATE: &[Bound] = &[
+    ("threshold_db", -70.0, 0.0),
+    ("attack_ms", 0.01, 1000.0),
+    ("release_ms", 1.0, 9000.0),
+];
+
 /// The gap ADR-0174 allows between a sample-peak ceiling and the master's true-peak one.
 const MASTER_GAP_DB: f64 = 1.0;
 
@@ -53,6 +59,13 @@ fn name_of(member: &Value) -> Option<&str> {
 fn number(member: &Value, key: &str) -> Option<f64> {
     member
         .get(key)
+        .or_else(|| {
+            if key == "makeup_db" {
+                member.get("makeup_gain_db")
+            } else {
+                None
+            }
+        })
         .and_then(Value::as_f64)
         .filter(|v| v.is_finite())
 }
@@ -101,6 +114,7 @@ pub(crate) fn findings(document: &Loose) -> Vec<Finding> {
             let bounds = match name {
                 "compressor" => COMPRESSOR,
                 "limiter" => LIMITER,
+                "gate" => GATE,
                 _ => continue,
             };
             for &(key, min, max) in bounds {

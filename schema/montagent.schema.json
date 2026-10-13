@@ -3700,6 +3700,75 @@
             "release_ms"
           ],
           "description": "Look-ahead limiter (ADR-0180): `alimiter` with a fixed 5 ms look-ahead.\n\nEvery key is required and none defaults. `ceiling_db` is a sample peak; the delivered\nfile's true-peak ceiling is the master's."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "threshold_db": {
+              "type": "number",
+              "format": "double",
+              "description": "Signal level in dBFS below which the gate closes. -70..0."
+            },
+            "attack_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Envelope attack in ms. 0.01..1000."
+            },
+            "release_ms": {
+              "type": "number",
+              "format": "double",
+              "description": "Envelope release in ms. 1..9000."
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "gate"
+            }
+          },
+          "required": [
+            "name",
+            "threshold_db",
+            "attack_ms",
+            "release_ms"
+          ],
+          "description": "A noise gate (ADR-0207): `agate` with downward attenuation below threshold."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "filter": {
+              "$ref": "#/$defs/EqualizerFilter"
+            },
+            "frequency": {
+              "type": "number",
+              "format": "double"
+            },
+            "gain_db": {
+              "type": "number",
+              "format": "double"
+            },
+            "q": {
+              "type": "number",
+              "format": "double"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string",
+              "const": "equalizer"
+            }
+          },
+          "required": [
+            "name",
+            "filter",
+            "frequency"
+          ],
+          "description": "A parametric equalizer band (ADR-0207): lowshelf, highshelf, peaking, or bandpass."
         }
       ],
       "description": "One member of the closed audio-effect vocabulary, discriminated by `name`.\n\nTwo members of the same name are ordinary unless the member's own ADR declares it singular\n(ADR-0169)."
@@ -3718,6 +3787,16 @@
         }
       ],
       "description": "Which end of the spectrum a `shelf` lifts or cuts."
+    },
+    "EqualizerFilter": {
+      "type": "string",
+      "enum": [
+        "lowshelf",
+        "highshelf",
+        "peaking",
+        "bandpass"
+      ],
+      "description": "The filter shape of a parametric equalizer band (ADR-0207)."
     },
     "Paint": {
       "anyOf": [
