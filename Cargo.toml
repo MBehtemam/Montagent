@@ -4,6 +4,7 @@ members = [
     "crates/montagent-core",
     "crates/montagent-text",
     "crates/montagent-render",
+    "crates/montagent-interchange",
     "crates/montagent",
     # ADR-0010 requires the two-arm harness to stay in-tree as the correctness
     # oracle and golden-frame guard, and #168 names its path. It is a member so
@@ -36,6 +37,7 @@ readme = "README.md"
 montagent-core = { path = "crates/montagent-core", version = "0.2.2" }
 montagent-text = { path = "crates/montagent-text", version = "0.2.2" }
 montagent-render = { path = "crates/montagent-render", version = "0.2.2" }
+montagent-interchange = { path = "crates/montagent-interchange", version = "0.2.2" }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
