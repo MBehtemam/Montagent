@@ -105,6 +105,8 @@ impl Rgba {
     /// [#274](https://github.com/MBehtemam/Montagent/issues/274) rather than left to be
     /// discovered from the code.
     pub const BLACK: Rgba = Rgba([0x00, 0x00, 0x00, 0xFF]);
+    /// Fully transparent black — what a project with alpha: true is cleared to when no background is declared (ADR-0203).
+    pub const TRANSPARENT: Rgba = Rgba([0x00, 0x00, 0x00, 0x00]);
 
     fn colour(self) -> Color {
         let [r, g, b, a] = self.0;

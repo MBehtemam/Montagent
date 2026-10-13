@@ -1,7 +1,7 @@
 //! Output deliverable validation (ADR-0202, ADR-0203, ADR-0204).
 
-use std::collections::HashSet;
 use serde_json::json;
+use std::collections::HashSet;
 
 use crate::finding::Finding;
 use crate::model::output::infer_container;
@@ -95,8 +95,18 @@ pub fn check(document: &Loose, report: &mut Report) {
                     }
                 }
                 "dnxhr" => {
-                    const DNXHR_PROFILES: &[&str] =
-                        &["dnxhr_lb", "dnxhr_sq", "dnxhr_hq", "dnxhr_hqx", "dnxhr_444"];
+                    const DNXHR_PROFILES: &[&str] = &[
+                        "dnxhr_lb",
+                        "lb",
+                        "dnxhr_sq",
+                        "sq",
+                        "dnxhr_hq",
+                        "hq",
+                        "dnxhr_hqx",
+                        "hqx",
+                        "dnxhr_444",
+                        "444",
+                    ];
                     if !DNXHR_PROFILES.contains(&prof) {
                         report.push(
                             at("E-CODEC-PROFILE-INVALID")
@@ -132,7 +142,10 @@ pub fn check(document: &Loose, report: &mut Report) {
                 }
             } else {
                 // ProRes with no profile defaults to standard (422), which does not support alpha
-                report.push(at("E-CODEC-ALPHA-UNSUPPORTED").field("codec", json!("prores (profile unstated)")));
+                report.push(
+                    at("E-CODEC-ALPHA-UNSUPPORTED")
+                        .field("codec", json!("prores (profile unstated)")),
+                );
             }
         }
     }
