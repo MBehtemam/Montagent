@@ -314,6 +314,12 @@ enum Command {
         /// channel histograms, 64x64 vectorscope chroma density, and audio loudness.
         #[arg(long)]
         scopes: bool,
+        /// Emit word-level and annotation-level canvas-space layout geometry (ADR-0213 §2).
+        #[arg(long)]
+        layout: bool,
+        /// Resolve arbitrary character or phrase ranges into per-line bounding boxes (ADR-0213 §3).
+        #[arg(long, value_name = "JSON")]
+        ranges: Option<String>,
         /// Print the canonical JSON *instead of* the text answer, never alongside it.
         #[arg(long)]
         json: bool,
@@ -932,6 +938,8 @@ where
             elements,
             all,
             scopes,
+            layout,
+            ranges,
             json,
         } => {
             // `--verbose` is deliberately absent, so `false` here is the only form there is
@@ -969,12 +977,30 @@ where
                 },
                 None => None,
             };
+            let ranges = match ranges {
+                Some(ranges) => match serde_json::from_str::<
+                    Vec<montagent_core::verbs::measure::RangeSpec>,
+                >(&ranges)
+                {
+                    Ok(ranges) => Some(ranges),
+                    Err(e) => {
+                        let report = Report::bad_invocation(format!(
+                            "`--ranges` is not a valid JSON array of range specs: {e}"
+                        ));
+                        eprint!("{}", montagent_core::wire::render(&report, PLAIN));
+                        return exit_code(&report);
+                    }
+                },
+                None => None,
+            };
             let ask = montagent_core::verbs::measure::Ask {
                 element,
                 at,
                 elements,
                 all,
                 scopes,
+                layout,
+                ranges,
             };
             match run_verb(|| montagent_core::verbs::measure::measure(&project, &ask)) {
                 Ok(answer) => {
@@ -1396,12 +1422,14 @@ where
                     frame_rate,
                 )
                 .map_err(|e| e.to_string()),
-                "otio" => montagent_interchange::otio_to_project(&content)
-                    .map_err(|e| e.to_string()),
+                "otio" => {
+                    montagent_interchange::otio_to_project(&content).map_err(|e| e.to_string())
+                }
                 "edl" => montagent_interchange::edl_to_project(&content, frame_rate)
                     .map_err(|e| e.to_string()),
-                "fcpxml" => montagent_interchange::fcpxml_to_project(&content)
-                    .map_err(|e| e.to_string()),
+                "fcpxml" => {
+                    montagent_interchange::fcpxml_to_project(&content).map_err(|e| e.to_string())
+                }
                 other => {
                     let report = Report::bad_invocation(format!(
                         "unsupported or unrecognized import format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"
@@ -1511,12 +1539,12 @@ where
                     montagent_interchange::SubtitleFormat::Vtt,
                 )
                 .map_err(|e| e.to_string()),
-                "otio" => montagent_interchange::project_to_otio(&proj)
-                    .map_err(|e| e.to_string()),
+                "otio" => montagent_interchange::project_to_otio(&proj).map_err(|e| e.to_string()),
                 "edl" => montagent_interchange::project_to_edl(&proj, "Montagent Export")
                     .map_err(|e| e.to_string()),
-                "fcpxml" => montagent_interchange::project_to_fcpxml(&proj)
-                    .map_err(|e| e.to_string()),
+                "fcpxml" => {
+                    montagent_interchange::project_to_fcpxml(&proj).map_err(|e| e.to_string())
+                }
                 other => {
                     let report = Report::bad_invocation(format!(
                         "unsupported export format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"

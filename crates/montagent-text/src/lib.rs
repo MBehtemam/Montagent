@@ -52,7 +52,10 @@ pub mod spacing;
 pub mod units;
 
 pub use breaks::{SEGMENTER, Segmenter};
-pub use engine::{Dir, Extent, MeasuredLine, Measurement, Run, Spec, VerticalOrigin, measure};
+pub use engine::{
+    Annotation, AnnotationAlign, AnnotationPosition, Dir, Extent, MeasuredAnnotation, MeasuredLine,
+    Measurement, Run, Spec, VerticalOrigin, measure,
+};
 pub use fonts::{FontError, FontFile, Fonts};
 pub use glyphs::Charmap;
 pub use ink::InkSeam;

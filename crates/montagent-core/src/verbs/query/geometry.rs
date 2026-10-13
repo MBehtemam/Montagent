@@ -533,6 +533,14 @@ pub fn ink_box(
         ink_top = ink_top.min(line.baseline_y - line.ascent - stroke);
         ink_bottom = ink_bottom.max(line.baseline_y + line.descent + stroke);
     }
+    for ann in &measured.annotations {
+        let left = block_left + ann.x;
+        let right = left + ann.advance_width;
+        ink_left = ink_left.min(left);
+        ink_right = ink_right.max(right);
+        ink_top = ink_top.min(ann.baseline_y - ann.ascent);
+        ink_bottom = ink_bottom.max(ann.baseline_y + ann.descent);
+    }
 
     Ok(InkBox {
         x: ink_left,

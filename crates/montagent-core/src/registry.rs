@@ -3829,6 +3829,32 @@ lower `ceiling_dbtp` by about the overshoot and render again.",
         census: None,
         sets: &[Deliverable],
     },
+    // ---- Ruby line annotations (ADR-0208). -------------------------------------------------
+    CheckSpec {
+        code: "R-ANNOTATION-OVERLAP",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0208",
+        template: "{element}: on line {line} ({position}, tier {tier}), annotation \"{first}\" \
+overlaps annotation \"{second}\" by {overlap} px. Move one annotation to a higher `tier` or \
+shorten the gloss text.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
+    CheckSpec {
+        code: "R-ANNOTATION-OVERHANG",
+        classes: &[Review],
+        repair: None,
+        threshold: Internal,
+        adr: "ADR-0208",
+        template: "{element}.runs[{run}]: annotation \"{text}\" overhangs its base run by \
+{overhang} px, exceeding the allowed overhang of {allowed} px.",
+        status: Live,
+        census: None,
+        sets: &[Document],
+    },
 ];
 
 impl CheckSpec {

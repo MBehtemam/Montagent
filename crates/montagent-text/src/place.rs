@@ -108,10 +108,15 @@ pub struct Cluster {
     pub text: Option<std::ops::Range<usize>>,
     /// Which line of the block.
     pub line: usize,
+    /// Which of the element's runs (`0..runs.len()`) this cluster belongs to.
+    pub run: usize,
     /// Its left edge in the block's own coordinates, letter spacing included, and its own
     /// advance **without** the added spacing.
     pub x: f64,
     pub advance: f64,
+    /// Tight glyph ink box `[x0, y0, x1, y1]` in block-local coordinates, or `None` for
+    /// uninked clusters (such as whitespace).
+    pub ink: Option<[f64; 4]>,
     /// The ligature group it belongs to, numbered across the element: a ligature start and
     /// its components, whose one glyph is the start's. A group may span graphemes — that is
     /// a shaping merge.
@@ -129,6 +134,8 @@ pub struct Placement {
     pub width: f64,
     pub height: f64,
     pub glyphs: Vec<Glyph>,
+    /// Glyphs belonging to run-level annotations (ADR-0208), placed in block-local coordinates.
+    pub annotation_glyphs: Vec<Glyph>,
     /// Each distinct outline, already scaled to its glyph's `size` in element space.
     pub outlines: Vec<Vec<PathEl>>,
     /// Every shaping cluster, line by line, in visual order.
@@ -153,6 +160,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
     let mut outlines: Vec<Vec<PathEl>> = Vec::new();
     let mut seen: HashMap<(usize, u32, u32, u32), usize> = HashMap::new();
     let mut glyphs = Vec::new();
+    let mut annotation_glyphs = Vec::new();
     let mut clusters: Vec<Cluster> = Vec::new();
     let mut groups = 0;
 
@@ -170,8 +178,10 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
             clusters.push(Cluster {
                 text: text.clone(),
                 line: index,
+                run: 0,
                 x: dx + cluster.x + cluster.shift,
                 advance: cluster.advance,
+                ink: None,
                 ligature: cluster.ligature.map(|group| first_group + group),
             });
         }
@@ -201,6 +211,10 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                         outlines.push(outline_of(data, font.index, glyph.id, size));
                         outlines.len() - 1
                     });
+                    let cluster_idx = first_cluster + owners.next().unwrap_or(0);
+                    if let Some(c) = clusters.get_mut(cluster_idx) {
+                        c.run = which;
+                    }
                     glyphs.push(Glyph {
                         x: dx + f64::from(glyph.x) + shifts.next().unwrap_or(0.0),
                         // parley's `y` is the baseline of its own one-line layout; this
@@ -209,8 +223,73 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
                         y: baseline + f64::from(glyph.y - placed.metrics().baseline),
                         run: which,
                         outline,
-                        cluster: first_cluster + owners.next().unwrap_or(0),
+                        cluster: cluster_idx,
                     });
+                }
+            }
+        }
+
+        if let Some(ink) = &shaped.ink {
+            for g in &ink.glyphs {
+                if let Some(&c_rel) = shaped.glyph_clusters.get(g.index) {
+                    let c_idx = first_cluster + c_rel;
+                    if let Some(c) = clusters.get_mut(c_idx) {
+                        let g_box = [dx + g.x0, baseline + g.top, dx + g.x1, baseline + g.bottom];
+                        c.ink = Some(match c.ink {
+                            Some(prev) => [
+                                prev[0].min(g_box[0]),
+                                prev[1].min(g_box[1]),
+                                prev[2].max(g_box[2]),
+                                prev[3].max(g_box[3]),
+                            ],
+                            None => g_box,
+                        });
+                    }
+                }
+            }
+        }
+        let line_cluster_end = clusters.len();
+        for c_idx in first_cluster..line_cluster_end {
+            if let Some(group) = clusters[c_idx].ligature
+                && clusters[c_idx].ink.is_none()
+                && let Some((lig_ink, lig_run)) = clusters[first_cluster..line_cluster_end]
+                    .iter()
+                    .find(|other| other.ligature == Some(group) && other.ink.is_some())
+                    .and_then(|other| other.ink.map(|ink| (ink, other.run)))
+            {
+                clusters[c_idx].ink = Some(lig_ink);
+                clusters[c_idx].run = lig_run;
+            }
+        }
+
+        for shaped_ann in &shaped.annotations {
+            let ann = &measurement.annotations[shaped_ann.annotation];
+            let ann_dx = ann.x;
+            let ann_baseline = ann.baseline_y - block_top;
+            let mut ann_shifts = shaped_ann.shifts.iter().copied();
+            for placed in shaped_ann.layout.lines() {
+                for item in placed.items() {
+                    let PositionedLayoutItem::GlyphRun(run) = item else {
+                        continue;
+                    };
+                    let font = run.run().font().clone();
+                    let size = run.run().font_size();
+                    let data = font.data.as_ref();
+                    let key_font = data.as_ptr() as usize;
+                    for glyph in run.positioned_glyphs() {
+                        let key = (key_font, font.index, glyph.id, size.to_bits());
+                        let outline = *seen.entry(key).or_insert_with(|| {
+                            outlines.push(outline_of(data, font.index, glyph.id, size));
+                            outlines.len() - 1
+                        });
+                        annotation_glyphs.push(Glyph {
+                            x: ann_dx + f64::from(glyph.x) + ann_shifts.next().unwrap_or(0.0),
+                            y: ann_baseline + f64::from(glyph.y - placed.metrics().baseline),
+                            run: ann.run,
+                            outline,
+                            cluster: 0,
+                        });
+                    }
                 }
             }
         }
@@ -221,6 +300,7 @@ pub fn place(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Placement, FontError>
         width: block_width,
         height,
         glyphs,
+        annotation_glyphs,
         outlines,
         clusters,
     })

@@ -37,6 +37,7 @@ fn shaped_width(text: &str, size: i64) -> f64 {
         size: None,
         stroke_width: None,
         dir: None,
+        annotation: None,
     }];
     measure(
         &mut chrome::fonts(),
@@ -180,6 +181,7 @@ fn a_character_outside_the_face_draws_a_visible_replacement_glyph() {
         size: None,
         stroke_width: None,
         dir: None,
+        annotation: None,
     }];
     let placement = place(
         &mut chrome::fonts(),

@@ -56,7 +56,12 @@ pub use playback::{AudioOverrun, SourceTime, Speed, Volume};
 pub use rates::FrameRate;
 pub use role::Role;
 pub use stroke::{DashPattern, MiterLimit, StrokeCap, StrokeJoin, TrimFraction};
-pub use text::{Align, Dir, Highlight, Run, UnitBy, UnitOrder, UnitOverride, Units};
+pub use text::{
+    Align, Annotation, AnnotationAlign, AnnotationOverhang, AnnotationOverhangMode,
+    AnnotationPosition, Decoration, DecorationBreak, DecorationKind, DecorationPadding,
+    DecorationWindow, Dir, EdgePadding, Highlight, Run, SymmetricPadding, UnitBy, UnitOrder,
+    UnitOverride, Units,
+};
 
 /// `[sx, sy]`, never a bare number.
 ///

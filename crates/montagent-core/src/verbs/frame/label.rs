@@ -219,6 +219,7 @@ pub(super) fn draw(
         size: None,
         stroke_width: None,
         dir: None,
+        annotation: None,
     }];
     let placement = montagent_text::place(
         fonts,
@@ -260,6 +261,7 @@ pub(super) fn draw(
     sheet.text(
         &glyphs,
         &outlines,
+        &[],
         Extent {
             width: placement.width,
             height: placement.height,

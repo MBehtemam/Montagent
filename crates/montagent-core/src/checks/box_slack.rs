@@ -49,9 +49,12 @@ pub fn check(document: &Loose, report: &mut Report) {
 
     for (track, element) in document.elements_in_tracks() {
         // A text on a path's box frames its curve, and line count × size × line height
-        // measures nothing on a curve (ADR-0161 §7).
+        // measures nothing on a curve (ADR-0161 §7). Likewise, ruby annotations inflate
+        // line slots using the shaped face's ascent and descent (ADR-0208 §2), which this
+        // font-free arithmetic check does not read.
         if element.get("type").and_then(Value::as_str) != Some("text")
             || crate::text_path::carries_path(element)
+            || carries_annotation(element)
         {
             continue;
         }
@@ -65,6 +68,13 @@ pub fn check(document: &Loose, report: &mut Report) {
         }
         report.push(finding);
     }
+}
+
+fn carries_annotation(element: &Value) -> bool {
+    element
+        .get("runs")
+        .and_then(Value::as_array)
+        .is_some_and(|runs| runs.iter().any(|run| run.get("annotation").is_some()))
 }
 
 /// Every element's declared `height`, by subject, in document order — the pool the

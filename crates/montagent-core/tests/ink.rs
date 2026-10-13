@@ -464,3 +464,89 @@ fn a_comfortable_block_that_a_whole_line_seam_would_have_flagged_is_silent() {
     // ordinary `line_height` no author would question.
     assert!(findings_for(&[text("body", 55, "1.2", "g        x\nx        l")]).is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// `R-ANNOTATION-OVERLAP` and `R-ANNOTATION-OVERHANG` (ADR-0208 §3.4).
+// ---------------------------------------------------------------------------
+
+#[track_caller]
+fn all_ink_findings_for(elements: &[Value]) -> Vec<Finding> {
+    let path = project(elements, std::panic::Location::caller().line());
+    let document = parse::read(&path).expect("the project parses");
+    let mut report = Report::new("validate", Some(document.path().to_string()));
+    montagent_core::checks::ink::check(&document, &mut report);
+    report.findings
+}
+
+#[test]
+fn same_tier_annotations_that_overlap_horizontally_fire_r_annotation_overlap_error() {
+    let mut elem = base("body", 55, "1.2", "");
+    elem["runs"] = json!([
+        {
+            "text": "corn",
+            "annotation": {
+                "text": "a kind of grain",
+                "position": "over",
+                "tier": 0,
+                "overhang": "allow"
+            }
+        },
+        {
+            "text": " ",
+        },
+        {
+            "text": "oats",
+            "annotation": {
+                "text": "another kind of grain",
+                "position": "over",
+                "tier": 0,
+                "overhang": "allow"
+            }
+        }
+    ]);
+    let findings: Vec<_> = all_ink_findings_for(&[elem.clone()])
+        .into_iter()
+        .filter(|f| f.code == "R-ANNOTATION-OVERLAP")
+        .collect();
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].class, Class::Review);
+    assert_eq!(findings[0].fields["first"], json!("a kind of grain"));
+    assert_eq!(findings[0].fields["second"], json!("another kind of grain"));
+
+    // Moving the second annotation to tier 1 resolves the overlap!
+    elem["runs"][2]["annotation"]["tier"] = json!(1);
+    let findings_after: Vec<_> = all_ink_findings_for(&[elem])
+        .into_iter()
+        .filter(|f| f.code == "R-ANNOTATION-OVERLAP")
+        .collect();
+    assert!(findings_after.is_empty(), "{findings_after:?}");
+}
+
+#[test]
+fn annotation_wider_than_base_run_fires_r_annotation_overhang_unless_allowed() {
+    let mut elem = base("body", 55, "1.2", "");
+    elem["runs"] = json!([
+        {
+            "text": "corn",
+            "annotation": {
+                "text": "a kind of grain",
+                "position": "over"
+            }
+        }
+    ]);
+    let findings: Vec<_> = all_ink_findings_for(&[elem.clone()])
+        .into_iter()
+        .filter(|f| f.code == "R-ANNOTATION-OVERHANG")
+        .collect();
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].class, Class::Review);
+    assert_eq!(findings[0].fields["allowed"], json!(0));
+
+    // Allowing overhang silences R-ANNOTATION-OVERHANG.
+    elem["runs"][0]["annotation"]["overhang"] = json!("allow");
+    let findings_allowed: Vec<_> = all_ink_findings_for(&[elem])
+        .into_iter()
+        .filter(|f| f.code == "R-ANNOTATION-OVERHANG")
+        .collect();
+    assert!(findings_allowed.is_empty(), "{findings_allowed:?}");
+}

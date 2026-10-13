@@ -277,6 +277,12 @@ pub struct MeasureParams {
     /// channel histograms, 64x64 vectorscope chroma density, and audio loudness.
     #[serde(default)]
     pub scopes: bool,
+    /// Emit word-level and annotation-level canvas-space layout geometry (ADR-0213 §2).
+    #[serde(default)]
+    pub layout: bool,
+    /// Resolve arbitrary character or phrase ranges into per-line bounding boxes (ADR-0213 §3).
+    #[serde(default)]
+    pub ranges: Option<Vec<montagent_core::verbs::measure::RangeSpec>>,
     /// Return the canonical JSON *instead of* the text answer, never alongside it.
     #[serde(default)]
     pub json: bool,
@@ -1045,6 +1051,8 @@ impl Montagent {
                         elements: params.elements,
                         all: params.all,
                         scopes: params.scopes,
+                        layout: params.layout,
+                        ranges: params.ranges,
                     },
                 );
                 // `verbose` is deliberately absent, as it is on `query`: the answer *is* the

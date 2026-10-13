@@ -339,6 +339,8 @@ pub fn cues_to_track(
                 stroke_width: None,
                 dir: None,
                 highlight: None,
+                annotation: None,
+                decoration: None,
                 unit: None,
             }],
             stroke: Some(Paint::Flat(Animatable::Static(Colour::from_bytes([

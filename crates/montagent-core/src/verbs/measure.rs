@@ -101,7 +101,7 @@
 use std::path::Path as FilePath;
 
 use montagent_render::canvas::Canvas;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use montagent_text::{
@@ -120,6 +120,121 @@ const TOOL: &str = "measure";
 
 /// `line_height` defaults to 1.2 when omitted (ADR-0007), as tenths (ADR-0028).
 const DEFAULT_LINE_HEIGHT_TENTHS: i64 = 12;
+
+/// A character-offset or phrase query for `measure --ranges` (ADR-0213 §3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct RangeSpec {
+    #[serde(default)]
+    pub start: Option<usize>,
+    #[serde(default)]
+    pub end: Option<usize>,
+    #[serde(default)]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub occurrence: Option<usize>,
+}
+
+/// Conservative outward integer bounding box (ADR-0213 / measure-layout-report §4.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct IntRect {
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+}
+
+impl IntRect {
+    pub fn enclosing(x0: f64, y0: f64, x1: f64, y1: f64) -> Self {
+        let x = x0.floor() as i64;
+        let y = y0.floor() as i64;
+        let width = (x1.ceil() as i64 - x).max(0);
+        let height = (y1.ceil() as i64 - y).max(0);
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
+
+/// Subpixel floating-point bounding box `[x, y, width, height]`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct FloatRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// A word token's character offsets, line index, and canvas-space bounds (ADR-0213 §2).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutWord {
+    pub text: String,
+    pub line: usize,
+    pub char_start: usize,
+    pub char_end: usize,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub baseline_y: f64,
+    pub r#box: IntRect,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ink_box: Option<FloatRect>,
+}
+
+/// A placed ruby/interlinear annotation's canvas-space bounds (ADR-0213 §2).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutAnnotation {
+    pub run: usize,
+    pub line: usize,
+    pub text: String,
+    pub position: montagent_text::AnnotationPosition,
+    pub align: montagent_text::AnnotationAlign,
+    pub tier: u32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub baseline_y: f64,
+    pub r#box: IntRect,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ink_box: Option<FloatRect>,
+}
+
+/// A per-line bounding box fragment of a queried text range (ADR-0213 §3).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutBox {
+    pub line: usize,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub r#box: IntRect,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ink_box: Option<FloatRect>,
+}
+
+/// The overall union bounding box across all line fragments of a range (ADR-0213 §3).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutUnion {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub r#box: IntRect,
+}
+
+/// A resolved character or phrase range and its per-line and union bounds (ADR-0213 §3).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutRange {
+    pub text: String,
+    pub char_start: usize,
+    pub char_end: usize,
+    pub boxes: Vec<LayoutBox>,
+    pub union: LayoutUnion,
+}
 
 /// What one `measure` invocation is asking.
 ///
@@ -143,6 +258,10 @@ pub struct Ask {
     pub all: bool,
     /// Perceptual diagnostic visual and audio scopes (ADR-0207).
     pub scopes: bool,
+    /// Emit word-level and annotation-level canvas-space layout geometry (ADR-0213 §2).
+    pub layout: bool,
+    /// Resolve arbitrary character or phrase ranges into per-line bounding boxes (ADR-0213 §3).
+    pub ranges: Option<Vec<RangeSpec>>,
 }
 
 /// One `measure` invocation's answer: what the text occupies, and the report every verb
@@ -327,6 +446,18 @@ pub struct Text {
     /// above are the flat line's. Absent on a text with no `path`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<crate::text_path::Reading>,
+    /// Placed annotations measured during layout (ADR-0208), used by `checks::ink` and `--layout`.
+    #[serde(skip)]
+    pub(crate) measured_annotations: Vec<montagent_text::MeasuredAnnotation>,
+    /// Word-level canvas-space bounds when `--layout` is requested (ADR-0213 §2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub words: Option<Vec<LayoutWord>>,
+    /// Placed ruby/interlinear annotations when `--layout` is requested (ADR-0213 §2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Vec<LayoutAnnotation>>,
+    /// Resolved character/phrase ranges when `--ranges` is requested (ADR-0213 §3).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ranges: Option<Vec<LayoutRange>>,
 }
 
 /// The style the measurement was taken in, read back off the element.
@@ -415,7 +546,13 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
     }
 
     if let Some(elements) = &ask.elements {
-        return batch(&document, project, elements.iter().cloned());
+        return batch(
+            &document,
+            project,
+            elements.iter().cloned(),
+            ask.layout,
+            ask.ranges.as_deref(),
+        );
     }
     if ask.all {
         // #317: sourced from the same walk `query` already uses over every element in the
@@ -428,7 +565,13 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
             .filter(|element| element.get("type").and_then(Value::as_str) == Some("text"))
             .cloned()
             .collect();
-        return batch(&document, project, elements);
+        return batch(
+            &document,
+            project,
+            elements,
+            ask.layout,
+            ask.ranges.as_deref(),
+        );
     }
 
     let element = match (&ask.element, ask.at) {
@@ -472,7 +615,7 @@ pub fn measure(path: &FilePath, ask: &Ask) -> Answer {
         };
     }
 
-    match try_measure_element(&document, element) {
+    match try_measure_element_with(&document, element, ask.layout, ask.ranges.as_deref()) {
         Ok(text) => Answer {
             view: Some(View::Element(Box::new(text))),
             report: Report::new(TOOL, project),
@@ -494,14 +637,24 @@ pub(crate) enum ElementError {
 }
 
 /// The shared core of every measurement, batch or not: resolve the element's style, register
-/// every font key it and its runs name, and lay it out. One path, so `elements`/`all` cannot
-/// drift from what a single `element` call already does (#317).
-pub(crate) fn try_measure_element(document: &Loose, element: &Value) -> Result<Text, ElementError> {
+/// every font key it and its runs name, and lay it out, optionally populating `--layout` and
+/// `--ranges` (ADR-0213). One path, so `elements`/`all` cannot drift from what a single
+/// `element` call already does (#317).
+pub(crate) fn try_measure_element_with(
+    document: &Loose,
+    element: &Value,
+    layout: bool,
+    ranges: Option<&[RangeSpec]>,
+) -> Result<Text, ElementError> {
     let widest = written_letter_spacings(element)
         .into_iter()
         .max()
         .unwrap_or(0);
-    try_measure_element_at(document, element, widest)
+    let mut text = try_measure_element_at(document, element, widest)?;
+    if layout || ranges.is_some() {
+        populate_layout_and_ranges(document, element, widest, &mut text, layout, ranges)?;
+    }
+    Ok(text)
 }
 
 /// [`try_measure_element`], with `letter_spacing` at one value rather than the widest.
@@ -556,6 +709,8 @@ fn batch(
     document: &Loose,
     project: Option<String>,
     elements: impl IntoIterator<Item = Value>,
+    layout: bool,
+    ranges: Option<&[RangeSpec]>,
 ) -> Answer {
     let results = elements
         .into_iter()
@@ -565,7 +720,7 @@ fn batch(
                 .get("id")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            match try_measure_element(document, &element) {
+            match try_measure_element_with(document, &element, layout, ranges) {
                 Ok(text) => Slot {
                     index,
                     id,
@@ -804,8 +959,316 @@ impl Text {
             lines: measured.lines,
             segmenter: measured.segmenter,
             path: None,
+            measured_annotations: measured.annotations,
+            words: None,
+            annotations: None,
+            ranges: None,
         }
     }
+}
+
+fn populate_layout_and_ranges(
+    document: &Loose,
+    element: &Value,
+    letter_spacing: i64,
+    text: &mut Text,
+    layout: bool,
+    ranges: Option<&[RangeSpec]>,
+) -> Result<(), ElementError> {
+    let spec = Measurable::of(element).map_err(ElementError::Invocation)?;
+    let mut fonts = Fonts::new();
+    for key in std::iter::once(spec.asked.font.clone()).chain(Measurable::keys(element)) {
+        register(document, &key, &mut fonts).map_err(ElementError::Font)?;
+    }
+    let runs = runs_of(element);
+    let placement = montagent_text::place(
+        &mut fonts,
+        &Spec {
+            runs: &runs,
+            font: &spec.asked.font,
+            size: spec.asked.size,
+            line_height_tenths: spec.asked.line_height_tenths,
+            stroke_width: spec.asked.stroke_width,
+            y: spec.asked.y,
+            vertical_origin: spec.vertical_origin,
+            align: align_of(element),
+            letter_spacing: letter_spacing as f64,
+            optional_ligatures_off: optional_ligatures_off(element),
+        },
+    )
+    .map_err(ElementError::Font)?;
+
+    let origin = match element.get("origin") {
+        None | Some(Value::Null) => Origin::Center,
+        Some(value) => serde_json::from_value(value.clone()).unwrap_or(Origin::Center),
+    };
+    let (fx, _) = crate::verbs::query::geometry::origin_fraction(origin);
+    let resolved_x = element
+        .get("x")
+        .and_then(|v| {
+            v.as_f64().or_else(|| {
+                v.as_array()
+                    .and_then(|a| a.first())
+                    .and_then(|kf| kf.get("value"))
+                    .and_then(Value::as_f64)
+            })
+        })
+        .unwrap_or(0.0);
+    let block_left = resolved_x - fx * text.advance_width;
+
+    let full_text: String = runs.iter().map(|r| r.text).collect();
+    let mut char_to_byte: Vec<usize> = full_text.char_indices().map(|(b, _)| b).collect();
+    let total_chars = char_to_byte.len();
+    char_to_byte.push(full_text.len());
+    let byte_to_char = |b: usize| -> usize { full_text[..b.min(full_text.len())].chars().count() };
+
+    if layout {
+        let seg = montagent_text::units::segment(&full_text, montagent_text::units::By::Word);
+        let mut word_ranges = vec![(usize::MAX, 0usize); seg.count];
+        for g in &seg.graphemes {
+            if let Some(u) = g.unit
+                && let Some(slot) = word_ranges.get_mut(u)
+            {
+                slot.0 = slot.0.min(g.range.start);
+                slot.1 = slot.1.max(g.range.end);
+            }
+        }
+        let mut words = Vec::with_capacity(word_ranges.len());
+        for (w_start, w_end) in word_ranges {
+            if w_start >= w_end {
+                continue;
+            }
+            let matching: Vec<_> = placement
+                .clusters
+                .iter()
+                .filter(|c| {
+                    c.text
+                        .as_ref()
+                        .is_some_and(|r| r.start < w_end && r.end > w_start)
+                })
+                .collect();
+            if matching.is_empty() {
+                continue;
+            }
+            let line_idx = matching[0].line;
+            let Some(line_info) = text.lines.get(line_idx) else {
+                continue;
+            };
+            let x0 = matching
+                .iter()
+                .map(|c| block_left + c.x)
+                .fold(f64::INFINITY, f64::min);
+            let x1 = matching
+                .iter()
+                .map(|c| block_left + c.x + c.advance)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let y0 = line_info.baseline_y - line_info.ascent;
+            let y1 = line_info.baseline_y + line_info.descent;
+            let ink_box = union_cluster_ink(&matching, block_left);
+            words.push(LayoutWord {
+                text: full_text[w_start..w_end].to_string(),
+                line: line_idx,
+                char_start: byte_to_char(w_start),
+                char_end: byte_to_char(w_end),
+                x: x0,
+                y: y0,
+                width: (x1 - x0).max(0.0),
+                height: (y1 - y0).max(0.0),
+                baseline_y: line_info.baseline_y,
+                r#box: IntRect::enclosing(x0, y0, x1, y1),
+                ink_box,
+            });
+        }
+        text.words = Some(words);
+
+        let annotations = text
+            .measured_annotations
+            .iter()
+            .map(|ann| {
+                let x0 = block_left + ann.x;
+                let x1 = x0 + ann.advance_width;
+                let y0 = ann.box_top;
+                let y1 = ann.box_bottom;
+                let ink_box = ann.ink_rect.map(|[ix0, iy0, ix1, iy1]| FloatRect {
+                    x: block_left + ix0,
+                    y: iy0,
+                    width: (ix1 - ix0).max(0.0),
+                    height: (iy1 - iy0).max(0.0),
+                });
+                LayoutAnnotation {
+                    run: ann.run,
+                    line: ann.line,
+                    text: ann.text.clone(),
+                    position: ann.position,
+                    align: ann.align,
+                    tier: ann.tier as u32,
+                    x: x0,
+                    y: y0,
+                    width: ann.advance_width,
+                    height: (y1 - y0).max(0.0),
+                    baseline_y: ann.baseline_y,
+                    r#box: IntRect::enclosing(x0, y0, x1, y1),
+                    ink_box,
+                }
+            })
+            .collect();
+        text.annotations = Some(annotations);
+    }
+
+    if let Some(specs) = ranges {
+        let normalized_text: String = full_text
+            .chars()
+            .map(|c| if c == '\n' { ' ' } else { c })
+            .collect();
+        let mut resolved_ranges = Vec::with_capacity(specs.len());
+        for spec in specs {
+            let (char_start, char_end, byte_start, byte_end) = match (
+                &spec.start,
+                &spec.end,
+                &spec.text,
+            ) {
+                (Some(s), Some(e), None) => {
+                    if *s >= *e || *e > total_chars {
+                        return Err(ElementError::Invocation(format!(
+                            "invalid range `start: {s}, end: {e}` for text of {total_chars} characters"
+                        )));
+                    }
+                    (*s, *e, char_to_byte[*s], char_to_byte[*e])
+                }
+                (None, None, Some(needle)) => {
+                    if needle.is_empty() {
+                        return Err(ElementError::Invocation(
+                            "range `text` must be non-empty".into(),
+                        ));
+                    }
+                    let occ = spec.occurrence.unwrap_or(0);
+                    let b_start = full_text
+                        .match_indices(needle.as_str())
+                        .nth(occ)
+                        .map(|(i, _)| i)
+                        .or_else(|| {
+                            normalized_text
+                                .match_indices(needle.as_str())
+                                .nth(occ)
+                                .map(|(i, _)| i)
+                        })
+                        .ok_or_else(|| {
+                            ElementError::Invocation(format!(
+                                "range text {needle:?} (occurrence {occ}) not found in element text"
+                            ))
+                        })?;
+                    let b_end = b_start + needle.len();
+                    (byte_to_char(b_start), byte_to_char(b_end), b_start, b_end)
+                }
+                _ => {
+                    return Err(ElementError::Invocation(
+                            "each range in `--ranges` must specify either (`start` and `end`) or `text` (never both)"
+                                .into(),
+                        ));
+                }
+            };
+
+            let mut boxes = Vec::new();
+            for line_info in &text.lines {
+                let line_idx = line_info.index;
+                let line_clusters: Vec<_> = placement
+                    .clusters
+                    .iter()
+                    .filter(|c| {
+                        c.line == line_idx
+                            && c.text
+                                .as_ref()
+                                .is_some_and(|r| r.start < byte_end && r.end > byte_start)
+                    })
+                    .collect();
+                if line_clusters.is_empty() {
+                    continue;
+                }
+                let x0 = line_clusters
+                    .iter()
+                    .map(|c| block_left + c.x)
+                    .fold(f64::INFINITY, f64::min);
+                let x1 = line_clusters
+                    .iter()
+                    .map(|c| block_left + c.x + c.advance)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let y0 = line_info.baseline_y - line_info.ascent;
+                let y1 = line_info.baseline_y + line_info.descent;
+                let ink_box = union_cluster_ink(&line_clusters, block_left);
+                boxes.push(LayoutBox {
+                    line: line_idx,
+                    x: x0,
+                    y: y0,
+                    width: (x1 - x0).max(0.0),
+                    height: (y1 - y0).max(0.0),
+                    r#box: IntRect::enclosing(x0, y0, x1, y1),
+                    ink_box,
+                });
+            }
+
+            let union = if boxes.is_empty() {
+                LayoutUnion {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 0.0,
+                    height: 0.0,
+                    r#box: IntRect::enclosing(0.0, 0.0, 0.0, 0.0),
+                }
+            } else {
+                let ux0 = boxes.iter().map(|b| b.x).fold(f64::INFINITY, f64::min);
+                let uy0 = boxes.iter().map(|b| b.y).fold(f64::INFINITY, f64::min);
+                let ux1 = boxes
+                    .iter()
+                    .map(|b| b.x + b.width)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let uy1 = boxes
+                    .iter()
+                    .map(|b| b.y + b.height)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                LayoutUnion {
+                    x: ux0,
+                    y: uy0,
+                    width: (ux1 - ux0).max(0.0),
+                    height: (uy1 - uy0).max(0.0),
+                    r#box: IntRect::enclosing(ux0, uy0, ux1, uy1),
+                }
+            };
+
+            resolved_ranges.push(LayoutRange {
+                text: full_text[byte_start..byte_end].to_string(),
+                char_start,
+                char_end,
+                boxes,
+                union,
+            });
+        }
+        text.ranges = Some(resolved_ranges);
+    }
+
+    Ok(())
+}
+
+fn union_cluster_ink(clusters: &[&montagent_text::Cluster], block_left: f64) -> Option<FloatRect> {
+    let mut ix0 = f64::INFINITY;
+    let mut iy0 = f64::INFINITY;
+    let mut ix1 = f64::NEG_INFINITY;
+    let mut iy1 = f64::NEG_INFINITY;
+    let mut any = false;
+    for c in clusters {
+        if let Some([l, t, r, b]) = c.ink {
+            ix0 = ix0.min(block_left + l);
+            iy0 = iy0.min(t);
+            ix1 = ix1.max(block_left + r);
+            iy1 = iy1.max(b);
+            any = true;
+        }
+    }
+    any.then(|| FloatRect {
+        x: ix0,
+        y: iy0,
+        width: (ix1 - ix0).max(0.0),
+        height: (iy1 - iy0).max(0.0),
+    })
 }
 
 /// An element's own measurable style, read off the JSON permissively.
@@ -908,6 +1371,14 @@ impl Measurable {
             {
                 keys.push(key.to_string());
             }
+            if let Some(key) = run
+                .get("annotation")
+                .and_then(|a| a.get("font"))
+                .and_then(Value::as_str)
+                && !keys.iter().any(|seen| seen == key)
+            {
+                keys.push(key.to_string());
+            }
         }
         keys
     }
@@ -939,6 +1410,32 @@ pub(crate) fn runs_of(element: &Value) -> Vec<Run<'_>> {
                 Some("rtl") => Some(montagent_text::Dir::Rtl),
                 _ => None,
             },
+            annotation: run.get("annotation").and_then(|ann| {
+                let text = ann.get("text").and_then(Value::as_str)?;
+                let position = match ann.get("position").and_then(Value::as_str) {
+                    Some("under") => montagent_text::AnnotationPosition::Under,
+                    _ => montagent_text::AnnotationPosition::Over,
+                };
+                let align = match ann.get("align").and_then(Value::as_str) {
+                    Some("start") => montagent_text::AnnotationAlign::Start,
+                    Some("end") => montagent_text::AnnotationAlign::End,
+                    _ => montagent_text::AnnotationAlign::Center,
+                };
+                let tier = ann
+                    .get("tier")
+                    .and_then(Value::as_u64)
+                    .map(|t| t as usize)
+                    .unwrap_or(0);
+                Some(montagent_text::Annotation {
+                    text,
+                    font: ann.get("font").and_then(Value::as_str),
+                    size: ann.get("size").and_then(Value::as_i64),
+                    position,
+                    align,
+                    tier,
+                    gap: ann.get("gap").and_then(Value::as_i64),
+                })
+            }),
         })
         .collect()
 }

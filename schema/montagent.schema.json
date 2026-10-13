@@ -4257,6 +4257,14 @@
         "unit": {
           "description": "Singles out the one unit of the element's `units` block this run holds, replacing its\ndelay or any of its lists (ADR-0151 §4). A run's lists are never delayed.",
           "$ref": "#/$defs/UnitOverride"
+        },
+        "annotation": {
+          "description": "Ruby or interlinear gloss annotation attached to this run, inflating its line's\nvertical slot when the gloss exceeds half-leading (ADR-0208).",
+          "$ref": "#/$defs/Annotation"
+        },
+        "decoration": {
+          "description": "Multi-line text range decoration rendered as per-line `SkRRect` fragments behind\nthe run's glyphs (ADR-0214).",
+          "$ref": "#/$defs/Decoration"
         }
       },
       "required": [
@@ -4327,6 +4335,344 @@
         }
       },
       "description": "A run singling out one unit (ADR-0151 §4): the run holds exactly that unit's graphemes.\n\n`delay` replaces the derived *position × every* for this unit. A list replaces that\nproperty's list for this unit wholesale; **a run's lists are never delayed** — they run on\nthe absolute clock as written. A property the run does not name keeps the block's list,\nrun at the run's delay. Only a list the `units` block declares may be named. At least one\nkey is required."
+    },
+    "Annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The gloss string. Single-line, non-empty.",
+          "minLength": 1
+        },
+        "font": {
+          "type": "string",
+          "description": "Font family key from `project.fonts`. Defaults to the run's resolved font."
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Font size in integer pixels. Defaults to `ceil(base_run_size * 0.5)`.",
+          "minimum": 1
+        },
+        "color": {
+          "description": "Fill colour of the annotation text. Defaults to the run's resolved colour.",
+          "$ref": "#/$defs/Colour"
+        },
+        "position": {
+          "description": "Vertical placement relative to the base line (`\"over\"` or `\"under\"`). Default `\"over\"`.",
+          "$ref": "#/$defs/AnnotationPosition"
+        },
+        "align": {
+          "description": "Horizontal alignment relative to the base run (`\"center\"`, `\"start\"`, `\"end\"`). Default\n`\"center\"`.",
+          "$ref": "#/$defs/AnnotationAlign"
+        },
+        "tier": {
+          "description": "Non-negative vertical stacking tier (`0`, `1`, `2`, …) away from the base line, for\nstepped annotations when adjacent runs have long glosses. Default `0`.",
+          "$ref": "#/$defs/Length"
+        },
+        "gap": {
+          "description": "Vertical clearance in pixels between the base line's typographic ascent/descent and tier\n`0` (and between consecutive tiers). Default `6`.",
+          "$ref": "#/$defs/Length"
+        },
+        "overhang": {
+          "description": "Maximum integer pixels (or `\"allow\"` / `\"none\"`) that the annotation may extend beyond the\nhorizontal start or end bounds of the base run without triggering `R-ANNOTATION-OVERHANG`.\nDefault `0`.",
+          "$ref": "#/$defs/AnnotationOverhang"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "description": "A ruby or interlinear gloss attached to one run, laid out in step with the paragraph and\ninflating its line's vertical slot when the gloss exceeds half-leading (ADR-0208)."
+    },
+    "AnnotationPosition": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "over",
+          "description": "Above the base line's ascent."
+        },
+        {
+          "type": "string",
+          "const": "under",
+          "description": "Below the base line's descent."
+        }
+      ],
+      "description": "Vertical placement of a run's ruby or interlinear annotation relative to the base line\n(ADR-0208 §1)."
+    },
+    "AnnotationAlign": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "center",
+          "description": "Centered over or under the base run's horizontal span."
+        },
+        {
+          "type": "string",
+          "const": "start",
+          "description": "Aligned to the inline-start edge of the base run (`left` for LTR, `right` for RTL)."
+        },
+        {
+          "type": "string",
+          "const": "end",
+          "description": "Aligned to the inline-end edge of the base run (`right` for LTR, `left` for RTL)."
+        }
+      ],
+      "description": "Horizontal alignment of an annotation against its base run's advance width (ADR-0208 §1)."
+    },
+    "AnnotationOverhang": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Length",
+          "description": "Maximum allowed overhang in non-negative integer pixels on either side of the base run."
+        },
+        {
+          "$ref": "#/$defs/AnnotationOverhangMode",
+          "description": "Keyword overhang mode (`\"allow\"` or `\"none\"`)."
+        }
+      ],
+      "description": "Maximum horizontal overhang beyond the base run's advance bounds before `R-ANNOTATION-OVERHANG`\nis reported: either a non-negative integer pixel budget (`0`, `12`, …) or `\"allow\"` / `\"none\"`\n(ADR-0208 §1, §3.4)."
+    },
+    "AnnotationOverhangMode": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "allow",
+          "description": "The annotation may extend beyond the base run's horizontal span; collisions with\nneighbouring annotations on the same `(position, tier)` are still checked by\n`R-ANNOTATION-OVERLAP`."
+        },
+        {
+          "type": "string",
+          "const": "none",
+          "description": "An annotation wider than its base run emits `R-ANNOTATION-OVERHANG`."
+        }
+      ],
+      "description": "Keyword overhang mode for an annotation (ADR-0208 §1, §3.4)."
+    },
+    "Decoration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "Visual decoration style (`\"box\"`, `\"highlight\"`, or `\"underline\"`). Defaults to `\"box\"`.",
+          "$ref": "#/$defs/DecorationKind"
+        },
+        "fill": {
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke": {
+          "$ref": "#/$defs/Colour"
+        },
+        "stroke_width": {
+          "description": "Stroke width in integer pixels. Defaults to `1` for `\"box\"` and `\"underline\"`.",
+          "$ref": "#/$defs/Length"
+        },
+        "stroke_dash": {
+          "description": "Dash pattern `[on, off, ...]` in integer pixels along the fragment perimeter.",
+          "$ref": "#/$defs/DashPattern"
+        },
+        "radius": {
+          "description": "Corner radius in integer pixels (`box` and `highlight` only). Default `0`.",
+          "$ref": "#/$defs/Length"
+        },
+        "padding": {
+          "description": "Padding around each line fragment's glyph bounds. Default `0`.",
+          "$ref": "#/$defs/DecorationPadding"
+        },
+        "decoration_break": {
+          "description": "Multi-line box-break mode (`\"clone\"` or `\"slice\"`, `box` and `highlight` only). Default\n`\"clone\"`.",
+          "$ref": "#/$defs/DecorationBreak"
+        },
+        "window": {
+          "description": "Optional timed window `[start, end)` during which the decoration is drawn.",
+          "$ref": "#/$defs/DecorationWindow"
+        }
+      },
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "underline"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "radius"
+              ]
+            },
+            {
+              "required": [
+                "decoration_break"
+              ]
+            }
+          ]
+        },
+        "description": "`radius` and `decoration_break` are fields of `kind: \"box\"` and `kind: \"highlight\"` only: an `underline` decoration has no corners to round or side borders to slice (ADR-0214)."
+      },
+      "else": {
+        "anyOf": [
+          {
+            "required": [
+              "fill"
+            ]
+          },
+          {
+            "required": [
+              "stroke"
+            ]
+          }
+        ],
+        "description": "A `box` or `highlight` decoration names at least one of `fill` or `stroke` so it has something to paint (ADR-0214)."
+      },
+      "description": "A run-level visual decoration (`box`, `highlight`, or `underline`) painted behind the run's\nglyphs as one `SkRRect` per wrapped line fragment (ADR-0214)."
+    },
+    "DecorationKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "box",
+          "description": "A stroked and/or filled rounded rectangle around each line fragment."
+        },
+        {
+          "type": "string",
+          "const": "highlight",
+          "description": "A filled and/or stroked highlight plate behind each line fragment."
+        },
+        {
+          "type": "string",
+          "const": "underline",
+          "description": "A horizontal bar beneath each line fragment's baseline."
+        }
+      ],
+      "description": "The visual form of a run's text range decoration (ADR-0214 §1)."
+    },
+    "DashPattern": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 16,
+      "description": "The lengths the stroke alternates, dash, gap, dash, gap, starting with a dash, in element pixels along the outline the stroke is drawn on. Static: animate `stroke_dash_offset` instead. An even number of entries with a total above 0; an odd list is not doubled (ADR-0158)."
+    },
+    "DecorationPadding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Length",
+          "description": "Uniform horizontal and vertical padding in pixels."
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Length"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "`[pad_x, pad_y]` horizontal and vertical padding in pixels."
+        },
+        {
+          "$ref": "#/$defs/SymmetricPadding",
+          "description": "`{\"x\": pad_x, \"y\": pad_y}` horizontal and vertical padding in pixels."
+        },
+        {
+          "$ref": "#/$defs/EdgePadding",
+          "description": "`{\"top\": ..., \"right\": ..., \"bottom\": ..., \"left\": ...}` in pixels."
+        }
+      ],
+      "description": "Padding around each line fragment of a run decoration: uniform scalar `p`, two-element\n`[pad_x, pad_y]`, symmetric `{\"x\": pad_x, \"y\": pad_y}`, or four-edge\n`{\"top\": ..., \"right\": ..., \"bottom\": ..., \"left\": ...}` in non-negative integer pixels\n(ADR-0214 §1)."
+    },
+    "SymmetricPadding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/Length"
+        },
+        "y": {
+          "$ref": "#/$defs/Length"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "description": "Symmetric horizontal and vertical padding `{\"x\": ..., \"y\": ...}` in non-negative integer\npixels (ADR-0214 §1)."
+    },
+    "EdgePadding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/Length"
+        },
+        "right": {
+          "$ref": "#/$defs/Length"
+        },
+        "bottom": {
+          "$ref": "#/$defs/Length"
+        },
+        "left": {
+          "$ref": "#/$defs/Length"
+        }
+      },
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "description": "Four-edge padding `{\"top\": ..., \"right\": ..., \"bottom\": ..., \"left\": ...}` in non-negative\ninteger pixels (ADR-0214 §1)."
+    },
+    "DecorationBreak": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "clone",
+          "description": "Each line fragment is rendered as an independently closed box with full corner radius on\nall four corners."
+        },
+        {
+          "type": "string",
+          "const": "slice",
+          "description": "The first fragment rounds only its inline-start corners, middle fragments have square\ncorners, and the last fragment rounds only its inline-end corners."
+        }
+      ],
+      "description": "How a multi-line decoration's corner radii and borders behave across line breaks, modelled\nafter CSS `box-decoration-break` (ADR-0214 §1, §2)."
+    },
+    "DecorationWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Inclusive start timestamp in integer milliseconds on the project timeline."
+        },
+        "end": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Exclusive end timestamp in integer milliseconds on the project timeline (`end > start`)."
+        },
+        "fade_in": {
+          "description": "Optional fade-in duration in milliseconds from `start`.",
+          "$ref": "#/$defs/Length"
+        },
+        "fade_out": {
+          "description": "Optional fade-out duration in milliseconds ending at `end`.",
+          "$ref": "#/$defs/Length"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "description": "Timed active window `[start, end)` on the project's absolute timeline for a run's\ndecoration, with optional linear fade-in and fade-out ramps (ADR-0214 §1, §3)."
     },
     "Units": {
       "type": "object",
@@ -4502,17 +4848,6 @@
         "ease"
       ],
       "description": "One `{\"t\",\"t_from\",\"v\",\"ease\"}` record — `t_from` optional (ADR-0086)."
-    },
-    "DashPattern": {
-      "type": "array",
-      "items": {
-        "type": "integer",
-        "format": "int64",
-        "minimum": 0
-      },
-      "minItems": 2,
-      "maxItems": 16,
-      "description": "The lengths the stroke alternates, dash, gap, dash, gap, starting with a dash, in element pixels along the outline the stroke is drawn on. Static: animate `stroke_dash_offset` instead. An even number of entries with a total above 0; an odd list is not doubled (ADR-0158)."
     },
     "AnimatableTrimFraction": {
       "anyOf": [
