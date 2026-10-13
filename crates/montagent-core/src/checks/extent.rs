@@ -23,7 +23,7 @@ use crate::report::Report;
 /// element's lines. A `text` element's box is a container claim the lines are checked
 /// against, never what is drawn (ADR-0135), so only a `mask` can hide one
 /// ([`crate::animatable::hidden_at`]).
-const DRAWN: [&str; 6] = ["rect", "ellipse", "path", "image", "video", "text"];
+const DRAWN: [&str; 7] = ["rect", "ellipse", "path", "image", "video", "text", "nest"];
 
 /// The finding, naming its cause (ADR-0146 §6): the box, a `mask` that hides the element, or
 /// each of them at some of the frames.

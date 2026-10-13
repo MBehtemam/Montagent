@@ -1542,7 +1542,7 @@ impl<'a> Painter<'a> {
         let kind = element.get("type").and_then(Value::as_str);
         let visual = matches!(
             kind,
-            Some("text" | "rect" | "ellipse" | "path" | "image" | "video")
+            Some("text" | "rect" | "ellipse" | "path" | "image" | "video" | "nest")
         );
         // ADR-0155: a moving element carrying `motion_blur` is painted at each sample
         // instant and averaged. A still one is painted once, through the path below, so its
@@ -1567,7 +1567,7 @@ impl<'a> Painter<'a> {
         // size adds transparent pixels to the average.
         if matches!(
             kind,
-            Some("text" | "rect" | "ellipse" | "path" | "image" | "video")
+            Some("text" | "rect" | "ellipse" | "path" | "image" | "video" | "nest")
         ) && animatable::hiding_mask(element, self.t.0, self.t.1).is_some()
         {
             if let Some(causes) = animatable::never_painted(element, self.fps) {
@@ -1583,6 +1583,7 @@ impl<'a> Painter<'a> {
             Some("rect") | Some("ellipse") => self.shape(canvas, name, element, kind),
             Some("path") => self.path(canvas, name, element),
             Some("image") | Some("video") => self.raster(canvas, name, element, kind, playhead),
+            Some("nest") => self.nest(canvas, name, element, playhead),
             // Reachable, because `frame` reads the document permissively and never calls
             // `document.strict()` — see `E-NOT-PAINTED-UNDRAWABLE`.
             Some(other) => self.defer(
@@ -2017,6 +2018,78 @@ impl<'a> Painter<'a> {
         self.painted.push(name.to_string());
     }
 
+    /// A bounded nested sequence (ADR-0201): an isolated container rendering active child
+    /// elements into an offscreen surface on the absolute timeline.
+    fn nest(&mut self, canvas: &mut Canvas, name: &str, element: &Value, _playhead: Playhead) {
+        let Some(extent) = self.extent(element) else {
+            self.collapsed(name, element);
+            return;
+        };
+        let Some(children) = element.get("elements").and_then(Value::as_array) else {
+            return;
+        };
+
+        let Some(mut nest_canvas) = Canvas::new(extent.width as i64, extent.height as i64) else {
+            self.collapsed(name, element);
+            return;
+        };
+        nest_canvas.background(Rgba([0, 0, 0, 0]));
+
+        // Filter active children at self.instant: child.start <= self.instant < child.end
+        // and sort by layer (ascending, document order on ties).
+        let mut active: Vec<(usize, &Value)> = children
+            .iter()
+            .enumerate()
+            .filter(|(_, child)| {
+                let start = child.get("start").and_then(Value::as_i64).unwrap_or(0);
+                let end = child.get("end").and_then(Value::as_i64).unwrap_or(0);
+                start <= self.instant && self.instant < end
+            })
+            .collect();
+
+        active.sort_by(|(idx_a, a), (idx_b, b)| {
+            let layer_a = a.get("layer").and_then(Value::as_i64).unwrap_or(0);
+            let layer_b = b.get("layer").and_then(Value::as_i64).unwrap_or(0);
+            layer_a.cmp(&layer_b).then_with(|| idx_a.cmp(idx_b))
+        });
+
+        let saved_frame = self.frame;
+        self.frame = (extent.width as i64, extent.height as i64);
+
+        for (_, child) in active {
+            let child_name = child
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("child");
+            let child_kind = child.get("type").and_then(Value::as_str);
+            let (child_offset, _, child_origin) = crate::verbs::query::at::source_offset(
+                child,
+                child_kind,
+                child.get("start").and_then(Value::as_i64).unwrap_or(0),
+                self.instant,
+            );
+            let child_playhead = Playhead {
+                key: usize::MAX,
+                offset: child_offset,
+                origin: child_origin,
+            };
+            self.element(&mut nest_canvas, child_name, child, child_playhead);
+        }
+
+        self.frame = saved_frame;
+
+        let raster = nest_canvas.snapshot();
+        let effects = self.effects_of(name, element);
+        canvas.raster(
+            &raster,
+            extent,
+            &self.transform(element),
+            self.clip(element),
+            &effects,
+        );
+        self.painted.push(name.to_string());
+    }
+
     /// The pixels, however this element's type gets them: a still off the disk, or one
     /// frame out of the `ffmpeg` Montagent spawns.
     fn decoded(
@@ -2377,7 +2450,7 @@ impl<'a> Painter<'a> {
     /// (ADR-0150). Whole pixels, so the edge is hard and the same on every painter.
     fn clip(&self, element: &Value) -> Option<Region> {
         let own = match element.get("type").and_then(Value::as_str) {
-            Some("image" | "video") => geometry::clip_rect(element),
+            Some("image" | "video" | "nest") => geometry::clip_rect(element),
             _ => None,
         };
         self.bridge(element).aperture(own).map(region_of)

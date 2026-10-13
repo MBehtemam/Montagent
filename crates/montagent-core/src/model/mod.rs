@@ -531,6 +531,7 @@ pub enum Body {
     Path(PathElement),
     Audio(Audio),
     Transition(Transition),
+    Nest(Nest),
 }
 
 impl Body {
@@ -546,6 +547,7 @@ impl Body {
             Body::Path(_) => "path",
             Body::Audio(_) => "audio",
             Body::Transition(_) => "transition",
+            Body::Nest(_) => "nest",
         }
     }
 }
@@ -1585,3 +1587,40 @@ impl Direction {
         }
     }
 }
+
+/// A bounded nested sequence (ADR-0201): an isolated container rendering active child
+/// elements into an offscreen surface on the absolute timeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Nest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<Animatable<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    pub width: i64,
+    pub height: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<Clip>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Animatable<Scale>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swivel: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tilt: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perspective: Option<Animatable<Perspective>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<Animatable<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend: Option<Blend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_blur: Option<MotionBlur>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effects: Option<Vec<Effect>>,
+    pub elements: Vec<Element>,
+}
+
