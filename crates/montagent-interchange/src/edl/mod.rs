@@ -52,7 +52,8 @@ pub fn edl_to_project(edl_text: &str, fps: FrameRate) -> Result<Project, EdlErro
 
         // Check for clip name comments
         if trimmed.starts_with('*') {
-            if let Some(rest) = trimmed.strip_prefix("* FROM CLIP NAME:")
+            if let Some(rest) = trimmed
+                .strip_prefix("* FROM CLIP NAME:")
                 .or_else(|| trimmed.strip_prefix("* FROM CLIP:"))
             {
                 let name = rest.trim();
@@ -117,7 +118,10 @@ pub fn edl_to_project(edl_text: &str, fps: FrameRate) -> Result<Project, EdlErro
 
     if events.is_empty() {
         return Ok(Project {
-            frame: Frame { width: 1920, height: 1080 },
+            frame: Frame {
+                width: 1920,
+                height: 1080,
+            },
             fps,
             background: Some(Colour::from_bytes([0, 0, 0, 255])),
             duration: Some(0),
@@ -239,7 +243,10 @@ pub fn edl_to_project(edl_text: &str, fps: FrameRate) -> Result<Project, EdlErro
         .unwrap_or(0);
 
     Ok(Project {
-        frame: Frame { width: 1920, height: 1080 },
+        frame: Frame {
+            width: 1920,
+            height: 1080,
+        },
         fps,
         background: Some(Colour::from_bytes([0, 0, 0, 255])),
         duration: Some(duration),
@@ -262,7 +269,10 @@ pub fn project_to_edl(project: &Project, title: &str) -> Result<String, EdlError
     let mut event_idx = 1;
 
     for track in &project.tracks {
-        let is_audio = track.elements.iter().all(|e| matches!(e.body, Body::Audio(_)));
+        let is_audio = track
+            .elements
+            .iter()
+            .all(|e| matches!(e.body, Body::Audio(_)));
         let channel = if is_audio { "A    " } else { "V    " };
 
         let mut sorted = track.elements.clone();

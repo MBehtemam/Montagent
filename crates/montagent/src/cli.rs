@@ -1396,12 +1396,14 @@ where
                     frame_rate,
                 )
                 .map_err(|e| e.to_string()),
-                "otio" => montagent_interchange::otio_to_project(&content)
-                    .map_err(|e| e.to_string()),
+                "otio" => {
+                    montagent_interchange::otio_to_project(&content).map_err(|e| e.to_string())
+                }
                 "edl" => montagent_interchange::edl_to_project(&content, frame_rate)
                     .map_err(|e| e.to_string()),
-                "fcpxml" => montagent_interchange::fcpxml_to_project(&content)
-                    .map_err(|e| e.to_string()),
+                "fcpxml" => {
+                    montagent_interchange::fcpxml_to_project(&content).map_err(|e| e.to_string())
+                }
                 other => {
                     let report = Report::bad_invocation(format!(
                         "unsupported or unrecognized import format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"
@@ -1511,12 +1513,12 @@ where
                     montagent_interchange::SubtitleFormat::Vtt,
                 )
                 .map_err(|e| e.to_string()),
-                "otio" => montagent_interchange::project_to_otio(&proj)
-                    .map_err(|e| e.to_string()),
+                "otio" => montagent_interchange::project_to_otio(&proj).map_err(|e| e.to_string()),
                 "edl" => montagent_interchange::project_to_edl(&proj, "Montagent Export")
                     .map_err(|e| e.to_string()),
-                "fcpxml" => montagent_interchange::project_to_fcpxml(&proj)
-                    .map_err(|e| e.to_string()),
+                "fcpxml" => {
+                    montagent_interchange::project_to_fcpxml(&proj).map_err(|e| e.to_string())
+                }
                 other => {
                     let report = Report::bad_invocation(format!(
                         "unsupported export format '{other}'. Supported formats: srt, vtt, otio, edl, fcpxml"

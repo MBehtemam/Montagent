@@ -22,9 +22,10 @@ const AUDITED: &[(&str, usize, &str)] = &[
     ),
     (
         "montagent-render/src/encode.rs",
-        1,
+        2,
         "Encoder::seal waits and checks the status before anything is published \
-         (ADR-0093, ADR-0109)",
+         (ADR-0093, ADR-0109); export_audio waits, then returns the error on a non-zero \
+         exit before the stem's deliverable is committed (ADR-0204)",
     ),
     (
         "montagent-render/src/floor.rs",

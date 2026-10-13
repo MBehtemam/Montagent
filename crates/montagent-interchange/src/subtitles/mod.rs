@@ -165,7 +165,11 @@ pub fn parse_srt(input: &str) -> Result<Vec<SubtitleCue>, SubtitleError> {
     let blocks = trimmed.split("\n\n");
 
     for block in blocks {
-        let lines: Vec<&str> = block.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+        let lines: Vec<&str> = block
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty())
+            .collect();
         if lines.is_empty() {
             continue;
         }
@@ -231,7 +235,11 @@ pub fn parse_vtt(input: &str) -> Result<Vec<SubtitleCue>, SubtitleError> {
             continue;
         }
 
-        let lines: Vec<&str> = block.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+        let lines: Vec<&str> = block
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty())
+            .collect();
         if lines.is_empty() {
             continue;
         }
@@ -384,7 +392,12 @@ pub fn cues_from_track(track: &Track) -> Vec<SubtitleCue> {
     let mut cues = Vec::new();
     for (i, el) in track.elements.iter().enumerate() {
         if let Body::Text(t) = &el.body {
-            let full_text: String = t.runs.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("");
+            let full_text: String = t
+                .runs
+                .iter()
+                .map(|r| r.text.as_str())
+                .collect::<Vec<_>>()
+                .join("");
             cues.push(SubtitleCue {
                 index: Some(i + 1),
                 start_ms: el.start,
@@ -415,8 +428,12 @@ pub fn cues_from_project(project: &Project) -> Vec<SubtitleCue> {
                 if let Body::Text(t) = &el.body
                     && t.caption.unwrap_or(true)
                 {
-                    let full_text: String =
-                        t.runs.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("");
+                    let full_text: String = t
+                        .runs
+                        .iter()
+                        .map(|r| r.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join("");
                     cues.push(SubtitleCue {
                         index: Some(idx),
                         start_ms: el.start,
@@ -464,7 +481,10 @@ pub fn import_subtitles(
 }
 
 /// Export subtitles from a Montagent `Project` to formatted string (`.srt` or `.vtt`).
-pub fn export_subtitles(project: &Project, format: SubtitleFormat) -> Result<String, SubtitleError> {
+pub fn export_subtitles(
+    project: &Project,
+    format: SubtitleFormat,
+) -> Result<String, SubtitleError> {
     let cues = cues_from_project(project);
     match format {
         SubtitleFormat::Srt => Ok(serialize_srt(&cues)),

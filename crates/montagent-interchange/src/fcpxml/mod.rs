@@ -33,14 +33,23 @@ pub fn parse_fcpxml_time(s: &str) -> Result<i64, FcpxmlError> {
         return Ok(0);
     }
     if let Some((num_s, den_s)) = s.split_once('/') {
-        let num: f64 = num_s.trim().parse().map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
-        let den: f64 = den_s.trim().parse().map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
+        let num: f64 = num_s
+            .trim()
+            .parse()
+            .map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
+        let den: f64 = den_s
+            .trim()
+            .parse()
+            .map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
         if den == 0.0 {
             return Ok(0);
         }
         Ok(((num * 1000.0) / den).round() as i64)
     } else {
-        let sec: f64 = s.trim().parse().map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
+        let sec: f64 = s
+            .trim()
+            .parse()
+            .map_err(|_| FcpxmlError::InvalidTime(s.to_string()))?;
         Ok((sec * 1000.0).round() as i64)
     }
 }
@@ -140,7 +149,11 @@ pub fn parse_xml(xml: &str) -> Result<XmlNode, FcpxmlError> {
             // Parse tag name
             let tag_start = match chars.peek() {
                 Some(&(idx, _)) => idx,
-                None => return Err(FcpxmlError::InvalidXml("unexpected end of input".to_string())),
+                None => {
+                    return Err(FcpxmlError::InvalidXml(
+                        "unexpected end of input".to_string(),
+                    ));
+                }
             };
 
             while let Some(&(_, c)) = chars.peek() {
@@ -183,7 +196,9 @@ pub fn parse_xml(xml: &str) -> Result<XmlNode, FcpxmlError> {
                         chars.next();
                         break;
                     }
-                    Some(&(attr_start, c)) if c.is_alphanumeric() || c == '_' || c == '-' || c == ':' => {
+                    Some(&(attr_start, c))
+                        if c.is_alphanumeric() || c == '_' || c == '-' || c == ':' =>
+                    {
                         // Scan attribute name
                         while let Some(&(_, ac)) = chars.peek() {
                             if ac == '=' || ac.is_whitespace() || ac == '>' || ac == '/' {
@@ -342,7 +357,10 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         }
 
         // Could be <clip>, <asset-clip>, <video>, <audio>
-        let is_clip = matches!(child.tag.as_str(), "clip" | "asset-clip" | "video" | "audio");
+        let is_clip = matches!(
+            child.tag.as_str(),
+            "clip" | "asset-clip" | "video" | "audio"
+        );
         if !is_clip {
             continue;
         }
@@ -375,12 +393,12 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         let src_end_ms = src_start_ms + dur_ms;
 
         // Resolve asset source
-        let asset_ref = child
-            .get_attr("ref")
-            .or_else(|| {
-                child.find_child("video").and_then(|v| v.get_attr("ref"))
-                    .or_else(|| child.find_child("audio").and_then(|a| a.get_attr("ref")))
-            });
+        let asset_ref = child.get_attr("ref").or_else(|| {
+            child
+                .find_child("video")
+                .and_then(|v| v.get_attr("ref"))
+                .or_else(|| child.find_child("audio").and_then(|a| a.get_attr("ref")))
+        });
 
         let source = asset_ref
             .and_then(|r| asset_map.get(r).cloned())
@@ -482,7 +500,10 @@ pub fn fcpxml_to_project(xml_text: &str) -> Result<Project, FcpxmlError> {
         .unwrap_or(0);
 
     Ok(Project {
-        frame: Frame { width: frame_width, height: frame_height },
+        frame: Frame {
+            width: frame_width,
+            height: frame_height,
+        },
         fps,
         background: Some(Colour::from_bytes([0, 0, 0, 255])),
         duration: Some(duration),
@@ -542,7 +563,10 @@ pub fn project_to_fcpxml(project: &Project) -> Result<String, FcpxmlError> {
     xml.push_str("                    <spine>\n");
 
     for track in &project.tracks {
-        let is_audio = track.elements.iter().all(|e| matches!(e.body, Body::Audio(_)));
+        let is_audio = track
+            .elements
+            .iter()
+            .all(|e| matches!(e.body, Body::Audio(_)));
         let lane = if is_audio { -1 } else { track.layer };
 
         let mut sorted = track.elements.clone();
@@ -555,7 +579,10 @@ pub fn project_to_fcpxml(project: &Project) -> Result<String, FcpxmlError> {
                 _ => continue,
             };
 
-            let asset_ref = asset_ids.get(&source).cloned().unwrap_or_else(|| "r2".to_string());
+            let asset_ref = asset_ids
+                .get(&source)
+                .cloned()
+                .unwrap_or_else(|| "r2".to_string());
             let dur_ms = el.end - el.start;
 
             let offset_s = format!("{}/1000s", el.start);
