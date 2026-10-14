@@ -519,12 +519,14 @@ A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
 element — never an open plugin architecture. A list, not a map or a single field,
 because application order is semantically real: blur-then-shadow is a different
 frame from shadow-then-drop, and two effects of the same name are ordinary rather
-than forbidden. The vocabulary is twelve members — `blur`, `shadow`, `mask`
+than forbidden. The vocabulary is twenty-one members — `blur`, `shadow`, `mask`
 (shape-only), `chroma` (the Matte operation below), the four Colour filter
-scalars below, and the named effects `grain`, `glow`, `posterize` and
-`directional_blur`. A member joins only if its look can't already be composed, it
-is one built-in filter or one small shader of Montagent's own, and it stays inside
-the element's box or a reach it declares; each later member joins by its own ADR.
+scalars below, the named effects `grain`, `glow`, `posterize`, `directional_blur`,
+`mosaic`, `radial_blur`, `find_edges`, `emboss`, and `sharpen`, and the four Coordinate
+distortion members below (`twirl`, `bulge`, `optics_compensation`, and `offset`).
+A member joins only if its look can't already be composed, it is one built-in filter
+or one small shader of Montagent's own, and it stays inside the element's box or a
+reach it declares; each later member joins by its own ADR.
 An effect filters the element's own pixels: there is no element that paints from
 nothing, so a texture is a `rect` carrying an effect and a blend. Effects attach to whole
 elements, never to a run — that boundary is what excludes `stroke` (a
@@ -535,9 +537,33 @@ effect: a look outside the vocabulary is Pre-rendered footage.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md),
 [ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md),
-[ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md))
+[ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md),
+[ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
 _Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack,
 shader (for a member), generator
+
+**Edge sampling**:
+What a spatial kernel or coordinate remapping shader samples when looking beyond an
+element's pixel rect. Within the element's declared box, sampling uses `clamp`
+(`TileMode::Clamp` / Repeat Edge Pixels), so spatial convolutions (`sharpen`, `find_edges`,
+`emboss`), block quantizers (`mosaic`), smears (`radial_blur`), and coordinate distortions
+(`twirl`, `bulge`, `optics_compensation`) never produce transparent fringe or dark border
+vignettes inside the element boundary. Outward-reach filters (`blur`, `shadow`, `glow`)
+retain `decal` (`TileMode::Decal`), fading to transparent black across their declared margin
+($3\sigma$). `offset` defaults to `wrap: true` (`TileMode::Repeat`) for seamless pattern loops,
+clamping when `wrap: false`.
+([ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
+_Avoid_: border repeat, clamp-to-edge (say clamp), tile mode (the Skia implementation type)
+
+**Coordinate distortion**:
+An `effects` member that remaps sample coordinates within an element's declared box via a
+single-pass Skia runtime shader: `twirl{center, radius, angle}`, `bulge{center, radius, height}`
+(unifying bulge and pinch spherize via signed height), `optics_compensation{fov, reverse}`
+(barrel and pincushion lens curvature), and `offset{shift_x, shift_y, wrap}`. Each runs in
+element-local space with `clamp` edge sampling (or `wrap` for `offset`). Procedural noise
+warps and freehand mesh tools are refused from the format.
+([ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
+_Avoid_: warp (for the member set), displacement map (an image-driven map; not in v1), liquify
 
 **Seed**:
 The literal integer a random-by-nature effect is written with. With the element's
