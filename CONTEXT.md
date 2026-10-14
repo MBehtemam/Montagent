@@ -619,20 +619,26 @@ equal the intersection of the two bridged elements' own ranges: outside that
 window only one of the two exists, so a wider declared range is a field the
 renderer cannot honour. The per-track non-overlap rule is untouched — the two
 bridged elements live on separate tracks, exactly as anything else needing
-simultaneous visibility already does. **`kind` is `crossfade`, `wipe`, `slide` or
-`push`.** A crossfade ramps the two elements' opacity. In a slide only the incoming
-element moves, over a still outgoing one. In a push both move together, joined. In a
-wipe a moving edge divides them, each keeping its own side. A slide, push or wipe moves
-or cuts a whole frame's width or height, outside the elements' own transforms, and never
-changes their layers. The same rule makes a dependency between two elements one the file
-can show: a transition may move or cut what it bridges, but no element's pixels decide
-where another shows. That is why there is no matte taken from another element.
+simultaneous visibility already does. **`kind` is `crossfade`, `wipe`, `slide`,
+`push`, `iris`, `radial_wipe`, or `blinds`.** A crossfade ramps the two elements' opacity.
+In a slide only the incoming element moves, over a still outgoing one. In a push both move
+together, joined. In a wipe a moving edge (cardinal `direction` or explicit `angle`) divides
+them, each keeping its own side. An iris reveals via an expanding or contracting circle or
+rect centered in the frame. A radial wipe sweeps a circular sector wedge around a center.
+Blinds open parallel slats across the frame. A slide, push or wipe moves or cuts a whole
+frame's width or height, outside the elements' own transforms, and never changes their layers.
+All geometric transition boundaries are hard and un-antialiased; `feather` is refused on
+transitions, with soft reveals handled by element-local masks. The same rule makes a dependency
+between two elements one the file can show: a transition may move or cut what it bridges,
+but no element's pixels decide where another shows. That is why there is no matte taken
+from another element.
 A transition may also carry the sound across its window: its optional `audio` is `cut` (what
 absent also means), `constant_power` or `constant_gain`. A fifth kind, `audio_crossfade`,
 paints nothing and bridges `audio` or `video` elements for the sound alone.
 ([ADR-0059](docs/adr/0059-transitions-element-type-crossfade-only-exact-window.md),
 [ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md),
-[ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md))
+[ADR-0176](docs/adr/0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md),
+[ADR-0220](docs/adr/0220-iris-radial-wipe-and-blinds-enter-as-transition-kinds-and-wipe-gains-angle.md))
 _Avoid_: dissolve, transition effect, track matte (refused, not a synonym for a wipe)
 
 **Audio crossfade**:
@@ -644,11 +650,13 @@ transition, not to either element, which is what separates it from a fade writte
 _Avoid_: audio dissolve, sound transition
 
 **Direction**:
-A slide, push or wipe's `direction`: **the way the motion travels**, `left`, `right`,
-`up` or `down`. `"left"` means the content (or a wipe's edge) moves leftward, so the
-incoming element enters from the right. It never names the edge something enters from,
-and a crossfade has none.
-([ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md))
+A slide, push, wipe or blinds' `direction`: **the way the motion travels**, `left`, `right`,
+`up` or `down`. On an iris, `direction` is `"out"` (revealing outwards) or `"in"` (closing inwards);
+on a radial wipe, `direction` is `"clockwise"` or `"counter_clockwise"`. `"left"` means the content
+(or a wipe's edge) moves leftward, so the incoming element enters from the right. It never names the
+edge something enters from, and a crossfade has none.
+([ADR-0150](docs/adr/0150-wipe-slide-and-push-enter-as-transition-kinds-and-a-matte-from-another-element-is-refused.md),
+[ADR-0220](docs/adr/0220-iris-radial-wipe-and-blinds-enter-as-transition-kinds-and-wipe-gains-angle.md))
 _Avoid_: from (that is the outgoing element's id), side, edge
 
 **Blend mode**:

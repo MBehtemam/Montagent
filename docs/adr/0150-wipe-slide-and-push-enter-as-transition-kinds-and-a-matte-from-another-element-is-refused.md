@@ -8,6 +8,11 @@ amends: 0059 (discharges its deferral: `wipe`, `slide` and `push` join `crossfad
 > **Amended by [ADR-0176](./0176-a-transition-carries-the-audio-across-its-cut-in-one-field-and-an-audio-only-crossfade-is-a-transition-kind.md)**: adds a fifth kind, `audio_crossfade`, and makes the `from`/`to` reference rule
 > depend on it: it accepts an `audio` or `video` element, and the visual kinds still refuse an audio-only one.
 > `direction` and `ease` are unknown keys for the new kind. A visual `ease` does not bend the audio.
+>
+> **Amended by [ADR-0220](./0220-iris-radial-wipe-and-blinds-enter-as-transition-kinds-and-wipe-gains-angle.md)**: adds
+> `iris`, `radial_wipe`, and `blinds` to `TransitionKind`; adds optional `angle` to `wipe` (mutually exclusive with
+> `direction`); generalises `Bridge.cut` to an aperture enum painted with aliased clipping; confirms `feather` is refused
+> on transitions and soft reveals stay on element-local masks.
 
 [#678](https://github.com/MBehtemam/Montagent/issues/678), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
