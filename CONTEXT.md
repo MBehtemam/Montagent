@@ -689,7 +689,15 @@ break the write-read round trip, as `center-center` does. Alpha lives here as we
 `opacity` because `opacity` is the *animation* channel: a static per-run transparency, or
 a translucent fill under an opaque stroke, has nowhere else to go. `fmt` never rewrites a
 colour, including between the two forms. ASS writes `&HAABBGGRR` — byte-reversed, alpha
-inverted — and every colour in the fixture was converted out of it by hand.
+inverted — and every colour in the fixture was converted out of it by hand. The working
+colour space is 8-bit display-referred sRGB (`[u8; 4]`, premultiplied on the Skia canvas,
+unpremultiplied at decode and `frame` PNG boundaries): stills with non-sRGB ICC profiles
+convert once into sRGB at decode time, video clips decode to full-range sRGB (`out_range=pc`,
+honouring embedded matrix tags and falling back to `in_color_matrix=bt709` when untagged),
+and `render` / `preview` convert full-range sRGB to studio-swing Rec.709 (`bt709` / `tv`)
+with direct transfer-curve pass-through and `1-1-1` (`bt709` / `bt709` / `bt709`, `tv`)
+stream tags across H.264, ProRes, and DNxHR.
+([ADR-0216](docs/adr/0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md))
 _Avoid_: color (in prose), rgba(), hex (as the field name)
 
 **Group**:

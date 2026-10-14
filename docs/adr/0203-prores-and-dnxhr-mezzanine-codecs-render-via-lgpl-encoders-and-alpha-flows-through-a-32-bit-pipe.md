@@ -5,6 +5,11 @@ amends: 0009 (spawned ffmpeg), 0021 (odd dimension padding), 0115 (ffmpeg qualif
 
 # ProRes and DNxHR mezzanine codecs render via LGPL encoders and alpha flows through a 32-bit pipe
 
+> **Amended by [ADR-0216](0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md)**:
+> ProRes (`prores_ks`) and DNxHR (`dnxhd`) deliverables share the explicit BT.709 `scale` +
+> `setparams` filtergraph and `-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv`
+> (`1-1-1`) output flags with H.264 deliverables.
+
 [#983](https://github.com/MBehtemam/Montagent/issues/983), [#1002](https://github.com/MBehtemam/Montagent/issues/1002), [#1004](https://github.com/MBehtemam/Montagent/issues/1004).
 
 ## Context

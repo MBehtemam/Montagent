@@ -11,6 +11,11 @@ amends: 0077 (reading 7's CRF 20 and preset `medium` are now a measured choice r
 > pinned ffmpeg 9 build writes different files from identical frames. There the guarantee is
 > the frames at the encoder's input; the other targets still compare bytes.
 
+> **Amended by [ADR-0216](0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md).**
+> The encode pipeline now converts full-range sRGB to studio-swing Rec.709 via
+> `scale=in_range=pc:out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv`
+> and passes `-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv`.
+
 [#628](https://github.com/MBehtemam/Montagent/issues/628), from
 [#532](https://github.com/MBehtemam/Montagent/issues/532) and
 [#625](https://github.com/MBehtemam/Montagent/issues/625). The decision was put to a court of

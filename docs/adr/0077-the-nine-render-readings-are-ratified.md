@@ -22,6 +22,12 @@ amends: 0035 (states which whole millisecond of its grid a frame is painted at),
 > could have resolved anyway" no longer holds; that interval was the decoder's frame, and it
 > made the command up to 21 ms late.
 
+> **Amended by [ADR-0216](0216-srgb-is-the-working-colour-space-and-video-boundaries-convert-and-tag-bt709.md)**:
+> reading 7's `rgb24 → yuv420p` conversion now explicitly converts full-range (`pc`) sRGB code
+> values to studio-swing (`tv`) Rec.709 via `scale=in_range=pc:out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv`
+> and tags deliverables `1-1-1` (`bt709` / `bt709` / `bt709`, `tv`) instead of leaving
+> `libswscale` on its default `bt601` matrix and untagged container metadata.
+
 **Ticket:** [#287](https://github.com/MBehtemam/Montagent/issues/287), from
 [#215](https://github.com/MBehtemam/Montagent/issues/215).
 
