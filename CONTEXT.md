@@ -162,7 +162,10 @@ published in the schema as its cubic bezier, or the four control points directly
 presence is a pure function of position: the first record of a list has nothing arriving at
 it and carrying an `ease` there is an error, and every later record must carry one, with no
 default published anywhere
-([ADR-0038](docs/adr/0038-ease-is-required-on-every-non-first-keyframe-record.md)).
+([ADR-0038](docs/adr/0038-ease-is-required-on-every-non-first-keyframe-record.md),
+[ADR-0219](docs/adr/0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)).
+Refuses neighbour-dependent keywords (`continuous`, `auto`): smooth pass-through velocity across
+adjacent keyframes is written as literal cubic Bezier handles or computed via an `auto_bezier` pass.
 _Avoid_: timing function, curve, interpolation (as the field name), tween
 
 **Recorded intent**:

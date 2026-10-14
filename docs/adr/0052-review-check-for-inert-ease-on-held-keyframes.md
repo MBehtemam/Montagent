@@ -5,6 +5,8 @@ amends: 0038 (designs the review-level lint ADR-0038 named but did not design), 
 
 # `validate` gains `R-EASE-INERT`: a review check for an `ease` that describes no motion
 
+> **Amended by [ADR-0219](./0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)**: confirms `validate` leaves monotonic multi-segment decelerations untouched; unlike inert holds, real motion occurs, and pausing at waypoints is legitimate authorial staging.
+
 [Ticket #122](https://github.com/MBehtemam/Montagent/issues/122), graduated from
 [#70](https://github.com/MBehtemam/Montagent/issues/70)/[ADR-0038](./0038-ease-is-required-on-every-non-first-keyframe-record.md).
 ADR-0038 made `ease` required on every keyframe record but the first, closing a
