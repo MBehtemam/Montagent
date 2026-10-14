@@ -5,6 +5,8 @@ amends: 0148 (its three binding requirements are discharged and the stagger is s
 
 # Letter spacing is an animatable element field, and a stagger is a units block on one text element
 
+> **Amended by [ADR-0223](0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)**: `Run` gains optional static `letter_spacing` overriding `TextElement.letter_spacing` for graphemes in that run, rejected with `E-RUN-LETTER-SPACING-CONFLICT` when `TextElement.letter_spacing` is a keyframe list; optional ligatures switch off when either element or run `letter_spacing` is non-zero.
+
 > **Amended by [ADR-0153](0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)**: a joined piece
 > shares timing like a merged glyph and transforms as one body; the ligature rule spares the
 > joining scripts; no letter spacing between two letters of a joining script; new review

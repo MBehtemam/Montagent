@@ -198,15 +198,17 @@ _Avoid_: crop, mask, viewport, bounds
 
 **Run**:
 One stretch of a text element's content, carrying its own text plus style deltas
-over the element's base style. A text element's content is always an ordered array
-of runs, even when there is only one. A run boundary is *style only* — it never
-implies a line break; a line break is a `\n` character inside a run's text. A run
+over the element's base style (`font`, `size`, `color`, `stroke`, `stroke_width`, `dir`,
+`features`, `baseline_shift`, `letter_spacing`, `highlight`, `unit`). A text element's content
+is always an ordered array of runs, even when there is only one. A run boundary is *style only*
+— it never implies a line break; a line break is a `\n` character inside a run's text. A run
 that holds exactly one unit of a stagger may single that unit out. A run may carry an
 optional `annotation` object defining interlinear ruby text, or a `decoration` object defining
 multi-line range decorations (boxes, highlights, underlines).
 ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md),
 [ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md),
-[ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md))
+[ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md),
+[ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md))
 _Avoid_: span, segment, chunk (a **Paint chunk** is a stretch of frames, never text)
 
 **Text range decoration** / **Phrase box**:
@@ -237,13 +239,31 @@ _Avoid_: bleed, margin
 
 **Letter spacing**:
 Space added after every grapheme of a line but the last, in thousandths of an em of the
-size it is set at, so a size change keeps the same tracking. It belongs to the whole
-element, never to one run, and it may change over time. None is added between two letters of
-the same joining script such as Arabic, joined or not, because a gap there would tear the
-cursive stroke
+size it is set at, so a size change keeps the same tracking. Set on the element (where it may
+change over time) or overridden statically on an individual run when the element's own
+`letter_spacing` is not animated (`E-RUN-LETTER-SPACING-CONFLICT`). None is added between two
+letters of the same joining script such as Arabic, joined or not, because a gap there would tear
+the cursive stroke
 ([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
-[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)).
-_Avoid_: tracking (as the field name), kerning (the font's own pair adjustment), character spacing
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md),
+[ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: tracking (as the field name), kerning (the font's own pair adjustment; manual pair adjustments use a single-character run with `letter_spacing`), tsume, character spacing
+
+**Baseline shift**:
+A static signed integer pixel offset (`baseline_shift` on `Run`) that raises (`> 0`, upward / $-y$)
+or lowers (`< 0`, downward / $+y$) a run's glyphs and measured ink relative to the line's shared
+`baseline_y`, without altering the line's `baseline_y` or inflating its slot height
+([ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: vertical offset, superscript offset
+
+**OpenType features**:
+A closed list of OpenType `GSUB`/`GPOS` feature tags (`"tnum"`, `"onum"`, `"zero"`, `"smcp"`,
+`"c2sc"`, `"sups"`, `"subs"`, `"frac"`, `"ordn"`) declared in `features` on a `text` element or
+overridden on a `Run`, and checked by `validate` against the resolved face's `GSUB`/`GPOS` tables
+(`E-FONT-FEATURE`). Ligatures remain governed by the spacing and stagger rules rather than manual
+toggles
+([ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: font-variant, faux bold, faux italic, all caps (write uppercase literals in `runs[].text`)
 
 **Stagger**:
 One text element's animation run once per unit (a letter, word or line), each unit started a
@@ -296,8 +316,11 @@ _Avoid_: typeface, family, font stack
 The one set of outlines and metrics a chain entry resolves to. A file is not a face: a
 `.ttc` collection carries several, and the entry's `index` says which — *"defaulting to
 0. 49 of the fonts in a stock macOS `/System/Library/Fonts` are collections; this is the
-normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)). The
-face is **cut out of the collection into a file of its own before it is registered**, so
+normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)) — and a
+variable font file carries a continuous design space pinned to one static instance by the
+entry's optional `axes` (`wght`, `wdth`, `slnt`, `ital`, `opsz`, checked against `fvar` by
+`E-FONT-AXIS`; [ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+The face is **cut out of a collection into a file of its own before it is registered**, so
 that an entry naming one resolves to it and to nothing else
 ([ADR-0102](docs/adr/0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)).
 The distinction is load-bearing rather than pedantic: a chain entry, an attestation and
