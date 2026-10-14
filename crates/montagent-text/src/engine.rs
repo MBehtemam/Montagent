@@ -66,6 +66,73 @@ use crate::lines::partition;
 use crate::place::{Align, offset};
 use crate::spacing::{gaps, non_joining, shifts};
 
+/// Where a run annotation is placed relative to its base run (ADR-0208).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnnotationPosition {
+    #[default]
+    Over,
+    Under,
+}
+
+/// How an annotation's advance width is aligned against its base run's horizontal span (ADR-0208).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnnotationAlign {
+    #[default]
+    Center,
+    Start,
+    End,
+}
+
+/// An interlinear ruby or pedagogical gloss attached to a [`Run`] (ADR-0208).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Annotation<'a> {
+    pub text: &'a str,
+    pub font: Option<&'a str>,
+    pub size: Option<i64>,
+    pub position: AnnotationPosition,
+    pub align: AnnotationAlign,
+    pub tier: usize,
+    pub gap: Option<i64>,
+}
+
+/// One measured annotation, placed in the block's horizontal frame and line's vertical frame (ADR-0208).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeasuredAnnotation {
+    /// Index of the annotated run in [`Spec::runs`].
+    pub run: usize,
+    /// Line index (`0..line_count`) this annotation sits on.
+    pub line: usize,
+    /// The annotation's text content.
+    pub text: String,
+    pub position: AnnotationPosition,
+    pub align: AnnotationAlign,
+    pub tier: usize,
+    /// Resolved font size in integer pixels.
+    pub size: i64,
+    /// Resolved vertical gap in integer pixels.
+    pub gap: i64,
+    /// Left edge of the annotation's advance box in block-local coordinates (`0..advance_width`).
+    pub x: f64,
+    /// Shaped typographic advance width of the annotation text.
+    pub advance_width: f64,
+    /// Left edge of the base run's horizontal advance on this line, in block-local coordinates.
+    pub base_x_start: f64,
+    /// Right edge of the base run's horizontal advance on this line, in block-local coordinates.
+    pub base_x_end: f64,
+    /// Top of the annotation's typographic box (in the same vertical frame as [`MeasuredLine::slot_top`]).
+    pub box_top: f64,
+    /// Bottom of the annotation's typographic box (in the same vertical frame as [`MeasuredLine::slot_top`]).
+    pub box_bottom: f64,
+    /// Baseline of the annotation text (in the same vertical frame as [`MeasuredLine::baseline_y`]).
+    pub baseline_y: f64,
+    pub ascent: f64,
+    pub descent: f64,
+    /// Tight ink bounding box `[x0, y0, x1, y1]` in block-local coordinates (`x` relative to `0`, `y` relative to `block_top`).
+    pub ink_rect: Option<[f64; 4]>,
+}
+
 /// One stretch of a text element's content, with its style deltas over the base
 /// (ADR-0007).
 ///
@@ -84,6 +151,8 @@ pub struct Run<'a> {
     /// as though wrapped in LRI/RLI…PDI, so it reorders nothing outside itself and never
     /// changes the line's base direction (ADR-0133).
     pub dir: Option<Dir>,
+    /// An optional interlinear annotation attached to this run (ADR-0208).
+    pub annotation: Option<Annotation<'a>>,
 }
 
 /// A run's direction override (ADR-0007). Never LRO/RLO: there is no way to spell one.
@@ -171,10 +240,10 @@ pub struct MeasuredLine {
     /// The largest `size` among the runs on this line — the one that sets the slot's
     /// height (ADR-0007).
     pub size: i64,
-    /// The slot this line reserves: `size × line_height`.
+    /// The slot this line reserves: `size × line_height` (plus any annotation leading inflation under ADR-0208).
     pub slot_top: f64,
     pub slot_height: f64,
-    /// Where the glyphs sit: `slot_centre_y + (ascent − descent) / 2` (ADR-0029).
+    /// Where the glyphs sit: `slot_centre_y + (ascent − descent) / 2` (ADR-0029, ADR-0208).
     pub baseline_y: f64,
     /// The largest `stroke_width` among the runs on this line.
     pub stroke_width: i64,
@@ -215,8 +284,8 @@ pub struct Measurement {
     pub ascent: f64,
     pub descent: f64,
     /// The block's height in exact tenths of a pixel: `Σ (largest size on line ×
-    /// line_height × 10)`. The integer a `height` field takes is `ceil` of this, and that
-    /// `ceil` is ADR-0028's, evaluated once in `montagent_core::exact`.
+    /// line_height × 10 + extra_leading × 10)`. The integer a `height` field takes is `ceil`
+    /// of this, and that `ceil` is ADR-0028's, evaluated once in `montagent_core::exact`.
     ///
     /// `i128`, like every intermediate below it. `size` is read off a document and carries
     /// no bound of its own, and an `i64` product of three such numbers is exactly the
@@ -243,6 +312,10 @@ pub struct Measurement {
     pub lines: Vec<MeasuredLine>,
     /// Which segmenter produced every `break_opportunities` above (ADR-0008).
     pub segmenter: Segmenter,
+    /// Measured annotations across the block (ADR-0208). Not serialized in the base `measure`
+    /// output; published via `measure --layout` (ADR-0213) and inspected by `validate`.
+    #[serde(skip)]
+    pub annotations: Vec<MeasuredAnnotation>,
 }
 
 /// The stroked extent: the typographic block grown by the stroke that falls outside the
@@ -271,6 +344,13 @@ pub fn measure(fonts: &mut Fonts, spec: &Spec<'_>) -> Result<Measurement, FontEr
     Ok(measured(fonts, spec)?.0)
 }
 
+/// One shaped annotation layout on a line, paired with its entry in [`Measurement::annotations`].
+pub(crate) struct ShapedAnnotation {
+    pub(crate) annotation: usize,
+    pub(crate) layout: Layout<u32>,
+    pub(crate) shifts: Vec<f64>,
+}
+
 /// One line's shaped layout, and what letter spacing moves each of its glyphs by — in the
 /// order the layout yields them ([`crate::spacing::shifts`]). Every reader of a glyph's `x`
 /// adds the shift, so the ink, the seam and the drawn glyph all sit on the spaced line.
@@ -286,6 +366,65 @@ pub(crate) struct Shaped {
     pub(crate) clusters: Vec<(crate::spacing::LaidCluster, Option<Range<usize>>)>,
     /// Which of `clusters` each glyph came from, in the order `shifts` is in.
     pub(crate) glyph_clusters: Vec<usize>,
+    /// The line's glyph ink boxes, used by [`crate::place`] to populate per-cluster ink boxes.
+    pub(crate) ink: Option<LineInk>,
+    /// Shaped annotation layouts attached to runs on this line (ADR-0208).
+    pub(crate) annotations: Vec<ShapedAnnotation>,
+}
+
+/// Intermediate shaped annotation before block-level coordinates (`block_top`, `block_width`) are known.
+struct PendingAnnotation {
+    run: usize,
+    text: String,
+    position: AnnotationPosition,
+    align: AnnotationAlign,
+    tier: usize,
+    size: i64,
+    gap: i64,
+    advance: f64,
+    ascent: f64,
+    descent: f64,
+    ink: Option<LineInk>,
+    layout: Layout<u32>,
+    shifts: Vec<f64>,
+}
+
+/// Compute `(extra_leading_px, tier_pitches)` for a line in one direction (`Over` or `Under`) per ADR-0208 §2.
+fn tier_inflation(
+    annotations: &[PendingAnnotation],
+    direction: AnnotationPosition,
+    base_slot_tenths: i128,
+    line_ascent: f64,
+    line_descent: f64,
+) -> (i64, Vec<i64>) {
+    let in_dir: Vec<&PendingAnnotation> = annotations
+        .iter()
+        .filter(|a| a.position == direction)
+        .collect();
+    if in_dir.is_empty() {
+        return (0, Vec::new());
+    }
+    let tier_count = in_dir.iter().map(|a| a.tier).max().unwrap_or(0) + 1;
+    let fallback_pitch = in_dir.iter().map(|a| a.size).max().unwrap_or(0)
+        + in_dir.iter().map(|a| a.gap).max().unwrap_or(6);
+    let mut pitches = Vec::with_capacity(tier_count);
+    for t in 0..tier_count {
+        let in_tier: Vec<&&PendingAnnotation> = in_dir.iter().filter(|a| a.tier == t).collect();
+        let pitch = if in_tier.is_empty() {
+            fallback_pitch
+        } else {
+            let max_size = in_tier.iter().map(|a| a.size).max().unwrap_or(0);
+            let max_gap = in_tier.iter().map(|a| a.gap).max().unwrap_or(6);
+            max_size + max_gap
+        };
+        pitches.push(pitch);
+    }
+    let required_extent: i64 = pitches.iter().sum();
+    let base_slot_height = base_slot_tenths as f64 / 10.0;
+    let available_leading =
+        (((base_slot_height - (line_ascent + line_descent)) / 2.0).floor() as i64).max(0);
+    let extra_leading = (required_extent - available_leading).max(0);
+    (extra_leading, pitches)
 }
 
 /// The same measurement, with the shaped layouts it was derived from kept.
@@ -305,9 +444,17 @@ pub(crate) fn measured(
     // discovering it half-way through would leave a partial answer to throw away.
     let base_chain = fonts.chain(spec.font)?;
     let mut run_chains = Vec::with_capacity(spec.runs.len());
+    let mut ann_chains = Vec::with_capacity(spec.runs.len());
     for run in spec.runs {
         run_chains.push(match run.font {
             Some(key) => Some(fonts.chain(key)?),
+            None => None,
+        });
+        ann_chains.push(match &run.annotation {
+            Some(ann) => {
+                let key = ann.font.or(run.font).unwrap_or(spec.font);
+                Some(fonts.chain(key)?)
+            }
             None => None,
         });
     }
@@ -330,6 +477,7 @@ pub(crate) fn measured(
     // a second pass rather than something accumulated here.
     let mut shaped = Vec::with_capacity(lines.len());
     let mut layouts = Vec::with_capacity(lines.len());
+    let mut pending_annotations: Vec<Vec<PendingAnnotation>> = Vec::with_capacity(lines.len());
     for line in &lines {
         // Overlap, strictly: a run contributing no character to this line is not on it, so
         // an empty run sets no slot height and a run that ends exactly where the line
@@ -449,6 +597,77 @@ pub(crate) fn measured(
             spec.runs,
         );
 
+        // Shape any annotations attached to runs on this line (ADR-0208).
+        let mut line_anns = Vec::new();
+        for &run_idx in &on_line {
+            let Some(ann) = &spec.runs[run_idx].annotation else {
+                continue;
+            };
+            let base_run_size = spec.runs[run_idx].size.unwrap_or(spec.size);
+            let ann_size = ann.size.unwrap_or((base_run_size + 1) / 2);
+            let ann_gap = ann.gap.unwrap_or(6);
+            let ann_chain = ann_chains[run_idx].as_ref().unwrap_or(&base_chain);
+
+            let mut builder = layout_context.ranged_builder(
+                fonts.context(),
+                ann.text,
+                1.0,
+                /* quantize */ false,
+            );
+            builder.push_default(StyleProperty::FontFamily(ann_chain.clone()));
+            builder.push_default(StyleProperty::FontSize(ann_size as f32));
+            builder.push_default(StyleProperty::Brush(run_idx as u32));
+            if spec.optional_ligatures_off {
+                for range in non_joining(ann.text) {
+                    builder.push(
+                        StyleProperty::FontFeatures(FontFeatures::Source(Cow::Borrowed(
+                            OPTIONAL_LIGATURES_OFF,
+                        ))),
+                        range,
+                    );
+                }
+            }
+            let mut ann_layout: Layout<u32> = builder.build(ann.text);
+            ann_layout.break_all_lines(None);
+            ann_layout.align(Alignment::Start, AlignmentOptions::default());
+
+            let ann_gaps = gaps(ann.text, spec.letter_spacing, |_| ann_size);
+            let ann_walked = shifts(&ann_layout, &ann_gaps, |at| at);
+            let mut ann_ascent: f64 = 0.0;
+            let mut ann_descent: f64 = 0.0;
+            let mut ann_advance: f64 = 0.0;
+            for placed_ann in ann_layout.lines() {
+                ann_advance += f64::from(placed_ann.metrics().advance);
+                for r in placed_ann.runs() {
+                    ann_ascent = ann_ascent.max(f64::from(r.metrics().ascent));
+                    ann_descent = ann_descent.max(f64::from(r.metrics().descent));
+                }
+            }
+            if ann.text.is_empty() {
+                ann_advance = 0.0;
+            }
+            ann_advance += ann_walked.moved;
+            let ann_ink = line_ink(&ann_layout, &ann_walked.shifts);
+
+            line_anns.push(PendingAnnotation {
+                run: run_idx,
+                text: ann.text.to_string(),
+                position: ann.position,
+                align: ann.align,
+                tier: ann.tier,
+                size: ann_size,
+                gap: ann_gap,
+                advance: ann_advance,
+                ascent: ann_ascent,
+                descent: ann_descent,
+                ink: ann_ink,
+                layout: ann_layout,
+                shifts: ann_walked.shifts,
+            });
+        }
+        pending_annotations.push(line_anns);
+
+        let computed_ink = line_ink(&layout, &line_shifts);
         shaped.push(LineMetrics {
             advance,
             ascent,
@@ -462,21 +681,49 @@ pub(crate) fn measured(
             // Read off the layout this pass just built, for [`crate::place`]'s reason: the
             // glyphs whose ink is being measured must be the glyphs that will be drawn, and
             // a second shaping pass to find them would be a second answer to where they are.
-            ink: line_ink(&layout, &line_shifts),
+            ink: computed_ink.clone(),
         });
         layouts.push(Shaped {
             layout,
             shifts: line_shifts,
             clusters: line_clusters,
             glyph_clusters: walked.glyph_clusters,
+            ink: computed_ink,
+            annotations: Vec::new(),
         });
     }
 
     // Pass two: the block, and every coordinate inside it.
-    let slots: Vec<i128> = shaped
-        .iter()
-        .map(|line| i128::from(line.size) * i128::from(spec.line_height_tenths))
-        .collect();
+    let mut base_slots: Vec<i128> = Vec::with_capacity(shaped.len());
+    let mut slots: Vec<i128> = Vec::with_capacity(shaped.len());
+    let mut extra_overs: Vec<i64> = Vec::with_capacity(shaped.len());
+    let mut pitches_overs: Vec<Vec<i64>> = Vec::with_capacity(shaped.len());
+    let mut pitches_unders: Vec<Vec<i64>> = Vec::with_capacity(shaped.len());
+
+    for (line, anns) in shaped.iter().zip(&pending_annotations) {
+        let base_slot_tenths = i128::from(line.size) * i128::from(spec.line_height_tenths);
+        let (extra_over, pitches_over) = tier_inflation(
+            anns,
+            AnnotationPosition::Over,
+            base_slot_tenths,
+            line.ascent,
+            line.descent,
+        );
+        let (extra_under, pitches_under) = tier_inflation(
+            anns,
+            AnnotationPosition::Under,
+            base_slot_tenths,
+            line.ascent,
+            line.descent,
+        );
+        let slot_tenths = base_slot_tenths + i128::from(extra_over + extra_under) * 10;
+        base_slots.push(base_slot_tenths);
+        slots.push(slot_tenths);
+        extra_overs.push(extra_over);
+        pitches_overs.push(pitches_over);
+        pitches_unders.push(pitches_under);
+    }
+
     // In twentieths, so that the block's half — which `center` needs — stays an integer.
     let block = slots.iter().sum::<i128>() * 2;
     let block_top = i128::from(spec.y) * UNIT
@@ -490,9 +737,10 @@ pub(crate) fn measured(
     let mut slot_top = block_top;
     for (index, (line, shaped)) in lines.iter().zip(&shaped).enumerate() {
         let slot = slots[index] * 2;
-        // The slot's own centre, exactly: `slot / 2` is `size × line_height × 10`, an
-        // integer by construction.
-        let centre = slot_top + slots[index];
+        // ADR-0208 §3.1: extra_leading_over displaces the base slot centre downward so
+        // annotations placed "over" remain inside the inflated slot. When extra_overs[index] == 0,
+        // `centre` is strictly `slot_top + base_slots[index]`, identical to unannotated text.
+        let centre = slot_top + i128::from(extra_overs[index]) * UNIT + base_slots[index];
         let baseline_y = pixels(centre) + (shaped.ascent - shaped.descent) / 2.0;
         measured.push(MeasuredLine {
             index,
@@ -541,6 +789,122 @@ pub(crate) fn measured(
     // is not known until every line is shaped — so this sits here, after pass two, rather
     // than beside the vertical coordinates it is reported next to.
     let block_width = greatest(&measured, |line| line.advance_width);
+    let block_top_px = pixels(block_top);
+
+    // Resolve annotation horizontal and vertical coordinates in the block's frame (ADR-0208 §3).
+    let mut annotations = Vec::new();
+    for (index, line_anns) in pending_annotations.into_iter().enumerate() {
+        if line_anns.is_empty() {
+            continue;
+        }
+        let line = &measured[index];
+        let dx = offset(spec.align, line.rtl, block_width, line.advance_width);
+        for pa in line_anns {
+            let run_range = &run_ranges[pa.run];
+            let mut x_start = f64::INFINITY;
+            let mut x_end = f64::NEG_INFINITY;
+            for (cluster, text_range) in &layouts[index].clusters {
+                if let Some(r) = text_range
+                    && r.start < run_range.end
+                    && r.end > run_range.start
+                {
+                    let c_left = dx + cluster.x + cluster.shift;
+                    let c_right = c_left + cluster.advance;
+                    x_start = x_start.min(c_left);
+                    x_end = x_end.max(c_right);
+                }
+            }
+            if !x_start.is_finite() || !x_end.is_finite() {
+                x_start = dx;
+                x_end = dx;
+            }
+            let w_r = (x_end - x_start).max(0.0);
+            let w_a = pa.advance;
+            let x_a = match pa.align {
+                AnnotationAlign::Center => x_start + (w_r - w_a) / 2.0,
+                AnnotationAlign::Start => {
+                    if !line.rtl {
+                        x_start
+                    } else {
+                        x_end - w_a
+                    }
+                }
+                AnnotationAlign::End => {
+                    if !line.rtl {
+                        x_end - w_a
+                    } else {
+                        x_start
+                    }
+                }
+            };
+
+            let pitches = match pa.position {
+                AnnotationPosition::Over => &pitches_overs[index],
+                AnnotationPosition::Under => &pitches_unders[index],
+            };
+            let pitch_sum: i64 = pitches.iter().take(pa.tier).sum();
+            let (box_top, box_bottom, ann_baseline_y) = match pa.position {
+                AnnotationPosition::Over => {
+                    let bottom =
+                        line.baseline_y - line.ascent - (pa.gap as f64) - (pitch_sum as f64);
+                    let top = bottom - (pa.size as f64);
+                    let baseline = bottom - pa.descent;
+                    (top, bottom, baseline)
+                }
+                AnnotationPosition::Under => {
+                    let top = line.baseline_y + line.descent + (pa.gap as f64) + (pitch_sum as f64);
+                    let bottom = top + (pa.size as f64);
+                    let baseline = top + pa.ascent;
+                    (top, bottom, baseline)
+                }
+            };
+
+            let ink_rect = pa.ink.as_ref().map(|ink| {
+                let x0 = ink
+                    .glyphs
+                    .iter()
+                    .map(|g| x_a + g.x0)
+                    .fold(f64::INFINITY, f64::min);
+                let x1 = ink
+                    .glyphs
+                    .iter()
+                    .map(|g| x_a + g.x1)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let local_baseline = ann_baseline_y - block_top_px;
+                let y0 = local_baseline + ink.top;
+                let y1 = local_baseline + ink.bottom;
+                [x0, y0, x1, y1]
+            });
+
+            let ann_idx = annotations.len();
+            annotations.push(MeasuredAnnotation {
+                run: pa.run,
+                line: index,
+                text: pa.text,
+                position: pa.position,
+                align: pa.align,
+                tier: pa.tier,
+                size: pa.size,
+                gap: pa.gap,
+                x: x_a,
+                advance_width: w_a,
+                base_x_start: x_start,
+                base_x_end: x_end,
+                box_top,
+                box_bottom,
+                baseline_y: ann_baseline_y,
+                ascent: pa.ascent,
+                descent: pa.descent,
+                ink_rect,
+            });
+            layouts[index].annotations.push(ShapedAnnotation {
+                annotation: ann_idx,
+                layout: pa.layout,
+                shifts: pa.shifts,
+            });
+        }
+    }
+
     let inked: Vec<(usize, Vec<crate::ink::GlyphInk>)> = measured
         .iter()
         .zip(&shaped)
@@ -583,6 +947,7 @@ pub(crate) fn measured(
             ink_seams,
             lines: measured,
             segmenter: SEGMENTER,
+            annotations,
         },
         layouts,
     ))

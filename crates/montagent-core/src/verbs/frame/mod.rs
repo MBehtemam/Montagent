@@ -2390,33 +2390,42 @@ impl<'a> Painter<'a> {
         // A text on a path draws every glyph through its body's place on the curve, and a
         // glyph whose body is off the curve not at all (ADR-0161). Its declared box is the
         // frame its curve is written in, so it pivots about that box, as a `path` does.
-        let (glyphs, extent) = match crate::text_path::bend(element, &placement, self.t) {
-            Some(bent) => (
-                glyphs_of(&placement, &bent.glyphs, &paints, true),
-                Extent {
-                    width: element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
-                    height: element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
-                },
-            ),
-            None => (
-                glyphs_of(
-                    &placement,
-                    &unit_draws(element, &placement, self.t),
-                    &paints,
-                    false,
+        let (glyphs, decorations, extent) =
+            match crate::text_path::bend(element, &placement, self.t) {
+                Some(bent) => (
+                    glyphs_of(&placement, &bent.glyphs, &paints, true),
+                    Vec::new(),
+                    Extent {
+                        width: element.get("width").and_then(Value::as_f64).unwrap_or(0.0),
+                        height: element.get("height").and_then(Value::as_f64).unwrap_or(0.0),
+                    },
                 ),
-                Extent {
-                    width: placement.width,
-                    height: placement.height,
-                },
-            ),
-        };
+                None => {
+                    let mut glyphs = glyphs_of(
+                        &placement,
+                        &unit_draws(element, &placement, self.t),
+                        &paints,
+                        false,
+                    );
+                    glyphs.extend(annotation_glyphs_of(element, &placement, &paints));
+                    let decorations = decorations_of(element, &placement, self.instant);
+                    (
+                        glyphs,
+                        decorations,
+                        Extent {
+                            width: placement.width,
+                            height: placement.height,
+                        },
+                    )
+                }
+            };
         let outlines = outlines_of(&placement);
 
         let effects = self.effects_of(name, element);
         canvas.text(
             &glyphs,
             &outlines,
+            &decorations,
             extent,
             &self.transform(element),
             self.clip(element),
@@ -2753,6 +2762,198 @@ pub(crate) fn glyphs_of(
             }),
         })
         .collect()
+}
+
+/// The placed ruby annotation glyphs for a text element (ADR-0208 §3).
+///
+/// Each annotation inherits its parent run's fill colour unless overridden by
+/// `annotation.color`, and carries no stroke.
+fn annotation_glyphs_of(
+    element: &Value,
+    placement: &montagent_text::Placement,
+    paints: &[Fill],
+) -> Vec<Glyph> {
+    if placement.annotation_glyphs.is_empty() {
+        return Vec::new();
+    }
+    let ann_paints: Vec<Fill> = crate::verbs::measure::runs_array(element)
+        .iter()
+        .enumerate()
+        .map(|(i, run)| {
+            let parent_fill = paints
+                .get(i)
+                .and_then(|p| p.fill.clone())
+                .or_else(|| Some(DEFAULT_INK.into()));
+            let fill = run
+                .get("annotation")
+                .and_then(|a| a.get("color"))
+                .and_then(rgba)
+                .map(Ink::from)
+                .or(parent_fill);
+            Fill {
+                fill,
+                stroke: None,
+                stroke_width: 0.0,
+            }
+        })
+        .collect();
+
+    placement
+        .annotation_glyphs
+        .iter()
+        .map(|glyph| Glyph {
+            unit: None,
+            x: glyph.x,
+            y: glyph.y,
+            outline: glyph.outline,
+            paint: ann_paints.get(glyph.run).cloned().unwrap_or(Fill {
+                fill: Some(DEFAULT_INK.into()),
+                stroke: None,
+                stroke_width: 0.0,
+            }),
+        })
+        .collect()
+}
+
+/// The line-fragment decorations for every run carrying a `decoration` object (ADR-0214 §3–§5).
+fn decorations_of(
+    element: &Value,
+    placement: &montagent_text::Placement,
+    instant: i64,
+) -> Vec<montagent_render::canvas::TextDecoration> {
+    use montagent_render::canvas::{Dash, TextDecoration, TextDecorationKind};
+
+    let mut out = Vec::new();
+    for (run_idx, run_val) in crate::verbs::measure::runs_array(element)
+        .iter()
+        .enumerate()
+    {
+        let Some(dec_val) = run_val.get("decoration") else {
+            continue;
+        };
+        let Ok(dec) = serde_json::from_value::<crate::model::Decoration>(dec_val.clone()) else {
+            continue;
+        };
+
+        // Resolve optional timing window and fade envelope (ADR-0214 §5).
+        let opacity = match &dec.window {
+            Some(window) => {
+                if instant < window.start || instant >= window.end {
+                    continue;
+                }
+                let mut alpha = 1.0_f64;
+                if let Some(crate::model::Length(fade_in)) = window.fade_in
+                    && fade_in > 0
+                {
+                    let elapsed = (instant - window.start) as f64;
+                    if elapsed < fade_in as f64 {
+                        alpha = alpha.min(elapsed / fade_in as f64);
+                    }
+                }
+                if let Some(crate::model::Length(fade_out)) = window.fade_out
+                    && fade_out > 0
+                {
+                    let remaining = (window.end - instant) as f64;
+                    if remaining < fade_out as f64 {
+                        alpha = alpha.min(remaining / fade_out as f64);
+                    }
+                }
+                let alpha = alpha.clamp(0.0, 1.0);
+                if alpha <= 0.0 {
+                    continue;
+                }
+                alpha
+            }
+            None => 1.0,
+        };
+
+        // Collect all line indices that contain clusters belonging to this run.
+        let mut touched_lines: Vec<usize> = placement
+            .clusters
+            .iter()
+            .filter(|c| c.run == run_idx)
+            .map(|c| c.line)
+            .collect();
+        touched_lines.sort_unstable();
+        touched_lines.dedup();
+        if touched_lines.is_empty() {
+            continue;
+        }
+
+        let (pad_t, pad_r, pad_b, pad_l) = dec
+            .padding
+            .map_or((0, 0, 0, 0), crate::model::DecorationPadding::trbl);
+        let (pad_t, pad_r, pad_b, pad_l) = (pad_t as f64, pad_r as f64, pad_b as f64, pad_l as f64);
+        let kind_model = dec.kind.unwrap_or_default();
+        let fill = dec.fill.as_ref().and_then(rgba_of);
+        let stroke = dec.stroke.as_ref().and_then(rgba_of).or_else(|| {
+            if kind_model == crate::model::DecorationKind::Underline {
+                run_val
+                    .get("color")
+                    .or_else(|| element.get("color"))
+                    .and_then(rgba)
+            } else {
+                None
+            }
+        });
+        let default_sw = match kind_model {
+            crate::model::DecorationKind::Box if stroke.is_some() => 1.0,
+            crate::model::DecorationKind::Underline => 1.0,
+            _ => 0.0,
+        };
+        let stroke_width = dec.stroke_width.map_or(default_sw, |l| l.0 as f64);
+        let radius = dec.radius.map_or(0.0, |l| l.0 as f64);
+        let dash = dec.stroke_dash.as_ref().and_then(|d| Dash::new(&d.0, 0.0));
+        let kind = match kind_model {
+            crate::model::DecorationKind::Box => TextDecorationKind::Box,
+            crate::model::DecorationKind::Highlight => TextDecorationKind::Highlight,
+            crate::model::DecorationKind::Underline => TextDecorationKind::Underline,
+        };
+        let is_slice =
+            dec.decoration_break.unwrap_or_default() == crate::model::DecorationBreak::Slice;
+        let total_frags = touched_lines.len();
+
+        for (frag_idx, &line_idx) in touched_lines.iter().enumerate() {
+            let Some(line) = placement.measurement.lines.get(line_idx) else {
+                continue;
+            };
+            let mut x0 = f64::INFINITY;
+            let mut x1 = f64::NEG_INFINITY;
+            for cluster in placement
+                .clusters
+                .iter()
+                .filter(|c| c.run == run_idx && c.line == line_idx)
+            {
+                x0 = x0.min(cluster.x);
+                x1 = x1.max(cluster.x + cluster.advance);
+            }
+            if !x0.is_finite() || !x1.is_finite() || x1 <= x0 {
+                continue;
+            }
+            let y0 = line.baseline_y - line.ascent;
+            let y1 = line.baseline_y + line.descent;
+            let rect = [
+                x0 - pad_l,
+                y0 - pad_t,
+                (x1 - x0) + pad_l + pad_r,
+                (y1 - y0) + pad_t + pad_b,
+            ];
+            out.push(TextDecoration {
+                kind,
+                rect,
+                baseline_y: line.baseline_y,
+                fill,
+                stroke,
+                stroke_width,
+                dash: dash.clone(),
+                radius,
+                open_left: is_slice && frag_idx > 0,
+                open_right: is_slice && frag_idx + 1 < total_frags,
+                opacity,
+            });
+        }
+    }
+    out
 }
 
 /// A placement's distinct outlines, in the rasterizer's spelling.

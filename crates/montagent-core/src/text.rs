@@ -1419,6 +1419,66 @@ fn element_block(measure: &Value) -> String {
             stated_number(&line["index"])
         )));
     }
+    if let Some(words) = measure["words"].as_array()
+        && !words.is_empty()
+    {
+        out.push_str(
+            "\n  WORDS  line  chars    x          y          width      height     text\n",
+        );
+        for w in words {
+            out.push_str(&row(format!(
+                "  {:>4}  {:>3}..{:<3} {:<10} {:<10} {:<10} {:<10} {:?}",
+                stated_number(&w["line"]),
+                stated_number(&w["char_start"]),
+                stated_number(&w["char_end"]),
+                stated_number(&w["x"]),
+                stated_number(&w["y"]),
+                stated_number(&w["width"]),
+                stated_number(&w["height"]),
+                named(&w["text"]),
+            )));
+        }
+    }
+    if let Some(annotations) = measure["annotations"].as_array()
+        && !annotations.is_empty()
+    {
+        out.push_str(
+            "\n  ANNOTATIONS  run  line  tier  x          y          width      height     text\n",
+        );
+        for a in annotations {
+            out.push_str(&row(format!(
+                "  {:>4}  {:>4}  {:>4}  {:<10} {:<10} {:<10} {:<10} {:?}",
+                stated_number(&a["run"]),
+                stated_number(&a["line"]),
+                stated_number(&a["tier"]),
+                stated_number(&a["x"]),
+                stated_number(&a["y"]),
+                stated_number(&a["width"]),
+                stated_number(&a["height"]),
+                named(&a["text"]),
+            )));
+        }
+    }
+    if let Some(ranges) = measure["ranges"].as_array()
+        && !ranges.is_empty()
+    {
+        out.push_str("\n  RANGES  chars    boxes  union [x, y, width, height]  text\n");
+        for r in ranges {
+            let box_count = r["boxes"].as_array().map_or(0, Vec::len);
+            let u = &r["union"];
+            out.push_str(&row(format!(
+                "  {:>3}..{:<3}  {:>5}  [{}, {}, {}, {}]  {:?}",
+                stated_number(&r["char_start"]),
+                stated_number(&r["char_end"]),
+                box_count,
+                stated_number(&u["x"]),
+                stated_number(&u["y"]),
+                stated_number(&u["width"]),
+                stated_number(&u["height"]),
+                named(&r["text"]),
+            )));
+        }
+    }
     out
 }
 

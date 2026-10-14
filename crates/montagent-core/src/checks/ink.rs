@@ -55,15 +55,18 @@
 //! the same missing file would be the drift ADR-0006's *"one code, one field set, one
 //! template"* forbids.
 
+use std::collections::BTreeMap;
+
 use serde_json::{Value, json};
 
 use crate::checks::{pluralised, subject_of};
 use crate::finding::Finding;
 use crate::permissive::Loose;
 use crate::report::Report;
-use crate::verbs::measure::{try_measure_element_at, written_letter_spacings};
+use crate::verbs::measure::{runs_array, try_measure_element_at, written_letter_spacings};
 
-/// `R-LINE-INK-COLLISION`, over every `text` element in the document.
+/// `R-LINE-INK-COLLISION`, `R-ANNOTATION-OVERLAP`, and `R-ANNOTATION-OVERHANG`, over every
+/// `text` element in the document.
 pub fn check(document: &Loose, report: &mut Report) {
     let file = document.path();
 
@@ -83,6 +86,9 @@ pub fn check(document: &Loose, report: &mut Report) {
         // one the question could not be asked of, and every cause is already somebody
         // else's finding. See the module doc.
         let mut worst: Option<(Finding, f64)> = None;
+        let mut worst_overlaps: BTreeMap<(usize, usize), (Finding, f64)> = BTreeMap::new();
+        let mut worst_overhangs: BTreeMap<usize, (Finding, f64)> = BTreeMap::new();
+
         for letter_spacing in written_letter_spacings(element) {
             let Ok(measured) = try_measure_element_at(document, element, letter_spacing) else {
                 continue;
@@ -92,16 +98,120 @@ pub fn check(document: &Loose, report: &mut Report) {
             {
                 worst = Some((finding, overlap));
             }
+            if !measured.measured_annotations.is_empty() {
+                annotation_candidates(
+                    element,
+                    &measured,
+                    &mut worst_overlaps,
+                    &mut worst_overhangs,
+                );
+            }
         }
-        let Some((finding, _)) = worst else {
+        if let Some((finding, _)) = worst {
+            let mut finding = finding.at_file(file);
+            if let Some(track) = track {
+                finding = finding.at_track(track);
+            }
+            report.push(finding);
+        }
+        for (_, (finding, _)) in worst_overlaps {
+            let mut finding = finding.at_file(file);
+            if let Some(track) = track {
+                finding = finding.at_track(track);
+            }
+            report.push(finding);
+        }
+        for (_, (finding, _)) in worst_overhangs {
+            let mut finding = finding.at_file(file);
+            if let Some(track) = track {
+                finding = finding.at_track(track);
+            }
+            report.push(finding);
+        }
+    }
+}
+
+fn annotation_candidates(
+    element: &Value,
+    measured: &crate::verbs::measure::Text,
+    worst_overlaps: &mut BTreeMap<(usize, usize), (Finding, f64)>,
+    worst_overhangs: &mut BTreeMap<usize, (Finding, f64)>,
+) {
+    let subject = measured
+        .asked
+        .id
+        .clone()
+        .unwrap_or_else(|| subject_of(None));
+    let annotations = &measured.measured_annotations;
+    let runs = runs_array(element);
+
+    // 1. Same-tier horizontal overlap (`R-ANNOTATION-OVERLAP`, ADR-0208 §3.4).
+    for (i, a1) in annotations.iter().enumerate() {
+        for (j, a2) in annotations.iter().enumerate().skip(i + 1) {
+            if a1.line != a2.line || a1.position != a2.position || a1.tier != a2.tier {
+                continue;
+            }
+            let overlap = (a1.x + a1.advance_width).min(a2.x + a2.advance_width) - a1.x.max(a2.x);
+            if overlap > 1e-6
+                && worst_overlaps
+                    .get(&(i, j))
+                    .is_none_or(|(_, seen)| overlap > *seen)
+            {
+                let position = match a1.position {
+                    montagent_text::AnnotationPosition::Over => "over",
+                    montagent_text::AnnotationPosition::Under => "under",
+                };
+                let (first, second) = if a1.x <= a2.x {
+                    (&a1.text, &a2.text)
+                } else {
+                    (&a2.text, &a1.text)
+                };
+                let finding = Finding::new("R-ANNOTATION-OVERLAP")
+                    .at_element(subject.clone())
+                    .field("element", json!(subject))
+                    .field("line", json!(a1.line))
+                    .field("position", json!(position))
+                    .field("tier", json!(a1.tier))
+                    .field("first", json!(first))
+                    .field("second", json!(second))
+                    .field("overlap", json!(px(overlap)));
+                worst_overlaps.insert((i, j), (finding, overlap));
+            }
+        }
+    }
+
+    // 2. Horizontal overhang past the base run (`R-ANNOTATION-OVERHANG`, ADR-0208 §3.4).
+    for ann in annotations {
+        let overhang_val = runs
+            .get(ann.run)
+            .and_then(|r| r.get("annotation"))
+            .and_then(|a| a.get("overhang"));
+        let allowed_px = match overhang_val {
+            Some(Value::String(s)) if s == "allow" => None,
+            Some(Value::String(s)) if s == "none" => Some(0),
+            Some(v) => v.as_i64(),
+            None => Some(0),
+        };
+        let Some(allowed) = allowed_px else {
             continue;
         };
-
-        let mut finding = finding.at_file(file);
-        if let Some(track) = track {
-            finding = finding.at_track(track);
+        let overhang_left = (ann.base_x_start - ann.x).max(0.0);
+        let overhang_right = ((ann.x + ann.advance_width) - ann.base_x_end).max(0.0);
+        let max_overhang = overhang_left.max(overhang_right);
+        if max_overhang > allowed as f64 + 1e-6
+            && worst_overhangs
+                .get(&ann.run)
+                .is_none_or(|(_, seen)| max_overhang > *seen)
+        {
+            let finding = Finding::new("R-ANNOTATION-OVERHANG")
+                .at_element(subject.clone())
+                .field("element", json!(subject))
+                .field("run", json!(ann.run))
+                .field("text", json!(ann.text))
+                .field("overhang", json!(px(max_overhang)))
+                .field("allowed", json!(allowed));
+            worst_overhangs.insert(ann.run, (finding, max_overhang));
         }
-        report.push(finding);
     }
 }
 

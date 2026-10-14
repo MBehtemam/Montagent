@@ -29,7 +29,50 @@ pub fn generate() -> Value {
     publish_path_fill(&mut schema);
     publish_video_source(&mut schema);
     publish_projection(&mut schema);
+    publish_decoration_rules(&mut schema);
     header_first(schema)
+}
+
+/// Say ADR-0214 §1's relational rules about a run's `decoration` in the schema, where the
+/// types enforce them in their deserializer (`crate::model::Decoration`): `radius` and
+/// `decoration_break` are forbidden when `kind` is `"underline"`, and non-underline
+/// decorations require at least one of `fill` or `stroke`.
+fn publish_decoration_rules(schema: &mut Value) {
+    let Some(Value::Object(decoration)) = schema.pointer_mut("/$defs/Decoration") else {
+        return;
+    };
+
+    let mut ordered = serde_json::Map::new();
+    for (key, value) in std::mem::take(decoration) {
+        ordered.insert(key.clone(), value);
+        if key == "properties" {
+            ordered.insert(
+                "if".into(),
+                json!({"properties": {"kind": {"const": "underline"}}, "required": ["kind"]}),
+            );
+            ordered.insert(
+                "then".into(),
+                json!({
+                    "not": {"anyOf": [{"required": ["radius"]}, {"required": ["decoration_break"]}]},
+                    "description": "`radius` and `decoration_break` are fields of `kind: \"box\"` \
+                                    and `kind: \"highlight\"` only: an `underline` decoration has \
+                                    no corners to round or side borders to slice (ADR-0214).",
+                }),
+            );
+            ordered.insert(
+                "else".into(),
+                json!({
+                    "anyOf": [
+                        {"required": ["fill"]},
+                        {"required": ["stroke"]},
+                    ],
+                    "description": "A `box` or `highlight` decoration names at least one of \
+                                    `fill` or `stroke` so it has something to paint (ADR-0214).",
+                }),
+            );
+        }
+    }
+    *decoration = ordered;
 }
 
 /// Say ADR-0167 §1's relational rule in the schema: `perspective` is required wherever

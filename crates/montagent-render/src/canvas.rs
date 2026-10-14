@@ -458,6 +458,35 @@ pub struct UnitDraw {
     pub opacity: f32,
 }
 
+/// How a text run decoration renders (ADR-0214 §1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextDecorationKind {
+    Box,
+    Highlight,
+    Underline,
+}
+
+/// One line-fragment of a text run decoration (ADR-0214 §3–§4).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextDecoration {
+    pub kind: TextDecorationKind,
+    /// `[x, y, width, height]` in the text block's own coordinates, expanded by padding.
+    pub rect: [f64; 4],
+    /// The line's baseline Y in the text block's own coordinates (for `Underline`).
+    pub baseline_y: f64,
+    pub fill: Option<Rgba>,
+    pub stroke: Option<Rgba>,
+    pub stroke_width: f64,
+    pub dash: Option<Dash>,
+    pub radius: f64,
+    /// When `break == "slice"`, whether the left edge is a line-break edge.
+    pub open_left: bool,
+    /// When `break == "slice"`, whether the right edge is a line-break edge.
+    pub open_right: bool,
+    /// Window fade multiplier in `[0.0, 1.0]` (ADR-0214 §5).
+    pub opacity: f64,
+}
+
 /// Where a thread's effects spent their time, for `render`'s `profile` (#931).
 ///
 /// Skia filters a layer when it is restored into its parent, so the time one effect costs is
@@ -1849,16 +1878,18 @@ impl Canvas {
     /// stays open. No document reaches that today — the core gives every run a colour,
     /// defaulting to black — but this is a public surface and an outlined-and-hollow
     /// letter is what `fill: None` reads as.
+    #[allow(clippy::too_many_arguments)]
     pub fn text(
         &mut self,
         glyphs: &[Glyph],
         outlines: &[Vec<PathEl>],
+        decorations: &[TextDecoration],
         extent: Extent,
         transform: &Transform,
         clip: Option<Region>,
         effects: &[Effect],
     ) {
-        if glyphs.is_empty() {
+        if glyphs.is_empty() && decorations.is_empty() {
             return;
         }
         // Built once per element and keyed by the same index `montagent-text` deduplicated
@@ -1866,6 +1897,10 @@ impl Canvas {
         let paths: Vec<Path> = outlines.iter().map(|outline| path_of(outline)).collect();
 
         self.in_element_space(extent, transform, clip, effects, |canvas| {
+            // Pass 0 (ADR-0214 §4): Background decorations (box fills, highlight fills, underlines)
+            // beneath all glyph strokes and fills.
+            draw_background_decorations(canvas, decorations);
+
             // **A fading stagger unit is one layer, between the stroke pass and the fill
             // pass** (ADR-0151 §2, as the accepted prototype #683 measured it). Every other
             // glyph keeps the two passes: all strokes, then all fills. A body below opacity 1
@@ -1902,6 +1937,10 @@ impl Canvas {
                 canvas.restore();
             }
             draw_pass(canvas, &paths, &solid, Pass::Fill);
+
+            // Pass 3 (ADR-0214 §4): Foreground decorations (box border strokes, solid or dashed)
+            // above glyph fills so dashed callouts remain crisp over descenders and padding.
+            draw_foreground_decorations(canvas, decorations);
         });
     }
 
@@ -2335,6 +2374,201 @@ fn projected(
         Some(&paint),
     );
     canvas.restore();
+}
+
+/// Pass 0 of [`Canvas::text`]: background decorations (box fills, highlight fills, underlines)
+/// painted beneath all glyph strokes and fills (ADR-0214 §4).
+fn draw_background_decorations(canvas: &skia_safe::Canvas, decorations: &[TextDecoration]) {
+    for dec in decorations {
+        if dec.opacity <= 0.0 {
+            continue;
+        }
+        let [x, y, w, h] = dec.rect;
+        if w <= 0.0 || h <= 0.0 {
+            continue;
+        }
+        match dec.kind {
+            TextDecorationKind::Box | TextDecorationKind::Highlight => {
+                let Some(mut rgba) = dec.fill else {
+                    continue;
+                };
+                rgba.0[3] = ((f64::from(rgba.0[3]) * dec.opacity)
+                    .round()
+                    .clamp(0.0, 255.0)) as u8;
+                if rgba.0[3] == 0 {
+                    continue;
+                }
+                let mut fill = SkPaint::default();
+                fill.set_anti_alias(true);
+                fill.set_style(PaintStyle::Fill);
+                fill.set_color(rgba.colour());
+                let box_rect = Rect::from_xywh(x as f32, y as f32, w as f32, h as f32);
+                if dec.radius > 0.0 {
+                    let r = dec.radius as f32;
+                    let tl = if dec.open_left {
+                        skia_safe::Point::new(0.0, 0.0)
+                    } else {
+                        skia_safe::Point::new(r, r)
+                    };
+                    let tr = if dec.open_right {
+                        skia_safe::Point::new(0.0, 0.0)
+                    } else {
+                        skia_safe::Point::new(r, r)
+                    };
+                    let br = if dec.open_right {
+                        skia_safe::Point::new(0.0, 0.0)
+                    } else {
+                        skia_safe::Point::new(r, r)
+                    };
+                    let bl = if dec.open_left {
+                        skia_safe::Point::new(0.0, 0.0)
+                    } else {
+                        skia_safe::Point::new(r, r)
+                    };
+                    let rrect = skia_safe::RRect::new_rect_radii(box_rect, &[tl, tr, br, bl]);
+                    canvas.draw_rrect(rrect, &fill);
+                } else {
+                    canvas.draw_rect(box_rect, &fill);
+                }
+            }
+            TextDecorationKind::Underline => {
+                let Some(mut rgba) = dec.stroke.or(dec.fill) else {
+                    continue;
+                };
+                rgba.0[3] = ((f64::from(rgba.0[3]) * dec.opacity)
+                    .round()
+                    .clamp(0.0, 255.0)) as u8;
+                if rgba.0[3] == 0 {
+                    continue;
+                }
+                let width = if dec.stroke_width > 0.0 {
+                    dec.stroke_width
+                } else {
+                    2.0
+                };
+                let mut stroke = SkPaint::default();
+                stroke.set_anti_alias(true);
+                stroke.set_style(PaintStyle::Stroke);
+                stroke.set_stroke_width(width as f32);
+                stroke.set_color(rgba.colour());
+                if let Some(effect) = dec.dash.as_ref().and_then(Dash::effect) {
+                    stroke.set_path_effect(effect);
+                }
+                let uy = (dec.baseline_y + width.max(2.0)) as f32;
+                let mut builder = PathBuilder::new();
+                builder.move_to((x as f32, uy));
+                builder.line_to(((x + w) as f32, uy));
+                canvas.draw_path(&builder.detach(), &stroke);
+            }
+        }
+    }
+}
+
+/// Pass 3 of [`Canvas::text`]: foreground decorations (box border strokes, solid or dashed)
+/// painted above glyph fills (ADR-0214 §4).
+fn draw_foreground_decorations(canvas: &skia_safe::Canvas, decorations: &[TextDecoration]) {
+    for dec in decorations {
+        if dec.kind != TextDecorationKind::Box || dec.opacity <= 0.0 || dec.stroke_width <= 0.0 {
+            continue;
+        }
+        let Some(mut rgba) = dec.stroke else {
+            continue;
+        };
+        rgba.0[3] = ((f64::from(rgba.0[3]) * dec.opacity)
+            .round()
+            .clamp(0.0, 255.0)) as u8;
+        if rgba.0[3] == 0 {
+            continue;
+        }
+        let Some(outline) = decoration_stroke_path(dec) else {
+            continue;
+        };
+        let mut stroke = SkPaint::default();
+        stroke.set_anti_alias(true);
+        stroke.set_style(PaintStyle::Stroke);
+        stroke.set_stroke_width(dec.stroke_width as f32);
+        stroke.set_color(rgba.colour());
+        if let Some(effect) = dec.dash.as_ref().and_then(Dash::effect) {
+            stroke.set_path_effect(effect);
+        }
+        canvas.draw_path(&outline, &stroke);
+    }
+}
+
+/// Build the border stroke path for a `Box` decoration fragment (ADR-0214 §3).
+///
+/// In `clone` mode (`!open_left && !open_right`), the fragment is a closed (optionally
+/// rounded) rectangle. In `slice` mode, break edges omit their vertical border and unround
+/// their adjacent corners.
+fn decoration_stroke_path(dec: &TextDecoration) -> Option<Path> {
+    let [x, y, w, h] = dec.rect;
+    if w <= 0.0 || h <= 0.0 {
+        return None;
+    }
+    let (l, t, r, b) = (x as f32, y as f32, (x + w) as f32, (y + h) as f32);
+    let k = (dec.radius as f32)
+        .max(0.0)
+        .min((r - l) / 2.0)
+        .min((b - t) / 2.0);
+    let weight = std::f32::consts::FRAC_1_SQRT_2;
+    let mut path = PathBuilder::new();
+    match (dec.open_left, dec.open_right) {
+        (false, false) => {
+            if k > 0.0 {
+                path.move_to((l + k, t));
+                path.line_to((r - k, t));
+                path.conic_to((r, t), (r, t + k), weight);
+                path.line_to((r, b - k));
+                path.conic_to((r, b), (r - k, b), weight);
+                path.line_to((l + k, b));
+                path.conic_to((l, b), (l, b - k), weight);
+                path.line_to((l, t + k));
+                path.conic_to((l, t), (l + k, t), weight);
+            } else {
+                path.move_to((l, t));
+                path.line_to((r, t));
+                path.line_to((r, b));
+                path.line_to((l, b));
+            }
+            path.close();
+        }
+        (false, true) => {
+            // Left cap: top, left, and bottom edges; open on the right.
+            path.move_to((r, t));
+            if k > 0.0 {
+                path.line_to((l + k, t));
+                path.conic_to((l, t), (l, t + k), weight);
+                path.line_to((l, b - k));
+                path.conic_to((l, b), (l + k, b), weight);
+            } else {
+                path.line_to((l, t));
+                path.line_to((l, b));
+            }
+            path.line_to((r, b));
+        }
+        (true, false) => {
+            // Right cap: top, right, and bottom edges; open on the left.
+            path.move_to((l, t));
+            if k > 0.0 {
+                path.line_to((r - k, t));
+                path.conic_to((r, t), (r, t + k), weight);
+                path.line_to((r, b - k));
+                path.conic_to((r, b), (r - k, b), weight);
+            } else {
+                path.line_to((r, t));
+                path.line_to((r, b));
+            }
+            path.line_to((l, b));
+        }
+        (true, true) => {
+            // Middle slice: top and bottom edges only.
+            path.move_to((l, t));
+            path.line_to((r, t));
+            path.move_to((l, b));
+            path.line_to((r, b));
+        }
+    }
+    Some(path.detach())
 }
 
 /// Which of [`Canvas::text`]'s two passes is being painted.
@@ -2983,6 +3217,7 @@ mod tests {
                 unit: None,
             }],
             &[square()],
+            &[],
             Extent {
                 width: 40.0,
                 height: 40.0,

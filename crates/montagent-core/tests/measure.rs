@@ -1336,3 +1336,346 @@ fn the_prose_is_generated_from_the_canonical_json_and_carries_the_same_numbers()
         view
     );
 }
+
+// ---------------------------------------------------------------------------
+// End-to-end acceptance verification: English Part 1 at 1:28 (#1036).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn english_part_1_at_1_28_end_to_end_acceptance_verification() {
+    use montagent_core::verbs::measure::RangeSpec;
+
+    let dir = common::tempdir(line!());
+    std::fs::create_dir_all(dir.join("fonts")).expect("a writable temporary directory");
+    std::fs::copy(font_file(), dir.join("fonts/OpenRunde-Bold.otf")).expect("the vendored font");
+    let licence_file = common::fixture_dir().join("fonts/THIRD_PARTY_FONT_LICENCES");
+    if licence_file.exists() {
+        std::fs::copy(licence_file, dir.join("fonts/THIRD_PARTY_FONT_LICENCES"))
+            .expect("the vendored font licence");
+    }
+
+    // Row 1 ("It was so lovely out in the\ncountryside.") with a multi-line dashed box
+    // decoration on the wrapped phrase "out in the\ncountryside.", and Row 2
+    // ("It was summer; the corn stood yellow,\nthe oats green,") with two stacked ruby
+    // glosses on line 1: "a kind of grain" (tier 0) and "stood is missing" (tier 1).
+    let row1 = json!({
+        "id": "c01-01-text",
+        "type": "text",
+        "font": "brand",
+        "size": 33,
+        "line_height": 2.4,
+        "x": 482,
+        "y": 129,
+        "width": 600,
+        "height": 159,
+        "origin": "top-left",
+        "align": "start",
+        "color": "#1E1E1E",
+        "start": 0,
+        "end": 89500,
+        "runs": [
+            { "text": "It was so lovely " },
+            {
+                "text": "out in the\ncountryside.",
+                "decoration": {
+                    "kind": "box",
+                    "stroke": "#D9534F",
+                    "stroke_width": 2,
+                    "stroke_dash": [6, 4],
+                    "padding": { "x": 4, "y": 2 },
+                    "decoration_break": "clone"
+                }
+            }
+        ]
+    });
+
+    let row2 = json!({
+        "id": "c01-02-text",
+        "type": "text",
+        "font": "brand",
+        "size": 33,
+        "line_height": 2.4,
+        "x": 482,
+        "y": 380,
+        "width": 650,
+        "height": 250,
+        "origin": "top-left",
+        "align": "start",
+        "color": "#1E1E1E",
+        "start": 0,
+        "end": 89500,
+        "runs": [
+            { "text": "It was summer; the corn stood yellow,\n" },
+            { "text": "the " },
+            {
+                "text": "oats",
+                "annotation": {
+                    "text": "a kind of grain",
+                    "position": "over",
+                    "align": "center",
+                    "tier": 0,
+                    "size": 16,
+                    "gap": 4,
+                    "overhang": "allow",
+                    "color": "#555555"
+                }
+            },
+            {
+                "text": " green,",
+                "annotation": {
+                    "text": "stood is missing",
+                    "position": "over",
+                    "align": "center",
+                    "tier": 1,
+                    "size": 16,
+                    "gap": 4,
+                    "overhang": "allow",
+                    "color": "#8A4B08"
+                }
+            }
+        ]
+    });
+
+    let project_json = json!({
+        "frame": { "width": 1920, "height": 1080 },
+        "fps": 25,
+        "background": "#FDF6E3",
+        "duration": 89500,
+        "output": "out.mp4",
+        "fonts": {
+            "brand": [{ "file": "fonts/OpenRunde-Bold.otf" }]
+        },
+        "fontVendor": {
+            "fonts/OpenRunde-Bold.otf": {
+                "licence": "OFL-1.1",
+                "source": "https://github.com/lauridskern/open-runde",
+                "sha256": "995f115d11590c73ed95cd58bf12db0417f8757986d95c9be773faf1583310fd"
+            }
+        },
+        "tracks": [
+            {
+                "name": "row-1",
+                "layer": 10,
+                "elements": [row1.clone()]
+            },
+            {
+                "name": "row-2",
+                "layer": 20,
+                "elements": [row2.clone()]
+            }
+        ]
+    });
+
+    // Measure actual block heights first so the project's declared heights match R-BOX-SLACK.
+    let temp_project = write_project(
+        &dir,
+        "temp.montagent.json",
+        &common::canonical(&project_json.to_string()),
+    );
+    let m1 = montagent_core::verbs::measure::measure(
+        &temp_project,
+        &Ask {
+            element: Some(row1.clone()),
+            layout: true,
+            ranges: Some(vec![RangeSpec {
+                start: None,
+                end: None,
+                text: Some("out in the countryside.".into()),
+                occurrence: Some(0),
+            }]),
+            ..Default::default()
+        },
+    );
+    assert_eq!(m1.report().exit_code(), ExitCode::Ok);
+    let m1_view = &m1.to_json()["measure"];
+
+    let m2 = montagent_core::verbs::measure::measure(
+        &temp_project,
+        &Ask {
+            element: Some(row2.clone()),
+            layout: true,
+            ..Default::default()
+        },
+    );
+    assert_eq!(m2.report().exit_code(), ExitCode::Ok);
+    let m2_view = &m2.to_json()["measure"];
+
+    // Gate 3: Multi-line Range Decorations — "out in the countryside." splits into 2 line boxes
+    // without bounding union blowout.
+    let ranges = m1_view["ranges"].as_array().expect("ranges present");
+    assert_eq!(ranges.len(), 1);
+    let boxes = ranges[0]["boxes"].as_array().expect("boxes present");
+    assert_eq!(
+        boxes.len(),
+        2,
+        "wrapped phrase must produce 2 discrete per-line boxes"
+    );
+    assert_eq!(boxes[0]["line"], 0);
+    assert_eq!(boxes[1]["line"], 1);
+    let union_width = ranges[0]["union"]["width"].as_f64().unwrap();
+    let box0_width = boxes[0]["width"].as_f64().unwrap();
+    let box1_width = boxes[1]["width"].as_f64().unwrap();
+    assert!(
+        box0_width < union_width && box1_width < union_width,
+        "each line fragment box ({box0_width}, {box1_width}) must be narrower than the full-line union blowout ({union_width})"
+    );
+
+    // Gate 2: Collision-Free Glosses — "stood is missing" is in tier 1 above "a kind of grain"
+    // in tier 0, and neither overlaps Row 1's ink or each other.
+    let annotations = m2_view["annotations"]
+        .as_array()
+        .expect("annotations present");
+    assert_eq!(annotations.len(), 2);
+    let tier0 = annotations
+        .iter()
+        .find(|a| a["tier"] == 0)
+        .expect("tier 0 gloss");
+    let tier1 = annotations
+        .iter()
+        .find(|a| a["tier"] == 1)
+        .expect("tier 1 gloss");
+    assert_eq!(tier0["text"], "a kind of grain");
+    assert_eq!(tier1["text"], "stood is missing");
+    let tier1_bottom = tier1["y"].as_f64().unwrap() + tier1["height"].as_f64().unwrap();
+    let tier0_top = tier0["y"].as_f64().unwrap();
+    assert!(
+        tier1_bottom <= tier0_top + 1e-6,
+        "tier 1 bottom ({tier1_bottom}) must sit at or above tier 0 top ({tier0_top})"
+    );
+    let row1_ink_bottom = m1_view["ink_bottom"].as_f64().unwrap();
+    let tier1_top = tier1["y"].as_f64().unwrap();
+    assert!(
+        tier1_top > row1_ink_bottom,
+        "tier 1 top ({tier1_top}) must sit strictly below Row 1 ink bottom ({row1_ink_bottom})"
+    );
+
+    // Gate 1: Parity — every reported word box encloses its ink box and has positive extent.
+    for view in [m1_view, m2_view] {
+        let words = view["words"].as_array().expect("words present");
+        assert!(!words.is_empty());
+        for w in words {
+            let x0 = w["x"].as_f64().unwrap();
+            let y0 = w["y"].as_f64().unwrap();
+            let width = w["width"].as_f64().unwrap();
+            let height = w["height"].as_f64().unwrap();
+            let bx = w["box"]["x"].as_i64().unwrap() as f64;
+            let by = w["box"]["y"].as_i64().unwrap() as f64;
+            let bw = w["box"]["width"].as_i64().unwrap() as f64;
+            let bh = w["box"]["height"].as_i64().unwrap() as f64;
+            assert!(bx <= x0 && bx + bw >= x0 + width);
+            assert!(by <= y0 && by + bh >= y0 + height);
+        }
+    }
+
+    // Gate 4: Validation — update declared width/height to exact measured extent and validate
+    // the full project with 0 errors, then render a frame at 88000 ms (1:28).
+    let mut final_project_json = project_json;
+    final_project_json["tracks"][0]["elements"][0]["width"] =
+        json!(m1_view["extent"]["width"].as_f64().unwrap().ceil() as i64);
+    final_project_json["tracks"][0]["elements"][0]["height"] = m1_view["block_height"].clone();
+    final_project_json["tracks"][1]["elements"][0]["width"] =
+        json!(m2_view["extent"]["width"].as_f64().unwrap().ceil() as i64);
+    final_project_json["tracks"][1]["elements"][0]["height"] = m2_view["block_height"].clone();
+
+    let project_path = write_project(
+        &dir,
+        "english-part-1.montagent.json",
+        &common::canonical(&final_project_json.to_string()),
+    );
+    let val_report = montagent_core::verbs::validate::validate(&project_path);
+    assert_eq!(
+        val_report.exit_code(),
+        ExitCode::Ok,
+        "project must validate with 0 errors: {:?}",
+        val_report.to_json()
+    );
+    let findings = val_report.to_json()["findings"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        findings.iter().all(|f| f["class"] != "error"),
+        "expected 0 validation errors, got: {findings:?}"
+    );
+    assert!(
+        !findings
+            .iter()
+            .any(|f| f["code"] == "R-ANNOTATION-OVERLAP" || f["code"] == "R-LINE-INK-COLLISION"),
+        "expected no annotation overlap or line ink collision findings, got: {findings:?}"
+    );
+
+    // Frame rendering at 1:28 (88000 ms) succeeds and paints the scene matching reported boxes.
+    let img = common::compare::rendered(&project_path, 88000, true);
+    let bg = [0xFDu8, 0xF6, 0xE3, 0xFF];
+    let has_non_bg_in_rect = |x0: u32, y0: u32, w: u32, h: u32| -> bool {
+        for y in y0..(y0 + h).min(img.height()) {
+            for x in x0..(x0 + w).min(img.width()) {
+                if img.get_pixel(x, y).0 != bg {
+                    return true;
+                }
+            }
+        }
+        false
+    };
+
+    // Every reported word box and annotation box in both rows contains painted ink pixels.
+    for view in [m1_view, m2_view] {
+        for w in view["words"].as_array().unwrap() {
+            let bx = w["box"]["x"].as_u64().unwrap() as u32;
+            let by = w["box"]["y"].as_u64().unwrap() as u32;
+            let bw = w["box"]["width"].as_u64().unwrap() as u32;
+            let bh = w["box"]["height"].as_u64().unwrap() as u32;
+            assert!(
+                has_non_bg_in_rect(bx, by, bw, bh),
+                "word {:?} box ({bx}, {by}, {bw}, {bh}) must contain painted ink in rendered frame",
+                w["text"]
+            );
+        }
+    }
+    for ann in annotations {
+        let bx = ann["box"]["x"].as_u64().unwrap() as u32;
+        let by = ann["box"]["y"].as_u64().unwrap() as u32;
+        let bw = ann["box"]["width"].as_u64().unwrap() as u32;
+        let bh = ann["box"]["height"].as_u64().unwrap() as u32;
+        assert!(
+            has_non_bg_in_rect(bx, by, bw, bh),
+            "annotation {:?} box ({bx}, {by}, {bw}, {bh}) must contain painted ink in rendered frame",
+            ann["text"]
+        );
+    }
+
+    // Both per-line decoration boxes paint red (#D9534F) dashed border pixels, while the region
+    // to the right of line 1's fragment (where a single union box would blow out) stays clean.
+    let has_red_stroke = |x0: u32, y0: u32, w: u32, h: u32| -> bool {
+        for y in y0..(y0 + h).min(img.height()) {
+            for x in x0..(x0 + w).min(img.width()) {
+                let [r, g, b, _] = img.get_pixel(x, y).0;
+                if r > 200 && g < 120 && b < 120 {
+                    return true;
+                }
+            }
+        }
+        false
+    };
+    for (idx, b) in boxes.iter().enumerate() {
+        let bx = (b["box"]["x"].as_i64().unwrap() - 6).max(0) as u32;
+        let by = (b["box"]["y"].as_i64().unwrap() - 4).max(0) as u32;
+        let bw = (b["box"]["width"].as_i64().unwrap() + 12) as u32;
+        let bh = (b["box"]["height"].as_i64().unwrap() + 8) as u32;
+        assert!(
+            has_red_stroke(bx, by, bw, bh),
+            "line {idx} decoration fragment must paint red dashed border around ({bx}, {by}, {bw}, {bh})"
+        );
+    }
+    let line1_right = (boxes[1]["box"]["x"].as_i64().unwrap()
+        + boxes[1]["box"]["width"].as_i64().unwrap()
+        + 10) as u32;
+    let union_right = (ranges[0]["union"]["box"]["x"].as_i64().unwrap()
+        + ranges[0]["union"]["box"]["width"].as_i64().unwrap()) as u32;
+    let line1_y = boxes[1]["box"]["y"].as_u64().unwrap() as u32;
+    let line1_h = boxes[1]["box"]["height"].as_u64().unwrap() as u32;
+    assert!(
+        !has_red_stroke(line1_right, line1_y, union_right - line1_right, line1_h),
+        "empty space to the right of 'countryside.' on line 1 must not have union-blowout box strokes"
+    );
+}

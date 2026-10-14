@@ -3249,7 +3249,12 @@ fn cli_import_and_export_round_trip() {
         "-o",
         proj_path.to_str().unwrap(),
     ]);
-    assert_eq!(import_out.code, Some(0), "import stderr: {}", import_out.stderr);
+    assert_eq!(
+        import_out.code,
+        Some(0),
+        "import stderr: {}",
+        import_out.stderr
+    );
     assert!(proj_path.exists());
 
     // 2. Validate imported project
@@ -3266,7 +3271,12 @@ fn cli_import_and_export_round_trip() {
         "-o",
         vtt_path.to_str().unwrap(),
     ]);
-    assert_eq!(export_out.code, Some(0), "export stderr: {}", export_out.stderr);
+    assert_eq!(
+        export_out.code,
+        Some(0),
+        "export stderr: {}",
+        export_out.stderr
+    );
     assert!(vtt_path.exists());
     let vtt_content = std::fs::read_to_string(&vtt_path).unwrap();
     assert!(vtt_content.contains("WEBVTT"));
@@ -3282,7 +3292,12 @@ fn cli_import_and_export_round_trip() {
         "-o",
         edl_proj_path.to_str().unwrap(),
     ]);
-    assert_eq!(edl_import_out.code, Some(0), "edl import stderr: {}", edl_import_out.stderr);
+    assert_eq!(
+        edl_import_out.code,
+        Some(0),
+        "edl import stderr: {}",
+        edl_import_out.stderr
+    );
     assert!(edl_proj_path.exists());
 
     // 5. Export to EDL
@@ -3295,9 +3310,13 @@ fn cli_import_and_export_round_trip() {
         "-o",
         exported_edl_path.to_str().unwrap(),
     ]);
-    assert_eq!(edl_export_out.code, Some(0), "edl export stderr: {}", edl_export_out.stderr);
+    assert_eq!(
+        edl_export_out.code,
+        Some(0),
+        "edl export stderr: {}",
+        edl_export_out.stderr
+    );
     assert!(exported_edl_path.exists());
     let exported_edl_text = std::fs::read_to_string(&exported_edl_path).unwrap();
     assert!(exported_edl_text.contains("clip.mp4"));
 }
-

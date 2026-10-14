@@ -74,6 +74,7 @@ use skrifa::{FontRef, GlyphId, MetadataProvider};
 /// One glyph's inked box, in pixels relative to its line's origin and baseline, **y-down**.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct GlyphInk {
+    pub(crate) index: usize,
     pub(crate) x0: f64,
     pub(crate) x1: f64,
     pub(crate) top: f64,
@@ -165,6 +166,7 @@ pub(crate) fn line_ink(layout: &Layout<u32>, shifts: &[f64]) -> Option<LineInk> 
                 // so the glyph's `y_max` is its *top* — the same flip
                 // [`crate::place::Pen`] applies to a contour, applied to a box.
                 glyphs.push(GlyphInk {
+                    index: first + k,
                     x0: x + f64::from(bounds.x_min),
                     x1: x + f64::from(bounds.x_max),
                     top: dy - f64::from(bounds.y_max),
@@ -203,6 +205,7 @@ pub(crate) fn placed(ink: &LineInk, dx: f64, baseline: f64, stroke_width: i64) -
     ink.glyphs
         .iter()
         .map(|g| GlyphInk {
+            index: g.index,
             x0: dx + g.x0 - grow,
             x1: dx + g.x1 + grow,
             top: baseline + g.top - grow,
@@ -242,6 +245,7 @@ mod tests {
 
     fn g(x0: f64, x1: f64, top: f64, bottom: f64) -> GlyphInk {
         GlyphInk {
+            index: 0,
             x0,
             x1,
             top,
