@@ -20,6 +20,8 @@ amends: 0014 (`line`, `polygon` and `path` are no longer rejected; one `path` el
 > `R-PATH-SEAM-CAP`, fires on an open path whose coincident ends meet at a corner under a cap
 > that is not `round`.
 
+> **Amended by [ADR-0218](0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md).** The `closed` and `points` vertex vocabulary is also written inline inside a visual element's `motion_path` in frame coordinates. `E-PATH-TOO-FEW-POINTS` and `E-PATH-DANGLING-HANDLE` fire on `motion_path.points`, `E-PATH-OUTSIDE-BOX` does not (so trajectories can enter or leave off-canvas), and `E-MOTION-PATH-ZERO-LENGTH` refuses a completely degenerate zero-length `motion_path`.
+
 [#701](https://github.com/MBehtemam/Montagent/issues/701), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
 [ADR-0014](0014-stroke-is-paint-the-text-box-is-required.md) rejected `line`, `polygon` and

@@ -121,9 +121,9 @@ bare element is conspicuous rather than plausible.
 _Avoid_: anchor, alignment, pivot
 
 **Transform**:
-Where a visual element sits and how it is drawn — `x`, `y`, `origin`, `scale`,
-`rotation`, `opacity`, and the Projection's `swivel`, `tilt` and `perspective` — as flat
-fields on the element in absolute integer pixels. There is
+Where a visual element sits and how it is drawn — `x` and `y` (or `motion_path` in their
+place), `origin`, `scale`, `rotation`, `opacity`, and the Projection's `swivel`, `tilt`
+and `perspective` — as fields on the element in absolute integer pixels. There is
 exactly one per element and it is never nested, never inherited and never composed: no
 element's transform is relative to another's. An element's size is declared, never
 defaulted from the source file.
@@ -378,6 +378,16 @@ along the curve, and each letter or joined piece is moved and turned whole, neve
 ([ADR-0161](docs/adr/0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md))
 _Avoid_: curved text, warped text (the glyphs are not bent), guide path (there is no separate
 element), arc text (an arc is one curve among many)
+
+**Motion path**:
+A visual element's own trajectory across the frame, written in `motion_path` in place of `x`
+and `y`: `closed` and `points` in signed integer frame coordinates, an animatable arc-length
+fraction `offset` (`0` to `1` on an open path, `-1` to `2` on a closed path) that moves the
+element's `origin` along the curve at a speed set by `offset` alone, and an optional static
+`orient` boolean that adds the curve's forward tangent angle at `offset` to `rotation`. The
+trajectory is never drawn and never borrowed from another element.
+([ADR-0218](docs/adr/0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md))
+_Avoid_: spatial tangents, roving keyframes, follow path, guide layer
 
 **Reach factor**:
 How far a path's stroke can reach from its outline, in half stroke widths: `k`, the larger
