@@ -6,6 +6,8 @@ amends: 0003 (After Effects joins the reference class as precedent for rendered 
 # After Effects is precedent for rendered results, and CapCut and Premiere stay first for shape
 
 > **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: disposes of the motion-bake (`wiggle`, `bounce`, `loopIn`/`loopOut`, `valueAtTime`, *Sequence Layers*, time-stretch/reverse), keyframe-assistant (*Convert Audio to Keyframes*, *Smoother*, *Exponential Scale*), measure-then-write auto-colour (*Auto Levels* / *Auto Contrast* / *Auto Color*), and template/MOGRT/Essential-Properties/Expression-Controls rows from map [#896](https://github.com/MBehtemam/Montagent/issues/896)'s censuses ([#1059](https://github.com/MBehtemam/Montagent/issues/1059)).
+>
+> **Amended by [ADR-0218](0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md)**: disposes of the curved spatial motion path, roving constant-speed keyframe, and *Orient Along Path* rows from map [#896](https://github.com/MBehtemam/Montagent/issues/896)'s transform and animation census ([#898](https://github.com/MBehtemam/Montagent/issues/898)) by admitting an optional `motion_path` (`closed`, `points`, `offset`, `orient`) in place of `x` and `y` on visual elements ([#1060](https://github.com/MBehtemam/Montagent/issues/1060)).
 
 [#897](https://github.com/MBehtemam/Montagent/issues/897), on the map
 [#896](https://github.com/MBehtemam/Montagent/issues/896).

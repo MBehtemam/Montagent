@@ -5,7 +5,7 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 
 # An animatable property is one the schema types so; colour blends premultiplied in sRGB; spring easing is refused
 
-> **Amended by seven later ADRs.** Read them before relying on anything below.
+> **Amended by eight later ADRs.** Read them before relying on anything below.
 >
 > - [ADR-0149](0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md) — the
 >   stop-list binding is discharged; gradient parameters join the one derived list as nested
@@ -25,6 +25,8 @@ amends: 0012 ("transform properties only" is replaced by a closed list the schem
 > - [ADR-0161](0161-a-text-element-bends-its-one-line-along-its-own-inline-path.md) — `path_offset`
 >   and a text's `path.points` join the one derived list; `path_offset` overshot past [0, 1]
 >   clamps in the resolving function
+> - [ADR-0218](0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md) — `motion_path.offset`
+>   joins the one derived list (`[0, 1]` on an open path via `E-MOTION-PATH-OFFSET-RANGE`, `[-1, 2]` on a closed path, clamping overshoot in the resolving function); `motion_path.points` stays static
 
 [#669](https://github.com/MBehtemam/Montagent/issues/669), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
