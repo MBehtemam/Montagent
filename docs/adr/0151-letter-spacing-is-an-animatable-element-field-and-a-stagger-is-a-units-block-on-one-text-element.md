@@ -5,6 +5,8 @@ amends: 0148 (its three binding requirements are discharged and the stagger is s
 
 # Letter spacing is an animatable element field, and a stagger is a units block on one text element
 
+> **Amended by [ADR-0224](0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md)**: `UnitOrder` (`units.order`) gains `"center_out"` and `"edges_in"` using symmetric step indices (superseding §8's deferral); `Units` (`text.units`) and `UnitOverride` (`runs[].unit`) gain optional `blur: Animatable<f64>` in `[0, 500]` rendered on the bounded unit body `save_layer` (generalising §6's fading-body layer to `opacity < 1.0 || blur > 0.0`) and accounted for in `R-OFF-CANVAS` (§7).
+
 > **Amended by [ADR-0223](0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)**: `Run` gains optional static `letter_spacing` overriding `TextElement.letter_spacing` for graphemes in that run, rejected with `E-RUN-LETTER-SPACING-CONFLICT` when `TextElement.letter_spacing` is a keyframe list; optional ligatures switch off when either element or run `letter_spacing` is non-zero.
 
 > **Amended by [ADR-0153](0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)**: a joined piece

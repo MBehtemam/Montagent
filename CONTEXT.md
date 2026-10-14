@@ -266,13 +266,17 @@ toggles
 _Avoid_: font-variant, faux bold, faux italic, all caps (write uppercase literals in `runs[].text`)
 
 **Stagger**:
-One text element's animation run once per unit (a letter, word or line), each unit started a
-fixed delay after the one before. It lives inside one element and never links two: cards
-that enter one after another are separate elements with their own literal times. A unit is
-singled out by splitting it into its own run, whose own values replace the derived ones
+One text element's animation (`x`, `y`, `scale`, `rotation`, `opacity`, `blur`) run once per unit
+(a letter, word or line) across `order: "forward" | "reverse" | "center_out" | "edges_in"`, each
+step started a fixed `every` delay after the one before. It lives inside one element and never links
+two: cards that enter one after another are separate elements with their own literal times. Range
+selectors (`Shape`, `Mode`) and stacked animators are not in the format — wave and return shapes are
+3-keyframe return curves on `units`, and a unit is singled out by splitting it into its own run,
+whose own `unit` values replace the derived ones
 ([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md),
-[ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
-_Avoid_: cascade, offset animation
+[ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
+[ADR-0224](docs/adr/0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md)).
+_Avoid_: cascade, offset animation, range selector, text animator
 
 **Unit**:
 One piece a stagger moves on its own. A letter is a grapheme cluster that is not whitespace;
@@ -281,9 +285,12 @@ a word is a word containing a letter, digit or pictograph, with its punctuation;
 ignoring runs, and whitespace takes no step. The count comes from the text alone: letters that
 the font merges into one glyph, or that make one joined piece, move together on the first
 one's start but keep their own places in the count.
-A unit's **delay** is how far after the first unit it starts.
+A unit's **delay** is how far after the first unit it starts (`i * every` for `"forward"`,
+`(last - i) * every` for `"reverse"`, `min(i, last - i) * every` for `"edges_in"`, and
+`((last / 2) - min(i, last - i)) * every` for `"center_out"`).
 ([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
-[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md))
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md),
+[ADR-0224](docs/adr/0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md))
 _Avoid_: character (a code point is not a letter), glyph (shaping's unit, not the stagger's),
 copy, instance
 
