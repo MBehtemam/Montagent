@@ -1645,10 +1645,19 @@ pub struct Nest {
     pub scale: Option<Animatable<Scale>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Animatable<f64>>,
+    /// Degrees about the element's vertical axis through `origin`: positive sends the right
+    /// edge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub swivel: Option<Animatable<f64>>,
+    /// Degrees about the element's horizontal axis through `origin`: positive sends the top
+    /// edge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs
+    /// `perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tilt: Option<Animatable<f64>>,
+    /// The eye's distance in px from the element's plane, in front of `origin` (CSS
+    /// `perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and
+    /// refused without either (ADR-0167).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub perspective: Option<Animatable<Perspective>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

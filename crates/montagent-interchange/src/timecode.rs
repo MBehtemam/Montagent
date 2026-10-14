@@ -1,7 +1,7 @@
 //! SMPTE Timecode calculation and formatting under ADR-0211 and ADR-0199.
 
-use std::fmt;
 use montagent_core::model::FrameRate;
+use std::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TimecodeError {
@@ -13,7 +13,9 @@ impl fmt::Display for TimecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TimecodeError::InvalidFormat(s) => write!(f, "invalid SMPTE timecode format: '{s}'"),
-            TimecodeError::InvalidComponent(s) => write!(f, "invalid SMPTE timecode component: '{s}'"),
+            TimecodeError::InvalidComponent(s) => {
+                write!(f, "invalid SMPTE timecode component: '{s}'")
+            }
         }
     }
 }
@@ -30,10 +32,18 @@ pub fn parse_smpte_timecode(tc: &str, fps: &FrameRate) -> Result<i64, TimecodeEr
         return Err(TimecodeError::InvalidFormat(tc.to_string()));
     }
 
-    let hh: i64 = parts[0].parse().map_err(|_| TimecodeError::InvalidComponent(parts[0].to_string()))?;
-    let mm: i64 = parts[1].parse().map_err(|_| TimecodeError::InvalidComponent(parts[1].to_string()))?;
-    let ss: i64 = parts[2].parse().map_err(|_| TimecodeError::InvalidComponent(parts[2].to_string()))?;
-    let ff: i64 = parts[3].parse().map_err(|_| TimecodeError::InvalidComponent(parts[3].to_string()))?;
+    let hh: i64 = parts[0]
+        .parse()
+        .map_err(|_| TimecodeError::InvalidComponent(parts[0].to_string()))?;
+    let mm: i64 = parts[1]
+        .parse()
+        .map_err(|_| TimecodeError::InvalidComponent(parts[1].to_string()))?;
+    let ss: i64 = parts[2]
+        .parse()
+        .map_err(|_| TimecodeError::InvalidComponent(parts[2].to_string()))?;
+    let ff: i64 = parts[3]
+        .parse()
+        .map_err(|_| TimecodeError::InvalidComponent(parts[3].to_string()))?;
 
     let fps_nominal = (fps.num() as f64 / fps.den() as f64).round() as i64;
     let fps_nominal = fps_nominal.max(1);
@@ -54,7 +64,8 @@ pub fn parse_smpte_timecode(tc: &str, fps: &FrameRate) -> Result<i64, TimecodeEr
 pub fn format_smpte_timecode(ms: i64, fps: &FrameRate, drop_frame: bool) -> String {
     let fps_nominal = (fps.num() as f64 / fps.den() as f64).round() as i64;
     let fps_nominal = fps_nominal.max(1);
-    let total_frames = ((ms as f64 * fps.num() as f64) / (1000.0 * fps.den() as f64)).round() as i64;
+    let total_frames =
+        ((ms as f64 * fps.num() as f64) / (1000.0 * fps.den() as f64)).round() as i64;
 
     if drop_frame && fps_nominal == 30 {
         let ten_min_blocks = total_frames / 17982;

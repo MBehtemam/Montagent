@@ -9,8 +9,8 @@ use serde_json::{Value, json};
 mod common;
 use common::{canonical, tempdir, write_project};
 
-/// The six visual element types, which all take the three fields.
-const VISUAL: [&str; 6] = ["image", "video", "text", "rect", "ellipse", "path"];
+/// The seven visual element types, which all take the three fields.
+const VISUAL: [&str; 7] = ["image", "video", "text", "rect", "ellipse", "path", "nest"];
 
 // ---------------------------------------------------------------------------
 // Fixtures.

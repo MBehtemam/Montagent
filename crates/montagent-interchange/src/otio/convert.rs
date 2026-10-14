@@ -41,7 +41,10 @@ impl From<serde_json::Error> for OtioError {
 
 /// Convert an OTIO float rate to Montagent's exact `FrameRate` representation (ADR-0199).
 pub fn rate_to_frame_rate(rate: f64) -> FrameRate {
-    if (rate - 23.976023976).abs() < 0.01 || (rate - 23.976).abs() < 0.01 || (rate - 23.98).abs() < 0.01 {
+    if (rate - 23.976023976).abs() < 0.01
+        || (rate - 23.976).abs() < 0.01
+        || (rate - 23.98).abs() < 0.01
+    {
         FrameRate::new(24000, 1001)
     } else if (rate - 29.97002997).abs() < 0.01 || (rate - 29.97).abs() < 0.01 {
         FrameRate::new(30000, 1001)
@@ -82,12 +85,8 @@ pub fn otio_to_project(otio_json: &str) -> Result<Project, OtioError> {
             .iter()
             .find_map(|t| {
                 t.children.iter().find_map(|c| match c {
-                    OtioChild::Clip(clip) => {
-                        clip.source_range.as_ref().map(|sr| sr.duration.rate)
-                    }
-                    OtioChild::Gap(gap) => {
-                        gap.source_range.as_ref().map(|sr| sr.duration.rate)
-                    }
+                    OtioChild::Clip(clip) => clip.source_range.as_ref().map(|sr| sr.duration.rate),
+                    OtioChild::Gap(gap) => gap.source_range.as_ref().map(|sr| sr.duration.rate),
                     _ => None,
                 })
             })
@@ -255,7 +254,10 @@ pub fn project_to_otio(project: &Project) -> Result<String, OtioError> {
     let mut otio_tracks = Vec::new();
 
     for track in &project.tracks {
-        let is_audio = track.elements.iter().all(|e| matches!(e.body, Body::Audio(_)));
+        let is_audio = track
+            .elements
+            .iter()
+            .all(|e| matches!(e.body, Body::Audio(_)));
         let kind = if is_audio { "Audio" } else { "Video" };
 
         let mut sorted_elements = track.elements.clone();
@@ -287,7 +289,11 @@ pub fn project_to_otio(project: &Project) -> Result<String, OtioError> {
                     v.source_start.unwrap_or(0),
                     v.speed.as_ref().map(|s| s.0),
                 ),
-                Body::Audio(a) => (a.source.clone(), a.source_start, a.speed.as_ref().map(|s| s.0)),
+                Body::Audio(a) => (
+                    a.source.clone(),
+                    a.source_start,
+                    a.speed.as_ref().map(|s| s.0),
+                ),
                 Body::Image(img) => (img.source.clone(), 0, None),
                 _ => (String::new(), 0, None),
             };

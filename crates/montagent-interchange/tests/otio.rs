@@ -132,7 +132,7 @@ fn otio_sample_ingestion_with_gaps_and_speed() {
     if let Body::Video(v) = &v_elem.body {
         assert_eq!(v.source, "media/interview.mp4");
         assert_eq!(v.source_start, Some(2000)); // 48 frames = 2000ms
-        assert_eq!(v.source_end, Some(5000));   // 2000 + 3000
+        assert_eq!(v.source_end, Some(5000)); // 2000 + 3000
         assert_eq!(v.speed, Some(Speed(1.25)));
     } else {
         panic!("expected video body");

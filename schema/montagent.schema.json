@@ -2992,12 +2992,15 @@
               "$ref": "#/$defs/Animatabledouble"
             },
             "swivel": {
+              "description": "Degrees about the element's vertical axis through `origin`: positive sends the right\nedge away (CSS `rotateY`, Premiere's Swivel). Default `0`, never normalised. Needs\n`perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).",
               "$ref": "#/$defs/Animatabledouble"
             },
             "tilt": {
+              "description": "Degrees about the element's horizontal axis through `origin`: positive sends the top\nedge away (CSS `rotateX`, Premiere's Tilt). Default `0`, never normalised. Needs\n`perspective`; written, even as `0`, it projects (ADR-0167, ADR-0168).",
               "$ref": "#/$defs/Animatabledouble"
             },
             "perspective": {
+              "description": "The eye's distance in px from the element's plane, in front of `origin` (CSS\n`perspective`). Greater than `0`, no default: required with `swivel` or `tilt`, and\nrefused without either (ADR-0167).",
               "$ref": "#/$defs/AnimatablePerspective"
             },
             "opacity": {
