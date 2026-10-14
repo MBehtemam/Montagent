@@ -446,14 +446,16 @@ a colour only. The *painter* is the renderer that draws paints; it is not one.
 _Avoid_: colour (when a gradient is allowed), fill (for the union), style
 
 **Gradient**:
-A paint whose colour varies across the element's declared box: `linear`, at an `angle`, or
-`radial`, from a `center` out to a `radius`, both measured as fractions of the box, with a
-list of at least two stops of `offset` and colour. Past the first and last stop the end
-colours extend. A named entry in a closed vocabulary, not an open syntax: the kind is an
-enum and every parameter is a literal.
-([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md))
+A paint whose colour varies across the element's declared box: `linear`, at an `angle`;
+`radial`, from a `center` out to a `radius`; `sweep`, sweeping clockwise around a `center`
+from an `angle`; or `two_point_conical`, from a `focal` origin inside a `radial` `center` and
+`radius`—all measured in fractions of the box, with a list of at least two stops of `offset`
+and colour. Past the first and last stop the end colours extend. A named entry in a closed
+vocabulary, not an open syntax: the kind is an enum and every parameter is a literal.
+([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md),
+[ADR-0222](docs/adr/0222-sweep-and-two-point-conical-enter-gradient-and-four-colour-gradient-is-refused.md))
 _Avoid_: ramp, colour ramp, shader (for a gradient), location or position (for a stop's
-`offset`)
+`offset`), 4-Color Gradient (use stacked radial gradients or pre-rendered footage)
 
 **Stroke**:
 A second paint on the same outline — `stroke` and `stroke_width` — sitting on the
