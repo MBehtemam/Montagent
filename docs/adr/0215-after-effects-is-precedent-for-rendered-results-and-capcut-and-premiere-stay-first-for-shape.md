@@ -5,6 +5,8 @@ amends: 0003 (After Effects joins the reference class as precedent for rendered 
 
 # After Effects is precedent for rendered results, and CapCut and Premiere stay first for shape
 
+> **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: disposes of the motion-bake (`wiggle`, `bounce`, `loopIn`/`loopOut`, `valueAtTime`, *Sequence Layers*, time-stretch/reverse), keyframe-assistant (*Convert Audio to Keyframes*, *Smoother*, *Exponential Scale*), measure-then-write auto-colour (*Auto Levels* / *Auto Contrast* / *Auto Color*), and template/MOGRT/Essential-Properties/Expression-Controls rows from map [#896](https://github.com/MBehtemam/Montagent/issues/896)'s censuses ([#1059](https://github.com/MBehtemam/Montagent/issues/1059)).
+
 [#897](https://github.com/MBehtemam/Montagent/issues/897), on the map
 [#896](https://github.com/MBehtemam/Montagent/issues/896).
 [ADR-0145](0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md)

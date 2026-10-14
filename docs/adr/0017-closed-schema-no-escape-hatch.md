@@ -7,6 +7,8 @@ amends: 0016 (settles the unknown-key policy ADR-0016 requires and does not take
 
 > **Amended by [ADR-0156](0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md)**: reaffirmed, not reopened. An open shader or script file
 > stays refused, and a code-drawn look enters as pre-rendered footage instead.
+>
+> **Amended by [ADR-0217](0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)**: confirms the closed project schema holds against templates, presets, Essential Properties and Expression Controls; a skill script paired with its standalone `<spec>` JSON sidecar is the complete answer, with no in-document keys and no project-level sidecar manifest.
 
 [#75](https://github.com/MBehtemam/Montagent/issues/75). ADR-0016 spends the format's entire
 forward-compatibility budget on the unknown-key error, and states plainly that its mechanism

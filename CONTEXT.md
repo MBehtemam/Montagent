@@ -1693,6 +1693,19 @@ of piece (motion graphics, footage, character animation), or the cross-cutting
 craft every piece is judged by.
 _Avoid_: topic skill
 
+**Skill script**:
+A permanent helper script in `skills/<skill>/scripts/<name>.py` that takes a
+project and a `<spec>` JSON sidecar (or CLI flags), computes ordinary literal
+elements or keyframes, validates the result with `montagent validate`, and writes
+ the updated project to stdout (`duck.py`, `captions.py`, `type_on.py`,
+`bake_rig.py`, `keyframes.py`). Re-running the script with an edited `<spec>`
+replaces its target elements or keyframe slices idempotently, so a skill script
+plus its `<spec>` is how Montagent does parametric motion, rigs, and audio-driven
+keyframes without adding expressions or template keys to the project format
+([ADR-0177](docs/adr/0177-ducking-is-a-skill-script-that-writes-ordinary-volume-keyframes-and-the-format-stays-untouched.md),
+[ADR-0217](docs/adr/0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)).
+_Avoid_: plugin, macro, generator, template
+
 **Workaround**:
 A recipe in a **Skill** that compensates for something Montagent cannot yet do,
 and names the issue whose resolution would retire it. It is written down as
@@ -1796,6 +1809,17 @@ Elsewhere one layer draws as N offset copies. Montagent draws exactly one thing 
 so every copy is written out as its own element with its own `id`. A drawn copy with no `id`
 in the file is invisible to the checks and has no string an edit can target
 ([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md)).
+
+**Template, preset**:
+Elsewhere a Motion Graphics Template (`.mogrt`), *Essential Properties* sheet, *Expression
+Control* effect, or `.ffx` animation preset bundles exposed sliders, checkboxes, and dropdowns
+with expressions that compute layer values at render time. In Montagent, the project file holds
+only literal elements and keyframes ([ADR-0017](docs/adr/0017-closed-schema-no-escape-hatch.md),
+[ADR-0145](docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md));
+parametric motion or rigs live in a standalone `<spec>` JSON sidecar file passed to a **Skill
+script**, which writes and idempotently replaces the resulting literal elements or keyframes in
+the project ([ADR-0217](docs/adr/0217-motion-bakes-and-keyframe-assistants-enter-in-one-keyframes-script-auto-colour-is-refused-and-a-skill-script-with-its-spec-is-a-template.md)).
+_Avoid_: MOGRT, Essential Properties, master properties, expression control, animation preset
 
 **Gravity**:
 Retired entirely by [ADR-0015](docs/adr/0015-fit-is-a-derivation-claim-and-gravity-retires.md).
