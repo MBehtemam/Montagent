@@ -5,6 +5,8 @@ amends: 0005 (`shift`'s defining sentence is wrong for keyframes), 0006 (the ove
 
 # An element carries a flat transform, and keyframes are carried by their element
 
+> **Amended by [ADR-0219](./0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)**: confirms single-segment entering-ease locality and the closed ease vocabulary hold; neighbour-dependent "continuous" and "auto" easing keywords are refused in the runtime evaluator and schema.
+
 > **Amended by [ADR-0218](./0218-a-visual-element-moves-along-its-own-motion-path-in-place-of-x-and-y-with-arc-length-offset-and-orient.md)**: a visual element may carry an optional `motion_path` (`closed`, `points`, `offset`, `orient`) in place of `x` and `y` (`E-MOTION-PATH-XY`), moving its `origin` along the curve's arc length and optionally adding the forward tangent angle to `rotation`. `x` and `y` stay flat 1D scalar lists with no spatial Bezier tangents.
 
 > **Amended by [ADR-0167](./0167-an-element-may-be-projected-never-placed-swivel-tilt-and-perspective-join-the-transform.md)**: the flat transform gains `swivel`, `tilt` and

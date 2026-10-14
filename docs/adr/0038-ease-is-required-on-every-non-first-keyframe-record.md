@@ -5,6 +5,8 @@ amends: 0012 (settles what it left silent: presence of `ease` on non-first recor
 
 # `ease` is required on every non-first keyframe record; absent only on the first
 
+> **Amended by [ADR-0219](./0219-smooth-pass-through-easing-enters-as-an-auto-bezier-pass-and-recipe-and-the-runtime-evaluator-stays-local.md)**: confirms ease strictly describes the segment entering its keyframe; smooth pass-through velocity across keyframes is expressed via literal slope-matched cubic Bezier handles rather than neighbour-dependent keywords.
+
 > **Amended by [ADR-0146](./0146-an-animatable-property-is-one-the-schema-types-so-colour-blends-premultiplied-and-spring-easing-is-refused.md)**: the rule is unchanged and now covers the keyframe list of every
 > animatable property, including a list written inside an effect.
 
