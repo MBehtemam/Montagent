@@ -445,9 +445,38 @@ fractions of the outline's length measured along the dash outline, rotated aroun
 outline by `trim_offset` in turns. A window is **empty** (start ≥ end: no stroke at all),
 **full** (0 to 1: drawn as with no trim), or crosses the start point as one stroke. A
 **draw-on** keys `trim_end` from 0 to 1; a **ring loader** keys `trim_offset` linearly through
-whole turns. The fill is never trimmed, and the dashes stay put.
-([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
-_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset)
+whole turns. The fill is never trimmed, and the dashes stay put. Trimming multiple sibling
+paths simultaneously uses identical keyframes across elements; sequential trimming ("Individually")
+is authored by staggering keyframe windows in time across elements, calculated via `query --at`
+or `skills/montagent-motion/scripts/paths.py`.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md),
+[ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset), individual trim (in format)
+
+**Stroke taper**:
+A variable-width stroke profile along a path outline (start/end taper and wave modulation).
+Refused as a procedural property on `path` in the format schema and runtime renderer; compiled at
+write time via `skills/montagent-motion/scripts/paths.py` into a closed filled `path` element with
+literal integer `points` and handles.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: variable stroke width (in schema), wave stroke, taper envelope
+
+**Boolean paths**:
+Combining multiple 2D vector outlines via union, difference, or intersection (*Merge Paths*).
+Refused from runtime format evaluation; evaluated at write time via `skills/montagent-motion/scripts/paths.py`
+to emit literal `points`. Cutouts (holes) are expressed via an outer filled shape and an inner
+inverted `mask`. Mask composition in `effects[]` remains strictly intersecting (`DstIn`) plus `invert`.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: SkOp (in renderer), compound subpaths, CSG tree, merge paths (in schema)
+
+**Path modifier**:
+A geometric transformation that offsets, distorts, or subdivides vector paths (`offset`, `pucker_bloat`,
+`twist`, `zig_zag`, `wiggle`). Refused as procedural modifier nodes in the format schema; executed
+deterministically at write time via `skills/montagent-motion/scripts/paths.py`, writing literal `points`
+into `project.json`.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: procedural shape operators, Wiggle Paths (in format)
+
 
 **Trim window**:
 The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
