@@ -198,15 +198,17 @@ _Avoid_: crop, mask, viewport, bounds
 
 **Run**:
 One stretch of a text element's content, carrying its own text plus style deltas
-over the element's base style. A text element's content is always an ordered array
-of runs, even when there is only one. A run boundary is *style only* — it never
-implies a line break; a line break is a `\n` character inside a run's text. A run
+over the element's base style (`font`, `size`, `color`, `stroke`, `stroke_width`, `dir`,
+`features`, `baseline_shift`, `letter_spacing`, `highlight`, `unit`). A text element's content
+is always an ordered array of runs, even when there is only one. A run boundary is *style only*
+— it never implies a line break; a line break is a `\n` character inside a run's text. A run
 that holds exactly one unit of a stagger may single that unit out. A run may carry an
 optional `annotation` object defining interlinear ruby text, or a `decoration` object defining
 multi-line range decorations (boxes, highlights, underlines).
 ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md),
 [ADR-0208](docs/adr/0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md),
-[ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md))
+[ADR-0214](docs/adr/0214-multi-line-text-range-decorations-are-run-level-objects-rendered-via-per-line-skrrect-boxes.md),
+[ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md))
 _Avoid_: span, segment, chunk (a **Paint chunk** is a stretch of frames, never text)
 
 **Text range decoration** / **Phrase box**:
@@ -237,22 +239,44 @@ _Avoid_: bleed, margin
 
 **Letter spacing**:
 Space added after every grapheme of a line but the last, in thousandths of an em of the
-size it is set at, so a size change keeps the same tracking. It belongs to the whole
-element, never to one run, and it may change over time. None is added between two letters of
-the same joining script such as Arabic, joined or not, because a gap there would tear the
-cursive stroke
+size it is set at, so a size change keeps the same tracking. Set on the element (where it may
+change over time) or overridden statically on an individual run when the element's own
+`letter_spacing` is not animated (`E-RUN-LETTER-SPACING-CONFLICT`). None is added between two
+letters of the same joining script such as Arabic, joined or not, because a gap there would tear
+the cursive stroke
 ([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
-[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md)).
-_Avoid_: tracking (as the field name), kerning (the font's own pair adjustment), character spacing
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md),
+[ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: tracking (as the field name), kerning (the font's own pair adjustment; manual pair adjustments use a single-character run with `letter_spacing`), tsume, character spacing
+
+**Baseline shift**:
+A static signed integer pixel offset (`baseline_shift` on `Run`) that raises (`> 0`, upward / $-y$)
+or lowers (`< 0`, downward / $+y$) a run's glyphs and measured ink relative to the line's shared
+`baseline_y`, without altering the line's `baseline_y` or inflating its slot height
+([ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: vertical offset, superscript offset
+
+**OpenType features**:
+A closed list of OpenType `GSUB`/`GPOS` feature tags (`"tnum"`, `"onum"`, `"zero"`, `"smcp"`,
+`"c2sc"`, `"sups"`, `"subs"`, `"frac"`, `"ordn"`) declared in `features` on a `text` element or
+overridden on a `Run`, and checked by `validate` against the resolved face's `GSUB`/`GPOS` tables
+(`E-FONT-FEATURE`). Ligatures remain governed by the spacing and stagger rules rather than manual
+toggles
+([ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+_Avoid_: font-variant, faux bold, faux italic, all caps (write uppercase literals in `runs[].text`)
 
 **Stagger**:
-One text element's animation run once per unit (a letter, word or line), each unit started a
-fixed delay after the one before. It lives inside one element and never links two: cards
-that enter one after another are separate elements with their own literal times. A unit is
-singled out by splitting it into its own run, whose own values replace the derived ones
+One text element's animation (`x`, `y`, `scale`, `rotation`, `opacity`, `blur`) run once per unit
+(a letter, word or line) across `order: "forward" | "reverse" | "center_out" | "edges_in"`, each
+step started a fixed `every` delay after the one before. It lives inside one element and never links
+two: cards that enter one after another are separate elements with their own literal times. Range
+selectors (`Shape`, `Mode`) and stacked animators are not in the format — wave and return shapes are
+3-keyframe return curves on `units`, and a unit is singled out by splitting it into its own run,
+whose own `unit` values replace the derived ones
 ([ADR-0148](docs/adr/0148-a-repeat-does-not-enter-and-a-stagger-enters-only-across-the-units-of-one-text-element.md),
-[ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md)).
-_Avoid_: cascade, offset animation
+[ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
+[ADR-0224](docs/adr/0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md)).
+_Avoid_: cascade, offset animation, range selector, text animator
 
 **Unit**:
 One piece a stagger moves on its own. A letter is a grapheme cluster that is not whitespace;
@@ -261,9 +285,12 @@ a word is a word containing a letter, digit or pictograph, with its punctuation;
 ignoring runs, and whitespace takes no step. The count comes from the text alone: letters that
 the font merges into one glyph, or that make one joined piece, move together on the first
 one's start but keep their own places in the count.
-A unit's **delay** is how far after the first unit it starts.
+A unit's **delay** is how far after the first unit it starts (`i * every` for `"forward"`,
+`(last - i) * every` for `"reverse"`, `min(i, last - i) * every` for `"edges_in"`, and
+`((last / 2) - min(i, last - i)) * every` for `"center_out"`).
 ([ADR-0151](docs/adr/0151-letter-spacing-is-an-animatable-element-field-and-a-stagger-is-a-units-block-on-one-text-element.md),
-[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md))
+[ADR-0153](docs/adr/0153-a-joined-piece-moves-as-one-and-joining-scripts-keep-their-ligatures-and-take-no-letter-spacing.md),
+[ADR-0224](docs/adr/0224-units-gain-center-out-edges-in-and-blur-and-range-selectors-glyph-to-path-and-vertical-writing-mode-are-refused.md))
 _Avoid_: character (a code point is not a letter), glyph (shaping's unit, not the stagger's),
 copy, instance
 
@@ -296,8 +323,11 @@ _Avoid_: typeface, family, font stack
 The one set of outlines and metrics a chain entry resolves to. A file is not a face: a
 `.ttc` collection carries several, and the entry's `index` says which — *"defaulting to
 0. 49 of the fonts in a stock macOS `/System/Library/Fonts` are collections; this is the
-normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)). The
-face is **cut out of the collection into a file of its own before it is registered**, so
+normal case"* ([ADR-0007](docs/adr/0007-text-runs-literal-size-declared-fonts.md)) — and a
+variable font file carries a continuous design space pinned to one static instance by the
+entry's optional `axes` (`wght`, `wdth`, `slnt`, `ital`, `opsz`, checked against `fvar` by
+`E-FONT-AXIS`; [ADR-0223](docs/adr/0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)).
+The face is **cut out of a collection into a file of its own before it is registered**, so
 that an entry naming one resolves to it and to nothing else
 ([ADR-0102](docs/adr/0102-a-ttc-chain-entry-is-cut-down-to-its-face-before-it-is-registered.md)).
 The distinction is load-bearing rather than pedantic: a chain entry, an attestation and
@@ -415,9 +445,38 @@ fractions of the outline's length measured along the dash outline, rotated aroun
 outline by `trim_offset` in turns. A window is **empty** (start ≥ end: no stroke at all),
 **full** (0 to 1: drawn as with no trim), or crosses the start point as one stroke. A
 **draw-on** keys `trim_end` from 0 to 1; a **ring loader** keys `trim_offset` linearly through
-whole turns. The fill is never trimmed, and the dashes stay put.
-([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md))
-_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset)
+whole turns. The fill is never trimmed, and the dashes stay put. Trimming multiple sibling
+paths simultaneously uses identical keyframes across elements; sequential trimming ("Individually")
+is authored by staggering keyframe windows in time across elements, calculated via `query --at`
+or `skills/montagent-motion/scripts/paths.py`.
+([ADR-0160](docs/adr/0160-a-stroke-draws-a-window-of-its-outline-measured-in-fractions-of-its-length.md),
+[ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: trim path (for the fields), reveal, write-on (for the draw-on), phase (for the offset), individual trim (in format)
+
+**Stroke taper**:
+A variable-width stroke profile along a path outline (start/end taper and wave modulation).
+Refused as a procedural property on `path` in the format schema and runtime renderer; compiled at
+write time via `skills/montagent-motion/scripts/paths.py` into a closed filled `path` element with
+literal integer `points` and handles.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: variable stroke width (in schema), wave stroke, taper envelope
+
+**Boolean paths**:
+Combining multiple 2D vector outlines via union, difference, or intersection (*Merge Paths*).
+Refused from runtime format evaluation; evaluated at write time via `skills/montagent-motion/scripts/paths.py`
+to emit literal `points`. Cutouts (holes) are expressed via an outer filled shape and an inner
+inverted `mask`. Mask composition in `effects[]` remains strictly intersecting (`DstIn`) plus `invert`.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: SkOp (in renderer), compound subpaths, CSG tree, merge paths (in schema)
+
+**Path modifier**:
+A geometric transformation that offsets, distorts, or subdivides vector paths (`offset`, `pucker_bloat`,
+`twist`, `zig_zag`, `wiggle`). Refused as procedural modifier nodes in the format schema; executed
+deterministically at write time via `skills/montagent-motion/scripts/paths.py`, writing literal `points`
+into `project.json`.
+([ADR-0226](docs/adr/0226-stroke-taper-boolean-paths-and-path-modifiers-are-write-time-scripts-and-trim-is-single-contour.md))
+_Avoid_: procedural shape operators, Wiggle Paths (in format)
+
 
 **Trim window**:
 The part of a shape's outline its stroke draws, from `trim_start` to `trim_end` as fractions
@@ -446,14 +505,16 @@ a colour only. The *painter* is the renderer that draws paints; it is not one.
 _Avoid_: colour (when a gradient is allowed), fill (for the union), style
 
 **Gradient**:
-A paint whose colour varies across the element's declared box: `linear`, at an `angle`, or
-`radial`, from a `center` out to a `radius`, both measured as fractions of the box, with a
-list of at least two stops of `offset` and colour. Past the first and last stop the end
-colours extend. A named entry in a closed vocabulary, not an open syntax: the kind is an
-enum and every parameter is a literal.
-([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md))
+A paint whose colour varies across the element's declared box: `linear`, at an `angle`;
+`radial`, from a `center` out to a `radius`; `sweep`, sweeping clockwise around a `center`
+from an `angle`; or `two_point_conical`, from a `focal` origin inside a `radial` `center` and
+`radius`—all measured in fractions of the box, with a list of at least two stops of `offset`
+and colour. Past the first and last stop the end colours extend. A named entry in a closed
+vocabulary, not an open syntax: the kind is an enum and every parameter is a literal.
+([ADR-0149](docs/adr/0149-a-gradient-is-a-paint-linear-or-radial-measured-against-the-declared-box.md),
+[ADR-0222](docs/adr/0222-sweep-and-two-point-conical-enter-gradient-and-four-colour-gradient-is-refused.md))
 _Avoid_: ramp, colour ramp, shader (for a gradient), location or position (for a stop's
-`offset`)
+`offset`), 4-Color Gradient (use stacked radial gradients or pre-rendered footage)
 
 **Stroke**:
 A second paint on the same outline — `stroke` and `stroke_width` — sitting on the
@@ -487,12 +548,14 @@ A member of a closed, named, parameterised vocabulary in `effects: [...]` on an
 element — never an open plugin architecture. A list, not a map or a single field,
 because application order is semantically real: blur-then-shadow is a different
 frame from shadow-then-drop, and two effects of the same name are ordinary rather
-than forbidden. The vocabulary is twelve members — `blur`, `shadow`, `mask`
+than forbidden. The vocabulary is twenty-one members — `blur`, `shadow`, `mask`
 (shape-only), `chroma` (the Matte operation below), the four Colour filter
-scalars below, and the named effects `grain`, `glow`, `posterize` and
-`directional_blur`. A member joins only if its look can't already be composed, it
-is one built-in filter or one small shader of Montagent's own, and it stays inside
-the element's box or a reach it declares; each later member joins by its own ADR.
+scalars below, the named effects `grain`, `glow`, `posterize`, `directional_blur`,
+`mosaic`, `radial_blur`, `find_edges`, `emboss`, and `sharpen`, and the four Coordinate
+distortion members below (`twirl`, `bulge`, `optics_compensation`, and `offset`).
+A member joins only if its look can't already be composed, it is one built-in filter
+or one small shader of Montagent's own, and it stays inside the element's box or a
+reach it declares; each later member joins by its own ADR.
 An effect filters the element's own pixels: there is no element that paints from
 nothing, so a texture is a `rect` carrying an effect and a blend. Effects attach to whole
 elements, never to a run — that boundary is what excludes `stroke` (a
@@ -503,9 +566,33 @@ effect: a look outside the vocabulary is Pre-rendered footage.
 ([ADR-0040](docs/adr/0040-effect-model-attachment-and-v1-vocabulary.md),
 [ADR-0049](docs/adr/0049-v1-colour-filter-vocabulary-four-scalar-members.md),
 [ADR-0088](docs/adr/0088-chroma-is-a-matte-operation-and-color-stays-literal.md),
-[ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md))
+[ADR-0156](docs/adr/0156-four-named-effects-join-the-effects-list-and-a-code-drawn-piece-enters-as-pre-rendered-footage.md),
+[ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
 _Avoid_: filter (for the whole concept — see Colour filter, below), plugin, stack,
 shader (for a member), generator
+
+**Edge sampling**:
+What a spatial kernel or coordinate remapping shader samples when looking beyond an
+element's pixel rect. Within the element's declared box, sampling uses `clamp`
+(`TileMode::Clamp` / Repeat Edge Pixels), so spatial convolutions (`sharpen`, `find_edges`,
+`emboss`), block quantizers (`mosaic`), smears (`radial_blur`), and coordinate distortions
+(`twirl`, `bulge`, `optics_compensation`) never produce transparent fringe or dark border
+vignettes inside the element boundary. Outward-reach filters (`blur`, `shadow`, `glow`)
+retain `decal` (`TileMode::Decal`), fading to transparent black across their declared margin
+($3\sigma$). `offset` defaults to `wrap: true` (`TileMode::Repeat`) for seamless pattern loops,
+clamping when `wrap: false`.
+([ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
+_Avoid_: border repeat, clamp-to-edge (say clamp), tile mode (the Skia implementation type)
+
+**Coordinate distortion**:
+An `effects` member that remaps sample coordinates within an element's declared box via a
+single-pass Skia runtime shader: `twirl{center, radius, angle}`, `bulge{center, radius, height}`
+(unifying bulge and pinch spherize via signed height), `optics_compensation{fov, reverse}`
+(barrel and pincushion lens curvature), and `offset{shift_x, shift_y, wrap}`. Each runs in
+element-local space with `clamp` edge sampling (or `wrap` for `offset`). Procedural noise
+warps and freehand mesh tools are refused from the format.
+([ADR-0225](docs/adr/0225-edge-sampling-is-clamp-within-bounds-mosaic-radial-blur-sharpen-find-edges-emboss-and-four-distortions-enter-effects.md))
+_Avoid_: warp (for the member set), displacement map (an image-driven map; not in v1), liquify
 
 **Seed**:
 The literal integer a random-by-nature effect is written with. With the element's

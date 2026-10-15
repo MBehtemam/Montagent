@@ -6,6 +6,8 @@ amends: 0007 (states the baseline rule the slot definition never gave), 0011
 
 # The line baseline is half-leading, read from every run's metrics
 
+> **Amended by [ADR-0223](0223-font-entries-pin-static-variable-axes-and-text-and-runs-gain-closed-opentype-features-baseline-shift-and-run-letter-spacing.md)**: `Run.baseline_shift` shifts only that run's glyph placement (`baseline_y - baseline_shift`) and measured ink bounds without altering the line's shared `baseline_y` or inflating its slot height.
+
 > **Amended by [ADR-0208](0208-ruby-text-annotations-are-run-level-objects-with-line-inflating-slot-arithmetic.md)**: base
 > text baseline shifts downward by `extra_leading_over` within inflated line slots; annotation baselines are placed
 > at tier pitches above and below base text.

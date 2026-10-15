@@ -8,6 +8,8 @@ amends: 0014 ("gradients are out of v1, as unevidenced" is closed: a gradient en
 > **Amended by [ADR-0215](0215-after-effects-is-precedent-for-rendered-results-and-capcut-and-premiere-stay-first-for-shape.md)**: §1's "no precedent in the reference class" bar on `sweep` and
 > `two_point_conical` gradients is lifted; both are documented in After Effects and enter map
 > [#896](https://github.com/MBehtemam/Montagent/issues/896)'s triage ([#908](https://github.com/MBehtemam/Montagent/issues/908)), still gated by §8's Skia byte-identity prototype rule before any build.
+>
+> **Amended by [ADR-0222](0222-sweep-and-two-point-conical-enter-gradient-and-four-colour-gradient-is-refused.md)**: admits `sweep` (`center`, `angle`, `stops`) and `two_point_conical` (`center`, `radius`, `focal`, `stops`, with `focal` clamped inside the outer circle at render time) to `Gradient`, adds `fill.focal`, `stroke.focal`, and `color.focal` to the animatable gradient paths, extends `R-GRADIENT-ONE-COLOUR` to all four kinds, and refuses *4-Color Gradient* ([#1065](https://github.com/MBehtemam/Montagent/issues/1065)).
 
 [#677](https://github.com/MBehtemam/Montagent/issues/677), on the map
 [#663](https://github.com/MBehtemam/Montagent/issues/663).
