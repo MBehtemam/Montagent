@@ -154,3 +154,54 @@ One bed under one voice per call; several beds are several calls, and several vo
 - **Retime checklist.** The keyframes are not tied to the voice, so when the voice element, its trim or its speed, or its words file changes, run the same command with `--check`. It writes nothing, exits 0 if the music's `volume` is what the arguments would write, and otherwise names the first instant that differs. If it exits non-zero, run it again with `--replace`, and then add back any hand-written fade-in. If the words file is gone, regenerate it from the aligner first.
 - The script ends by running `montagent validate` and printing the findings; it exits non-zero only on an error. It writes each held level as two equal keyframes, which `validate` reports as `R-EASE-INERT`, and that review is expected on a duck: [findings.md](../montagent/references/findings.md) covers it. It also prints each `transition` whose window overlaps the keyframes, and changes nothing for it.
 - **Look:** `query --at` in the middle of a spoken phrase, in the longest pause and on the last drawn frame, and check the music's `volume` reads under, over and, with a fade, 0. With an end card, also check it reads the end level in the middle of the card.
+
+### Ingest and normalize non-standard footage
+
+Montagent has no container interpretation flags or decoder knobs ([ADR-0002](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0002-inline-source-no-asset-table.md), [ADR-0143](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0143-the-output-file-is-an-mp4-and-the-encoder-has-no-knobs.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)). When footage has non-square pixels, interlaced fields, or mis-flagged frame rates, normalize it upstream with `ffmpeg` before placing it:
+
+- **Interlaced video (50i, 59.94i):** Deinterlace to progressive frames using motion-adaptive `bwdif`:
+  ```bash
+  ffmpeg -i interlaced.mov -vf bwdif=mode=send_frame:parity=auto:deint=all -c:v libx264 -crf 17 -c:a aac progressive.mp4
+  ```
+- **Non-square pixels (anamorphic, PAL/NTSC):** Scale to square pixels ($1:1$ SAR):
+  ```bash
+  ffmpeg -i anamorphic.mov -vf "scale=iw*sar:ih,setsar=1" -c:v libx264 -crf 17 -c:a copy square.mp4
+  ```
+- **Untagged / conforming frame rate:** Remux or transcode to pin the intended playback rate:
+  ```bash
+  ffmpeg -r 25 -i untagged.mp4 -c:v copy -c:a copy conformed.mp4
+  ```
+
+### Layered PSD and Illustrator (AI) unpack
+
+No element accepts a `.psd` or `.ai` file natively ([ADR-0017](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0017-closed-schema-no-escape-hatch.md), [ADR-0171](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0171-svg-and-lottie-do-not-enter-as-sources-and-each-is-pre-rendered-through-the-skill.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)). Unpack the design document into cropped PNG layers and place them as literal `image` elements inside a `nest` container ([ADR-0201](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0201-nested-sequences-are-bounded-containers-rendering-to-an-isolated-surface-on-an-absolute-timeline.md)):
+
+1. **Unpack layers:** Use Python `psd-tools` (or headless ImageMagick) to read canvas dimensions and export visible layers to cropped transparent PNGs.
+2. **Preserve positioning:** Record each layer's offset `(x, y)` relative to the top-left canvas origin.
+3. **Map blend modes:** Map Photoshop blend modes to Montagent `blend` values (`multiply`, `screen`, `overlay`, `darken`, `lighten`, etc. per [ADR-0221](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0221-vibrance-hue-rotate-and-invert-enter-effects-and-twelve-skblendmode-variants-enter-blend.md)).
+4. **Place in a `nest`:**
+   ```json
+   {
+     "id": "design_artboard", "type": "nest", "start": 0, "end": 5000,
+     "x": 960, "y": 540, "origin": "center", "width": 1920, "height": 1080,
+     "tracks": [
+       {"name": "bg", "layer": 1, "elements": [{"id": "layer_bg", "type": "image", "start": 0, "end": 5000, "source": "media/psd/layer_bg.png", "x": 0, "y": 0, "origin": "top-left", "width": 1920, "height": 1080}]},
+       {"name": "fg", "layer": 2, "elements": [{"id": "layer_fg", "type": "image", "start": 0, "end": 5000, "source": "media/psd/layer_fg.png", "x": 450, "y": 320, "origin": "top-left", "width": 640, "height": 480, "blend": "multiply"}]}
+     ]
+   }
+   ```
+
+### Scene-edit detection
+
+To split a long continuous take into cut `video` elements across shot boundaries, run `ffmpeg`'s scene-change detector and emit literal contiguous `video` elements ([ADR-0145](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0145-capcut-and-premiere-are-where-precedent-is-looked-for-first-and-a-capability-with-none-enters-by-the-entry-test.md), [ADR-0234](https://github.com/MBehtemam/Montagent/blob/main/docs/adr/0234-layered-psd-ai-import-and-scene-edit-detection-are-skill-scripts-and-source-interpretation-stays-upstream.md)):
+
+```bash
+# Detect scene cuts (timestamps where scene score > 0.4)
+ffmpeg -i long_take.mp4 -filter_complex "select='gt(scene,0.4)',metadata=print:file=cuts.txt" -f null -
+```
+
+Parse the timestamps and emit contiguous `video` elements on a track:
+- Element 1: `start: 0`, `end: t1`, `source_start: 0`, `source_end: t1`
+- Element 2: `start: t1`, `end: t2`, `source_start: t1`, `source_end: t2`
+- Run `montagent validate` on the resulting project.
+
